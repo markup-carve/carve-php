@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -52,16 +53,21 @@ class CliTest extends TestCase
         return ['out' => (string)$out, 'err' => (string)$err, 'exit' => $exit];
     }
 
-    public function testVersionReportsAReleasedChangelogSection(): void
+    /**
+     * That `--version` prints the constant is this test's whole subject. Whether
+     * the constant is the version that actually shipped is ReleaseVersionTest's,
+     * which compares it against the NEWEST cut changelog section - the check
+     * that used to live here only required the changelog to CONTAIN a section
+     * naming the constant, which every past release leaves behind, so a constant
+     * lagging the release passed it.
+     */
+    public function testVersionPrintsTheLibraryVersion(): void
     {
         $result = $this->runCliInput(['--version'], '');
-        $changelog = file_get_contents(dirname(__DIR__, 2) . '/CHANGELOG.md');
 
         $this->assertSame(0, $result['exit']);
         $this->assertSame('carve-php version ' . CarveConverter::LIB_VERSION . "\n", $result['out']);
         $this->assertSame('', $result['err']);
-        $this->assertIsString($changelog);
-        $this->assertStringContainsString('## [' . CarveConverter::LIB_VERSION . '] - ', $changelog);
     }
 
     /**
@@ -194,6 +200,73 @@ class CliTest extends TestCase
         $this->assertStringContainsString('platform-issue-reference', $result['out']);
     }
 
+    /**
+     * `carve lint` runs the AST pass too, and interleaves its findings with the
+     * source scan's in document order rather than appending one pass after the
+     * other.
+     */
+    public function testLintReportsSemanticAttributeRules(): void
+    {
+        $result = $this->runCliInput(
+            ['lint'],
+            "Press [Ctrl]{kbd=\"Control\"} now.\n\nA `c`{kbd} span and **bold**.\n",
+        );
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('-:1:7 semantic-attribute-value-ignored', $result['out']);
+        $this->assertStringContainsString('-:3:3 semantic-attribute-outside-span', $result['out']);
+        $this->assertLessThan(
+            strpos($result['out'], 'markdown-strong-asterisks'),
+            strpos($result['out'], 'semantic-attribute-outside-span'),
+            'findings on one line are ordered by column, across both passes',
+        );
+    }
+
+    /**
+     * The CLI reads a CORE render, so a name the SemanticSpan extension carries
+     * is an ordinary attribute here and nothing is reported - and `cite` on a
+     * quote is valid HTML, which is the exception the rule must not report.
+     */
+    public function testLintReadsACoreRenderAndSpareTheValidQuoteAttribute(): void
+    {
+        $result = $this->runCliInput(
+            ['lint'],
+            "[x]{cite=\"https://example.org/d\"}\n\n{cite=\"https://example.org/d\"}\n> q\n",
+        );
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame('', $result['out']);
+    }
+
+    /**
+     * `carve lint` runs the retired-spelling pass too, and orders its findings
+     * with the others rather than appending the pass at the end.
+     */
+    public function testLintReportsARetiredSpelling(): void
+    {
+        $result = $this->runCliInput(['lint'], "|{#x}< content |\n\n**bold**\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('-:1:2 table-cell-attribute-before-marker', $result['out']);
+        $this->assertLessThan(
+            strpos($result['out'], 'markdown-strong-asterisks'),
+            strpos($result['out'], 'table-cell-attribute-before-marker'),
+            'findings are ordered by position, across all three passes',
+        );
+    }
+
+    /**
+     * CONTROL. The migration TARGET reports nothing: a block that already sits
+     * after the marker run is the spelling the rule points at.
+     */
+    public function testLintSparesTheMigrationTarget(): void
+    {
+        $result = $this->runCliInput(['lint'], "|<{#x} content |\n");
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame('', $result['out']);
+    }
+
     public function testLintRejectsUnknownPlatform(): void
     {
         $result = $this->runCliInput(['lint', '--platform', 'gihub'], "See #42\n");
@@ -322,5 +395,100 @@ class CliTest extends TestCase
 
         $this->assertSame(1, $result['exit']);
         $this->assertStringContainsString('requires a mode', $result['err']);
+    }
+
+    public function testStructuralMergeJsonEnvelopeAndConflictExit(): void
+    {
+        $paths = [];
+        foreach (["alpha\n\nbeta\n", "alpha\n", "alpha\n\nbeta edited\n"] as $source) {
+            $path = tempnam(sys_get_temp_dir(), 'carve-merge-');
+            $this->assertIsString($path);
+            file_put_contents($path, $source);
+            $paths[] = $path;
+        }
+
+        try {
+            $result = $this->runCliInput(['merge', '--json', ...$paths], '');
+        } finally {
+            foreach ($paths as $path) {
+                unlink($path);
+            }
+        }
+
+        $this->assertSame(1, $result['exit']);
+        $decoded = json_decode($result['out'], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertFalse($decoded['ok']);
+        $this->assertSame('delete-edit', $decoded['conflicts'][0]['reason']);
+        $this->assertTrue($decoded['conflicts'][0]['deleted']['ours']);
+    }
+
+    public function testStructuralMergeHelp(): void
+    {
+        $result = $this->runCliInput(['merge', '--help'], '');
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertStringContainsString('Usage: carve merge', $result['out']);
+    }
+
+    /**
+     * Every importer the library ships is reachable from `migrate --from`, not
+     * just the HTML one the command started out with.
+     *
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function migrateSourceFormats(): array
+    {
+        return [
+            'html' => ['html', '<p><b>bold</b> and <i>em</i></p>', "*bold* and /em/\n"],
+            'markdown' => ['markdown', "**bold** and _em_\n", "*bold* and /em/\n"],
+            'markdown short name' => ['md', "**bold** and _em_\n", "*bold* and /em/\n"],
+            'djot' => ['djot', "*bold* and _em_\n", "*bold* and /em/\n"],
+            'bbcode' => ['bbcode', "[b]bold[/b] and [i]em[/i]\n", "*bold* and /em/\n"],
+        ];
+    }
+
+    #[DataProvider('migrateSourceFormats')]
+    public function testMigrateConvertsEverySupportedSourceFormat(
+        string $from,
+        string $source,
+        string $expected,
+    ): void {
+        $result = $this->runCliInput(['migrate', '--from', $from], $source);
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame('', $result['err']);
+        $this->assertStringContainsString($expected, $result['out']);
+    }
+
+    public function testMigrateRejectsAnUnknownSourceFormat(): void
+    {
+        $result = $this->runCliInput(['migrate', '--from', 'rst'], "hi\n");
+
+        $this->assertSame(2, $result['exit']);
+        $this->assertStringContainsString('unknown source format rst', $result['err']);
+    }
+
+    public function testMigrateNamesEverySourceFormatWhenFromIsMissing(): void
+    {
+        $result = $this->runCliInput(['migrate'], "hi\n");
+
+        $this->assertSame(2, $result['exit']);
+        $this->assertStringContainsString('html, markdown, djot or bbcode', $result['err']);
+    }
+
+    /**
+     * The loss report is the HTML importer's alone - the other three parse
+     * their source whole - so a non-HTML migration ignores it rather than
+     * failing on it.
+     */
+    public function testMigrateIgnoresTheHtmlOnlyOptionsForOtherFormats(): void
+    {
+        $result = $this->runCliInput(
+            ['migrate', '--from', 'markdown', '--mode', 'raw', '--check-loss'],
+            "**bold**\n",
+        );
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame("*bold*\n", $result['out']);
     }
 }

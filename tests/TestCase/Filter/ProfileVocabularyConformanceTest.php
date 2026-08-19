@@ -84,6 +84,7 @@ class ProfileVocabularyConformanceTest extends TestCase
             'line_block' => ["::: |\na\nb\n:::\n", $block],
             'comment' => ["%% a comment\n", $block],
             'figure' => ["![alt](/i.png)\n^ caption\n", $block],
+            'figure_group' => ["::: figure\n![alt](/i.png)\n^ caption\n:::\n^ Figure #: group\n", $block],
             'caption' => ["![alt](/i.png)\n^ caption\n", $block],
 
             'text' => ['plain words', $inline],

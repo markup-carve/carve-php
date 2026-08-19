@@ -249,9 +249,9 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
                 'the AST schema does not name: ',
             ],
             // A `oneOf` that NO branch satisfies. `figure.target` is one of an
-            // image, a quote, a table, a code block or a paragraph; a heading
-            // is none of them, and the report has to say something rather than
-            // fall through as a match.
+            // image, a table, a code block or a paragraph; a heading is none
+            // of them, and the report names the admitted node types rather
+            // than a required field from whichever branch happens to be first.
             'a figure target that is none of its alternatives' => [
                 static function (array $d): array {
                     $d['children'][0] = [
@@ -263,7 +263,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
                     return $d;
                 },
-                'target',
+                '$.children[0].target holds a "heading" node where the schema admits only block_quote, code_block, image, paragraph, table',
             ],
             'a type the vocabulary does not hold' => [
                 static function (array $d): array {
@@ -285,6 +285,88 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
         $document = (new AstCodec())->decode(self::valid());
         $this->assertSame("<p>a</p>\n", (new HtmlRenderer())->render($document));
+    }
+
+    /**
+     * A HEADING is the example on purpose: it is not a captionable host under any
+     * version of the clause, so this case does not move when the admitted set does.
+     * A `block_quote` would have read better and was rejected for exactly that
+     * reason: markup-carve/carve#1161 removed it from the set and
+     * markup-carve/carve#1213 has since put it back, so a case built on it
+     * would have asserted the opposite of the pinned schema within days. The
+     * admitted set in the expectation moves with the pin; the refused type
+     * does not.
+     */
+    public function testFigureTargetReportsARefusedNodeTypeAndEveryAdmittedType(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => [
+                'type' => 'heading',
+                'level' => 1,
+                'children' => [],
+            ],
+            'caption' => [],
+        ];
+
+        $violation = AstSchema::firstViolation($payload);
+
+        $this->assertNotNull($violation);
+        $this->assertStringContainsString('holds a "heading" node where the schema admits only', (string)$violation);
+        $this->assertStringContainsString('$.children[0].target', (string)$violation);
+        $this->assertStringNotContainsString('src', (string)$violation);
+
+        try {
+            (new AstCodec())->decode($payload);
+            $this->fail('the decoder accepted a heading as a figure target');
+        } catch (AstDecodeException $e) {
+            $this->assertStringContainsString((string)$violation, $e->getMessage());
+            $this->assertStringContainsString('PART 12 §12(d)', $e->getMessage());
+            $this->assertStringNotContainsString('src', $e->getMessage());
+        }
+    }
+
+    public function testFigureMayTargetACompleteImage(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => ['type' => 'image', 'src' => 'figure.png', 'alt' => 'Figure'],
+            'caption' => [],
+        ];
+
+        $this->assertNull(AstSchema::firstViolation($payload));
+    }
+
+    public function testFigureTargetReportsAMissingFieldForAnAdmittedNodeType(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => ['type' => 'image'],
+            'caption' => [],
+        ];
+
+        $this->assertSame(
+            '$.children[0].target is missing `src`, which the schema requires',
+            AstSchema::firstViolation($payload),
+        );
+    }
+
+    public function testCompositionWithoutAStringNodeTypeKeepsTheFirstBranchFailure(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0] = [
+            'type' => 'figure',
+            'target' => [],
+            'caption' => [],
+        ];
+
+        $this->assertSame(
+            '$.children[0].target is missing `type`, which the schema requires',
+            AstSchema::firstViolation($payload),
+        );
     }
 
     /**
@@ -368,7 +450,15 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
             $this->markTestSkipped('the spec submodule is not checked out');
         }
 
-        $this->assertSame(file_get_contents($upstream), file_get_contents($vendored));
+        $upstreamSchema = json_decode((string)file_get_contents($upstream), true, 512, JSON_THROW_ON_ERROR);
+        $vendoredSchema = json_decode((string)file_get_contents($vendored), true, 512, JSON_THROW_ON_ERROR);
+
+        // NO CARVE-OUT. PART 9 §21a's `comment.delimited` was admitted here
+        // while it lived on a draft spec branch and this repository had to keep
+        // the released corpus pin; the pin has moved past it, so the exemption
+        // is gone with it. An allowance kept after its reason expires does not
+        // fail, it just stops comparing the field it names.
+        $this->assertSame($upstreamSchema, $vendoredSchema);
     }
 
     /**
@@ -438,7 +528,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
      */
     public function testTheSchemaSpellsEveryTypeAsOneSupportedName(): void
     {
-        $supported = ['object', 'array', 'string', 'integer', 'boolean'];
+        $supported = ['object', 'array', 'string', 'integer', 'number', 'boolean'];
         $wrong = [];
         self::walk(AstSchema::schema(), static function (array $node) use ($supported, &$wrong): void {
             if (!array_key_exists('type', $node) || is_array($node['type'])) {
@@ -484,9 +574,9 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
     {
         $wrong = [];
         self::walk(AstSchema::schema(), static function (array $node) use (&$wrong): void {
-            foreach (['minimum', 'maximum'] as $keyword) {
-                if (array_key_exists($keyword, $node) && ($node['type'] ?? null) !== 'integer') {
-                    $wrong[] = $keyword . ' without an integer type';
+            foreach (['minimum', 'exclusiveMinimum', 'maximum'] as $keyword) {
+                if (array_key_exists($keyword, $node) && !in_array($node['type'] ?? null, ['integer', 'number'], true)) {
+                    $wrong[] = $keyword . ' without a numeric type';
                 }
             }
         });
@@ -495,7 +585,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         // And the walk found some, or this proves nothing.
         $bounded = 0;
         self::walk(AstSchema::schema(), static function (array $node) use (&$bounded): void {
-            if (array_key_exists('minimum', $node) || array_key_exists('maximum', $node)) {
+            if (array_key_exists('minimum', $node) || array_key_exists('exclusiveMinimum', $node) || array_key_exists('maximum', $node)) {
                 $bounded++;
             }
         });

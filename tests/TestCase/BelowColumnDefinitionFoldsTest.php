@@ -122,4 +122,18 @@ class BelowColumnDefinitionFoldsTest extends TestCase
 
         $this->assertSame("<ul>\n  <li>a\n    b\n  </li>\n</ul>", trim($html));
     }
+
+    public function testACommentPastTheContentColumnDoesNotCloseTheItem(): void
+    {
+        $html = $this->converter->convert("- a\n   %% c\ntail");
+
+        $this->assertSame("<ul>\n  <li>a\n    tail\n  </li>\n</ul>", trim($html));
+    }
+
+    public function testALazyCommentDoesNotEraseTheInvisibleBlockBeforeIt(): void
+    {
+        $html = $this->converter->convert("- a\n  %% c\n %% d\n b");
+
+        $this->assertSame("<ul>\n  <li>a\n    b\n  </li>\n</ul>", trim($html));
+    }
 }

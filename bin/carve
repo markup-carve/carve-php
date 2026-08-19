@@ -9,6 +9,8 @@ declare(strict_types=1);
  * Usage:
  *   carve fmt [--write|--check] [--stamp|--stamp-block] [files...]
  *   carve lint [--platform <name>] [files...]
+ *   carve merge [--json] base ours theirs
+ *   carve migrate --from <html|markdown|djot|bbcode> [options] [input-file]
  *   carve [options] [input-file]
  *   cat file.crv | carve [options]
  *
@@ -46,8 +48,13 @@ if (!$autoloaderFound) {
 }
 
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\BbcodeToCarve;
+use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Migration\Carve01To02Migrator;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
@@ -63,6 +70,148 @@ use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\RenderMode;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 use MarkupCarve\Carve\Stamp;
+
+/** @param array<int, string> $argv */
+function runMergeCommand(array $argv): never
+{
+    $json = false;
+    $files = [];
+    foreach (array_slice($argv, 2) as $arg) {
+        if ($arg === '--json') {
+            $json = true;
+        } elseif ($arg === '-h' || $arg === '--help') {
+            fwrite(STDOUT, "Usage: carve merge [--json] base ours theirs\n");
+            exit(0);
+        } elseif (str_starts_with($arg, '-')) {
+            fwrite(STDERR, "carve merge: unknown option: $arg\n");
+            exit(2);
+        } else {
+            $files[] = $arg;
+        }
+    }
+    if (count($files) !== 3) {
+        fwrite(STDERR, "carve merge: takes exactly three files (base, ours, theirs)\n");
+        exit(2);
+    }
+    $codec = new AstCodec();
+    $converter = new CarveConverter(parser: new BlockParser(false, false, false, true));
+    $trees = [];
+    foreach ($files as $file) {
+        if (!is_file($file) || !is_readable($file)) {
+            fwrite(STDERR, "carve merge: cannot read $file\n");
+            exit(2);
+        }
+        $source = file_get_contents($file);
+        if ($source === false) {
+            fwrite(STDERR, "carve merge: cannot read $file\n");
+            exit(2);
+        }
+        $trees[] = $codec->encode($converter->parse($source));
+    }
+    $result = AstMerge::merge($trees[0], $trees[1], $trees[2]);
+    if (!$result['ok']) {
+        if ($json) {
+            fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+        } else {
+            foreach ($result['conflicts'] as $conflict) {
+                fwrite(STDERR, sprintf("conflict %s at %s\n", $conflict['reason'], $conflict['path']));
+            }
+            $count = count($result['conflicts']);
+            fwrite(STDERR, sprintf("%d structural conflict%s\n", $count, $count === 1 ? '' : 's'));
+        }
+        exit(1);
+    }
+    if ($json) {
+        fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+    } else {
+        try {
+            fwrite(STDOUT, CarveConverter::carve()->render($codec->decode($result['ast'])));
+        } catch (Throwable $exception) {
+            fwrite(STDERR, 'carve merge: ' . $exception->getMessage() . "\n");
+            exit(2);
+        }
+    }
+    exit(0);
+}
+
+/** @param array<int, string> $argv */
+function runMigrateCommand(array $argv): never
+{
+    $mode = 'safe';
+    $adapter = 'generic';
+    $report = null;
+    $checkLoss = false;
+    $from = null;
+    $input = null;
+    for ($i = 2, $count = count($argv); $i < $count; $i++) {
+        $arg = $argv[$i];
+        if (in_array($arg, ['--from', '--mode', '--adapter', '--report'], true)) {
+            if (!isset($argv[$i + 1])) {
+                fwrite(STDERR, "carve migrate: $arg requires a value\n");
+                exit(2);
+            }
+            $value = $argv[++$i];
+            match ($arg) {
+                '--from' => $from = $value,
+                '--mode' => $mode = $value,
+                '--adapter' => $adapter = $value,
+                '--report' => $report = $value,
+            };
+        } elseif ($arg === '--check-loss') {
+            $checkLoss = true;
+        } elseif (str_starts_with($arg, '-') && $arg !== '-') {
+            fwrite(STDERR, "carve migrate: unknown option: $arg\n");
+            exit(2);
+        } elseif ($input !== null) {
+            fwrite(STDERR, "carve migrate: takes at most one input file\n");
+            exit(2);
+        } else {
+            $input = $arg;
+        }
+    }
+    if ($from === null) {
+        fwrite(STDERR, "carve migrate: --from html, markdown, djot or bbcode is required\n");
+        exit(2);
+    }
+    if (!in_array($from, ['html', 'markdown', 'md', 'djot', 'bbcode'], true)) {
+        fwrite(STDERR, "carve migrate: unknown source format $from\n");
+        exit(2);
+    }
+    $source = $input === null || $input === '-' ? stream_get_contents(STDIN) : @file_get_contents($input);
+    if ($source === false) {
+        fwrite(STDERR, "carve migrate: cannot read input\n");
+        exit(2);
+    }
+    $source = (string)$source;
+    // Only the HTML importer reports what it could not carry across, because
+    // only it drops anything: the other three parse their source whole. So
+    // --mode, --adapter, --report and --check-loss are HTML's alone, and are
+    // silently unused here rather than rejected.
+    if ($from !== 'html') {
+        $converter = match ($from) {
+            'markdown', 'md' => new MarkdownToCarve(),
+            'djot' => new DjotToCarve(),
+            default => new BbcodeToCarve(),
+        };
+        fwrite(STDOUT, $converter->convert($source));
+        exit(0);
+    }
+    try {
+        $result = (new HtmlToCarve(importMode: $mode, importAdapter: $adapter))->convertWithReport($source);
+    } catch (InvalidArgumentException $exception) {
+        fwrite(STDERR, 'carve migrate: ' . $exception->getMessage() . "\n");
+        exit(2);
+    }
+    fwrite(STDOUT, $result->value);
+    $json = json_encode($result->report(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+    if ($report === '-') {
+        fwrite(STDERR, $json);
+    } elseif ($report !== null && file_put_contents($report, $json) === false) {
+        fwrite(STDERR, "carve migrate: cannot write report $report\n");
+        exit(2);
+    }
+    exit($checkLoss && $result->diagnostics !== [] ? 1 : 0);
+}
 
 /**
  * Parse command line arguments
@@ -283,6 +432,7 @@ Carve - Render Carve markup
 
 Usage:
   carve fmt [options] [files...]
+  carve merge [--json] base.crv ours.crv theirs.crv
   carve [options] [input-file]
   cat file.crv | carve [options]
 
@@ -305,7 +455,9 @@ Rendering:
                            typed instead of the resolved glyphs (HTML/Markdown)
 
 Formatter:
-  lint                Report Markdown habits that render as something else
+  lint                Report markup that renders as something else: Markdown
+                      habits, semantic span attributes that lose a value or sit
+                      outside a span, and source written to a retired spelling
   lint --platform NAME
                       Also report host autolinks a platform re-linkifies
                       (repeatable; off unless named)
@@ -315,6 +467,13 @@ Formatter:
   fmt --from-0.1      Preserve 0.1 block boundaries with explicit blanks
   fmt --stamp         Append/replace a one-line provenance marker
   fmt --stamp-block   Append/replace a block provenance marker
+
+Migration (other markup to Carve, on stdout):
+  migrate --from FORMAT   html, markdown (md), djot or bbcode
+  migrate --mode MODE     HTML only: safe (default) or raw
+  migrate --adapter NAME  HTML only: the source generator (default generic)
+  migrate --report FILE   HTML only: write the loss report as JSON (- is stderr)
+  migrate --check-loss    HTML only: exit 1 when anything was dropped
 
 Options:
   -o, --output FILE   Write output to FILE instead of stdout
@@ -337,6 +496,7 @@ Examples:
   carve --markdown document.crv         Render Markdown
   carve --carve document.crv            Render canonical Carve source
   carve fmt -w document.crv             Format file in place
+  carve migrate --from djot notes.dj    Convert Djot to Carve on stdout
   carve document.crv -o document.html   Render to an output file
   echo '*hello*' | carve                Render from stdin
 
@@ -349,6 +509,12 @@ function showVersion(): void
 }
 
 // Main
+if (($argv[1] ?? null) === 'merge') {
+    runMergeCommand($argv);
+}
+if (($argv[1] ?? null) === 'migrate') {
+    runMigrateCommand($argv);
+}
 $parsed = parseArgs($argv);
 $options = $parsed['options'];
 $inputFile = $parsed['input'];
@@ -360,6 +526,11 @@ if (($options['command'] ?? null) === 'lint') {
     }
 
     $linter = new MarkupCarve\Carve\Lint\MarkdownHabitLinter();
+    $semanticLinter = new MarkupCarve\Carve\Lint\SemanticAttributeLinter();
+    $retiredLinter = new MarkupCarve\Carve\Lint\RetiredSpellingLinter();
+    $tableColumnLinter = new MarkupCarve\Carve\Lint\TableColumnLinter();
+    $templateSourceLinter = new MarkupCarve\Carve\Lint\TemplateSourceLinter();
+    $figureGroupLinter = new MarkupCarve\Carve\Lint\FigureGroupLinter();
     $sources = [];
 
     if ($options['files'] === []) {
@@ -381,7 +552,23 @@ if (($options['command'] ?? null) === 'lint') {
 
     $found = 0;
     foreach ($sources as $name => $source) {
-        foreach ($linter->lint($source, ['platforms' => $options['platforms']]) as $warning) {
+        // A CORE render, because that is what `carve` renders with unless the
+        // caller builds a converter itself. The extension-aware reading is a
+        // programmatic option rather than a flag: `carve` has no way to be told
+        // which extensions the document will be published through.
+        $warnings = array_merge(
+            $linter->lint($source, ['platforms' => $options['platforms']]),
+            $semanticLinter->lint($source),
+            $retiredLinter->lint($source),
+            $tableColumnLinter->lint($source),
+            $templateSourceLinter->lint($source),
+            $figureGroupLinter->lint($source),
+        );
+        usort(
+            $warnings,
+            static fn ($a, $b): int => [$a->line, $a->column] <=> [$b->line, $b->column],
+        );
+        foreach ($warnings as $warning) {
             $found++;
             fwrite(STDOUT, sprintf(
                 "%s:%d:%d %s %s\n",

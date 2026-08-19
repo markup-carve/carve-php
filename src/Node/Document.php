@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node;
 
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+
 /**
  * Root document node
  */
@@ -200,5 +202,54 @@ class Document extends Node
     public function setAbbreviationDefinitions(array $definitions): void
     {
         $this->abbreviationDefinitions = $definitions;
+    }
+
+    /**
+     * The definitions this document holds ONLY as map entries, with no
+     * `AbbreviationDefinition` child carrying them.
+     *
+     * A parsed document has a node per authored line, and a renderer writes each
+     * one where the author put it. A document assembled through the API has no
+     * such node: `setAbbreviations()` is a supported entry point that the AST
+     * codec and the ProseMirror bridge both use, and a term built that way can
+     * hold characters `abbreviation_term` cannot even spell. Those definitions
+     * are real and still have to be written, so they are reported here and the
+     * renderers place them together, which is the only position available to a
+     * definition with no source line of its own.
+     *
+     * A MISSING NODE IS NOT ALWAYS AN API DEFINITION. A profile denies
+     * `abbreviation_def` by removing the node while the expansion map stays, so
+     * the inline `abbr` it feeds keeps rendering (carve-php#858, and profiles.md
+     * names the deny and the expansion as separate entries). Reporting that as
+     * residual would put the denied line straight back into every non-HTML
+     * target. The two cases are told apart by the parsed definition LIST: parsing
+     * fills it, one entry per authored line, and the API path leaves it empty and
+     * fills only the map. So a populated list means every definition here was
+     * authored and any absent node was denied, and nothing is residual.
+     *
+     * @return array<int, array<string, string>>
+     */
+    public function getAbbreviationDefinitionsNotInTree(): array
+    {
+        if ($this->abbreviationDefinitions !== []) {
+            return [];
+        }
+
+        $inTree = [];
+        foreach ($this->children as $child) {
+            if ($child instanceof AbbreviationDefinition) {
+                $inTree[$child->getAbbr()] = true;
+            }
+        }
+
+        $residual = [];
+        foreach ($this->getAbbreviationDefinitions() as $definition) {
+            if (isset($inTree[$definition['abbr']])) {
+                continue;
+            }
+            $residual[] = $definition;
+        }
+
+        return $residual;
     }
 }

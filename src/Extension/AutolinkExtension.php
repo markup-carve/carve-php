@@ -91,6 +91,7 @@ class AutolinkExtension implements ExtensionInterface
 
                     return $link;
                 },
+                requiredSubstring: '@',
             );
         }
     }

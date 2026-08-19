@@ -6,11 +6,28 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\ListTableExtension;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
 class ListTableExtensionTest extends TestCase
 {
+    public function testCellAlignmentOverridesColumnDefaults(): void
+    {
+        $html = $this->render(implode("\n", [
+            '{aligns="left,right" valigns="top,bottom"}',
+            '::: list-table',
+            '- -{align=center valign=middle} A',
+            '  - B',
+            ':::',
+        ]));
+
+        $this->assertStringContainsString('<td style="text-align: center; vertical-align: middle;">A</td>', $html);
+        $this->assertStringContainsString('<td style="text-align: right; vertical-align: bottom;">B</td>', $html);
+        $this->assertStringNotContainsString(' align=', $html);
+        $this->assertStringNotContainsString(' valign=', $html);
+    }
+
     /**
      * Convert with the list-table extension registered, trimmed for exact compare.
      */
@@ -37,7 +54,7 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <caption>Quarterly results</caption>',
-            '  <thead><tr><th>Region</th><th>Notes</th></tr></thead>',
+            '  <thead><tr><th scope="col">Region</th><th scope="col">Notes</th></tr></thead>',
             '  <tbody>',
             '    <tr><td>EMEA</td><td>Strong quarter.</td></tr>',
             '  </tbody>',
@@ -123,8 +140,8 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <tbody>',
-            '    <tr><th>Region</th><td>Revenue</td></tr>',
-            '    <tr><th>EMEA</th><td>1.2M</td></tr>',
+            '    <tr><th scope="row">Region</th><td>Revenue</td></tr>',
+            '    <tr><th scope="row">EMEA</th><td>1.2M</td></tr>',
             '  </tbody>',
             '</table>',
         ]);
@@ -147,7 +164,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>Region</th><th>Notes</th></tr></thead>',
+            '  <thead><tr><th scope="col">Region</th><th scope="col">Notes</th></tr></thead>',
             '  <tbody>',
             '    <tr><td>EMEA</td><td>ok</td></tr>',
             '  </tbody>',
@@ -171,8 +188,8 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <tbody>',
-            '    <tr><th>Region</th><td>Notes</td></tr>',
-            '    <tr><th>EMEA</th><td>ok</td></tr>',
+            '    <tr><th scope="row">Region</th><td>Notes</td></tr>',
+            '    <tr><th scope="row">EMEA</th><td>ok</td></tr>',
             '  </tbody>',
             '</table>',
         ]);
@@ -194,13 +211,42 @@ class ListTableExtensionTest extends TestCase
             ':::',
         ]);
 
-        // The whole header row and the first column are all <th>.
+        // The whole header row and the first column are all <th scope="col">.
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>Metric</th><th>Q1</th><th>Q2</th></tr></thead>',
+            '  <thead><tr><th scope="col">Metric</th><th scope="col">Q1</th><th scope="col">Q2</th></tr></thead>',
             '  <tbody>',
-            '    <tr><th>EMEA</th><td>1.0</td><td>1.2</td></tr>',
+            '    <tr><th scope="row">EMEA</th><td>1.0</td><td>1.2</td></tr>',
             '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($djot));
+    }
+
+    public function testFooterRowsUseTheCanonicalCompactWrapper(): void
+    {
+        $djot = implode("\n", [
+            '{footer-rows=2}',
+            '{header-cols=1}',
+            '::: list-table',
+            '- - Region',
+            '  - Q1',
+            '- - EMEA',
+            '  - 10',
+            '- - Region',
+            '  - Q1',
+            '- - EMEA',
+            '  - 10',
+            ':::',
+        ]);
+
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><th scope="row">Region</th><td>Q1</td></tr>',
+            '    <tr><th scope="row">EMEA</th><td>10</td></tr>',
+            '  </tbody>',
+            '  <tfoot><tr><th scope="row">Region</th><td>Q1</td></tr><tr><th scope="row">EMEA</th><td>10</td></tr></tfoot>',
             '</table>',
         ]);
         $this->assertSame($expected, $this->render($djot));
@@ -449,7 +495,7 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <caption>Sales</caption>',
-            '  <thead><tr><th>Region</th><th>Q1</th><th>Q2</th></tr></thead>',
+            '  <thead><tr><th scope="col">Region</th><th scope="col">Q1</th><th scope="col">Q2</th></tr></thead>',
             '  <tbody>',
             '    <tr><td rowspan="2">EMEA</td><td>10</td><td>12</td></tr>',
             '    <tr><td>14</td><td>16</td></tr>',
@@ -503,7 +549,7 @@ class ListTableExtensionTest extends TestCase
     {
         // A `^` in a BODY row whose origin sits in the header rows must NOT pull
         // a rowspan across the <thead>/<tbody> boundary (an HTML cell cannot
-        // reliably span row groups). The header cell stays a plain <th> and the
+        // reliably span row groups). The header cell stays a plain <th scope="col"> and the
         // `^` degrades to an empty body cell. This deliberately diverges from the
         // equivalent pipe table, which has no such row-group boundary.
         $djot = implode("\n", [
@@ -520,7 +566,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>A</th><th>B</th><th>C</th></tr></thead>',
+            '  <thead><tr><th scope="col">A</th><th scope="col">B</th><th scope="col">C</th></tr></thead>',
             '  <tbody>',
             '    <tr><td></td><td>E</td><td>F</td></tr>',
             '  </tbody>',
@@ -535,7 +581,7 @@ class ListTableExtensionTest extends TestCase
         // down and across, but the down-span is clamped at the header/body
         // boundary: the header cell keeps only its colspan, and the body row gets
         // plain cells (the `^` degrades to an empty cell). HTML cannot span a
-        // <th> from <thead> into <tbody>, so this diverges from the pipe table.
+        // <th scope="col"> from <thead> into <tbody>, so this diverges from the pipe table.
         $listTable = implode("\n", [
             '{header-rows=1}',
             '::: list-table',
@@ -550,7 +596,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th colspan="2">A</th><th>C</th></tr></thead>',
+            '  <thead><tr><th scope="col" colspan="2">A</th><th scope="col">C</th></tr></thead>',
             '  <tbody>',
             '    <tr><td>x</td><td></td><td>y</td></tr>',
             '  </tbody>',
@@ -579,7 +625,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>H1</th><th>H2</th></tr></thead>',
+            '  <thead><tr><th scope="col">H1</th><th scope="col">H2</th></tr></thead>',
             '  <tbody>',
             '    <tr><td rowspan="2">A</td><td>B</td></tr>',
             '    <tr><td>C</td></tr>',
@@ -769,7 +815,7 @@ class ListTableExtensionTest extends TestCase
     {
         // With header-rows=1, a `^` in the body under a header cell must not
         // create a <th rowspan> reaching from <thead> into <tbody>. The header
-        // cell stays a plain <th> and the `^` degrades to an empty body cell.
+        // cell stays a plain <th scope="col"> and the `^` degrades to an empty body cell.
         $djot = implode("\n", [
             '{header-rows=1}',
             '::: list-table',
@@ -782,7 +828,7 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead><tr><th>H1</th><th>H2</th></tr></thead>',
+            '  <thead><tr><th scope="col">H1</th><th scope="col">H2</th></tr></thead>',
             '  <tbody>',
             '    <tr><td></td><td>x</td></tr>',
             '  </tbody>',
@@ -825,7 +871,7 @@ class ListTableExtensionTest extends TestCase
 
     public function testCellOwnAttributesCarryOntoCellTagAndStructuralSpanWins(): void
     {
-        // A cell's own list-item attributes are carried onto its <td>/<th>. Any
+        // A cell's own list-item attributes are carried onto its <td>/<th scope="col">. Any
         // author-written rowspan/colspan (in any case) is dropped so the computed
         // structural span is the only one emitted (no duplicate, ambiguous attr).
         $converter = new CarveConverter();
@@ -957,5 +1003,64 @@ class ListTableExtensionTest extends TestCase
         $out = $this->render("::: list-table\n{$rows}:::");
         $this->assertStringStartsWith('<div class="list-table">', $out);
         $this->assertStringNotContainsString('<table>', $out);
+    }
+
+    public function testColumnMetadataAndFooterRenderTogether(): void
+    {
+        $html = $this->render(implode("\n", [
+            '{header-rows=1 footer-rows=1 aligns="left,right" valigns="top,bottom" widths="30,70"}',
+            '::: list-table',
+            '- - H',
+            '  - N',
+            '- - A',
+            '  - 1',
+            '- - F',
+            '  - 2',
+            ':::',
+        ]));
+
+        $this->assertStringContainsString('<colgroup>', $html);
+        $this->assertStringContainsString('<tfoot><tr>', $html);
+        $this->assertStringContainsString('text-align: left; vertical-align: top;', $html);
+        $this->assertStringNotContainsString('aligns=', $html);
+    }
+
+    #[DataProvider('invalidColumnMetadata')]
+    public function testInvalidColumnMetadataDefersWithoutDroppingContent(string $attrs): void
+    {
+        $html = $this->render("{{$attrs}}\n::: list-table\n- - A\n  - B\n:::");
+        $this->assertStringStartsWith('<div class="list-table"', $html);
+        $this->assertStringContainsString('<li>A</li>', $html);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invalidColumnMetadata(): iterable
+    {
+        yield 'too many entries' => ['aligns="left,right,center"'];
+        yield 'bad horizontal value' => ['aligns="diagonal"'];
+        yield 'bad vertical value' => ['valigns="baseline"'];
+        yield 'non numeric width' => ['widths="wide"'];
+        yield 'zero width' => ['widths="0"'];
+        yield 'oversized width' => ['widths="101"'];
+        yield 'overlapping row groups' => ['header-rows=2 footer-rows=1'];
+    }
+
+    public function testEmptyColumnSlotsAndStyledPaddingAreHandled(): void
+    {
+        $html = $this->render("{aligns=\",right\" valigns=\",bottom\" widths=\",50\"}\n::: list-table\n- - A\n  - B\n- - C\n:::");
+        $this->assertStringContainsString('<col>', $html);
+        $this->assertStringContainsString('<col style="width: 50%;">', $html);
+        $this->assertStringContainsString('<td style="text-align: right; vertical-align: bottom;"></td>', $html);
+    }
+
+    public function testLocalRowAndCellHeaders(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../../spec/tests/corpus-optional/45-list-table-local-headers.crv');
+        $expected = file_get_contents(__DIR__ . '/../../spec/tests/corpus-optional/45-list-table-local-headers.html');
+        self::assertIsString($source);
+        self::assertIsString($expected);
+        $this->assertSame(trim($expected), trim($this->render($source)));
     }
 }

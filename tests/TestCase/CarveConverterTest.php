@@ -458,8 +458,8 @@ class CarveConverterTest extends TestCase
 
         // djot doesn't use thead/tbody - just th and td cells
         $this->assertStringContainsString('<table>', $result);
-        $this->assertStringContainsString('<th>A</th>', $result);
-        $this->assertStringContainsString('<th>B</th>', $result);
+        $this->assertStringContainsString('<th scope="col">A</th>', $result);
+        $this->assertStringContainsString('<th scope="col">B</th>', $result);
         $this->assertStringContainsString('<td>1</td>', $result);
         $this->assertStringContainsString('<td>2</td>', $result);
     }
@@ -483,7 +483,7 @@ class CarveConverterTest extends TestCase
         $result = $this->converter->convert("|=H|\n| c |\n");
 
         $this->assertStringContainsString('<thead>', $result);
-        $this->assertStringContainsString('<th>H</th>', $result);
+        $this->assertStringContainsString('<th scope="col">H</th>', $result);
         $this->assertStringNotContainsString('<p>', $result);
     }
 
@@ -503,7 +503,7 @@ class CarveConverterTest extends TestCase
         $result = $this->converter->convert("| H | G |\n| --- |  |\n| a | b |\n");
 
         $this->assertStringNotContainsString('<thead>', $result);
-        $this->assertStringNotContainsString('<th>', $result);
+        $this->assertStringNotContainsString('<th scope="col">', $result);
     }
 
     public function testTableCaption(): void
@@ -870,28 +870,25 @@ DJOT;
         $this->assertStringContainsString('<dt>Term</dt>', $result);
     }
 
-    public function testBracePercentBlockIsLiteralNotComment(): void
+    public function testBracePercentBlockIsComment(): void
     {
-        // `{% … %}` is NOT a Carve comment (only `%%` / `%%%` are), so it renders
-        // literally, matching carve-js / carve-rs.
         $djot = "Before\n\n{% This is a comment %}\n\nAfter";
 
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<p>Before</p>', $result);
-        $this->assertStringContainsString('<p>{% This is a comment %}</p>', $result);
+        $this->assertStringNotContainsString('This is a comment', $result);
         $this->assertStringContainsString('<p>After</p>', $result);
     }
 
-    public function testBracePercentMultilineIsLiteral(): void
+    public function testBracePercentMultilineIsComment(): void
     {
-        // Multi-line `{% … %}` is likewise literal, not a comment.
         $djot = "Before\n\n{% This is a\nmultiline\ncomment %}\n\nAfter";
 
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<p>Before</p>', $result);
-        $this->assertStringContainsString('multiline', $result);
+        $this->assertStringNotContainsString('multiline', $result);
         $this->assertStringContainsString('<p>After</p>', $result);
     }
 
@@ -2327,7 +2324,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<table>', $result);
-        $this->assertStringContainsString('<th>Header</th>', $result);
+        $this->assertStringContainsString('<th scope="col">Header</th>', $result);
     }
 
     public function testTableWithEscapedPipe(): void
@@ -2667,23 +2664,22 @@ DJOT;
 
     // Edge cases: Comments
 
-    public function testBracePercentWithSpecialCharactersIsLiteral(): void
+    public function testBracePercentWithSpecialCharactersIsComment(): void
     {
-        // Content is escaped as ordinary text, not stripped as a comment.
         $djot = '{% Comment with <html> and & special chars %}';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('Comment', $result);
-        $this->assertStringContainsString('&lt;html&gt;', $result);
+        $this->assertStringNotContainsString('Comment', $result);
+        $this->assertStringNotContainsString('&lt;html&gt;', $result);
     }
 
-    public function testBracePercentBetweenParagraphsIsLiteral(): void
+    public function testBracePercentBetweenParagraphsIsComment(): void
     {
         $djot = "Para 1\n\n{% hidden %}\n\nPara 2";
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<p>Para 1</p>', $result);
-        $this->assertStringContainsString('<p>{% hidden %}</p>', $result);
+        $this->assertStringNotContainsString('hidden', $result);
         $this->assertStringContainsString('<p>Para 2</p>', $result);
     }
 
@@ -2695,7 +2691,7 @@ DJOT;
         $djot = '{% comment %} text after';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('{% comment %} text after', $result);
+        $this->assertStringContainsString('<p> text after</p>', $result);
     }
 
     /**
@@ -2706,7 +2702,7 @@ DJOT;
         $djot = '{% one %} text {% two %}';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('{% one %} text {% two %}', $result);
+        $this->assertStringContainsString('<p> text </p>', $result);
     }
 
     /**
@@ -2717,7 +2713,7 @@ DJOT;
         $djot = 'before {% comment %} after';
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('before {% comment %} after', $result);
+        $this->assertStringContainsString('<p>before  after</p>', $result);
     }
 
     /**
@@ -3717,7 +3713,7 @@ DJOT;
             'empty block' => ['[x]{}', "<p><span>x</span></p>\n"],
             'single space block' => ['[x]{ }', "<p><span>x</span></p>\n"],
             'multi space block' => ['[x]{  }', "<p><span>x</span></p>\n"],
-            'brace-percent stays literal' => ['[x]{% c %}', "<p>[x]{% c %}</p>\n"],
+            'brace-percent comment' => ['[x]{% c %}', "<p>[x]</p>\n"],
             // Invalid block: whole [text]{block} stays literal.
             'invalid junk block' => ['[x]{???}', "<p>[x]{???}</p>\n"],
             'invalid equals block' => ['[x]{?y?}', "<p>[x]{?y?}</p>\n"],

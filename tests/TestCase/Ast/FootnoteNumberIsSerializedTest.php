@@ -244,4 +244,109 @@ class FootnoteNumberIsSerializedTest extends TestCase
         $this->assertStringContainsString('see[^a]', (new HtmlRenderer())->render($document));
         $this->assertSame([['footnote_ref', null]], $this->numbers($codec->encode($document)));
     }
+
+    public function testANoteInAnUnresolvedReferenceTakesNoNumber(): void
+    {
+        // PART 9R R2 (markup-carve/carve#1198): R1 degrades the reference to its
+        // literal source, so the text it held is discarded and a note in that
+        // text "is not a reference" - no number, no endnote, no backlink. The
+        // render half already agreed (carve-php#1257); the wire did not.
+        $source = "a [t[^1]][nope] b\n\n[^1]: n\n";
+
+        $this->assertSame([['footnote_ref', null]], $this->numbers($this->ast($source)));
+        $this->assertSame(
+            "<p>a [t[^1]][nope] b</p>\n",
+            (new CarveConverter())->convert($source),
+            'the whole construct renders as its source, with no endnotes section',
+        );
+    }
+
+    public function testADiscardedUseDoesNotShareTheLiveUsesNumber(): void
+    {
+        // The case that makes the field a WRONG VALUE rather than a harmless
+        // extra: the document renders exactly one noteref, the bare `[^1]`, and
+        // publishing `number: 1` on the discarded one too duplicated the number
+        // of the reference a reader can actually see.
+        $source = "a [t[^1]][nope] b [^1] c\n\n[^1]: n\n";
+
+        $this->assertSame(
+            [['footnote_ref', null], ['footnote_ref', 1]],
+            $this->numbers($this->ast($source)),
+        );
+
+        $html = (new CarveConverter())->convert($source);
+        $this->assertSame(1, substr_count($html, 'role="doc-noteref"'), 'exactly one noteref renders');
+        $this->assertStringContainsString('<sup>1</sup>', $html);
+    }
+
+    public function testAnInlineNoteInAnUnresolvedReferenceTakesNoNumber(): void
+    {
+        // The same clause, the other note spelling. `^[n]` has no label to lose,
+        // so a fix keyed on an undefined label would miss it entirely.
+        $source = "a [t^[n]][nope] b\n";
+
+        $this->assertSame([['inline_footnote', null]], $this->numbers($this->ast($source)));
+        $this->assertSame("<p>a [t^[n]][nope] b</p>\n", (new CarveConverter())->convert($source));
+    }
+
+    public function testANoteInABracketedRunWithNoTailKeepsItsNumber(): void
+    {
+        // The control a bracket-keyed fix would break. `[t[^1]]` never carried a
+        // reference tail, so PART 9 §14 leaves it a bracketed run of ordinary
+        // text and the note inside it IS a reference - numbered 1, with an
+        // endnote the reader sees.
+        $source = "a [t[^1]] b\n\n[^1]: n\n";
+
+        $this->assertSame([['footnote_ref', 1]], $this->numbers($this->ast($source)));
+        $this->assertStringContainsString('role="doc-noteref"', (new CarveConverter())->convert($source));
+    }
+
+    public function testANoteInAReferenceThatResolvesKeepsItsNumber(): void
+    {
+        // The second control: the discarding is the UNRESOLVED half of the rule,
+        // not the reference-link half. PART 9 §16 keeps the note here, and a pass
+        // that skipped every reference link's text would clear this one too.
+        $source = "a [t[^1]][r] b\n\n[r]: /u\n\n[^1]: n\n";
+
+        $this->assertSame([['footnote_ref', 1]], $this->numbers($this->ast($source)));
+        $this->assertStringContainsString('href="/u"', (new CarveConverter())->convert($source));
+    }
+
+    public function testAnUnresolvedReferenceNestedInAResolvedOneStillDiscards(): void
+    {
+        // The outer reference resolves and renders its children, so the walk
+        // reaches the inner one - which does not. The clearing is per node, not
+        // per document.
+        $source = "a [x [t[^1]][nope] y][r] b\n\n[r]: /u\n\n[^1]: n\n";
+
+        $this->assertSame([['footnote_ref', null]], $this->numbers($this->ast($source)));
+        $this->assertSame(
+            "<p>a <a href=\"/u\">x [t[^1]][nope] y</a> b</p>\n",
+            (new CarveConverter())->convert($source),
+        );
+    }
+
+    public function testAWireNumberInsideAnUnresolvedReferenceIsCleared(): void
+    {
+        // Parsing never puts a number there, so skipping the subtree would pass
+        // every case above while still republishing whatever an editor sent in.
+        // Asserted on the ENCODED tree, not on source text.
+        $codec = new AstCodec();
+        $tree = $this->ast("a [t[^1]][nope] b\n\n[^1]: n\n");
+        $stamp = function (array &$node) use (&$stamp): void {
+            foreach ($node as &$value) {
+                if (!is_array($value)) {
+                    continue;
+                }
+                if (($value['type'] ?? null) === 'footnote_ref') {
+                    $value['number'] = 99;
+                }
+                $stamp($value);
+            }
+        };
+        $stamp($tree['children']);
+        $this->assertSame([['footnote_ref', 99]], $this->numbers($tree), 'the doctored tree really carries it');
+
+        $this->assertSame([['footnote_ref', null]], $this->numbers($codec->encode($codec->decode($tree))));
+    }
 }

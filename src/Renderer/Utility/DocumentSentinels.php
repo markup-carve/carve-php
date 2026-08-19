@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer\Utility;
 
+use MarkupCarve\Carve\Exception\SentinelSpaceExhaustedException;
+
 /**
  * Picks in-band sentinels a document cannot contain.
  *
@@ -27,6 +29,13 @@ namespace MarkupCarve\Carve\Renderer\Utility;
  * A private-use code point is THREE BYTES standing for one position, so any
  * byte-length arithmetic around a sentinel has to be checked rather than
  * assumed.
+ *
+ * THE ONE PROPERTY: {@see self::pick()} never returns a run the document
+ * contains. Where no such run exists it REFUSES {@see
+ * \MarkupCarve\Carve\Exception\SentinelSpaceExhaustedException} rather than
+ * answering anyway. It used to fall back to the preferred run - a check that
+ * could not fail, since it always produced something and what it produced was
+ * the collision the mechanism exists to avoid.
  */
 final class DocumentSentinels
 {
@@ -106,7 +115,10 @@ final class DocumentSentinels
      * @param int $count How many sentinels the caller needs.
      * @param int $first The preferred first code point of the run.
      *
-     * @return list<string>
+     * @throws \MarkupCarve\Carve\Exception\SentinelSpaceExhaustedException When the
+     *   document leaves no run of `$count` unused code points at or above `$first`.
+     *
+     * @return list<string> Never a run `$text` contains.
      */
     public static function pick(string $text, int $count, int $first): array
     {
@@ -127,10 +139,20 @@ final class DocumentSentinels
             }
         }
 
-        // Reachable only by a document that leaves no gap of $count consecutive
-        // unwritten code points anywhere above $first in the private-use area.
-        // Keep the preferred run rather than throw.
-        return self::run($first, $count);
+        // NO RUN MEANS NO SENTINEL, AND THIS SAYS SO. Returning the preferred
+        // run here was a check that could not fail: it always produced an
+        // answer, and the answer was a run the document may contain - the one
+        // property the mechanism exists for, given up silently. The corruption
+        // then appeared later as text the author never wrote, with no
+        // diagnostic anywhere to review (markup-carve/carve-php#1398).
+        //
+        // REFUSING RATHER THAN WIDENING. Searching further - below $first, or
+        // into another plane - would move the boundary without removing it, and
+        // leave the same silent answer waiting at the new one. The honest
+        // failure is the fix; it is also what the import path already does for
+        // what it cannot represent, and what PART 9 §25 asks of the render
+        // ceiling next door.
+        throw new SentinelSpaceExhaustedException($count, $first, self::PRIVATE_USE_LAST);
     }
 
     /**

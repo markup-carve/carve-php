@@ -62,7 +62,63 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
                 "- > a \n  > b\n",
                 "<ul>\n  <li>\n    <blockquote><p>a\nb</p></blockquote>\n  </li>\n</ul>\n",
             ],
+            // The definition TERM was the one member of the family that kept
+            // the run (markup-carve/carve-php#1330). Its first line was already
+            // trimmed, and a `dd` comes out right because its body is re-fed to
+            // the block parser and so passes through the paragraph collector;
+            // the term alone is handed straight to the inline parser, bypassing
+            // the place the rule lived. So only a WRAPPED term can see it, and
+            // the row carries a verbatim run to hold the span open across the
+            // break - which is the shape the divergence was reported on.
+            'definition term' => [
+                ":: `a\nb \n:  d\n",
+                "<dl>\n  <dt><code>a\nb</code></dt>\n  <dd>d</dd>\n</dl>\n",
+            ],
+            // The run has to sit on the CONTINUATION line to discriminate: a
+            // term's FIRST line was always trimmed, so `:: a<SP>` passes
+            // against the unfixed parser and pins nothing.
+            'definition term, plain text' => [
+                ":: a\nb \n:  d\n",
+                "<dl>\n  <dt>a\nb</dt>\n  <dd>d</dd>\n</dl>\n",
+            ],
+            'definition term, a tab' => [
+                ":: a\nb\t\n:  d\n",
+                "<dl>\n  <dt>a\nb</dt>\n  <dd>d</dd>\n</dl>\n",
+            ],
         ];
+    }
+
+    /**
+     * ONLY whitespace sitting at the end of a SOURCE LINE is stripped, never
+     * whitespace a construct produced.
+     *
+     * This is the control the rule's own note warns about: the strip has to
+     * happen on the source line, before inline parsing, because a renderer
+     * cannot tell an authored trailing space from the CONTENT of an all-space
+     * verbatim span. A fix that trimmed the term's rendered output, or that
+     * rtrimmed the joined term text after the inline parse, would empty this
+     * `<code>` - and every row above would still pass.
+     *
+     * All three engines keep these spaces today and must keep them.
+     */
+    public function testAnAllSpaceVerbatimTermKeepsItsSpaces(): void
+    {
+        $this->assertSame(
+            "<dl>\n  <dt><code>  </code></dt>\n  <dd>d</dd>\n</dl>\n",
+            $this->html(":: `  `\n:  d\n"),
+        );
+    }
+
+    /**
+     * The run is only stripped at END of line: one INSIDE a closed verbatim
+     * span, on a folded term line, is content and survives.
+     */
+    public function testAnInteriorRunOnAFoldedTermLineSurvives(): void
+    {
+        $this->assertSame(
+            "<dl>\n  <dt><code>a\nb  </code></dt>\n  <dd>d</dd>\n</dl>\n",
+            $this->html(":: `a\nb  `\n:  d\n"),
+        );
     }
 
     #[DataProvider('softBreakProvider')]
@@ -170,7 +226,7 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
 
     public function testEveryRowIsStillCovered(): void
     {
-        $this->assertCount(6, self::softBreakProvider());
+        $this->assertCount(9, self::softBreakProvider());
         $this->assertCount(9, self::survivingCharacterProvider());
         $this->assertCount(3, self::outOfReachProvider());
     }

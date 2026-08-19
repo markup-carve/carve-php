@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -16,6 +17,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -28,6 +30,7 @@ use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
@@ -47,13 +50,16 @@ use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
+use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
+use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -159,7 +165,7 @@ class PlainTextRenderer implements RendererInterface
     /**
      * Every abbreviation definition the author wrote, as source lines.
      *
-     * PART 10 §10a: a definition NOTHING references is still emitted by this
+     * PART 11 §10a: a definition NOTHING references is still emitted by this
      * target. HTML drops it because it has nowhere to put one; Markdown, plain
      * text and the terminal do not get to drop content the author wrote, and
      * dropping it made the output depend on whether a reference exists
@@ -180,18 +186,121 @@ class PlainTextRenderer implements RendererInterface
      * denies the definition, and the inline `abbreviation` it feeds is a separate
      * profile entry that keeps rendering.
      */
-    protected function renderAbbreviationDefinitions(Document $document): string
+
+    /**
+     * The first private-use code point this target's definition placeholder
+     * prefers.
+     *
+     * @var int
+     */
+    protected const ABBREVIATION_SENTINEL_FIRST = 0xE100;
+
+    /**
+     * The expansions this render has actually emitted, keyed per §10f.
+     *
+     * @var array<string, true>
+     */
+    protected array $emittedAbbreviationExpansions = [];
+
+    /**
+     * One entry per definition line whose fate is still open, in the order the
+     * placeholders were written.
+     *
+     * @var array<int, array{key: string, line: string}>
+     */
+    protected array $deferredAbbreviationDefinitions = [];
+
+    /**
+     * The character the placeholders are wrapped in, or '' outside render().
+     */
+    protected string $abbreviationDefinitionSentinel = '';
+
+    /**
+     * Definitions the document holds only as map entries (the API path, see
+     * Document::getAbbreviationDefinitionsNotInTree).
+     *
+     * Read AFTER the body, so §10f is answered here from what was emitted
+     * rather than deferred.
+     */
+    protected function renderResidualAbbreviationDefinitions(Document $document): string
     {
         $lines = [];
-        foreach ($document->getChildren() as $child) {
-            if (!$child instanceof AbbreviationDefinition) {
+        foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
+            $key = ConsumedAbbreviationDefinitions::key($definition['abbr'], $definition['expansion']);
+            if (isset($this->emittedAbbreviationExpansions[$key])) {
                 continue;
             }
-            $lines[] = '*[' . $this->stripControls($child->getAbbr()) . ']: '
-                . $this->stripControls($child->getExpansion());
+            $lines[] = '*[' . $this->stripControls($definition['abbr']) . ']: '
+                . $this->stripControls($definition['expansion']);
         }
 
         return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
+    }
+
+    /**
+     * PART 11 §10f T2: this target DROPS the line of a definition whose
+     * expansion it emits, and keeps every other one.
+     *
+     * The line goes because the same words would otherwise appear twice - once
+     * as `*[TERM]: expansion` and once as the `TERM (expansion)` the occurrence
+     * now prints. Where the expansion reaches no target the line is the only
+     * copy of the author's text, so it stays: that covers a term nothing
+     * references (§10a), a term an authored `abbr` outranks (PART 9 §9), a
+     * definition a later one shadowed (PART 9R R3), and the degraded cases where
+     * the §25 expansion budget or a listener kept the occurrence from printing.
+     *
+     * WRITTEN AS A PLACEHOLDER, resolved once the body is finished, because the
+     * definition can be authored ABOVE the occurrence that consumes it and this
+     * target emits it where the author put it (carve-php#708). Dispatched
+     * outside render() there is no placeholder to resolve, so the line is
+     * written as §10a has it.
+     */
+    protected function renderAbbreviationDefinition(AbbreviationDefinition $child): string
+    {
+        $line = '*[' . $this->stripControls($child->getAbbr()) . ']: '
+            . $this->stripControls($child->getExpansion());
+
+        if ($this->abbreviationDefinitionSentinel === '') {
+            return $line . "\n\n";
+        }
+
+        $index = count($this->deferredAbbreviationDefinitions);
+        $this->deferredAbbreviationDefinitions[$index] = [
+            'key' => ConsumedAbbreviationDefinitions::key($child->getAbbr(), $child->getExpansion()),
+            'line' => $line,
+        ];
+
+        return $this->placeholderFor($index) . "\n\n";
+    }
+
+    /**
+     * The placeholder standing in for one deferred definition line.
+     */
+    protected function placeholderFor(int $index): string
+    {
+        return $this->abbreviationDefinitionSentinel . $index . $this->abbreviationDefinitionSentinel;
+    }
+
+    /**
+     * Write each deferred definition line, or nothing where §10f drops it.
+     *
+     * The SEPARATORS around a placeholder are left alone and the blank-line
+     * normalisation below collapses what a dropped line leaves behind. Replacing
+     * the separator too would need the placeholder to survive a container
+     * verbatim, and a block quote rewrites the start of every line it holds.
+     */
+    protected function resolveAbbreviationDefinitions(string $text): string
+    {
+        foreach ($this->deferredAbbreviationDefinitions as $index => $deferred) {
+            $emitted = isset($this->emittedAbbreviationExpansions[$deferred['key']]);
+            $text = str_replace(
+                $this->placeholderFor($index),
+                $emitted ? '' : $deferred['line'],
+                $text,
+            );
+        }
+
+        return $text;
     }
 
     public function render(Document $document): string
@@ -199,13 +308,31 @@ class PlainTextRenderer implements RendererInterface
         $this->headingIdTracker->reset();
         $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+        // PART 11 §10f: a definition line can be written ABOVE the occurrence
+        // that consumes it, so whether to write it is not answerable when it is
+        // reached. It goes out as a placeholder and is resolved below, once the
+        // body has said which expansions it actually emitted.
+        $this->emittedAbbreviationExpansions = [];
+        $this->deferredAbbreviationDefinitions = [];
+        $this->abbreviationDefinitionSentinel = DocumentSentinels::pick(
+            DocumentSentinels::collectStrings($document),
+            1,
+            self::ABBREVIATION_SENTINEL_FIRST,
+        )[0];
 
-        $text = $this->renderChildren($document);
-        $abbreviations = $this->renderAbbreviationDefinitions($document);
-        if ($abbreviations !== '') {
+        // The definition renders WHERE IT WAS WRITTEN, from its node, because the
+        // dispatch has an arm for it. This used to place the whole set at one end
+        // of the body, chosen by `hasAbbreviationsBeforeBody()` - two positions,
+        // which is one fewer than a document can express, so a definition
+        // authored BETWEEN two blocks moved to an end. carve-js and carve-rs both
+        // keep it in place, and this node exists precisely so this renderer can
+        // too (carve-php#708).
+        $text = $this->resolveAbbreviationDefinitions($this->renderChildren($document));
+        $residual = $this->renderResidualAbbreviationDefinitions($document);
+        if ($residual !== '') {
             $text = $document->hasAbbreviationsBeforeBody()
-                ? $abbreviations . "\n" . $text
-                : $text . "\n" . $abbreviations;
+                ? $residual . "\n" . $text
+                : $text . "\n" . $residual;
         }
 
         // Normalize multiple blank lines to single
@@ -237,8 +364,8 @@ class PlainTextRenderer implements RendererInterface
 
         $this->renderDepth++;
         try {
-            if ($this->hasAnyListeners()) {
-                $eventName = 'render.' . $node->getType();
+            $eventName = 'render.' . $node->getType();
+            if ($this->hasListenersFor($eventName)) {
                 $event = new RenderEvent($node);
                 $this->dispatchEvent($eventName, $event);
                 $this->dispatchEvent('render.*', $event);
@@ -250,16 +377,30 @@ class PlainTextRenderer implements RendererInterface
 
             // An unresolved reference renders as the source the author
             // wrote, never as a link (PART 12 section 3a).
-            $rawReference = UnresolvedReference::sourceOf($node);
+            // PART 9 §23: a comment LINE publishes nothing, so the stored
+            // source is emptied of them here rather than in the stored value -
+            // `rawRef` stays the authored source verbatim for the canonical
+            // writer (PART 12 §3a, carve-php#1417).
+            $rawReference = UnresolvedReference::renderedSourceOf($node);
 
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
                 $node instanceof Div => $this->renderDiv($node),
+                $node instanceof AbbreviationDefinition
+                => $this->renderAbbreviationDefinition($node),
                 $node instanceof Paragraph => $this->renderParagraph($node),
                 $node instanceof Heading => $this->renderHeading($node),
                 $node instanceof CodeBlock => $this->renderCodeBlock($node),
+                $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof Comment => '', // Skip comments
+                // PART 12 §18. The definition renders nothing where it sits
+                // on every target; its entry renders in the references list the
+                // Citations extension builds. Without this arm the default
+                // branch renders the entry's children into the flow, which is
+                // rendered output moving on a tree change that must not move it
+                // (markup-carve/carve#1276).
+                $node instanceof CitationDefinition => '',
                 $node instanceof RawBlock => '', // Skip raw blocks (format-specific)
                 $node instanceof BlockQuote => $this->renderBlockQuote($node),
                 $node instanceof ListBlock => $this->renderList($node),
@@ -308,11 +449,91 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof LiteralInline => $this->stripControls($node->getContent()),
                 $node instanceof RawText => $this->stripControls($node->getContent()),
                 $node instanceof SmartPunctuation => $this->renderSmartPunctuation($node),
+                $node instanceof Abbreviation => $this->renderAbbreviation($node),
+                $node instanceof Span => $this->renderSpan($node),
                 default => $this->renderChildren($node),
             };
         } finally {
             $this->renderDepth--;
         }
+    }
+
+    /**
+     * Set while rendering a span that carries an authored `abbr`.
+     *
+     * PART 9 §9 and markup-carve/carve#1127: the authored value OUTRANKS
+     * automatic expansion, and a resolved abbreviation inside such a span
+     * contributes only its visible text. This target had no automatic expansion
+     * to suppress until PART 11 §10f gave it one, so without this flag
+     * `[HTML]{abbr="Custom"}` over `*[HTML]: Hyper Text Markup Language` would
+     * come out `HTML (Hyper Text Markup Language) (Custom)`.
+     */
+    protected bool $suppressAutomaticAbbreviation = false;
+
+    /**
+     * A span renders its children bare, EXCEPT for an authored `abbr`.
+     *
+     * An authored value has no definition line to fall back on, so dropping it
+     * loses the text outright - `[HTML]{abbr="Custom"}` came out as bare `HTML`
+     * with "Custom" nowhere in the output (markup-carve/carve#1176).
+     *
+     * Parentheses are already this target's idiom for an aside: an inline
+     * footnote renders `(content)` here.
+     */
+    protected function renderSpan(Span $node): string
+    {
+        $authored = $node->getAttributes()['abbr'] ?? null;
+        if (!is_string($authored)) {
+            return $this->renderChildren($node);
+        }
+
+        $previous = $this->suppressAutomaticAbbreviation;
+        $this->suppressAutomaticAbbreviation = true;
+
+        try {
+            $inner = $this->renderChildren($node);
+        } finally {
+            $this->suppressAutomaticAbbreviation = $previous;
+        }
+
+        if ($authored === '' || !$this->chargeAbbreviationExpansion($authored)) {
+            return $inner;
+        }
+
+        return $inner . ' (' . $this->stripControls($authored) . ')';
+    }
+
+    /**
+     * PART 11 §10f T2: `TERM (expansion)`, at every occurrence.
+     *
+     * The other half of the same clause. This target used to print the key
+     * alone and let the `*[TERM]: expansion` line carry the mapping once
+     * (markup-carve/carve#1178); §10f takes that line away wherever this
+     * expansion is emitted, so emitting neither would lose the author's text
+     * outright. Same shape the terminal already writes, without its dim styling.
+     */
+    protected function renderAbbreviation(Abbreviation $node): string
+    {
+        $text = $this->renderChildren($node);
+
+        // Inside a span carrying its own `abbr`, only the visible text
+        // (markup-carve/carve#1127).
+        if ($this->suppressAutomaticAbbreviation) {
+            return $text;
+        }
+
+        // DoS guard: once the cumulative expansion bytes would exceed the
+        // budget, degrade to plain key text (no parenthesized definition).
+        if (!$this->chargeAbbreviationExpansion($node->getTitle())) {
+            return $text;
+        }
+
+        // RECORDED HERE and nowhere earlier: this is the one place that knows
+        // the expansion is going out, which is what §10f keys the definition
+        // line's fate to.
+        $this->emittedAbbreviationExpansions[ConsumedAbbreviationDefinitions::keyOf($node)] = true;
+
+        return $text . ' (' . $this->stripControls($node->getTitle()) . ')';
     }
 
     protected function renderHeadingRef(HeadingRef $node): string
@@ -327,9 +548,10 @@ class PlainTextRenderer implements RendererInterface
         }
 
         // Same expansion budget the other targets spend on this label, degrading
-        // to the authored target (carve-php#1061). This target expands nothing
-        // else - an abbreviation renders as its key here - which is why it had
-        // no budget until the crossref needed one.
+        // to the authored target (carve-php#1061). The budget arrived with this
+        // crossref, back when a crossref was the only thing this target expanded;
+        // PART 11 §10f added the second charge, an abbreviation occurrence, which
+        // spends the same budget here as it does on the terminal.
         //
         // THE LABEL IS THE HEADING'S INLINE NODES, rendered by THIS target
         // (PART 9R R4, markup-carve/carve#957). Plain text spells no markup, so
@@ -403,7 +625,63 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        return $this->stripControls($node->getContent()) . "\n\n";
+        // Caption floor, the same one renderDiv() below already applies: a fence
+        // header (`"src/app.js"`) and a grouping label (`[Node]`) are authored
+        // text, and this target has nowhere to attach them, so they become
+        // standalone lines rather than being dropped. Header first when both are
+        // present, matching the div's title-then-label order. Ported from
+        // carve-js#1044.
+        $prefix = '';
+        $header = $node->getHeader();
+        if ($header !== null && $header !== '') {
+            $prefix .= $this->stripControls($header) . "\n\n";
+        }
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            $prefix .= $this->stripControls($label) . "\n\n";
+        }
+
+        return $prefix . $this->stripControls($node->getContent()) . "\n\n";
+    }
+
+    /**
+     * A composite figure (grammar PART 11 §10g T2): the GROUP caption comes
+     * FIRST, its number resolved, then a blank line, then each panel - its
+     * caption line, then its host's degradation - with a blank line between
+     * panels. Caption-first because on a caption-less target the group caption
+     * is the only line that says what the following blocks are one of. Stray
+     * non-panel content is preserved in place; a table panel keeps its caption
+     * inside its own degradation.
+     */
+    protected function renderFigureGroup(FigureGroup $node): string
+    {
+        $output = '';
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $output .= trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+        }
+
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Figure) {
+                $panelCaption = null;
+                $host = '';
+                foreach ($child->getChildren() as $part) {
+                    if ($part instanceof Caption) {
+                        $panelCaption = $part;
+                    } else {
+                        $host .= $this->renderNode($part);
+                    }
+                }
+                if ($panelCaption !== null) {
+                    $output .= trim($this->renderChildren($panelCaption), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
+                }
+                $output .= rtrim($host, "\n") . "\n\n";
+            } else {
+                $output .= $this->renderNode($child);
+            }
+        }
+
+        return $output;
     }
 
     protected function renderFigure(Figure $node): string
@@ -616,7 +894,7 @@ class PlainTextRenderer implements RendererInterface
 
     protected function renderFootnote(Footnote $node): string
     {
-        // The MARKER AS WRITTEN (PART 10 §10a): `[n]: …` is a LINK reference
+        // The MARKER AS WRITTEN (PART 11 §10a): `[n]: …` is a LINK reference
         // definition, so emitting one where the author wrote a footnote
         // definition turns it into a different construct on the way back.
         return '[^' . $this->stripControls($node->getLabel()) . ']: '

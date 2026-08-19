@@ -143,11 +143,18 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
 
     public function beforeRender(Document $document, BeforeRenderContext $context): Document
     {
-        $renderDocument = clone $document;
         $this->counts = [];
         $this->display = [];
         $this->emittedBytes = 0;
         $this->budget = max(self::BUDGET_BASE, self::BUDGET_FACTOR * $document->getExpansionBudgetLength());
+
+        // Most documents contain no index markers. Avoid a deep document clone
+        // in that common case; beforeRender only mutates counted markers.
+        if (!$this->hasMarker($document)) {
+            return $document;
+        }
+
+        $renderDocument = clone $document;
 
         // Only the body is indexed: skip Footnote subtrees (deferred content the
         // renderer may drop or reorder). A marker inside one stays uncounted and
@@ -166,6 +173,23 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         });
 
         return $renderDocument;
+    }
+
+    protected function hasMarker(Node $node): bool
+    {
+        if ($node instanceof Footnote) {
+            return false;
+        }
+        if ($node instanceof InlineExtension && $node->getExtensionType() === self::INLINE_TYPE) {
+            return true;
+        }
+        foreach ($node->getChildren() as $child) {
+            if ($this->hasMarker($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function renderMarker(InlineExtension $node, HtmlRenderer $renderer): string

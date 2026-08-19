@@ -27,7 +27,7 @@ use PHPUnit\Framework\TestCase;
  *
  * THE PREDICATE SWEEP IS THE LIKELIEST WAY A CORRECT-LOOKING PATCH BREAKS
  * SOMETHING ELSE. The line is also asked "is this a definition?" by the
- * block-position rule and by the block parser's consume pass. While the
+ * paragraph-interruption rule and by the block parser's consume pass. While the
  * pattern ended in a swallow-everything tail those could test the RAW line and
  * be right by accident, because `[a]: /u {.c}` matched it raw. Anchored, an
  * open-coded copy would have to split the trailing attribute block off first, or

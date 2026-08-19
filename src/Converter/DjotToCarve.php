@@ -15,15 +15,22 @@ use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
  *
  *   _x_ -> /x/ (Djot emphasis is underline in Carve)
  *   ~x~ -> {,x,} (Djot subscript is strikethrough in Carve; forced brace form)
+ *   {~x~} -> {,x,} (Djot spells subscript braced too, and means the same by it)
  *   {=x=} -> {=x=} (highlight is the same braced form in Carve)
  *   **x** -> *x* (Markdown bold; Carve bold is a single *)
  *   ~~x~~ -> ~x~ (Markdown strikethrough; Carve strike is a single ~)
  *
  * Constructs that mean the same in both languages ($math$, {+ins+},
- * {-del-}, reference links) are left untouched. Delimiters inside code (fenced
+ * {-del-}, {^x^}, reference links) are left untouched. Delimiters inside code (fenced
  * or inline) and link/image destinations are never rewritten. Only the
  * delimiters are replaced, never the inner text, so nested constructs of
  * different families compose correctly.
+ *
+ * An intraword `_x_` converts too, to the braced `{/x/}`. Djot's spec puts no
+ * word boundary on emphasis, so `snake_case_name` IS emphasis in the source
+ * language and an author who wanted the literal characters had to escape them;
+ * an unescaped run is therefore what the author saw and kept. The braced form
+ * is required because a bare `/` is literal intraword in Carve.
  *
  * Ported from the carve-js djot-migrate linter (the canonical list of
  * Djot/Carve delimiter collisions). Operates byte-wise so offsets from the
@@ -53,11 +60,37 @@ class DjotToCarve
             'close' => '~',
         ],
         [
+            // Djot spells subscript both bare and braced, and means the same
+            // thing by each. The braced spelling has to be matched here, ahead
+            // of the bare rule and in the same family, so it claims the range
+            // first: the bare rule's match sits inside this one, and the
+            // overlap check then rejects it. Without this the braced form
+            // reached the escaper instead and was written out as literal text,
+            // losing the subscript.
+            'id' => 'djot-subscript-tilde-braced',
+            'family' => '~',
+            'pattern' => '/\{~(?!\s)((?:(?!\n[ \t]*\n)[^~])+?)(?<!\s)~\}/',
+            'open' => '{,',
+            'close' => ',}',
+        ],
+        [
             'id' => 'djot-subscript-tilde',
             'family' => '~',
             'pattern' => '/~(?!\s)((?:(?!\n[ \t]*\n)[^~])+?)(?<!\s)~/',
             'open' => '{,',
             'close' => ',}',
+        ],
+        [
+            // Braced superscript is spelled identically in both languages, so
+            // the conversion is the identity. It still needs a rule: claiming
+            // the range is what stops the bare rule below from matching the
+            // `^x^` inside the braces and wrapping it a second time, into
+            // `{{^x^}}`.
+            'id' => 'djot-superscript-caret-braced',
+            'family' => '^',
+            'pattern' => '/\{\^(?!\s)((?:(?!\n[ \t]*\n)[^^])+?)(?<!\s)\^\}/',
+            'open' => '{^',
+            'close' => '^}',
         ],
         [
             // Carve has no bare superscript at all (a `^` outside the braced
@@ -69,11 +102,50 @@ class DjotToCarve
             'close' => '^}',
         ],
         [
+            // The `[A-Za-z0-9_]` lookarounds are a DELIBERATE DIVERGENCE from
+            // Djot, not a transcription of its rule, and they are the one place
+            // this converter knowingly changes what a document means.
+            //
+            // Djot puts no word boundary on emphasis at all. Its spec says only
+            // that a `_` opens "if it is not directly followed by whitespace"
+            // and closes "if it is not directly preceded by whitespace", so a
+            // strict reader emphasizes an intraword pair - pandoc's Djot reader
+            // turns `snake_case_name` into `snake<em>case</em>name`.
+            //
+            // This converter does not, because the documents it exists for -
+            // notes, READMEs, generated docs - are full of `snake_case`
+            // identifiers no author meant as emphasis, and Carve itself leaves
+            // an intraword `_` literal for that reason (carve-php#417). The
+            // migration is therefore faithful to INTENT rather than to a strict
+            // reading, and the cost is real and silent: a Djot document that
+            // did mean emphasis inside a word loses it with no warning.
             'id' => 'djot-emphasis-underscore',
             'family' => '_',
             'pattern' => '/(?<![A-Za-z0-9_])_(?!\s)((?:(?!\n[ \t]*\n)[^_])+?)(?<!\s)_(?![A-Za-z0-9_])/',
             'open' => '/',
             'close' => '/',
+        ],
+        [
+            // The complement of the rule above, and it CONVERTS rather than
+            // leaving the run literal. The input is a DJOT document: Djot
+            // emphasizes an intraword `_`, and an author who wanted the literal
+            // characters had to escape them. `snake\_case\_name` renders as
+            // `snake_case_name` in Djot and arrives here already escaped, so an
+            // UNESCAPED `snake_case_name` is emphasis the author saw in their
+            // own renderer and kept.
+            //
+            // The braced form is required, not stylistic: a bare `/` is literal
+            // intraword in Carve, so only `snake{/case/}name` gives back
+            // `snake<em>case</em>name`.
+            //
+            // This does not transfer to `MarkdownToCarve`, whose flanking rules
+            // leave an intraword `_` literal - there the identifier reading is
+            // the correct one.
+            'id' => 'djot-intraword-underscore',
+            'family' => '_',
+            'pattern' => '/(?<=[A-Za-z0-9])_(?!\s)((?:(?!\n[ \t]*\n)[^_])+?)(?<!\s)_(?=[A-Za-z0-9])/',
+            'open' => '{/',
+            'close' => '/}',
         ],
         [
             'id' => 'djot-highlight-braces',
@@ -163,7 +235,7 @@ class DjotToCarve
         for ($i = 0; $i < $length; $i++) {
             if ($masked[$i] === ' ' && $source[$i] !== "\n") {
                 if ($plain !== '') {
-                    $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-*_', 'bare' => '~*_']);
+                    $result .= $this->escapePlainCarveInlineSyntax($plain, self::HANDLED_DJOT);
                     $plain = '';
                 }
                 $result .= $source[$i];
@@ -175,7 +247,7 @@ class DjotToCarve
         }
 
         if ($plain !== '') {
-            $result .= $this->escapePlainCarveInlineSyntax($plain, ['braced' => '=+-*_', 'bare' => '~*_']);
+            $result .= $this->escapePlainCarveInlineSyntax($plain, self::HANDLED_DJOT);
         }
 
         return $result;

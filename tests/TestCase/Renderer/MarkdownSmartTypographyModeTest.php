@@ -57,10 +57,12 @@ class MarkdownSmartTypographyModeTest extends TestCase
         // this mode deliberately leaves it alone.
         $this->assertSame('a \* b', trim($this->source()->convert('a * b')));
         // `&` is emitted bare on this target (carve#1071); what this asserts is
-        // that the mode does not change that either way, and that `<` still
-        // takes the entity form.
+        // that the mode does not change that either way. A `<` before a space
+        // opens nothing, so M1e leaves it alone too (markup-carve/carve#1148);
+        // one before a tag name is escaped, in this mode as in any other.
         $this->assertSame('a & b', trim($this->source()->convert('a & b')));
-        $this->assertSame('a &lt; b', trim($this->source()->convert('a < b')));
+        $this->assertSame('a < b', trim($this->source()->convert('a < b')));
+        $this->assertSame('a \\<b> c', trim($this->source()->convert('a <b> c')));
 
         // An intraword underscore is NOT escaped: it needs no escape, and
         // escaping it degrades exact-match search in a generated corpus (#417).

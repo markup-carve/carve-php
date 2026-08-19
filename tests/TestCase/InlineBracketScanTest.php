@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -36,6 +37,15 @@ class InlineBracketScanTest extends TestCase
         $this->assertSame('<p>[[[x</p>', trim($this->converter->convert('[[[x')));
     }
 
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
+     * default suite runs under paratest, one process per core, so a timing test
+     * there measures a machine every one of its siblings is loading - and it
+     * turned `main` red on a commit touching no engine code (ratio 1.38 against
+     * a 1.2 bound). The group has a runner of its own where nothing else is
+     * running, which is the condition the measurement needs.
+     */
+    #[Group('scaling')]
     public function testLongUnbalancedRunParsesInLinearTime(): void
     {
         $source = str_repeat('[', 4000) . 'x';
@@ -54,6 +64,15 @@ class InlineBracketScanTest extends TestCase
         $this->assertSame('<p>[[[x]]]</p>', trim($this->converter->convert('[[[x]]]')));
     }
 
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
+     * default suite runs under paratest, one process per core, so a timing test
+     * there measures a machine every one of its siblings is loading - and it
+     * turned `main` red on a commit touching no engine code (ratio 1.38 against
+     * a 1.2 bound). The group has a runner of its own where nothing else is
+     * running, which is the condition the measurement needs.
+     */
+    #[Group('scaling')]
     public function testDeepBalancedBracketsParseInLinearTime(): void
     {
         // Balanced brackets pass the `]` guard, so only the link-trigger memo

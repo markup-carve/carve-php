@@ -39,6 +39,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -59,6 +60,76 @@ class InlineParser
     protected int $currentLine = 0;
 
     /**
+     * Byte offsets of every line ending in the text the BLOCK was handed.
+     *
+     * Built once per block, and only when diagnostics are being collected, so
+     * a diagnostic's coordinates cost a search rather than a rescan. Counting
+     * the newlines before the position each time is quadratic in the number of
+     * diagnostics, which is the shape a document of faults has.
+     *
+     * @var list<int>
+     */
+    protected array $lineBreakOffsets = [];
+
+    /**
+     * Where the text currently being parsed starts in the block's text.
+     *
+     * A NESTED parse - a link's text, an emphasis body - is handed a substring
+     * and restarts its cursor at 0, so counting within that substring alone
+     * loses every line before it and reports the fault too high in the
+     * document. The origin accumulates instead, exactly as the source map's
+     * shift does, so a position is always resolved against the whole block.
+     */
+    protected int $textOrigin = 0;
+
+    /**
+     * The source line and 1-based column of `$pos` in the text being parsed.
+     *
+     * `$currentLine` is the line the BLOCK starts on, and a block can be many
+     * lines: a folded paragraph, a line block's whole stanza. Reporting it for
+     * every position puts every diagnostic in such a block on its first line,
+     * and reports an offset into the block as if it were a column.
+     *
+     * A line block was right by construction until its stanza became a single
+     * parse rather than one parse per line (markup-carve/carve-php#1327); a
+     * paragraph had been reporting its own first line for far longer. One rule,
+     * one place.
+     *
+     * @param int $pos
+     *
+     * @return array{0: int, 1: int}
+     */
+    protected function lineAndColumnAt(int $pos): array
+    {
+        $absolute = $this->textOrigin + max(0, $pos);
+        $breaks = $this->lineBreakOffsets;
+        if ($breaks === []) {
+            return [$this->currentLine, $absolute + 1];
+        }
+
+        // How many line endings sit strictly before the position.
+        $low = 0;
+        $high = count($breaks);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($breaks[$mid] < $absolute) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        // Before the first line ending, the position is on the block's own
+        // first line and its column is the offset itself.
+        $previous = $breaks[$low - 1] ?? null;
+        if ($low === 0 || $previous === null) {
+            return [$this->currentLine, $absolute + 1];
+        }
+
+        return [$this->currentLine + $low, $absolute - $previous];
+    }
+
+    /**
      * Custom inline patterns: array of [pattern => callback]
      * Callback receives (string $match, array $groups, InlineParser $parser)
      * and should return a Node or null
@@ -75,7 +146,7 @@ class InlineParser
      * first bytes for a raw-closure matcher (addInlineMatcher) that has no
      * pattern but still only fires on known characters.
      *
-     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null, triggerChars: string|null}>
+     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null, triggerChars: string|null, requiredSubstring: string|null}>
      */
     protected array $inlineMatchers = [];
 
@@ -93,7 +164,7 @@ class InlineParser
      * trigger set does not contain the current char without running its
      * (always-failing) preg_match -- the dominant cost on plain prose.
      *
-     * @var array<array{matcher: \Closure, first: array<string, true>|null}>|null
+     * @var array<array{matcher: \Closure, first: array<string, true>|null, requiredSubstring: string|null}>|null
      */
     protected ?array $compiledInlineMatchers = null;
 
@@ -115,6 +186,8 @@ class InlineParser
     protected ?array $inlineSignificantBytes = null;
 
     protected bool $inlineSignificantComputed = false;
+
+    protected bool $hasConditionalInlineMatchers = false;
 
     /**
      * Memo for parseLink: the text last scanned for link triggers, and whether
@@ -288,8 +361,9 @@ class InlineParser
      *
      * @param string $pattern Regex pattern (without anchors)
      * @param callable(string, array<string>, self): ?\MarkupCarve\Carve\Node\Node $callback
+     * @param string|null $requiredSubstring Literal that must occur in the inline input for this pattern to match
      */
-    public function addInlinePattern(string $pattern, callable $callback): void
+    public function addInlinePattern(string $pattern, callable $callback, ?string $requiredSubstring = null): void
     {
         $this->removeInlinePattern($pattern);
         $this->customPatterns[$pattern] = $callback;
@@ -311,6 +385,7 @@ class InlineParser
                 return ['node' => $node, 'end' => $pos + strlen($matches[0])];
             },
             pattern: $pattern,
+            requiredSubstring: $requiredSubstring,
         );
     }
 
@@ -324,6 +399,10 @@ class InlineParser
             $this->inlineMatchers,
             static fn (array $entry): bool => $entry['pattern'] !== $pattern,
         ));
+        $this->hasConditionalInlineMatchers = array_filter(
+            $this->inlineMatchers,
+            static fn (array $entry): bool => $entry['requiredSubstring'] !== null,
+        ) !== [];
         $this->sortedInlineMatchers = null;
         $this->compiledInlineMatchers = null;
         $this->inlineSignificantComputed = false;
@@ -362,12 +441,14 @@ class InlineParser
      * @param int $priority
      * @param string|null $pattern
      * @param string|null $triggerChars
+     * @param string|null $requiredSubstring
      */
     protected function registerInlineMatcher(
         Closure $matcher,
         int $priority = 0,
         ?string $pattern = null,
         ?string $triggerChars = null,
+        ?string $requiredSubstring = null,
     ): void {
         $this->inlineMatchers[] = [
             'matcher' => $matcher,
@@ -375,7 +456,9 @@ class InlineParser
             'seq' => $this->inlineMatcherSeq++,
             'pattern' => $pattern,
             'triggerChars' => $triggerChars,
+            'requiredSubstring' => $requiredSubstring,
         ];
+        $this->hasConditionalInlineMatchers = $this->hasConditionalInlineMatchers || $requiredSubstring !== null;
         $this->sortedInlineMatchers = null;
         $this->compiledInlineMatchers = null;
         $this->inlineSignificantComputed = false;
@@ -455,6 +538,17 @@ class InlineParser
         $this->textBufferRewritten = false;
         $this->delimiterStack = [];
         $this->currentLine = $sourceLine;
+        $this->textOrigin = 0;
+        // Only when a diagnostic can actually be kept: this is one pass over
+        // the block, and the default parse has no use for it.
+        $this->lineBreakOffsets = [];
+        if ($this->blockParser->collectsWarnings() && str_contains($text, "\n")) {
+            $offset = 0;
+            while (($offset = strpos($text, "\n", $offset)) !== false) {
+                $this->lineBreakOffsets[] = $offset;
+                $offset++;
+            }
+        }
         $previousCaptionContext = $this->captionContextEnabled;
         $previousCaptionNumberEmitted = $this->captionNumberEmitted;
         $this->captionContextEnabled = $captionContext;
@@ -494,18 +588,6 @@ class InlineParser
     protected const MAX_INLINE_DEPTH = 100;
 
     /**
-     * Maximum `[`-nesting depth findBalancedBracketEnd will scan before bailing
-     * with null. Caps the per-scan cost so a long run of openers cannot drive
-     * the bracket scan to O(n^2) (see findBalancedBracketEnd). Generously deeper
-     * than any real document and well above MAX_INLINE_DEPTH, so a balanced
-     * bracket that the parser could actually act on is always within range and
-     * output stays byte-identical.
-     *
-     * @var int
-     */
-    protected const MAX_BRACKET_NESTING = 1000;
-
-    /**
      * Current inline-recursion depth (see self::MAX_INLINE_DEPTH).
      */
     protected int $inlineDepth = 0;
@@ -524,9 +606,15 @@ class InlineParser
         $outerStart = $this->textBufferStart;
         $outerRewritten = $this->textBufferRewritten;
 
+        $outerOrigin = $this->textOrigin;
+
         $this->sourceMap = $outer?->shifted($offsetInParent);
         $this->textBufferStart = null;
         $this->textBufferRewritten = false;
+        // The same accumulation the map's shift makes, for the same reason: the
+        // nested cursor restarts at 0 and its positions still have to name a
+        // place in the whole block.
+        $this->textOrigin = $outerOrigin + $offsetInParent;
 
         try {
             $this->parseInlines($parent, $text, $footnoteRecognitionEnabled);
@@ -534,6 +622,7 @@ class InlineParser
             $this->sourceMap = $outer;
             $this->textBufferStart = $outerStart;
             $this->textBufferRewritten = $outerRewritten;
+            $this->textOrigin = $outerOrigin;
         }
     }
 
@@ -620,13 +709,16 @@ class InlineParser
      * The span of a run whose text the parser rewrote, when the source it
      * covers demonstrably produces that text.
      *
-     * Only one rewrite can survive into a buffered run: `\ `, Carve's
-     * non-breaking-space form, which becomes a sentinel. A backslash before
-     * ASCII punctuation produces an EscapedText NODE instead, so it flushes the
-     * buffer and never reaches here. Applying the rewrite to the source slice
-     * and comparing is a real check - the span is rejected when the slice does
-     * not produce the text, exactly as the equality check rejects a verbatim
-     * span that selects the wrong bytes.
+     * Only one rewrite of THIS layer's can survive into a buffered run: `\ `,
+     * Carve's non-breaking-space form, which becomes a sentinel. A backslash
+     * before ASCII punctuation produces an EscapedText NODE instead, so it
+     * flushes the buffer and never reaches here. Applying the rewrite to the
+     * source and comparing is a real check - the span is rejected when the
+     * source does not produce the text, exactly as the equality check rejects a
+     * verbatim span that selects the wrong bytes.
+     *
+     * The BLOCK layer may have rewritten the same run first, though, which is
+     * why the source is taken from the map rather than sliced raw - see below.
      */
     private function rewrittenSpan(?int $start, ?int $end, string $text): ?SourceSpan
     {
@@ -639,7 +731,14 @@ class InlineParser
             return null;
         }
 
-        $slice = $this->sourceMap->slice($start, $end);
+        // THE MAP'S OWN REWRITE COMES OFF FIRST. A line block turns a preserved
+        // run of spaces into sentinels before the inline layer ever sees the
+        // string, so on `  a\ b` the raw source satisfies neither check: it has
+        // spaces where the text has block sentinels. Asking the map to replay
+        // its rewrite leaves exactly the one this layer applied, and the escape
+        // check below finishes it (carve-php#1351). For a map that rewrote
+        // nothing this is the raw slice, unchanged.
+        $slice = $this->sourceMap->produced($start, $end);
         if ($slice === null || self::applyEscapes($slice) !== $text) {
             return null;
         }
@@ -717,23 +816,32 @@ class InlineParser
 
         // Bytes that can start an inline construct; everything else is plain
         // text and skips the whole per-position handler cascade below.
-        $sig = $this->significantInlineBytes();
+        $sig = $this->significantInlineBytes($this->hasConditionalInlineMatchers ? $text : null);
         // In a caption, `#` is the number-placeholder opener (^ Figure #: …) and
         // must be scanned even when no mentions/tags matcher made it significant.
         if ($sig !== null && $this->captionContextEnabled) {
             $sig['#'] = true;
         }
+        $sigBytes = $sig === null ? '' : implode('', array_keys($sig));
 
         while ($pos < $length) {
             $char = $text[$pos];
 
             // Plain-text fast path: a byte that begins no inline construct is
-            // appended directly. Byte-identical to falling through every handler
-            // (all of which would decline) to the text-buffer append.
+            // appended as one run. `strcspn` finds the next significant byte in
+            // C; advancing one PHP loop iteration per ordinary character made
+            // prose and every table cell pay interpreter overhead byte by byte.
+            // Byte-identical to falling through every handler (all of which
+            // would decline) to the text-buffer append.
             if ($sig !== null && !isset($sig[$char])) {
-                $this->noteTextStart($textBuffer, $pos);
-                $textBuffer .= $char;
-                $pos++;
+                $run = strcspn($text, $sigBytes, $pos);
+                // The current byte is known not to be significant, so at least
+                // one byte must be consumed. Keep the guard defensive in case
+                // a future matcher publishes an invalid trigger set.
+                $run = max(1, $run);
+                $this->noteTextStart($textBuffer, $pos, consumed: $run);
+                $textBuffer .= substr($text, $pos, $run);
+                $pos += $run;
 
                 continue;
             }
@@ -742,6 +850,31 @@ class InlineParser
 
             if ($this->parseEscapedOrLineBreak($parent, $text, $pos, $length, $textBuffer)) {
                 continue;
+            }
+
+            // Delimited inline comment: unlike `%%`, this may begin anywhere
+            // in the run and prose resumes after the first `%}`. An opener
+            // without a closer is ordinary text. Code and raw spans remain
+            // opaque because their backtick handler consumes them as a unit.
+            if ($char === '{' && $nextChar === '%') {
+                $close = strpos($text, '%}', $pos + 2);
+                if ($close !== false) {
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
+                    $content = substr($text, $pos + 2, $close - $pos - 2);
+                    if (str_starts_with($content, ' ')) {
+                        $content = substr($content, 1);
+                    }
+                    if (str_ends_with($content, ' ')) {
+                        $content = substr($content, 0, -1);
+                    }
+                    $comment = new Comment($content, null, true);
+                    $this->placeAt($comment, $pos, $close + 2);
+                    $parent->appendChild($comment);
+                    $pos = $close + 2;
+
+                    continue;
+                }
             }
 
             if ($char === '#' && $this->isCaptionNumberPlaceholder($text, $pos)) {
@@ -764,9 +897,30 @@ class InlineParser
             // soft break, so the next line survives). Code spans parse before
             // this on a backtick and consume opaquely; `\%%` is handled by the
             // escape branch above.
+            //
+            // A NEWLINE COUNTS AS THE WHITESPACE BEFORE IT, so `%%` starting a
+            // LATER line is a comment exactly as it is on the first. A
+            // paragraph never showed the difference - a comment-only line is
+            // blanked at the block layer there - but a line block's stanza is
+            // ONE inline run, so a later body line reached this test with a
+            // newline before it and fell through as ordinary text. That
+            // published `%% c` as verse on every line but the first, which is
+            // what PART 9 §23 forbids: `%%` runs to end of line WHEREVER it
+            // appears, and a comment-only body line leaves an EMPTY verse line
+            // rather than its own source (markup-carve/carve-php#1393). The
+            // newline itself is left unconsumed, so it still becomes the soft
+            // break the stanza promotes to a `<br>` - which is how the empty
+            // line survives instead of the verse losing a row. carve-js
+            // corrected the identical defect by widening the same class
+            // (markup-carve/carve-js#581).
             if (
                 $char === '%' && $nextChar === '%'
-                && ($pos === 0 || $text[$pos - 1] === ' ' || $text[$pos - 1] === "\t")
+                && (
+                    $pos === 0
+                    || $text[$pos - 1] === ' '
+                    || $text[$pos - 1] === "\t"
+                    || $text[$pos - 1] === "\n"
+                )
             ) {
                 $nl = strpos($text, "\n", $pos);
                 $end = $nl === false ? $length : $nl;
@@ -1410,6 +1564,9 @@ class InlineParser
         $char = $text[$pos];
         $ctx = $this->inlineMatcherContext ??= new MatcherContext($this->blockParser, $this);
         foreach ($this->compiledInlineMatchers() as $entry) {
+            if ($entry['requiredSubstring'] !== null && !str_contains($text, $entry['requiredSubstring'])) {
+                continue;
+            }
             // Skip a matcher whose trigger set does not contain the current
             // byte: its anchored preg_match would fail here anyway. A null set
             // means "runs everywhere".
@@ -1429,7 +1586,7 @@ class InlineParser
      * Build (once) the priority-ordered matcher list paired with each pattern's
      * required first literal byte, for first-char gating in tryInlineMatchers().
      *
-     * @return array<array{matcher: \Closure, first: array<string, true>|null}>
+     * @return array<array{matcher: \Closure, first: array<string, true>|null, requiredSubstring: string|null}>
      */
     protected function compiledInlineMatchers(): array
     {
@@ -1446,6 +1603,7 @@ class InlineParser
             fn (array $entry): array => [
                 'matcher' => $entry['matcher'],
                 'first' => $this->matcherFirstBytes($entry['pattern'], $entry['triggerChars']),
+                'requiredSubstring' => $entry['requiredSubstring'],
             ],
             $entries,
         );
@@ -1887,12 +2045,14 @@ class InlineParser
      *
      * @return array<string, true>|null
      */
-    protected function significantInlineBytes(): ?array
+    protected function significantInlineBytes(?string $text = null): ?array
     {
-        if ($this->inlineSignificantComputed) {
+        if ($text === null && $this->inlineSignificantComputed) {
             return $this->inlineSignificantBytes;
         }
-        $this->inlineSignificantComputed = true;
+        if ($text === null) {
+            $this->inlineSignificantComputed = true;
+        }
 
         $sig = [];
         // Char handlers in parseInlines + parseSmartSymbol/parseSmartDash heads.
@@ -1907,17 +2067,28 @@ class InlineParser
         }
 
         foreach ($this->compiledInlineMatchers() as $entry) {
+            if ($text !== null && $entry['requiredSubstring'] !== null && !str_contains($text, $entry['requiredSubstring'])) {
+                continue;
+            }
             if ($entry['first'] === null) {
                 // A matcher with no determinable trigger set runs at every
                 // position, so the document-wide fast-skip cannot apply.
-                return $this->inlineSignificantBytes = null;
+                if ($text === null) {
+                    $this->inlineSignificantBytes = null;
+                }
+
+                return null;
             }
             foreach (array_keys($entry['first']) as $b) {
                 $sig[$b] = true;
             }
         }
 
-        return $this->inlineSignificantBytes = $sig;
+        if ($text === null) {
+            $this->inlineSignificantBytes = $sig;
+        }
+
+        return $sig;
     }
 
     /**
@@ -2057,7 +2228,12 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text, pos: int}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
+     * The `link_text` slot carries the run between the brackets exactly as
+     * `findBalancedBracketEnd` closed it. `parseImage` reads its alt text from
+     * that slot rather than rescanning, so an image's alt closes where a link's
+     * text closes by construction (markup-carve/carve#1206).
+     *
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text, pos: int, link_text: string}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
      */
     protected function parseLink(string $text, int $pos): ?array
     {
@@ -2226,6 +2402,7 @@ class InlineParser
                 return [
                     'node' => $link,
                     'pos' => $endPos,
+                    'link_text' => $linkText,
                 ];
             }
 
@@ -2376,6 +2553,7 @@ class InlineParser
                     return [
                         'node' => $link,
                         'pos' => $endPos,
+                        'link_text' => $linkText,
                     ];
                 }
 
@@ -2399,7 +2577,8 @@ class InlineParser
                 // tree, so it does not exist yet (R1; carve-php#572). Flag it
                 // so the parser knows a second pass is worth running.
                 $this->blockParser->markCollapsedReferenceUnresolved();
-                $this->blockParser->addUndefinedReferenceWarning($ref, $this->currentLine, $pos + 1);
+                [$warnLine, $warnColumn] = $this->lineAndColumnAt($pos);
+                $this->blockParser->addUndefinedReferenceWarning($ref, $warnLine, $warnColumn);
                 $endPos = $refEnd + 1;
                 if ($endPos < $length && $text[$endPos] === '{') {
                     $endPos = $this->applyConsecutiveAttributes($link, $text, $endPos);
@@ -2409,6 +2588,7 @@ class InlineParser
                 return [
                     'node' => $link,
                     'pos' => $endPos,
+                    'link_text' => $linkText,
                 ];
             }
         }
@@ -2441,6 +2621,7 @@ class InlineParser
                     return [
                         'node' => $span,
                         'pos' => $endPos,
+                        'link_text' => $linkText,
                     ];
                 }
             }
@@ -2459,70 +2640,7 @@ class InlineParser
      */
     protected function findBalancedBracketEnd(string $text, int $openPos): ?int
     {
-        $length = strlen($text);
-        if ($openPos >= $length || $text[$openPos] !== '[') {
-            return null;
-        }
-
-        $bracketDepth = 1;
-        $pos = $openPos + 1;
-        while ($pos < $length) {
-            if ($text[$pos] === '`') {
-                $codeEnd = $this->findCodeSpanEnd($text, $pos);
-                if ($codeEnd === null) {
-                    return null;
-                }
-                $pos = $codeEnd;
-
-                continue;
-            }
-
-            // An editorial comment is opaque for the same reason a code span
-            // is: its content is LITERAL (PART 9 `editorial_comment`), so a `]`
-            // inside it is text, and no escape can say so - `{# ... #}`
-            // resolves none, so `\]` puts a real backslash in the comment. Left
-            // unskipped, `[{#a]b#}](u)` had no spelling that produced a link
-            // with the author's text intact (carve#403). An unclosed `{#` is
-            // not a comment and falls through unchanged.
-            if ($text[$pos] === '{' && ($text[$pos + 1] ?? '') === '#') {
-                $commentEnd = strpos($text, '#}', $pos + 2);
-                if ($commentEnd !== false) {
-                    $pos = $commentEnd + 2;
-
-                    continue;
-                }
-            }
-
-            if ($text[$pos] === '[') {
-                $bracketDepth++;
-
-                // DoS guard: a run of openers like `[[[…[x]()]()…]()` makes the
-                // main loop call this scan at every `[`, and each scan walked
-                // the whole tail -> O(n^2) (an ~8 KB input timed out). Beyond a
-                // bracket nesting far deeper than any real document we bail with
-                // null (the run renders literally), bounding each scan to
-                // O(MAX_BRACKET_NESTING) and the loop to O(n). Mirrors the inline
-                // recursion cap (MAX_INLINE_DEPTH); the corpus has nothing near
-                // this depth, so output is byte-identical.
-                if ($bracketDepth > self::MAX_BRACKET_NESTING) {
-                    return null;
-                }
-            } elseif ($text[$pos] === ']') {
-                $bracketDepth--;
-            } elseif ($text[$pos] === '\\' && $pos + 1 < $length) {
-                $pos += 2;
-
-                continue;
-            }
-
-            if ($bracketDepth === 0) {
-                return $pos;
-            }
-
-            $pos++;
-        }
-
-        return null;
+        return BracketScanner::balancedBracketEnd($text, $openPos);
     }
 
     /**
@@ -2546,35 +2664,22 @@ class InlineParser
             return null;
         }
 
-        // Alt text is RAW (grammar §864: alt_text = {character - ']'}), NOT
-        // parsed inline: emphasis, code spans, and backslashes are kept
-        // verbatim (`![*e* `c`](/p)` -> alt=`*e* `c``), matching carve-js /
-        // carve-rs. Scan the balanced label directly from the source; a `\`
-        // escapes the next char for close-detection but is kept in the text.
-        // (Previously the alt was derived from the parsed link children, which
-        // stripped markup and dropped code-span content.)
-        $labelStart = $pos + 2;
-        $textLength = strlen($text);
-        $depth = 1;
-        $j = $labelStart;
-        while ($j < $textLength) {
-            $ch = $text[$j];
-            if ($ch === '\\') {
-                $j += 2;
-
-                continue;
-            }
-            if ($ch === '[') {
-                $depth++;
-            } elseif ($ch === ']') {
-                $depth--;
-                if ($depth === 0) {
-                    break;
-                }
-            }
-            $j++;
-        }
-        $alt = substr($text, $labelStart, $j - $labelStart);
+        // Alt text is RAW, NOT parsed inline: emphasis, code spans and
+        // backslashes are kept verbatim (`![*e* `c`](/p)` -> alt=`*e* `c``).
+        // It ends where the LINK's text ends. An image has the same three forms
+        // as a link and only the leading `!` and the `<img src>` output differ,
+        // so the bracketed run is the run a link uses, closed by the same
+        // balanced, escape- and literal-span-aware scan
+        // (markup-carve/carve#1206, markup-carve/carve#1197).
+        //
+        // This used to be a second scan written here, and it agreed with
+        // `findBalancedBracketEnd` on depth and on `\`, but not on the two
+        // opaque runs that scan skips: a code span and an editorial comment.
+        // So `![t`]`z](/i.png)` and `![t{# ] #}z](/i.png)` linked to the right
+        // destination while the alt stopped at a `]` the parse had already
+        // ruled was content. Reading the run parseLink closed removes the
+        // second spelling instead of teaching it the same two exceptions.
+        $alt = $result['link_text'];
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
 
@@ -2778,6 +2883,23 @@ class InlineParser
     }
 
     /**
+     * Is the character at `$offset` escaped by a backslash?
+     *
+     * An ODD run of backslashes before it escapes it; an even run is literal
+     * backslashes and the character still counts, so `\\{` is a literal
+     * backslash followed by a real brace.
+     */
+    protected function isEscapedAt(string $text, int $offset): bool
+    {
+        $backslashes = 0;
+        for ($i = $offset - 1; $i >= 0 && $text[$i] === '\\'; $i--) {
+            $backslashes++;
+        }
+
+        return $backslashes % 2 === 1;
+    }
+
+    /**
      * Parse delimited inline elements like _emphasis_ or *strong*
      *
      * @param string $delimiter
@@ -2800,6 +2922,12 @@ class InlineParser
         // Check if this can be an opener (not preceded by whitespace for closer detection)
         $prevChar = $pos > 0 ? $text[$pos - 1] : ' ';
         $nextChar = $text[$pos + 1] ?? ' ';
+
+        // Does a BRACED opener actually precede this delimiter? An escaped `{`
+        // is a literal character and opens nothing, so `\{/x/}` holds an
+        // ordinary bare pair while `{/x/}` holds the braced construct. The
+        // closer search below needs the distinction (markup-carve/carve-php#1191).
+        $openerIsBraced = $prevChar === '{' && !$this->isEscapedAt($text, $pos - 1);
 
         // Can't open if followed by whitespace. PART 7's four characters, not
         // `ctype_space()`, which also takes a VERTICAL TAB and a FORM FEED - so
@@ -2861,6 +2989,18 @@ class InlineParser
         $searchPos = $searchStart;
         while ($searchPos < $length) {
             $char = $text[$searchPos];
+
+            // A delimited comment is transparent to the surrounding span: a
+            // delimiter in its body cannot close the span that contains it.
+            if ($char === '{' && ($text[$searchPos + 1] ?? '') === '%') {
+                $commentEnd = strpos($text, '%}', $searchPos + 2);
+                if ($commentEnd !== false) {
+                    $searchPos = $commentEnd + 2;
+                    $scanSkipped = true;
+
+                    continue;
+                }
+            }
 
             // Skip over attribute blocks {....} respecting quotes
             if ($char === '{') {
@@ -2936,10 +3076,22 @@ class InlineParser
                 // Check if this can be a closer (not preceded by whitespace)
                 $beforeClose = $searchPos > 0 ? $text[$searchPos - 1] : ' ';
                 if (!StringUtil::isWhitespaceChar($beforeClose)) {
-                    // A braced closer (like _} or *}) can only close a braced opener
-                    // Since we're looking for a non-braced closer, skip if followed by }
+                    // A braced closer (like `_}` or `*}`) belongs to a braced
+                    // opener, so a bare opener must not steal it: in `{/x/}` the
+                    // whole construct is the braced form's, not this path's.
+                    //
+                    // That only holds when a braced opener actually EXISTS. An
+                    // ESCAPED brace is a literal `{` and opens nothing, so in
+                    // `\{/x/}` the `/x/` is an ordinary bare pair and this is its
+                    // closer. Skipping it unconditionally left the whole run
+                    // literal, so carve-php rendered `\{/x/}` as `{/x/}` where
+                    // carve-js and carve-rs render `{<em>x</em>}`
+                    // (markup-carve/carve-php#1191). `escaped_char` in
+                    // `resources/grammar.ebnf` is one backslash and ONE
+                    // punctuation character; nothing in it suppresses the
+                    // constructs after the character it escapes.
                     $afterClose = $text[$searchPos + 1] ?? '';
-                    if ($afterClose === '}') {
+                    if ($afterClose === '}' && $openerIsBraced) {
                         $searchPos++;
 
                         continue;
@@ -3031,6 +3183,15 @@ class InlineParser
 
         $searchPos = $start;
         while ($searchPos + 1 < $length) {
+            if ($text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') === '%') {
+                $commentEnd = strpos($text, '%}', $searchPos + 2);
+                if ($commentEnd !== false) {
+                    $searchPos = $commentEnd + 2;
+
+                    continue;
+                }
+            }
+
             if ($text[$searchPos] === '`') {
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
@@ -3557,7 +3718,7 @@ class InlineParser
 
         // Check if this looks like valid attributes (starts with ., #, or key=)
         // Exclude _ * = + - ~ ^ which are braced inline markers
-        if (!preg_match('/^[.#a-zA-Z]/', $attrStr)) {
+        if (!preg_match('/^[.#:a-zA-Z]/', $attrStr)) {
             return null;
         }
 
@@ -3701,23 +3862,30 @@ class InlineParser
         if (trim($rest, StringUtil::WHITESPACE_CHARS) === '') {
             return true;
         }
-        $patterns = [
-            // unquoted key=value (the key is an identifier; the value is
-            // tolerant like carve-js's `\S+`, so an invalid value is skipped)
-            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n}]+/',
-            // The possessive `*+` plus `(?!:)` stops a colon-bearing shorthand
-            // from being stripped in PART: `.a:b` must leave `.a:b` behind, not
-            // a bare `:b`, so the whole block is judged invalid on the NAME.
-            '/\.[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
-            '/#[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
-            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z][a-zA-Z0-9_-]*(?=[ \t\r\n]|$)/',
-            '/[ \t\r\n]+/',
-        ];
-        foreach ($patterns as $pattern) {
-            $rest = preg_replace($pattern, ' ', $rest) ?? $rest;
-        }
+        // A SEPARATOR IS REQUIRED BETWEEN TWO ATTRIBUTES. `attribute_list` is
+        // `attribute, {space+, attribute}` (PART 7), so `{.a.b}`, `{#i.c}` and
+        // `{.a#i}` are not attribute blocks and stay literal; the executable
+        // spec has always refused them.
+        //
+        // ANCHORED, NOT STRIPPED. The strip pipeline this replaces could not
+        // express the rule: it rewrote each recognized item to a SPACE, which
+        // manufactured the separator the next item needed. Adding a lookbehind
+        // to the class and id patterns fixed `{.a.b}` and left `{.a#i}`
+        // accepted, because by the time the id pattern ran, the class it
+        // followed had already become a space.
+        $item = '(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')';
+        $item = '(?:[a-zA-Z_][a-zA-Z0-9_-]*=' . $item . ')'
+            . '|(?::(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?)'
+            . '|(?:[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n}]+)'
+            . '|(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)'
+            . '|(?:#[a-zA-Z_][a-zA-Z0-9_-]*)'
+            . '|(?:[a-zA-Z][a-zA-Z0-9_-]*)';
+        $ws = '[ \t\r\n]';
 
-        return trim($rest, StringUtil::WHITESPACE_CHARS) === '';
+        return preg_match(
+            '/^' . $ws . '*(?:(?:' . $item . ')(?:' . $ws . '+(?:' . $item . '))*' . $ws . '*)?$/D',
+            $rest,
+        ) === 1;
     }
 
     /**
@@ -3807,40 +3975,7 @@ class InlineParser
      */
     protected function findCodeSpanEnd(string $text, int $pos): ?int
     {
-        $length = strlen($text);
-
-        // Count opening backticks
-        $openBackticks = 0;
-        while ($pos + $openBackticks < $length && $text[$pos + $openBackticks] === '`') {
-            $openBackticks++;
-        }
-
-        if ($openBackticks === 0) {
-            return null;
-        }
-
-        $contentStart = $pos + $openBackticks;
-
-        // Find matching closing backticks
-        $closingPattern = str_repeat('`', $openBackticks);
-        $searchPos = $contentStart;
-
-        while ($searchPos < $length) {
-            $closePos = strpos($text, $closingPattern, $searchPos);
-            if ($closePos === false) {
-                return null;
-            }
-
-            // Make sure we have exactly the right number of backticks (not more)
-            $afterClose = $closePos + $openBackticks;
-            if ($afterClose >= $length || $text[$afterClose] !== '`') {
-                return $afterClose;
-            }
-
-            $searchPos = $closePos + 1;
-        }
-
-        return null;
+        return BracketScanner::codeSpanEnd($text, $pos);
     }
 
     /**
@@ -4191,7 +4326,8 @@ class InlineParser
 
         // Warn if footnote is not defined
         if (!$this->blockParser->hasFootnote($label)) {
-            $this->blockParser->addUndefinedFootnoteWarning($label, $this->currentLine, $pos + 1);
+            [$warnLine, $warnColumn] = $this->lineAndColumnAt($pos);
+            $this->blockParser->addUndefinedFootnoteWarning($label, $warnLine, $warnColumn);
 
             // An UNRESOLVED footnote reference RENDERS literally as `[^label]`,
             // but it is still a footnote_ref node - which is what lets it keep a
@@ -4308,8 +4444,18 @@ class InlineParser
                 return null;
             }
 
+            // THE REMAINDER, WHOLE. An unclosed run reaches the end of the
+            // BLOCK (PART 2) and what it reaches is verbatim, so the trailing
+            // whitespace is content like the rest of it. This used to rtrim -
+            // the one place math parted from the code span it shares its span
+            // rule with, which takes the remainder raw a few hundred lines
+            // above. Invisible until a container put a blank line at the end of
+            // a run: a line block whose comment-only lines are removed at the
+            // block layer (PART 9 §23) does exactly that, and the stripped
+            // newlines took the removed lines' own positions with them, so the
+            // writer had no line left to put the comments back on.
             return [
-                'node' => new Math(rtrim($content, " \t\r\n"), $display),
+                'node' => new Math($content, $display),
                 'pos' => $length,
             ];
         }
@@ -4345,9 +4491,7 @@ class InlineParser
      * then HTML-escaped and emitted by every renderer with the `<code>` wrapper
      * dropped -- it is prose, not code. A trailing `{...}` is the ORDINARY
      * attribute block (as a code span carries), NOT the raw `{=format}` form.
-     * Requires a CLOSED span: a bare `!` before an unclosed run stays literal
-     * text and the run becomes an ordinary (unclosed) code span, exactly as a
-     * bare `$` before an unclosed run behaves.
+     * Like code and math, an unclosed span reaches the end of its block.
      *
      * @return array{node: \MarkupCarve\Carve\Node\Inline\LiteralInline, pos: int}|null
      */
@@ -4369,8 +4513,7 @@ class InlineParser
         $contentStart = $startPos + $backtickCount;
 
         // Find a closing run of EXACTLY $backtickCount backticks that is not
-        // part of a LONGER run (mirrors the code span / math). An unclosed run
-        // is NOT a literal -- return null so the `!` stays literal text.
+        // part of a LONGER run (mirrors the code span / math).
         $closingBackticks = str_repeat('`', $backtickCount);
         $searchPos = $contentStart;
         $closePos = false;
@@ -4394,20 +4537,17 @@ class InlineParser
             break;
         }
 
-        if ($closePos === false) {
-            return null;
-        }
-
-        $content = substr($text, $contentStart, $closePos - $contentStart);
-
-        $content = $this->stripVerbatimPadding($content);
+        $closed = $closePos !== false;
+        $content = $closed
+            ? $this->stripVerbatimPadding(substr($text, $contentStart, $closePos - $contentStart))
+            : substr($text, $contentStart);
 
         $node = new LiteralInline($content);
 
         // A trailing `{...}` is the ordinary attribute block, EXCEPT the raw
         // `{=format}` form, which is code-span-only and not inherited here:
         // leave it literal (mirrors math).
-        $endPos = $closePos + $backtickCount;
+        $endPos = $closed ? $closePos + $backtickCount : $length;
         $isRawAttempt = $endPos + 1 < $length && $text[$endPos] === '{' && $text[$endPos + 1] === '=';
         if (!$isRawAttempt && $endPos < $length && $text[$endPos] === '{') {
             $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);

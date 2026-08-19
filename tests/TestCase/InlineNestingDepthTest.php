@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -13,6 +14,10 @@ use PHPUnit\Framework\TestCase;
  */
 class InlineNestingDepthTest extends TestCase
 {
+    // A WALL-CLOCK BOUND, so it measures the runner as much as the code and
+    // belongs on the one that runs alone. phpunit.xml.dist says why the group
+    // exists: the measurement "is only meaningful on an unloaded runner".
+    #[Group('scaling')]
     public function testDeeplyNestedLinksParseInBoundedTime(): void
     {
         $n = 10000;

@@ -52,7 +52,17 @@ class DifferentialAuditRegressionTest extends TestCase
         $this->assertSame("<blockquote><p>—\nh</p></blockquote>\n", $html);
     }
 
-    public function testMarkerLineTableKeepsTheFollowingItemContent(): void
+    /**
+     * A table written on the MARKER LINE ends the item, exactly as one written
+     * a line lower does.
+     *
+     * This row used to assert the opposite, on the reading that a marker-line
+     * table "owns" the line under it. PART 1 S4 grants no such ownership - it
+     * asks what the container's last block left OPEN, and a completed table
+     * leaves nothing wherever it was written. Corpus 326-3 pins the shape and
+     * carve-rs renders it this way.
+     */
+    public function testMarkerLineTableEndsTheItemLikeAnyOtherClosedBlock(): void
     {
         $html = (new CarveConverter())->convert("- | b |\n  b\n");
         $this->assertStringContainsString("</table>\n    b\n  </li>", $html);

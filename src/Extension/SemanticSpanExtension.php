@@ -5,152 +5,44 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Event\RenderEvent;
-use MarkupCarve\Carve\Node\Inline\Span;
-use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Util\StringUtil;
 
 /**
- * Converts spans with semantic attributes to proper HTML elements
+ * The four semantic span names core does not reserve, plus the deprecated
+ * `:name[…]` spelling for all seven (spec PART 9 §10, docs/extensions.md §11).
  *
- * Transforms span attributes into semantic HTML5 elements:
- * - `kbd` attribute → `<kbd>` (keyboard input)
- * - `dfn` attribute → `<dfn>` (definition/term)
- * - `abbr` attribute → `<abbr>` (abbreviation, with title)
- * - `samp` attribute → `<samp>` (sample output)
- * - `var` attribute → `<var>` (variable)
+ * Core reserves `abbr`, `time` and `kbd` as span attributes: the first two
+ * carry data the author would otherwise lose, and the third is the one name
+ * every comparable system ships. `samp`, `var`, `cite` and `dfn` carry no data
+ * and collide with no core clause, so they are opt-in - a core processor leaves
+ * them as ordinary attributes (`<span samp="">x</span>`).
  *
- * These can also be combined, with `dfn` wrapping inner elements.
+ * `[x]{samp}` renders `<samp>x</samp>`, and `[CSS]{dfn="Cascading Style Sheets"}`
+ * renders `<dfn title="Cascading Style Sheets">CSS</dfn>`.
  *
- * Example usage:
- * ```php
- * $converter = new CarveConverter();
- * $converter->addExtension(new SemanticSpanExtension());
+ * THE `:name[…]` SPELLING IS SOFT-DEPRECATED HERE, not revived. It was released
+ * behavior in carve-js and carve-rs, so removing it outright would break
+ * documents that shipped; it is scheduled for removal in 0.2. Write the span
+ * attribute instead - it is the only spelling that can express a combination,
+ * since `:dfn[:abbr[CSS]]` does not nest while `[CSS]{dfn abbr="…"}` does.
  *
- * // Keyboard shortcuts
- * echo $converter->convert('[Ctrl+C]{kbd}');
- * // Output: <p><kbd>Ctrl+C</kbd></p>
- *
- * // Definitions
- * echo $converter->convert('[API]{dfn="Application Programming Interface"}');
- * // Output: <p><dfn title="Application Programming Interface">API</dfn></p>
- *
- * // Abbreviations
- * echo $converter->convert('[HTML]{abbr="HyperText Markup Language"}');
- * // Output: <p><abbr title="HyperText Markup Language">HTML</abbr></p>
- *
- * // Combined (definition of an abbreviation)
- * echo $converter->convert('[CSS]{dfn abbr="Cascading Style Sheets"}');
- * // Output: <p><dfn><abbr title="Cascading Style Sheets">CSS</abbr></dfn></p>
- * ```
- *
- * Djot syntax:
- * - `[text]{kbd}` or `[text]{kbd=""}` - keyboard input
- * - `[text]{dfn}` or `[text]{dfn="title"}` - definition (optional title)
- * - `[text]{abbr="title"}` - abbreviation (title required for meaning)
- *
- * Note: This extension provides manual control over semantic elements via attributes.
- * For automatic abbreviation expansion (defining once, applying everywhere), use the
- * built-in abbreviation definition syntax instead:
- * ```
- * *[HTML]: HyperText Markup Language
- * The HTML specification defines...
- * ```
+ * This class was this package's ORIGINAL home for the attribute form, briefly a
+ * deprecated no-op while the names sat in core, and is now the specified Tier-2
+ * extension all three engines ship.
  */
 class SemanticSpanExtension implements ExtensionInterface
 {
+    /**
+     * The four names core does not reserve.
+     *
+     * @var array<string>
+     */
+    public const NAMES = ['samp', 'var', 'cite', 'dfn'];
+
     public function register(CarveConverter $converter): void
     {
-        $renderer = $converter->getRenderer();
-        if (!$renderer instanceof HtmlRenderer) {
-            return;
-        }
-
-        $converter->on('render.span', function (RenderEvent $event) use ($renderer): void {
-            $node = $event->getNode();
-            if (!$node instanceof Span) {
-                return;
-            }
-
-            $kbd = $node->getAttribute('kbd');
-            $dfn = $node->getAttribute('dfn');
-            $abbr = $node->getAttribute('abbr');
-            $samp = $node->getAttribute('samp');
-            $var = $node->getAttribute('var');
-
-            // Check if any semantic attribute is present
-            if ($kbd === null && $dfn === null && $abbr === null && $samp === null && $var === null) {
-                return;
-            }
-
-            // Remove semantic attributes from node (they're processed, not rendered)
-            $node->removeAttribute('kbd');
-            $node->removeAttribute('dfn');
-            $node->removeAttribute('abbr');
-            $node->removeAttribute('samp');
-            $node->removeAttribute('var');
-
-            // Get remaining attributes for outer wrapper
-            $remainingAttrs = $node->getAttributes();
-
-            // Get children HTML
-            $content = $event->getChildrenHtml();
-
-            // Build inner content with semantic elements
-            // Priority: abbr innermost, then samp/var, then kbd, dfn outermost
-            $html = $content;
-
-            // Wrap in <abbr> if abbr attribute present (with title)
-            if ($abbr !== null && $abbr !== '') {
-                $html = '<abbr title="' . StringUtil::escapeHtml((string)$abbr) . '">' . $html . '</abbr>';
-            }
-
-            if ($samp !== null) {
-                $html = '<samp>' . $html . '</samp>';
-            }
-
-            if ($var !== null) {
-                $html = '<var>' . $html . '</var>';
-            }
-
-            // Wrap in <kbd> if kbd attribute present
-            if ($kbd !== null) {
-                $html = '<kbd>' . $html . '</kbd>';
-            }
-
-            // Wrap in <dfn> if dfn attribute present (with optional title)
-            if ($dfn !== null) {
-                if ($dfn !== '') {
-                    $html = '<dfn title="' . StringUtil::escapeHtml((string)$dfn) . '">' . $html . '</dfn>';
-                } else {
-                    $html = '<dfn>' . $html . '</dfn>';
-                }
-            }
-
-            // Wrap in span with remaining attributes if any exist
-            if ($remainingAttrs !== []) {
-                $attrsHtml = $this->renderAttributes($remainingAttrs, $renderer);
-                $html = '<span' . $attrsHtml . '>' . $html . '</span>';
-            }
-
-            $event->setHtml($html);
-        });
-    }
-
-    /**
-     * Render attributes as HTML attribute string
-     *
-     * @param array<string, string> $attrs
-     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
-     */
-    protected function renderAttributes(array $attrs, HtmlRenderer $renderer): string
-    {
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
-
-        return $renderer->renderAttributeArray($attrs);
+        // Declarative: the nesting order, the value mapping and the riding rule
+        // live in the renderer, and this names what it adds. A second copy of
+        // that logic here is how one feature becomes two that drift.
+        $converter->getHtmlRenderer()->addSemanticSpanNames(self::NAMES);
     }
 }

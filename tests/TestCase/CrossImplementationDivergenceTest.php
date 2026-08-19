@@ -67,7 +67,7 @@ class CrossImplementationDivergenceTest extends TestCase
 
         // Normal header promotion is unaffected.
         $this->assertStringContainsString(
-            '<thead><tr><th style="text-align: center;">h</th></tr></thead>',
+            '<thead><tr><th scope="col" style="text-align: center;">h</th></tr></thead>',
             $converter->convert("| h |\n|:-:|\n| b |"),
         );
     }

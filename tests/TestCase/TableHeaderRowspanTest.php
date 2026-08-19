@@ -23,13 +23,13 @@ class TableHeaderRowspanTest extends TestCase
     public function testNativeHeaderCellSpansIntoBody(): void
     {
         $result = $this->converter->convert("|= H |= G |\n| ^ | b |\n| ^ | c |");
-        $this->assertStringContainsString('<th rowspan="3">H</th>', $result);
+        $this->assertStringContainsString('<th scope="col" rowspan="3">H</th>', $result);
     }
 
     public function testGfmSeparatorHeaderCellSpansIntoBody(): void
     {
         $result = $this->converter->convert("| H | G |\n|---|---|\n| ^ | c |");
-        $this->assertStringContainsString('<th rowspan="2">H</th>', $result);
+        $this->assertStringContainsString('<th scope="col" rowspan="2">H</th>', $result);
     }
 
     public function testHeaderRowspanCoexistsWithBodyRowspan(): void
@@ -37,7 +37,7 @@ class TableHeaderRowspanTest extends TestCase
         // H spans header+row1; b spans row1+row2; x stays in row2 (its column
         // is NOT covered by H, whose span ended). The cell must not be dropped.
         $result = $this->converter->convert("|= H |= G |\n| ^ | b |\n| x | ^ |");
-        $this->assertStringContainsString('<th rowspan="2">H</th>', $result);
+        $this->assertStringContainsString('<th scope="col" rowspan="2">H</th>', $result);
         $this->assertStringContainsString('<td rowspan="2">b</td>', $result);
         $this->assertStringContainsString('<td>x</td>', $result);
     }

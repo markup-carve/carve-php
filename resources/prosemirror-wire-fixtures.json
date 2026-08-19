@@ -1,0 +1,1467 @@
+{
+  "version": 1,
+  "about": "ProseMirror wire fixtures. One Carve source per construct and the EXACT ProseMirror document a bridge must produce for it, attribute names included. schema-map.json names the nodes and their attributes; these pin the shape, which is the half that drifted: two bridges to this model produced different attribute vocabularies for the same document and nothing compared them. A bridge in another runtime copies this file and asserts against it.",
+  "cases": [
+    {
+      "name": "paragraph-with-attributes",
+      "carve": "{#p1 .lead data-x=1}\nHello *world*.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Hello "
+              },
+              {
+                "type": "text",
+                "text": "world",
+                "marks": [
+                  {
+                    "type": "bold"
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ],
+            "attrs": {
+              "id": "p1",
+              "class": "lead",
+              "carveKeyValues": {
+                "data-x": "1"
+              },
+              "carveAttrOrder": [
+                "#id",
+                ".class",
+                "data-x"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "heading-with-attributes",
+      "carve": "{#h .big}\n## A heading\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "heading",
+            "attrs": {
+              "level": 2,
+              "id": "h",
+              "class": "big",
+              "carveAttrOrder": [
+                "#id",
+                ".class"
+              ]
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "A heading"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "tight-list",
+      "carve": "- a\n- b\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "bulletList",
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "a"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "b"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "attrs": {
+              "carveTight": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "loose-list",
+      "carve": "- a\n\n- b\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "bulletList",
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "a"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "b"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "attrs": {
+              "carveTight": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordered-list-marker-style",
+      "carve": "a) first\nb) second\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "orderedList",
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "first"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "second"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "attrs": {
+              "carveTight": true,
+              "start": 1,
+              "carveOlType": "a",
+              "carveDelim": ")"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "task-list",
+      "carve": "- [ ] open\n- [x] done\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "taskList",
+            "attrs": {
+              "carveTight": true
+            },
+            "content": [
+              {
+                "type": "taskItem",
+                "attrs": {
+                  "checked": false
+                },
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "open"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "taskItem",
+                "attrs": {
+                  "checked": true
+                },
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "done"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "inline-link-with-attributes",
+      "carve": "See [text](/u \"T\"){#l .ext}.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "See "
+              },
+              {
+                "type": "text",
+                "text": "text",
+                "marks": [
+                  {
+                    "type": "link",
+                    "attrs": {
+                      "href": "/u",
+                      "title": "T",
+                      "id": "l",
+                      "class": "ext",
+                      "carveAttrOrder": [
+                        "#id",
+                        ".class"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "reference-link",
+      "carve": "Read the [introduction][intro] first.\n\n[intro]: https://example.com/intro \"Introduction\"\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Read the "
+              },
+              {
+                "type": "text",
+                "text": "introduction",
+                "marks": [
+                  {
+                    "type": "link",
+                    "attrs": {
+                      "href": "https://example.com/intro",
+                      "title": "Introduction",
+                      "carveRef": "intro",
+                      "carveRawRef": "[introduction][intro]"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " first."
+              }
+            ]
+          },
+          {
+            "type": "carveLinkRefDef",
+            "attrs": {
+              "label": "intro",
+              "href": "https://example.com/intro",
+              "title": "Introduction"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "collapsed-reference-link",
+      "carve": "A [label][] here.\n\n[label]: /u\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A "
+              },
+              {
+                "type": "text",
+                "text": "label",
+                "marks": [
+                  {
+                    "type": "link",
+                    "attrs": {
+                      "href": "/u",
+                      "carveRef": "label",
+                      "carveRawRef": "[label][]"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " here."
+              }
+            ]
+          },
+          {
+            "type": "carveLinkRefDef",
+            "attrs": {
+              "label": "label",
+              "href": "/u"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "definition-with-attributes",
+      "carve": "[Example][ex]\n\n[ex]: https://example.com {.external}\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Example",
+                "marks": [
+                  {
+                    "type": "link",
+                    "attrs": {
+                      "href": "https://example.com",
+                      "carveRef": "ex",
+                      "carveRawRef": "[Example][ex]",
+                      "carveReferenceDefinition": "[ex]: https://example.com {.external}"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "carveLinkRefDef",
+            "attrs": {
+              "label": "ex",
+              "href": "https://example.com",
+              "class": "external",
+              "carveAttrOrder": [
+                ".class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "autolink",
+      "carve": "Visit <https://example.com> now.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Visit "
+              },
+              {
+                "type": "text",
+                "text": "https://example.com",
+                "marks": [
+                  {
+                    "type": "link",
+                    "attrs": {
+                      "href": "https://example.com",
+                      "carveAutolink": true
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " now."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "image-reference",
+      "carve": "An ![alt][img] here.\n\n[img]: /i.png\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "An "
+              },
+              {
+                "type": "image",
+                "attrs": {
+                  "alt": "alt",
+                  "src": "/i.png",
+                  "carveRef": "img",
+                  "carveRawRef": "![alt][img]"
+                }
+              },
+              {
+                "type": "text",
+                "text": " here."
+              }
+            ]
+          },
+          {
+            "type": "carveLinkRefDef",
+            "attrs": {
+              "label": "img",
+              "href": "/i.png"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "table-with-spans",
+      "carve": "| a || b |\n|=h |= i |\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "table",
+            "content": [
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableCell",
+                    "attrs": {},
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "a"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "attrs": {},
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": []
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "attrs": {},
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "b"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableHeader",
+                    "attrs": {},
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "h"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableHeader",
+                    "attrs": {},
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "i"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "table-with-caption",
+      "carve": "^ The caption\n| a | b |\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "^ The caption"
+              }
+            ]
+          },
+          {
+            "type": "table",
+            "content": [
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableCell",
+                    "attrs": {},
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "a"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "attrs": {},
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "b"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "footnote",
+      "carve": "A ref[^a].\n\n[^a]: body\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A ref"
+              },
+              {
+                "type": "carveFootnote",
+                "attrs": {
+                  "label": "a"
+                }
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          },
+          {
+            "type": "carveFootnoteDefinition",
+            "attrs": {
+              "label": "a"
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "body"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "inline-note",
+      "carve": "A note^[see *later*] inline.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A note"
+              },
+              {
+                "type": "carveInlineNote",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "see "
+                  },
+                  {
+                    "type": "text",
+                    "text": "later",
+                    "marks": [
+                      {
+                        "type": "bold"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " inline."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "symbol",
+      "carve": "A :rocket:{.big} flies.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A "
+              },
+              {
+                "type": "carveSymbol",
+                "attrs": {
+                  "name": "rocket",
+                  "class": "big",
+                  "carveAttrOrder": [
+                    ".class"
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "text": " flies."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "literal-inline",
+      "carve": "Say !`/kaet/` now.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Say "
+              },
+              {
+                "type": "carveLiteral",
+                "attrs": {
+                  "content": "/kaet/"
+                }
+              },
+              {
+                "type": "text",
+                "text": " now."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "substitution",
+      "carve": "A {~old~>new~} word.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A "
+              },
+              {
+                "type": "carveSubstitution",
+                "attrs": {
+                  "oldText": "old",
+                  "newText": "new"
+                }
+              },
+              {
+                "type": "text",
+                "text": " word."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "raw-inline",
+      "carve": "A `<br>`{=html} break.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A "
+              },
+              {
+                "type": "carveRawInline",
+                "attrs": {
+                  "format": "html",
+                  "content": "<br>"
+                }
+              },
+              {
+                "type": "text",
+                "text": " break."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "inline-extension",
+      "carve": "Press :kbd[Ctrl+C] now.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Press "
+              },
+              {
+                "type": "carveInlineExtension",
+                "attrs": {
+                  "name": "kbd"
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Ctrl+C"
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " now."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "crossref",
+      "carve": "# Getting Started\n\nSee </#getting-started>.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "heading",
+            "attrs": {
+              "level": 1
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Getting Started"
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "See "
+              },
+              {
+                "type": "carveCrossref",
+                "attrs": {
+                  "target": "getting-started"
+                }
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "frontmatter",
+      "carve": "---\ntitle: T\n---\n\nBody.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "carveFrontmatter",
+            "attrs": {
+              "format": "yaml",
+              "content": "title: T"
+            }
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Body."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "admonition",
+      "carve": "::: note\nBody\n:::\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "carveDiv",
+            "attrs": {
+              "class": "note",
+              "carveTyped": true
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Body"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "composite-figure",
+      "carve": ":::: figure\n![a](a.png)\n^ Panel a\n\n![b](b.png)\n^ Panel b\n::::\n^ The group\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "carveFigureGroup",
+            "content": [
+              {
+                "type": "carveFigure",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "image",
+                        "attrs": {
+                          "alt": "a",
+                          "src": "a.png"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "carveCaption",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Panel a"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "carveFigure",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "image",
+                        "attrs": {
+                          "alt": "b",
+                          "src": "b.png"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "carveCaption",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Panel b"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "carveCaption",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "The group"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "line-block",
+      "carve": "| one\n| two\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "| one\n| two"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "comment",
+      "carve": "%% a note\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "carveComment",
+            "attrs": {
+              "block": false,
+              "delimited": false
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "a note"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "span-and-abbreviation",
+      "carve": "A [term]{.k} and [HTML]{abbr=\"HyperText Markup Language\"}.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A "
+              },
+              {
+                "type": "text",
+                "text": "term",
+                "marks": [
+                  {
+                    "type": "carveSpan",
+                    "attrs": {
+                      "class": "k",
+                      "carveAttrOrder": [
+                        ".class"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " and "
+              },
+              {
+                "type": "text",
+                "text": "HTML",
+                "marks": [
+                  {
+                    "type": "carveAbbreviation",
+                    "attrs": {
+                      "title": "HyperText Markup Language"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "editorial-marks",
+      "carve": "A {+add+} {-cut-} {>>note<<} here.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A "
+              },
+              {
+                "type": "text",
+                "text": "add",
+                "marks": [
+                  {
+                    "type": "carveInsert"
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " "
+              },
+              {
+                "type": "text",
+                "text": "cut",
+                "marks": [
+                  {
+                    "type": "carveDelete"
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " {>>note<<} here."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "citation-group",
+      "carve": "A [@a2020, p. 3; see @b2021] and [+@c2019] end.\n",
+      "extensions": [
+        "citations"
+      ],
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A "
+              },
+              {
+                "type": "carveCitation",
+                "attrs": {
+                  "raw": "[@a2020, p. 3; see @b2021]",
+                  "integral": false,
+                  "items": [
+                    {
+                      "key": "a2020",
+                      "suppressAuthor": false,
+                      "locator": [
+                        {
+                          "type": "text",
+                          "text": "p. 3"
+                        }
+                      ],
+                      "locatorLabel": "page",
+                      "locatorValue": "3"
+                    },
+                    {
+                      "key": "b2021",
+                      "suppressAuthor": false,
+                      "prefix": [
+                        {
+                          "type": "text",
+                          "text": "see"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "text": " and "
+              },
+              {
+                "type": "carveCitation",
+                "attrs": {
+                  "raw": "[+@c2019]",
+                  "integral": true,
+                  "items": [
+                    {
+                      "key": "c2019",
+                      "suppressAuthor": false
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "text": " end."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "attributed-div",
+      "carve": "{#s .sidebar}\n:::\nBody.\n:::\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "carveDiv",
+            "attrs": {
+              "id": "s",
+              "class": "sidebar",
+              "carveAttrOrder": [
+                "#id",
+                ".class"
+              ],
+              "carveTyped": false
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Body."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "attribute-run-in-authored-order",
+      "carve": "[x]{key=c .a #b}\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "x",
+                "marks": [
+                  {
+                    "type": "carveSpan",
+                    "attrs": {
+                      "id": "b",
+                      "class": "a",
+                      "carveKeyValues": {
+                        "key": "c"
+                      },
+                      "carveAttrOrder": [
+                        "key",
+                        ".class",
+                        "#id"
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "inline-code-with-attributes",
+      "carve": "A `code`{#i .cls k=v} span.\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A "
+              },
+              {
+                "type": "text",
+                "text": "code",
+                "marks": [
+                  {
+                    "type": "code",
+                    "attrs": {
+                      "id": "i",
+                      "class": "cls",
+                      "carveKeyValues": {
+                        "k": "v"
+                      },
+                      "carveAttrOrder": [
+                        "#id",
+                        ".class",
+                        "k"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " span."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty-label-link",
+      "carve": "[](https://example.com \"T\"){.a #i}\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "carveEmptyMark",
+                "attrs": {
+                  "markType": "link",
+                  "markAttrs": {
+                    "href": "https://example.com",
+                    "title": "T",
+                    "id": "i",
+                    "class": "a",
+                    "carveAttrOrder": [
+                      ".class",
+                      "#id"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty-span-and-editorial-marks",
+      "carve": "a []{.x} b {++} c {--} d\n",
+      "pm": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "a "
+              },
+              {
+                "type": "carveEmptyMark",
+                "attrs": {
+                  "markType": "carveSpan",
+                  "markAttrs": {
+                    "class": "x",
+                    "carveAttrOrder": [
+                      ".class"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "text",
+                "text": " b "
+              },
+              {
+                "type": "carveEmptyMark",
+                "attrs": {
+                  "markType": "carveInsert"
+                }
+              },
+              {
+                "type": "text",
+                "text": " c "
+              },
+              {
+                "type": "carveEmptyMark",
+                "attrs": {
+                  "markType": "carveDelete"
+                }
+              },
+              {
+                "type": "text",
+                "text": " d"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

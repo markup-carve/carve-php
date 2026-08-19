@@ -412,16 +412,16 @@ class AttributeParserTest extends TestCase
      */
     public function testCurlyBraceInDoubleQuotedValue(): void
     {
-        $result = $this->converter->convert('[text]{code="{foo}"}');
+        $result = $this->converter->convert('[text]{data-code="{foo}"}');
 
-        $this->assertStringContainsString('code="{foo}"', $result);
+        $this->assertStringContainsString('data-code="{foo}"', $result);
     }
 
     public function testCurlyBraceInSingleQuotedValue(): void
     {
-        $result = $this->converter->convert("[text]{code='{bar}'}");
+        $result = $this->converter->convert("[text]{data-code='{bar}'}");
 
-        $this->assertStringContainsString('code="{bar}"', $result);
+        $this->assertStringContainsString('data-code="{bar}"', $result);
     }
 
     public function testCurlyBraceInLinkAttributes(): void

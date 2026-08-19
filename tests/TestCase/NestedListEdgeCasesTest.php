@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -203,6 +204,14 @@ DJOT;
         $this->assertStringContainsString('<p>C</p>', $result);
     }
 
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement, and this
+     * one was missed when the other seven were moved: the sweep grepped
+     * `hrtime` and this file times with `microtime`. It failed on the COVERAGE
+     * runner, where instrumentation multiplies every duration and an absolute
+     * bound of 1.5s measures the profiler rather than the parser.
+     */
+    #[Group('scaling')]
     public function testDeepNestedListsRenderWithinSaneBounds(): void
     {
         $lines = [];

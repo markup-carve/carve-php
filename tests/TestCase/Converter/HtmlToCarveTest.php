@@ -290,8 +290,16 @@ class HtmlToCarveTest extends TestCase
         );
 
         $this->assertStringContainsString('`a {,y,} b`', $carve);
-        $this->assertStringContainsString('[a \\\\{,y,} b](ftp://x/)', $carve);
+        // One backslash, escaping the brace. Two would be a LITERAL backslash
+        // followed by a live subscript, which is what the label path used to
+        // emit here - it doubled a backslash the text pass had already written
+        // as an escape (markup-carve/carve-php#1214).
+        $this->assertStringContainsString('[a \\{,y,} b](ftp://x/)', $carve);
         $this->assertStringContainsString("```\na %%c%% b\n```", $carve);
+
+        // The claim behind the spelling: the label survives the round trip.
+        $back = (new CarveConverter())->convert($carve);
+        $this->assertStringContainsString('<a href="ftp://x/">a {,y,} b</a>', $back);
     }
 
     /**
@@ -767,26 +775,44 @@ HTML;
         $this->assertStringContainsString('^ cap', $result);
     }
 
+    /**
+     * A caption slot is INLINE, so two paragraphs become one run.
+     *
+     * The text is all still there, which is what this test has always been
+     * about - what changed is that it no longer arrives as two lines. A caption
+     * line holds inline content, so the blocks are unwrapped into a single run
+     * (carve-php#1345), and carve-js and carve-rs both emit exactly this.
+     *
+     * THE JOIN IS A SPACE. It used to be empty - `cap onecap two` - matched
+     * from the sibling engines while the question of whether an inline join
+     * should separate at all was open for all three. PART 11 §1b answered it:
+     * A FLATTEN PRESERVES THE BOUNDARY IT DISSOLVES (markup-carve/carve#1325,
+     * converter cases 29 to 32). The block boundary is gone either way, because
+     * a caption is one line, but what it SEPARATED survives it.
+     */
     public function testFigureWithMultilineCaptionKeepsAllCaptionTextInsideCaption(): void
     {
         $html = '<figure><img src="photo.jpg" alt="Photo"><figcaption><p>cap one</p><p>cap two</p></figcaption></figure>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame("![Photo](photo.jpg)\n^ cap one\ncap two", $result);
+        $this->assertSame("![Photo](photo.jpg)\n^ cap one cap two", $result);
     }
 
-    public function testFigureWithUnsupportedBlockContentFallsBackToPlainDjotBlocks(): void
+    public function testFigureWithACodeBlockKeepsItsCaption(): void
     {
+        // The engine's own shape for a captioned fence. It used to fall back
+        // to a bare fence plus a plain paragraph, losing the `^` association
+        // (carve-php#1288).
         $html = '<figure><pre><code>code</code></pre><figcaption>Cap</figcaption></figure>';
         $result = $this->converter->convert($html);
 
         $this->assertStringNotContainsString("``` =html\n", $result);
         $this->assertStringContainsString("```\ncode\n```", $result);
-        $this->assertStringContainsString("\nCap\n", $result);
+        $this->assertStringContainsString("\n^ Cap\n", $result);
 
         $htmlBack = (new CarveConverter(profile: Profile::article()))->convert($result);
         $this->assertStringContainsString('<pre><code>code', $htmlBack);
-        $this->assertStringContainsString('<p>Cap</p>', $htmlBack);
+        $this->assertStringContainsString('<figcaption>Cap</figcaption>', $htmlBack);
     }
 
     public function testFigureWithAttributesPrefersStructuredFigureOverRawHtml(): void
@@ -888,7 +914,9 @@ HTML;
         $html = '<table><caption><p>cap one</p><p>cap two</p></caption><tr><td>x</td></tr></table>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame("| x |\n^ cap one\ncap two", $result);
+        // One inline run, as carve-js and carve-rs also emit - see the figure
+        // case above for why the join is empty.
+        $this->assertSame("| x |\n^ cap one cap two", $result);
     }
 
     public function testCaptionRoundtrip(): void
@@ -1044,20 +1072,39 @@ HTML;
         $this->assertSame("- \n  {#empty}\n", $result);
     }
 
-    public function testListItemWithDetailsKeepsIndentedTaggedContainer(): void
+    public function testListItemWithDetailsKeepsTheContainerInTheItem(): void
     {
         $html = '<ul><li><details><summary>Title</summary><p>Body</p></details></li></ul>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("- \n\n  ::: details\n  Title\n\n  Body\n  :::\n", $result);
+        // The container's OPENER shares the marker line. The spelling this used
+        // to assert put `- ` alone on its line, which is not a marker, so the
+        // item came back as a paragraph reading `-` with the container loose
+        // beside it (markup-carve/carve-php#1224).
+        // The summary is the disclosure's LABEL, so it is written as the
+        // opener's quoted title rather than as the first paragraph of the body.
+        $this->assertSame("- ::: details \"Title\"\n  Body\n  :::\n", $result);
+        $this->assertStringContainsString(
+            'class="details"',
+            (new CarveConverter())->convert($result),
+        );
     }
 
-    public function testListItemWithHeadingKeepsIndentedHeadingBlock(): void
+    public function testListItemWithHeadingKeepsTheHeadingInTheItem(): void
     {
         $html = '<ul><li><h2>Head</h2></li></ul>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("- \n\n  ## Head\n", $result);
+        // On the marker line. The indented spelling this used to assert did
+        // not round trip at all: `- ` alone is not a marker, so it came back
+        // as a paragraph reading `-` followed by a paragraph reading
+        // `## Head` - the list AND the heading both lost
+        // (markup-carve/carve-php#1217).
+        $this->assertSame("- ## Head\n", $result);
+        $this->assertStringContainsString(
+            '<h2',
+            (new CarveConverter())->convert($result),
+        );
     }
 
     public function testHtml5BlockContainerWithoutAttributesFallsBackToPlainBlock(): void
@@ -1239,6 +1286,183 @@ HTML;
         // Cell attributes
         $this->assertStringContainsString('{.name}', $result);
         $this->assertStringContainsString('{data-sort=1}', $result);
+    }
+
+    /**
+     * A cell attribute block only parses GLUED to the opening pipe: with a
+     * space before it the brace is ordinary cell content, so the class was
+     * rendered as the four visible characters `{.c}` instead of reaching the
+     * cell (markup-carve/carve-php#1164).
+     */
+    public function testCellAttributesAreGluedToTheOpeningPipe(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td class="c">x</td></tr></table>');
+
+        $this->assertStringContainsString('|{.c} x |', $carve);
+        $this->assertStringContainsString('<td class="c">x</td>', (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * A HEADER cell's block glues to the `=` rather than to the pipe: PART 9 §5
+     * T10 binds the block after the marker run, which is the order that makes
+     * an attributed header cell spellable at all.
+     */
+    public function testHeaderCellAttributesAreGluedToTheHeaderMarker(): void
+    {
+        $carve = $this->converter->convert(
+            '<table><tr><th class="c">h</th></tr><tr><td>x</td></tr></table>',
+        );
+
+        $this->assertStringContainsString('|={.c} h |', $carve);
+        $this->assertStringContainsString('<th scope="col" class="c">h</th>', (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * Cell content the author wrote as a literal brace keeps its space, so it
+     * stays content rather than being promoted into an attribute block.
+     */
+    public function testLiteralBraceInACellIsNotPromotedToAnAttributeBlock(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td>{.c} x</td></tr></table>');
+
+        $this->assertStringContainsString('| {.c} x |', $carve);
+        $this->assertStringContainsString('<td>{.c} x</td>', (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * A div fence needs its own lines and a cell is one line, so `:::` can
+     * never open there. The wrapper is dropped and the content kept, which is
+     * what an attribute-less div in a cell already did (carve-php#1164).
+     */
+    public function testDivInsideACellDropsTheFenceAndKeepsTheContent(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td><div class="x">d</div></td></tr></table>');
+
+        $this->assertStringNotContainsString(':::', $carve);
+        $this->assertStringContainsString('<td>d</td>', (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * A wrapper that degrades to its content inside a cell still has to
+     * SEPARATE that content. Dropping the wrapper joined the two runs with
+     * nothing between them, so `create()` and `guard:` came out as
+     * `create()guard:` - the block boundary the author wrote was simply gone.
+     *
+     * Paragraphs were never affected: they carry their own separator.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function blockWrappersInACellProvider(): array
+    {
+        return [
+            'two divs' => ['<div>a()</div><div>b:</div>', '<td>a() b:</td>'],
+            'two divs with classes' => ['<div class="x">a()</div><div class="y">b:</div>', '<td>a() b:</td>'],
+            'div then paragraph' => ['<div>a()</div><p>b:</p>', '<td>a() b:</td>'],
+            'paragraph then div' => ['<p>a()</p><div>b:</div>', '<td>a() b:</td>'],
+            'two paragraphs' => ['<p>a()</p><p>b:</p>', '<td>a() b:</td>'],
+            'details' => ['<details><summary>s</summary><p>a()</p></details>', '<td>s a()</td>'],
+            'two details' => [
+                '<details><summary>s</summary><p>a()</p></details><details><summary>t</summary><p>b:</p></details>',
+                '<td>s a() t b:</td>',
+            ],
+        ];
+    }
+
+    /**
+     * The same defect OUTSIDE a table, which is where it is worse: there a
+     * newline IS available, so the boundary the author wrote should survive as
+     * a real block break rather than as a space. Nothing in the suite covered
+     * this, which is how two divs wrapping two paragraphs came to collapse into
+     * one.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function blockWrappersOutsideATableProvider(): array
+    {
+        return [
+            'two divs' => ['<div>a</div><div>b</div>', "<p>a</p>\n<p>b</p>"],
+            'div then paragraph' => ['<div>a</div><p>b</p>', "<p>a</p>\n<p>b</p>"],
+            'divs wrapping paragraphs' => ['<div><p>a</p></div><div><p>b</p></div>', "<p>a</p>\n<p>b</p>"],
+            'paragraph then div' => ['<p>a</p><div>b</div>', "<p>a</p>\n<p>b</p>"],
+        ];
+    }
+
+    #[DataProvider('blockWrappersOutsideATableProvider')]
+    public function testADegradedWrapperKeepsItsBlockBreakOutsideATable(string $html, string $expected): void
+    {
+        $this->assertStringContainsString($expected, (new CarveConverter())->convert($this->converter->convert($html)));
+    }
+
+    #[DataProvider('blockWrappersInACellProvider')]
+    public function testABlockWrapperInACellStillSeparatesItsContent(string $inner, string $cell): void
+    {
+        $carve = $this->converter->convert('<table><tr><td>' . $inner . '</td></tr></table>');
+
+        $this->assertStringContainsString($cell, (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * The separator is a separator, not padding: a single wrapper does not gain
+     * leading or trailing space in its cell.
+     */
+    public function testASingleWrapperInACellGainsNoPadding(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td><div class="x">d</div></td></tr></table>');
+
+        $this->assertStringContainsString('| d |', $carve);
+    }
+
+    /**
+     * The admonition and line-block round trips are colon fences too, and they
+     * are reached before the ordinary div path - so the cell context has to be
+     * consulted first, or they keep writing `::: note d :::` into a cell
+     * (raised by codex review on carve-php#1165).
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function fenceInsideACellProvider(): array
+    {
+        return [
+            'admonition' => ['<div data-djot-admonition-type="note"><p>d</p></div>', '<td>d</td>'],
+            // The two lines are separated rather than run together: a line
+            // block's lines ARE a block boundary, and dropping the fence in a
+            // cell no longer drops that with it.
+            'line block' => ['<div class="line-block"><div>one</div><div>two</div></div>', '<td>one two</td>'],
+            'details' => ['<details><summary>s</summary><p>d</p></details>', '<td>s d</td>'],
+        ];
+    }
+
+    #[DataProvider('fenceInsideACellProvider')]
+    public function testAColonFenceIsNeverWrittenIntoACell(string $inner, string $cell): void
+    {
+        $carve = $this->converter->convert('<table><tr><td>' . $inner . '</td></tr></table>');
+
+        $this->assertStringNotContainsString(':::', $carve);
+        $this->assertStringContainsString($cell, (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * The same constructs OUTSIDE a cell keep their fence: the guard is about
+     * where the construct is being written, not about the construct.
+     */
+    public function testTheSameConstructsKeepTheirFenceOutsideACell(): void
+    {
+        $this->assertStringContainsString(
+            "::: note\nd\n:::",
+            $this->converter->convert('<div data-djot-admonition-type="note"><p>d</p></div>'),
+        );
+        $this->assertStringContainsString(
+            '::: details',
+            $this->converter->convert('<details><summary>s</summary><p>d</p></details>'),
+        );
+    }
+
+    public function testBlockAttributesInsideACellAreNotWrittenAsText(): void
+    {
+        $carve = $this->converter->convert('<table><tr><td><p class="c">x</p></td></tr></table>');
+
+        $this->assertStringNotContainsString('{.c}', $carve);
+        $this->assertStringContainsString('<td>x</td>', (new CarveConverter())->convert($carve));
     }
 
     public function testListWithAttributes(): void
@@ -1475,8 +1699,7 @@ HTML;
         $html = '<details><summary>Click to expand</summary><p>Hidden content here</p></details>';
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString("::: details\n", $result);
-        $this->assertStringContainsString('Click to expand', $result);
+        $this->assertStringContainsString('::: details "Click to expand"' . "\n", $result);
         $this->assertStringContainsString('Hidden content here', $result);
     }
 
@@ -1548,8 +1771,7 @@ HTML;
         $result = $this->converter->convert($html);
 
         $this->assertStringContainsString('{#q1 .faq}', $result);
-        $this->assertStringContainsString("::: details\n", $result);
-        $this->assertStringContainsString('Question?', $result);
+        $this->assertStringContainsString('::: details "Question?"' . "\n", $result);
         $this->assertStringContainsString('Answer.', $result);
     }
 
@@ -1949,9 +2171,9 @@ DJOT;
         $this->assertSame(trim($expected), $back);
     }
 
-    // ==================== Blockquote Attribution ====================
+    // ==================== Blockquote Footer and Cite Content ====================
 
-    public function testBlockquoteWithFooterAttribution(): void
+    public function testFooterInsideBlockquoteStaysQuotedContent(): void
     {
         $html = '<blockquote><p>To be or not to be</p><footer>— Shakespeare</footer></blockquote>';
         $result = trim($this->converter->convert($html));
@@ -1965,16 +2187,16 @@ DJOT;
         $this->assertSame($expected, $result);
     }
 
-    public function testBlockquoteWithCiteAttribution(): void
+    public function testCiteInsideBlockquoteStaysQuotedContent(): void
     {
         $html = '<blockquote><p>Famous quote</p><cite>Author Name</cite></blockquote>';
         $result = trim($this->converter->convert($html));
 
         $this->assertStringContainsString('> Famous quote', $result);
-        $this->assertStringContainsString('> Author Name', $result);
+        $this->assertStringContainsString('> [Author Name]{cite}', $result);
     }
 
-    public function testBlockquoteWithMultilineFooterAttributionKeepsAllLinesQuoted(): void
+    public function testFooterBlocksInsideBlockquoteKeepAllLinesQuoted(): void
     {
         $html = '<blockquote><p>quote</p><footer><p>By <strong>A</strong></p><p>Work</p></footer></blockquote>';
         $result = trim($this->converter->convert($html));
@@ -1990,7 +2212,7 @@ DJOT;
         $this->assertSame($expected, $result);
     }
 
-    public function testBlockquoteWithoutAttribution(): void
+    public function testBlockquoteWithoutFooter(): void
     {
         $html = '<blockquote><p>Just a quote</p></blockquote>';
         $result = trim($this->converter->convert($html));
@@ -2071,12 +2293,15 @@ DJOT;
         $this->assertSame('$`E = mc^2`$', $result);
     }
 
-    public function testMathMLTextFallback(): void
+    public function testMathMLWithoutTexIsDropped(): void
     {
+        // carve#1210 D6: the children are a token stream, so concatenating
+        // them invents an equation the source never carried. Untrusted modes
+        // drop the element and the loss report names it.
         $html = '<math><mi>x</mi><mo>+</mo><mi>y</mi></math>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('$`x+y`$', $result);
+        $this->assertSame('', $result);
     }
 
     public function testMathMLInParagraph(): void
@@ -2087,12 +2312,12 @@ DJOT;
         $this->assertSame('Equation: $`a + b`$ here', $result);
     }
 
-    public function testMathMLFallbackIgnoresNonTexAnnotations(): void
+    public function testMathMLNonTexAnnotationIsNotTexAndLeavesNoMath(): void
     {
         $html = '<math><semantics><mi>x</mi><mo>+</mo><mi>y</mi><annotation encoding="application/mathml-presentation+xml">ignored</annotation></semantics></math>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('$`x+y`$', $result);
+        $this->assertSame('', $result);
     }
 
     public function testMathMLUsesSafeFenceWhenLatexContainsBackticks(): void
@@ -2200,9 +2425,11 @@ DJOT;
         $html = '<p>Press <kbd id="shortcut" class="key">Ctrl+S</kbd> to save.</p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertStringContainsString('[Ctrl+S]{kbd', $result);
-        $this->assertStringContainsString('#shortcut', $result);
-        $this->assertStringContainsString('.key', $result);
+        // Asserted whole rather than in fragments: the leftover id and class
+        // lead and the consumed name comes last, which is the canonical
+        // writer's slot order. Three contains-assertions passed under either
+        // order and let the two spellings drift apart.
+        $this->assertSame('Press [Ctrl+S]{#shortcut .key kbd} to save.', $result);
     }
 
     public function testNestedSemanticElements(): void
@@ -2235,9 +2462,9 @@ DJOT;
         $html = '<p>Output: <samp class="output" id="result">Success</samp></p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertStringContainsString('[Success]{samp', $result);
-        $this->assertStringContainsString('.output', $result);
-        $this->assertStringContainsString('#result', $result);
+        // The id leads even though the HTML wrote `class` first: the slot
+        // order is the writer's, not the source element's.
+        $this->assertSame('Output: [Success]{#result .output samp}', $result);
     }
 
     public function testVarElement(): void
@@ -2253,8 +2480,7 @@ DJOT;
         $html = '<p>Set <var class="math">y</var> to 5.</p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertStringContainsString('[y]{var', $result);
-        $this->assertStringContainsString('.math', $result);
+        $this->assertSame('Set [y]{.math var} to 5.', $result);
     }
 
     // ==================== Security: untrusted data-djot-src ====================
@@ -2406,8 +2632,15 @@ HTML;
         $this->assertStringNotContainsString('colspan', $result);
         // class attribute should still be preserved
         $this->assertStringContainsString('{.wide}', $result);
-        // Three cells: the real one and two `<` markers
-        $this->assertStringContainsString('| {.wide} Content | < | < |', $result);
+        // Three cells: the real one and two `<` markers. The attribute block is
+        // glued to the opening pipe, which is the only position it parses in
+        // (carve-php#1164) - this used to be written with a space, where the
+        // class was cell content rather than an attribute.
+        $this->assertStringContainsString('|{.wide} Content | < | < |', $result);
+        $this->assertStringContainsString(
+            '<td class="wide" colspan="3">Content</td>',
+            (new CarveConverter())->convert($result),
+        );
     }
 
     public function testTableRowspanThreeRows(): void

@@ -6,9 +6,12 @@ namespace MarkupCarve\Carve\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -16,6 +19,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -67,7 +71,9 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Util\StringUtil;
 use ReflectionObject;
 use Throwable;
 
@@ -100,6 +106,16 @@ class CarveRenderer implements RendererInterface
      * marker is a BLOCK line, and a cell's content is not one.
      */
     protected int $tableCellDepth = 0;
+
+    /**
+     * Inside an inline note's content, where `^[` opens nothing.
+     *
+     * PART 9 §16: a note's content is parsed with footnote recognition
+     * DISABLED, at every depth, in both directions. So the inner spelling is
+     * ordinary text there and the writer has nothing to escape
+     * (markup-carve/carve#1191).
+     */
+    protected int $inlineNoteDepth = 0;
 
     protected int $listDepth = 0;
 
@@ -333,10 +349,20 @@ class CarveRenderer implements RendererInterface
      */
     protected array $definitionsWrittenInPlace = [];
 
+    /**
+     * A term defined twice is two lines the author wrote; which one wins is
+     * resolution (PART 9R) and the formatter does not resolve, so every
+     * authored node is written, each at its own position.
+     */
+    protected function renderAbbreviationDefinition(AbbreviationDefinition $node): string
+    {
+        return '*[' . $this->escapeBracketText($node->getAbbr()) . ']: '
+            . str_replace("\n", ' ', $node->getExpansion());
+    }
+
     protected function renderDocumentParts(Document $document): string
     {
         $parts = [];
-        $abbrs = [];
         // PART 12 §10: definition attributes serialize ONCE, on the definition.
         // Resolution materializes them onto every link that resolves the label
         // so the HTML target can render them, which leaves the writer unable to
@@ -366,26 +392,29 @@ class CarveRenderer implements RendererInterface
                 }
             }
         }
-        // Every authored definition, in source order. A term defined twice is
-        // two lines the author wrote; which one wins is resolution (PART 9R)
-        // and the formatter does not resolve.
-        foreach ($document->getAbbreviationDefinitions() as $definition) {
-            $abbrs[] = '*[' . $this->escapeBracketText($definition['abbr']) . ']: '
+        // The definition is written WHERE IT WAS AUTHORED, from its node, because
+        // `renderBlocks` has an arm for it. This used to place the whole set at
+        // one end of the body, chosen by `hasAbbreviationsBeforeBody()` - two
+        // positions, which is one fewer than a document can express, so a
+        // definition authored BETWEEN two blocks moved to an end and
+        // `parse(fmt(x)) != parse(x)` (PART 11 section 1). The parser in this
+        // engine already keeps the node at its source position because PART 12
+        // section 7 refuses to collect it (BlockParser::orderCollectedDefinitions),
+        // so the two halves disagreed about the same clause.
+        $residual = [];
+        foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
+            $residual[] = '*[' . $this->escapeBracketText($definition['abbr']) . ']: '
                 . str_replace("\n", ' ', $definition['expansion']);
         }
-        // One BLANK line between definitions, matching carve-js and carve-rs.
-        // Joining them with a single newline round-trips (the next line is a
-        // definition either way), so nothing but a byte comparison across
-        // engines could see it - and no corpus document had two definitions.
-        if ($abbrs !== [] && $document->hasAbbreviationsBeforeBody()) {
-            $parts[] = implode("\n\n", $abbrs);
+        if ($residual !== [] && $document->hasAbbreviationsBeforeBody()) {
+            $parts[] = implode("\n\n", $residual);
         }
         $body = $this->renderBlocks($document->getChildren());
         if ($body !== '') {
             $parts[] = $body;
         }
-        if ($abbrs !== [] && !$document->hasAbbreviationsBeforeBody()) {
-            $parts[] = implode("\n\n", $abbrs);
+        if ($residual !== [] && !$document->hasAbbreviationsBeforeBody()) {
+            $parts[] = implode("\n\n", $residual);
         }
 
         return $this->normalize(implode("\n\n", $parts));
@@ -553,6 +582,15 @@ class CarveRenderer implements RendererInterface
             return true;
         }
 
+        // The closing fence of a bare `::: figure` container is §4's sixth
+        // caption host (PART 9 §4c), so a paragraph starting with `^` right
+        // after a composite figure needs its escape - and the group's own
+        // caption, written by renderFigureGroup() itself, does not pass
+        // through here at all.
+        if ($block instanceof FigureGroup) {
+            return true;
+        }
+
         if ($block instanceof Image) {
             return UnresolvedReference::sourceOf($block) === null;
         }
@@ -611,6 +649,8 @@ class CarveRenderer implements RendererInterface
             // A LONE image is a block node, not a paragraph wrapping one (the
             // `image` node's own description in the AST vocabulary).
             $node instanceof Image => $this->renderImage($node),
+            $node instanceof AbbreviationDefinition
+            => $withAttrs($this->renderAbbreviationDefinition($node)),
             $node instanceof Paragraph => $withAttrs($this->renderParagraph($node, $attrs === '')),
             // The opener's quoted title is resolved onto the `title` attribute at
             // parse time so it reaches every consumer, but the fence carries it
@@ -630,6 +670,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Div => $withAttrs($this->renderDiv($node)),
             $node instanceof LineBlock => $withAttrs($this->renderLineBlock($node)),
             $node instanceof DefinitionList => $withAttrs($this->renderDefinitionList($node)),
+            $node instanceof FigureGroup => $withAttrs($this->renderFigureGroup($node)),
             $node instanceof Figure => $withAttrs($this->renderFigure($node)),
             $node instanceof RawBlock => $withAttrs($this->renderRawBlock($node)),
             $node instanceof Comment => $this->renderComment($node),
@@ -646,6 +687,15 @@ class CarveRenderer implements RendererInterface
                 ? ''
                 : $this->renderLinkReferenceDefinition($node),
             $node instanceof Caption => '^ ' . $this->renderInlines($node->getChildren()),
+            // PART 12 §18 gives the bibliography line a node; it does NOT move
+            // rendered output on any target, and this writer is a target. The
+            // line was dropped when the collect pass consumed it and it is
+            // dropped here, so `fmt` is byte-identical either way
+            // (markup-carve/carve#1276). Writing it back is a separate change
+            // to what this renderer emits, not a consequence of the node
+            // existing - without this arm the default branch would emit the
+            // entry's inlines as a bare paragraph, which is neither.
+            $node instanceof CitationDefinition => '',
             default => $this->renderBlocks($node->getChildren()),
         };
     }
@@ -655,10 +705,43 @@ class CarveRenderer implements RendererInterface
         $previous = $this->paragraphStartsAfterCaptionHost;
         $this->paragraphStartsAfterCaptionHost = $canUsePreviousCaptionSlot && $this->afterCaptionHost;
         try {
-            return $this->guardThematicBreakLines($this->renderInlines($node->getChildren()));
+            $body = $this->guardThematicBreakLines($this->renderInlines($node->getChildren()));
+
+            return $this->inLineBlock > 0 ? self::spellEmptyVerseLines($body) : $body;
         } finally {
             $this->paragraphStartsAfterCaptionHost = $previous;
         }
+    }
+
+    /**
+     * AN EMPTY LINE INSIDE A VERBATIM RUN IS SPELLED `%%` (PART 11 §7c).
+     *
+     * A run left unclosed on an earlier line swallows an emptied verse line as
+     * a NEWLINE in its value (PART 9 §23), so the tree holds no `hard_break`
+     * for §7c to spell and no `comment` node to put back: what the writer has
+     * is a value containing an empty line, and a blank body line would END THE
+     * STANZA. An empty verse line has exactly ONE spelling that does not - a
+     * comment line, which the block layer removes before the run exists, so
+     * `%%` re-reads to the empty line it was written for and to nothing else.
+     *
+     * There is no other source of an empty line here. A `hard_break` over an
+     * empty line is written `\` by §7c, and the blank line BETWEEN stanzas is
+     * the container's, added after this runs.
+     */
+    private static function spellEmptyVerseLines(string $body): string
+    {
+        if (!str_contains($body, "\n")) {
+            return $body;
+        }
+
+        $lines = explode("\n", $body);
+        foreach ($lines as $index => $line) {
+            if ($line === '') {
+                $lines[$index] = '%%';
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -702,10 +785,19 @@ class CarveRenderer implements RendererInterface
         }
         $label = $node->getLabel();
         if ($label !== null) {
-            $parts[] = '[' . $this->escapeBracketText($label) . ']';
+            $parts[] = '[' . $this->writeFlatBracketRun($label) . ']';
         }
 
-        return $parts === [] ? '' : ' ' . implode(' ', $parts);
+        // NO SPACE between the fence run and the info string. `fenced_code_block`
+        // names the slot OPTIONAL and the no-space form CANONICAL: "The no-space
+        // form (```php) is canonical and is what the X->Carve converters emit."
+        // The reader stays lenient and accepts both, which is why a single-pass
+        // output check never caught this - ``` php re-parses to the same tree.
+        //
+        // The separators BETWEEN the parts are a different slot and stay: inside
+        // `code_fence_info` they are `space+`, mandatory, so ```php"t" is not a
+        // fence opener at all and joining without one would lose the header.
+        return implode(' ', $parts);
     }
 
     protected function renderBlockQuote(BlockQuote $node): string
@@ -713,7 +805,9 @@ class CarveRenderer implements RendererInterface
         $inner = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($node->getChildren()));
         $lines = explode("\n", $inner);
 
-        return implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
+        $quoted = implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
+
+        return $quoted;
     }
 
     protected function renderList(ListBlock $node): string
@@ -763,6 +857,29 @@ class CarveRenderer implements RendererInterface
                 }
 
                 $content = $this->trimNonNbsp($this->renderListItem($item, $node->isTight()));
+                // A definition authored on an item's marker line is collected
+                // into the document, leaving the item empty. Spell it back on
+                // that same marker line. Using `+` for the empty item would
+                // attach the following outer-item block to this inner item on
+                // the next parse (carve-php#1492).
+                if (
+                    $content === ''
+                    && $item->getChildren() === []
+                    // Nested depth ONLY. At the top level the canonical form is
+                    // `- +`, pinned by corpus fixtures 16-reference-link-4 and
+                    // 117-footnote-definition-inside-a-container-is-collected-2, and it
+                    // round-trips there because nothing follows at a shallower column.
+                    && $this->listDepth > 1
+                ) {
+                    $line = $item->getPos()?->startLine;
+                    $collected = $line === null ? null : ($this->definitionsByLine[$line] ?? null);
+                    if ($collected !== null && !isset($this->definitionsWrittenInPlace[spl_object_id($collected)])) {
+                        $this->definitionsWrittenInPlace[spl_object_id($collected)] = true;
+                        $content = $collected instanceof Footnote
+                            ? $this->renderFootnote($collected)
+                            : $this->renderLinkReferenceDefinition($collected);
+                    }
+                }
                 $lines = $content === '' ? [''] : explode("\n", $content);
                 $first = array_shift($lines);
                 $out .= $prefix . ($first === '' ? '+' : $first) . "\n";
@@ -907,6 +1024,35 @@ class CarveRenderer implements RendererInterface
         return !$node instanceof ListBlock;
     }
 
+    /**
+     * Whether the WRITTEN form of a block opens with a block-attributes line.
+     *
+     * The three kinds above fold into an open paragraph one column in because
+     * their canonical source is a bare inline run. That stops being true the
+     * moment the writer has to put the block's attributes on a line of their
+     * own ahead of it: `block_attributes` is one of PART 9 §10's INVISIBLE
+     * CONSTRUCTS, so it INTERRUPTS the open paragraph and the block below it
+     * opens its own.
+     *
+     * So this is not a preference between two spellings. Where the attribute
+     * line is written, the fold the continuation marker exists to prevent
+     * cannot happen, and the marker costs a construct the document did not
+     * have. The marker form and the indented form render the same document in
+     * carve-php, carve-js and carve-rs alike - and the
+     * indented one is what the corpus source and carve-rs write, so writing the
+     * marker was this engine disagreeing with carve-rs (markup-carve/carve#1275).
+     *
+     * A paragraph whose own text is `{...}` does not reach this: the writer
+     * escapes that leading brace (`\{.c\}`), precisely so it cannot come back
+     * as attributes.
+     */
+    protected function opensWithAnAttributeLine(string $rendered): bool
+    {
+        $first = explode("\n", $rendered, 2)[0];
+
+        return (bool)preg_match('/^\{.*\}$/', $first);
+    }
+
     protected function adjacentBlocksMerge(Node $left, Node $right): bool
     {
         if ($left::class !== $right::class) {
@@ -1041,7 +1187,12 @@ class CarveRenderer implements RendererInterface
                 if (
                     $atMarkerColumn
                     || ($next !== null && $this->adjacentBlocksMerge($child, $next))
-                    || (!$separated && $previous instanceof Paragraph && $this->foldsIntoAnOpenParagraph($child))
+                    || (
+                        !$separated
+                        && $previous instanceof Paragraph
+                        && $this->foldsIntoAnOpenParagraph($child)
+                        && !$this->opensWithAnAttributeLine($rendered)
+                    )
                 ) {
                     $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                     $previous = $child;
@@ -1136,7 +1287,7 @@ class CarveRenderer implements RendererInterface
 
     protected function renderDiv(Div $node): string
     {
-        $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
+        $label = $node->getLabel() === null ? '' : ' [' . $this->writeFlatBracketRun($node->getLabel()) . ']';
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
 
@@ -1145,9 +1296,16 @@ class CarveRenderer implements RendererInterface
 
     protected function canRenderTypedDiv(Div $node): bool
     {
+        // Only the OPENER class decides. Requiring exactly one class meant a
+        // class-carrying attribute line above a typed custom div (`{.sidebar}`
+        // + `::: widget "Title"`) fell through to the untyped writer, which
+        // has no title slot - so the quoted title was dropped and one fmt pass
+        // changed the rendered HTML (carve-php#1284). Extra classes are the
+        // attribute line's business; withFencedDivAttrs() already writes them
+        // back there with the opener excluded.
         $classes = $node->getClassList();
 
-        return count($classes) === 1
+        return $classes !== []
             && !in_array($classes[0], ['hardbreaks', 'line-block'], true)
             && preg_match('/^[A-Za-z_][\w-]*$/', $classes[0]) === 1;
     }
@@ -1158,7 +1316,7 @@ class CarveRenderer implements RendererInterface
         $kind = $classes[0] ?? '';
         $title = $node->getHeader();
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
-        $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
+        $label = $node->getLabel() === null ? '' : ' [' . $this->writeFlatBracketRun($node->getLabel()) . ']';
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
 
@@ -1170,7 +1328,7 @@ class CarveRenderer implements RendererInterface
         $kind = $this->admonitionKind($node) ?? 'note';
         $title = $node->getHeader();
         $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
-        $label = $node->getLabel() === null ? '' : ' [' . $this->escapeBracketText($node->getLabel()) . ']';
+        $label = $node->getLabel() === null ? '' : ' [' . $this->writeFlatBracketRun($node->getLabel()) . ']';
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
 
@@ -1237,7 +1395,21 @@ class CarveRenderer implements RendererInterface
                 return;
             }
             $seen[$slot] = true;
-            $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($attrs[$slot]);
+            $value = $attrs[$slot];
+            // EXACT key match, not case-insensitive: `LANG` and `lang` are
+            // different attribute names, so folding here rewrote
+            // `[x]{LANG=fr}` into `[x]{:fr}` and changed the name, which
+            // breaks PART 11 SS1 (carve#1137).
+            if ($slot === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
+                $parts[] = ':' . $value;
+            } elseif ($value === '' && $this->isAttrIdentifier($slot)) {
+                // PART 11 SS6c: a value-less attribute comes back as the bare
+                // name, which is the production the language has for it. A key
+                // needing escaping has no bare spelling to fall back to.
+                $parts[] = $this->escapeAttrKey($slot);
+            } else {
+                $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value);
+            }
         };
 
         $order = $node->getAttributeOrder();
@@ -1373,16 +1545,18 @@ class CarveRenderer implements RendererInterface
         // every body cell back aligned, so `parse(fmt(x)) == parse(x)` did not
         // hold (carve#359).
         //
-        // Two header shapes have no native spelling, because `header_cell` in
-        // the grammar is `'=' [alignment_marker] content` and admits neither an
-        // attribute block nor a span marker:
+        // ONE header shape still has no native spelling: `header_cell` is
+        // `'=' [alignment_marker] [cell_attributes] content` and admits no span
+        // marker, so
         //
         //     | < | b |     a span marker promoted to a header cell
-        //     |{.x} a | b | a header cell carrying attributes
         //
-        // Those keep a delimiter row to promote the first row, emitted BARE so
-        // the cells keep their own alignment markers and the delimiter cannot
-        // spill alignment down the column.
+        // keeps a delimiter row to promote the first row, emitted BARE so the
+        // cells keep their own alignment markers and the delimiter cannot spill
+        // alignment down the column. An ATTRIBUTED header cell is no longer in
+        // that set - PART 9 §5 T10 binds the block after the marker run, so
+        // `|={.x} a |` spells it directly and the delimiter row it used to need
+        // dropped both the marker and the cell's own alignment.
         $headerRow = isset($tableRows[0]) && $tableRows[0]->isHeader();
         // This parser resolves a cell's alignment at parse time, so a body cell
         // carries the column's alignment even when the author only wrote it on
@@ -1393,11 +1567,14 @@ class CarveRenderer implements RendererInterface
         // two engines byte for byte, and re-parsing it here restores the same
         // resolved alignment.
         $headerAligns = [];
+        $headerValigns = [];
         if ($headerRow) {
             $headerColumn = 0;
             foreach ($tableRows[0]->getChildren() as $cell) {
                 if ($cell instanceof TableCell) {
-                    $headerAligns[$headerColumn++] = $cell->getAlignment();
+                    $headerAligns[$headerColumn] = $cell->getAlignment();
+                    $headerValigns[$headerColumn] = $cell->getVerticalAlignment();
+                    $headerColumn++;
                 }
             }
         }
@@ -1407,7 +1584,7 @@ class CarveRenderer implements RendererInterface
                 if (!$cell instanceof TableCell) {
                     continue;
                 }
-                if ($cell->getSpanMarker() !== null || $this->renderAttrs($cell) !== '') {
+                if ($cell->getSpanMarker() !== null) {
                     $needsDelimiter = true;
 
                     break;
@@ -1426,8 +1603,13 @@ class CarveRenderer implements RendererInterface
                 $markHeader = !($needsDelimiter && $rowIndex === 0);
                 $inherited = $headerRow
                     && $rowIndex > 0
+                    && !$cell->hasExplicitAlignment()
                     && ($headerAligns[$column] ?? null) === $cell->getAlignment();
-                $cells[] = $this->renderTableCell($cell, $markHeader, $inherited);
+                $inheritedVertical = $headerRow
+                    && $rowIndex > 0
+                    && !$cell->hasExplicitVerticalAlignment()
+                    && ($headerValigns[$column] ?? null) === $cell->getVerticalAlignment();
+                $cells[] = $this->renderTableCell($cell, $markHeader, $inherited, $inheritedVertical);
                 $column++;
             }
             $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
@@ -1450,19 +1632,43 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * @param list<array{text: string, tight: bool}> $cells Rendered cells.
+     * @param list<string> $cells Rendered cells, each already padded.
      * @param string $attrs Row attributes.
      */
     protected function renderTableRow(array $cells, string $attrs): string
     {
-        return '|' . implode('|', array_map(static fn (array $cell): string => $cell['tight'] ? $cell['text'] : ' ' . $cell['text'] . ' ', $cells)) . '|' . $attrs;
+        return '|' . implode('|', $cells) . '|' . $attrs;
     }
 
     /**
-     * @return array{text: string, tight: bool}
+     * A cell's written form: its PREFIX glued to the opening pipe, then one
+     * space, then the content, then one space before the closing pipe.
+     *
+     * The prefix has to touch the pipe - a space in front of `=` or of an
+     * attribute block makes it literal content - but the CONTENT does not, and
+     * the padded form is the readable one. It is also the safe one: the
+     * alignment scan runs right after `|` or `|=` off the UNTRIMMED cell, so a
+     * glued content sigil was read as a marker nobody wrote. That used to be a
+     * guard listing the characters that merge; the space covers every cell.
+     *
+     * An EMPTY cell takes a single space, not two, so a column does not grow a
+     * space each time the document is formatted.
      */
-    protected function renderTableCell(TableCell $cell, bool $markHeader = true, bool $inheritedAlign = false): array
+    protected function padCell(string $prefix, string $content): string
     {
+        if ($content === '') {
+            return $prefix . ' ';
+        }
+
+        return $prefix . ' ' . $content . ' ';
+    }
+
+    protected function renderTableCell(
+        TableCell $cell,
+        bool $markHeader = true,
+        bool $inheritedAlign = false,
+        bool $inheritedValign = false,
+    ): string {
         $attrs = $this->renderAttrs($cell);
         // A lone span marker keeps a SPACE before it. Glued to the opening pipe,
         // `<` is also the left-alignment sigil, and the two readings differ: the
@@ -1474,17 +1680,27 @@ class CarveRenderer implements RendererInterface
         // alignment sigil, but takes the same shape so a row of span cells stays
         // readable.
         //
-        // A cell attribute stays GLUED to the pipe, where the grammar puts it;
-        // the space goes between it and the marker.
+        // A cell attribute block is GLUED to the pipe here, because a span cell
+        // has no marker run for it to bind after (PART 9 §5 T10); the space
+        // goes between it and the span marker.
         if ($cell->getSpanMarker() !== null) {
-            if ($attrs === '') {
-                return ['text' => $cell->getSpanMarker(), 'tight' => false];
-            }
-
-            return ['text' => $attrs . ' ' . $cell->getSpanMarker(), 'tight' => true];
+            return $this->padCell($attrs, $cell->getSpanMarker());
         }
         $align = $inheritedAlign ? '' : $this->alignMarker($cell->getAlignment());
-        $prefix = $attrs . ($cell->isHeader() && $markHeader ? '=' : '') . $align;
+        $valign = $inheritedValign ? '' : match ($cell->getVerticalAlignment()) {
+            TableCell::VALIGN_TOP => '^',
+            TableCell::VALIGN_MIDDLE => '~',
+            TableCell::VALIGN_BOTTOM => 'v',
+            default => '',
+        };
+        $inheritHorizontal = $align === '' && $valign !== '' ? '?' : '';
+        // MARKER RUN FIRST, BLOCK LAST (PART 9 §5 T10). Writing the block ahead
+        // of the `=` produced `|{#x}=R|`, which every reader takes as a DATA
+        // cell whose content starts with `=`, so a `<th id="x">R</th>` came back
+        // as `<td id="x">=R</td>` and PART 11 §1 failed on it. This order is
+        // meaning-preserving instead: `|={#x} R |` parses back to the node that
+        // was written.
+        $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $inheritHorizontal . $valign . $attrs;
 
         $this->tableCellDepth++;
         try {
@@ -1493,32 +1709,7 @@ class CarveRenderer implements RendererInterface
             $this->tableCellDepth--;
         }
 
-        // A PREFIXED CELL IS WRITTEN TIGHT, so the first character of the
-        // content is the character the parser's alignment scan reads. That scan
-        // runs at the position right after `|` or `|=` and consumes exactly one
-        // of `< > ~`, so a header cell whose content OPENS with one lost it:
-        // `| ~x~ |` was written `|=~x~|`, which reads back as CENTER alignment
-        // with the text `x~` - the strikethrough gone, and every cell in the
-        // column centered by a marker the author never wrote. `| <https://e.com> |`
-        // lost its anchor the same way through the LEFT marker
-        // (carve-php#1069 cause 5).
-        //
-        // ONE SPACE IS THE WHOLE FIX, and it is the same argument the span
-        // marker one branch above already carries (carve#710): the scan fires
-        // only on a GLUED sigil, and the content is trimmed once the prefix is
-        // consumed, so `|= ~x~|` is a header cell holding `~x~` again.
-        //
-        // The sigil set is read off the parser rather than listed again here.
-        // The three cases the scan is NOT live in are left alone: a cell
-        // carrying an attribute block has no tight marker at all (the parser
-        // says so where it calls parseTableCellMarker), a prefix that already
-        // ENDS in an alignment marker has spent the scan, and an unprefixed
-        // cell is padded, so the scan reads its space.
-        if ($this->headerMarkerWouldReadAsAlignment($prefix, $align, $attrs, $content)) {
-            return ['text' => $prefix . ' ' . $content, 'tight' => true];
-        }
-
-        return ['text' => $prefix . $content, 'tight' => $prefix !== ''];
+        return $this->padCell($prefix, $content);
     }
 
     protected function renderFigure(Figure $node): string
@@ -1538,34 +1729,72 @@ class CarveRenderer implements RendererInterface
         return $caption === '' ? $target : $target . "\n" . $caption;
     }
 
+    /**
+     * The canonical writer emits the AUTHORED form (grammar PART 11 §10g): the
+     * bare `::: figure` opener - a figure_group has no title or label to spell
+     * - the children with one blank line between them, the closer at the
+     * opener's width, and the group caption as a `^ ` line after the closer.
+     * The caret is NOT escaped there: the group caption is the caption the
+     * closer hosts, not text in that position, and `\^ ` would re-parse as a
+     * paragraph and break `parse(fmt(x)) == parse(x)`.
+     */
+    protected function renderFigureGroup(FigureGroup $node): string
+    {
+        $fence = $this->colonFenceFor($node);
+        $body = $this->renderColonFenceBody($node);
+        $out = $fence . ' figure' . self::fencedDivBody($body) . $fence;
+
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $out .= "\n^ " . $this->renderInlines($caption->getChildren());
+        }
+
+        return $out;
+    }
+
     protected function renderRawBlock(RawBlock $node): string
     {
         $content = $node->getContent();
         $fence = $this->safeFence($content, 3);
 
-        return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
+        $body = $this->protectVerbatim($content);
+
+        return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n"
+            . $body . ($content !== '' && trim($content, "\n") === '' ? '' : "\n") . $fence;
     }
 
     protected function renderComment(Comment $node): string
     {
         $content = $node->getContent();
+        if ($node->isDelimited()) {
+            return '{% ' . $content . ' %}';
+        }
         $recorded = $node->getFenceLength();
         if ($recorded === null && !str_contains($content, "\n")) {
             return '%% ' . $content;
         }
 
-        // A fence must be WIDER than any run of `%` inside it, whatever width
-        // the author used - a nested `%%%` inside a `%%%` block closes it early.
-        // The recorded width is a floor, not the answer, so it is widened here
-        // rather than trusted: a document decoded from a serialized AST carries
-        // no width at all (PART 12 §3 - the wire says `block`, which is what a
-        // consumer asks; the width is a writer's concern).
+        // A fence must be WIDER than any run of `%` inside it - a nested `%%%`
+        // inside a `%%%` block closes it early - and that is the ONLY thing
+        // that widens it. The author's own width is not reproduced: PART 12 §3
+        // records no run length for any delimiter, so `%%%` and `%%%%` are one
+        // spelling exactly as `***` and `*****` are one thematic break, and
+        // this writer already normalizes the colon, backtick and tilde fences
+        // the same way.
+        //
+        // The recorded width used to be a floor here. That made a `%%%%` around
+        // a body needing no width the one construct whose authored delimiter
+        // this writer reproduced - and since the wire carries blockness rather
+        // than a width (§3, carve#1000), the same document written from a
+        // decoded tree came back at `%%%`. Corpus 339 is where the two answers
+        // met: one document, two spellings, depending on whether it had been
+        // through JSON.
         preg_match_all('/%+/', $content, $matches);
         $longest = 0;
         foreach ($matches[0] as $match) {
             $longest = max($longest, strlen($match));
         }
-        $fence = str_repeat('%', max(3, $recorded ?? 0, $longest + 1));
+        $fence = str_repeat('%', max(3, $longest + 1));
 
         return $fence . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
     }
@@ -1612,11 +1841,11 @@ class CarveRenderer implements RendererInterface
     {
         $body = $this->trimNonNbsp($this->renderBlocks($node->getChildren()));
         if ($body === '') {
-            return '[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']: {empty}';
+            return '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: {empty}';
         }
 
         $lines = explode("\n", $body);
-        $out = '[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']: ' . array_shift($lines);
+        $out = '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: ' . array_shift($lines);
         foreach ($lines as $line) {
             // TWO spaces, the body's own column (PART 9 §16). A wider indent is
             // legal continuation but puts the body's blocks at a relative column
@@ -1661,14 +1890,37 @@ class CarveRenderer implements RendererInterface
             $isFirstInlineLine = true;
             $lineNodeCount = 0;
             $lineHostsCaption = false;
+            $lineEndsInComment = false;
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
+                if ($node instanceof HardBreak && $this->inLineBlock > 0) {
+                    // ONLY THE STANZA'S OWN LAST NODE ENDS THE PARAGRAPH. A
+                    // break nested inside an emphasis run ends that run's list
+                    // instead, and dropping its newline there closed the
+                    // emphasis with an escaped delimiter (`/a\/`). The parser
+                    // never builds that tree - the promotion in
+                    // BlockParser::convertParagraphSoftBreaksToHardBreaks()
+                    // reaches direct children only - but an imported AST can.
+                    $out .= $this->verseLineBreak(
+                        $out,
+                        $i === $count - 1 && $this->inlineDepth === 1,
+                        $lineEndsInComment,
+                    );
+                    $captionCanOpen = false;
+                    $isFirstInlineLine = false;
+                    $lineNodeCount = 0;
+                    $lineHostsCaption = false;
+                    $lineEndsInComment = false;
+
+                    continue;
+                }
                 if ($node instanceof InlineNode) {
                     $out .= $this->renderInline(
                         $node,
                         $this->lastBoundary($nodes[$i - 1] ?? null),
                         $this->firstBoundary($nodes[$i + 1] ?? null),
                         $captionCanOpen,
+                        self::opensAVerbatimRun($nodes[$i + 1] ?? null),
                     );
                     if ($node instanceof SoftBreak) {
                         $captionCanOpen = $isFirstInlineLine && $lineNodeCount === 1 && $lineHostsCaption;
@@ -1681,8 +1933,44 @@ class CarveRenderer implements RendererInterface
                     $lineNodeCount++;
                     $lineHostsCaption = $lineNodeCount === 1 && self::inlineHostsACaption($node);
                     $captionCanOpen = false;
+                    $lineEndsInComment = false;
                 } elseif ($node instanceof Comment) {
-                    $out .= ' %% ' . $node->getContent();
+                    // THE SEPARATOR SPACE IS ONLY A SEPARATOR. §21 recognizes
+                    // `%%` after whitespace OR at the start of its line, so a
+                    // comment that already STARTS its line has nothing to
+                    // separate from and must not be given a space it did not
+                    // have.
+                    //
+                    // Everywhere else that space was cosmetic, which is why it
+                    // went unnoticed: leading whitespace is stripped on the way
+                    // back in. A LINE BLOCK is the one place it is not - there
+                    // leading whitespace is preserved CONTENT (§23), so the
+                    // space pushes the marker off column 0, the reparse reads
+                    // `%%` as ordinary verse, and `carve fmt` both breaks its
+                    // own `toHtml(fmt(x)) == toHtml(x)` invariant and PUBLISHES
+                    // the comment text the author hid. carve-rs emits no space
+                    // here and round-trips; carve-js emits one and does not.
+                    //
+                    // NO SEPARATOR WITHOUT SOMETHING TO SEPARATE FROM, and an
+                    // EMPTY comment is the marker alone. The trailing space was
+                    // cosmetic everywhere but a line block, where PART 11 §7c
+                    // protects a line's last column with a backslash - and a
+                    // backslash after the marker is comment CONTENT, so the
+                    // note came back holding one (corpus 346-3).
+                    $body = $node->getContent() === '' ? '%%' : '%% ' . $node->getContent();
+
+                    // IN VERSE THAT IS WHAT PUTS THE COMMENT BACK ON THE LINE
+                    // IT EMPTIED. PART 9 §23 removes a comment-only body line
+                    // at the BLOCK layer, and a `comment` node survives only
+                    // where the boundary that OPENS its line survives - so the
+                    // walk is standing at the start of that line when it gets
+                    // here, `$out` ends with the boundary's newline, and no
+                    // separator is what writes the marker at column 0.
+                    $separator = ($out === '' || str_ends_with($out, "\n")) ? '' : ' ';
+                    $out .= $node->isDelimited()
+                        ? $this->renderComment($node)
+                        : $separator . $body;
+                    $lineEndsInComment = !$node->isDelimited();
                     $lineNodeCount++;
                     $lineHostsCaption = false;
                     $captionCanOpen = false;
@@ -1695,8 +1983,90 @@ class CarveRenderer implements RendererInterface
         }
     }
 
-    protected function renderInline(InlineNode $node, string $prevChar = '', string $nextChar = '', bool $captionCanOpen = false): string
+    /**
+     * How a line block spells a `hard_break` (PART 11 §7c).
+     *
+     * A line block hardens every line boundary of its own accord (PART 9 §23),
+     * so the break is a BARE NEWLINE - right for most lines and wrong for the
+     * two where §7's precondition fails. §7 may strip a line's trailing
+     * whitespace only because the parser discards it too, and the parser does
+     * NOT discard it when a backslash follows: PART 7 makes that run INTERIOR.
+     *
+     * So the backslash is written where a bare newline would be RE-READ:
+     *
+     *  - the line's content is EMPTY. A blank body line ends the stanza, so one
+     *    stanza is written back as two.
+     *  - the line's content ends in a LONE space, which PART 2 then drops. A
+     *    run of two or more columns is already NBSP content (§23 MEDIAL GAPS)
+     *    and needs no backslash, and neither does an ESCAPED space: `a\ ` is
+     *    one non-breaking space, not line-trailing whitespace.
+     *
+     * A break that ENDS the paragraph writes the backslash and no newline at
+     * all: {@see self::renderLineBlock()} adds the line ending before the
+     * closing fence, and a second one would be the blank line this exists to
+     * avoid - which is how a block's last line lost its `<br>` and the space
+     * in front of it (markup-carve/carve#1334).
+     */
+    protected function verseLineBreak(string $out, bool $endsTheParagraph, bool $lineEndsInComment): string
     {
+        // A LINE WHOSE LAST NODE IS A COMMENT IS EXEMPT -- and the rule is
+        // keyed on the NODE, not on where the line sits. `%%` runs to the END
+        // OF ITS LINE, so a trailing space there is INSIDE the note rather
+        // than content PART 2 is about to take: stripping it leaves the same
+        // node, and protecting it does not, because the block layer claims the
+        // whole line before the inline parser sees it and the backslash lands
+        // in the comment's own content. An EMPTY comment line is where this
+        // bites, since the writer used to spell one as the marker plus a
+        // separator space (corpus 346-3).
+        if ($lineEndsInComment) {
+            return $endsTheParagraph ? '' : "\n";
+        }
+
+        if ($endsTheParagraph) {
+            return '\\';
+        }
+
+        $lineStart = strrpos($out, "\n");
+        $line = $lineStart === false ? $out : substr($out, $lineStart + 1);
+
+        return (self::verseLineNeedsBackslash($line) ? '\\' : '') . "\n";
+    }
+
+    /**
+     * Whether a bare newline after this line's bytes would be read back as
+     * something else.
+     */
+    private static function verseLineNeedsBackslash(string $line): bool
+    {
+        if ($line === '') {
+            return true;
+        }
+
+        // ONE TRAILING COLUMN, IN EITHER OF ITS TWO SPELLINGS.
+        //
+        // A plain space is the obvious one. An ESCAPED space is the other, and
+        // it is not exempt for looking like content: the line block drops a
+        // lone trailing COLUMN before the inline reader ever sees the escape,
+        // so `a\ ` comes back as `a\` - a hard break with the non-breaking
+        // space gone. The backslash is what stops the column being dropped, so
+        // the test is on the column and not on what put it there.
+        //
+        // A MEDIAL GAP OF TWO OR MORE COLUMNS matches NEITHER, and that is the
+        // whole of its exemption (§23 MEDIAL GAPS). By the time a line reaches
+        // here {@see self::resolveIndentPlaceholder()} has rewritten such a run
+        // to the writer's own protected-space sentinel, which is not a space
+        // and is not the escape placeholder - so it needs no branch of its own,
+        // and a branch spelled against plain spaces would never run.
+        return str_ends_with($line, ' ') || str_ends_with($line, "\u{E000}");
+    }
+
+    protected function renderInline(
+        InlineNode $node,
+        string $prevChar = '',
+        string $nextChar = '',
+        bool $captionCanOpen = false,
+        bool $nextOpensVerbatim = false,
+    ): string {
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
         // An unresolved reference renders as the source the author
         // wrote, never as a link (PART 12 section 3a).
@@ -1708,6 +2078,9 @@ class CarveRenderer implements RendererInterface
                 // Does this node's first character sit at the start of a block
                 // line? Only there can `^ ` be read back as a caption marker.
                 $captionCanOpen && $this->tableCellDepth === 0,
+                // Does a trailing `!` abut the next node's backtick run? Only
+                // there does PART 9 §27 bind it to an inline literal.
+                $nextOpensVerbatim,
             ) . (string)$node->getAttribute('data-carve-raw-suffix'),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
@@ -1734,18 +2107,21 @@ class CarveRenderer implements RendererInterface
             $node instanceof CriticComment => '{#' . $this->escapeCriticText($node->getContent()) . '#}',
             $node instanceof Span => '[' . $this->renderInlines($node->getChildren()) . ']' . ($this->renderAttrs($node) ?: '{}'),
             $node instanceof Math => $withAttrs($this->renderMath($node)),
-            $node instanceof RawInline => $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',
+            $node instanceof RawInline => $node->getContent() === ''
+                ? throw new SourceUnspellableException('raw_inline', 'an empty raw inline has no Carve source spelling')
+                : $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',
             $node instanceof LiteralInline => $this->renderLiteralInline($node),
             $node instanceof RawText => $node->getContent(),
             $node instanceof Symbol => $withAttrs(':' . $this->escapeSymbolName($node->getName()) . ':'),
             $node instanceof InlineExtension => $withAttrs(':' . $this->escapeIdentifier($node->getExtensionType()) . '[' . $this->renderInlines($node->getChildren()) . ']'),
             $node instanceof Abbreviation => $this->escapeText($this->renderInlines($node->getChildren())),
-            $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlines($node->getChildren()) . ']'),
-            $node instanceof FootnoteRef => $withAttrs('[^' . $this->escapeFootnoteLabel($node->getLabel()) . ']'),
+            $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlineNoteContent($node) . ']'),
+            $node instanceof FootnoteRef => $withAttrs('[^' . $this->writeFlatBracketRun($node->getLabel()) . ']'),
             $node instanceof SoftBreak => "\n",
-            $node instanceof HardBreak => $this->inLineBlock > 0
-                ? "\n"
-                : "\\\n",
+            // A line block's own spelling is decided in renderInlines(), which
+            // is the only place that can see the line the break ends
+            // (PART 11 §7c) - see verseLineBreak().
+            $node instanceof HardBreak => "\\\n",
             $node instanceof Insert => $withAttrs('{+' . $this->renderInlines($node->getChildren()) . '+}'),
             $node instanceof Delete => $withAttrs('{-' . $this->renderInlines($node->getChildren()) . '-}'),
             $node instanceof Substitution => '{~' . $this->escapeCriticText($node->getOldText()) . '~>' . $this->escapeCriticText($node->getNewText()) . '~}',
@@ -2324,7 +2700,21 @@ class CarveRenderer implements RendererInterface
                 return;
             }
             $seen[$slot] = true;
-            $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($attrs[$slot]);
+            $value = $attrs[$slot];
+            // EXACT key match, not case-insensitive: `LANG` and `lang` are
+            // different attribute names, so folding here rewrote
+            // `[x]{LANG=fr}` into `[x]{:fr}` and changed the name, which
+            // breaks PART 11 SS1 (carve#1137).
+            if ($slot === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
+                $parts[] = ':' . $value;
+            } elseif ($value === '' && $this->isAttrIdentifier($slot)) {
+                // PART 11 SS6c: a value-less attribute comes back as the bare
+                // name, which is the production the language has for it. A key
+                // needing escaping has no bare spelling to fall back to.
+                $parts[] = $this->escapeAttrKey($slot);
+            } else {
+                $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value);
+            }
         };
 
         if ($order !== []) {
@@ -2676,21 +3066,11 @@ class CarveRenderer implements RendererInterface
         return $marker === false ? '' : $marker;
     }
 
-    /**
-     * Whether the emitted cell prefix would leave the parser's alignment scan
-     * live at the first character of `$content`, with that character being one
-     * the scan consumes.
-     */
-    protected function headerMarkerWouldReadAsAlignment(string $prefix, string $align, string $attrs, string $content): bool
-    {
-        return $prefix !== ''
-            && $attrs === ''
-            && $align === ''
-            && isset(BlockParser::TABLE_ALIGNMENT_MARKERS[$content[0] ?? '']);
-    }
-
-    protected function escapeText(string $text, bool $opensBlockLine = false): string
-    {
+    protected function escapeText(
+        string $text,
+        bool $opensBlockLine = false,
+        bool $nextOpensVerbatim = false,
+    ): string {
         // ONLY WHAT WOULD CHANGE THE RE-PARSE. The class here was every C0
         // control but tab and newline, plus DEL and the whole C1 block - a
         // blanket sanitizer, and the writer was the only artifact applying it.
@@ -2709,20 +3089,44 @@ class CarveRenderer implements RendererInterface
             return $text;
         }
 
-        $pattern = $this->escapeMode === self::ESCAPE_MODE_MINIMAL
-            ? '/([\\\\`"\'^])/'
-            : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'])/';
+        $minimal = $this->escapeMode === self::ESCAPE_MODE_MINIMAL;
+        // `!` AND `$` JOIN THEIR CLASSES SO THE BINDING CASE CAN BE FORCED.
+        // Both are returned bare below wherever they do not bind, so the only
+        // renders that change are the ones where the escape is structural: `!`
+        // was already in the conservative class and is new to the minimal one,
+        // and `$` was in neither.
+        $pattern = $minimal
+            ? '/([\\\\`"\'^!$])/'
+            : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'$])/';
+        $insideNote = $this->inlineNoteDepth > 0;
 
         return (string)preg_replace_callback(
             $pattern,
-            static function (array $match) use ($text, $opensBlockLine): string {
+            static function (array $match) use (
+                $text,
+                $opensBlockLine,
+                $insideNote,
+                $minimal,
+                $nextOpensVerbatim,
+            ): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
                 if ($char === '^' && self::caretOpensACaption($text, $offset, $opensBlockLine)) {
                     // Forced in BOTH modes - see the note on the method.
                     return '\\^';
                 }
-                if ($char === '^' && !self::caretOpensAConstruct($text, $offset)) {
+                // `!` stays in the conservative class, which escaped it before
+                // this guard existed and still does; the guard decides the
+                // MINIMAL pass, which is the one that has to be winnable.
+                if ($char === '!' && $minimal && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
+                    return '!';
+                }
+                // `$` was in NEITHER class, so both passes wrote it bare and
+                // both are unchanged away from the binding case.
+                if ($char === '$' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
+                    return '$';
+                }
+                if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote)) {
                     return '^';
                 }
                 // A COLON only opens something at the start of a line - `::`
@@ -2784,6 +3188,88 @@ class CarveRenderer implements RendererInterface
      */
 
     /**
+     * Does a `!` or `$` here BIND to the verbatim run that follows it?
+     *
+     * TWO SIGILS PREFIX A VERBATIM RUN and no others: `!` opens an inline
+     * literal (PART 9 §27) and `$` opens inline math, which §27 names as the
+     * shape the literal mirrors. Written bare in front of a backtick run either
+     * one stops being text and becomes the construct's marker.
+     *
+     * §27 names the `!` case outright: "A literal `!` immediately before a
+     * backtick run is therefore written `\!` - the single case this construct
+     * reinterprets."
+     *
+     * FORCED IN THE MINIMAL MODE FOR THE SAME REASON THE CAPTION CARET IS
+     * FORCED IN BOTH {@see self::caretOpensACaption()}. The minimal/conservative
+     * decision is per DOCUMENT. Written bare in the minimal pass the `!` binds,
+     * so the minimal render re-parses with a `literal_inline` where the tree has
+     * a text `!` beside a code span - a difference the text and escaped-text
+     * merge cannot absorb, unlike an ordinary escape - and the WHOLE document
+     * escalates to conservative, which then escapes every candidate in it. A
+     * paragraph of `foo (bar) #baz 50% a-b` that round-trips bare on its own
+     * came back as `foo \(bar\) #baz 50\% a\-b` because of a `!` in an unrelated
+     * paragraph below it (markup-carve/carve-php#1412). That is the
+     * over-escaping PART 11 §4 forbids.
+     *
+     * THE `$` CASE IS NOT REACHABLE FROM A PARSE and is a defect all the same.
+     * `$` sat in neither escape class, so an INGESTED tree (PART 12) holding a
+     * text node that ends in `$` beside a code span was written as `a $` plus a
+     * backtick run and read back as MATH - `toHtml(fmt(x)) == toHtml(x)` broken
+     * outright, not merely over-escaped. The `!` case reaches the same seam from
+     * a parse, because an unclosed run is written back CLOSED and the adjacency
+     * the source did not have appears in the output.
+     *
+     * ONLY THE NODE'S LAST CHARACTER can abut the run. A sigil with more text
+     * after it is followed by that text, and a backtick INSIDE this node is
+     * escaped by this same pass, so no run forms there and the bare sigil is
+     * already correct. A doubled `$$` needs only its last one escaped for the
+     * same reason: the first is then followed by a backslash rather than a run.
+     *
+     * @param string $text
+     * @param int $offset
+     * @param bool $nextOpensVerbatim Whether the next sibling renders as a
+     *   backtick run. A code span is the only inline whose written form opens
+     *   with one; an inline literal opens with its own `!` and math with its
+     *   own `$`.
+     */
+    private static function sigilBindsToAVerbatimRun(string $text, int $offset, bool $nextOpensVerbatim): bool
+    {
+        return $nextOpensVerbatim && $offset === strlen($text) - 1;
+    }
+
+    /**
+     * Does this node's written form OPEN with a backtick run a sigil binds to?
+     *
+     * TWO NODES ARE WRITTEN THROUGH {@see self::renderCode()}, not one: a code
+     * span, and a raw inline, which is the same run with a `{=format}` suffix.
+     * Reading only the code span left an ingested `text("a $")` beside a raw
+     * inline written as `a $` plus a run, which came back as MATH holding the
+     * format block - the `toHtml(fmt(x)) == toHtml(x)` break this guard exists
+     * to close, on the node that is easy to forget because its type name says
+     * nothing about backticks.
+     *
+     * AN EMPTY CODE SPAN IS THE EXCEPTION. It writes as a bare `` `` ``, and a
+     * sigil does not bind to it: `` !`` `` parses as a text `!` beside an empty
+     * code node, so escaping there would add a `\!` that PART 11 §2 forbids -
+     * the same over-escaping this change removes, one shape smaller.
+     *
+     * An empty RAW inline is NOT exempt, and not because it round-trips: it
+     * does not, with or without a sigil beside it. `` ``{=html} `` reads back
+     * as a code span holding the format block, so an empty raw inline has no
+     * source spelling at all - filed as markup-carve/carve-php#1419, and out of
+     * this guard's reach. The escape is kept there because it preserves the
+     * sigil's own text, which is strictly more than the bare form keeps.
+     */
+    private static function opensAVerbatimRun(?Node $node): bool
+    {
+        if ($node instanceof RawInline) {
+            return true;
+        }
+
+        return $node instanceof Code && $node->getContent() !== '';
+    }
+
+    /**
      * Is this caret a CAPTION MARKER - `^` plus a space at the start of a block
      * line?
      *
@@ -2814,12 +3300,34 @@ class CarveRenderer implements RendererInterface
         return $offset === 0 && $opensBlockLine;
     }
 
-    private static function caretOpensAConstruct(string $text, int $offset): bool
+    /**
+     * A note's content, rendered with footnote recognition off.
+     *
+     * The reader turns it off for the whole content at every depth, so the
+     * writer has to hold the same frame while it walks the children: in
+     * `^[a ^[b ^[c] d] e]` the parse finds ONE note and two runs of ordinary
+     * text, and the writer that escaped the inner carets wrote a document that
+     * no longer said that (markup-carve/carve#1191).
+     */
+    protected function renderInlineNoteContent(InlineFootnote $node): string
+    {
+        $this->inlineNoteDepth++;
+        try {
+            return $this->renderInlines($node->getChildren());
+        } finally {
+            $this->inlineNoteDepth--;
+        }
+    }
+
+    private static function caretOpensAConstruct(string $text, int $offset, bool $insideNote): bool
     {
         $next = $text[$offset + 1] ?? '';
-        // `^[` opens an inline footnote.
+        // `^[` opens an inline footnote - but only where a note can open at
+        // all. PART 9 §16 rules out three positions, and none of them needs an
+        // escape because the bare spelling re-parses as the same text
+        // (markup-carve/carve#1191).
         if ($next === '[') {
-            return true;
+            return !$insideNote && self::inlineNoteCouldOpen($text, $offset + 1);
         }
 
         // `{^` opens a braced superscript and `^}` closes one. Either half
@@ -2827,8 +3335,75 @@ class CarveRenderer implements RendererInterface
         return ($text[$offset - 1] ?? '') === '{' || $next === '}';
     }
 
+    /**
+     * Would the bracketed run at $openPos give a note a body to hold?
+     *
+     * "Empty or whitespace-only (`^[]`, `^[ ]`) is literal; an unclosed `^[…`
+     * is literal." Both are decided by the run itself, so ask the reader's own
+     * scan where it closes and look at what is inside. A run this text node
+     * does not close is one the document does not close either: the caret sits
+     * in a text node precisely because no note formed around it.
+     *
+     * @param string $text
+     * @param int $openPos
+     */
+    private static function inlineNoteCouldOpen(string $text, int $openPos): bool
+    {
+        $close = BracketScanner::balancedBracketEnd($text, $openPos);
+        if ($close === null) {
+            return false;
+        }
+
+        // The parser's whitespace set, not PHP's. `trim()` also strips a
+        // vertical tab and a NUL, which `parseInlineFootnote` does not, so an
+        // ingested `^[<VT>]` is a real note there and would have been written
+        // bare here - the one direction this rule must never get wrong.
+        $body = substr($text, $openPos + 1, $close - $openPos - 1);
+
+        return trim($body, StringUtil::WHITESPACE_CHARS) !== '';
+    }
+
+    /**
+     * An image's alt text, written between the `![` and its closing `]`.
+     *
+     * The run is RAW: it lands in an HTML attribute, nothing inside it is
+     * inline-parsed, and no escape inside it is resolved - `![t\]z](/i.png)`
+     * gives `alt="t\]z"`, backslash included. So the writer cannot neutralize
+     * anything here, only write the run or not write it, and it asks the
+     * READER'S OWN SCAN which it is. `![t[z]](/i.png)` came back written
+     * `t\[z\]` on the premise the run stops at the first `]`, which is the
+     * premise markup-carve/carve#1206 removed from the grammar, and the
+     * backslash then compounded one per pass.
+     *
+     * An alt text with no Carve spelling at all - a bare unbalanced `]`, or a
+     * run ending inside an unclosed code span - keeps the escape. `parse`
+     * cannot produce one; an ingested AST can. The escape is not a faithful
+     * representation of that value either, but it is better than none:
+     * `![t]z](/i.png)` written verbatim is a paragraph of literal text where
+     * the escaped spelling is still an image, and it settles, because the
+     * escaped alt is itself representable and the next pass writes the same
+     * bytes.
+     */
     protected function escapeImageAlt(string $text): string
     {
+        // A comment-only verse line is removed before an image's scalar ALT is
+        // built, leaving an empty line with no comment node to carry it.  Spell
+        // that loss the same way §7c spells an emptied verbatim line, and the
+        // same way the reference-image snapshot already does.
+        if (str_contains($text, "\n")) {
+            $lines = explode("\n", $text);
+            foreach ($lines as $index => $line) {
+                if ($line === '') {
+                    $lines[$index] = '%%';
+                }
+            }
+            $text = implode("\n", $lines);
+        }
+
+        if (BracketScanner::rawRunCloses($text)) {
+            return $text;
+        }
+
         return str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $text);
     }
 
@@ -2897,14 +3472,37 @@ class CarveRenderer implements RendererInterface
         return str_replace(['\\', '"'], ['\\\\', '\\"'], $text);
     }
 
+    /**
+     * An abbreviation, written between the `*[` and `]:` of its definition.
+     *
+     * Deliberately NOT one of the raw bracketed runs below. The definition is
+     * read as `*[([A-Za-z0-9]+)]: `, so neither a backslash nor a bracket can
+     * reach this from a parse, and an ingested one carrying either has no
+     * definition spelling with or without the escape. A shared shape, not a
+     * shared rule.
+     */
     protected function escapeBracketText(string $text): string
     {
         return str_replace(['\\', ']'], ['\\\\', '\\]'], $text);
     }
 
-    protected function escapeFootnoteLabel(string $text): string
+    /**
+     * A run written between brackets whose reader scans it FLAT: a container
+     * label, a code-fence label, a footnote id.
+     *
+     * Written as authored, with no escape, because there is nothing an escape
+     * could buy. Each of these readers anchors on the whole of what follows and
+     * stops at the first `]` without resolving anything, so a label holding a
+     * `]` fails to match with a backslash exactly as it fails without one - the
+     * construct is not a label either way. What the escape did do was survive
+     * into the label a reader that DID match handed back, so a backslash grew
+     * one more backslash on every format pass and two of the five sites changed
+     * what the document says (a container label is rendered). See
+     * markup-carve/carve#1197 and markup-carve/carve-js#1068.
+     */
+    protected function writeFlatBracketRun(string $text): string
     {
-        return $this->escapeBracketText($text);
+        return $text;
     }
 
     protected function escapeIdentifier(string $text): string

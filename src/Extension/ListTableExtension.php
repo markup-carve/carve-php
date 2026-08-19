@@ -166,12 +166,19 @@ class ListTableExtension implements ExtensionInterface
         // with no cells) leaves the tree exactly as the parser produced it and
         // the default div renderer cannot duplicate content.
         $rows = [];
+        $localHeaderRows = [];
         $extras = [];
         foreach ($outerList->getChildren() as $rowItem) {
             if (!$rowItem instanceof ListItem) {
                 continue;
             }
-            $rows[] = $this->extractCells($rowItem, $extras);
+            $cells = $this->extractCells($rowItem, $extras);
+            $marker = $this->structuralMarker($cells[0] ?? null, 'header-row');
+            if ($marker === null || array_filter(array_slice($cells, 1), fn (ListItem $cell): bool => $this->structuralMarker($cell, 'header-row') !== false) !== []) {
+                return null;
+            }
+            $rows[] = $cells;
+            $localHeaderRows[] = $marker;
         }
 
         if ($rows === []) {
@@ -188,7 +195,17 @@ class ListTableExtension implements ExtensionInterface
             if ($cells === []) {
                 return null;
             }
+            foreach ($cells as $cell) {
+                if ($this->structuralMarker($cell, 'header') === null) {
+                    return null;
+                }
+            }
             $totalCells += count($cells);
+            foreach ($cells as $cell) {
+                if (!$this->validCellAlignment($cell)) {
+                    return null;
+                }
+            }
         }
 
         // DoS guard: span resolution rescans prior rows (~O(rows^2)). Cap the
@@ -200,6 +217,40 @@ class ListTableExtension implements ExtensionInterface
 
         $headerRows = $this->headerCount($node->getAttribute('header-rows'));
         $headerCols = $this->headerCount($node->getAttribute('header-cols'));
+        $footerRows = $this->headerCount($node->getAttribute('footer-rows'));
+        if ($headerRows + $footerRows > count($rows)) {
+            return null;
+        }
+        $footerStart = count($rows) - $footerRows;
+        if (in_array(true, array_slice($localHeaderRows, $footerStart), true)) {
+            return null;
+        }
+        $bodyGroups = [];
+        $groupStart = $headerRows;
+        $groupHasData = false;
+        for ($row = $headerRows; $row < $footerStart; $row++) {
+            if ($localHeaderRows[$row] && $groupHasData) {
+                $bodyGroups[] = [$groupStart, $row];
+                $groupStart = $row;
+                $groupHasData = false;
+            }
+            if (!$localHeaderRows[$row]) {
+                $groupHasData = true;
+            }
+        }
+        if ($groupStart < $footerStart) {
+            $bodyGroups[] = [$groupStart, $footerStart];
+        }
+        $rowGroups = array_fill(0, count($rows), 0);
+        foreach ($bodyGroups as $index => [$start, $end]) {
+            for ($row = $start; $row < $end; $row++) {
+                $rowGroups[$row] = $index + 1;
+            }
+        }
+        $rowCount = count($rows);
+        for ($row = $footerStart; $row < $rowCount; $row++) {
+            $rowGroups[$row] = count($bodyGroups) + 1;
+        }
 
         // Resolve `^`/`<` span markers into a positional grid (one entry per
         // SOURCE cell), EXACTLY mirroring the pipe-table span model so the output
@@ -212,7 +263,7 @@ class ListTableExtension implements ExtensionInterface
         // cell cannot reliably span across <thead>/<tbody>, so a `^` that would
         // extend a header cell down into the body is not merged and degrades to an
         // empty cell instead.
-        $grid = $this->resolveSpans($rows, $headerRows, $extras);
+        $grid = $this->resolveSpans($rows, $headerRows, $extras, $footerStart, $rowGroups);
 
         // Flow each non-skipped cell to an output column, past any column a
         // rowspan from an earlier row still holds - the same flow a browser uses.
@@ -222,6 +273,10 @@ class ListTableExtension implements ExtensionInterface
         // padding there.
         $placement = $this->placeColumns($grid);
         $columnCount = $placement['columnCount'];
+        $columns = $this->columns($node, $columnCount);
+        if ($columns === null) {
+            return null;
+        }
 
         $lines = [];
 
@@ -232,9 +287,15 @@ class ListTableExtension implements ExtensionInterface
                 $lines[] = '  <caption>' . $caption . '</caption>';
             }
         }
+        if (array_filter($columns, static fn (array $column): bool => isset($column['width'])) !== []) {
+            $lines[] = "  <colgroup>\n" . implode("\n", array_map(
+                static fn (array $column): string => '    <col' . (isset($column['width']) ? ' style="width: ' . $column['width'] . '%;"' : '') . '>',
+                $columns,
+            )) . "\n  </colgroup>";
+        }
 
-        $renderRow = function (array $gridRow, int $rowIndex) use ($renderer, $headerRows, $headerCols, $columnCount, $extras, $placement): string {
-            $isHeaderRow = $rowIndex < $headerRows;
+        $renderRow = function (array $gridRow, int $rowIndex) use ($renderer, $headerRows, $headerCols, $columnCount, $extras, $placement, $columns, $localHeaderRows): string {
+            $isHeaderRow = $rowIndex < $headerRows || $localHeaderRows[$rowIndex];
             $cols = $placement['cols'][$rowIndex];
             $html = '';
             $nextCol = 0;
@@ -246,15 +307,25 @@ class ListTableExtension implements ExtensionInterface
                 }
 
                 $col = $cols[$i];
-                $isHeaderCell = $isHeaderRow || $col < $headerCols;
+                $isHeaderCell = $isHeaderRow || $col < $headerCols || $this->structuralMarker($entry['cell'], 'header') === true;
                 $tag = $isHeaderCell ? 'th' : 'td';
                 $attrHtml = '';
+                // PART 10 SST9, the same rule the pipe table follows and in the
+                // same position: `col` in the header-row run, `row` for a cell
+                // that is a header only because it falls inside `header-cols`.
+                // A ListTable and the pipe table it is equivalent to must not
+                // differ in accessibility markup - that equivalence is asserted
+                // directly by testListTableSpanOutputMatchesEquivalentPipeTable.
+                if ($isHeaderCell) {
+                    $attrHtml .= ' scope="' . ($isHeaderRow ? 'col' : 'row') . '"';
+                }
                 if ($entry['rowspan'] > 1) {
                     $attrHtml .= ' rowspan="' . $entry['rowspan'] . '"';
                 }
                 if ($entry['colspan'] > 1) {
                     $attrHtml .= ' colspan="' . $entry['colspan'] . '"';
                 }
+                $attrHtml .= $this->cellStyle($entry['cell'], $columns[$col] ?? []);
                 // Carry the cell's own list-item attributes (e.g. `{.x}`) onto
                 // the <td>/<th> so authored cell styling is not dropped. The
                 // structural span attributes above always win on conflict.
@@ -273,15 +344,19 @@ class ListTableExtension implements ExtensionInterface
             // columns, so it suppresses padding (rowReach accounts for it).
             $col = max($nextCol, $placement['rowReach'][$rowIndex]);
             for (; $col < $columnCount; $col++) {
-                $tag = ($isHeaderRow || $col < $headerCols) ? 'th' : 'td';
-                $html .= '<' . $tag . '></' . $tag . '>';
+                $isPadHeader = $isHeaderRow || $col < $headerCols;
+                $tag = $isPadHeader ? 'th' : 'td';
+                // A padded cell is still a header cell where the grid says so,
+                // so it states its scope like any other.
+                $padScope = $isPadHeader ? ' scope="' . ($isHeaderRow ? 'col' : 'row') . '"' : '';
+                $html .= '<' . $tag . $padScope . $this->columnStyle($columns[$col] ?? []) . '></' . $tag . '>';
             }
 
             return '<tr>' . $html . '</tr>';
         };
 
         $headGrid = array_slice($grid, 0, $headerRows);
-        $bodyGrid = array_slice($grid, $headerRows);
+        $footGrid = array_slice($grid, $footerStart);
 
         if ($headGrid !== []) {
             $thead = '';
@@ -291,12 +366,19 @@ class ListTableExtension implements ExtensionInterface
             $lines[] = '  <thead>' . $thead . '</thead>';
         }
 
-        if ($bodyGrid !== []) {
+        foreach ($bodyGroups as [$start, $end]) {
             $tbody = '';
-            foreach ($bodyGrid as $offset => $gridRow) {
-                $tbody .= '    ' . $renderRow($gridRow, $offset + $headerRows) . "\n";
+            foreach (array_slice($grid, $start, $end - $start) as $offset => $gridRow) {
+                $tbody .= '    ' . $renderRow($gridRow, $offset + $start) . "\n";
             }
             $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
+        }
+        if ($footGrid !== []) {
+            $tfoot = '';
+            foreach ($footGrid as $offset => $gridRow) {
+                $tfoot .= $renderRow($gridRow, $footerStart + $offset);
+            }
+            $lines[] = '  <tfoot>' . $tfoot . '</tfoot>';
         }
 
         $attrs = $this->renderTableAttributes($node, $renderer);
@@ -380,14 +462,17 @@ class ListTableExtension implements ExtensionInterface
      * @param array<array<\MarkupCarve\Carve\Node\Block\ListItem>> $rows
      * @param int $headerRows Number of leading rows that form the `<thead>`.
      * @param array<int, array<\MarkupCarve\Carve\Node\Node>> $extras Per-cell trailing blocks
+     * @param int|null $footerStart
+     * @param array<int, int>|null $rowGroups Row-group id for each source row
      *   (keyed by cell object id). A cell that owns trailing blocks is multi-block
      *   and is therefore never a bare span marker, even if its first paragraph is
      *   a lone `^`/`<` - the extra block keeps it a real content cell.
      *
      * @return array<array<int, GridEntry>>
      */
-    protected function resolveSpans(array $rows, int $headerRows = 0, array $extras = []): array
+    protected function resolveSpans(array $rows, int $headerRows = 0, array $extras = [], ?int $footerStart = null, ?array $rowGroups = null): array
     {
+        $footerStart ??= count($rows);
         // Build the positional grid: one entry per source cell, in source order.
         /** @var array<array<int, GridEntry>> $grid */
         $grid = [];
@@ -424,8 +509,9 @@ class ListTableExtension implements ExtensionInterface
                     // not extend a cell that originated in the header rows. Leave
                     // it unmerged (renders as an empty cell) so no <th rowspan>
                     // crosses into <tbody>.
-                    $crossesHeader = $up !== null && $up < $headerRows && $r >= $headerRows;
-                    if ($up !== null && isset($grid[$up][$c]) && !$crossesHeader) {
+                    $group = static fn (int $row): int => $rowGroups[$row] ?? ($row < $headerRows ? 0 : ($row >= $footerStart ? 2 : 1));
+                    $crossesGroup = $up !== null && $group($up) !== $group($r);
+                    if ($up !== null && isset($grid[$up][$c]) && !$crossesGroup) {
                         $grid[$up][$c]['rowspan'] = $grid[$up][$c]['rowspan'] + 1;
                         $grid[$r][$c]['skip'] = true;
                     }
@@ -646,7 +732,7 @@ class ListTableExtension implements ExtensionInterface
         // a duplicate, ambiguous attribute alongside the computed one.
         foreach (array_keys($attrs) as $key) {
             $lower = strtolower((string)$key);
-            if ($lower === 'rowspan' || $lower === 'colspan') {
+            if ($lower === 'rowspan' || $lower === 'colspan' || $lower === 'header' || $lower === 'header-row' || $lower === 'align' || $lower === 'valign') {
                 unset($attrs[$key]);
             }
         }
@@ -662,6 +748,103 @@ class ListTableExtension implements ExtensionInterface
         return $renderer->renderAttributeArray($attrs);
     }
 
+    private function structuralMarker(?ListItem $cell, string $key): ?bool
+    {
+        if ($cell === null || $cell->getAttribute($key) === null) {
+            return false;
+        }
+
+        return $cell->getAttribute($key) === '' ? true : null;
+    }
+
+    /**
+     * @return list<array{align?: string, valign?: string, width?: float}>|null
+     */
+    private function columns(Div $node, int $count): ?array
+    {
+        $values = [];
+        foreach (['aligns', 'valigns', 'widths'] as $key) {
+            $raw = $node->getAttribute($key);
+            $values[$key] = is_string($raw) ? array_map('trim', explode(',', $raw)) : [];
+            if (count($values[$key]) > $count) {
+                return null;
+            }
+        }
+        $columns = array_fill(0, $count, []);
+        foreach ($values['aligns'] as $index => $value) {
+            if ($value === '') {
+                continue;
+            }
+            if (!in_array($value, ['left', 'right', 'center'], true)) {
+                return null;
+            }
+            $columns[$index]['align'] = $value;
+        }
+        foreach ($values['valigns'] as $index => $value) {
+            if ($value === '') {
+                continue;
+            }
+            if (!in_array($value, ['top', 'middle', 'bottom'], true)) {
+                return null;
+            }
+            $columns[$index]['valign'] = $value;
+        }
+        foreach ($values['widths'] as $index => $value) {
+            if ($value === '') {
+                continue;
+            }
+            if (!is_numeric($value) || (float)$value <= 0 || (float)$value > 100) {
+                return null;
+            }
+            $columns[$index]['width'] = (float)$value;
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @param array{align?: string, valign?: string, width?: float} $column
+     */
+    private function columnStyle(array $column): string
+    {
+        $style = '';
+        if (isset($column['align'])) {
+            $style .= 'text-align: ' . $column['align'] . ';';
+        }
+        if (isset($column['valign'])) {
+            $style .= ($style === '' ? '' : ' ') . 'vertical-align: ' . $column['valign'] . ';';
+        }
+
+        return $style === '' ? '' : ' style="' . $style . '"';
+    }
+
+    private function validCellAlignment(ListItem $cell): bool
+    {
+        $align = $cell->getAttribute('align');
+        $valign = $cell->getAttribute('valign');
+
+        return ($align === null || in_array($align, ['left', 'right', 'center'], true))
+            && ($valign === null || in_array($valign, ['top', 'middle', 'bottom'], true));
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $cell
+@param array{align?: string, valign?: string, width?: float} $column
+     */
+    private function cellStyle(ListItem $cell, array $column): string
+    {
+        $align = $cell->getAttribute('align');
+        $valign = $cell->getAttribute('valign');
+        if (is_string($align)) {
+            $column['align'] = $align;
+        }
+        if (is_string($valign)) {
+            $column['valign'] = $valign;
+        }
+
+        return $this->columnStyle($column);
+    }
+
     /**
      * Build the `<table>` tag attributes.
      *
@@ -675,7 +858,7 @@ class ListTableExtension implements ExtensionInterface
     protected function renderTableAttributes(Div $node, HtmlRenderer $renderer): string
     {
         $attrs = $node->getAttributes();
-        unset($attrs['header-rows'], $attrs['header-cols']);
+        unset($attrs['header-rows'], $attrs['header-cols'], $attrs['footer-rows'], $attrs['aligns'], $attrs['valigns'], $attrs['widths']);
 
         $attrs = $renderer->sanitizeAttributes($attrs);
         $safeMode = $renderer->getSafeMode();

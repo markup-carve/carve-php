@@ -46,10 +46,30 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        // carve#1384. All four quote-reachability documents already render
+        // byte-identically here; listing the category makes the final spec pin
+        // assert that behavior instead of treating a new category as unknown.
+        'a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one',
+        'table-columns-carry-alignment-vertical-alignment-and-widths',
+        'a-table-alignment-run-carries-two-independent-axes',
+        'a-vertical-table-marker-needs-a-horizontal-partner',
+        'a-table-cell-can-inherit-horizontal-alignment',
+        'a-collected-definition-closes-the-item-paragraph',
+        'an-all-blank-raw-payload-still-emits-its-line',
+        'the-semantic-registry-holds-no-element-carve-already-spells',
+        'a-language-attribute-is-exact-sugar-for-lang',
+        'a-malformed-language-tag-leaves-the-whole-block-literal',
+        'a-language-attribute-and-lang-are-one-key',
+        'the-language-sigil-takes-no-padding',
+        'a-boolean-lang-is-the-third-spelling-of-the-same-key',
+        'a-semantic-name-renames-the-span-and-the-leftovers-ride-the-element',
+        'a-derived-title-yields-to-an-authored-one',
+        'a-structural-attribute-leads-the-author-s-own',
         'a-caret-line-does-not-end-a-paragraph-it-cannot-caption',
         'heading-index-plain-text-covers-visible-leaves-and-rejects-an-empty-key',
         'a-column-zero-definition-ends-an-open-list-item',
         'adjacent-block-openers-in-an-attached-run-stay-separate',
+        'adjacent-sibling-lists-survive-the-round-trip',
         'an-empty-footnote-body-is-written-with-the-empty-sentinel',
         'a-caption-attaches-across-one-blank-line',
         'a-container-a-lazy-line-folded-into-is-still-open',
@@ -142,6 +162,7 @@ class CarveCorpusTest extends TestCase
         'blocks-that-render-to-nothing',
         'bold-italic-delimiter-needs-content',
         'boolean-attributes',
+        'a-boolean-and-a-key-value-of-the-same-name-are-one-attribute',
         'classes-are-deduplicated',
         'code-span-and-image-trailing-attributes-are-strict',
         'collapsed-reference-link',
@@ -339,6 +360,274 @@ class CarveCorpusTest extends TestCase
         'a-below-column-marker-after-a-comment-where-no-paragraph-is-open',
         'a-list-marker-at-the-content-column-inside-an-open-fence',
         'a-boundary-line-inside-an-open-fence-does-not-end-the-container',
+        'a-fence-keeps-the-blank-line-at-the-end-of-its-content',
+        'a-boolean-and-a-key-value-of-the-same-name-are-one-attribute',
+        'two-attributes-need-a-separator-between-them',
+        // Arrived with the same corpus bump as PART 11 §10e. Each names a rule
+        // this engine already implements, from a fix that landed before the
+        // corpus caught up: #1243 (math base class), #1241 (angle bracket) and
+        // #1244 (abbr inside an inline container). All eleven documents render
+        // byte-identically to their pinned HTML, so they are IMPLEMENTED rather
+        // than deferred.
+        'a-math-span-s-base-class-keeps-the-class-slot-in-place',
+        'a-marker-glued-to-a-name-opens-nothing',
+        'an-angle-bracket-is-escaped-only-where-it-opens-markup',
+        'an-abbreviation-expands-inside-an-inline-container',
+        // Arrived with the bump to the corpus that carries PART 9R R2. All ten
+        // categories, 37 documents, render byte-identically to their pinned
+        // HTML here, so each is IMPLEMENTED rather than deferred. The last one
+        // is the rule this bump was made for: a footnote inside an unresolved
+        // reference is not a reference (carve#1198), which this engine already
+        // decides the way the clause states.
+        'a-captioned-quote-holds-more-than-one-block',
+        'an-empty-inline-note-is-literal',
+        'a-multi-letter-ordered-marker-opens-no-list',
+        'a-note-s-content-recognizes-no-note',
+        'a-footnote-in-link-text-nests-the-anchors',
+        'a-footnote-in-reference-link-text-nests-the-anchors-too',
+        'a-note-body-s-own-references-resolve',
+        'a-reference-link-s-text-survives-its-own-frame',
+        'an-inline-note-s-content-resolves-after-the-note',
+        'a-footnote-in-an-unresolved-reference-is-not-a-reference',
+        'an-image-s-alt-text-closes-where-a-link-s-text-closes',
+        'an-editorial-comment-s-bracket-is-content-not-the-close',
+        'composite-figures',
+        // PART 9 §5 T10 (carve#1226). All six documents render byte-identically
+        // to their pinned HTML once the parser reads the marker run before the
+        // attribute block, so the category is IMPLEMENTED rather than deferred.
+        'cell-attributes-bind-after-the-kind-and-alignment-markers',
+        // carve#1229. Both documents render byte-identically to their pinned
+        // HTML already: the padding between a code fence's language, title and
+        // label was never significant here, so the category arrives IMPLEMENTED
+        // rather than deferred.
+        'the-canonical-writer-glues-a-code-fence-to-its-info-string',
+        // Arrived with the bump to carve 8a9724d. Four categories, 28 documents,
+        // every one of them byte-identical to its pinned HTML here - verified
+        // per document through CarveConverter and again through `bin/carve`
+        // before being listed, because an unverified entry turns a real
+        // divergence into a green run, which is the only thing this list is for.
+        //
+        // Each names a rule this engine already decides the way the clause
+        // states, three of them from fixes that landed before the corpus caught
+        // up: the `{% %}` comment spelling (carve#1247, carve-php#1318 for the
+        // ProseMirror half), an attribute block above a no-blank-line nested
+        // list (carve#1238, carve-php#1313), and a block attached after an
+        // invisible line (carve#1266). The last is carve#1269: an abbreviation
+        // line in an item body is the paragraph it renders, which PART 12 §7
+        // rules by scope - carve-php#1319 and carve-php#1320 are its two halves.
+        'delimited-comments',
+        'an-attribute-block-reaches-the-nested-list-it-precedes',
+        'a-block-attached-after-an-invisible-line-leaves-the-item-tight',
+        'an-abbreviation-definition-in-an-item-body-is-paragraph-text',
+        // Arrived with the bump to carve b6917ab. TEN categories came in; each
+        // of their 69 documents was rendered through CarveConverter and diffed
+        // against its pinned `.html` before anything was listed here, because an
+        // entry asserts this engine implements the category - an unverified one
+        // converts a real divergence into a green run, which is the only thing
+        // this list exists to prevent.
+        //
+        // SIX are byte-identical throughout and are listed. The other four -
+        // 326, 327, 329 and 333 - are not: they carry 18 documents this engine
+        // renders differently, and every one of those is named individually in
+        // KNOWN_GAPS below with the rule it is waiting on. The categories are
+        // listed so their PASSING documents keep asserting; the failing ones are
+        // deferred by name rather than by silence.
+        'an-attribute-line-after-a-continuation-marker-attributes-the-attached-block',
+        'an-unclosed-verbatim-run-in-a-row-stops-at-the-closing-pipe',
+        'a-tab-after-a-fence-or-a-frontmatter-opener-depends-on-where-it-sits',
+        'an-unclosed-inline-run-in-a-line-block-reaches-the-end-of-the-block',
+        'which-inline-content-a-heading-id-is-derived-from',
+        'a-label-beginning-with-an-at-sign-is-not-a-reference-label',
+        // The four with per-document gaps. Listed for their passing documents.
+        'a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open',
+        'a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent',
+        'a-floating-attribute-is-scoped-to-the-container-that-holds-it',
+        'a-continuation-row-s-open-run-and-an-escaped-closing-pipe',
+        // Arrived with the bump to carve 8b80822: PART 9 §24 S2 and §28 make a
+        // comment's body verbatim and invisible WHEREVER the fence sits, which
+        // the corpus had only ever pinned at column 0. Every one of the seven
+        // was rendered through CarveConverter and diffed against its `.html`
+        // before it was listed; six of them failed and were fixed rather than
+        // deferred, so KNOWN_GAPS stays empty.
+        'a-comment-fence-at-an-item-s-content-column-registers-nothing-either',
+        'a-footnote-definition-inside-an-item-s-comment-registers-nothing',
+        'a-comment-fence-opened-on-an-item-s-marker-line-hides-its-body-too',
+        'a-comment-fence-one-item-deeper-registers-nothing-either',
+        'a-wider-comment-fence-inside-an-item-hides-its-body-the-same-way',
+        'an-abbreviation-inside-a-comment-defines-nothing',
+        'a-comment-fence-inside-a-colon-container-registers-nothing',
+        // Arrived with the bump to carve 483bcea: PART 9 §25 probes a URL-list
+        // attribute at every candidate rather than at its head. All TEN
+        // documents were rendered through CarveConverter and diffed against
+        // their `.html` before this line was added; seven of them failed and
+        // were fixed rather than deferred, so KNOWN_GAPS stays empty.
+        'url-list-attributes-are-probed-token-wise',
+        // Arrived with the bump to carve 5866bd0: PART 11 §8b M2b measures a
+        // line's content position AFTER its container prefix, so `> \# heading`
+        // keeps the escape the author wrote instead of coming back through an
+        // importer as a heading. Both documents were rendered through
+        // CarveConverter and diffed against their `.html` and their `.md`
+        // before this line was added; both failed and were fixed rather than
+        // deferred, so KNOWN_GAPS stays empty. The narrowing is pinned in the
+        // same pair and still holds: `> C\# is a language` and `- \#tag rest`
+        // drop their escapes exactly as they do outside a container.
+        'an-escaped-hash-keeps-its-escape-at-a-container-s-content-position',
+        // PART 9 §23 (carve#1333): a comment-only body line is removed at the
+        // BLOCK layer. Four documents; one failed - the shape with an unclosed
+        // verbatim run above the comment, which is the whole ruling - and was
+        // fixed rather than deferred. The other three are its controls.
+        //
+        // PART 11 §7c (carve#1334): a line block's hard break keeps its
+        // backslash where a bare newline would be re-read. Three documents,
+        // all of which the engine already RENDERED correctly and all of which
+        // it WROTE wrongly, so the corpus test never saw them - the `.fmt`
+        // fixtures in CarveFmtCorpusTest are what these three pin.
+        //
+        // So KNOWN_GAPS stays empty.
+        'a-comment-only-line-in-a-line-block-is-removed-before-any-inline-run',
+        'a-line-block-s-hard-break-keeps-its-backslash',
+        // Arrived with the bump to carve 9015c3b, which restates PART 11 §7c as
+        // a PROPERTY rather than a list of the cases where the bare newline is
+        // unsafe: the writer spells a `hard_break` inside a line block bare
+        // where, and only where, re-reading that newline yields the same tree.
+        // The list did not reach a stanza's LAST line, whose boundary §23 never
+        // hardens, so `a\` and `a  \` lost the break outright with no space
+        // involved in either (carve#1340).
+        //
+        // Four documents, all four rendered through CarveConverter and diffed
+        // against their `.html` AND their `.fmt` before this line was added.
+        // All four already matched, because this engine derived the rule from
+        // the property rather than from the bullets - which is what the clause
+        // now says to do. KNOWN_GAPS stays empty.
+        'a-line-block-s-last-body-line-keeps-its-backslash',
+        // Arrived with the bump to carve 6af110c, which pins PART 9 §28 at the
+        // one column the corpus had never reached: a definition inside a
+        // comment fence written THROUGH A QUOTE. §28 names no column and no
+        // container, and the column-0 and list-item spellings were already
+        // pinned, so all three engines leaked through the only spelling nobody
+        // had written down (carve#1341).
+        //
+        // Three documents, all three rendered through CarveConverter and diffed
+        // against their `.html` before this line was added. All three already
+        // matched: carve-php#1402 closed the leak a day before the corpus
+        // arrived, and these are what keep it closed. KNOWN_GAPS stays empty.
+        'a-comment-fence-reached-through-a-quote-registers-nothing-either',
+        'a-comment-fence-reached-through-a-quote-registers-nothing-either-2',
+        'a-comment-fence-reached-through-a-quote-registers-nothing-either-3',
+        // Eighteen documents from three rulings, all rendered through
+        // CarveConverter and diffed byte for byte against their `.html` before
+        // these lines were added. All three needed engine work, none is
+        // deferred, so KNOWN_GAPS stays empty.
+        //
+        // 348 is markup-carve/carve#1351: a line block hardens a soft break at
+        // EVERY depth, so `*a` over `b*` puts the `<br>` inside the `<strong>`.
+        // The engine contradicted itself here - the backslash spelling of the
+        // same boundary already hardened at depth - and the exemption turns out
+        // to be node-presence rather than depth.
+        'a-closed-inline-construct-spanning-a-verse-boundary',
+        // 349 is markup-carve/carve#1348: a table is a table however its last
+        // row is spelled, so a container whose table ends on a CONTINUATION row
+        // leaves no open paragraph for a column-0 line to continue - the same
+        // answer the standard-row spelling already gave.
+        'a-container-whose-table-ends-on-a-continuation-row',
+        // 350 is markup-carve/carve#1350: an invisible line AT a container's
+        // content column ends the paragraph rather than the container. Below
+        // that column it is a lazy line and still folds, which is what keeps
+        // corpus 183 and 214-2 pointing the other way.
+        'a-definition-at-a-container-s-content-column',
+        // The freeze at carve 287b4b8 (corpus 1239) added twenty-nine
+        // documents; these are the eight categories among them. Every one was
+        // rendered through CarveConverter and diffed byte for byte against its
+        // `.html` before these lines were added, and the fifty `.fmt` fixtures
+        // still match. None is deferred, so KNOWN_GAPS stays empty.
+        //
+        // carve#1352: a bracketed construct spans a line boundary like any
+        // other inline content. 351 needed one engine change - a captioned
+        // host was writing the FIGURE's indentation into the `alt` value, so
+        // `![a` over `b](/i)` came back holding two spaces the author never
+        // wrote (markup-carve/carve-php#1422). 352 and 353 already answered.
+        'a-bracketed-construct-spanning-a-line-boundary',
+        'a-bracketed-construct-s-identifiers-stay-on-one-line',
+        'a-bracketed-construct-spanning-a-verse-boundary',
+        // carve#1354: a continuation row joins the row above it whatever that
+        // row's cells hold. Already answered - the reader half was never the
+        // divergence.
+        'a-continuation-row-joins-the-row-above-it-whatever-its-cells-hold',
+        // carve#1348 reaching the joined-header spelling. Already answered by
+        // the container half landed for corpus 349.
+        'a-container-whose-table-ends-on-a-joined-header-row',
+        // carve#1355: a quote is asked its own body, and that body may be a
+        // QUOTE. The lazy tracker read an inner `> # H` as prose - it starts
+        // with `>` and not `#` - so the outer quote reported an open paragraph
+        // the flush-left line folded into, while the same heading one level up
+        // already ended it.
+        'a-quote-inside-a-quote-is-asked-what-it-ends-on',
+        // carve#1364 and carve#1357: at a container's content column a block
+        // ends the paragraph it sits under, and WHAT IT RENDERS IS NOT A
+        // PARAMETER. This is the family markup-carve/carve-php#1421 was filed
+        // for: one flag answered both "is a paragraph open" and "is the
+        // container still collecting", so closing the paragraph for an
+        // invisible block also ended the item, which corpus 197 and 277 refuse.
+        // The two questions are separate now.
+        'a-block-at-a-container-s-content-column-ends-the-paragraph-whatever-it-renders',
+        'what-a-content-column-block-does-not-reach',
+        // carve#1363: THE BLOCK'S EXTENT IS THE DEFINITION'S, BLANK LINES AND
+        // ALL. A blank inside a footnote body separates the NOTE's own blocks
+        // rather than ending it, so the item ends and the flush-left line is
+        // top-level. Three passes had to agree: the prepass that collects the
+        // note, the item's own line collection, and the trailing-block tracker
+        // - the prepass stopping at the blank while the block parser skipped
+        // past it is what made the second block leave the document entirely.
+        //
+        // The second document is the LINK-REFERENCE CONTROL and is required
+        // rather than incidental: a link definition has NO body, so it must not
+        // open a body run. That difference is the whole rule, and it is what
+        // catches a fix written one construct too wide.
+        'a-footnote-definition-s-block-runs-to-the-end-of-its-body',
+        // markup-carve/carve#1372, four documents. The ruled link case and its
+        // FOOTNOTE kind, plus two controls this engine already answered before
+        // the fix - the heading at the same column, and the peeled spelling the
+        // ruling argues from. All four render byte-identically to their pinned
+        // HTML here, verified per document through CarveConverter and again
+        // through `bin/carve`, because an unverified entry in this list turns a
+        // real divergence into a green run.
+        'a-definition-behind-an-alternating-container-prefix-registers-at-the-innermost-content-column',
+        // markup-carve/carve#1375, five documents, and markup-carve/carve#1379,
+        // three. Both arrived with the bump to carve 275d99d and both were
+        // already answered here: the first by
+        // markup-carve/carve-php#1439's continuation-row fix, the second by a
+        // reading this engine had before the ruling named it - the spec run
+        // that filed it records carve-php as a fourth agreeing reader it had
+        // not measured. Every document was rendered and compared before being
+        // listed.
+        'a-paragraph-opened-after-a-block-in-an-item-is-still-open-for-a-lazy-line',
+        'an-unterminated-container-does-not-extend-the-item-past-a-blank-line',
+        // markup-carve/carve#1385. A task item's checkbox is not decided by its
+        // first block, and the document pins its PLACEMENT rather than merely
+        // that it is emitted - the divergence an engine carries unnoticed
+        // because it reads as whitespace. Rendered and compared before being
+        // listed: this engine writes the checkbox on the `li` opener whether
+        // the first block is a quote, a heading or a thematic break.
+        'a-task-item-s-checkbox-is-not-decided-by-its-first-block',
+        // markup-carve/carve#1386, two documents. Only lazy folding demotes a
+        // marker-line colon opener - a blank below it does not. Both render
+        // byte-identically here already; rendered and compared before listing.
+        'only-lazy-folding-demotes-a-marker-line-colon-opener',
+        // markup-carve/carve#1388, three documents, and the one category of the
+        // bump to carve 22f7f47 that needed engine work here. §17 L1's first
+        // disjunct is read at the LIST's level: a blank line with nothing of the
+        // item after it separates the items however the item's interior
+        // accounted for it. The category arrived with an OPEN engine window
+        // naming this engine, closed by markup-carve/carve-php#1448 - a code or
+        // a tilde fence with no closer absorbed the blank as a payload line, so
+        // the list stayed tight where a div, an admonition, a raw block and a
+        // comment fence all loosened. The third document is the §11 axis
+        // control: a `*` after a `-` list opens a different list, so nothing is
+        // followed by a blank before one of its OWN siblings and it stays tight.
+        'a-blank-line-before-a-sibling-marker-separates-the-items-whatever-consumed-it',
+        // markup-carve/carve#1377. A heading at an item's content column is a
+        // bounded block and leaves no paragraph open for a flush-left line.
+        'a-heading-at-an-item-s-content-column-leaves-no-paragraph-open',
     ];
 
     /**
@@ -346,9 +635,40 @@ class CarveCorpusTest extends TestCase
      * of a specific unimplemented construct. Each is a tracked follow-up,
      * not a regression. Remove once the construct lands.
      *
+     * EMPTY, AND THAT IS THE POINT. An entry here is an EXCLUSION: the document
+     * is named, its assertion is skipped, and the suite goes green around it.
+     * Nothing in the pins may be excluded, so a new gap is closed rather than
+     * listed. The eighteen that arrived with the bump to carve b6917ab were
+     * four container-boundary rules and are all closed.
+     *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
+        '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too-2' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
+        '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too-3' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-2' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-3' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-4' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-5' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-6' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
+    ];
+
+    /**
+     * Documents this engine renders per the CURRENT spec, which the PINNED
+     * corpus predates.
+     *
+     * The mirror of KNOWN_GAPS: that list is for a rule the engine has not
+     * caught up to, this one for a rule it reached first. Each entry FAILS IN
+     * BOTH DIRECTIONS - the output must equal what the spec now states, so an
+     * engine regression is caught exactly as the corpus would have caught it,
+     * and it must still DIFFER from the pinned golden, so an entry that went
+     * stale when the submodule bumped fails and has to be deleted with it.
+     *
+     * @var array<string, array{reason: string, html: string}>
+     */
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
@@ -403,6 +723,29 @@ class CarveCorpusTest extends TestCase
         return false;
     }
 
+    /**
+     * AN ENTRY THAT NAMES NOTHING IS NOT A PASS.
+     *
+     * The assertions behind AHEAD_OF_PIN run only for an entry whose slug is IN
+     * the corpus, so a declaration left behind after an upstream RENAME matches
+     * no case, runs no assertion, and reads as coverage. markup-carve/carve#1162
+     * renamed `293-a-semantic-span-keeps-its-wrapper-…` to
+     * `293-a-semantic-name-renames-the-span-…`; entries naming the old slug
+     * would have gone on "passing" while checking nothing in either direction.
+     */
+    public function testAheadOfPinNamesOnlyCasesThatExist(): void
+    {
+        $slugs = array_keys(self::corpusProvider());
+        $orphaned = array_values(array_diff(array_keys(self::AHEAD_OF_PIN), $slugs));
+
+        self::assertSame(
+            [],
+            $orphaned,
+            'AHEAD_OF_PIN names case(s) the corpus does not have: ' . implode(', ', $orphaned)
+                . ' - renamed upstream, or already retired; either way the entry asserts nothing.',
+        );
+    }
+
     #[DataProvider('corpusProvider')]
     public function testCorpus(string $slug, string $crv, string $html): void
     {
@@ -422,6 +765,22 @@ class CarveCorpusTest extends TestCase
         );
 
         $actual = $this->converter->convert($crv);
+
+        if (isset(self::AHEAD_OF_PIN[$slug])) {
+            $ahead = self::AHEAD_OF_PIN[$slug];
+            $this->assertSame(
+                $this->normalize($ahead['html']),
+                $this->normalize($actual),
+                $ahead['reason'] . ' (ahead of the pinned corpus): ' . $slug,
+            );
+            $this->assertNotSame(
+                $this->normalize($html),
+                $this->normalize($actual),
+                $slug . ' now matches the pinned corpus: delete its AHEAD_OF_PIN entry',
+            );
+
+            return;
+        }
 
         $this->assertSame(
             $this->normalize($html),

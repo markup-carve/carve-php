@@ -97,8 +97,18 @@ class AstCodecSchemaTest extends TestCase
         // two types §12(d) refuses to read back. They are off the wire now
         // (carve-php#1002), and `document` is left as the one entry with a
         // reason - it is the root, and a root is not a child of anything.
+        //
+        // `citation_definition` is a PIN LAG rather than a second such entry:
+        // PART 12 §18 lands in the schema at spec 861498b and this branch's
+        // submodule pin predates it, so the pinned `blockNode` enum does not
+        // name the type yet. The expectation is read FROM the pinned schema, so
+        // it resolves itself the moment the pin moves - and from that moment
+        // the loop above decodes the type for real rather than skipping it.
         sort($outsideTheVocabulary);
-        $this->assertSame(['document'], $outsideTheVocabulary);
+        $expected = self::isBlock('citation_definition')
+            ? ['document']
+            : ['citation_definition', 'document'];
+        $this->assertSame($expected, $outsideTheVocabulary);
     }
 
     /**

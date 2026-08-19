@@ -9,7 +9,34 @@ namespace MarkupCarve\Carve\Node\Block;
  */
 class Table extends BlockNode
 {
+    /**
+     * @var list<array{align?: string, valign?: string, width?: float}>
+     */
+    protected array $columns = [];
+
+    /**
+     * @param list<array{align?: string, valign?: string, width?: float}> $columns
+     */
+    public function setColumns(array $columns): void
+    {
+        $this->columns = $columns;
+    }
+
+    /**
+     * @return list<array{align?: string, valign?: string, width?: float}>
+     */
+    public function getColumns(): array
+    {
+        return $this->columns;
+    }
+
     protected ?Caption $caption = null;
+
+    /**
+     * @var array<\MarkupCarve\Carve\Node\Inline\InlineNode>|null Optional abbreviated
+     *      navigation caption supplied by a structured format. Ordinary renderers ignore it.
+     */
+    protected ?array $shortCaption = null;
 
     /**
      * Original separator widths for round-trip preservation
@@ -36,6 +63,22 @@ class Table extends BlockNode
     public function hasCaption(): bool
     {
         return $this->caption !== null;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Inline\InlineNode>|null $shortCaption
+     */
+    public function setShortCaption(?array $shortCaption): void
+    {
+        $this->shortCaption = $shortCaption;
+    }
+
+    /**
+     * @return array<\MarkupCarve\Carve\Node\Inline\InlineNode>|null
+     */
+    public function getShortCaption(): ?array
+    {
+        return $this->shortCaption;
     }
 
     /**

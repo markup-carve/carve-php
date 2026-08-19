@@ -82,7 +82,7 @@ class CompactListBlocksTest extends TestCase
     {
         // `+` is not a Carve bullet (unlike Markdown/djot) -- it is the
         // continuation marker, so a `+ x` line is ordinary paragraph text.
-        // This holds under the block-position rule too: `+` is neither a bullet
+        // This holds under paragraph interruption too: `+` is neither a bullet
         // nor a thematic-break char, so a `+ x` line never interrupts an open
         // paragraph -- the two lines stay one paragraph.
         $this->assertSame("<p>+ one\n+ two</p>", trim($this->converter->convert("+ one\n+ two")));

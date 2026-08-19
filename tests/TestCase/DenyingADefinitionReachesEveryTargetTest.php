@@ -34,7 +34,16 @@ use PHPUnit\Framework\TestCase;
  */
 class DenyingADefinitionReachesEveryTargetTest extends TestCase
 {
-    protected string $source = "HTML is fine.\n\n*[HTML]: HyperText\n";
+    /**
+     * TWO DEFINITIONS, and the second one is unreferenced on purpose.
+     *
+     * PART 11 §10f drops a CONSUMED definition's line on the plain and terminal
+     * targets by itself, so a source whose only definition is referenced turns
+     * both of those deny assertions into checks that cannot fail: the line is
+     * already gone before the profile is consulted. `CSS` is referenced by
+     * nothing, so its line is there for the deny to remove.
+     */
+    protected string $source = "HTML is fine.\n\n*[HTML]: HyperText\n*[CSS]: Cascading\n";
 
     protected function denying(string $action): Profile
     {
@@ -45,14 +54,15 @@ class DenyingADefinitionReachesEveryTargetTest extends TestCase
     {
         // Without this the assertions below could pass because the line is never
         // emitted at all, which is a different engine and a green test.
-        $this->assertStringContainsString(
-            '*[HTML]: HyperText',
-            CarveConverter::markdown()->convert($this->source),
-        );
-        $this->assertStringContainsString(
-            '*[HTML]: HyperText',
-            CarveConverter::plainText()->convert($this->source),
-        );
+        $markdown = CarveConverter::markdown()->convert($this->source);
+        $this->assertStringContainsString('*[HTML]: HyperText', $markdown);
+        $this->assertStringContainsString('*[CSS]: Cascading', $markdown);
+
+        // The plain target keeps only the unreferenced one, per §10f, and that
+        // is the line the deny assertions below are aimed at.
+        $plain = CarveConverter::plainText()->convert($this->source);
+        $this->assertStringContainsString('*[CSS]: Cascading', $plain);
+        $this->assertStringNotContainsString('*[HTML]: HyperText', $plain);
     }
 
     /**
@@ -73,6 +83,7 @@ class DenyingADefinitionReachesEveryTargetTest extends TestCase
             ->convert($this->source);
 
         $this->assertStringNotContainsString('*[HTML]:', $out);
+        $this->assertStringNotContainsString('*[CSS]:', $out);
     }
 
     #[DataProvider('actionProvider')]
@@ -81,7 +92,10 @@ class DenyingADefinitionReachesEveryTargetTest extends TestCase
         $out = CarveConverter::create(renderer: new PlainTextRenderer(), profile: $this->denying($action))
             ->convert($this->source);
 
-        $this->assertStringNotContainsString('*[HTML]:', $out);
+        // `*[CSS]:` and not `*[HTML]:`: the referenced one is dropped by §10f
+        // whether or not the profile denies anything, so only the unreferenced
+        // one can measure the deny.
+        $this->assertStringNotContainsString('*[CSS]:', $out);
     }
 
     #[DataProvider('actionProvider')]
@@ -90,7 +104,7 @@ class DenyingADefinitionReachesEveryTargetTest extends TestCase
         $out = CarveConverter::create(renderer: new AnsiRenderer(), profile: $this->denying($action))
             ->convert($this->source);
 
-        $this->assertStringNotContainsString('*[HTML]:', $out);
+        $this->assertStringNotContainsString('*[CSS]:', $out);
     }
 
     #[DataProvider('actionProvider')]

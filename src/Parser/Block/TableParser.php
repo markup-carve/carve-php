@@ -61,8 +61,20 @@ class TableParser
             return false;
         }
 
-        // Verify the line truly ends with | outside of code spans
-        return $this->lineEndsWithPipeOutsideCodeSpan($lineWithoutRowAttrs);
+        // An UNTERMINATED verbatim run in a cell does not un-make the row. A row
+        // is split into cells at BLOCK level, before any inline parsing runs -
+        // which is what lets a separator row work at all - so a run that never
+        // closes is an inline fact reported inside a cell that already exists.
+        // Requiring the closing `|` to sit outside every run asked an inline
+        // question at block level, and answered it the one way no other
+        // malformed inline is answered anywhere in Carve: by dissolving the
+        // block. It also contradicted this same parser one line down, where the
+        // identical row under a header separator was a table
+        // (markup-carve/carve#1284).
+        //
+        // The closing pipe is a DELIMITER either way: splitCells() removes it
+        // before it scans for runs, so no code span can swallow it.
+        return true;
     }
 
     /**
@@ -137,12 +149,22 @@ class TableParser
      */
     public function isSeparatorRow(string $line): bool
     {
+        return $this->analyzeSeparatorRow($line) !== null;
+    }
+
+    /**
+     * Validate and decode a header separator in one cell split.
+     *
+     * @return array{alignments: list<string>, widths: list<int>}|null
+     */
+    public function analyzeSeparatorRow(string $line): ?array
+    {
         // Trailing whitespace after the closing pipe is insignificant.
         $line = rtrim($line, " \t");
 
         $len = strlen($line);
         if ($len < 2 || $line[0] !== '|' || $line[$len - 1] !== '|') {
-            return false;
+            return null;
         }
 
         // Every cell must be a delimiter cell: optional whitespace, an optional
@@ -151,15 +173,28 @@ class TableParser
         // the row -- it is then an ordinary data row (matches carve-js/carve-rs).
         $cells = $this->parseTableCells($line);
         if ($cells === []) {
-            return false;
+            return null;
         }
+        $alignments = [];
+        $widths = [];
         foreach ($cells as $cell) {
             if (preg_match('/^ *:?-+:? *$/', $cell) !== 1) {
-                return false;
+                return null;
             }
+            $trimmed = trim($cell, ' ');
+            if (str_starts_with($trimmed, ':') && str_ends_with($trimmed, ':')) {
+                $alignments[] = TableCell::ALIGN_CENTER;
+            } elseif (str_ends_with($trimmed, ':')) {
+                $alignments[] = TableCell::ALIGN_RIGHT;
+            } elseif (str_starts_with($trimmed, ':')) {
+                $alignments[] = TableCell::ALIGN_LEFT;
+            } else {
+                $alignments[] = TableCell::ALIGN_DEFAULT;
+            }
+            $widths[] = substr_count($cell, '-');
         }
 
-        return true;
+        return ['alignments' => $alignments, 'widths' => $widths];
     }
 
     /**
@@ -215,12 +250,13 @@ class TableParser
      * Parse table cells from a row, respecting code spans and escaped pipes.
      *
      * @param string $line The table row line
+     * @param array<int, int> $openDelimiters Verbatim run width left open by the row above, by cell index.
      *
      * @return array<string> Array of cell contents
      */
-    public function parseTableCells(string $line): array
+    public function parseTableCells(string $line, array $openDelimiters = []): array
     {
-        return array_column($this->splitCells($line), 'content');
+        return array_column($this->splitCells($line, $openDelimiters), 'content');
     }
 
     /**
@@ -239,21 +275,55 @@ class TableParser
      * offsets inside it no longer line up. Those cells decline a position
      * rather than carry a drifting one.
      *
+     * @param string $line
+     * @param array<int, int> $openDelimiters Verbatim run width left open by the row above, by cell index.
+     *
      * @return list<array{content: string, offset: int, verbatim: bool, rawLength: int, raw: string}>
      */
-    public function splitCells(string $line): array
+    public function splitCells(string $line, array $openDelimiters = []): array
     {
         // Row attributes and trailing whitespace are stripped from the END, and
         // the leading `|` is one byte, so every offset below shifts by exactly
         // that one byte to become an offset in the original line.
         $line = $this->stripRowAttributes($line);
         $line = rtrim($line, " \t");
-        $line = substr($line, 1, -1);
+
+        // AN ESCAPED CLOSING PIPE IS CONTENT, NOT THE TERMINATOR
+        // (markup-carve/carve#1293). Chopping the last byte unconditionally
+        // assumed the row's final `|` was always a delimiter. On `| a b \|` it
+        // took the ESCAPED pipe as the terminator and left the backslash
+        // orphaned at the end of the cell, where the inline parser read it as a
+        // hard break - so the row rendered `a b <br>` and the literal pipe the
+        // author asked for was gone.
+        //
+        // The deciding fact is that this splitter was never escape-blind: the
+        // scan below already honors `\|` mid-cell, so `| a \| b | c |` has
+        // always given `a | b` + `c`. The escape was respected at every position
+        // except the last one, which is a position exception with nothing behind
+        // it. `\|` is also the only way to put a literal pipe in a cell, so
+        // under the terminator reading it stopped working in exactly the place
+        // an author most naturally reaches for it.
+        //
+        // PARITY, not "is the previous byte a backslash". A doubled `\\` is an
+        // escaped BACKSLASH, which leaves the `|` after it unescaped and
+        // therefore still the terminator: `| a b \\|` closes the row and the
+        // cell holds a single `\`. Only an ODD run of backslashes escapes the
+        // pipe. Counting the run is what tells the two apart.
+        //
+        // The row is still a table either way. `isTableRow()` asks whether the
+        // line ends with the `|` BYTE and an escaped pipe is one, which is why
+        // this stays a cell-splitting question and no row detection changes
+        // here; carve-js reaches a table by the same route.
+        $line = $this->closingPipeIsEscaped($line)
+            ? substr($line, 1)
+            : substr($line, 1, -1);
         $shift = 1;
 
         // Fast path: with no code spans (backticks) and no escaped pipes, every
         // `|` is a delimiter, so a plain split is identical to the scan below.
-        if (!str_contains($line, '`') && !str_contains($line, '\\|')) {
+        // A run left OPEN by the row above disqualifies it: there is a verbatim
+        // span here even though this line carries no backtick of its own.
+        if ($openDelimiters === [] && !str_contains($line, '`') && !str_contains($line, '\\|')) {
             $result = [];
             $at = 0;
             foreach (explode('|', $line) as $content) {
@@ -278,8 +348,21 @@ class TableParser
         $offsets = [];
         $verbatims = [];
         $rawLengths = [];
-        $inCode = false;
-        $codeDelimLength = 0;
+        // A VERBATIM RUN LEFT OPEN BY THE ROW ABOVE REOPENS HERE, at the cell
+        // index that opened it. PART 9 §19 ends a run at its closing delimiter,
+        // and a row boundary is not one, so a `|` inside it is CONTENT and not
+        // a cell delimiter. This splitter started every row from a closed
+        // state, so `| a `b |` followed by `+ c | d` |` split the continuation
+        // at the pipe INSIDE the still-open span and one cell came back as two,
+        // the second holding an empty code element (corpus 333-4).
+        //
+        // Indexed by CELL rather than carried from the row's start, because the
+        // run belongs to the cell it was written in: `| x | a `b |` reopens at
+        // cell 1 and cell 0 of the continuation splits as usual (corpus 333-5).
+        // The WIDTH is carried too - only a run of the same length closes it.
+        $cellIndex = 0;
+        $codeDelimLength = $openDelimiters[0] ?? 0;
+        $inCode = $codeDelimLength > 0;
         $length = strlen($line);
 
         for ($i = 0; $i < $length; $i++) {
@@ -339,6 +422,11 @@ class TableParser
                 $currentCell = '';
                 $cellStart = $i + 1;
                 $cellVerbatim = true;
+                // The next cell inherits ITS OWN open run, not the one that
+                // ended here.
+                $cellIndex++;
+                $codeDelimLength = $openDelimiters[$cellIndex] ?? 0;
+                $inCode = $codeDelimLength > 0;
 
                 continue;
             }
@@ -374,15 +462,52 @@ class TableParser
     }
 
     /**
+     * Does this row's final `|` carry an escape, making it content?
+     *
+     * Counts the backslash run immediately before the closing pipe and reads its
+     * PARITY: an odd run escapes the pipe (`\|`, `\\\|`), an even one does not
+     * (`\\|`), because each pair is itself an escaped backslash. A test for "the
+     * previous byte is a backslash" would get `\\|` wrong in the direction that
+     * silently eats the row terminator.
+     *
+     * @param string $line The row, already stripped of row attributes and
+     *   trailing whitespace
+     */
+    private function closingPipeIsEscaped(string $line): bool
+    {
+        if (!str_ends_with($line, '|')) {
+            return false;
+        }
+
+        $backslashes = 0;
+        for ($i = strlen($line) - 2; $i >= 0 && $line[$i] === '\\'; $i--) {
+            $backslashes++;
+        }
+
+        return $backslashes % 2 === 1;
+    }
+
+    /**
      * Parse table cells with their attributes.
-     * Cell attributes appear at the start: |{.class} content |
+     *
+     * PART 9 §5 T10: the kind marker comes first, then the alignment marker,
+     * then the attribute block - `|={.x} h |`, `|=~{.x} h |`, `|>{.x} d |`,
+     * `|{.x} d |`. The block is GLUED to whatever precedes it: to the marker
+     * run where the cell has one, to the opening `|` where it has none.
+     *
+     * The marker run is only consumed HERE when a block actually follows it. A
+     * cell without one keeps its markers in `content` and is read downstream by
+     * `BlockParser::parseTableCellMarker()`, which is where a lone `<`/`^` is
+     * still allowed to be a span marker rather than an alignment sigil.
      *
      * @param string $line The table row line
      *
-     * @return array<array{content: string, attributes: string, offset: int, cellOffset: int, verbatim: bool, rawLength: int, raw: string}> Cell data:
-     *   attributes is the raw `{...}` inner (empty when none); offset is where the
-     *   content begins in the original line, and verbatim says whether that stretch
-     *   is a byte-for-byte copy of it (see splitCells)
+     * @return array<array{content: string, attributes: string, marker: string, offset: int, cellOffset: int, verbatim: bool, rawLength: int, raw: string}> Cell data:
+     *   attributes is the raw `{...}` inner (empty when none); marker is the
+     *   marker run this method already stripped off `content` (empty unless it
+     *   found a block); offset is where the content begins in the original
+     *   line, and verbatim says whether that stretch is a byte-for-byte copy of
+     *   it (see splitCells)
      */
     public function parseTableCellsWithAttributes(string $line): array
     {
@@ -391,9 +516,10 @@ class TableParser
 
         foreach ($cells as $cell) {
             $cellContent = $cell['content'];
-            // Carried through so a cell can be placed in the source. An
-            // attribute block shifts the content right within its own cell, so
-            // the offset is adjusted below rather than reused as-is.
+            // Carried through so a cell can be placed in the source. A marker
+            // run and an attribute block both shift the content right within
+            // their own cell, so the offset is adjusted below rather than
+            // reused as-is.
             $cellOffset = $cell['offset'];
             $cellVerbatim = $cell['verbatim'];
             $cellRawLength = $cell['rawLength'];
@@ -401,32 +527,37 @@ class TableParser
             // The attribute string (raw inner of the `{...}`), empty when the
             // cell has none; applied later in source order via applyToNode.
             $attributes = '';
+            $marker = '';
             $content = $cellContent;
 
-            // A `{...}` GLUED to the opening pipe (index 0, no leading space)
-            // is the cell's attribute block; the rest, after optional
-            // whitespace, is the content. A space before the brace is ordinary
-            // content. The closing brace is found quote-aware (so a quoted `}`
-            // in a value is kept), and the WHOLE payload must be valid
-            // attribute syntax (§15) -- otherwise the `{` stays literal content.
-            if (isset($cellContent[0]) && $cellContent[0] === '{') {
-                $end = $this->findCellAttrEnd($cellContent);
+            // A `{...}` GLUED to the marker run - or to the opening pipe where
+            // the cell has no markers - is the cell's attribute block; the
+            // rest, after optional whitespace, is the content. A space before
+            // the brace is ordinary content. The closing brace is found
+            // quote-aware (so a quoted `}` in a value is kept), and the WHOLE
+            // payload must be valid attribute syntax (§15) -- otherwise the `{`
+            // stays literal content.
+            $markerLength = $this->cellMarkerRunLength($cellContent);
+            if (($cellContent[$markerLength] ?? '') === '{') {
+                $afterMarker = substr($cellContent, $markerLength);
+                $end = $this->findCellAttrEnd($afterMarker);
                 if ($end !== null) {
-                    $inner = substr($cellContent, 1, $end - 1);
+                    $inner = substr($afterMarker, 1, $end - 1);
                     if (
                         $inner !== ''
                         && !$this->isInlineMarker($inner)
                         && AttributeParser::isValidInlinePayload($inner)
                     ) {
                         $attributes = $inner;
-                        $rest = substr($cellContent, $end + 1);
+                        $marker = substr($cellContent, 0, $markerLength);
+                        $rest = substr($afterMarker, $end + 1);
                         // The slot between a cell attribute block and the
                         // cell content is `data_cell`'s own `{space}` run
                         // (PART 7), not a fresh one - so it takes a space and
                         // a tab after `{...}` is content, exactly as it is
                         // after a bare `|`.
                         $content = ltrim($rest, ' ');
-                        $cellOffset += $end + 1 + (strlen($rest) - strlen($content));
+                        $cellOffset += $markerLength + $end + 1 + (strlen($rest) - strlen($content));
                     }
                 }
             }
@@ -434,6 +565,7 @@ class TableParser
             $result[] = [
                 'content' => $content,
                 'attributes' => $attributes,
+                'marker' => $marker,
                 'offset' => $cellOffset,
                 // Where the CELL starts, before the offset above was advanced
                 // past an attribute block. The two are the same for a plain
@@ -449,6 +581,76 @@ class TableParser
         }
 
         return $result;
+    }
+
+    /**
+     * Length of the marker run glued to the start of a cell: an optional `=`
+     * (kind) and then an optional alignment sigil, in that order (PART 9 §5
+     * T10). Zero when the cell opens with neither.
+     *
+     * ONE SCAN, TWO READERS. `parseTableCellsWithAttributes()` needs the run's
+     * WIDTH to find the attribute block that binds after it, and
+     * `BlockParser::parseTableCellMarker()` needs the run's MEANING. Both read
+     * it from here, and the alignment sigils come off
+     * `BlockParser::TABLE_ALIGNMENT_MARKERS`, so the rule has one spelling
+     * rather than one per caller.
+     */
+    public function cellMarkerRunLength(string $cell): int
+    {
+        $length = ($cell[0] ?? '') === '=' ? 1 : 0;
+        $start = $length;
+        while (isset($cell[$length]) && str_contains('<>~^v?', $cell[$length])) {
+            $length++;
+        }
+
+        $inheritedHorizontal = $length - $start === 2
+            && ($cell[$start] ?? '') === '?'
+            && str_contains('^~v', $cell[$start + 1] ?? '');
+        $horizontal = false;
+        $vertical = false;
+        $valid = !str_contains('^v', $cell[$start] ?? '')
+            && !(($cell[$start] ?? '') === '~' && str_contains('<>', $cell[$start + 1] ?? ''));
+        for ($i = $start; $i < $length; $i++) {
+            $marker = $cell[$i];
+            if ($marker === '?') {
+                if ($inheritedHorizontal && $i === $start) {
+                    continue;
+                }
+                $valid = false;
+
+                break;
+            }
+            if ($marker === '~' && !$horizontal && !$vertical && isset($cell[$i + 1]) && str_contains('<>', $cell[$i + 1])) {
+                $vertical = true;
+            } elseif (str_contains('<>~', $marker)) {
+                if (!$horizontal) {
+                    $horizontal = true;
+                } elseif ($marker === '~' && !$vertical) {
+                    $vertical = true;
+                } else {
+                    $valid = false;
+
+                    break;
+                }
+            } elseif (!$vertical) {
+                $vertical = true;
+            } else {
+                $valid = false;
+
+                break;
+            }
+        }
+
+        if ($length === $start) {
+            return $length;
+        }
+        $next = $cell[$length] ?? null;
+        $terminated = $next === ' ' || $next === '{';
+        if (!$valid || (!$horizontal && !$inheritedHorizontal) || !$terminated) {
+            return $start;
+        }
+
+        return $length;
     }
 
     /**
@@ -526,9 +728,24 @@ class TableParser
      */
     public function hasUnclosedCodeSpan(string $line): bool
     {
+        return $this->openCodeSpanDelimiter($line) > 0;
+    }
+
+    /**
+     * The delimiter WIDTH of a verbatim run this line leaves open, or 0.
+     *
+     * The same walk `hasUnclosedCodeSpan()` used to make on its own, reporting
+     * the width instead of a boolean, because a continuation row has to REOPEN
+     * the run at the width that opened it: only a matching run of backticks
+     * closes it, and a `|` inside it is content rather than a cell delimiter.
+     *
+     * @param string $line
+     */
+    public function openCodeSpanDelimiter(string $line): int
+    {
         // Fast path: no backticks means no code spans at all
         if (!str_contains($line, '`')) {
-            return false;
+            return 0;
         }
 
         $length = strlen($line);
@@ -564,7 +781,7 @@ class TableParser
             }
         }
 
-        return $inCode;
+        return $inCode ? $codeDelimLength : 0;
     }
 
     /**
@@ -602,7 +819,6 @@ class TableParser
         $cells = [];
         $currentCell = '';
         $length = strlen($line);
-
         for ($i = 0; $i < $length; $i++) {
             $char = $line[$i];
 
@@ -785,17 +1001,18 @@ class TableParser
      * Continuation rows start with + instead of |.
      *
      * @param string $line The continuation row line (starting with +)
+     * @param array<int, int> $openDelimiters Verbatim run width left open by the row above, by cell index.
      *
      * @return array<string> Array of cell contents
      */
-    public function parseContinuationCells(string $line): array
+    public function parseContinuationCells(string $line, array $openDelimiters = []): array
     {
         $trimmed = ltrim($line, " \t");
 
         // Replace leading + with | for parsing
         $normalizedLine = '|' . substr($trimmed, 1);
 
-        return $this->parseTableCells($normalizedLine);
+        return $this->parseTableCells($normalizedLine, $openDelimiters);
     }
 
     /**
@@ -887,5 +1104,37 @@ class TableParser
 
         // The line ends with | outside code span if the last | is at the end
         return $lastPipeOutsideCode === $length - 1;
+    }
+
+    /**
+     * Whether a table ROW could start at `$at`, by the row's own first byte.
+     *
+     * A walk crossing a container prefix reads this at an offset rather than
+     * cutting the tail out to hand {@see self::isTableRow()}, which is the copy
+     * per level markup-carve/carve-php#1437 removed. *
+     * The parser's own fast exit spells the same byte test inline, because it
+     * runs on nearly every line the parser reads and one more call for it
+     * measured against an ordinary document. The two are held together by
+     * `OffsetHeadsAgreeWithTheirParsersTest`, which walks EVERY byte value and
+     * asserts the head accepts a line exactly where the parser can, so the pair
+     * cannot drift in silence - which is the failure
+     * markup-carve/carve-php#969 was.
+     */
+    public function isTableRowHead(string $line, int $at = 0): bool
+    {
+        return ($line[$at] ?? '') === '|';
+    }
+
+    /**
+     * Whether a CONTINUATION row could start at `$at`, by its own first byte.
+     *
+     * The continuation spelling tolerates leading whitespace where the standard
+     * one does not, so the head skips a blank run before it reads the `+`. The
+     * offset-side head for {@see self::isContinuationRow()}, pinned by the same
+     * test {@see self::isTableRowHead()} names.
+     */
+    public function isContinuationRowHead(string $line, int $at = 0): bool
+    {
+        return ($line[$at + strspn($line, " \t", $at)] ?? '') === '+';
     }
 }

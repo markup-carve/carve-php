@@ -25,6 +25,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
@@ -95,7 +96,7 @@ class AstCodec
      *
      * @var int
      */
-    public const VERSION = 3;
+    public const VERSION = 4;
 
     /**
      * Node types this engine has and the wire does not, and what each PUBLISHES
@@ -210,6 +211,7 @@ class AstCodec
         'abbreviation.abbr', 'abbreviation.expansion', 'abbreviation_def.abbr',
         'abbreviation_def.expansion', 'admonition.children', 'admonition.kind',
         'autolink.href', 'autolink.text', 'block_quote.children',
+        'citation_definition.children', 'citation_definition.key',
         'citation_group.items', 'citation_group.raw',
         'code.value', 'code_block.content', 'comment.block',
         'comment.content', 'critic_comment.text',
@@ -217,7 +219,8 @@ class AstCodec
         'definition_term.children',
         'delete.children', 'div.children', 'document.children',
         'document.srcByteLength', 'emphasis.children', 'escaped_text.value',
-        'figure.caption', 'figure.target', 'footnote.children',
+        'figure.caption', 'figure.target', 'figure_group.children',
+        'footnote.children',
         'footnote.label', 'footnote_ref.id',
         'frontmatter.content', 'frontmatter.format',
         'heading.children', 'heading.level', 'heading_ref.target',
@@ -753,6 +756,16 @@ class AstCodec
      * An inline note's own content is never searched for footnotes: a note
      * inside a note has no rendered home. Parsing cannot build one (`[^b]`
      * inside `^[...]` stays text), but a decoded tree can carry one.
+     *
+     * AN UNRESOLVED REFERENCE'S TEXT IS NOT SEARCHED EITHER. PART 9R R1
+     * degrades such a reference to its literal source, so the text it holds is
+     * discarded rather than written into the document, and R2 rules that a note
+     * in that text "is not a reference": it gets no number, no endnote and no
+     * backlink (markup-carve/carve#1198). `HtmlRenderer::renderLink()` already
+     * returns the raw source BEFORE rendering its children, so nothing in there
+     * is rendered - numbering it anyway published a number naming a footnote the
+     * page does not contain, and in `a [t[^1]][nope] b [^1] c` it published the
+     * SAME number as the one live noteref a reader can see.
      */
     private static function numberFootnotes(Document $document): void
     {
@@ -769,6 +782,16 @@ class AstCodec
         /** @var array<int, \MarkupCarve\Carve\Node\Block\Footnote> $pending bodies to walk, in first-use order */
         $pending = [];
         $walk = static function (Node $node) use (&$walk, &$next, &$indexes, &$pending, $definitions): void {
+            if (UnresolvedReference::sourceOf($node) !== null) {
+                // CLEARED, not skipped, for the same reason the unresolved
+                // reference below is: the subtree renders nowhere, so a number
+                // carried in from the wire would name a footnote that is not in
+                // the document.
+                self::clearFootnoteNumbers($node);
+
+                return;
+            }
+
             if ($node instanceof InlineFootnote) {
                 $node->setNumber($next);
                 $next++;
@@ -823,6 +846,26 @@ class AstCodec
             foreach ($body->getChildren() as $child) {
                 $walk($child);
             }
+        }
+    }
+
+    /**
+     * Drop every footnote number inside a subtree that renders nowhere.
+     *
+     * The parse path never puts one there, but a decoded tree can arrive with
+     * one already set, and this engine republishes what it decodes. Both note
+     * spellings are cleared - a `[^label]` use and an `^[content]` note are the
+     * two things PART 9R R2 names - and the walk keeps descending, because the
+     * discarded text can hold a whole nested construct.
+     */
+    private static function clearFootnoteNumbers(Node $node): void
+    {
+        if ($node instanceof FootnoteRef || $node instanceof InlineFootnote) {
+            $node->setNumber(null);
+        }
+
+        foreach ($node->getChildren() as $child) {
+            self::clearFootnoteNumbers($child);
         }
     }
 
@@ -1714,6 +1757,14 @@ class AstCodec
             ) {
                 continue;
             }
+            if (
+                $field === 'valign'
+                && $node instanceof TableCell
+                && !$node->isHeader()
+                && !$node->hasExplicitVerticalAlignment()
+            ) {
+                continue;
+            }
 
             $encoded[$field] = $this->encodeValue($value);
         }
@@ -1782,7 +1833,33 @@ class AstCodec
             ));
         }
 
-        return self::captionShape(self::spanShape(self::figureShape(self::listMarkerShape($encoded))));
+        return self::citationShape(self::captionShape(self::spanShape(self::figureShape(self::listMarkerShape($encoded)))));
+    }
+
+    /**
+     * The `[+@...]` group marker is `mode: "integral"` on the wire, absent when
+     * parenthetical - the shape `$defs.citation_group` pins with
+     * `additionalProperties: false`. This engine keeps a boolean `integral`,
+     * which reached the wire under its internal name and made the codec's own
+     * output schema-invalid: `decode(encode(x))` threw for every integral
+     * group (carve-php#1285).
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function citationShape(array $encoded): array
+    {
+        if (($encoded['type'] ?? null) !== 'citation_group' || !array_key_exists('integral', $encoded)) {
+            return $encoded;
+        }
+
+        if ($encoded['integral'] === true) {
+            $encoded['mode'] = 'integral';
+        }
+        unset($encoded['integral']);
+
+        return $encoded;
     }
 
     /**
@@ -2100,6 +2177,8 @@ class AstCodec
 
         if ($node instanceof TableCell && array_key_exists('header', $data)) {
             self::writeProperty($node, 'isHeader', $data['header'] === true);
+            $node->setExplicitAlignment(array_key_exists('align', $data));
+            self::writeProperty($node, 'hasExplicitVerticalAlignment', array_key_exists('valign', $data));
 
             return;
         }
@@ -2140,6 +2219,7 @@ class AstCodec
             // recomputation a consumer performs, rather than a field the
             // reference does not have.
             $columns = [];
+            $verticalColumns = [];
             foreach ($node->getChildren() as $row) {
                 if (!$row instanceof TableRow || !$row->isHeader()) {
                     continue;
@@ -2148,6 +2228,7 @@ class AstCodec
                 foreach ($row->getChildren() as $cell) {
                     if ($cell instanceof TableCell) {
                         $columns[$index] = $cell->getAlignment();
+                        $verticalColumns[$index] = $cell->getVerticalAlignment();
                         $index++;
                     }
                 }
@@ -2167,6 +2248,9 @@ class AstCodec
                         if ($cell->getAlignment() === TableCell::ALIGN_DEFAULT && isset($columns[$index])) {
                             self::writeProperty($cell, 'alignment', $columns[$index]);
                         }
+                        if ($cell->getVerticalAlignment() === TableCell::VALIGN_DEFAULT && isset($verticalColumns[$index])) {
+                            $cell->setVerticalAlignment($verticalColumns[$index], false);
+                        }
                         $index++;
                     }
                 }
@@ -2184,6 +2268,10 @@ class AstCodec
      */
     private static function inheritsColumnAlignment(TableCell $cell): bool
     {
+        if ($cell->hasExplicitAlignment()) {
+            return false;
+        }
+
         $row = $cell->getParent();
         if (!$row instanceof TableRow) {
             return false;
@@ -2281,6 +2369,24 @@ class AstCodec
     }
 
     /**
+     * `mode: "integral"` back to the boolean this engine keeps. See
+     * citationShape() for the outbound half.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private static function citationFromWire(array $data): array
+    {
+        if (($data['type'] ?? null) === 'citation_group' && array_key_exists('mode', $data)) {
+            $data['integral'] = $data['mode'] === 'integral';
+            unset($data['mode']);
+        }
+
+        return $data;
+    }
+
+    /**
      * `delim` back to the single `marker` field this engine keeps.
      *
      * @param array<string, mixed> $data
@@ -2339,7 +2445,13 @@ class AstCodec
     private static function captionFromWire(array $data): array
     {
         $caption = $data['caption'] ?? null;
-        if (($data['type'] ?? null) === 'table' && is_array($caption) && !isset($caption['type'])) {
+        // A table's caption and a composite figure's GROUP caption (PART 9
+        // §4c) are both inline content on the wire and a Caption block here.
+        if (
+            in_array($data['type'] ?? null, ['table', 'figure_group'], true)
+            && is_array($caption)
+            && !isset($caption['type'])
+        ) {
             $data['caption'] = ['type' => 'caption', 'children' => $caption];
         }
 
@@ -2387,7 +2499,7 @@ class AstCodec
         // back to the tree it came from - which is what PART 12 §6's round trip
         // asks for, and what the loss check verifies. Both were caught by that
         // check rather than by review.
-        $data = self::captionFromWire(self::spanFromWire(self::figureFromWire(self::listMarkerFromWire($data))));
+        $data = self::citationFromWire(self::captionFromWire(self::spanFromWire(self::figureFromWire(self::listMarkerFromWire($data)))));
 
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {

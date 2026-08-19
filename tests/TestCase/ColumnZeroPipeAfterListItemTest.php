@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  * The character-independence half was the original defect: a `|` detached the
  * line while `*`, `-` and `x` attached it, because isBlockElementStart()
  * accepted ANY line starting with a pipe as a table, while the
- * block-position predicate next to it validated the row first
+ * paragraph-interruption predicate next to it validated the row first
  * (carve-php#683). A bare `|` is not a table row, so it behaves like the other
  * three.
  *

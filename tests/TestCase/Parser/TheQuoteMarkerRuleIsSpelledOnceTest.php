@@ -25,11 +25,15 @@ use PHPUnit\Framework\TestCase;
  * the rows below; the third copy is behavior-identical by construction and is
  * pinned by a named mutation instead.
  *
- * WHAT THE FOURTH COPY WAS FOR. `BlockParser::isEmptyQuoteLine()` asks about
- * EMPTINESS, not about prefix stripping - "does this line hold a paragraph a
- * dedented line could fold into?" (PART 1 S4: NO OPEN PARAGRAPH, NO LAZY LINE).
- * That is a genuinely different question, so the function stays; what it
- * borrowed and got wrong was the marker walk inside it.
+ * WHAT THE FOURTH COPY WAS FOR. The EMPTINESS question - "does this line hold a
+ * paragraph a dedented line could fold into?" (PART 1 S4: NO OPEN PARAGRAPH, NO
+ * LAZY LINE) - used to be answered by `BlockParser::isEmptyQuoteLine()`, with a
+ * fourth open-coded marker walk inside it. The question is now answered by
+ * `advanceTrailingBlockState()` RECURSING on the quote's content, so `> # H`
+ * and `>` reach the same answer through the heading branch and the blank branch
+ * rather than through a marker-only special case (corpus 326-11). The function
+ * is gone with its copy; the rows below ask the tracker instead, which is the
+ * caller they always described.
  *
  * THE FUNCTION IS LOAD-BEARING AND ITS COPY WAS NOT. Instrumented across the
  * suite it is called 110,514 times and answers true 92 times, and every one of
@@ -127,20 +131,32 @@ class TheQuoteMarkerRuleIsSpelledOnceTest extends TestCase
     /**
      * The emptiness question itself, asked directly.
      *
-     * The rows above reach `isEmptyQuoteLine()` through the lazy-continuation
-     * tracker, which never hands it a line without a marker - so the guard that
-     * answers false for one could be deleted with the whole suite still green,
-     * exactly as the `$sawQuote` guard it replaced could. That is a check that
-     * cannot fail from the outside, and the method is `protected` rather than
-     * private, so its contract is asserted here instead of left to a caller
-     * that happens not to exercise it.
+     * The rows above reach the tracker through a full parse, and a parse only
+     * ever hands it lines a container actually collected - so a branch that
+     * decides a shape no document reaches could be deleted with the whole suite
+     * still green, exactly as the `$sawQuote` guard it replaced could. That is a
+     * check that cannot fail from the outside, so the contract is asserted here
+     * instead of left to a caller that happens not to exercise it.
+     *
+     * ASKED OF `openParagraph`, which is the answer the rule produces.
+     * `isEmptyQuoteLine()` returned the NEGATION for the marker-only shape and
+     * nothing at all for the rest; the tracker answers every quote line by
+     * recursing on its content, so the same rows now also pin `> # H` (a closed
+     * heading, corpus 326-11) beside `>` (nothing at all).
      */
     public function testTheEmptinessQuestionAnsweredDirectly(): void
     {
         $parser = new class extends BlockParser {
-            public function emptyQuote(string $line): bool
+            public function holdsOpenParagraph(string $line): bool
             {
-                return $this->isEmptyQuoteLine($line);
+                // THE PARSER'S OWN STARTING STATE, not a copy of it. Spelled
+                // out here, this row would keep passing after a field was added
+                // to the tracker and would stop describing what the parser does
+                // - which is the same one-rule-two-spellings failure the rest of
+                // this file is about.
+                $state = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, $line);
+
+                return $state['openParagraph'];
             }
         };
 
@@ -151,23 +167,35 @@ class TheQuoteMarkerRuleIsSpelledOnceTest extends TestCase
         $verticalTab = "\v";
         $formFeed = "\f";
 
-        // A marker and nothing else, at any depth, with blank-line padding.
-        foreach (['>', '> ', '> >', '> > ', '>   ', '> >' . $tab, '  > >  '] as $line) {
-            $this->assertTrue($parser->emptyQuote($line), json_encode($line));
+        // A marker and nothing else, at any depth, with trailing padding: the
+        // quote holds no block, so nothing can fold into it.
+        foreach (['>', '> ', '> >', '> > ', '>   ', '> >' . $tab] as $line) {
+            $this->assertFalse($parser->holdsOpenParagraph($line), json_encode($line));
+        }
+
+        // A quote whose content is a CLOSED block answers the same way, and
+        // that is the generalization: the marker-only rows above are this rule
+        // with a blank line one level in.
+        foreach (['> # H', '> ---', '> [r]: /u', '> > # H'] as $line) {
+            $this->assertFalse($parser->holdsOpenParagraph($line), json_encode($line));
+        }
+
+        // A marker with PARAGRAPH content, by the LANGUAGE rule rather than by
+        // a looser copy of it: `>  >` is one marker and the content ` >`, and a
+        // vertical tab is content and not padding.
+        foreach (['>  >', '> > q', '> ' . $verticalTab, '> ' . $formFeed, '>   >   '] as $line) {
+            $this->assertTrue($parser->holdsOpenParagraph($line), json_encode($line));
         }
 
         // No marker at all - including a blank line, which is what the guard is
         // for: without it `stripQuoteMarkers('')` returns `''` and a blank line
-        // reads as a quote holding nothing.
-        foreach (['', '   ', $tab, 'q', '>text'] as $line) {
-            $this->assertFalse($parser->emptyQuote($line), json_encode($line));
+        // reads as a quote holding nothing. A blank line holds no paragraph
+        // either, so the two answers here are `q` and `>text` being PROSE.
+        foreach (['q', '>text'] as $line) {
+            $this->assertTrue($parser->holdsOpenParagraph($line), json_encode($line));
         }
-
-        // A marker with content, by the LANGUAGE rule rather than by a looser
-        // copy of it: `>  >` is one marker and the content ` >`, and a vertical
-        // tab is content and not padding.
-        foreach (['>  >', '> > q', '> ' . $verticalTab, '> ' . $formFeed, '>   >   '] as $line) {
-            $this->assertFalse($parser->emptyQuote($line), json_encode($line));
+        foreach (['', '   ', $tab] as $line) {
+            $this->assertFalse($parser->holdsOpenParagraph($line), json_encode($line));
         }
     }
 

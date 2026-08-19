@@ -82,9 +82,9 @@ class MarkdownToCarveTest extends TestCase
                 'a ~~gone~~ word',
                 'a ~gone~ word',
             ],
-            'converts ==highlight== to a single = (Carve highlight)' => [
+            'leaves ==highlight== literal (not CommonMark or GFM)' => [
                 'a ==hot== word',
-                'a =hot= word',
+                'a ==hot== word',
             ],
             'leaves ^superscript^ unchanged' => [
                 'x^2^ end',
@@ -471,10 +471,10 @@ class MarkdownToCarveTest extends TestCase
                 'a \=hl= b',
                 '<p>a =hl= b</p>',
             ],
-            'escapes strike literal' => [
+            'a paired single tilde is GFM strikethrough, not literal' => [
                 'a ~s~ b',
-                'a \~s~ b',
-                '<p>a ~s~ b</p>',
+                'a ~s~ b',
+                '<p>a <s>s</s> b</p>',
             ],
             'escapes superscript literal' => [
                 'a {^y^} b',
@@ -496,9 +496,14 @@ class MarkdownToCarveTest extends TestCase
                 '\%% line',
                 '<p>%% line</p>',
             ],
+            'escapes a lone brace line, which is a block-attribute line in Carve' => [
+                '{x}',
+                '\{x}',
+                '<p>{x}</p>',
+            ],
             'escapes braced highlight literal' => [
                 'a {=x=} b',
-                'a \{=x=} b',
+                'a \{\=x=} b',
                 '<p>a {=x=} b</p>',
             ],
             'escapes braced insert literal' => [
@@ -511,14 +516,16 @@ class MarkdownToCarveTest extends TestCase
                 'a \{-x-} b',
                 '<p>a {-x-} b</p>',
             ],
-            'escapes braced strike literal' => [
+            'escapes the brace but keeps the strike inside it' => [
+                // GFM reads the tilde pair through the braces, so the braces
+                // are the only literal part here.
                 'a {~x~} b',
                 'a \{~x~} b',
-                '<p>a {~x~} b</p>',
+                '<p>a {<s>x</s>} b</p>',
             ],
             'escapes braced emphasis literal' => [
                 'a {/x/} b',
-                'a \{/x/} b',
+                'a \{\/x/} b',
                 '<p>a {/x/} b</p>',
             ],
             // One pass escapes only the outer brace and the inner pair would
@@ -568,7 +575,12 @@ class MarkdownToCarveTest extends TestCase
             'spaced equals' => ['x = y = z'],
             'approximate tilde' => ['approx ~5'],
             'single percent' => ['a 50% of b'],
-            'plain braces' => ['{x}'],
+            // `a {x} b` mid-text stays bare - the brace follows no closer, so
+            // it attaches to nothing. `{x}` ALONE on a line moved to the
+            // escaping provider: that position is a block-attribute line in
+            // Carve (`x` is a boolean attribute), so left bare the text
+            // vanished from the render (markup-carve/carve#1130).
+            'plain braces mid-text' => ['a {x} b'],
             'plain brackets' => ['[x]'],
             'plain angle brackets' => ['<x>'],
             'plain pipes' => ['|x|'],
@@ -613,7 +625,7 @@ class MarkdownToCarveTest extends TestCase
             'underscore emphasis' => ['_em_', '/em/'],
             'asterisk emphasis' => ['*em*', '/em/'],
             'GFM strike' => ['~~s~~', '~s~'],
-            'Markdown highlight' => ['==h==', '=h='],
+            'highlight stays literal by default' => ['==h==', '==h=='],
             'HTML sup' => ['<sup>x</sup>', '{^x^}'],
             'HTML sub' => ['<sub>x</sub>', '{,x,}'],
             'HTML mark' => ['<mark>x</mark>', '{=x=}'],
@@ -688,5 +700,121 @@ class MarkdownToCarveTest extends TestCase
             $html = (new CarveConverter())->convert($out);
             $this->assertStringNotContainsString('<script>', $html);
         }
+    }
+
+    public function testTrailingSpacesBecomeACarveHardBreak(): void
+    {
+        // Trailing spaces mean NOTHING in Carve, so carrying them across
+        // dropped the break; the backslash is Carve's spelling for it.
+        $out = $this->converter->convert("a  \nb\n");
+        $this->assertSame("a\\\nb\n", $out);
+        $this->assertStringContainsString('<br>', (new CarveConverter())->convert($out));
+    }
+
+    public function testTrailingSpacesAtAParagraphEndAreNotABreak(): void
+    {
+        // CommonMark has no hard break at a paragraph's end, and a stray
+        // backslash there would render as a literal one.
+        $html = (new CarveConverter())->convert($this->converter->convert("a  \n\nb\n"));
+        $this->assertStringNotContainsString('<br>', $html);
+    }
+
+    public function testTrailingSpacesBeforeAHeadingAreNotABreak(): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert("a  \n# H\n"));
+        $this->assertStringNotContainsString('<br>', $html);
+    }
+
+    public function testIndentedCodeBecomesAFenceSoItStaysCode(): void
+    {
+        $out = $this->converter->convert("    indented\n    code\n");
+        $this->assertSame("```\nindented\ncode\n```\n", $out);
+        $this->assertStringContainsString(
+            '<pre><code>indented',
+            (new CarveConverter())->convert($out),
+        );
+    }
+
+    public function testIndentedCodeIsNotReadAsMarkup(): void
+    {
+        // The bug this fixes: as a paragraph, the code's OWN delimiters were
+        // rewritten - `*not bold*` migrated to `/not bold/`.
+        $out = $this->converter->convert("    let x = *not bold* and _not em_\n");
+        $this->assertStringContainsString('*not bold*', $out);
+        $this->assertStringContainsString('_not em_', $out);
+        $this->assertStringNotContainsString('<strong>', (new CarveConverter())->convert($out));
+    }
+
+    public function testIndentedCodeKeepsABlankLineInsideIt(): void
+    {
+        // A blank line does not end an indented code block in CommonMark;
+        // only a less-indented non-blank line does.
+        $this->assertSame("```\na\n\nb\n```\n", $this->converter->convert("    a\n\n    b\n"));
+    }
+
+    public function testIndentedCodeRemovesExactlyOneIndentStep(): void
+    {
+        $this->assertSame("```\na\n    b\n```\n", $this->converter->convert("    a\n        b\n"));
+    }
+
+    public function testIndentedCodePicksAFenceLongerThanItsBacktickRuns(): void
+    {
+        $this->assertSame(
+            "````\n```\nx\n```\n````\n",
+            $this->converter->convert("    ```\n    x\n    ```\n"),
+        );
+    }
+
+    public function testIndentedCodeEndsAtALessIndentedLine(): void
+    {
+        // The run stops at the first non-blank line below the indent, and the
+        // blank Carve needs after a block is given back to the document.
+        $this->assertSame("```\na\n```\n\ntext\n", $this->converter->convert("    a\ntext\n"));
+    }
+
+    public function testAnIndentedListContinuationIsNotCode(): void
+    {
+        // Four spaces under a list item is item content, not a code block: the
+        // previous line is not blank, so it never reaches the code branch.
+        $html = (new CarveConverter())->convert($this->converter->convert("- a\n    b\n"));
+        $this->assertStringNotContainsString('<pre>', $html);
+    }
+
+    public function testAPairedSingleTildeIsStrikethrough(): void
+    {
+        // GFM strikethrough is "a matching pair of one or two tildes", so the
+        // single form is struck; it was escaped into literal text before.
+        $html = (new CarveConverter())->convert($this->converter->convert("a ~b~ c\n"));
+        $this->assertStringContainsString('<s>b</s>', $html);
+    }
+
+    public function testAnUnpairedTildeStaysLiteral(): void
+    {
+        // Literal in GFM and in Carve alike - a lone tilde opens nothing.
+        foreach (["a ~ b\n", "a ~b c\n"] as $markdown) {
+            $html = (new CarveConverter())->convert($this->converter->convert($markdown));
+            $this->assertStringNotContainsString('<s>', $html);
+        }
+    }
+
+    public function testHighlightIsLiteralByDefaultAndConvertsWhenAsked(): void
+    {
+        // `==x==` is literal in CommonMark and GFM, so converting it by default
+        // invented a highlight the source never had. The flag mirrors
+        // `convertMath`, for the flavours that do define it.
+        $this->assertSame("a ==b== c\n", $this->converter->convert("a ==b== c\n"));
+
+        $optIn = new MarkdownToCarve(convertHighlight: true);
+        $this->assertSame("a =b= c\n", $optIn->convert("a ==b== c\n"));
+        $this->assertStringContainsString(
+            '<mark>b</mark>',
+            (new CarveConverter())->convert($optIn->convert("a ==b== c\n")),
+        );
+    }
+
+    public function testTheTwoDialectFlagsAreIndependent(): void
+    {
+        $mathOnly = new MarkdownToCarve(convertMath: true);
+        $this->assertSame("a ==b== c\n", $mathOnly->convert("a ==b== c\n"));
     }
 }

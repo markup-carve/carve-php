@@ -71,19 +71,28 @@ class NonHtmlRendererSecurityTest extends TestCase
 
     public function testMarkdownEscapesEmbeddedHtmlInTextAndFallbackTags(): void
     {
-        $this->assertStringNotContainsString('<img', $this->md('plain <img onerror=x> text'));
+        // The claim is that no TAG opens, not that a particular spelling is used.
+        // PART 11 section 8a M1e escapes the OPENER with a backslash rather than
+        // rewriting it to an entity (markup-carve/carve#1148), so the check has
+        // to be on an `<img` that is NOT preceded by one - a plain substring
+        // test reports the safe `\<img` as a hit, because the escape sits right
+        // before it.
+        $live = '/(^|[^\\\\])<img/';
+        $this->assertDoesNotMatchRegularExpression($live, $this->md('plain <img onerror=x> text'));
+        $this->assertStringContainsString('\\<img', $this->md('plain <img onerror=x> text'));
 
-        // `<` and `>` take the entity form and `&` does not (carve#1071). The
-        // reason: an entity in Markdown TEXT decodes to a CHARACTER, and a
-        // character cannot open a tag, so text authored as `&lt;script&gt;`
-        // comes back as the four characters a reader sees rather than as live
-        // markup - which is exactly what a bare `<` would be.
-        $this->assertSame('a &lt; b & c', trim($this->md('a < b & c')));
+        // `&` is emitted bare on this target (carve#1071): an entity in Markdown
+        // TEXT decodes to a CHARACTER, and a character cannot open a tag, so
+        // text authored as `&lt;script&gt;` comes back as the four characters a
+        // reader sees. A `<` before a SPACE was never markup either, so M1e
+        // leaves it alone; one before a tag name is escaped.
+        $this->assertSame('a < b & c', trim($this->md('a < b & c')));
         $this->assertSame('a &lt;script&gt; b', trim($this->md('a &lt;script&gt; b')));
-        // Superscript HTML fallback: children are HTML-escaped.
+        $this->assertSame('a \\<script>x\\</script> b', trim($this->md('a <script>x</script> b')));
+        // Superscript HTML fallback: children are escaped.
         $sup = $this->md('{^<img src=x onerror=alert(1)>^}');
         $this->assertStringContainsString('<sup>', $sup);
-        $this->assertStringNotContainsString('<img', $sup);
+        $this->assertDoesNotMatchRegularExpression($live, $sup);
     }
 
     public function testAnsiStripsTerminalEscapeBytes(): void

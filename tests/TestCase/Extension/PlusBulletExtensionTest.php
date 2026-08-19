@@ -107,4 +107,16 @@ class PlusBulletExtensionTest extends TestCase
         $this->assertStringContainsString('<table>', $withPlus);
         $this->assertSame($withDash, $withPlus);
     }
+
+    public function testAbuttingAttributesAttachToAPlusBullet(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new PlusBulletExtension());
+
+        $withPlus = $converter->convert("+{.k} x\n");
+        $withDash = (new CarveConverter())->convert("-{.k} x\n");
+
+        $this->assertSame($withDash, $withPlus);
+        $this->assertStringContainsString('<li class="k">x</li>', $withPlus);
+    }
 }

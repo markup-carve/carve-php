@@ -6,6 +6,9 @@ namespace MarkupCarve\Carve\Test\TestCase\ProseMirror;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
@@ -102,6 +105,9 @@ class ProseMirrorBridgeTest extends TestCase
             'ordered list' => ["3. a\n4. b\n"],
             'loose list' => ["- one\n\n- two\n"],
             'task list' => ["- [ ] open\n- [x] done\n"],
+            // The plain item splits into its own list; it must come back at
+            // column zero, not as an indented second list (carve-php#1287).
+            'task list with a plain sibling' => ["- [ ] open\n- [x] done\n\n- plain\n"],
             'table' => ["|= A |= B |\n| 1 | 2 |\n"],
             'table with caption' => ["|= A |\n| 1 |\n^ Caption\n"],
             'table spans' => ["| a | b |\n| c | < |\n"],
@@ -184,7 +190,7 @@ class ProseMirrorBridgeTest extends TestCase
         $html = (new CarveConverter())->render($document);
         $roundTripped = (new CarveConverter())->parse($source);
 
-        $this->assertSame("|=Kopf A|\n| A1 |\n", $source);
+        $this->assertSame("|= Kopf A |\n| A1 |\n", $source);
         $this->assertSame($html, (new CarveConverter())->render($roundTripped));
     }
 
@@ -447,32 +453,117 @@ class ProseMirrorBridgeTest extends TestCase
         $attrs = $result['pm']['content'][0]['attrs'];
 
         $this->assertSame('carveDiv', $result['pm']['content'][0]['type']);
-        $this->assertSame('Wärmebedarf', $attrs['data-label']);
-        $this->assertSame('kWh', $attrs['data-unit']);
+        $this->assertSame('Wärmebedarf', $attrs['carveKeyValues']['data-label']);
+        $this->assertSame('kWh', $attrs['carveKeyValues']['data-unit']);
         $this->assertSame($result['expected'], $result['actual']);
+    }
+
+    /**
+     * Every authored construct the bridge once dropped or degraded now
+     * crosses it and comes back spelled as written. One case per formerly
+     * unmapped type, compared as canonical Carve - the comparison that sees
+     * re-spellings HTML hides.
+     */
+    #[DataProvider('formerlyUnmappedAuthoredSources')]
+    public function testAFormerlyUnmappedAuthoredTypeRoundTrips(string $source): void
+    {
+        $result = $this->roundTrip($source);
+
+        $this->assertSame([], $this->renderer->droppedTypes());
+        $this->assertSame($result['expectedCarve'], $result['actualCarve']);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function formerlyUnmappedAuthoredSources(): array
+    {
+        return [
+            'figure: quote with caption' => ["> To be, or not to be\n^ Hamlet\n"],
+            'figure: image with caption' => ["![Logo](/x.png)\n\n^ The logo\n"],
+            'line block' => ["::: |\nRoses are red\n  Violets are blue\n:::\n"],
+            'comment, line form' => ["a\n\n%% hidden note\n\nb\n"],
+            'comment, fenced' => ["%%%\nmulti\nline\n%%%\n"],
+            'raw block' => ["```=html\n<hr>\n```\n"],
+            'raw inline' => ["before `<b>`{=html} after\n"],
+            'literal inline' => ["a !`x < y` b\n"],
+            'symbol' => ["thumbs :+1: up\n"],
+            'substitution' => ["fix {~old~>new~}\n"],
+            'inline footnote' => ["claim^[the note text] here\n"],
+            'crossref' => ["# Target\n\nSee </#target>.\n"],
+            'link reference definition' => ["[text][lbl]\n\n[lbl]: https://example.com\n"],
+            'image reference' => ["![moon][m]\n\n[m]: /moon.png\n"],
+        ];
+    }
+
+    /**
+     * The verbatim raw spelling is a HINT the converter re-derives, exactly
+     * as the autolink and heading-reference flags are. An editor that retypes
+     * the visible text of `[old][lbl]` leaves the attrs riding along, and the
+     * writer emits `rawReferenceLabel` byte for byte - so keeping it would
+     * silently discard the edit. Only the raw is dropped: the label survives,
+     * and the writer builds `[new][lbl]` from the current text, keeping both
+     * the edit and the reference spelling.
+     */
+    public function testAnEditedReferenceTextDropsTheStaleRawSpelling(): void
+    {
+        $pm = $this->renderer->render(
+            (new CarveConverter())->parse("[old][lbl]\n\n[lbl]: https://example.com\n"),
+        );
+
+        // Retype the visible text the way an editor would: the text node
+        // changes, the link mark and its attrs do not.
+        $pm['content'][0]['content'][0]['text'] = 'new';
+
+        $this->assertSame(
+            "[new][lbl]\n\n[lbl]: https://example.com\n",
+            CarveConverter::carve()->render($this->converter->convert($pm)),
+        );
+    }
+
+    public function testACommentRoundTripsInsteadOfBeingDropped(): void
+    {
+        // A comment renders nothing an editor shows, so it rides as an atom
+        // whose content and fence width are attrs - and comes back spelled as
+        // it was written, fence form included.
+        $source = "a\n\n%%%\nhidden\n%%%\n\nb\n";
+        $pm = $this->renderer->render((new CarveConverter())->parse($source));
+
+        $this->assertSame([], $this->renderer->droppedTypes());
+        $this->assertSame($source, CarveConverter::carve()->render($this->converter->convert($pm)));
     }
 
     public function testUnrepresentableTypesAreReportedNotSilentlyDropped(): void
     {
-        // A comment has no editor node. The content is gone either way; the point
-        // is that the caller can find out.
-        $this->renderer->render((new CarveConverter())->parse("a\n\n%%%\nhidden\n%%%\n\nb\n"));
+        // No source-parsed document drops a type any more, so the reporting
+        // mechanism is exercised with the one inline that stays unmapped by
+        // design: a caption number is a resolution artifact a structured
+        // format can hold, and an editor cannot. The point is that the caller
+        // can find out.
+        $document = new Document();
+        $paragraph = new Paragraph();
+        $paragraph->appendChild(new CaptionNumber());
+        $document->appendChild($paragraph);
 
-        $this->assertArrayHasKey('comment', $this->renderer->droppedTypes());
-        $this->assertNotSame('', $this->renderer->droppedTypes()['comment']);
+        $this->renderer->render($document);
+
+        $this->assertArrayHasKey('caption_number', $this->renderer->droppedTypes());
+        $this->assertNotSame('', $this->renderer->droppedTypes()['caption_number']);
     }
 
     public function testTextBearingTypesDegradeToTextRatherThanVanish(): void
     {
-        // A soft break has no ProseMirror node, but dropping it would run the
-        // words together - so it degrades to a space and is reported separately.
+        // A soft break has no ProseMirror node. It degrades to a NEWLINE text
+        // node rather than a space - a space joins two authored lines into one
+        // and the document no longer reparses the same - and the node being
+        // gone is still reported.
         $pm = $this->renderer->render((new CarveConverter())->parse("one\ntwo\n"));
 
         $this->assertArrayHasKey('soft_break', $this->renderer->degradedTypes());
         $this->assertSame([], $this->renderer->droppedTypes());
 
         $text = implode('', array_column($pm['content'][0]['content'], 'text'));
-        $this->assertSame('one two', $text);
+        $this->assertSame("one\ntwo", $text);
     }
 
     public function testAnUnknownProseMirrorNameIsRejected(): void
@@ -901,12 +992,15 @@ class ProseMirrorBridgeTest extends TestCase
     public static function unrepresentableStateProvider(): array
     {
         return [
-            // A mark needs text to attach to; an empty label has none, so the
-            // link is not represented at all.
-            'empty link label' => ["[](https://example.com)\n", 'link'],
             // Nested emphasis and strong are one unordered mark set in the
             // editor model, so which delimiter was outermost is not recoverable.
             'nested emphasis order' => ["/*x*/\n", 'emphasis'],
+            // A mark with no content still has no text to attach to, and the
+            // schema names a carrier for four of them - not for a highlight.
+            // The empty link and the empty span moved to the carried provider
+            // below; this one is what is left of the class, and it is reported
+            // rather than dropped in silence.
+            'empty highlight' => ["x {==} y\n", 'highlight'],
         ];
     }
 
@@ -982,6 +1076,30 @@ class ProseMirrorBridgeTest extends TestCase
             // bridge must not launder it into an explicit link.
             'autolink with a blocked scheme' => ["<vbscript:msgbox>\n"],
             'inline code attributes' => ["`code`{.cls}\n"],
+            // A MARK WITH NO CONTENT. Each of these was declared degraded and
+            // disappeared from the document: a paragraph that was only an empty
+            // link came back empty, and `x ^[]{.c}` came back as `x ^` (corpus
+            // `307-an-empty-inline-note-is-literal-3`). The schema's carrier
+            // atom stands in for the mark, so they come back as written
+            // (markup-carve/carve-grammars#240).
+            'empty link label' => ["[](https://example.com)\n"],
+            'empty link label with a title and a run' => ["[](https://example.com \"T\"){.a #i}\n"],
+            'empty span' => ["x []{.c}\n"],
+            'empty span after a caret' => ["x ^[]{.c}\n"],
+            'empty abbreviation span' => ["x []{abbr=\"HyperText Markup Language\"}\n"],
+            'empty editorial marks' => ["a {++} b {--} c\n"],
+            // The run's SPELLING, not just its content: id, class and the
+            // key/value bag are three slots on the wire and a map has no order,
+            // so an interleaved run came back regrouped as `{.a #b key=c}`.
+            'interleaved attribute run' => ["[x]{key=c .a #b}\n"],
+            'interleaved run on a paragraph' => ["{key=c .a #b}\nx\n"],
+            'interleaved run on inline code' => ["A `code`{k=v .cls #i} span.\n"],
+            // The other side of the empty-span declaration: a span WITH content
+            // has text for the mark, so it must be carried and reported clean.
+            // Without this, declaring every span degraded passes - and every
+            // span carrying one would drop out of the covered population with
+            // nothing to say so.
+            'span with content' => ["x [y]{.c}\n"],
             'alphabetic list' => ["a. apple\nb. pear\n"],
             'roman list' => ["iv. four\nv. five\n"],
             'parenthesis delimiter' => ["1) one\n"],
@@ -1109,36 +1227,28 @@ class ProseMirrorBridgeTest extends TestCase
     }
 
     /**
-     * A `[text][label]` reference is a DIFFERENT case, and the asymmetry is the
-     * reason only the heading class is carried.
-     *
-     * A heading reference resolves against a `heading` node the bridge carries.
-     * A label reference resolves against a `link_reference_definition`, which
-     * the schema map declares unmapped - so by the time the writer runs the
-     * definition is gone, and `[text][label]` without one is the literal text
-     * rather than a link. Respelling it would turn a working link into prose,
-     * so the inline form is written and the loss is reported instead.
+     * A `[text][label]` reference keeps its spelling, because the definition
+     * it resolves against now crosses the bridge as a `carveLinkRefDef` node -
+     * so writing the reference back reproduces a working link, exactly as the
+     * heading class always did.
      */
-    public function testALabelReferenceIsReportedRatherThanRespelled(): void
+    public function testALabelReferenceKeepsItsSpelling(): void
     {
-        $document = (new CarveConverter())->parse("[text][label]\n\n[label]: https://example.com\n");
-        $pm = $this->renderer->render($document);
+        $source = "[text][label]\n\n[label]: https://example.com\n";
+        $pm = $this->renderer->render((new CarveConverter())->parse($source));
 
-        $this->assertArrayHasKey('link', $this->renderer->degradedTypes());
-        $this->assertStringContainsString('definition it points at is not carried', $this->renderer->degradedTypes()['link']);
-        $this->assertSame(
-            "[text](https://example.com)\n",
-            CarveConverter::carve()->render($this->converter->convert($pm)),
-        );
+        $this->assertSame([], $this->renderer->degradedTypes());
+        $this->assertSame($source, CarveConverter::carve()->render($this->converter->convert($pm)));
     }
 
     /**
-     * And the report is the ONLY record when the definition never existed as a
-     * node to begin with. A document decoded from AST JSON can hold a resolved
-     * reference with no definition beside it, so the "the dropped definition
-     * already says so" reasoning does not cover this door.
+     * The spelling is a HINT the converter re-derives, not truth. A payload
+     * carrying a reference whose definition is absent - or points somewhere
+     * else now - would write `[text][label]` with nothing to resolve it, which
+     * is literal text rather than a link. It falls back to the inline form,
+     * which always renders correctly.
      */
-    public function testALabelReferenceWithNoDefinitionNodeIsStillReported(): void
+    public function testALabelReferenceWithNoDefinitionFallsBackToInlineForm(): void
     {
         $document = (new CarveConverter())->parse("[text](https://example.com)\n");
         $paragraph = $document->getChildren()[0];
@@ -1147,10 +1257,12 @@ class ProseMirrorBridgeTest extends TestCase
         $link->setReferenceLabel('label');
         $link->setRawReferenceLabel('[text][label]');
 
-        $this->renderer->render($document);
+        $pm = $this->renderer->render($document);
 
-        $this->assertArrayHasKey('link', $this->renderer->degradedTypes());
-        $this->assertStringContainsString('definition it points at is not carried', $this->renderer->degradedTypes()['link']);
+        $this->assertSame(
+            "[text](https://example.com)\n",
+            CarveConverter::carve()->render($this->converter->convert($pm)),
+        );
     }
 
     /**
@@ -1220,7 +1332,7 @@ class ProseMirrorBridgeTest extends TestCase
         $link = $pm['content'][0]['content'][0]['marks'][0];
 
         $this->assertSame('u', $link['attrs']['href']);
-        $this->assertSame('cta', $link['attrs']['data-role']);
+        $this->assertSame('cta', $link['attrs']['carveKeyValues']['data-role']);
     }
 
     /**
@@ -1252,11 +1364,11 @@ class ProseMirrorBridgeTest extends TestCase
 
         $result = $this->roundTrip($source);
 
+        $this->assertSame('s', $result['pm']['content'][0]['attrs']['id']);
+        $this->assertSame('sidebar', $result['pm']['content'][0]['attrs']['class']);
         $this->assertFalse($result['pm']['content'][0]['attrs']['carveTyped']);
-        $this->assertSame(
-            ['id' => 's', 'class' => 'sidebar'],
-            $result['pm']['content'][0]['attrs']['carveAttrs'],
-        );
+        // The round trip is the point of the flag: without it the class is
+        // written back as the container's KIND and this is a different document.
         $this->assertSame($result['expected'], $result['actual']);
     }
 
@@ -1272,8 +1384,8 @@ class ProseMirrorBridgeTest extends TestCase
         $result = $this->roundTrip($source);
 
         $this->assertSame('opener title', $result['pm']['content'][0]['attrs']['title']);
-        $this->assertSame('attr title', $result['pm']['content'][0]['attrs']['carveAttrs']['title']);
-        $this->assertSame('note', $result['pm']['content'][0]['attrs']['carveAttrs']['class']);
+        $this->assertSame('attr title', $result['pm']['content'][0]['attrs']['carveKeyValues']['title']);
+        $this->assertSame('note', $result['pm']['content'][0]['attrs']['class']);
         $this->assertSame($result['expected'], $result['actual']);
     }
 
@@ -1283,8 +1395,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $result = $this->roundTrip($source);
 
-        $this->assertTrue($result['pm']['content'][0]['attrs']['carveTyped']);
-        $this->assertSame(['class' => 'sidebar'], $result['pm']['content'][0]['attrs']['carveAttrs']);
+        $this->assertSame('sidebar', $result['pm']['content'][0]['attrs']['class']);
         $this->assertSame($result['expected'], $result['actual']);
     }
 
@@ -1294,9 +1405,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $result = $this->roundTrip($source);
 
-        $this->assertFalse($result['pm']['content'][0]['attrs']['carveTyped']);
-        $this->assertSame(['class' => 'alpha beta'], $result['pm']['content'][0]['attrs']['carveAttrs']);
-        $this->assertSame($result['expected'], $result['actual']);
+        $this->assertSame('alpha beta', $result['pm']['content'][0]['attrs']['class']);
     }
 
     /**
@@ -1397,7 +1506,7 @@ class ProseMirrorBridgeTest extends TestCase
         $source = "Press :kbd[Ctrl+C] now.\n";
 
         $pm = $this->renderer->render((new CarveConverter())->parse($source));
-        $this->assertSame(':kbd', $pm['content'][0]['content'][1]['attrs']['carveSource']);
+        $this->assertSame('kbd', $pm['content'][0]['content'][1]['attrs']['name']);
 
         $back = $this->converter->convert($pm);
         $this->assertSame($source, CarveConverter::carve()->render($back));

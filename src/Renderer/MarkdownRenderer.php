@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
+use Closure;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -16,6 +18,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -127,6 +130,68 @@ class MarkdownRenderer implements RendererInterface
     private const NARROWED_CHARACTERS = ['_', '#', '['];
 
     /**
+     * PART 11 §8b M2a: characters this target's readers never read as markup,
+     * at ANY position on the line.
+     *
+     * An `escaped_text` node holding one of these is emitted BARE. They are
+     * Carve's own delimiters and Markdown has no reading for them, so the
+     * escape protects nothing and lands inside an identifier, which is the cost
+     * §2 calls a defect rather than a safe default.
+     *
+     * `~` is NOT here: GFM reads `~x~` as strikethrough. Nor are the
+     * smart-punctuation triggers `"`, `'`, `-` and `.`, which §8b keeps
+     * whatever their position, because a processor with substitution on
+     * rewrites the TEXT rather than reading markup.
+     *
+     * @var list<string>
+     */
+    private const AUTHORED_INERT = ['{', '}', '^', ',', '%', ':', '/', '@'];
+
+    /**
+     * PART 11 §8b M2b: read as markup only at a line's CONTENT POSITION.
+     *
+     * `#` opens an ATX heading there and is inert everywhere else, so the
+     * decision is a property of the line and takes a sentinel like M1b's.
+     *
+     * @var list<string>
+     */
+    private const AUTHORED_POSITIONAL = ['#'];
+
+    /**
+     * The same characters once §8b M2b HAS decided to keep the escape.
+     *
+     * A second STATE rather than a second character, and the state is what
+     * makes the decision survive its containers. M2b measures on the EMITTED
+     * LINE and a line's content position is after its container prefix
+     * (markup-carve/carve#1330), so the question is answered where the writer
+     * prefixes the container's lines - and an outer container that adds a hash
+     * of its own runs that pass again, over content that already carries the
+     * inner marker. An undecided sentinel would be re-read there and the outer
+     * marker would take the escape straight back off.
+     *
+     * Recorded as a sentinel rather than as the `\#` it resolves to, because
+     * every sentinel is the same width: the passes address candidates by offset
+     * and spelling one answer as two characters would move every later
+     * candidate on the line, changing M1b's answers with it.
+     *
+     * IT WIDENS THE PICKED RUN FROM FOUR TO FIVE, and that is a real cost
+     * rather than none. `DocumentSentinels::pick()` walks the private-use area
+     * for a gap of the requested width and, finding none, returns the preferred
+     * run WHETHER OR NOT it collides - so a document that leaves a gap of four
+     * and no gap of five is now rendered with sentinels it contains, and an
+     * authored U+E004 comes back as an underscore. The condition is adversarial
+     * (about four fifths of the 6,396 private-use code points written, with no
+     * five-wide gap anywhere) and it is not created here: the colliding
+     * fallback is what corrupts, and §8b's own fourth sentinel moved the same
+     * boundary. It is recorded rather than worked around because no
+     * implementation of M2b's ruling can carry the decided state in fewer
+     * states, and a picker that cannot fail is the fix for the class.
+     *
+     * @var list<string>
+     */
+    private const AUTHORED_DECIDED = ['#'];
+
+    /**
      * The first code point of the run picked for the narrowed-escape sentinels.
      *
      * @var int
@@ -161,6 +226,31 @@ class MarkdownRenderer implements RendererInterface
     ];
 
     /**
+     * Sentinels standing in for the AUTHORED escapes PART 11 §8b M2b decides on
+     * the line, one per positional character, replaced per document alongside
+     * the M1b run above.
+     *
+     * A separate map rather than a wider one, because the two families are
+     * decided by DIFFERENT tests: M1b asks about an adjacent delimiter of the
+     * same character, M2b asks where on the line the character stands.
+     *
+     * @var array<string, string>
+     */
+    protected array $authoredSentinels = [
+        '#' => "\u{E007}",
+    ];
+
+    /**
+     * Sentinels standing in for an authored escape §8b M2b has decided to KEEP,
+     * one per positional character, picked in the same run as the two above.
+     *
+     * @var array<string, string>
+     */
+    protected array $authoredKeptSentinels = [
+        '#' => "\u{E008}",
+    ];
+
+    /**
      * The picked run as a PCRE class, for the final resolve.
      *
      * The run is contiguous by construction, so the class is its two ends. Built
@@ -169,9 +259,16 @@ class MarkdownRenderer implements RendererInterface
      *
      * @var string
      */
-    protected string $narrowedSentinelClass = '[\x{E004}-\x{E006}]';
+    protected string $narrowedSentinelClass = '[\x{E004}-\x{E008}]';
 
     protected int $listDepth = 0;
+
+    /**
+     * Authored hashes emitted since the enclosing container started, so a
+     * container that emitted none skips the M2b pass instead of re-scanning its
+     * subtree once per enclosing level - the shape carve-php#1142 fixed.
+     */
+    protected int $authoredHashes = 0;
 
     protected bool $inBlockQuote = false;
 
@@ -283,7 +380,7 @@ class MarkdownRenderer implements RendererInterface
     /**
      * Every abbreviation definition the author wrote, as source lines.
      *
-     * PART 10 §10a: a definition NOTHING references is still emitted by this
+     * PART 11 §10a: a definition NOTHING references is still emitted by this
      * target. HTML drops it because it has nowhere to put one; Markdown, plain
      * text and the terminal do not get to drop content the author wrote, and
      * dropping it made the output depend on whether a reference exists
@@ -304,24 +401,33 @@ class MarkdownRenderer implements RendererInterface
      * denies the definition, and the inline `abbreviation` it feeds is a separate
      * profile entry that keeps rendering.
      */
-    protected function renderAbbreviationDefinitions(Document $document): string
+
+    /**
+     * Definitions the document holds only as map entries (the API path, see
+     * Document::getAbbreviationDefinitionsNotInTree). They have no source line
+     * of their own, so they are written together at the end the document flag
+     * names.
+     */
+    protected function renderResidualAbbreviationDefinitions(Document $document): string
     {
         $lines = [];
-        foreach ($document->getChildren() as $child) {
-            if (!$child instanceof AbbreviationDefinition) {
-                continue;
-            }
-            // The definition line goes through escapeHtml() for the same reason
-            // the `<abbr>` built from it does: an expansion is author content,
-            // and this target's contract is that embedded HTML cannot become
-            // live markup downstream. Writing the occurrence escaped and the
-            // definition raw made one output disagree with itself
-            // (carve-php#1063).
-            $lines[] = '*[' . $this->escapeHtml($this->stripControls($child->getAbbr())) . ']: '
-                . $this->escapeHtml($this->stripControls($child->getExpansion()));
+        foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
+            $lines[] = '*[' . $this->escapeHtml($this->stripControls($definition['abbr'])) . ']: '
+                . $this->escapeHtml($this->stripControls($definition['expansion']));
         }
 
         return $lines === [] ? '' : implode("\n\n", $lines) . "\n";
+    }
+
+    protected function renderAbbreviationDefinition(AbbreviationDefinition $child): string
+    {
+        // The definition line goes through escapeHtml() for the same reason the
+        // `<abbr>` built from it does: an expansion is author content, and this
+        // target's contract is that embedded HTML cannot become live markup
+        // downstream. Writing the occurrence escaped and the definition raw made
+        // one output disagree with itself (carve-php#1063).
+        return '*[' . $this->escapeHtml($this->stripControls($child->getAbbr())) . ']: '
+            . $this->escapeHtml($this->stripControls($child->getExpansion())) . "\n\n";
     }
 
     public function render(Document $document): string
@@ -339,12 +445,20 @@ class MarkdownRenderer implements RendererInterface
         $this->collectHeadingAndRefIds($document, $referencedIds);
         $this->referencedHeadingIds = array_intersect_key($this->headingIds, $referencedIds);
 
+        // The definition renders WHERE IT WAS WRITTEN, from its node, because
+        // the dispatch above has an arm for it. This used to place the whole set
+        // at one end of the body, chosen by `hasAbbreviationsBeforeBody()` - two
+        // positions, which is one fewer than a document can express, so a
+        // definition authored BETWEEN two blocks moved to an end and
+        // `parse(fmt(x)) != parse(x)`. carve-js and carve-rs both keep it in
+        // place, and this node exists precisely so this renderer can too
+        // (carve-php#708).
         $markdown = $this->renderChildren($document);
-        $abbreviations = $this->renderAbbreviationDefinitions($document);
-        if ($abbreviations !== '') {
+        $residual = $this->renderResidualAbbreviationDefinitions($document);
+        if ($residual !== '') {
             $markdown = $document->hasAbbreviationsBeforeBody()
-                ? $abbreviations . "\n" . $markdown
-                : $markdown . "\n" . $abbreviations;
+                ? $residual . "\n" . $markdown
+                : $markdown . "\n" . $residual;
         }
 
         // Normalize multiple blank lines
@@ -378,7 +492,25 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function renderEscapedText(EscapedText $node): string
     {
-        return '\\' . $this->stripControls($node->getContent());
+        $content = $this->stripControls($node->getContent());
+
+        // PART 11 §8b narrows M2 on the same finding §8a narrowed M1 on. The
+        // character still decides, but now it decides whether the escape
+        // protects anything ON THIS TARGET rather than whether the author wrote
+        // it. Everything not named by §8b keeps M2 as written, including the
+        // `[` the §8a rationale rests on and the smart-punctuation triggers §8
+        // states M2 for.
+        if (in_array($content, self::AUTHORED_INERT, true)) {
+            return $content;
+        }
+
+        if (isset($this->authoredSentinels[$content])) {
+            $this->authoredHashes++;
+
+            return $this->authoredSentinels[$content];
+        }
+
+        return '\\' . $content;
     }
 
     /**
@@ -391,13 +523,30 @@ class MarkdownRenderer implements RendererInterface
      */
     protected function pickNarrowedSentinels(Document $document): void
     {
+        $narrowed = count(self::NARROWED_CHARACTERS);
+        $positional = count(self::AUTHORED_POSITIONAL);
         $run = DocumentSentinels::pick(
             DocumentSentinels::collectStrings($document),
-            count(self::NARROWED_CHARACTERS),
+            $narrowed + $positional + count(self::AUTHORED_DECIDED),
             self::NARROWED_SENTINEL_FIRST,
         );
 
-        $this->narrowedSentinels = array_combine(self::NARROWED_CHARACTERS, $run);
+        // ONE RUN, TWO FAMILIES. Picked together so the collision search runs
+        // once and the two families are guaranteed contiguous, which is what
+        // lets a single character class find every candidate in one pass.
+        $this->narrowedSentinels = array_combine(
+            self::NARROWED_CHARACTERS,
+            array_slice($run, 0, $narrowed),
+        );
+        $this->authoredSentinels = array_combine(
+            self::AUTHORED_POSITIONAL,
+            array_slice($run, $narrowed, $positional),
+        );
+        $this->authoredKeptSentinels = array_combine(
+            self::AUTHORED_DECIDED,
+            array_slice($run, $narrowed + $positional),
+        );
+        $this->authoredHashes = 0;
         $this->narrowedSentinelClass = '[' . $run[0] . '-' . $run[count($run) - 1] . ']';
     }
 
@@ -440,6 +589,9 @@ class MarkdownRenderer implements RendererInterface
         }
 
         $character = array_flip($this->narrowedSentinels);
+        $authored = array_flip($this->authoredSentinels);
+        $kept = array_flip($this->authoredKeptSentinels);
+        $character += $authored + $kept;
 
         // THE LINE AS IT READS IF NOTHING IS ESCAPED. Every candidate is
         // resolved to its BARE character first, so a neighbour that is itself a
@@ -465,14 +617,211 @@ class MarkdownRenderer implements RendererInterface
             $offset = (int)$offset;
             $char = $character[$sentinel];
 
+            $at = $offset - 2 * $index;
+            // TWO FAMILIES, TWO TESTS, AND A THIRD CASE ALREADY SETTLED. M1b
+            // asks whether a delimiter of the same character stands beside the
+            // candidate. M2b asks WHERE ON THE LINE the candidate stands, and
+            // this is the finished document, so the answer it gets here is the
+            // answer for a line NO CONTAINER ENCLOSES - the only kind that
+            // reaches it undecided. A line inside a container had its position
+            // settled where the writer prefixed it, while the prefix was still
+            // separable from the content (markup-carve/carve#1330), and arrives
+            // carrying that answer.
+            $keep = isset($kept[$sentinel])
+                || (isset($authored[$sentinel])
+                    ? $this->opensAnAtxHeading($line, $at)
+                    : $this->adjacentToLiveDelimiter($line, $at, $char));
+
             $out .= substr($markdown, $read, $offset - $read);
-            $out .= $this->adjacentToLiveDelimiter($line, $offset - 2 * $index, $char)
-                ? '\\' . $char
-                : $char;
+            $out .= $keep ? '\\' . $char : $char;
             $read = $offset + strlen($sentinel);
         }
 
         return $out . substr($markdown, $read);
+    }
+
+    /**
+     * The finished content of a container, trimmed and with PART 11 §8b M2b
+     * ANSWERED ON IT, ready for the caller to put its prefix in front.
+     *
+     * Every call site is a place the writer prefixes a container's lines, and
+     * that is the whole of the list: the block quote marker, the list and task
+     * marker with the alignment §10 gives the lines under it, the footnote
+     * definition marker, the definition marker. M2b measures on the EMITTED
+     * LINE and a line's content position is after its container prefix
+     * (markup-carve/carve#1330), so the question has to be settled here - after
+     * the trim, which is part of the shape of the line, and before the prefix,
+     * which is what the position is measured past.
+     *
+     * A HEADING IS NOT A CONTAINER and does not call this. Its `## ` belongs to
+     * the block's own line, so the hash behind it stays mid-line and loses the
+     * escape, which is the reading CommonMark gives it. Neither is a table
+     * cell. Both are left to the resolve pass at the end, which measures on the
+     * finished document - the right answer for a line no container encloses,
+     * and the wrong one for a line inside one, which is why these sites exist.
+     *
+     * DECIDING EARLIER DOES NOT WORK, and the trim is why. A block does not
+     * know whether the whitespace it wrote at the start of its first line
+     * survives: a paragraph opening with four spaces keeps them mid-document
+     * and loses them as the first block of a container. Answering M2b before
+     * that trim scores the hash as over-indented and emits it bare, and the
+     * trim then puts a bare hash at column 0 - a heading where the author wrote
+     * text.
+     *
+     * The counter is what keeps this from costing anything. A nested container
+     * decides on its own way out and leaves the count where it found it, so an
+     * outer one that added no hash of its own never touches the text.
+     *
+     * @param \Closure $render Renders the container's children.
+     *
+     * @return string
+     */
+    protected function containerContent(Closure $render): string
+    {
+        $before = $this->authoredHashes;
+        $content = trim($render(), StringUtil::TRIMMABLE_WHITESPACE);
+        if ($this->authoredHashes === $before) {
+            return $content;
+        }
+        $this->authoredHashes = $before;
+
+        return $this->decideAuthoredHashes($content);
+    }
+
+    /**
+     * Answer §8b M2b for every authored hash in one container's content, on the
+     * lines that container writes.
+     *
+     * Deriving the position from the finished document would mean parsing the
+     * prefixes back off it, and the §10 alignment case cannot be recovered that
+     * way at all: a continuation line under `10. ` carries four spaces of pad,
+     * which reads as an over-indent to anything that does not already know the
+     * marker's width. §10 refuses to reason about the content alone for that
+     * exact reason. So it is not derived - it is answered where the writer has
+     * it, and everything a container adds afterwards is a prefix by
+     * construction, without any of them being named.
+     *
+     * THE NARROWING IS UNTOUCHED, which is the half a correction like this
+     * loses first. Standing behind a prefix is not enough on its own: a hash
+     * mid-line still drops its escape inside a container, and one at the
+     * content position whose run is closed by a letter drops it too.
+     *
+     * @param string $text One container's rendered content.
+     *
+     * @return string
+     */
+    protected function decideAuthoredHashes(string $text): string
+    {
+        $pattern = '/' . $this->narrowedSentinelClass . '/u';
+
+        if (preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE) < 1) {
+            return $text;
+        }
+
+        $undecided = array_flip($this->authoredSentinels);
+        $character = array_flip($this->narrowedSentinels)
+            + $undecided
+            + array_flip($this->authoredKeptSentinels);
+
+        $line = (string)preg_replace_callback(
+            $pattern,
+            static fn (array $m): string => $character[$m[0]],
+            $text,
+        );
+
+        // OFFSETS DO NOT CARRY ACROSS, the same trap resolveNarrowedEscapes
+        // spells out: every sentinel is a three-byte code point standing for a
+        // one-byte character, so each one before a candidate shifts it two
+        // bytes left in `$line`. The index counts EVERY sentinel, decided or
+        // not, because every one of them is three bytes wide.
+        $out = '';
+        $read = 0;
+        foreach ($matches[0] as $index => [$sentinel, $offset]) {
+            if (!isset($undecided[$sentinel])) {
+                continue;
+            }
+
+            $offset = (int)$offset;
+            $char = $undecided[$sentinel];
+            $at = $offset - 2 * $index;
+
+            $out .= substr($text, $read, $offset - $read);
+            $out .= $this->opensAnAtxHeading($line, $at)
+                ? $this->authoredKeptSentinels[$char]
+                : $char;
+            $read = $offset + strlen($sentinel);
+        }
+
+        return $out . substr($text, $read);
+    }
+
+    /**
+     * Whether the `#` at `$offset` would open an ATX heading (§8b M2b).
+     *
+     * `$line` is the assembled output with every candidate resolved to its BARE
+     * character, the same view M1b decides on.
+     *
+     * Three conditions, all of them CommonMark's: the character stands at the
+     * line's content position, which admits up to three leading spaces; the run
+     * of hashes starting there is one to six long; and the run is closed by a
+     * space, a tab or the end of the line. `#tag`, `#123` and `#64748b` fail the
+     * third even at a line's start, which is why the test is spelled on the run
+     * rather than on the position alone.
+     *
+     * `$line` IS ONE CONTAINER'S CONTENT where a container encloses it, and the
+     * whole document where none does. A line's content position is after its
+     * container prefix, and the prefix is separable from the content only
+     * before the writer joins them (markup-carve/carve#1330), so the caller
+     * chooses the string and this decides on whatever it is handed.
+     *
+     * BOTH CONDITIONS ARE ANSWERED WITHOUT READING THE LINE (carve#1331). The
+     * first spelling searched backward for the line's newline and counted the
+     * whole run of hashes, so a candidate cost O(line) - and in this engine
+     * that search does not merely read the prefix, `substr` ALLOCATES AND
+     * COPIES it. A line of adjacent authored hashes is all candidates, so
+     * 400,000 of them copied 240GB. Neither answer needs the line, because both
+     * conditions are bounded:
+     *
+     * - At most three spaces may precede the character, so the walk back stops
+     *   after four steps and the fourth decides. Anything else standing there
+     *   means the content position is elsewhere on the line, whatever the rest
+     *   of it holds.
+     * - The run has to be six or shorter, so counting stops at seven. The
+     *   seventh hash settles the question and the eight-thousandth cannot
+     *   change it.
+     *
+     * BYTES THROUGHOUT, like the spelling it replaces. Every character it
+     * compares is ASCII, and a UTF-8 continuation byte is never equal to one.
+     */
+    protected function opensAnAtxHeading(string $line, int $offset): bool
+    {
+        // The walk back over the indent, bounded at the four positions that can
+        // decide it. `$i` lands on the first character of the run of spaces, so
+        // the line must either start there or carry its newline just before it.
+        $i = $offset;
+        while ($i > 0 && $line[$i - 1] === ' ') {
+            if ($offset - $i >= 3) {
+                return false;
+            }
+            $i--;
+        }
+
+        if ($i > 0 && $line[$i - 1] !== "\n") {
+            return false;
+        }
+
+        $run = 0;
+        while ($run <= 6 && ($line[$offset + $run] ?? '') === '#') {
+            $run++;
+        }
+
+        if ($run > 6) {
+            return false;
+        }
+
+        $after = $line[$offset + $run] ?? "\n";
+
+        return $after === ' ' || $after === "\t" || $after === "\n";
     }
 
     /**
@@ -522,8 +871,8 @@ class MarkdownRenderer implements RendererInterface
 
         $this->renderDepth++;
         try {
-            if ($this->hasAnyListeners()) {
-                $eventName = 'render.' . $node->getType();
+            $eventName = 'render.' . $node->getType();
+            if ($this->hasListenersFor($eventName)) {
                 $event = new RenderEvent($node);
                 $this->dispatchEvent($eventName, $event);
                 $this->dispatchEvent('render.*', $event);
@@ -535,7 +884,11 @@ class MarkdownRenderer implements RendererInterface
 
             // An unresolved reference renders as the source the author
             // wrote, never as a link (PART 12 section 3a).
-            $rawReference = UnresolvedReference::sourceOf($node);
+            // PART 9 §23: a comment LINE publishes nothing, so the stored
+            // source is emptied of them here rather than in the stored value -
+            // `rawRef` stays the authored source verbatim for the canonical
+            // writer (PART 12 §3a, carve-php#1417).
+            $rawReference = UnresolvedReference::renderedSourceOf($node);
 
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
@@ -550,6 +903,15 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Heading => $this->renderHeading($node),
                 $node instanceof CodeBlock => $this->renderCodeBlock($node),
                 $node instanceof Comment => '', // Skip comments
+                // PART 12 §18. The definition renders nothing where it sits
+                // on every target; its entry renders in the references list the
+                // Citations extension builds. Without this arm the default
+                // branch renders the entry's children into the flow, which is
+                // rendered output moving on a tree change that must not move it
+                // (markup-carve/carve#1276).
+                $node instanceof CitationDefinition => '',
+                $node instanceof AbbreviationDefinition
+                => $this->renderAbbreviationDefinition($node),
                 $node instanceof RawBlock => $this->renderRawBlock($node),
                 $node instanceof BlockQuote => $this->renderBlockQuote($node),
                 $node instanceof ListBlock => $this->renderList($node),
@@ -569,12 +931,13 @@ class MarkdownRenderer implements RendererInterface
                 $node instanceof Table => $this->renderTable($node),
                 $node instanceof LineBlock => $this->renderLineBlock($node),
                 $node instanceof Footnote => $this->renderFootnote($node),
-                $node instanceof Text => $this->escapeText($this->stripControls($node->getContent())),
+                $node instanceof Text => $this->escapeUnresolvedCrossrefs($this->stripControls($node->getContent())),
                 // Keep the backslash so the literal stays literal when re-parsed as
                 // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
                 // ordered list. EscapedText only ever holds escaped ASCII
                 // punctuation, all of which CommonMark allows a `\` before.
                 $node instanceof EscapedText => $this->renderEscapedText($node),
+                $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof Caption => $this->renderCaption($node),
                 $node instanceof Abbreviation => $this->renderAbbreviation($node),
@@ -879,13 +1242,17 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderBlockQuote(BlockQuote $node): string
     {
-        $this->inBlockQuote = true;
-        $content = $this->renderChildren($node);
-        $this->inBlockQuote = false;
+        $body = $this->containerContent(function () use ($node): string {
+            $this->inBlockQuote = true;
+            $content = $this->renderChildren($node);
+            $this->inBlockQuote = false;
 
-        // Prefix each line with >
-        $lines = explode("\n", trim($content, StringUtil::TRIMMABLE_WHITESPACE));
-        $quoted = array_map(fn ($line) => '> ' . $line, $lines);
+            return $content;
+        });
+
+        // Prefix each line with >, and a blank line with a bare marker.
+        $lines = explode("\n", $body);
+        $quoted = array_map(fn ($line) => $line === '' ? '>' : '> ' . $line, $lines);
 
         return implode("\n", $quoted) . "\n\n";
     }
@@ -916,11 +1283,11 @@ class MarkdownRenderer implements RendererInterface
                     $prefix = $marker . ' ';
                 }
 
-                $content = trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE);
+                $content = $this->containerContent(fn (): string => $this->renderChildren($child));
                 // Handle multi-line list items
                 $lines = explode("\n", $content);
                 $firstLine = array_shift($lines);
-                $output .= $prefix . $firstLine . "\n";
+                $output .= ($firstLine === '' ? rtrim($prefix, ' ') : $prefix . $firstLine) . "\n";
 
                 if ($lines) {
                     // Every continuation line moves to this item's content
@@ -972,7 +1339,9 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
-        return ': ' . trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n";
+        $content = $this->containerContent(fn (): string => $this->renderChildren($node));
+
+        return ':' . ($content === '' ? '' : ' ' . $content) . "\n";
     }
 
     protected function renderDiv(Div $node): string
@@ -1063,7 +1432,7 @@ class MarkdownRenderer implements RendererInterface
                 }
                 if (is_array($cell) && isset($cell['content']) && is_string($cell['content'])) {
                     $cells[] = $cell['content'];
-                    if (!$row['isHeader'] && !isset($alignments[$index])) {
+                    if ($row['isHeader'] && !isset($alignments[$index])) {
                         $alignments[$index] = is_string($cell['alignment'] ?? null)
                             ? $cell['alignment']
                             : TableCell::ALIGN_DEFAULT;
@@ -1105,9 +1474,37 @@ class MarkdownRenderer implements RendererInterface
             $output .= '| ' . implode(' | ', $separators) . ' |' . "\n";
         }
 
-        $output .= implode("\n", $bodyRows) . "\n\n";
+        $output .= implode("\n", $bodyRows) . "\n";
 
-        return $output;
+        // PART 11 §10e T2: a caption is authored text, and Markdown has no
+        // table-caption syntax, so it survives as BODY TEXT AFTER the table,
+        // SEPARATED BY ONE BLANK LINE. An image caption and a listing caption
+        // already take that position on this target, so the table was the odd
+        // one out rather than a consequence of Markdown lacking the syntax.
+        //
+        // The blank line is load-bearing, not cosmetic. §10e states the general
+        // form: attachment by adjacency is only available on a target where
+        // adjacency does not change what the adjacent block IS. Written directly
+        // under the last row, a GFM reader takes the caption as ANOTHER ROW and
+        // returns it as `<td>Fruit prices</td>` - the words survive as a
+        // fabricated data cell no reader can tell from an authored one, which is
+        // worse than losing them. So this half accepts an attachment weaker
+        // than §10c's continuation marker, which keeps the relationship rather
+        // than only the words: the floor is being met, not a relationship
+        // preserved.
+        //
+        // Cited as §10c because §10d is RETIRED - withdrawn by
+        // markup-carve/carve#1213, and its number is not reused, so PART 11
+        // runs 10c, 10e (markup-carve/carve#1365).
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $text = trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE);
+            if ($text !== '') {
+                $output .= "\n" . $text . "\n";
+            }
+        }
+
+        return $output . "\n";
     }
 
     protected function renderLineBlock(LineBlock $node): string
@@ -1127,7 +1524,7 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderFootnote(Footnote $node): string
     {
-        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
+        $content = $this->containerContent(fn (): string => $this->renderChildren($node));
 
         // A label is author content, and it is reproduced verbatim in two
         // places; both escape, so a reference still matches its definition
@@ -1309,11 +1706,45 @@ class MarkdownRenderer implements RendererInterface
         return '~~' . $this->renderChildren($node) . '~~';
     }
 
+    /**
+     * Set while rendering a span that carries an authored `abbr`.
+     *
+     * PART 9 §10 and markup-carve/carve#1127: the authored value OUTRANKS
+     * automatic expansion, and a resolved abbreviation inside such a span
+     * contributes only its visible text - a renderer must not emit the nested
+     * expansion. The HTML renderer already carried this flag; this target
+     * emitted the DEFINITION's text instead (markup-carve/carve#1176).
+     */
+    protected bool $suppressAutomaticAbbreviation = false;
+
     protected function renderSpan(Span $node): string
     {
-        // Spans with attributes don't exist in Markdown
-        // Just render the content
-        return $this->renderChildren($node);
+        // Spans with attributes don't exist in Markdown, so the content is
+        // rendered bare - EXCEPT for an authored `abbr`, which outranks the
+        // document definition (markup-carve/carve#1127). This target can carry
+        // a title, because it already emits an `<abbr>` for an ordinary
+        // expansion, so it carries the AUTHORED one (markup-carve/carve#1176).
+        $authored = $node->getAttributes()['abbr'] ?? null;
+        if (!is_string($authored)) {
+            return $this->renderChildren($node);
+        }
+
+        $previous = $this->suppressAutomaticAbbreviation;
+        $this->suppressAutomaticAbbreviation = true;
+
+        try {
+            $inner = $this->renderChildren($node);
+        } finally {
+            $this->suppressAutomaticAbbreviation = $previous;
+        }
+
+        if ($authored === '' || !$this->chargeAbbreviationExpansion($authored)) {
+            return $inner;
+        }
+
+        $title = htmlspecialchars($this->stripControls($authored), ENT_QUOTES, 'UTF-8');
+
+        return '<abbr title="' . $title . '">' . $inner . '</abbr>';
     }
 
     protected function renderMath(Math $node): string
@@ -1396,6 +1827,47 @@ class MarkdownRenderer implements RendererInterface
     }
 
     /**
+     * A composite figure (grammar PART 11 §10g T1). Markdown has no figure
+     * grouping, so this is the spelling the admonition title rule already
+     * uses for authored text with no native slot: panels in order, each host
+     * degraded as usual, each PANEL caption as an emphasized `*...*` paragraph
+     * after its host; preserved stray content in place; the GROUP caption
+     * last, as a bold `**...**` paragraph, its number resolved.
+     */
+    protected function renderFigureGroup(FigureGroup $node): string
+    {
+        $output = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Figure) {
+                $panelCaption = null;
+                $host = '';
+                foreach ($child->getChildren() as $part) {
+                    if ($part instanceof Caption) {
+                        $panelCaption = $part;
+                    } else {
+                        $host .= $this->renderNode($part);
+                    }
+                }
+                $output .= rtrim($host, StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+                if ($panelCaption !== null) {
+                    $output .= '*' . trim($this->renderChildren($panelCaption), StringUtil::TRIMMABLE_WHITESPACE) . "*\n\n";
+                }
+            } else {
+                // A table panel keeps its caption inside its own degradation,
+                // and stray non-panel content is preserved in place.
+                $output .= $this->renderNode($child);
+            }
+        }
+
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $output .= '**' . trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE) . "**\n\n";
+        }
+
+        return $output;
+    }
+
+    /**
      * Markdown has no abbreviation syntax; emit inline <abbr> so the title is
      * preserved (mirrors how subscript/superscript fall back to inline HTML).
      */
@@ -1407,6 +1879,12 @@ class MarkdownRenderer implements RendererInterface
         // break the tag / be misparsed as markup downstream.
         $text = htmlspecialchars($this->renderChildren($node), ENT_QUOTES, 'UTF-8');
 
+        // Inside a span carrying its own `abbr`, only the visible text
+        // (markup-carve/carve#1127).
+        if ($this->suppressAutomaticAbbreviation) {
+            return $text;
+        }
+
         // DoS guard: once the cumulative expansion bytes would exceed the
         // budget, degrade to plain key text (no <abbr> wrapper, no title).
         if (!$this->chargeAbbreviationExpansion($node->getTitle())) {
@@ -1416,6 +1894,61 @@ class MarkdownRenderer implements RendererInterface
         $title = htmlspecialchars($this->stripControls($node->getTitle()), ENT_QUOTES, 'UTF-8');
 
         return '<abbr title="' . $title . '">' . $text . '</abbr>';
+    }
+
+    /**
+     * The crossref production, spelled exactly as the parser spells it.
+     *
+     * Two producers for one production is how this class of defect starts, so
+     * the id ends at PART 7's four characters here as well.
+     *
+     * @var string
+     */
+    protected const UNRESOLVED_CROSSREF_PATTERN = '/<\/#([^> \t\r\n]+)>/u';
+
+    /**
+     * Escape a text value, leaving any UNRESOLVED crossref marker readable.
+     *
+     * `</#nope>` is source the resolver declined. `renderHeadingRef()` already
+     * emits it with its own delimiters literal - "a reader can still act on
+     * `</#nope>`" (carve-php#1063) - but a crossref inside a LINK never reaches
+     * that method: `CrossReferenceResolver::headingRefToLabel()` flattens it to
+     * a Text node first, because a crossref inside a link would render as a
+     * nested anchor. So the marker arrived here as ordinary text and M1e escaped
+     * its `<`, and one engine spelled one construct two ways depending on where
+     * it stood. This was the only Markdown divergence carve-php had left across
+     * the 1006-document corpus (markup-carve/carve#1147).
+     *
+     * THE ESCAPE PROTECTS NOTHING, measured rather than assumed. A CommonMark
+     * tag name must begin with an ASCII letter, so `</#` opens nothing; through
+     * commonmark 0.31.2 and marked 18.0.9 the escaped and bare spellings of
+     * `a [t</#nope>](/u) b` parse to the same HTML. M1e's `/` case is written on
+     * the next character alone, which is right for `</b>` and over-broad here.
+     *
+     * THE TARGET STILL TAKES THE HTML PASS, which is not carve-out noise: the id
+     * is author content and may hold a `<`, and `</#a<script>` emitted verbatim
+     * is a live tag in both readers. Only the writer's own `</#` and `>` stay
+     * literal - the same split `renderHeadingRef()` makes.
+     *
+     * SCANNED, NOT ANCHORED. PART 12 §1a coalesces adjacent runs, so the marker
+     * is usually in the middle of a longer text node rather than alone in one.
+     */
+    protected function escapeUnresolvedCrossrefs(string $text): string
+    {
+        if (preg_match_all(self::UNRESOLVED_CROSSREF_PATTERN, $text, $matches, PREG_OFFSET_CAPTURE) < 1) {
+            return $this->escapeText($text);
+        }
+
+        $out = '';
+        $last = 0;
+        foreach ($matches[0] as $index => $match) {
+            [$marker, $offset] = $match;
+            $out .= $this->escapeText(substr($text, $last, $offset - $last))
+                . '</#' . $this->escapeHtml($matches[1][$index][0]) . '>';
+            $last = $offset + strlen($marker);
+        }
+
+        return $out . $this->escapeText(substr($text, $last));
     }
 
     protected function escapeText(string $text): string
@@ -1440,20 +1973,34 @@ class MarkdownRenderer implements RendererInterface
         // tag, so this renderer sees two separate text nodes - answering it here
         // would be one node too early, the mistake §8a M1b documents for `_`,
         // `#` and `[`.
-        $text = str_replace(['<', '>'], ['&lt;', '&gt;'], $text);
-
-        // Escape special Markdown characters in text. None overlap with the HTML
-        // chars escaped above.
+        // Escape special Markdown characters in text. None overlap with the angle
+        // brackets handled after it.
         //
         // `_`, `#` and `[` are emitted as SENTINELS rather than as backslashes:
         // PART 11 §8a M1b decides those three on the EMITTED LINE, which only
         // resolveNarrowedEscapes() can see. `*` keeps M1 unconditionally (M1a),
         // and every other metacharacter keeps M1 as written (M1c).
-        return preg_replace_callback(
+        $escaped = preg_replace_callback(
             '/([\\\\`*_\[\]#])/',
             fn (array $m): string => $this->narrowedSentinels[$m[1]] ?? '\\' . $m[1],
             $text,
         ) ?? $text;
+
+        // PART 11 SS8a M1e: a `<` is escaped only where the emitted line would
+        // read it as markup - before an ASCII letter, `/`, `!` or `?`, the four
+        // things that open raw HTML. Everything else is inert, and so is `>`
+        // mid-line; at line start `>` is a block quote marker M1 already covers.
+        //
+        // A BACKSLASH, not an entity. This wrote the two entities
+        // unconditionally with no clause behind it (markup-carve/carve#1148),
+        // and that is precisely because an entity is not the operation the
+        // section describes: M2 and M3 protect a character so it survives as
+        // itself, and an entity replaces it instead. Escaping the `<` alone
+        // suffices - a tag that cannot open cannot be closed.
+        //
+        // AFTER the metacharacter pass, so the backslash this inserts is not
+        // itself escaped by it.
+        return preg_replace('/<(?=[A-Za-z\/!?])/', '\\\\<', $escaped) ?? $escaped;
     }
 
     /**

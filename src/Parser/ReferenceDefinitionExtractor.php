@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use Closure;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Util\StringUtil;
 
 class ReferenceDefinitionExtractor
@@ -26,8 +28,10 @@ class ReferenceDefinitionExtractor
      * a second copy of the predicate would drift from the one every other
      * attribute site uses.
      */
-    public function __construct(private ?InlineParser $inlineParser = null)
-    {
+    public function __construct(
+        private ?InlineParser $inlineParser = null,
+        private ?Closure $opensBlock = null,
+    ) {
     }
 
     /**
@@ -41,7 +45,16 @@ class ReferenceDefinitionExtractor
     {
         $references = [];
         $i = 0;
+        // A definition opener necessarily contains `]:`. Nothing after the
+        // last line carrying those bytes can affect the collected table, so do
+        // not maintain the expensive fence/container state through the rest of
+        // a long document. This remains a broad byte bound: the state machine
+        // below still rejects links, escaped text, samples, and malformed
+        // candidates that merely contain the bytes.
         $count = count($lines);
+        while ($count > 0 && !str_contains($lines[$count - 1], ']:')) {
+            $count--;
+        }
         $pendingAttrs = [];
         $pendingAttrsInQuote = false;
         $pendingAttrsInList = false;
@@ -52,22 +65,29 @@ class ReferenceDefinitionExtractor
         // place in the language where a construct did both (carve#557).
         // Tracked like a code fence, closing on its own width.
         $verseFence = 0;
+        // The item content column the open line block was opened at, so its
+        // closer is read at that column instead of after arbitrary indentation.
+        // Trimming both ends read an INDENTED `:::` inside a TOP-LEVEL line
+        // block as its closer, and the definition written under it - still
+        // verse to the block parser - both rendered and resolved.
+        $verseColumn = 0;
+        // The block-quote depth the open line block was opened at, so its
+        // closer is read at that depth rather than at any composition summing
+        // to the same column.
+        $verseDepth = 0;
         // A comment's body is OPAQUE, and this pass did not know it: a
         // `[r]: /u` written inside `%%%` registered, so a reference elsewhere
         // resolved against text the author commented out - invisible in the
         // output and active in the link table (carve-php#778). The footnote
         // pass beside this one already tracked it; this one did not.
-        $commentFenceLen = 0;
-        // Only a fence that CLOSES opens the opaque region. An unterminated
-        // `%%%` degrades to a single-line comment, and treating it as open
-        // would suppress every definition in the rest of the document. Same
-        // pre-scan the footnote pass runs, for the same reason.
-        $commentCloseAt = [];
-        for ($j = 0; $j < $count; $j++) {
-            if (preg_match('/^(%{3,})/', $lines[$j], $cj) === 1) {
-                $commentCloseAt[strlen($cj[1])] = $j;
-            }
-        }
+        //
+        // WHERE the fence sits, when it opens and when it closes: one spelling,
+        // shared with the footnote and abbreviation prepasses, and its own
+        // state so no caller can carry half of it. It reads the opener past an
+        // indent, past a quote marker and past a list marker, and bounds a
+        // prefixed one by its container (markup-carve/carve#1311, corpus
+        // 335-341; markup-carve/carve#1341).
+        $commentFence = new PrepassCommentFence($lines);
         $contentColumns = new ListContentColumns();
         // A FOOTNOTE BODY is a container like any other: a definition written
         // in one is collected, and the note keeps only its own text. Without
@@ -92,10 +112,8 @@ class ReferenceDefinitionExtractor
             // inside something - `- a` / `  > [r]: /u` puts the quote at the
             // item's content column - and eating that indentation here loses
             // the very column the definition has to reach (carve-php#788).
-            $unquoted = ContainerPrefix::stripQuoteMarkers($line);
-            $blankLine = IndentationHelper::isBlankLine($unquoted);
             // Inside a code fence a `- x` line is sample text, not a marker.
-            $contentCol = $contentColumns->observe($unquoted, $fence->isOpen());
+            $contentCol = $contentColumns->observe($line, $fence->isOpen());
             // One line can open SEVERAL items (`- - a` opens two, columns 2 and
             // 4), and a definition belongs to whichever open item's column it
             // lands on - not necessarily the innermost. Reading only the
@@ -103,76 +121,16 @@ class ReferenceDefinitionExtractor
             // the item and registered by nobody: the author's line vanished and
             // a reference to it stayed literal. The footnote prepass already
             // asks this way (carve-php#764, carve-php#783).
-            $reachedCol = $contentColumns->reachedBy(
-                strlen($unquoted) - strlen(ltrim($unquoted, " \t")),
-            );
+            // COMPOSED, not the leading whitespace: a quote marker in the
+            // prefix is columns the line supplies, and a definition behind
+            // an alternating prefix sits past them
+            // (markup-carve/carve-php#1431).
+            $reachedCol = $contentColumns->reachedByLine($line);
 
-            $structuralListMarker = $contentCol > 0
-                && preg_match('/^[ \t]*(?:[-*]|[0-9]+[.)]) +/', $unquoted) === 1;
-            $structuralContinuation = $contentCol > 0 && trim($line, " \t") === '+'
-                && IndentationHelper::getLeadingColumns($unquoted, $contentCol + 1) < $contentCol;
-            if (preg_match('/^:  /', $line) === 1) {
-                $inDefinitionBody = true;
-            } elseif ($blankLine || preg_match('/^:: /', $line) === 1) {
-                $inDefinitionBody = false;
-            }
-            $definitionBodyCandidate = preg_replace('/^[ \t]*:  /', '', $unquoted);
-            $definitionBodyBoundary = $inDefinitionBody
-                && ($this->matchDefinitionLine($unquoted) !== null || (
-                    is_string($definitionBodyCandidate)
-                    && $definitionBodyCandidate !== $unquoted
-                    && $this->matchDefinitionLine($definitionBodyCandidate) !== null
-                ));
-            if (
-                $paragraphOpen && !$blankLine
-                && !$structuralListMarker && !$structuralContinuation && !$definitionBodyBoundary
-            ) {
-                $i++;
-
-                continue;
-            }
-            if (
-                $blankLine || $structuralListMarker
-                || $structuralContinuation || $definitionBodyBoundary
-            ) {
-                $paragraphOpen = false;
-            }
-
-            // A comment fence's closer is a leading `%` run of the SAME length;
-            // trailing text is allowed, so `%%% end` closes a `%%%` fence.
-            if ($commentFenceLen > 0) {
-                if (preg_match('/^(%{3,})/', $line, $cm) === 1 && strlen($cm[1]) === $commentFenceLen) {
-                    $commentFenceLen = 0;
-                }
-                $i++;
-
-                continue;
-            }
-            if (preg_match('/^(%{3,})/', $line, $cm) === 1) {
-                $openLen = strlen($cm[1]);
-                if (($commentCloseAt[$openLen] ?? -1) > $i) {
-                    $commentFenceLen = $openLen;
-                    $i++;
-
-                    continue;
-                }
-            }
-
-            if ($verseFence > 0) {
-                if (preg_match('/^(:{3,})\s*$/', trim($line), $vm) && strlen($vm[1]) >= $verseFence) {
-                    $verseFence = 0;
-                }
-                $i++;
-
-                continue;
-            }
-            if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', trim($line), $vo) === 1) {
-                $verseFence = strlen($vo[1]);
-                $i++;
-
-                continue;
-            }
-
+            // A `%%%` inside a code SAMPLE is code, so the code fence is asked
+            // first - as the footnote prepass beside this one already asks it.
+            // Reading the comment first opened an opaque region on the sample's
+            // text and left the real code closer to be read as comment body.
             if ($fence->isOpen()) {
                 // LEFT means the line dropped out of the blockquote the fence
                 // was opened in, so the region ended without a closer and this
@@ -182,6 +140,85 @@ class ReferenceDefinitionExtractor
 
                     continue;
                 }
+            }
+
+            // A LINE BLOCK's body is verse, so a `%%%` written in one is text
+            // and opens nothing. The open-region tests therefore all run before
+            // any opener test: whichever region the line is already in owns it.
+            if ($verseFence > 0) {
+                // THE COLUMN IS REACHED BY COMPOSING THE STRIPS, and the
+                // closer is read by the same walk that reached the opener. A
+                // closer at a different DEPTH is quoted content inside the
+                // block rather than its closer (markup-carve/carve-php#1431).
+                $verseView = ContainerPrefix::atColumnAndDepth($line, $verseColumn, $verseDepth);
+                // A blank line is inside the block, not out of its container:
+                // it reaches no column and ends nothing. Out of the QUOTE the
+                // block sits in it does end, which is why this is asked only of
+                // a block that has a column of its own.
+                if ($verseView === null && $verseColumn > 0 && IndentationHelper::isBlankLine($line)) {
+                    $verseView = '';
+                }
+                if ($verseView === null) {
+                    // Dedented past the column the block was opened at: the
+                    // container ended and took the unclosed line block with it.
+                    $verseFence = 0;
+                } else {
+                    if (
+                        preg_match('/^(:{3,})[ \t]*$/', $verseView, $vm) === 1
+                        && strlen($vm[1]) >= $verseFence
+                    ) {
+                        $verseFence = 0;
+                    }
+                    $i++;
+
+                    continue;
+                }
+            }
+
+            // A comment fence's closer is a leading `%` run of the SAME length;
+            // trailing text is allowed, so `%%% end` closes a `%%%` fence.
+            if ($commentFence->isOpen()) {
+                $commentFence->advance($line);
+                $i++;
+
+                continue;
+            }
+
+            // The comment opener comes BEFORE the line-block opener, because a
+            // `::: |` inside a comment is comment text and opens no verse
+            // (carve-php#698) - and after the open-region tests above, because
+            // a `%%%` inside verse is verse text and opens no comment.
+            if ($commentFence->opensOn($line, $i, $contentCol)) {
+                $i++;
+
+                continue;
+            }
+
+            // An INDENTED `::: |` opens a line block when the indent is an
+            // item's CONTENT COLUMN, and only then: `   ::: |` at top level is
+            // prose, and admitting it skipped the definition under it as verse.
+            // WHERE THE OPENER SITS, ANSWERED THE SAME WAY BY BOTH PREPASSES.
+            // This one read the RAW line, so a `> ::: |` was prose to it and
+            // verse to the footnote pass beside it, and a link definition
+            // inside a quoted line block registered while the footnote kind did
+            // not (tests/TestCase/LineBlockLinkDefinitionTest states the rule).
+            //
+            // Composed, so a `::: |` written at the content column of an item
+            // inside a quote is found: dedenting the raw line by the whole
+            // column asked for the quote marker's columns as indentation,
+            // matched nothing, and left the verse untracked - so a definition
+            // written in it registered (markup-carve/carve-php#1431).
+            $openerWalk = $fence->containerOpenerView($line, $contentCol);
+            $verseOpenerColumn = $contentCol;
+            $verseOpenerView = $openerWalk['line'];
+            $verseOpenerDepth = $openerWalk['quoteDepth'];
+            if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', $verseOpenerView, $vo) === 1) {
+                $verseFence = strlen($vo[1]);
+                $verseColumn = $verseOpenerColumn;
+                $verseDepth = $verseOpenerDepth;
+                $i++;
+
+                continue;
             }
 
             // A FOOTNOTE BODY has a content column too, and it is not a list
@@ -213,6 +250,7 @@ class ReferenceDefinitionExtractor
             }
 
             $previousIndex = $i - 1;
+            $unquoted = ContainerPrefix::stripQuoteMarkers($line);
             if (preg_match('/^[ \t]*:  /', $unquoted) === 1) {
                 while ($previousIndex >= 0 && IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($lines[$previousIndex]))) {
                     $previousIndex--;
@@ -260,6 +298,14 @@ class ReferenceDefinitionExtractor
             $definition = $notAtBodyColumn
                 ? null
                 : $this->parseReferenceDefinition($bare, $pendingAttrs, $pendingAttrsInQuote, $pendingAttrsInList, $referenceLine);
+            if (
+                $definition !== null
+                && $referenceLine['inList']
+                && $this->opensBlock !== null
+                && !($this->opensBlock)($lines, $i, $bare)
+            ) {
+                $definition = null;
+            }
             if ($definition !== null) {
                 $references[$definition['label']] = new ReferenceDefinition(
                     $definition['url'],
@@ -308,44 +354,121 @@ class ReferenceDefinitionExtractor
      */
     private function referenceLineView(string $line, int $contentCol, string $previousLine = ''): array
     {
+        $length = strlen($line);
+        $newline = strpos($line, "\n");
+        if ($newline !== false && $newline !== $length - 1) {
+            return $this->referenceLineViewFromCopies($line, $contentCol, $previousLine);
+        }
+
+        $inQuote = false;
+        $inList = false;
+        $budget = $contentCol;
+        $at = 0;
+        do {
+            $previousAt = $at;
+            $whitespaceAt = IndentationHelper::pastLeadingWhitespace($line, $at);
+            $spend = min($whitespaceAt - $at, $budget);
+            $at += $spend;
+            $budget -= $spend;
+
+            $quoteWidth = ContainerPrefix::quoteMarkerWidth($line, $at);
+            if ($quoteWidth !== null) {
+                $inQuote = true;
+                $budget = max(0, $budget - $quoteWidth);
+                $at += $quoteWidth;
+            }
+
+            $markerAt = $this->referenceListMarkerEndAt($line, $at, $previousLine);
+            if ($markerAt !== null) {
+                $inList = true;
+                $budget = max(0, $budget - ($markerAt - $at));
+                $at = $markerAt;
+            }
+        } while ($at !== $previousAt);
+
+        if (!$inList && $contentCol > 0 && $budget === 0) {
+            $inList = true;
+        }
+        if (LayoutWork::$on) {
+            LayoutWork::$referencePrescan += $length - $at;
+        }
+
+        return ['line' => substr($line, $at), 'inQuote' => $inQuote, 'inList' => $inList];
+    }
+
+    private function referenceListMarkerEndAt(string $line, int $at, string $previousLine): ?int
+    {
+        $descriptionMarker = self::opensDefinitionEntry($previousLine) ? ':[ \t]|' : '';
+        $pattern = '/[ \t]*(?:' . $descriptionMarker
+            . '[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?='
+            . StringUtil::NON_WHITESPACE_CLASS . ')/A';
+
+        return preg_match($pattern, $line, $match, 0, $at) === 1
+            ? $at + strlen($match[0])
+            : null;
+    }
+
+    /**
+     * Exact capturing fallback for a subject containing an interior newline.
+     *
+     * @return array{line: string, inQuote: bool, inList: bool}
+     */
+    private function referenceLineViewFromCopies(string $line, int $contentCol, string $previousLine = ''): array
+    {
         $bare = $line;
         $inQuote = false;
         $inList = false;
+        // THE COLUMN IS A BUDGET, SPENT ACROSS THE WHOLE PREFIX. Asking for the
+        // full content column on every turn of the loop only worked while the
+        // prefix was one kind: `- > - - x` puts its innermost content at 8, and
+        // the continuation under it spends 2 on indent, 2 on the quote marker
+        // and 4 on indent again. Re-asking for 8 after the quote found only 4
+        // and matched nothing, so the definition was consumed by the block
+        // parser and registered by nobody (markup-carve/carve-php#1431).
+        //
+        // The BOUND is what carries markup-carve/carve-php#788 through: at top
+        // level the budget is 0, so no indentation is eaten and a `    > [r]: /u`
+        // is indented text rather than a quote. Exactly the column, never
+        // arbitrary indentation - now counted across the composition rather
+        // than at one step of it.
+        $budget = $contentCol;
         do {
             $previousBare = $bare;
+            $whitespace = strlen($bare) - strlen(ltrim($bare, " \t"));
+            $spend = min($whitespace, $budget);
+            if ($spend > 0) {
+                $bare = substr($bare, $spend);
+                $budget -= $spend;
+            }
             // The `>` may sit at an ITEM'S CONTENT COLUMN (`- a` /
             // `  > [r]: /u`). Strip exactly that column first - never arbitrary
             // indentation, since a top-level `    > [r]: /u` is indented text
             // rather than a quote (tests/BlockquoteRefDefTest) - and then read
             // the marker (carve-php#788).
-            $atColumn = ContainerPrefix::atContentColumn($bare, $contentCol);
-            // The dedent is taken only when a MARKER sits at that column, and
-            // whether one does is {@see ContainerPrefix}'s question, not a byte
-            // test's. This was the third open-coded marker test outside that
-            // class - markup-carve/carve-php#969 named two. It has to be the
-            // SAME rule the strip below applies, or a shape one admits and the
-            // other refuses gets dedented and then not stripped; there is now
-            // only one rule to ask.
-            if ($atColumn !== null && ContainerPrefix::quoteContent($atColumn) !== null) {
-                $bare = $atColumn;
-            }
             $quoteContent = ContainerPrefix::quoteContent($bare);
             if ($quoteContent !== null) {
                 $inQuote = true;
+                $budget = max(0, $budget - (strlen($bare) - strlen($quoteContent)));
                 $bare = $quoteContent;
             }
             $afterMarker = $this->stripReferenceListMarker($bare, $previousLine);
             if ($afterMarker !== $bare) {
                 $inList = true;
+                $budget = max(0, $budget - (strlen($bare) - strlen($afterMarker)));
                 $bare = $afterMarker;
             }
         } while ($bare !== $previousBare);
 
-        $atItemColumn = ContainerPrefix::atContentColumn($bare, $contentCol);
-        if (!$inList && $atItemColumn !== null) {
-            // Measured on the quote-stripped view, not the raw line: inside
-            // `> - a` the column counts from after the `> ` (carve#658).
-            $bare = $atItemColumn;
+        // A COLUMN IS SPENT ONCE. The dedent used to happen here, after a loop
+        // that did not spend the column itself; now the loop spends it, and
+        // asking again took a SECOND helping - under `- x` a four-space
+        // `    [r]: /u` kept two residual columns and is the paragraph text
+        // §24 C3 says it is, but the two dedents together put the `[` at
+        // position 0 and registered it (markup-carve/carve-php#1431).
+        //
+        // What the second dedent also did was record that the line reached an
+        // item, which the budget being fully spent says just as well.
+        if (!$inList && $contentCol > 0 && $budget === 0) {
             $inList = true;
         }
 
@@ -482,7 +605,7 @@ class ReferenceDefinitionExtractor
      * instead of failing visibly.
      *
      * ONE SPELLING, THREE CALLERS. The line is also asked "is this a
-     * definition?" by the block-position predicate and by the block
+     * definition?" by the paragraph-interruption predicate and by the block
      * parser's own consume pass. While the pattern ended in a swallow-everything
      * tail those could test the RAW line and be right by accident, because
      * `[a]: /u {.c}` matched it raw. Anchored, they cannot - so they call this
@@ -501,6 +624,15 @@ class ReferenceDefinitionExtractor
      */
     public function matchDefinitionLine(string $line): ?array
     {
+        // The production ends at its first newline. List lazy-continuation can
+        // store several physical source lines in one parser entry; letting the
+        // `/s` matcher cross that boundary turned `[d]: ` plus the next line
+        // into a definition whose destination came from that next line, and
+        // both lines then disappeared from the item.
+        if (str_contains($line, "\n") || str_contains($line, "\r")) {
+            return null;
+        }
+
         // `[^…]:` with a NON-EMPTY label is a footnote definition and takes
         // precedence, so it is excluded here. `[^]:` is not: `footnote_label`
         // is one-or-more characters, so an empty label never forms a footnote
@@ -785,5 +917,26 @@ class ReferenceDefinitionExtractor
         $trimmed = preg_replace('/^[\p{Z}\x{0009}-\x{000D}\x{0085}]+/u', '', $value);
 
         return $trimmed ?? ltrim($value);
+    }
+
+    /**
+     * Whether a reference definition could start at `$at`, by its first byte.
+     *
+     * A walk crossing a container prefix reads this at an offset instead of
+     * cutting the tail out to hand {@see self::matchDefinitionLine()}, which is
+     * the copy per level markup-carve/carve-php#1437 removed. The footnote
+     * spelling `[^label]:` shares the bracket, so one head covers both
+     * definition kinds. *
+     * The parser's own fast exit spells the same byte test inline, because it
+     * runs on nearly every line the parser reads and one more call for it
+     * measured against an ordinary document. The two are held together by
+     * `OffsetHeadsAgreeWithTheirParsersTest`, which walks EVERY byte value and
+     * asserts the head accepts a line exactly where the parser can, so the pair
+     * cannot drift in silence - which is the failure
+     * markup-carve/carve-php#969 was.
+     */
+    public static function isDefinitionHead(string $line, int $at = 0): bool
+    {
+        return ($line[$at] ?? '') === '[';
     }
 }

@@ -1,11 +1,12 @@
 {
   "version": 1,
-  "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently.",
+  "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently. Where two Carve types name the same ProseMirror node or mark, the one that is a vocabulary alias of the other carries `aliasOf` naming the type that owns the name; a bridge resolving a ProseMirror name back to a Carve type must not decide that by whatever order it happens to walk this file in.",
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
-    "commit": "115a2b619e72aad0da3547649915ee9563e579fd",
+    "commit": "228f003effd1529ba6cebfcd933c2007bf4e4d4c",
     "refresh": "copy the file from carve-grammars and update commit; ProseMirrorSchemaMapTest asserts every AST type still has a decision"
   },
+  "attributeNaming": "An attribute that carries a CARVE concept on a node or mark Tiptap already defines is spelled with a `carve` prefix (`carveRef`, `carveTight`, `carveKeyValues`), so it cannot collide with what a stock extension - or an application - puts on the same node. On a node this schema owns, the bare name is used: `carveCitation` has `raw`, not `carveRaw`. HTML-native names (`id`, `class`, `href`, `src`, `title`, `colspan`, `start`) keep their spelling wherever they appear. Two bridges to this model disagreed on every one of these before it was written down: carve-js wrote `ref`/`delim` where carve-php wrote `carveRef`/`tight`, so a document stored by one lost its reference spelling, its list tightness and its table spans when read by the other.",
   "carveSpecVocabulary": "spec/docs/profiles.md",
   "proseMirrorSchema": "tiptap/carve-kit.js (CarveKit)",
   "types": {
@@ -15,12 +16,25 @@
     },
     "paragraph": {
       "kind": "node",
-      "pm": "paragraph"
+      "pm": "paragraph",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id"
+      }
     },
     "heading": {
       "kind": "node",
       "pm": "heading",
-      "notes": "level attr; only `id` survives as an attribute"
+      "notes": "level plus authored id, classes, and key/value attributes",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "every other authored key=value, as one map",
+        "class": "authored classes, space separated",
+        "id": "authored id",
+        "level": "heading level, 1-6"
+      }
     },
     "text": {
       "kind": "node",
@@ -37,12 +51,21 @@
     "code_block": {
       "kind": "node",
       "pm": "codeBlock",
-      "notes": "language attr; languageRaw carries the unnormalized info string"
+      "notes": "language attr; carveLanguageRaw carries the unnormalized info string",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveHeader": "fence title",
+        "carveKeyValues": "authored key=values",
+        "carveLabel": "fence label",
+        "carveLanguageRaw": "info string as written",
+        "class": "authored classes",
+        "id": "authored id",
+        "language": "normalized info string"
+      }
     },
     "thematic_break": {
       "kind": "node",
-      "pm": "horizontalRule",
-      "notes": "carveMarker carries the authored thematic-break character"
+      "pm": "horizontalRule"
     },
     "list": {
       "kind": "node",
@@ -51,7 +74,17 @@
         "orderedList",
         "taskList"
       ],
-      "notes": "listType selects; taskList when items carry a task marker"
+      "notes": "listType selects; taskList when items carry a task marker",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveBareMarker": "true for the bare `.` marker",
+        "carveDelim": "marker delimiter: . or )",
+        "carveKeyValues": "authored key=values",
+        "carveOlType": "marker style: 1 | a | A | i | I",
+        "carveTight": "false when the author separated items with blank lines - CONTENT, not styling",
+        "class": "authored classes",
+        "start": "first ordered number"
+      }
     },
     "list_item": {
       "kind": "node",
@@ -59,7 +92,14 @@
         "listItem",
         "taskItem"
       ],
-      "notes": "taskItem inside a taskList"
+      "notes": "taskItem inside a taskList",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored marker key=values",
+        "checked": "task item state, taskItem only",
+        "class": "authored marker classes",
+        "id": "authored marker id"
+      }
     },
     "table": {
       "kind": "node",
@@ -75,24 +115,47 @@
         "tableCell",
         "tableHeader"
       ],
-      "notes": "tableHeader for `|=` cells"
+      "notes": "tableHeader for `|=` cells",
+      "attrs": {
+        "carveSpanMarker": "the span marker as written, where a cell carries one",
+        "colspan": "omitted when 1",
+        "rowspan": "omitted when 1",
+        "textAlign": "left | center | right"
+      }
     },
     "image": {
       "kind": "node",
-      "pm": "image"
+      "pm": "image",
+      "attrs": {
+        "alt": "alt text",
+        "carveRawRef": "the reference as written, so the spelling survives",
+        "carveRef": "reference label the image resolves by",
+        "src": "destination",
+        "title": "title"
+      }
     },
     "math": {
       "kind": "node",
       "pm": "carveMath",
-      "notes": "inline atom; display attr for the `$$` form"
+      "notes": "inline atom; display attr for the `$$` form",
+      "attrs": {
+        "display": "true for the $$ form",
+        "src": "TeX source"
+      }
     },
     "footnote_ref": {
       "kind": "node",
-      "pm": "carveFootnote"
+      "pm": "carveFootnote",
+      "attrs": {
+        "label": "the label as written"
+      }
     },
     "footnote": {
       "kind": "node",
-      "pm": "carveFootnoteDefinition"
+      "pm": "carveFootnoteDefinition",
+      "attrs": {
+        "label": "the label as written"
+      }
     },
     "div": {
       "kind": "node",
@@ -101,12 +164,31 @@
         "carveTabSet",
         "carveTab"
       ],
-      "notes": "carveTabSet/carveTab are the `tabs`/`tab` classes; every other class is carveDiv"
+      "notes": "carveTabSet/carveTab are the `tabs`/`tab` classes; every other class is carveDiv",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "carveTyped": "true when the KIND WORD was written on the opener (`::: note`), false when the classes came from an attribute run above a bare `:::`. One ProseMirror node serves both `div` and `admonition`, and nothing else in the document says which was authored",
+        "class": "the kind word plus authored classes",
+        "id": "authored id",
+        "label": "tab label, carveTab only",
+        "title": "fence title"
+      }
     },
     "admonition": {
       "kind": "node",
       "pm": "carveDiv",
-      "notes": "profile vocabulary only: an admonition is a div with a type class"
+      "aliasOf": "div",
+      "notes": "profile vocabulary only: an admonition is a div with a type class",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "carveTyped": "true when the KIND WORD was written on the opener (`::: note`), false when the classes came from an attribute run above a bare `:::`. One ProseMirror node serves both `div` and `admonition`, and nothing else in the document says which was authored",
+        "class": "the kind word plus authored classes",
+        "id": "authored id",
+        "label": "tab label, carveTab only",
+        "title": "fence title"
+      }
     },
     "definition_list": {
       "kind": "node",
@@ -120,6 +202,57 @@
       "kind": "node",
       "pm": "definitionDescription"
     },
+    "figure": {
+      "kind": "node",
+      "pm": "carveFigure",
+      "attrs": {
+        "class": "authored classes",
+        "id": "authored id"
+      }
+    },
+    "figure_group": {
+      "kind": "node",
+      "pm": "carveFigureGroup",
+      "notes": "a composite figure (PART 9 §4c): children in source order, the panels being the figure and table nodes among them. The group caption rides as a trailing carveCaption child even though it is authored below the closing fence. Deliberately no target, no title, no label - a bridge discriminates on the TYPE, never by probing for the target a figure has and this does not",
+      "attrs": {
+        "class": "authored classes",
+        "id": "authored id"
+      }
+    },
+    "caption": {
+      "kind": "node",
+      "pm": "carveCaption",
+      "attrs": {
+        "short": "true for the shortCaption, which never renders"
+      }
+    },
+    "line_block": {
+      "kind": "node",
+      "pm": "carveLineBlock",
+      "attrs": {
+        "mode": "how the block preserves its leading space"
+      }
+    },
+    "raw_block": {
+      "kind": "node",
+      "pm": "carveRawBlock",
+      "attrs": {
+        "format": "the target format"
+      }
+    },
+    "comment": {
+      "kind": "node",
+      "pm": [
+        "carveComment",
+        "carveCommentInline"
+      ],
+      "notes": "block attr distinguishes %% line comments from fenced comments",
+      "attrs": {
+        "block": "true for a fenced comment, false for a %% line",
+        "content": "the comment text, carveCommentInline only",
+        "delimited": "true for the `%%{ ... }%%` form (PART 9 section 21a)"
+      }
+    },
     "mention": {
       "kind": "node",
       "pm": [
@@ -129,17 +262,140 @@
       "accepts": [
         "mention"
       ],
-      "notes": "carveTag for the `#tag` flavor. `accepts` lists names a bridge should ALSO recognize on the way in that CarveKit does not itself register: `mention` is stock tiptap/extension-mention, and refusing it made a plain editor fail on a concept Carve already models fully."
-    },
-    "tag": {
-      "kind": "node",
-      "pm": "carveTag",
-      "notes": "the `#tag` flavor of a mention, and its own AST type in PART 12 - the `mention` entry above names `carveTag` as its second ProseMirror name for the same node, so both wire types resolve to it."
+      "notes": "carveTag for the `#tag` flavor. `accepts` lists names a bridge should ALSO recognize on the way in that CarveKit does not itself register: `mention` is stock tiptap/extension-mention, and refusing it made a plain editor fail on a concept Carve already models fully.",
+      "attrs": {
+        "id": "the name without its sigil"
+      }
     },
     "inline_extension": {
       "kind": "node",
-      "pm": "carveEmbed",
-      "notes": "partial: only media embeds are modeled, via the directive stamped in carveSource"
+      "pm": [
+        "carveInlineExtension",
+        "carveEmbed"
+      ],
+      "notes": "carveInlineExtension is the general form - inline, name plus editable children, `:name[content]`. carveEmbed stays for a MEDIA directive, which is a block atom and cannot hold inline children; it is reached through the HTML route rather than from the AST",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id",
+        "name": "the directive name"
+      }
+    },
+    "frontmatter": {
+      "kind": "node",
+      "pm": "carveFrontmatter",
+      "notes": "atom; content and format attrs",
+      "attrs": {
+        "content": "the block VERBATIM, never a parsed mapping",
+        "format": "yaml, toml, ..."
+      }
+    },
+    "link_reference_definition": {
+      "kind": "node",
+      "pm": "carveLinkRefDef",
+      "notes": "atom; label, href and title attrs. Carrying the definition is what lets a `[text][label]` reference keep its spelling",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "the definition's own trailing attribute run",
+        "class": "the definition's own trailing attribute run",
+        "href": "destination",
+        "id": "the definition's own trailing attribute run",
+        "label": "the label as written",
+        "title": "title"
+      }
+    },
+    "inline_footnote": {
+      "kind": "node",
+      "pm": "carveInlineNote",
+      "notes": "inline content; the number is a resolution artifact and is not carried",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id"
+      }
+    },
+    "raw_inline": {
+      "kind": "node",
+      "pm": "carveRawInline",
+      "notes": "inline atom; content and format attrs",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "content": "the raw payload",
+        "format": "the target format",
+        "id": "authored id"
+      }
+    },
+    "literal_inline": {
+      "kind": "node",
+      "pm": "carveLiteral",
+      "notes": "inline atom; content attr",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "content": "the literal payload",
+        "id": "authored id"
+      }
+    },
+    "substitution": {
+      "kind": "node",
+      "pm": "carveSubstitution",
+      "notes": "inline atom; oldText and newText attrs",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id",
+        "newText": "the replacement",
+        "oldText": "the replaced text"
+      }
+    },
+    "symbol": {
+      "kind": "node",
+      "pm": "carveSymbol",
+      "notes": "inline atom; name attr",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id",
+        "name": "the shortcode name, without its colons"
+      }
+    },
+    "citation_group": {
+      "kind": "node",
+      "pm": "carveCitation",
+      "notes": "inline atom; raw and integral attrs, plus items whose prefix/locator/suffix are ProseMirror inline arrays",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id",
+        "integral": "true for the `[+@key]` form",
+        "items": "per item: key, suppressAuthor, and prefix/locator/suffix as INLINE ARRAYS",
+        "raw": "the group as written"
+      }
+    },
+    "heading_ref": {
+      "kind": "node",
+      "pm": "carveCrossref",
+      "notes": "inline atom; target attr. The resolved href is a resolution artifact and is not carried",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id",
+        "target": "the target as written; the resolved href is a resolution artifact and is not carried"
+      }
+    },
+    "section": {
+      "kind": "node",
+      "pm": "carveSection",
+      "notes": "a rendering wrapper: the bridge hoists its children through a carveSection node so the heading and body survive"
     },
     "strong": {
       "kind": "mark",
@@ -159,7 +415,14 @@
     },
     "code": {
       "kind": "mark",
-      "pm": "code"
+      "pm": "code",
+      "notes": "an attribute run on inline code (`` `x`{.cls} ``) belongs to the code mark; the stock Tiptap mark declares no attributes, so a bridge has to add these",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id"
+      }
     },
     "highlight": {
       "kind": "mark",
@@ -189,43 +452,81 @@
     "span": {
       "kind": "mark",
       "pm": "carveSpan",
-      "notes": "carries id, class and extra attributes. Stock tiptap/extension-text-style emits `textStyle`, deliberately NOT accepted: it is a carrier mark for color/fontFamily/fontSize, so mapping it here would put presentational attributes into a Carve document. An application that wants that registers `textStyle` itself."
+      "notes": "carries id, class and extra attributes. Stock tiptap/extension-text-style emits `textStyle`, deliberately NOT accepted: it is a carrier mark for color/fontFamily/fontSize, so mapping it here would put presentational attributes into a Carve document. An application that wants that registers `textStyle` itself.",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id"
+      }
     },
     "abbreviation": {
       "kind": "mark",
-      "pm": "carveAbbreviation"
+      "pm": "carveAbbreviation",
+      "attrs": {
+        "title": "the expansion"
+      }
     },
     "link": {
       "kind": "mark",
-      "pm": "link"
+      "pm": "link",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveAutolink": "true for the `<https://e.com>` form",
+        "carveKeyValues": "authored key=values",
+        "carveRawRef": "the reference as written",
+        "carveRef": "reference label the link resolves by",
+        "carveReferenceDefinition": "the definition line, where one was authored with attributes",
+        "class": "authored classes",
+        "href": "destination",
+        "id": "authored id",
+        "title": "title"
+      }
     },
     "autolink": {
       "kind": "mark",
       "pm": "link",
+      "aliasOf": "link",
       "notes": "profile vocabulary only: an autolink is a link whose text is its destination"
     }
   },
   "unmapped": {
-    "figure": "figure / caption blocks are not modeled",
-    "caption": "figure / caption blocks are not modeled",
-    "abbreviation_def": "abbreviation definitions are document metadata, not editor content",
+    "citation_definition": "the bibliography definition line (PART 12 §18) is not yet modeled; CarveKit registers no node for it, and emitting a name the editor schema never defined is worse than dropping it. The references list the Citations extension renders is what an editor holds today",
+    "abbreviation_def": "abbreviation definitions ride on the doc node's attrs",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
-    "citation_group": "citations are not modeled",
-    "comment": "comments are not represented in the editor model",
-    "frontmatter": "front matter is not modeled by the serializer",
-    "heading_ref": "cross-reference links to heading ids are not modeled",
-    "inline_footnote": "inline footnotes are not modeled",
-    "line_block": "line blocks are not modeled",
-    "link_reference_definition": "a link reference definition is document metadata, not editor content: it renders nothing and feeds the links and images that resolve its label",
-    "raw_block": "raw passthrough blocks are not modeled",
-    "raw_inline": "raw passthrough inlines are not modeled",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",
     "escaped_text": "escaping is a source-level concern; the editor holds the escaped character as text",
-    "literal_inline": "inline literals are not modeled",
     "smart_punctuation": "smart-typography output is lossy on reparse, so it is not modeled",
-    "soft_break": "a soft break is whitespace in the ProseMirror model",
-    "substitution": "critic-substitute inline nodes are not modeled by the serializer",
-    "symbol": "symbol inline nodes are not modeled",
-    "section": "section wrappers are a rendering construct, not editor content"
+    "soft_break": "a soft break is whitespace in the ProseMirror model"
+  },
+  "preservationNodes": {
+    "about": "Not Carve types: the two nodes a bridge writes when it has no editable node for a construct. They are PART OF THE WIRE, not an implementation detail of one bridge - carve-grammars produced them for 179 of 1025 corpus documents and carve-php refused every one, because an unknown ProseMirror name is an error rather than a skip. A bridge reading one writes `carveSource` back as Carve source, verbatim; a bridge that cannot must say so rather than drop the node.",
+    "carveUnsupported": {
+      "kind": "node",
+      "group": "block",
+      "attrs": {
+        "carveSource": "the construct as written, exactly; written back verbatim",
+        "carveType": "the Carve node type the atom stands in for, so a caller can say WHAT was preserved"
+      }
+    },
+    "carveUnsupportedInline": {
+      "kind": "node",
+      "group": "inline",
+      "attrs": {
+        "carveSource": "the construct as written, exactly; written back verbatim",
+        "carveType": "the Carve node type the atom stands in for"
+      }
+    }
+  },
+  "markCarrierNodes": {
+    "about": "Not a Carve type either: the node a bridge writes for a MARK WITH NO CONTENT. A ProseMirror mark cannot span zero characters, and four Carve constructs parse to a mark-producing node with no children - `[](https://example.com)`, `[]{.a}`, `{++}` and `{--}`. Walking their children produces nothing, so before this node existed each one simply disappeared: a document that was only an empty-label link came back EMPTY, and nothing reported it. A bridge writes this atom instead and reads it back as the construct it names; a bridge that cannot must say so through its dropped/degraded report rather than drop the node.",
+    "carveEmptyMark": {
+      "kind": "node",
+      "group": "inline",
+      "attrs": {
+        "markAttrs": "the mark's own attributes, as one map: a link's `href`/`title` and any authored run, a span's id/class/key-values. Absent where the mark had none",
+        "markType": "the ProseMirror mark this atom stands for: `link`, `carveSpan`, `carveAbbreviation`, `carveInsert` or `carveDelete`"
+      }
+    }
   }
 }

@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class BareDotOrderedMarkerTest extends TestCase
@@ -64,6 +65,73 @@ class BareDotOrderedMarkerTest extends TestCase
     public function testBareDotDoesNotInterruptParagraph(): void
     {
         $this->assertSame("<p>text\n. a</p>\n", $this->html("text\n. a\n"));
+    }
+
+    /**
+     * A bare-dot item suppresses abbreviation collection like any other marker.
+     *
+     * PART 12 §7: `*[TERM]: expansion` is an `abbreviation_definition` "only as
+     * a direct child of the document. Written inside a block quote, a list item
+     * or a div, the line is not a definition at all: it is ordinary paragraph
+     * text, it defines nothing, and it is preserved as the text the author
+     * typed."
+     *
+     * Two wrong things used to happen together after `. x`: the line stayed
+     * visible as lazy item text AND registered the term, so it expanded inside
+     * its own definition and again in any later paragraph (carve-php#1328).
+     *
+     * The numbered and bullet rows are the point of the set. Both give the same
+     * content column as `. `, and both already suppressed collection, so the
+     * content column was never the reason - the guard's ordered alternatives
+     * all required an enumerator before the delimiter, and the bare dot is the
+     * one ordered marker that has none.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function markerProvider(): array
+    {
+        return [
+            'a bare dot' => [". x\n*[A]: d\n\nA here\n", "<ol>\n  <li>x\n*[A]: d</li>\n</ol>\n<p>A here</p>\n"],
+            'a numbered marker' => ["1. x\n*[A]: d\n\nA here\n", "<ol>\n  <li>x\n*[A]: d</li>\n</ol>\n<p>A here</p>\n"],
+            'a bullet' => ["- x\n*[A]: d\n\nA here\n", "<ul>\n  <li>x\n*[A]: d</li>\n</ul>\n<p>A here</p>\n"],
+        ];
+    }
+
+    #[DataProvider('markerProvider')]
+    public function testAnAbbreviationAfterAnItemIsNotCollected(string $source, string $expected): void
+    {
+        // Asserted on the WHOLE document, because the two halves of the defect
+        // sit in different blocks: the expansion inside the item's own text and
+        // the expansion in the paragraph two lines later. Checking only the
+        // paragraph would pass for an engine that still rewrote the item.
+        $this->assertSame($expected, $this->html($source));
+    }
+
+    /**
+     * The control the fix must not overshoot: a definition that IS a direct
+     * child of the document still registers.
+     *
+     * Widening the item guard until it swallowed a column-0 line would make
+     * every row above pass and silently disable abbreviations altogether.
+     */
+    public function testATopLevelAbbreviationStillRegisters(): void
+    {
+        $this->assertSame(
+            "<p><abbr title=\"d\">A</abbr> here</p>\n",
+            $this->html("*[A]: d\n\nA here\n"),
+        );
+    }
+
+    /**
+     * And one after the LIST has ended registers too - the guard is released by
+     * the blank line, so it must not latch on for the rest of the document.
+     */
+    public function testAnAbbreviationAfterTheListEndsStillRegisters(): void
+    {
+        $this->assertSame(
+            "<ol>\n  <li>x</li>\n</ol>\n<p><abbr title=\"d\">A</abbr> here</p>\n",
+            $this->html(". x\n\n*[A]: d\n\nA here\n"),
+        );
     }
 
     public function testAttributesAttachToTheListItem(): void

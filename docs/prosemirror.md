@@ -37,6 +37,20 @@ The bridge builds from the AST instead, and reports what it could not carry -
 that is gone while its text survives. Prefer it for anything you intend to
 store and read back.
 
+## The wire shape, not only the names
+
+`resources/prosemirror-wire-fixtures.json` is a copy of the fixture set
+carve-grammars publishes: one Carve source per construct and the exact
+ProseMirror document a bridge must produce for it, attribute names included.
+`WireFixturesTest` asserts both directions against it.
+
+The map alone was not enough. It named the node a Carve type becomes and left
+the attributes to each implementation, so this bridge wrote `carveRef` and
+`tight` where carve-grammars wrote `ref` and nothing at all - each perfectly
+round-tripping on its own, and neither able to read the other's documents
+without loss. Refresh the fixtures the way the map is refreshed: copy them, and
+bump the commit in `_provenance`.
+
 ## Where the names come from
 
 Node and mark names are **not** defined here. They come from
@@ -60,11 +74,16 @@ $renderer->droppedTypes();    // ['comment' => 'comments are not represented …
 $renderer->degradedTypes();   // ['soft_break' => 'a soft break is whitespace …']
 ```
 
-- **Dropped** - the content is gone: comments, figures with captions, frontmatter,
-  cross-reference links, line blocks, inline footnotes, raw passthrough.
+- **Dropped** - the content is gone: smart typography, and a caption NUMBER,
+  which is a resolution artifact rather than editor content. The list used to be
+  much longer - comments, figures with captions, frontmatter, cross-references,
+  line blocks, inline footnotes and raw passthrough are all carried now.
 - **Degraded** - the node type is gone but the text survives: a soft break becomes
   a space, a smart quote becomes its glyph, an escaped character becomes the
   character. Dropping these instead would run words together or lose a character.
+
+Ask the renderer rather than trusting this list: which types land where is a
+property of one bridge at one version, and both directions of that list move.
 
 An application storing documents should assert both are empty rather than trust
 them:
@@ -90,11 +109,17 @@ Current state, and both numbers are ratchets:
 
 | | count |
 |---|---|
-| corpus documents | 810 |
-| fully covered, byte-identical HTML | 493 |
-| surviving the round trip, covered or not | 631 |
+| corpus documents | 1053 |
+| fully covered, byte-identical HTML | 791 |
+| surviving the round trip, covered or not | 1014 |
 | fully covered but differing (each one a bug worth fixing) | 0 |
 | threw | 0 |
+
+The first number FELL when the renderer began reporting two losses it always
+had - the authored order of an attribute run, and a soft break, whose text now
+round-trips as a newline while the node is still gone. Neither document lost
+anything it used to carry. The second number is the one that guards fidelity,
+and it rose by 131.
 
 ## Application node types
 

@@ -27,6 +27,7 @@
         "ext-intl": "Recommended for heading-ID transliteration: enables ICU romanization of non-Latin scripts (e.g. CJK, Arabic). Without it, a baked map covers Latin/Cyrillic/punctuation identically and other scripts fall back to the generated `section` id."
     },
     "require-dev": {
+        "brianium/paratest": "^7.8",
         "nikic/php-fuzzer": "^0.0.11",
         "php-collective/code-sniffer": "^0.6.8",
         "phpstan/phpstan": "^2.1.32",
@@ -53,11 +54,13 @@
         "fuzz-strict": "php-fuzzer fuzz fuzz/target-strict.php fuzz/corpus/",
         "stan": "phpstan analyze",
         "test": "@php -d pcov.enabled=0 vendor/bin/phpunit",
+        "test-parallel": "@php -d pcov.enabled=0 vendor/bin/paratest",
         "test-all": [
             "@test",
             "@test-scaling"
         ],
         "test-coverage": "@php vendor/bin/phpunit --coverage-clover coverage.xml",
+        "test-coverage-parallel": "@php vendor/bin/paratest --coverage-clover coverage.xml",
         "test-scaling": "@php -d pcov.enabled=0 vendor/bin/phpunit --group scaling"
     },
     "config": {

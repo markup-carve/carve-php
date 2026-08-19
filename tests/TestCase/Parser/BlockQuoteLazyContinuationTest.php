@@ -46,7 +46,7 @@ class BlockQuoteLazyContinuationTest extends TestCase
 
     public function testFenceLikeLineInsideOpenParagraphStaysParagraphText(): void
     {
-        // Regression guard: a code fence cannot end an open paragraph in
+        // Regression guard: a code fence does NOT interrupt an open paragraph in
         // strict mode, so the fence-looking line is paragraph text and the next
         // unquoted line keeps lazily continuing the paragraph.
         $djot = "> text\n> ```\nlazy";

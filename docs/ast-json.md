@@ -286,40 +286,52 @@ does. An unregistered type fails loudly rather than silently dropping content.
   drives them, but writes back without `[x]`. A titled admonition rendered the
   same `<aside>` while losing its title. §6 is about the authored form, so the
   Carve renderer is the stricter surface.
-- **Source positions are recorded, but not yet serialized.** Opt in with
+- **Source positions are recorded and serialized.** `bin/carve --json` emits
+  `pos` on every node it can place, with no flag. In library use, opt in with
   `new BlockParser(trackPositions: true)` and read `Node::getPos()`, which
-  returns a `SourceSpan` (all six PART 12 §4 fields, offsets in bytes) or
-  `null`.
+  returns a `SourceSpan` (all six PART 12 §4 fields) or `null`.
 
   Null is a real answer, not a gap: §4 forbids emitting a span with invented
   values, so a node the parser cannot place honestly carries none. Two
   invariants are enforced over the whole corpus - a text node's span selects
   exactly its own bytes, and a child's span never falls outside its parent's.
-  About 97% of corpus nodes carry a span; the rest are deeply nested list
-  content and span-marker filler cells.
 
   Offsets and columns count **codepoints**, per §4 - slice with `mb_substr()`,
   not `substr()`.
 
-  The codec emits `pos` for every node that has one. That is deliberately not
-  the same as being conformant: §4 requires a position on every node but the
-  root, and coverage is ~97%. What §4 forbids is *inventing* a position and
-  omitting one *silently*, so `--json` prints a note saying the output is not
-  yet conformant. Publishing what was measured keeps the remaining gaps visible
-  as "missing pos on X" in the conformance checker, rather than hiding the
-  feature behind an encoder that drops it. Tracked in
-  [carve-php#478](https://github.com/markup-carve/carve-php/issues/478); until
-  it closes, treat `pos` as present-or-absent rather than guaranteed.
-- **Field names match the spec; positions do not exist yet.** Running the spec
-  repo's `npm run ast:check` against `bin/carve --json` reports **23 findings over
-  12 documents, every one of them a missing `pos`** - down from 48, with the
-  shape findings gone. PART 12 §4 requires `pos` on every node but the root and
-  anticipates this state exactly, calling it "a scheduling note": carve-php's
-  nodes carry no positions, so the codec has none to emit, and §4 forbids
-  inventing them. It also forbids omitting them *silently*, so `--json` writes a
-  note to stderr saying the output is not conformant. Tracked in
-  [carve-php#478](https://github.com/markup-carve/carve-php/issues/478); position
-  tracking is a parser change, not a codec one.
+  MEASURED, WITH ITS PROVENANCE, because a percentage carrying no date reads
+  exactly like a fresh one. On **2026-08-18**, over the spec corpus at carve
+  [`9616bdc0`](https://github.com/markup-carve/carve/commit/9616bdc0) - 1268
+  documents - with carve-php `f30ebd1`: **8562 of 8617 nodes below the root
+  carry a `pos`, 99.4%**. The 55 without are 26 `table_cell`, 26 `text` and 3
+  `code`, and every one of them falls in a category §4 EXEMPTS - a coalesced
+  text run, a reassembled table cell, a verbatim run continued on a `+` line.
+  carve-rs `a33c42a` leaves the same 55 over the same corpus, node for node.
+
+  So `pos` is not "present or absent" any more: it is present except where §4
+  forbids inventing it. Re-take the measurement rather than trusting this
+  paragraph once the date above has aged - the corpus grows by whole categories
+  in a day, and a number that was true when written is exactly what makes a
+  stale claim look verified.
+- **Field names match the spec, and every position finding is one §4 permits.**
+  The spec repo's `npm run ast:check` drives `bin/carve --json` over the same
+  corpus and reports **57 findings, 5 distinct: 55 waived, 0 outstanding, 2 not
+  a position**. The 55 are the §4-exempt categories above, each recorded as
+  permitted in the spec repo's `resources/ast-position-waivers.txt`, and
+  carve-rs `a33c42a` reports the identical 57 over the same corpus. The other 2
+  are TREE findings rather than position ones, on the two documents corpus
+  category 367 added the same day: an unterminated fence at a container's
+  content column opens no block
+  ([carve#1387](https://github.com/markup-carve/carve/issues/1387)), and this
+  engine has not landed that yet.
+
+  This bullet used to say the opposite - "positions do not exist yet",
+  "carve-php's nodes carry no positions", and a stderr note warning that the
+  output was not conformant. Each was true when written; none outlived
+  [carve-php#478](https://github.com/markup-carve/carve-php/issues/478), which
+  is closed. The bullet above it already said positions were recorded, so the
+  page contradicted itself in two adjacent paragraphs
+  ([carve#1323](https://github.com/markup-carve/carve/issues/1323)).
 - **Abbreviation definitions are nodes.** They used to live in an
   `abbreviations` field on the document here, where the reference emits
   `abbreviation_def` nodes among the document's children. They are nodes here

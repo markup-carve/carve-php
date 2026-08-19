@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -48,6 +49,15 @@ class CrossReferenceScaleTest extends TestCase
         $this->assertSame(5, substr_count($html, '<a href="#MyTarget">Heading</a>'));
     }
 
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
+     * default suite runs under paratest, one process per core, so a timing test
+     * there measures a machine every one of its siblings is loading - and it
+     * turned `main` red on a commit touching no engine code (ratio 1.38 against
+     * a 1.2 bound). The group has a runner of its own where nothing else is
+     * running, which is the condition the measurement needs.
+     */
+    #[Group('scaling')]
     public function testManyReferencesToOneTargetStayLinear(): void
     {
         $source = "{#t}\n# Heading\n\n" . str_repeat('</#t> ', 32000);
@@ -62,6 +72,15 @@ class CrossReferenceScaleTest extends TestCase
         $this->assertLessThan(5.0, $elapsed, "32000 cross-references took {$elapsed}s (super-linear regression?)");
     }
 
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement. The
+     * default suite runs under paratest, one process per core, so a timing test
+     * there measures a machine every one of its siblings is loading - and it
+     * turned `main` red on a commit touching no engine code (ratio 1.38 against
+     * a 1.2 bound). The group has a runner of its own where nothing else is
+     * running, which is the condition the measurement needs.
+     */
+    #[Group('scaling')]
     public function testManyHeadingsAndCaseInsensitiveReferencesStayLinear(): void
     {
         // Scaling distinct heading targets AND case-insensitive references

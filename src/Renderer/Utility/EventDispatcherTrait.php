@@ -60,6 +60,16 @@ trait EventDispatcherTrait
     }
 
     /**
+     * Whether dispatching a named event can reach a specific or wildcard
+     * listener. Lets hot render paths avoid allocating an event for node types
+     * no registered extension observes.
+     */
+    protected function hasListenersFor(string $event): bool
+    {
+        return isset($this->listeners[$event]) || isset($this->listeners['render.*']);
+    }
+
+    /**
      * Dispatch an event to all registered listeners
      *
      * Calls each listener for the given event in registration order.

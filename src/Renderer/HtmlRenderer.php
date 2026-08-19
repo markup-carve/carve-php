@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -17,6 +18,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
@@ -146,6 +148,8 @@ class HtmlRenderer implements RendererInterface
 
     protected int $renderDepth = 0;
 
+    protected bool $suppressAutomaticAbbreviation = false;
+
     /**
      * @var array<string, string>
      */
@@ -190,6 +194,13 @@ class HtmlRenderer implements RendererInterface
             Heading::class => 'renderHeading',
             CodeBlock::class => 'renderCodeBlock',
             Comment::class => '',
+            // PART 12 §18. The bibliography line renders nothing where it
+            // sits; its entry renders in the references list the Citations
+            // extension builds. The dispatch table's fallback is
+            // renderChildren(), so WITHOUT this entry the entry's inlines would
+            // land in the document flow - HTML moving on a change that must not
+            // move it (markup-carve/carve#1276).
+            CitationDefinition::class => '',
             RawBlock::class => 'renderRawBlock',
             BlockQuote::class => 'renderBlockQuote',
             DefinitionList::class => 'renderDefinitionList',
@@ -200,6 +211,7 @@ class HtmlRenderer implements RendererInterface
             ThematicBreak::class => 'renderThematicBreak',
             Div::class => 'renderDiv',
             Figure::class => 'renderFigure',
+            FigureGroup::class => 'renderFigureGroup',
             Caption::class => 'renderCaption',
             Table::class => 'renderTable',
             TableRow::class => 'renderTableRow',
@@ -831,7 +843,7 @@ class HtmlRenderer implements RendererInterface
             // HTML. Dispatch happens before getSectionId so an extension
             // that pins an explicit id is reflected consistently.
             $headingHtml = null;
-            if ($this->hasAnyListeners()) {
+            if ($this->hasListenersFor('render.heading')) {
                 $event = new RenderEvent($node);
                 $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
                 $this->dispatchEvent('render.heading', $event);
@@ -911,6 +923,17 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderNode(Node $node): string
     {
+        // Text is by far the most frequent node in prose and tables. Avoid the
+        // generic depth/dispatch machinery when no extension can observe it;
+        // wildcard and text-specific listeners still take the ordinary path.
+        if (
+            $node instanceof Text
+            && $this->renderMode !== RenderMode::STATIC
+            && !$this->hasListenersFor('render.text')
+        ) {
+            return $this->renderText($node);
+        }
+
         if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
         }
@@ -934,8 +957,8 @@ class HtmlRenderer implements RendererInterface
             }
 
             // Only dispatch events if listeners are registered (avoid object allocation)
-            if ($this->hasAnyListeners()) {
-                $eventName = 'render.' . $node->getType();
+            $eventName = 'render.' . $node->getType();
+            if ($this->hasListenersFor($eventName)) {
                 $event = new RenderEvent($node);
 
                 // Provide lazy children renderer for extensions that need to wrap children
@@ -1214,7 +1237,16 @@ class HtmlRenderer implements RendererInterface
     {
         $attrs = $this->renderAttributes($node);
         $children = $node->getChildren();
-        $inner = rtrim($this->renderChildren($node), "\n");
+
+        // Rendered ONCE, and the pieces serve both the framing decision below
+        // and the output. Rendering a child again to test whether it is empty
+        // doubles the work at every nesting level, which is exponential in
+        // depth: a 20-deep quote went from under a millisecond to 6 seconds.
+        $rendered = [];
+        foreach ($children as $child) {
+            $rendered[] = $this->renderNode($child);
+        }
+        $inner = rtrim(implode('', $rendered), "\n");
 
         // A blockquote of a single paragraph is compact (one line);
         // anything else (lists, headings, multiple blocks) is expanded
@@ -1222,10 +1254,27 @@ class HtmlRenderer implements RendererInterface
         // A single-image paragraph renders as a bare block <img>, a
         // block-level element, so it takes the expanded form too (matching
         // carve-js / carve-rs and this renderer's own div/heading handling).
+        // FRAMING COUNTS ONLY CHILDREN THAT RENDER SOMETHING. A comment
+        // (PART 9 section 4.13) and a raw block for another target both render
+        // '', and an invisible child was enough to push a single-paragraph
+        // quote into the expanded form: `> %% c` then `> y` produced the
+        // indented shape where the oracle produces the compact one
+        // (carve#1106). The list-item renderer already ignores such a child;
+        // this one counted it.
+        //
+        // Decided by rendering rather than by a type list, so a third node type
+        // that renders nothing cannot be added silently.
+        $visible = [];
+        foreach ($children as $index => $child) {
+            if ($rendered[$index] !== '') {
+                $visible[] = $child;
+            }
+        }
+
         if (
-            count($children) === 1
-            && $children[0] instanceof Paragraph
-            && !$this->isBlockImageParagraph($children[0])
+            count($visible) === 1
+            && $visible[0] instanceof Paragraph
+            && !$this->isBlockImageParagraph($visible[0])
         ) {
             return '<blockquote' . $attrs . '>' . $inner . "</blockquote>\n";
         }
@@ -1246,11 +1295,23 @@ class HtmlRenderer implements RendererInterface
         $pad = str_repeat(' ', $spaces);
         $lines = explode("\n", $html);
         $inPre = false;
+        // AN UNFINISHED TAG IS NOT A LINE TO INDENT. A newline inside an
+        // ATTRIBUTE VALUE is content, and padding the line after it wrote the
+        // figure's own indentation into the value: `![a` over `b](/i)` under a
+        // caption came back as `alt="a` over `  b"`, two spaces the author
+        // never wrote, inside the text an alternative rendering IS
+        // (markup-carve/carve-php#1422, corpus 351-5).
+        //
+        // Tracked as "did this line end inside a tag", which needs only the
+        // unclosed `<`: every angle bracket outside a tag is escaped, so the
+        // first `>` inside one really is its closer.
+        $inTag = false;
         foreach ($lines as $i => $line) {
             if (!$inPre) {
-                if ($line !== '') {
+                if ($line !== '' && !$inTag) {
                     $lines[$i] = $pad . $line;
                 }
+                $inTag = self::endsInsideTag($line, $inTag);
                 if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
                     $inPre = true;
                 }
@@ -1260,6 +1321,41 @@ class HtmlRenderer implements RendererInterface
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Did this line end with a tag still open?
+     *
+     * A single left-to-right scan for an unclosed `<`. QUOTES ARE NOT
+     * CONSULTED, and that is measured rather than assumed: every `<` and `>`
+     * outside a tag is escaped by the paths that write text, an attribute value
+     * and a verbatim span alike, so within a tag the first `>` really is the
+     * one that closes it. Tracking the attribute quotes as well was written
+     * first and could not fail - no input reaches the branch, because no raw
+     * `>` survives inside a value to need protecting from.
+     *
+     * @param string $line
+     * @param bool $inTag Whether the PREVIOUS line ended inside a tag.
+     */
+    private static function endsInsideTag(string $line, bool $inTag): bool
+    {
+        $length = strlen($line);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $line[$i];
+            if ($inTag) {
+                if ($char === '>') {
+                    $inTag = false;
+                }
+
+                continue;
+            }
+            // `<` opens a tag only before a name or a closing slash.
+            if ($char === '<' && preg_match('/[A-Za-z\/]/', $line[$i + 1] ?? '') === 1) {
+                $inTag = true;
+            }
+        }
+
+        return $inTag;
     }
 
     /**
@@ -1579,9 +1675,13 @@ class HtmlRenderer implements RendererInterface
         return str_replace("\u{00A0}", '&nbsp;', $html);
     }
 
-    protected function renderFigure(Figure $node): string
+    protected function renderFigure(Figure $node, ?string $leadingClass = null): string
     {
-        $attrs = $this->renderAttributes($node);
+        $attrArray = $this->getRenderableAttributes($node);
+        if ($leadingClass !== null) {
+            $attrArray = self::withLeadingClass($attrArray, $leadingClass);
+        }
+        $attrs = $this->renderAttributeArray($attrArray);
         $body = '';
 
         foreach ($node->getChildren() as $child) {
@@ -1604,9 +1704,85 @@ class HtmlRenderer implements RendererInterface
         return '<figcaption>' . $this->renderChildren($node) . "</figcaption>\n";
     }
 
+    /**
+     * Class-first, the typed-container convention (PART 9 §4c): the structural
+     * class leads, authored classes merge after it DEDUPLICATED - the oracle's
+     * class merge keeps one token per name, so an authored copy of the
+     * structural class does not double it - and the id and remaining
+     * attributes follow in source order.
+     *
+     * @param array<string, string> $attrs
+     * @param string $leadingClass
+     *
+     * @return array<string, string>
+     */
+    protected static function withLeadingClass(array $attrs, string $leadingClass): array
+    {
+        $classes = [$leadingClass];
+        foreach (preg_split('/\s+/', trim($attrs['class'] ?? '')) ?: [] as $class) {
+            if ($class !== '' && !in_array($class, $classes, true)) {
+                $classes[] = $class;
+            }
+        }
+        unset($attrs['class']);
+
+        return ['class' => implode(' ', $classes)] + $attrs;
+    }
+
+    /**
+     * A composite figure (PART 9 §4c, markup-carve/carve#1122).
+     *
+     * The corpus pins the byte shape (318-composite-figures): the group class
+     * leads, panels and preserved stray content are DIRECT children of the
+     * group figure, and a Figure panel renders as the `<figure>` its host
+     * already produces with `carve-figure-panel` leading its classes. A table
+     * does not render as a figure on its own, so its panel wrapper is
+     * explicit and the table keeps its own attributes and its own `<caption>`.
+     * No group caption, no trailing `<figcaption>`.
+     */
+    protected function renderFigureGroup(FigureGroup $node): string
+    {
+        $attrs = $this->renderAttributeArray(
+            self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group'),
+        );
+
+        // FLAT: panels and preserved stray content nest DIRECTLY inside the
+        // group figure, the group caption last. HTML's figure content model is
+        // one figcaption first-or-last plus flow content, and a figure is
+        // itself flow content, so the wrapper div added nothing the element
+        // does not already provide - and Pandoc's subfigure HTML output has
+        // the same flat shape.
+        $body = '';
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Figure) {
+                $body .= $this->renderFigure($child, 'carve-figure-panel');
+            } elseif ($child instanceof Table) {
+                $table = rtrim($this->renderTable($child), "\n");
+                $body .= "<figure class=\"carve-figure-panel\">\n"
+                    . $this->indentBlock($table, 2) . "\n</figure>\n";
+            } else {
+                $body .= rtrim($this->renderNode($child), "\n") . "\n";
+            }
+        }
+
+        $caption = $node->getCaption();
+        if ($caption !== null) {
+            $body .= '<figcaption>' . $this->renderChildren($caption) . "</figcaption>\n";
+        }
+
+        $body = rtrim($body, "\n");
+        if ($body === '') {
+            return '<figure' . $attrs . ">\n</figure>\n";
+        }
+
+        return '<figure' . $attrs . ">\n" . $this->indentBlock($body, 2) . "\n</figure>\n";
+    }
+
     protected function renderTable(Table $node): string
     {
-        $attrs = $this->renderAttributes($node);
+        $tableAttrs = $this->getRenderableAttributes($node);
+        unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths'], $tableAttrs['header-rows'], $tableAttrs['footer-rows']);
+        $attrs = $this->renderAttributeArray($tableAttrs);
 
         // Add round-trip separator widths attribute if available and in round-trip mode
         if ($this->roundTripMode && $node->getSeparatorWidths() !== null) {
@@ -1620,6 +1796,15 @@ class HtmlRenderer implements RendererInterface
             /** @var \MarkupCarve\Carve\Node\Block\Caption $caption */
             $caption = $node->getCaption();
             $lines[] = '  <caption>' . $this->renderChildren($caption) . '</caption>';
+        }
+        $columns = $node->getColumns();
+        if (array_filter($columns, static fn (array $column): bool => isset($column['width'])) !== []) {
+            $cols = [];
+            foreach ($columns as $column) {
+                $style = isset($column['width']) ? ' style="width: ' . ($column['width'] * 100) . '%;"' : '';
+                $cols[] = '    <col' . $style . '>';
+            }
+            $lines[] = "  <colgroup>\n" . implode("\n", $cols) . "\n  </colgroup>";
         }
 
         // Every row has a grid entry for every column, including a placeholder
@@ -1639,23 +1824,41 @@ class HtmlRenderer implements RendererInterface
                 $tableRows[] = $child;
             }
         }
-        $headerRowCount = 0;
-        $inHeader = true;
-        foreach ($tableRows as $row) {
-            if ($inHeader && $row->isHeader()) {
-                $headerRowCount++;
-            } else {
-                $inHeader = false;
+        $countAttribute = static function (mixed $value): ?int {
+            if (!is_string($value)) {
+                return 0;
+            }
+            if (trim($value) === '') {
+                return 1;
+            }
+
+            return preg_match('/^\d+$/', trim($value)) === 1 ? (int)trim($value) : null;
+        };
+        $explicitPartition = $node->getAttribute('header-rows') !== null || $node->getAttribute('footer-rows') !== null;
+        $headerRowCount = $countAttribute($node->getAttribute('header-rows'));
+        $footerRowCount = $countAttribute($node->getAttribute('footer-rows'));
+        if (!$explicitPartition || $headerRowCount === null || $footerRowCount === null || $headerRowCount + $footerRowCount > count($tableRows)) {
+            $headerRowCount = 0;
+            $footerRowCount = 0;
+            foreach ($tableRows as $index => $row) {
+                if ($row->isHeader() && $headerRowCount === $index) {
+                    $headerRowCount++;
+                } else {
+                    break;
+                }
             }
         }
 
-        $renderRow = function (TableRow $row, array $gridRow): string {
+        $renderRow = function (TableRow $row, array $gridRow, bool $inHeaderRun = false, bool $promoteToHeader = false) use ($columns): string {
             $cells = '';
-            foreach ($gridRow as $entry) {
+            foreach ($gridRow as $column => $entry) {
                 if ($entry['skip']) {
                     continue;
                 }
-                $cells .= rtrim($this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan']), "\n");
+                $cells .= rtrim(
+                    $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan'], $inHeaderRun, $columns[$column] ?? [], $promoteToHeader),
+                    "\n",
+                );
             }
 
             return '<tr' . $this->renderAttributes($row) . '>' . $cells . '</tr>';
@@ -1664,18 +1867,26 @@ class HtmlRenderer implements RendererInterface
         if ($headerRowCount > 0) {
             $thead = '';
             for ($i = 0; $i < $headerRowCount; $i++) {
-                $thead .= $renderRow($tableRows[$i], $grid[$i]);
+                $thead .= $renderRow($tableRows[$i], $grid[$i], true, true);
             }
             $lines[] = '  <thead>' . $thead . '</thead>';
         }
 
         $tableRowCount = count($tableRows);
-        if ($headerRowCount < $tableRowCount) {
+        $footerStart = $tableRowCount - $footerRowCount;
+        if ($headerRowCount < $footerStart) {
             $tbody = '';
-            for ($i = $headerRowCount; $i < $tableRowCount; $i++) {
+            for ($i = $headerRowCount; $i < $footerStart; $i++) {
                 $tbody .= '    ' . $renderRow($tableRows[$i], $grid[$i]) . "\n";
             }
             $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
+        }
+        if ($footerStart < $tableRowCount) {
+            $tfoot = '';
+            for ($i = $footerStart; $i < $tableRowCount; $i++) {
+                $tfoot .= $renderRow($tableRows[$i], $grid[$i]);
+            }
+            $lines[] = '  <tfoot>' . $tfoot . '</tfoot>';
         }
 
         return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
@@ -1703,11 +1914,58 @@ class HtmlRenderer implements RendererInterface
      * by `TableSpanGrid` rather than read off the cell - a cell's own stored
      * rowspan/colspan is internal bookkeeping for other consumers (carve#527)
      * and is not what this renderer emits.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $node
+     * @param int $rowspan
+     * @param int $colspan
+     * @param bool $inHeaderRun
+     * @param array{align?: string, valign?: string, width?: float} $column
+     * @param bool $promoteToHeader
      */
-    protected function renderResolvedTableCell(TableCell $node, int $rowspan, int $colspan): string
-    {
-        $tag = $node->isHeader() ? 'th' : 'td';
+    protected function renderResolvedTableCell(
+        TableCell $node,
+        int $rowspan,
+        int $colspan,
+        bool $inHeaderRun = false,
+        array $column = [],
+        bool $promoteToHeader = false,
+    ): string {
+        $tag = $node->isHeader() || $promoteToHeader ? 'th' : 'td';
         $attrs = $this->getRenderableAttributes($node);
+
+        // PART 10 SST9: a header cell states what it heads - `col` in the leading
+        // header-row run, `row` below it. The language already distinguishes the
+        // two positions, so this states an association the table has rather
+        // than adding a concept; without it a screen reader guesses from
+        // position and guesses wrong on a table carrying both kinds.
+        //
+        // BEFORE the author's attributes, which is the order the corpus pins
+        // (`<th scope="col" class="highlight">`), and before rowspan/colspan.
+        //
+        // An authored `scope` REPLACES the default rather than joining it:
+        // emitting both produced `<th scope="col" scope="colgroup">`, two
+        // attributes of one name and invalid HTML. Suppressing it is also what
+        // keeps `colgroup` and `rowgroup` reachable, since neither has a marker
+        // spelling here.
+        //
+        // The suppression test is CASE-INSENSITIVE, the one place this departs
+        // from Carve's case-sensitive attribute names: `{Scope=…}` is a
+        // different Carve attribute and still reaches the output as `Scope`,
+        // but HTML attribute names are not case-sensitive, so emitting the
+        // default beside it is the same collision by another spelling.
+        if ($tag === 'th') {
+            $authored = false;
+            foreach (array_keys($attrs) as $key) {
+                if (strcasecmp((string)$key, 'scope') === 0) {
+                    $authored = true;
+
+                    break;
+                }
+            }
+            if (!$authored) {
+                $attrs = ['scope' => $inHeaderRun ? 'col' : 'row'] + $attrs;
+            }
+        }
 
         if ($rowspan > 1) {
             $attrs['rowspan'] = (string)$rowspan;
@@ -1718,8 +1976,18 @@ class HtmlRenderer implements RendererInterface
         }
 
         $alignment = $node->getAlignment();
+        if ($alignment === TableCell::ALIGN_DEFAULT && isset($column['align'])) {
+            $alignment = $column['align'];
+        }
         if ($alignment !== TableCell::ALIGN_DEFAULT) {
             $attrs = $this->mergeAttribute($attrs, 'style', 'text-align: ' . $alignment . ';');
+        }
+        $verticalAlignment = $node->getVerticalAlignment();
+        if ($verticalAlignment === TableCell::VALIGN_DEFAULT && isset($column['valign'])) {
+            $verticalAlignment = $column['valign'];
+        }
+        if ($verticalAlignment !== TableCell::VALIGN_DEFAULT) {
+            $attrs = $this->mergeAttribute($attrs, 'style', 'vertical-align: ' . $verticalAlignment . ';');
         }
 
         return '<' . $tag . $this->renderAttributeArray($attrs) . '>' . $this->renderChildren($node) . '</' . $tag . ">\n";
@@ -1760,7 +2028,11 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderLink(Link $node): string
     {
-        $rawRef = UnresolvedReference::sourceOf($node);
+        // PART 9 §23: a comment LINE publishes nothing, so the stored source
+        // is emptied of them HERE rather than in the stored value - `rawRef`
+        // stays the authored source verbatim for the canonical writer
+        // (PART 12 §3a, carve-php#1417).
+        $rawRef = UnresolvedReference::renderedSourceOf($node);
         if ($rawRef !== null) {
             return $this->escape($rawRef);
         }
@@ -1825,7 +2097,11 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderImage(Image $node): string
     {
-        $rawRef = UnresolvedReference::sourceOf($node);
+        // PART 9 §23: a comment LINE publishes nothing, so the stored source
+        // is emptied of them HERE rather than in the stored value - `rawRef`
+        // stays the authored source verbatim for the canonical writer
+        // (PART 12 §3a, carve-php#1417).
+        $rawRef = UnresolvedReference::renderedSourceOf($node);
         if ($rawRef !== null) {
             return $this->escape($rawRef);
         }
@@ -1883,11 +2159,131 @@ class HtmlRenderer implements RendererInterface
         return ($this->xhtml ? '<br />' : '<br>') . $this->inlineBreakGuard();
     }
 
+    /**
+     * PART 9 §9: the names core reserves on a span, inner to outer.
+     *
+     * THREE, not the seven this once carried. A name is core when it carries
+     * data the author would otherwise lose (`abbr`'s expansion, `time`'s
+     * machine-readable value) or when a core clause already rules its
+     * interaction; `kbd` is core on ubiquity alone. `samp`, `var`, `cite` and
+     * `dfn` are the SemanticSpan extension's (PART 9 §10) and reach this
+     * renderer by registering their names, not a second renderer.
+     *
+     * @var array<string>
+     */
+    public const CORE_SEMANTIC_SPAN_ORDER = ['abbr', 'time', 'kbd'];
+
+    /**
+     * The full order, including the four names the extension adds.
+     *
+     * @var array<string>
+     */
+    public const EXTENDED_SEMANTIC_SPAN_ORDER = ['abbr', 'time', 'samp', 'var', 'kbd', 'cite', 'dfn'];
+
+    /**
+     * Names added by a registered extension, in the canonical order.
+     *
+     * @var array<string>
+     */
+    protected array $extraSemanticSpanNames = [];
+
+    /**
+     * Let an extension add semantic span names (PART 9 §10).
+     *
+     * Declarative on purpose: the nesting order, the value mapping and §9's
+     * riding rule live HERE, so an extension names what it claims instead of
+     * carrying a second copy of the feature that drifts the first time either
+     * side changes.
+     *
+     * @param array<string> $names
+     */
+    public function addSemanticSpanNames(array $names): void
+    {
+        $this->extraSemanticSpanNames = array_values(array_unique(
+            array_merge($this->extraSemanticSpanNames, $names),
+        ));
+    }
+
+    /**
+     * The names this renderer turns into an ELEMENT, inner to outer.
+     *
+     * Core's three plus whatever a registered extension added. A name outside
+     * this set stays an ordinary attribute on the span, so nothing about it is
+     * special - which is the distinction `Lint\SemanticAttributeLinter` reports
+     * on, and the reason this is public rather than private to `renderSpan()`.
+     * A linter carrying its own copy of the set would report the wrong thing
+     * the first time an extension changed what it registers.
+     *
+     * @return list<string>
+     */
+    public function semanticSpanNames(): array
+    {
+        return array_values(array_filter(
+            self::EXTENDED_SEMANTIC_SPAN_ORDER,
+            fn (string $name): bool => in_array($name, self::CORE_SEMANTIC_SPAN_ORDER, true)
+                || in_array($name, $this->extraSemanticSpanNames, true),
+        ));
+    }
+
     protected function renderSpan(Span $node): string
     {
-        $attrs = $this->renderAttributes($node);
+        $order = $this->semanticSpanNames();
+        $authored = $node->getAttributes();
+        $semantic = [];
+        foreach ($order as $name) {
+            if (array_key_exists($name, $authored)) {
+                $semantic[$name] = $authored[$name];
+            }
+        }
+        if ($semantic === []) {
+            return '<span' . $this->renderAttributes($node) . '>' . $this->renderChildren($node) . '</span>';
+        }
 
-        return '<span' . $attrs . '>' . $this->renderChildren($node) . '</span>';
+        $previousSuppression = $this->suppressAutomaticAbbreviation;
+        if (array_key_exists('abbr', $semantic)) {
+            $this->suppressAutomaticAbbreviation = true;
+        }
+        try {
+            $html = $this->renderChildren($node);
+        } finally {
+            $this->suppressAutomaticAbbreviation = $previousSuppression;
+        }
+        // PART 9 §9: leftovers RIDE the outermost semantic element. A consumed
+        // name RENAMES the span rather than wrapping it, so the author's id,
+        // classes and remaining key/values land on the element they were
+        // written on.
+        $riding = $this->getRenderableAttributes($node);
+        foreach (array_keys($semantic) as $name) {
+            unset($riding[$name]);
+        }
+        // Keyed rather than a list of names: the value travels with the name, so
+        // there is no second lookup for a static analyzer to doubt.
+        $ordered = [];
+        foreach ($order as $name) {
+            if (array_key_exists($name, $semantic)) {
+                $ordered[$name] = $semantic[$name];
+            }
+        }
+        $outermost = array_key_last($ordered);
+
+        foreach ($ordered as $name => $value) {
+            $own = $name === $outermost ? $riding : [];
+            $mapsTo = null;
+            if ($value !== '' && ($name === 'abbr' || $name === 'dfn')) {
+                $mapsTo = 'title';
+            } elseif ($value !== '' && $name === 'time') {
+                $mapsTo = 'datetime';
+            }
+            // A DERIVED ATTRIBUTE YIELDS TO AN AUTHORED ONE of the same name:
+            // `title` and `datetime` are names an author may also write, and
+            // one element never carries the same attribute twice.
+            $mapped = $mapsTo !== null && !array_key_exists($mapsTo, $own)
+                ? ' ' . $mapsTo . '="' . $this->escapeAttribute($value) . '"'
+                : '';
+            $html = '<' . $name . $mapped . $this->renderAttributeArray($own) . '>' . $html . '</' . $name . '>';
+        }
+
+        return $html;
     }
 
     /**
@@ -1971,9 +2367,13 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderCaptionNumber(CaptionNumber $node): string
     {
+        // An unresolved placeholder stays LITERAL - the visible failure the
+        // language prefers to a silent one (PART 9 §4c: a `#` in a composite
+        // figure's PANEL caption has no sequence to draw from). The Markdown,
+        // plain-text and ANSI targets already render it this way.
         $number = $node->getNumber();
 
-        return $number === null ? '' : (string)$number;
+        return $number === null ? '#' : (string)$number;
     }
 
     protected function renderMention(Mention $node): string
@@ -2024,21 +2424,37 @@ class HtmlRenderer implements RendererInterface
         $inner = $this->renderChildren($node);
         $attrs = $this->renderAttributes($node);
 
-        // Known semantic types render as their element; everything else
-        // is a generic span.ext-<type>.
-        if ($type === 'kbd') {
-            return '<kbd' . $attrs . '>' . $inner . '</kbd>';
+        // PART 10 §9: this fixed registry is built-in renderer behavior over
+        // the ordinary inline_extension node. Never promote an arbitrary
+        // extension name to an HTML element.
+        // PART 9 §9: the registry holds no element Carve already spells, so
+        // `code` and `mark` are absent - a code span writes <code> and =x= writes
+        // <mark>. `code` also gave one tag two content models: a code span is
+        // verbatim while an extension body is parsed.
+        // PART 9 §10: core registers NO `:name[…]` handler at all. The
+        // SemanticSpan extension re-registers the seven as a soft-deprecated
+        // spelling; without it every name takes the readable fallback.
+        $semanticTypes = $this->extraSemanticSpanNames === [] ? [] : self::EXTENDED_SEMANTIC_SPAN_ORDER;
+        if (in_array($type, $semanticTypes, true)) {
+            return '<' . $type . $attrs . '>' . $inner . '</' . $type . '>';
         }
 
-        // The structural `ext-<type>` class comes FIRST, before any authored
-        // classes: `:foo[a]{.cls}` -> class="ext-foo cls" (matches the
-        // canonical carve-js / carve-rs). Prepend rather than append so the
-        // structural class always leads.
+        // The structural `ext-<type>` class leads INSIDE the class slot, and
+        // the slot keeps its authored position (spec PART 10 §1, carve#1168):
+        // `:foo[a]{#i .c k=v}` is `<span id="i" class="ext-foo c" k="v">`, not
+        // a span whose class jumped ahead of the id. Moving the slot reorders
+        // attributes the author wrote, which is a different rule from merging
+        // a mandatory class into them.
         $attrs = $this->getRenderableAttributes($node);
         $authoredClass = $attrs['class'] ?? '';
-        $attrs['class'] = $authoredClass === ''
+        $structuralClass = $authoredClass === ''
             ? 'ext-' . $type
             : 'ext-' . $type . ' ' . $authoredClass;
+        if (array_key_exists('class', $attrs)) {
+            $attrs['class'] = $structuralClass;
+        } else {
+            $attrs = ['class' => $structuralClass] + $attrs;
+        }
 
         return '<span' . $this->renderAttributeArray($attrs) . '>' . $inner . '</span>';
     }
@@ -2112,6 +2528,9 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderAbbreviation(Abbreviation $node): string
     {
+        if ($this->suppressAutomaticAbbreviation) {
+            return $this->renderChildren($node);
+        }
         $title = $node->getTitle();
 
         // DoS guard: once the cumulative expansion bytes would exceed the
@@ -2213,6 +2632,48 @@ class HtmlRenderer implements RendererInterface
     ];
 
     /**
+     * ASCII whitespace, as the HTML Standard defines it: TAB, LF, FF, CR and
+     * SPACE. The separator classes below are built from this and no wider,
+     * because that is where both URL-list grammars put their boundaries.
+     *
+     * @var string
+     */
+    private const ASCII_WHITESPACE = "\t\n\f\r ";
+
+    /**
+     * PART 9 §25: the four attributes whose value is a LIST of URLs that a
+     * consumer resolves or fetches, mapped to the separator class the
+     * attribute's OWN grammar uses. Probing only the value's head vouches for
+     * the whole value where the whole value is one URL, which these are not,
+     * so `srcset="safe.png 1x, javascript:alert(1) 2x"` rendered verbatim
+     * while the payload-first spelling of the same value blanked
+     * (markup-carve/carve#1320).
+     *
+     * THE SEPARATORS DIFFER DELIBERATELY AND MUST NOT BE UNIFIED. `ping` and
+     * `attributionsrc` are space-separated sets whose grammar holds no comma,
+     * so splitting them on commas would blank a single legitimate URL that
+     * merely carries one in its path - a false positive, and false positives
+     * are the binding constraint here. `srcset` and `imagesrcset` split on
+     * commas as well, because there a comma really does end a candidate and a
+     * whitespace-only split misses `safe.png 1x,javascript:alert(1) 2x`
+     * outright: with the space after the comma absent, the second candidate
+     * hides inside the first one's descriptor.
+     *
+     * The keys are lower-case and looked up against a lower-cased name, like
+     * the `on` prefix above: an attribute block may spell the name in any
+     * case and the element still carries the author's spelling, so matching
+     * the exact bytes would leave `SRCSET` unprobed.
+     *
+     * @var array<string, string>
+     */
+    private const URL_LIST_ATTRIBUTE_SEPARATORS = [
+        'srcset' => ',' . self::ASCII_WHITESPACE,
+        'imagesrcset' => ',' . self::ASCII_WHITESPACE,
+        'ping' => self::ASCII_WHITESPACE,
+        'attributionsrc' => self::ASCII_WHITESPACE,
+    ];
+
+    /**
      * Always-on attribute hardening, applied regardless of safe mode.
      *
      * Drops event-handler names (`on*`) and the injection sinks `srcdoc` /
@@ -2245,21 +2706,134 @@ class HtmlRenderer implements RendererInterface
      * Blank an attribute value that carries a dangerous URL scheme or a CSS
      * `expression(...)`. The scheme is normalized (C0 controls + spaces removed)
      * before comparison to defeat `java\tscript:` style evasion.
+     *
+     * A URL-LIST ATTRIBUTE IS PROBED AT EVERY CANDIDATE AS WELL AS AT ITS HEAD.
+     * For the four names in `URL_LIST_ATTRIBUTE_SEPARATORS` the value is split
+     * into tokens and every non-empty token gets the same probe this method
+     * applies to a whole value, and any hit blanks the ENTIRE value. Every
+     * other attribute - `title`, `alt`, `aria-label` and the rest of prose,
+     * which carry colons routinely - gets the value-wide probe alone and MUST
+     * NOT be tokenized.
+     *
+     * THE TOKEN PASS IS ADDED TO THE VALUE-WIDE PROBE, NOT SUBSTITUTED FOR IT.
+     * The clause says the rule changes WHERE the probe runs, not WHAT it
+     * denies, and a token-only reading denies strictly LESS than this engine
+     * denied before it. `ping="java script:alert(1)"` splits into `java` and
+     * `script:alert(1)`, neither of which is a dangerous scheme, while the
+     * value-wide probe blanks it because its strip removes the very space the
+     * whitespace split just treated as a boundary. Dropping the value-wide
+     * probe here would ship a security regression as a security fix
+     * (markup-carve/carve-js#1164).
+     *
+     * Blanking the whole value rather than excising the offending candidate is
+     * the clause's own choice: rewriting would make the rendered attribute
+     * differ from the author's bytes, which this defense already declined to do
+     * for the `Cf` case, and it would give one value a third outcome when the
+     * defect being fixed is that one value already had two.
      */
     private function sanitizeAttributeValue(string $name, string $value): string
     {
-        $colon = strpos($value, ':');
-        if ($colon !== false) {
-            $scheme = strtolower((string)preg_replace('/[\x00-\x20]+/', '', substr($value, 0, $colon)));
-            if (in_array($scheme, self::DANGEROUS_VALUE_SCHEMES, true)) {
-                return '';
-            }
+        if (self::hasLeadingDangerousScheme($value)) {
+            return '';
+        }
+        $separators = self::URL_LIST_ATTRIBUTE_SEPARATORS[$name] ?? null;
+        if ($separators !== null && !self::urlListIsClean($separators, $value)) {
+            return '';
         }
         if ($name === 'style' && $this->hasDangerousCss($value)) {
             return '';
         }
 
         return $value;
+    }
+
+    /**
+     * The value-wide leading-scheme probe, unchanged in what it denies.
+     *
+     * Named rather than inlined because the URL-list rule adds a second pass
+     * beside it, and the two must stay visibly separate: this one closes
+     * `java script:` by stripping the space, the token pass closes
+     * `safe.png 1x, javascript:` by splitting on it. Neither subsumes the
+     * other, which is why both run.
+     *
+     * The scheme is normalized (C0 controls + spaces removed) before comparison
+     * to defeat `java\tscript:` style evasion.
+     */
+    private static function hasLeadingDangerousScheme(string $value): bool
+    {
+        $colon = strpos($value, ':');
+        if ($colon === false) {
+            return false;
+        }
+        $scheme = strtolower((string)preg_replace('/[\x00-\x20]+/', '', substr($value, 0, $colon)));
+
+        return in_array($scheme, self::DANGEROUS_VALUE_SCHEMES, true);
+    }
+
+    /**
+     * True when no candidate in a URL-list value carries a denylisted scheme.
+     *
+     * The per-token probe is `blankDangerousScheme()`, the same one `href` and
+     * `src` get, so THE STRIP RUNS PER TOKEN rather than once at the front of
+     * the value and the surrounding reasoning composes instead of being
+     * bypassed: a `\u{202F}javascript:` candidate blanks wherever it sits, and
+     * a `\u{200B}javascript:` one is left alone at every position for the
+     * reason already recorded on that method (it fails WHATWG URL parsing and
+     * lands inert).
+     *
+     * Note that the whitespace the STRIP removes is wider than the whitespace
+     * the SPLIT breaks on, and deliberately so: `a\u{202F}javascript:x` is ONE
+     * token to a consumer, because both grammars put their boundaries at ASCII
+     * whitespace, and it resolves as a relative URL rather than a navigation.
+     *
+     * Empty tokens are skipped, so a run of separators or a leading/trailing
+     * one cannot blank a value on its own.
+     *
+     * @param string $separators Characters of the attribute's separator class.
+     * @param string $value
+     *
+     * @return bool
+     */
+    private static function urlListIsClean(string $separators, string $value): bool
+    {
+        $tokens = preg_split('/[' . preg_quote($separators, '/') . ']+/', $value);
+        if ($tokens === false) {
+            // PCRE refused the split; treat the value as one token so it is
+            // still probed rather than waved through unread.
+            $tokens = [$value];
+        }
+        foreach ($tokens as $token) {
+            if ($token !== '' && self::blankDangerousScheme($token) === '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The value this renderer WRITES for a raw `name="…"` attribute, before
+     * escaping - which is to say the authored text unless the sanitizer above
+     * blanked it.
+     *
+     * The one place that answers "what does the output actually contain?" for a
+     * raw attribute, so a caller outside the renderer never has to answer it
+     * from a second copy of the rules. `SemanticAttributeLinter` quotes it in
+     * `semantic-attribute-outside-span` (markup-carve/carve-js#1058): naming the
+     * authored text there would describe an output that does not exist, because
+     * `{kbd="javascript:alert(1)"}` really does render `kbd=""`.
+     *
+     * The name is lowercased first, matching `sanitizeAttributes()`, so
+     * `{STYLE=…}` and `{style=…}` are judged by the same rule.
+     *
+     * @param string $name
+     * @param string $value
+     *
+     * @return string
+     */
+    public function renderedAttributeValue(string $name, string $value): string
+    {
+        return $this->sanitizeAttributeValue(strtolower($name), $value);
     }
 
     /**
@@ -2474,11 +3048,14 @@ class HtmlRenderer implements RendererInterface
                 return '';
             }
             if ($mode === SafeMode::RAW_HTML_ESCAPE) {
-                return $this->guardInteriorNewlines($this->escape($content)) . "\n";
+                $escaped = $this->guardInteriorNewlines($this->escape($content));
+
+                return $escaped . ($content !== '' && trim($content, "\n") === '' ? '' : "\n");
             }
         }
 
-        return $this->guardInteriorNewlines($content) . "\n";
+        return $this->guardInteriorNewlines($content)
+            . ($content !== '' && trim($content, "\n") === '' ? '' : "\n");
     }
 
     /**
@@ -2590,8 +3167,25 @@ class HtmlRenderer implements RendererInterface
 
         // A single-paragraph definition renders inline (<dd>text</dd>); any
         // richer block content keeps its block structure.
-        if (count($children) === 1 && $children[0] instanceof Paragraph) {
-            return '  <dd' . $attrs . '>' . $this->renderChildren($children[0]) . "</dd>\n";
+        //
+        // A COMMENT IS NOT RICHER CONTENT. §24 C3 keeps it invisible, so it
+        // emits nothing here - but it was still COUNTED, and a description
+        // holding one paragraph and one comment took the block shape whose
+        // only extra child renders the empty string:
+        //
+        //     :: t
+        //     :  a
+        //        %% c
+        //
+        // gave `<dd>` on its own line around `<p>a</p>` where the same
+        // description without the comment gives `<dd>a</dd>`
+        // (markup-carve/carve#1350, corpus 350-6).
+        $visible = array_values(array_filter(
+            $children,
+            static fn (Node $child): bool => !$child instanceof Comment,
+        ));
+        if (count($visible) === 1 && $visible[0] instanceof Paragraph) {
+            return '  <dd' . $attrs . '>' . $this->renderChildren($visible[0]) . "</dd>\n";
         }
 
         $content = rtrim($this->renderChildren($node));
@@ -2833,16 +3427,29 @@ class HtmlRenderer implements RendererInterface
         $delimOpen = $display ? '\\[' : '\\(';
         $delimClose = $display ? '\\]' : '\\)';
 
-        // The static `math inline` / `math display` class leads; an author class
-        // from a trailing attribute block is merged after it. id/key follow.
+        // PART 10 §1: the base class is prepended INSIDE the class slot, and the
+        // slot stays at the FIRST-APPEARANCE position of a class in the author's
+        // order. Writing `class` unconditionally first moves it ahead of an id
+        // the author wrote before any class, which reorders what they wrote.
+        // markup-carve/carve#1168 fixed exactly this for the generic `ext-NAME`
+        // fallback; the math span carries a base class the same way and was
+        // missed, because no corpus case put an id before a class on it
+        // (markup-carve/carve#1164).
         $nodeAttrs = $this->getRenderableAttributes($node);
         $nodeClass = $nodeAttrs['class'] ?? '';
-        unset($nodeAttrs['class']);
         $class = 'math ' . ($display ? 'display' : 'inline');
         if ($nodeClass !== '') {
             $class .= ' ' . $nodeClass;
         }
-        $attrs = ['class' => $class] + $nodeAttrs;
+
+        if (array_key_exists('class', $nodeAttrs)) {
+            // Keep the author's ordering, swapping the merged value in place.
+            $attrs = $nodeAttrs;
+            $attrs['class'] = $class;
+        } else {
+            // No authored class means no slot to keep, so the base class leads.
+            $attrs = ['class' => $class] + $nodeAttrs;
+        }
 
         return '<span' . $this->renderAttributeArray($attrs) . '>' . $delimOpen . $content . $delimClose . '</span>';
     }

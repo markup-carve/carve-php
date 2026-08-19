@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class DjotToCarveTest extends TestCase
@@ -68,9 +69,45 @@ class DjotToCarveTest extends TestCase
         $this->assertSame($input, $this->converter->convert($input));
     }
 
+    /**
+     * The braced superscript is spelled the same in both languages and means
+     * superscript in both, so the conversion is the identity - which is what
+     * the name has always said. It previously escaped the brace instead,
+     * turning the superscript into literal text.
+     *
+     * carve-js's `djot-migrate`, which this converter's docblock names as its
+     * canonical source, excludes this form from its superscript rule in so many
+     * words: "the braced `{^x^}` form, which is valid in both languages".
+     */
     public function testPreBracedForcedSuperscriptIsUntouched(): void
     {
-        $this->assertSame('\\{^x^}', $this->converter->convert('{^x^}'));
+        $this->assertSame('{^x^}', $this->converter->convert('{^x^}'));
+    }
+
+    /**
+     * Djot spells subscript bare and braced and means the same by each, so the
+     * braced form converts exactly like the bare one. It previously escaped
+     * instead, dropping the subscript.
+     */
+    public function testBracedSubscriptConvertsLikeTheBareForm(): void
+    {
+        $this->assertSame('{,y,}', $this->converter->convert('{~y~}'));
+        $this->assertSame(
+            $this->converter->convert('~y~'),
+            $this->converter->convert('{~y~}'),
+        );
+    }
+
+    /**
+     * BOUND: the bare superscript still needs the braced form, and a Carve
+     * construct that Djot does not share is still escaped. Neither row moves
+     * under this change - they are here so a fix cannot pass by exempting every
+     * braced delimiter from escaping.
+     */
+    public function testTheSurroundingRulesAreUnchanged(): void
+    {
+        $this->assertSame('{^x^}', $this->converter->convert('^x^'));
+        $this->assertSame('\\{,y,}', $this->converter->convert('{,y,}'));
     }
 
     public function testPreBracedForcedSubscriptIsUntouched(): void
@@ -130,9 +167,95 @@ class DjotToCarveTest extends TestCase
         $this->assertSame('\\_x_', $this->converter->convert('\\_x_'));
     }
 
-    public function testWordInternalUnderscoreNotMatched(): void
+    /**
+     * An intraword `_x_` CONVERTS, to the braced form.
+     *
+     * Djot's spec puts no word boundary on emphasis, so `snake_case_name` is
+     * emphasis in the source language - pandoc's Djot reader renders
+     * `snake<em>case</em>name`. An author who wanted the literal characters had
+     * to escape them, so an unescaped run is emphasis the author saw in their
+     * own renderer and kept, and leaving it literal would drop what the source
+     * states.
+     *
+     * The braced form is required rather than stylistic: a bare `/` is literal
+     * intraword in Carve, so `snake/case/name` renders as itself.
+     */
+    public function testWordInternalUnderscoreConvertsToTheBracedForm(): void
     {
-        $this->assertSame('snake_case_word', $this->converter->convert('snake_case_word'));
+        $this->assertSame('snake{/case/}name', $this->converter->convert('snake_case_name'));
+        $this->assertSame('MAX{/BUFFER/}SIZE', $this->converter->convert('MAX_BUFFER_SIZE'));
+    }
+
+    /**
+     * The other side of the same argument, and what makes it safe: an author who
+     * meant the literal identifier escaped it, and the escape survives. Djot
+     * renders `snake\_case\_name` as `snake_case_name`, and so does this.
+     */
+    public function testAnEscapedIntrawordUnderscoreIsLeftAlone(): void
+    {
+        $source = 'snake\\_case\\_name';
+        $this->assertSame($source, $this->converter->convert($source));
+
+        $html = CarveConverter::create()->convert($this->converter->convert($source));
+        $this->assertStringContainsString('snake_case_name', $html);
+        $this->assertStringNotContainsString('<em>', $html);
+    }
+
+    /**
+     * BOUND: the word-bounded rule is unchanged and still emits the BARE form,
+     * which is what a `_x_` between spaces needs. Removing the intraword rule
+     * leaves this passing, so it bounds the change rather than proving it.
+     */
+    public function testTheWordBoundedRuleStillEmitsTheBareForm(): void
+    {
+        $this->assertSame('a /x/ b', $this->converter->convert('a _x_ b'));
+    }
+
+    /**
+     * A TAG is the one Carve inline construct that is not a pair: `#x` opens on
+     * its own, so nothing downstream neutralizes it and escaping an enclosing
+     * brace cannot either.
+     *
+     * Djot has no hashtag at all - pandoc's Djot reader renders `a #y b` as
+     * `<p>a #y b</p>` - so every `#word` in Djot prose became a Carve tag span
+     * that existed nowhere in the source (carve-php#1191).
+     */
+    public function testHashDoesNotBecomeATag(): void
+    {
+        $this->assertSame('a \\#y b', $this->converter->convert('a #y b'));
+        $this->assertSame('a \\#1 b', $this->converter->convert('a #1 b'));
+    }
+
+    /**
+     * The braced case from the report, which is the rarest instance rather than
+     * the whole defect: escaping the brace alone left the inner `#` opening a
+     * tag inside literal braces.
+     */
+    public function testBracedHashIsFullyLiteral(): void
+    {
+        $this->assertSame('\\{\\#y#} x', $this->converter->convert('{#y#} x'));
+    }
+
+    /**
+     * BOUND: a NUMERIC CHARACTER REFERENCE carries a `#` that is not a tag.
+     * Escaping it stopped `&#8212;` decoding, so the em dash never appeared -
+     * caught by carve-js's entity tests, which this engine had no counterpart
+     * for.
+     */
+    public function testNumericCharacterReferenceKeepsItsHash(): void
+    {
+        $this->assertSame('a &#8212; b', $this->converter->convert('a &#8212; b'));
+        $this->assertSame('a &#x2014; b', $this->converter->convert('a &#x2014; b'));
+    }
+
+    /**
+     * BOUND: a heading is `#` followed by a SPACE and is shared with Djot, and
+     * `a#y` is not a tag either. Neither may gain a backslash.
+     */
+    public function testHeadingAndIntrawordHashAreUntouched(): void
+    {
+        $this->assertSame('# Heading', $this->converter->convert('# Heading'));
+        $this->assertSame('a#y b', $this->converter->convert('a#y b'));
     }
 
     public function testUnchangedConstructs(): void
@@ -180,8 +303,10 @@ class DjotToCarveTest extends TestCase
             'bare slash' => ['a /it/ b', 'a /it/ b'],
             'bare equals' => ['a =hi= b', 'a =hi= b'],
             'braced subscript' => ['a {,y,} b', 'a {,y,} b'],
-            'braced superscript' => ['a {^y^} b', 'a {^y^} b'],
-            'braced strikethrough' => ['a {~y~} b', 'a {~y~} b'],
+            // `{^y^}` and `{~y~}` are NOT plain Djot text - Djot renders them
+            // as superscript and subscript - so they belong to the conversion
+            // tests above, not here. They were listed as literals, which is
+            // what made the converter escape them.
             'braced emphasis' => ['a {/y/} b', 'a {/y/} b'],
             'braced comment' => ['a {#y#} b', 'a {#y#} b'],
             'percent comments' => ['a %%c%% b', 'a %%c%% b'],
@@ -249,6 +374,14 @@ class DjotToCarveTest extends TestCase
      * generous (the quadratic version took ~14s for this input); it only fails
      * on a regression back to super-linear behavior.
      */
+    /**
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement, and this
+     * one was missed when the other seven were moved: the sweep grepped
+     * `hrtime` and this file times with `microtime`. It failed on the COVERAGE
+     * runner, where instrumentation multiplies every duration and an absolute
+     * bound of 1.5s measures the profiler rather than the parser.
+     */
+    #[Group('scaling')]
     public function testLargeInputCompletesQuicklyWithCorrectOutput(): void
     {
         $input = str_repeat("_text_\n", 10000);
