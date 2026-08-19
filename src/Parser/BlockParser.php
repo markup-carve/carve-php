@@ -1334,8 +1334,21 @@ class BlockParser
     {
         $probe = new self();
         $probe->probingDefinitionMarker = true;
-        $probe->customBlockPatterns = $this->customBlockPatterns;
-        $probe->blockMatchers = $this->blockMatchers;
+        foreach ($this->blockMatchers as $entry) {
+            $pattern = $entry['pattern'];
+            if ($pattern !== null) {
+                // addBlockPattern() wraps the legacy callback in a closure whose
+                // $self supplies currentMatcherParent. Re-register it so that
+                // $self is this scratch parser, not the parser being probed.
+                $probe->addBlockPattern($pattern, $this->customBlockPatterns[$pattern]);
+
+                continue;
+            }
+
+            // Extension matchers deliberately run during the probe. Preserve
+            // their priority and their position relative to legacy patterns.
+            $probe->registerBlockMatcher($entry['matcher'], $entry['priority']);
+        }
         $node = $probe->parse(implode("\n", $lines));
         $chain = [];
 
