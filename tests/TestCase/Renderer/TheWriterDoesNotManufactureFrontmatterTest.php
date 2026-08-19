@@ -127,27 +127,26 @@ class TheWriterDoesNotManufactureFrontmatterTest extends TestCase
     }
 
     /**
-     * A document still misread with `***` keeps its authored spelling, and the
-     * residual is asserted rather than hidden.
+     * A document no BREAK spelling saves keeps its authored `***`, and the head
+     * carries the escape instead.
      *
      * Here byte 0 is a paragraph the hoisted definition promoted and the `---`
-     * closer is a line INSIDE a fenced block, so neither is the writer's to
-     * respell: the document is misread whichever spelling the break takes. The
-     * fallback pass therefore produces a DIFFERENT string that is no better, and
-     * the canonical one is returned. A first version of this row used
-     * `---` / blank / fence, which does not test this at all - that input parses
-     * AS frontmatter, so it leaves through the cost gate and never reaches the
-     * fallback.
+     * closer is a line INSIDE a fenced block, so neither is reachable by
+     * choosing a different break spelling. What repairs it is the head: since
+     * markup-carve/carve#1443 the run is literal text rather than an em dash, so
+     * the writer escapes it and a bare `---yaml` never reaches byte 0. The
+     * document round-trips, and the break the author wrote is untouched.
+     *
+     * A first version of this row used `---` / blank / fence, which does not
+     * test this at all - that input parses AS frontmatter, so it leaves through
+     * the cost gate and never reaches the fallback.
      */
     public function testADocumentNoRespellingSavesKeepsTheAuthoredSpelling(): void
     {
         $source = "[^a]: n\n\n---yaml\nk: v\n\n***\n\n```\n---\n```\n";
         $formatted = $this->fmt($source);
-        $this->assertStringStartsWith("---yaml\n", $formatted);
+        $this->assertStringStartsWith("\\-\\-\\-yaml\n", $formatted);
         $this->assertStringContainsString('***', $formatted);
-        // The residual, stated: this document does not round-trip in either
-        // spelling. PART 11 §1 is broken by the fence's `---`, which no writer
-        // decision reaches.
-        $this->assertNotSame($this->html($source), $this->html($formatted));
+        $this->assertRoundTrips($source);
     }
 }
