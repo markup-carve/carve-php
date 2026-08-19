@@ -3185,7 +3185,7 @@ class BlockParser
             if ($fc === '|') {
                 $consumed = $this->tryParseTable($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
-                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+                    ?? $this->tryParseParagraph($parent, $lines, $i);
                 $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
                 $i += $consumed;
 
@@ -3195,7 +3195,7 @@ class BlockParser
                 $consumed = $this->tryParseThematicBreak($parent, $line, $i)
                     ?? $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
-                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+                    ?? $this->tryParseParagraph($parent, $lines, $i);
                 $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
                 $i += $consumed;
 
@@ -11924,12 +11924,12 @@ class BlockParser
         ?array $lines = null,
         ?int $index = null,
     ): bool {
-        if ($paragraphTextOpen) {
+        if ($paragraphOpen) {
             return $this->isCaptionLine($line);
         }
         // A list marker ends the quote only when there is no open paragraph to
         // fold into; with an open paragraph it folds (does not end the quote).
-        if (!$paragraphOpen && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
+        if ($this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
             return true;
         }
 
