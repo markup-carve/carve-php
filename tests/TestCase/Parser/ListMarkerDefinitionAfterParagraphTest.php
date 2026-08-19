@@ -67,11 +67,32 @@ final class ListMarkerDefinitionAfterParagraphTest extends TestCase
         self::assertStringContainsString('<a href="u">go</a>', $this->converter->convert($source));
     }
 
-    public function testAbbreviationMarkerStillStaysParagraphText(): void
+    /**
+     * The ABBREVIATION kind, which R1a names for completeness and does NOT
+     * decide: PART 12 section 7 restricts the definition to a direct child of
+     * the document, so a marker-line spelling is text by that rule, and at the
+     * document level the definition INTERRUPTS an open paragraph rather than
+     * folding into one. Both rows pin those two rules, labelled so neither reads
+     * as coverage of R1a.
+     *
+     * The row this replaces asserted that `para` / `* [A]: alpha` produces no
+     * `<abbr>`. That could not fail: `* [A]: alpha` is a bullet followed by a
+     * LINK definition label, so there was never an abbreviation to suppress, and
+     * the surviving text assertion duplicates the link row in the provider above.
+     */
+    public function testAbbreviationDefinitionInterruptsTheParagraphAtDocumentLevel(): void
     {
-        $html = $this->converter->convert("para\n* [A]: alpha\n\nA\n");
+        $html = $this->converter->convert("para\n*[AB]: x\n\nAB\n");
 
-        self::assertStringContainsString("para\n* [A]: alpha", $html);
+        self::assertStringContainsString('<abbr title="x">AB</abbr>', $html);
+        self::assertStringNotContainsString('*[AB]: x', $html);
+    }
+
+    public function testAbbreviationDefinitionBehindAMarkerStaysParagraphText(): void
+    {
+        $html = $this->converter->convert("para\n- *[AB]: x\n\nAB\n");
+
+        self::assertStringContainsString("para\n- *[AB]: x", $html);
         self::assertStringNotContainsString('<abbr', $html);
     }
 
