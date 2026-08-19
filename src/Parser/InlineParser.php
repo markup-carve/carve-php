@@ -810,17 +810,26 @@ class InlineParser
         if ($sig !== null && $this->captionContextEnabled) {
             $sig['#'] = true;
         }
+        $sigBytes = $sig === null ? '' : implode('', array_keys($sig));
 
         while ($pos < $length) {
             $char = $text[$pos];
 
             // Plain-text fast path: a byte that begins no inline construct is
-            // appended directly. Byte-identical to falling through every handler
-            // (all of which would decline) to the text-buffer append.
+            // appended as one run. `strcspn` finds the next significant byte in
+            // C; advancing one PHP loop iteration per ordinary character made
+            // prose and every table cell pay interpreter overhead byte by byte.
+            // Byte-identical to falling through every handler (all of which
+            // would decline) to the text-buffer append.
             if ($sig !== null && !isset($sig[$char])) {
-                $this->noteTextStart($textBuffer, $pos);
-                $textBuffer .= $char;
-                $pos++;
+                $run = strcspn($text, $sigBytes, $pos);
+                // The current byte is known not to be significant, so at least
+                // one byte must be consumed. Keep the guard defensive in case
+                // a future matcher publishes an invalid trigger set.
+                $run = max(1, $run);
+                $this->noteTextStart($textBuffer, $pos, consumed: $run);
+                $textBuffer .= substr($text, $pos, $run);
+                $pos += $run;
 
                 continue;
             }

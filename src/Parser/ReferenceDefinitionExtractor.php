@@ -45,7 +45,16 @@ class ReferenceDefinitionExtractor
     {
         $references = [];
         $i = 0;
+        // A definition opener necessarily contains `]:`. Nothing after the
+        // last line carrying those bytes can affect the collected table, so do
+        // not maintain the expensive fence/container state through the rest of
+        // a long document. This remains a broad byte bound: the state machine
+        // below still rejects links, escaped text, samples, and malformed
+        // candidates that merely contain the bytes.
         $count = count($lines);
+        while ($count > 0 && !str_contains($lines[$count - 1], ']:')) {
+            $count--;
+        }
         $pendingAttrs = [];
         $pendingAttrsInQuote = false;
         $pendingAttrsInList = false;

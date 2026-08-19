@@ -86,6 +86,21 @@ class ImplicitHeadingReferenceTest extends TestCase
         }
     }
 
+    public function testOnlyTheCollapsedFormRequestsTheStructureIndex(): void
+    {
+        $parser = new class extends BlockParser {
+            public function needsStructure(string $source): bool
+            {
+                return $this->needsStructuredHeadingIndex($source);
+            }
+        };
+
+        $this->assertFalse($parser->needsStructure('See [text][label].'));
+        $this->assertFalse($parser->needsStructure('See ![alt][image].'));
+        $this->assertTrue($parser->needsStructure('See [Heading][].'));
+        $this->assertTrue($parser->needsStructure('See ![Heading][].'));
+    }
+
     /**
      * THE SECOND PRODUCER, pinned directly because no document reaches it.
      *
