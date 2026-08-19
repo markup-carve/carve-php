@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Text;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -71,5 +73,32 @@ final class ListMarkerDefinitionAfterParagraphTest extends TestCase
 
         self::assertStringContainsString("para\n* [A]: alpha", $html);
         self::assertStringNotContainsString('<abbr', $html);
+    }
+
+    public function testLegacyCustomPatternIsRegisteredOnDefinitionProbe(): void
+    {
+        $this->converter->getParser()->addBlockPattern(
+            '/^CUSTOM$/',
+            static function (array $lines, int $start, $parent, $parser): ?int {
+                $end = $start + 1;
+                $lineCount = count($lines);
+                while ($end < $lineCount && $lines[$end] !== '') {
+                    $end++;
+                }
+
+                $paragraph = new Paragraph();
+                $paragraph->appendChild(new Text(implode("\n", array_slice($lines, $start, $end - $start))));
+                $parent->appendChild($paragraph);
+
+                return $end - $start;
+            },
+        );
+
+        $html = $this->converter->convert("CUSTOM\nbody\n- [d]: u\n\n[go][d]\n");
+
+        // The real parse gives the whole non-blank run to CUSTOM. Its scratch
+        // probe must do the same, so the marker remains content, not metadata.
+        self::assertStringContainsString("CUSTOM\nbody\n- [d]: u", $html);
+        self::assertStringNotContainsString('href="u"', $html);
     }
 }
