@@ -31,6 +31,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Raw blocks preserve authored leading and trailing blank payload lines**, and
+  unterminated fence-shaped text inside an open list/definition paragraph keeps
+  that paragraph open. PHP now agrees with the other engines on corpus groups
+  366 and 367 (markup-carve/carve#1414).
+
 - **Definitions collected at a list item's content column close its paragraph**
   (markup-carve/carve#1376). A following line below that column no longer uses
   the comment-only continuation path; bare-dot items use the bullet column.
