@@ -843,7 +843,7 @@ class HtmlRenderer implements RendererInterface
             // HTML. Dispatch happens before getSectionId so an extension
             // that pins an explicit id is reflected consistently.
             $headingHtml = null;
-            if ($this->hasAnyListeners()) {
+            if ($this->hasListenersFor('render.heading')) {
                 $event = new RenderEvent($node);
                 $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
                 $this->dispatchEvent('render.heading', $event);
@@ -923,6 +923,17 @@ class HtmlRenderer implements RendererInterface
 
     protected function renderNode(Node $node): string
     {
+        // Text is by far the most frequent node in prose and tables. Avoid the
+        // generic depth/dispatch machinery when no extension can observe it;
+        // wildcard and text-specific listeners still take the ordinary path.
+        if (
+            $node instanceof Text
+            && $this->renderMode !== RenderMode::STATIC
+            && !$this->hasListenersFor('render.text')
+        ) {
+            return $this->renderText($node);
+        }
+
         if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
         }
@@ -946,8 +957,8 @@ class HtmlRenderer implements RendererInterface
             }
 
             // Only dispatch events if listeners are registered (avoid object allocation)
-            if ($this->hasAnyListeners()) {
-                $eventName = 'render.' . $node->getType();
+            $eventName = 'render.' . $node->getType();
+            if ($this->hasListenersFor($eventName)) {
                 $event = new RenderEvent($node);
 
                 // Provide lazy children renderer for extensions that need to wrap children

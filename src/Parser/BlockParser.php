@@ -978,9 +978,7 @@ class BlockParser
         $this->definitionProbeBudget = max(1024, $sourceLength * 8);
 
         // First pass: extract reference definitions, footnotes, abbreviations, and heading references
-        $this->extractReferences($lines);
-        $this->extractFootnotes($lines);
-        $this->extractAbbreviations($lines);
+        $this->extractDefinitions($lines, $input);
         // The implicit `[Heading][]` index. Two ways to build it, and which one
         // runs depends only on whether the document could USE it:
         //
@@ -1002,7 +1000,7 @@ class BlockParser
         // other (carve-php#572).
         if ($this->needsStructuredHeadingIndex($input)) {
             $this->indexHeadingsFromStructure($lines);
-        } else {
+        } elseif ($this->collectWarnings && str_contains($input, '](#')) {
             $this->extractHeadingReferences($lines);
         }
 
@@ -1271,6 +1269,30 @@ class BlockParser
     protected function extractReferences(array $lines): void
     {
         $this->references = $this->referenceDefinitionExtractor->extract($lines);
+    }
+
+    /**
+     * Run only definition prepasses whose opening bytes occur in the source.
+     *
+     * These are deliberately broad byte gates, not recognizers: the real
+     * collectors still decide whether a candidate is escaped, nested, fenced,
+     * or malformed. A missing marker, however, proves that collector cannot
+     * produce anything and avoids a complete document scan.
+     *
+     * @param array<string> $lines
+     * @param string $input
+     */
+    protected function extractDefinitions(array $lines, string $input): void
+    {
+        if (str_contains($input, ']:')) {
+            $this->extractReferences($lines);
+        }
+        if (str_contains($input, '[^')) {
+            $this->extractFootnotes($lines);
+        }
+        if (str_contains($input, '*[')) {
+            $this->extractAbbreviations($lines);
+        }
     }
 
     /**
@@ -2244,8 +2266,9 @@ class BlockParser
      * Is this document one where the difference between the two ways of
      * building the heading index can be observed?
      *
-     * Two consumers read it. A reference link - `[text][ref]` or the collapsed
-     * `[text][]`, both containing `][` - resolves through it. And anchor
+     * Two consumers read it. A collapsed reference link `[text][]` resolves
+     * through it; the explicit `[text][ref]` form only reads authored link
+     * definitions and must not pay for a structure pass it cannot use. Anchor
      * validation asks whether an id exists, which is why `](#` counts too: a
      * heading in a list item that the line scan missed was reported as a broken
      * anchor even in a document with no reference link at all. That half only
@@ -2257,7 +2280,7 @@ class BlockParser
      */
     protected function needsStructuredHeadingIndex(string $input): bool
     {
-        if (str_contains($input, '][')) {
+        if (str_contains($input, '][]')) {
             return true;
         }
 
@@ -2292,9 +2315,7 @@ class BlockParser
         $this->collectHeadingReferences($scratch, $tracker, false, $index, $ids);
 
         $this->resetParseState();
-        $this->extractReferences($lines);
-        $this->extractFootnotes($lines);
-        $this->extractAbbreviations($lines);
+        $this->extractDefinitions($lines, $this->normalizedSource);
 
         foreach ($index as $label => $id) {
             $this->registerHeadingReference((string)$label, new ReferenceDefinition('#' . $id, [], 0, null, true));
@@ -8886,13 +8907,20 @@ class BlockParser
                 break;
             }
 
+            // Every separator cell contains a hyphen. Most table rows do not,
+            // so avoid splitting and validating all their cells merely to ask
+            // whether the row is the one GFM delimiter line. Reuse the answer
+            // below instead of parsing the same row twice.
+            $separatorShaped = str_contains($lineWithoutRowAttrs, '-')
+                && $this->tableParser->isSeparatorRow($lineWithoutRowAttrs);
+
             // A GFM header separator is recognized ONLY as the table's second row
             // (exactly one row precedes it and no separator was seen yet): it makes
             // that first row the header. A delimiter line anywhere else -- leading,
             // or after the header/body -- is an ordinary data row. This matches
             // carve-js / carve-rs (the separator is the second row, period).
             if (
-                $this->tableParser->isSeparatorRow($lineWithoutRowAttrs)
+                $separatorShaped
                 && count($table->getChildren()) === 1
                 && !$headerFound
                 && !$lastRowSeparatorShaped
@@ -8971,7 +8999,7 @@ class BlockParser
             }
 
             // Extract row attributes (|...|{.class})
-            $lastRowSeparatorShaped = $this->tableParser->isSeparatorRow($lineWithoutRowAttrs);
+            $lastRowSeparatorShaped = $separatorShaped;
             $rowAttributes = $this->tableParser->extractRowAttributes($currentLine);
 
             // Parse cells with their attributes
@@ -13488,9 +13516,7 @@ class BlockParser
         $this->sawUnresolvedCollapsedReference = false;
 
         $document = new Document();
-        $this->extractReferences($lines);
-        $this->extractFootnotes($lines);
-        $this->extractAbbreviations($lines);
+        $this->extractDefinitions($lines, $this->normalizedSource);
         $this->extractHeadingReferences($lines);
         $this->seedHeadingReferences($headingReferences);
         $this->parseBlocks($document, $lines, 0, topLevel: true);
