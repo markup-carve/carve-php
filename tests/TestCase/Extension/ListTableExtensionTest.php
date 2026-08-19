@@ -27,6 +27,7 @@ class ListTableExtensionTest extends TestCase
         $this->assertStringNotContainsString(' align=', $html);
         $this->assertStringNotContainsString(' valign=', $html);
     }
+
     /**
      * Convert with the list-table extension registered, trimmed for exact compare.
      */

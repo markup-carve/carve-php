@@ -36,6 +36,7 @@ class TableAttributesTest extends TestCase
         $html = $this->converter->convert("{header-rows=1 footer-rows=1}\n| A | B |\n|= C | D |\n| E | F |\n");
         $this->assertStringContainsString('<th scope="row">C</th>', $html);
     }
+
     protected CarveConverter $converter;
 
     protected function setUp(): void

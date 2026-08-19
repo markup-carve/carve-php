@@ -1909,6 +1909,7 @@ class HtmlRenderer implements RendererInterface
      * @param int $colspan
      * @param bool $inHeaderRun
      * @param array{align?: string, valign?: string, width?: float} $column
+     * @param bool $promoteToHeader
      */
     protected function renderResolvedTableCell(
         TableCell $node,

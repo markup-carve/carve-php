@@ -827,7 +827,10 @@ class ListTableExtension implements ExtensionInterface
             && ($valign === null || in_array($valign, ['top', 'middle', 'bottom'], true));
     }
 
-    /** @param array{align?: string, valign?: string, width?: float} $column */
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $cell
+@param array{align?: string, valign?: string, width?: float} $column
+     */
     private function cellStyle(ListItem $cell, array $column): string
     {
         $align = $cell->getAttribute('align');
