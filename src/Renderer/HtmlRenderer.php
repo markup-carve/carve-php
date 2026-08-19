@@ -1770,7 +1770,7 @@ class HtmlRenderer implements RendererInterface
     protected function renderTable(Table $node): string
     {
         $tableAttrs = $this->getRenderableAttributes($node);
-        unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths']);
+        unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths'], $tableAttrs['header-rows'], $tableAttrs['footer-rows']);
         $attrs = $this->renderAttributeArray($tableAttrs);
 
         // Add round-trip separator widths attribute if available and in round-trip mode
@@ -1813,24 +1813,39 @@ class HtmlRenderer implements RendererInterface
                 $tableRows[] = $child;
             }
         }
-        $headerRowCount = 0;
-        $inHeader = true;
-        foreach ($tableRows as $row) {
-            if ($inHeader && $row->isHeader()) {
-                $headerRowCount++;
-            } else {
-                $inHeader = false;
+        $countAttribute = static function (mixed $value): ?int {
+            if (!is_string($value)) {
+                return 0;
+            }
+            if (trim($value) === '') {
+                return 1;
+            }
+
+            return preg_match('/^\d+$/', trim($value)) === 1 ? (int)trim($value) : null;
+        };
+        $explicitPartition = $node->getAttribute('header-rows') !== null || $node->getAttribute('footer-rows') !== null;
+        $headerRowCount = $countAttribute($node->getAttribute('header-rows'));
+        $footerRowCount = $countAttribute($node->getAttribute('footer-rows'));
+        if (!$explicitPartition || $headerRowCount === null || $footerRowCount === null || $headerRowCount + $footerRowCount > count($tableRows)) {
+            $headerRowCount = 0;
+            $footerRowCount = 0;
+            foreach ($tableRows as $index => $row) {
+                if ($row->isHeader() && $headerRowCount === $index) {
+                    $headerRowCount++;
+                } else {
+                    break;
+                }
             }
         }
 
-        $renderRow = function (TableRow $row, array $gridRow, bool $inHeaderRun = false) use ($columns): string {
+        $renderRow = function (TableRow $row, array $gridRow, bool $inHeaderRun = false, bool $promoteToHeader = false) use ($columns): string {
             $cells = '';
             foreach ($gridRow as $column => $entry) {
                 if ($entry['skip']) {
                     continue;
                 }
                 $cells .= rtrim(
-                    $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan'], $inHeaderRun, $columns[$column] ?? []),
+                    $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan'], $inHeaderRun, $columns[$column] ?? [], $promoteToHeader),
                     "\n",
                 );
             }
@@ -1841,18 +1856,26 @@ class HtmlRenderer implements RendererInterface
         if ($headerRowCount > 0) {
             $thead = '';
             for ($i = 0; $i < $headerRowCount; $i++) {
-                $thead .= $renderRow($tableRows[$i], $grid[$i], true);
+                $thead .= $renderRow($tableRows[$i], $grid[$i], true, true);
             }
             $lines[] = '  <thead>' . $thead . '</thead>';
         }
 
         $tableRowCount = count($tableRows);
-        if ($headerRowCount < $tableRowCount) {
+        $footerStart = $tableRowCount - $footerRowCount;
+        if ($headerRowCount < $footerStart) {
             $tbody = '';
-            for ($i = $headerRowCount; $i < $tableRowCount; $i++) {
+            for ($i = $headerRowCount; $i < $footerStart; $i++) {
                 $tbody .= '    ' . $renderRow($tableRows[$i], $grid[$i]) . "\n";
             }
             $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
+        }
+        if ($footerStart < $tableRowCount) {
+            $tfoot = '';
+            for ($i = $footerStart; $i < $tableRowCount; $i++) {
+                $tfoot .= $renderRow($tableRows[$i], $grid[$i]);
+            }
+            $lines[] = '  <tfoot>' . $tfoot . '</tfoot>';
         }
 
         return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
@@ -1893,8 +1916,9 @@ class HtmlRenderer implements RendererInterface
         int $colspan,
         bool $inHeaderRun = false,
         array $column = [],
+        bool $promoteToHeader = false,
     ): string {
-        $tag = $node->isHeader() ? 'th' : 'td';
+        $tag = $node->isHeader() || $promoteToHeader ? 'th' : 'td';
         $attrs = $this->getRenderableAttributes($node);
 
         // PART 10 SST9: a header cell states what it heads - `col` in the leading
