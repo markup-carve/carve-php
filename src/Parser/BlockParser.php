@@ -562,7 +562,11 @@ class BlockParser
      */
     protected ?array $commentFenceLastIndex = null;
 
-    /** @var array<int, int>|null Source index => next same-width quoted fence before the quote ends. */
+    /**
+     * Source index => next same-width quoted fence before the quote ends.
+     *
+     * @var array<int, int>|null
+     */
     protected ?array $blockQuoteCommentCloserIndex = null;
 
     /**
@@ -12080,6 +12084,7 @@ class BlockParser
             for ($i = count($lines) - 1; $i >= 0; $i--) {
                 if (IndentationHelper::isBlankLine($lines[$i])) {
                     $nextByLength = [];
+
                     continue;
                 }
                 $content = $this->blockQuoteLineContent($lines[$i]);
@@ -12087,6 +12092,7 @@ class BlockParser
                     // A non-quoted line ends the quoted region. A later fence
                     // cannot close an opener before this boundary.
                     $nextByLength = [];
+
                     continue;
                 }
                 $info = $this->fencedBlockParser->parseFencedCommentOpener($content);
