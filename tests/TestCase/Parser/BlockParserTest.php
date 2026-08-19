@@ -691,13 +691,12 @@ DJOT;
         $this->assertSame("line1\n\nline2", $children[0]->getContent());
     }
 
-    public function testRawBlockTrimsLeadingAndTrailingBlankLines(): void
+    public function testRawBlockPreservesLeadingAndTrailingBlankLines(): void
     {
-        // Leading and trailing blank lines inside raw block should be trimmed
         $doc = $this->parser->parse("``` =html\n\n<b>bold</b>\n\n```");
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
-        $this->assertSame('<b>bold</b>', $children[0]->getContent());
+        $this->assertSame("\n<b>bold</b>\n", $children[0]->getContent());
     }
 }

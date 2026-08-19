@@ -43,12 +43,6 @@ class BlankBeforeASiblingMarkerSeparatesTheItemsTest extends TestCase
      * All six container kinds, unterminated, with the blank as the last line
      * before a sibling marker of the same list.
      *
-     * The raw block's own payload is the ONE thing that still differs from the
-     * executable spec here: this engine drops the trailing blank from a raw
-     * block and keeps it in a code block. That difference is exactly why the
-     * ruling reads the POSITION and not the payload, and it is out of scope -
-     * the looseness answer is the same either way.
-     *
      * @return array<string, array{string, string}>
      */
     public static function unterminatedContainers(): array
@@ -72,7 +66,7 @@ class BlankBeforeASiblingMarkerSeparatesTheItemsTest extends TestCase
             ],
             'raw block' => [
                 "- ```=html\n  b\n\n- s\n",
-                "<ul>\n  <li>\n    b\n  </li>\n  <li><p>s</p></li>\n</ul>\n",
+                "<ul>\n  <li>\n    b\n\n  </li>\n  <li><p>s</p></li>\n</ul>\n",
             ],
             'comment fence' => [
                 "- %%%\n  b\n\n- s\n",

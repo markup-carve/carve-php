@@ -3877,7 +3877,15 @@ class BlockParser
             $this->addWarning('Unclosed raw block', $start, 1, true);
         }
 
-        $rawBlock = new RawBlock(trim($content, "\n"), $format);
+        // The last newline is the structural separator before the closing
+        // fence. Remove exactly that one, not the whole trailing run: any
+        // earlier newline represents an authored blank payload line and is
+        // part of raw_block.content (carve#1414, corpus 366).
+        if (str_ends_with($content, "\n")) {
+            $content = substr($content, 0, -1);
+        }
+
+        $rawBlock = new RawBlock($content, $format);
         $this->applyPendingAttributes($rawBlock);
         $parent->appendChild($rawBlock);
 
@@ -5663,9 +5671,6 @@ class BlockParser
             // nothing wherever it was written. The carve-out made `- | a | b |`
             // followed by a column-0 line fold that line into the item, while
             // the same table one line lower ended it (corpus 326-3).
-            $trailingState = self::INITIAL_TRAILING_BLOCK_STATE;
-            $trailingState = $this->advanceTrailingBlockState($trailingState, $itemContent);
-
             // First-block item (Carve): `- +` opens an item whose body is the
             // flush-left block that follows, with no indentation. A lone `+` as
             // the sole item content is the continuation marker, not literal text
@@ -5694,6 +5699,15 @@ class BlockParser
             // Task list checkbox is considered part of content, not marker
             $markerWidth = $this->listMarkerWidth($trimmedLine, $itemInfo);
             $contentIndent = $baseIndent + $markerWidth;
+            $trailingState = self::INITIAL_TRAILING_BLOCK_STATE;
+            $trailingState = $this->advanceTrailingBlockStateWithFenceLookahead(
+                $trailingState,
+                $itemContent,
+                $lines,
+                $i - 1,
+                false,
+                $contentIndent,
+            );
             // Remember this item's content column for the next iteration's
             // post-blank / nested-marker continuation gate (content-column model).
             $lastItemContentIndent = $contentIndent;
@@ -6723,10 +6737,13 @@ class BlockParser
                 // paragraph (markup-carve/carve#1350, corpus 357-2). The lazy
                 // branch below leaves the flag off, which is what keeps corpus
                 // 183 and 214-2 folding a comment written BELOW the column.
-                $trailingState = $this->advanceTrailingBlockState(
+                $trailingState = $this->advanceTrailingBlockStateWithFenceLookahead(
                     $trailingState,
                     $contentLine,
+                    $lines,
+                    $i,
                     $nextIndent === $contentIndent,
+                    $contentIndent,
                 );
                 $i++;
 
@@ -7437,9 +7454,11 @@ class BlockParser
                     // carries for the list spelling (carve-php#1003).
                     for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
                         $bodyLine = explode("\n", $body[$bodyStateCursor], 2)[0];
-                        $bodyState = $this->advanceTrailingBlockState(
+                        $bodyState = $this->advanceTrailingBlockStateWithFenceLookahead(
                             $bodyState,
                             $bodyLine,
+                            $body,
+                            $bodyStateCursor,
                             !isset($bodyLazy[$bodyStateCursor]),
                         );
                         // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER,
@@ -11993,6 +12012,70 @@ class BlockParser
     }
 
     /**
+     * Track a collected line with the §10 closer lookahead available.
+     *
+     * An unterminated code-fence-shaped line opens no block when a paragraph
+     * is already open; it is inline verbatim text and leaves that paragraph
+     * available for lazy continuation. The one-line state machine cannot know
+     * whether a closer exists, so container collectors that own the remaining
+     * lines ask here before arming `inFence` (carve#1414, corpus 367).
+     *
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $state
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     * @param bool $atContentColumn
+     * @param int $stripColumns
+     *
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}
+     */
+    protected function advanceTrailingBlockStateWithFenceLookahead(
+        array $state,
+        string $line,
+        array $lines,
+        int $index,
+        bool $atContentColumn = false,
+        int $stripColumns = 0,
+    ): array {
+        if ($state['openParagraph'] && !$state['inFence']) {
+            $opener = $this->fencedBlockParser->parseRawBlockOpener($line)
+                ?? $this->fencedBlockParser->parseCodeFenceOpener($line);
+            if (
+                $opener !== null
+                && !$this->hasFenceCloserInView($lines, $index, $opener, $stripColumns)
+            ) {
+                // A neutral prose line advances every non-fence flag exactly as
+                // this failed opener must; only its literal bytes differ.
+                return $this->advanceTrailingBlockState($state, 'text', $atContentColumn);
+            }
+        }
+
+        return $this->advanceTrailingBlockState($state, $line, $atContentColumn);
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param array{fence: string, length: int, char?: string} $opener
+     * @param int $stripColumns
+     */
+    private function hasFenceCloserInView(array $lines, int $index, array $opener, int $stripColumns): bool
+    {
+        $char = $opener['char'] ?? $opener['fence'][0];
+        $count = count($lines);
+        for ($i = $index + 1; $i < $count; $i++) {
+            $line = $stripColumns > 0
+                ? IndentationHelper::stripLeadingColumns($lines[$i], $stripColumns)
+                : $lines[$i];
+            if ($this->fencedBlockParser->isCodeFenceCloser($line, $char, $opener['length'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The tracker above, reading the line from a byte OFFSET.
      *
      * Every branch asks the same question of the same bytes as the copying
@@ -12123,10 +12206,11 @@ class BlockParser
             // that collects an attached block. Left untracked, the opener only
             // said "no open paragraph" and the very next `:::` read as the
             // div's closer.
-            $divCodeFence = $this->fencedBlockParser->parseCodeFenceOpener(self::subjectFrom($line, $at, $end));
+            $divCodeFence = $this->fencedBlockParser->parseRawBlockOpener(self::subjectFrom($line, $at, $end))
+                ?? $this->fencedBlockParser->parseCodeFenceOpener(self::subjectFrom($line, $at, $end));
             if ($divCodeFence !== null) {
                 /** @var string $divFenceChar */
-                $divFenceChar = $divCodeFence['char'];
+                $divFenceChar = $divCodeFence['char'] ?? $divCodeFence['fence'][0];
                 /** @var int $divCodeFenceLength */
                 $divCodeFenceLength = $divCodeFence['length'];
                 $state['inFence'] = true;
@@ -12183,11 +12267,12 @@ class BlockParser
         }
 
         $opener = $this->fencedBlockParser->isCodeFenceHead($line, $at)
-            ? $this->fencedBlockParser->parseCodeFenceOpener(self::subjectFrom($line, $at, $end))
+            ? ($this->fencedBlockParser->parseRawBlockOpener(self::subjectFrom($line, $at, $end))
+                ?? $this->fencedBlockParser->parseCodeFenceOpener(self::subjectFrom($line, $at, $end)))
             : null;
         if ($opener !== null) {
             /** @var string $fenceChar */
-            $fenceChar = $opener['char'];
+            $fenceChar = $opener['char'] ?? $opener['fence'][0];
             /** @var int $fenceLength */
             $fenceLength = $opener['length'];
             $state['inFence'] = true;
