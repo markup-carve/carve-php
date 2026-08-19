@@ -562,6 +562,9 @@ class BlockParser
      */
     protected ?array $commentFenceLastIndex = null;
 
+    /** @var array<int, int>|null Source index => next same-width quoted fence before the quote ends. */
+    protected ?array $blockQuoteCommentCloserIndex = null;
+
     /**
      * Where a closer of each fence shape LAST occurs in the current line set,
      * built once by fenceCloserIndex().
@@ -2800,10 +2803,12 @@ class BlockParser
         $previousLineMap = $this->currentLineMap;
         $previousContentColumns = $this->currentContentColumns;
         $previousCommentFenceLastIndex = $this->commentFenceLastIndex;
+        $previousBlockQuoteCommentCloserIndex = $this->blockQuoteCommentCloserIndex;
         $previousFenceCloserIndexCache = $this->fenceCloserIndexCache;
         $this->currentLineMap = $lineMap;
         $this->currentContentColumns = $this->contentColumnsFor($lines, $lineMap);
         $this->commentFenceLastIndex = null;
+        $this->blockQuoteCommentCloserIndex = null;
         $this->fenceCloserIndexCache = null;
         try {
             $this->parseBlocksImpl($parent, $lines, $indent, $topLevel);
@@ -2811,6 +2816,7 @@ class BlockParser
             $this->currentLineMap = $previousLineMap;
             $this->currentContentColumns = $previousContentColumns;
             $this->commentFenceLastIndex = $previousCommentFenceLastIndex;
+            $this->blockQuoteCommentCloserIndex = $previousBlockQuoteCommentCloserIndex;
             $this->fenceCloserIndexCache = $previousFenceCloserIndexCache;
             $this->nestingDepth--;
         }
@@ -12068,23 +12074,33 @@ class BlockParser
      */
     protected function hasClosingCommentFenceAheadInBlockQuote(array $lines, int $index, int $length): bool
     {
-        $count = count($lines);
-        for ($i = $index + 1; $i < $count; $i++) {
-            if (IndentationHelper::isBlankLine($lines[$i])) {
-                return false;
+        if ($this->blockQuoteCommentCloserIndex === null) {
+            $nextByLength = [];
+            $indexByLine = [];
+            for ($i = count($lines) - 1; $i >= 0; $i--) {
+                if (IndentationHelper::isBlankLine($lines[$i])) {
+                    $nextByLength = [];
+                    continue;
+                }
+                $content = $this->blockQuoteLineContent($lines[$i]);
+                if ($content === null) {
+                    // A non-quoted line ends the quoted region. A later fence
+                    // cannot close an opener before this boundary.
+                    $nextByLength = [];
+                    continue;
+                }
+                $info = $this->fencedBlockParser->parseFencedCommentOpener($content);
+                if ($info === null) {
+                    continue;
+                }
+                $fenceLength = $info['length'];
+                $indexByLine[$i] = $nextByLength[$fenceLength] ?? -1;
+                $nextByLength[$fenceLength] = $i;
             }
-
-            $content = $this->blockQuoteLineContent($lines[$i]);
-            if ($content === null) {
-                $content = $lines[$i];
-            }
-
-            if ($this->fencedBlockParser->isFencedCommentCloser($content, $length)) {
-                return true;
-            }
+            $this->blockQuoteCommentCloserIndex = $indexByLine;
         }
 
-        return false;
+        return ($this->blockQuoteCommentCloserIndex[$index] ?? -1) > $index;
     }
 
     /**

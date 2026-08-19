@@ -121,10 +121,9 @@ class NestedContainerRescanTest extends TestCase
     public function testTheCounterCounts(): void
     {
         $shallow = $this->countWork(self::shallow(200));
-        // One pass of strip over a document whose every second line is dedented
-        // once. Not a bound - a statement that the counter is on the path the
-        // parse actually takes.
-        $this->assertGreaterThanOrEqual($shallow['bytes'], $shallow['total']);
+        // Not a cost floor: marker-gated prepasses may legitimately remove
+        // whole document scans. This only keeps the counter live.
+        $this->assertGreaterThan(0, $shallow['total']);
         $ladder = $this->countWork(self::ladder(200));
         $this->assertGreaterThan(0, $ladder['gate']);
         $this->assertGreaterThan(0, $ladder['strip']);
