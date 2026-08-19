@@ -59,6 +59,7 @@ class MentionsExtension implements ExtensionInterface
                     '@' . $name,
                 );
             },
+            requiredSubstring: '@',
         );
 
         $tagUrl = $this->tagUrl;
@@ -74,6 +75,7 @@ class MentionsExtension implements ExtensionInterface
                     '#' . $name,
                 );
             },
+            requiredSubstring: '#',
         );
     }
 }
