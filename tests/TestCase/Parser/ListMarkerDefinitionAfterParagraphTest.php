@@ -101,4 +101,30 @@ final class ListMarkerDefinitionAfterParagraphTest extends TestCase
         self::assertStringContainsString("CUSTOM\nbody\n- [d]: u", $html);
         self::assertStringNotContainsString('href="u"', $html);
     }
+
+    public function testExtensionMatcherIsConsultedByTheDefinitionProbe(): void
+    {
+        // R1a: a matcher is a pure predicate, so the probe MAY run it - and
+        // must, or it cannot know the extension consumed the line above and
+        // left no paragraph open. `@@@ x` is claimed by the matcher, so the
+        // marker below it opens a real item whose definition IS metadata.
+        $this->converter->getParser()->addBlockMatcher(
+            static function (array $lines, int $start, $ctx): ?array {
+                $line = $lines[$start] ?? '';
+                if (!str_starts_with($line, '@@@ ')) {
+                    return null;
+                }
+
+                $paragraph = new Paragraph();
+                $paragraph->appendChild(new Text(substr($line, 4)));
+
+                return ['node' => $paragraph, 'linesConsumed' => 1];
+            },
+        );
+
+        $html = $this->converter->convert("@@@ x\n- [d]: u\n\n[go][d]\n");
+
+        self::assertStringContainsString('<a href="u">go</a>', $html);
+        self::assertStringNotContainsString('[d]: u', $html);
+    }
 }
