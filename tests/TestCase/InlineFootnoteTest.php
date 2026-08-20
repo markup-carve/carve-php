@@ -30,10 +30,10 @@ DJOT;
   <hr>
   <ol>
     <li id="fn1">
-      <p>see <strong>later</strong><a href="#fnref1" role="doc-backlink">↩</a></p>
+      <p>see <strong>later</strong><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
     </li>
     <li id="fn2">
-      <p>reference body.<a href="#fnref2" role="doc-backlink">↩</a></p>
+      <p>reference body.<a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p>
     </li>
   </ol>
 </section>
@@ -46,7 +46,7 @@ HTML;
     {
         $html = $this->converter->convert('Text^[a *bold*] here.');
 
-        $this->assertStringContainsString('<p>a <strong>bold</strong><a href="#fnref1" role="doc-backlink">↩</a></p>', $html);
+        $this->assertStringContainsString('<p>a <strong>bold</strong><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>', $html);
     }
 
     public function testEmptyAndWhitespaceOnlyContentStayLiteral(): void
@@ -87,21 +87,21 @@ HTML;
     {
         $html = $this->converter->convert('A ^[a \] b] note.');
 
-        $this->assertStringContainsString('<p>a ] b<a href="#fnref1" role="doc-backlink">↩</a></p>', $html);
+        $this->assertStringContainsString('<p>a ] b<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>', $html);
     }
 
     public function testCodeSpanBracketInContent(): void
     {
         $html = $this->converter->convert('A ^[a `]` b] note.');
 
-        $this->assertStringContainsString('<p>a <code>]</code> b<a href="#fnref1" role="doc-backlink">↩</a></p>', $html);
+        $this->assertStringContainsString('<p>a <code>]</code> b<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>', $html);
     }
 
     public function testNestedLinkInContent(): void
     {
         $html = $this->converter->convert('A ^[a [link](/u) b] note.');
 
-        $this->assertStringContainsString('<p>a <a href="/u">link</a> b<a href="#fnref1" role="doc-backlink">↩</a></p>', $html);
+        $this->assertStringContainsString('<p>a <a href="/u">link</a> b<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>', $html);
     }
 
     public function testFootnoteRefIsLiteralInsideInlineFootnote(): void

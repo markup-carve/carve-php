@@ -81,7 +81,7 @@ class DefinitionLooseContinuationTest extends TestCase
         $this->assertSame(
             "<p>X.<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n"
                 . "<section role=\"doc-endnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n"
-                . "      <p>First.</p>\n      <p>Second.<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p>\n"
+                . "      <p>First.</p>\n      <p>Second.<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
                 . "    </li>\n  </ol>\n</section>",
             $out,
         );

@@ -44,6 +44,6 @@ class FootnoteDefinitionBodyTest extends TestCase
 
         $this->assertStringContainsString('<li id="fn1">', $html);
         $this->assertStringContainsString('<p>First</p>', $html);
-        $this->assertStringContainsString('Second<a href="#fnref1" role="doc-backlink">↩</a>', $html);
+        $this->assertStringContainsString('Second<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a>', $html);
     }
 }
