@@ -9,6 +9,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Default core HTML conversion has a conservative borrowed fast path.** Plain
+  headings and paragraphs, explicit block quotes, tight lists, code fences,
+  basic pipe tables, thematic breaks, and straightforward links can render
+  directly from source slices without constructing the public AST. Any
+  ambiguous boundary, non-default converter configuration, extension, custom
+  parser/renderer access, or document over 64 KiB falls back for the whole
+  document before output is published. The pinned corpus is shadow-rendered
+  through both paths and must remain byte-identical.
+
 - **A row is a row, in every table section** (markup-carve/carve#1459, PART 10
   §7). `<thead>` and `<tfoot>` now write one row per line, as `<tbody>` always
   did. Nothing renders differently - whitespace between rows in table context is

@@ -23,6 +23,7 @@ use MarkupCarve\Carve\Extension\WikilinksExtension;
 use MarkupCarve\Carve\Filter\ProfileFilter;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Performance\BorrowedHtmlLayout;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
@@ -43,6 +44,8 @@ use WeakMap;
  */
 class CarveConverter
 {
+    private bool $borrowedHtmlConfiguration = false;
+
     /**
      * Carve specification version implemented by this library.
      *
@@ -303,6 +306,22 @@ class CarveConverter
         if ($profile !== null) {
             $this->profileFilter = new ProfileFilter();
         }
+
+        $this->borrowedHtmlConfiguration = !$xhtml
+            && !$warnings
+            && !$strict
+            && ($safeMode === null || $safeMode === false)
+            && $profile === null
+            && $softBreakMode === null
+            && ($smartTypography === null || $smartTypography === true || $smartTypography === SmartTypographyMode::Glyph)
+            && !$roundTripMode
+            && $mode === RenderMode::INTERACTIVE
+            && $renderers === []
+            && $symbols === []
+            && $labels === []
+            && $parser === null
+            && $renderer === null
+            && !$sourceLines;
     }
 
     /**
@@ -353,6 +372,7 @@ class CarveConverter
      */
     public function setSafeMode(SafeMode|bool|null $safeMode): self
     {
+        $this->borrowedHtmlConfiguration = false;
         if (!$this->renderer instanceof HtmlRenderer) {
             return $this;
         }
@@ -381,6 +401,7 @@ class CarveConverter
      */
     public function setRenderMode(string $mode): self
     {
+        $this->borrowedHtmlConfiguration = false;
         $validated = RenderMode::validate($mode);
         if ($this->renderer instanceof HtmlRenderer) {
             $this->renderer->setRenderMode($validated);
@@ -411,6 +432,7 @@ class CarveConverter
      */
     public function setRenderers(array $renderers): self
     {
+        $this->borrowedHtmlConfiguration = false;
         if ($this->renderer instanceof HtmlRenderer) {
             $this->renderer->setStaticRenderers($renderers);
         }
@@ -425,6 +447,7 @@ class CarveConverter
      */
     public function setProfile(?Profile $profile): self
     {
+        $this->borrowedHtmlConfiguration = false;
         $this->profile = $profile;
         if ($profile !== null && $this->profileFilter === null) {
             $this->profileFilter = new ProfileFilter();
@@ -449,7 +472,23 @@ class CarveConverter
         // Check max length before parsing
         $this->enforceProfileMaxLength($djot);
 
+        if ($this->canUseBorrowedHtml()) {
+            $attempt = (new BorrowedHtmlLayout())->render($djot);
+            if ($attempt !== null) {
+                return $attempt['html'];
+            }
+        }
+
         return $this->render($this->parse($djot));
+    }
+
+    private function canUseBorrowedHtml(): bool
+    {
+        if (!$this->borrowedHtmlConfiguration || $this->outputTransformers !== []) {
+            return false;
+        }
+
+        return $this->extensions === [];
     }
 
     /**
@@ -468,9 +507,7 @@ class CarveConverter
             throw new RuntimeException("Failed to read file: {$path}");
         }
 
-        $this->enforceProfileMaxLength($content);
-
-        return $this->render($this->parse($content));
+        return $this->convert($content);
     }
 
     /**
@@ -631,6 +668,7 @@ class CarveConverter
      */
     public function on(string $event, Closure $listener): self
     {
+        $this->borrowedHtmlConfiguration = false;
         if ($this->renderer instanceof HtmlRenderer) {
             $this->renderer->on($event, $listener);
         }
@@ -643,6 +681,7 @@ class CarveConverter
      */
     public function off(?string $event = null): self
     {
+        $this->borrowedHtmlConfiguration = false;
         if ($this->renderer instanceof HtmlRenderer) {
             $this->renderer->off($event);
         }
@@ -655,6 +694,8 @@ class CarveConverter
      */
     public function getRenderer(): RendererInterface
     {
+        $this->borrowedHtmlConfiguration = false;
+
         return $this->renderer;
     }
 
@@ -665,6 +706,7 @@ class CarveConverter
      */
     public function getHtmlRenderer(): HtmlRenderer
     {
+        $this->borrowedHtmlConfiguration = false;
         if (!$this->renderer instanceof HtmlRenderer) {
             throw new LogicException('getHtmlRenderer() is only available when using HtmlRenderer');
         }
@@ -679,6 +721,7 @@ class CarveConverter
      */
     public function getHeadingIdTracker(): HeadingIdTracker
     {
+        $this->borrowedHtmlConfiguration = false;
         if (!$this->renderer instanceof HtmlRenderer) {
             throw new LogicException('getHeadingIdTracker() is only supported with HtmlRenderer');
         }
@@ -691,6 +734,8 @@ class CarveConverter
      */
     public function getParser(): BlockParser
     {
+        $this->borrowedHtmlConfiguration = false;
+
         return $this->parser;
     }
 
