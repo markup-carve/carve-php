@@ -24,9 +24,9 @@ class TableAttributesTest extends TestCase
     {
         $html = $this->converter->convert("{header-rows=2 footer-rows=1}\n| A | B |\n| C | D |\n| E | F |\n| G | H |\n");
 
-        $this->assertStringContainsString('<thead><tr><th scope="col">A</th><th scope="col">B</th></tr><tr><th scope="col">C</th><th scope="col">D</th></tr></thead>', $html);
+        $this->assertStringContainsString("<thead>\n    <tr><th scope=\"col\">A</th><th scope=\"col\">B</th></tr>\n    <tr><th scope=\"col\">C</th><th scope=\"col\">D</th></tr>\n  </thead>", $html);
         $this->assertStringContainsString("<tbody>\n    <tr><td>E</td><td>F</td></tr>\n  </tbody>", $html);
-        $this->assertStringContainsString('<tfoot><tr><td>G</td><td>H</td></tr></tfoot>', $html);
+        $this->assertStringContainsString("<tfoot>\n    <tr><td>G</td><td>H</td></tr>\n  </tfoot>", $html);
         $this->assertStringNotContainsString('header-rows=', $html);
         $this->assertStringNotContainsString('footer-rows=', $html);
     }

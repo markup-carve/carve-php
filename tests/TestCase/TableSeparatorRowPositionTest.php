@@ -24,7 +24,7 @@ class TableSeparatorRowPositionTest extends TestCase
     public function testSecondRowSeparatorMakesHeader(): void
     {
         $html = $this->converter->convert("| x | y |\n|---|---|");
-        $this->assertStringContainsString('<thead><tr><th scope="col">x</th><th scope="col">y</th></tr></thead>', $html);
+        $this->assertStringContainsString("<thead>\n    <tr><th scope=\"col\">x</th><th scope=\"col\">y</th></tr>\n  </thead>", $html);
     }
 
     public function testLeadingDelimiterIsADataRow(): void

@@ -83,7 +83,7 @@ class HtmlImportTableFidelityTest extends TestCase
         );
         $this->assertSame(
             "<table>\n"
-            . "  <thead><tr><th scope=\"col\">H1</th><th scope=\"col\">H2</th></tr></thead>\n"
+            . "  <thead>\n    <tr><th scope=\"col\">H1</th><th scope=\"col\">H2</th></tr>\n  </thead>\n"
             . "  <tbody>\n"
             . "    <tr><th scope=\"row\">R1</th><td>a</td></tr>\n"
             . "    <tr><th scope=\"row\">R2</th><td>b</td></tr>\n"
@@ -287,7 +287,7 @@ class HtmlImportTableFidelityTest extends TestCase
     {
         $this->assertSame(
             "<table>\n"
-            . "  <thead><tr><th scope=\"col\">A</th></tr><tr><th scope=\"col\">B</th></tr></thead>\n"
+            . "  <thead>\n    <tr><th scope=\"col\">A</th></tr>\n    <tr><th scope=\"col\">B</th></tr>\n  </thead>\n"
             . "  <tbody>\n"
             . "    <tr><td>1</td></tr>\n"
             . "  </tbody>\n"
@@ -310,7 +310,7 @@ class HtmlImportTableFidelityTest extends TestCase
         $this->assertSame("|={.k} A |= B |\n| 1 | 2 |\n", $this->converter->convert($html));
         $this->assertSame(
             "<table>\n"
-            . "  <thead><tr><th scope=\"col\" class=\"k\">A</th><th scope=\"col\">B</th></tr></thead>\n"
+            . "  <thead>\n    <tr><th scope=\"col\" class=\"k\">A</th><th scope=\"col\">B</th></tr>\n  </thead>\n"
             . "  <tbody>\n"
             . "    <tr><td>1</td><td>2</td></tr>\n"
             . "  </tbody>\n"
@@ -349,8 +349,8 @@ class HtmlImportTableFidelityTest extends TestCase
 
         $this->assertSame(
             "<table>\n"
-            . '  <thead><tr><th scope="col">A</th><th scope="col">B</th></tr>'
-            . "<tr><th scope=\"col\" class=\"k\">C</th><th scope=\"col\">D</th></tr></thead>\n"
+            . "  <thead>\n    <tr><th scope=\"col\">A</th><th scope=\"col\">B</th></tr>\n"
+            . "    <tr><th scope=\"col\" class=\"k\">C</th><th scope=\"col\">D</th></tr>\n  </thead>\n"
             . "  <tbody>\n"
             . "    <tr><td>1</td><td>2</td></tr>\n"
             . "  </tbody>\n"

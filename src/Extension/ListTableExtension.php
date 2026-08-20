@@ -358,12 +358,14 @@ class ListTableExtension implements ExtensionInterface
         $headGrid = array_slice($grid, 0, $headerRows);
         $footGrid = array_slice($grid, $footerStart);
 
+        // One row per line, as in every other section (PART 10 §7,
+        // markup-carve/carve#1459).
         if ($headGrid !== []) {
             $thead = '';
             foreach ($headGrid as $rowIndex => $gridRow) {
-                $thead .= $renderRow($gridRow, $rowIndex);
+                $thead .= '    ' . $renderRow($gridRow, $rowIndex) . "\n";
             }
-            $lines[] = '  <thead>' . $thead . '</thead>';
+            $lines[] = "  <thead>\n" . rtrim($thead, "\n") . "\n  </thead>";
         }
 
         foreach ($bodyGroups as [$start, $end]) {
@@ -376,9 +378,9 @@ class ListTableExtension implements ExtensionInterface
         if ($footGrid !== []) {
             $tfoot = '';
             foreach ($footGrid as $offset => $gridRow) {
-                $tfoot .= $renderRow($gridRow, $footerStart + $offset);
+                $tfoot .= '    ' . $renderRow($gridRow, $footerStart + $offset) . "\n";
             }
-            $lines[] = '  <tfoot>' . $tfoot . '</tfoot>';
+            $lines[] = "  <tfoot>\n" . rtrim($tfoot, "\n") . "\n  </tfoot>";
         }
 
         $attrs = $this->renderTableAttributes($node, $renderer);
