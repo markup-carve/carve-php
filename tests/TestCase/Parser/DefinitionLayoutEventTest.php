@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
+use MarkupCarve\Carve\Parser\AbbreviationLayoutTracker;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\DefinitionLayoutEvent;
 use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
 use PHPUnit\Framework\TestCase;
@@ -49,6 +51,45 @@ class DefinitionLayoutEventTest extends TestCase
                 [DefinitionLayoutEvent::FOOTNOTE, 10, 2, 2, '[^nested]: yes', true],
             ],
             $actual,
+        );
+    }
+
+    public function testTheAbbreviationTrackerClosesVerseAndOrdinaryDivs(): void
+    {
+        $lines = ['::: |', ':::', '::: note', ':::'];
+        $tracker = new AbbreviationLayoutTracker($lines);
+
+        foreach ($lines as $index => $line) {
+            $this->assertNull($tracker->observe($line, $index));
+        }
+    }
+
+    public function testTheIsolatedFootnoteCollectorRetainsItsOpaqueFallback(): void
+    {
+        $parser = new class extends BlockParser {
+            /**
+             * @param list<string> $lines
+             *
+             * @return array<string, \MarkupCarve\Carve\Node\FootnoteDefinition>
+             */
+            public function collectFootnotes(array $lines): array
+            {
+                $this->extractFootnotes($lines);
+
+                return $this->footnotes;
+            }
+        };
+
+        $this->assertSame(
+            [],
+            $parser->collectFootnotes([
+                '```',
+                '[^code]: hidden',
+                '```',
+                '%%% comment',
+                '[^comment]: hidden',
+                '%%%',
+            ]),
         );
     }
 }
