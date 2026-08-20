@@ -23,6 +23,7 @@ use MarkupCarve\Carve\Extension\WikilinksExtension;
 use MarkupCarve\Carve\Filter\ProfileFilter;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Performance\BorrowedExtensionPlan;
 use MarkupCarve\Carve\Performance\BorrowedHtmlLayout;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -472,8 +473,9 @@ class CarveConverter
         // Check max length before parsing
         $this->enforceProfileMaxLength($djot);
 
-        if ($this->canUseBorrowedHtml()) {
-            $attempt = (new BorrowedHtmlLayout())->render($djot);
+        $borrowedPlan = $this->borrowedHtmlPlan($djot);
+        if ($borrowedPlan !== null) {
+            $attempt = (new BorrowedHtmlLayout())->render($djot, false, $borrowedPlan);
             if ($attempt !== null) {
                 return $attempt['html'];
             }
@@ -482,13 +484,16 @@ class CarveConverter
         return $this->render($this->parse($djot));
     }
 
-    private function canUseBorrowedHtml(): bool
+    /**
+     * @return array{headingNumbers: bool, headingPermalinks: bool, externalLinks: bool, lowercaseIds: bool}|null
+     */
+    private function borrowedHtmlPlan(string $source): ?array
     {
         if (!$this->borrowedHtmlConfiguration || $this->outputTransformers !== []) {
-            return false;
+            return null;
         }
 
-        return $this->extensions === [];
+        return BorrowedExtensionPlan::compile($this->extensions, $source);
     }
 
     /**
@@ -757,7 +762,9 @@ class CarveConverter
         $this->assertCompatibleExtension($extension);
         $registeredExtension = $extension instanceof BeforeRenderExtensionInterface ? clone $extension : $extension;
         $this->extensions[] = $registeredExtension;
+        $borrowedHtmlConfiguration = $this->borrowedHtmlConfiguration;
         $registeredExtension->register($this);
+        $this->borrowedHtmlConfiguration = $borrowedHtmlConfiguration;
 
         // An extension offering a static-HTML render path is consulted first in
         // static mode, before its ordinary interactive listener fires.

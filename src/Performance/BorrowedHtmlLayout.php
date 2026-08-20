@@ -17,15 +17,40 @@ use MarkupCarve\Carve\Util\StringUtil;
 final class BorrowedHtmlLayout
 {
     /**
+     * @var array{headingNumbers: bool, headingPermalinks: bool, externalLinks: bool, lowercaseIds: bool}
+     */
+    private array $events = ['headingNumbers' => false, 'headingPermalinks' => false, 'externalLinks' => false, 'lowercaseIds' => false];
+
+    /**
+     * @var list<int>
+     */
+    private array $numberLevels = [];
+
+    /**
+     * @var list<int>
+     */
+    private array $numbers = [];
+
+    /**
      * @var int
      */
     private const MAX_SOURCE_BYTES = 65536;
 
     /**
+     * @param string $source
+     * @param bool $observe
+     * @param array{headingNumbers?: bool, headingPermalinks?: bool, externalLinks?: bool, lowercaseIds?: bool} $events
+     *
      * @return array{html: string, accepted: array<string, int>}|null
      */
-    public function render(string $source, bool $observe = false): ?array
+    public function render(string $source, bool $observe = false, array $events = []): ?array
     {
+        $this->events = array_replace(
+            ['headingNumbers' => false, 'headingPermalinks' => false, 'externalLinks' => false, 'lowercaseIds' => false],
+            $events,
+        );
+        $this->numberLevels = [];
+        $this->numbers = [];
         if (!$this->eligibleSource($source)) {
             return null;
         }
@@ -148,6 +173,9 @@ final class BorrowedHtmlLayout
         $out = [];
         $sections = [];
         $ids = new HeadingIdTracker();
+        if ($this->events['lowercaseIds']) {
+            $ids->setLowercase(true);
+        }
         $i = 0;
         $wrote = false;
         $count = count($lines);
@@ -172,8 +200,16 @@ final class BorrowedHtmlLayout
                     $out[] = "\n";
                 }
                 $id = $ids->getIdForText($title);
+                $heading = $this->escape($title);
+                if ($this->events['headingNumbers']) {
+                    $heading = '<span class="section-number">' . $this->nextHeadingNumber($level) . '</span> ' . $heading;
+                }
+                if ($this->events['headingPermalinks']) {
+                    $heading .= ' <a href="#' . $this->escapeAttribute($id)
+                        . '" class="permalink" aria-label="Permalink">¶</a>';
+                }
                 $out[] = $this->indent(count($sections)) . '<section id="' . $this->escapeAttribute($id) . '">' . "\n"
-                    . $this->indent(count($sections) + 1) . '<h' . $level . '>' . $this->escape($title)
+                    . $this->indent(count($sections) + 1) . '<h' . $level . '>' . $heading
                     . '</h' . $level . '>';
                 $this->accept($stats, 'headings', $i, $i + 1);
                 $sections[] = $level;
@@ -396,7 +432,11 @@ final class BorrowedHtmlLayout
                     return null;
                 }
                 $out .= '<a href="' . $this->escapeAttribute($href) . '"'
-                    . ($title === null ? '' : ' title="' . $this->escapeAttribute($title) . '"') . '>' . $inner . '</a>';
+                    . ($title === null ? '' : ' title="' . $this->escapeAttribute($title) . '"')
+                    . ($this->events['externalLinks'] && preg_match('#^https?://#i', $href) === 1
+                        ? ' target="_blank" rel="noopener noreferrer"'
+                        : '')
+                    . '>' . $inner . '</a>';
             }
             $plain = $i;
         }
@@ -669,6 +709,25 @@ final class BorrowedHtmlLayout
     private function safeUrl(string $url): bool
     {
         return preg_match('/^(?:https?:|mailto:|\/|#|\.\/|\.\.\/)/i', $url) === 1;
+    }
+
+    private function nextHeadingNumber(int $level): string
+    {
+        $depth = count($this->numberLevels);
+        while ($depth > 0 && $this->numberLevels[$depth - 1] > $level) {
+            array_pop($this->numberLevels);
+            array_pop($this->numbers);
+            $depth--;
+        }
+        if ($depth > 0 && $this->numberLevels[$depth - 1] === $level) {
+            $number = array_pop($this->numbers);
+            $this->numbers[] = ($number ?? 0) + 1;
+        } else {
+            $this->numberLevels[] = $level;
+            $this->numbers[] = 1;
+        }
+
+        return implode('.', $this->numbers);
     }
 
     private function escape(string $text): string
