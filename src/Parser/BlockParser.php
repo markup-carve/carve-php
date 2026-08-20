@@ -5927,20 +5927,36 @@ class BlockParser
             // (`- + text` keeps `+ text` as literal content). This lets an item
             // start directly with a table, code block, quote or div at column 0.
             if ($this->isContinuationMarker(ltrim($itemContent, " \t"))) {
+                // ...AND ONLY A FLUSH-LEFT ONE (SS17 L3, carve#1436). When the
+                // line below sits at any other column the marker attaches
+                // NOTHING, and this branch must not finish the item over it:
+                // `- +` / `  x` writes `x` at the item's OWN content column, so
+                // the ordinary collector below is what owns it. The marker is
+                // consumed either way - it is never content - so the fall-
+                // through carries an EMPTY lead rather than a literal `+`.
                 [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
+                $fallsThrough = $attached === []
+                    && $this->continuationMarkerHasIndentedFollower($i, $count, $lines)
+                    && IndentationHelper::getLeadingColumns($lines[$i] ?? '', $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo) + 1)
+                        >= $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo);
+                if ($fallsThrough) {
+                    $itemContent = '';
+                    $itemLines = [''];
+                } else {
                 // PART 12 §4: the item begins at its MARKER (carve#913). This
                 // item's body is flush left, so leaving the span to be derived
                 // from the children started it at the attached block - `- +`
                 // followed by a table gave the item the table's offset, past
                 // its own marker line entirely. `deriveContainerSpans` unions
                 // this with the body, so the extent still reaches the end.
-                $listItem->setPos($this->spanForLineMap([$listItemSourceLine]));
-                if ($attached !== []) {
-                    $this->parseItemBlocks($listItem, $attached, $attachedLineMap);
-                }
-                $list->appendChild($listItem);
+                    $listItem->setPos($this->spanForLineMap([$listItemSourceLine]));
+                    if ($attached !== []) {
+                        $this->parseItemBlocks($listItem, $attached, $attachedLineMap);
+                    }
+                    $list->appendChild($listItem);
 
-                continue;
+                    continue;
+                }
             }
 
             // Calculate content indent based on list type and marker width
@@ -6068,6 +6084,7 @@ class BlockParser
                 $itemLines,
                 $itemLineMap,
                 $trailingState,
+                $this->leadBottomIsContinuationMarker($itemContent),
             );
 
             // A marker-line colon fence whose body is BELOW the content column
@@ -6226,6 +6243,80 @@ class BlockParser
      * is content. The predicate was unified across seven sites by
      * carve-php#929; the DEFINITION was not (carve-php#1041).
      */
+    /**
+     * Does the continuation marker's candidate block begin at document column 0?
+     *
+     * Returns TRUE when the answer cannot be recovered, so a synthetic or
+     * rewritten line keeps the behavior it had rather than silently losing its
+     * attachment. A quote prefix is stripped first: inside a quote the marker's
+     * column 0 is the quote's content column, which is what the executable spec
+     * measures there too.
+     */
+
+    /**
+     * Is the bottom block of a marker line's content a lone `+`?
+     *
+     * `* +` is the outer item's content and the CONTINUATION MARKER one level
+     * in, exactly as `- - # H` is a heading two levels in. The peel is what
+     * PART 1 S4 asks for - a list item is decided by the block inside it - and
+     * this is the same question {@see self::isContinuationMarker()} answers for
+     * a line that carries no marker of its own.
+     */
+    protected function leadBottomIsContinuationMarker(string $content): bool
+    {
+        $rest = $content;
+        while (($offset = $this->listParser->markerContentOffset($rest)) !== null) {
+            $rest = substr($rest, $offset);
+        }
+
+        return $rest === ltrim($rest, " \t") && $this->isContinuationMarker($rest);
+    }
+
+    /**
+     * Did a continuation marker attach nothing BECAUSE OF THE COLUMN RULE?
+     *
+     * Distinguishes the two ways an attach comes back empty. Nothing following
+     * at all leaves an empty first-block item, which is a document in its own
+     * right; a follower at some other column means the marker reached past a
+     * line that belongs to whichever container its own column names (SS17 L3,
+     * carve#1436), and the ordinary collector has to be given the chance to
+     * claim it.
+     *
+     * @param int $index
+     * @param int $count
+     * @param array<string> $lines
+     */
+    protected function continuationMarkerHasIndentedFollower(int $index, int $count, array $lines): bool
+    {
+        if ($index >= $count) {
+            return false;
+        }
+        $line = $lines[$index] ?? null;
+        if ($line === null || IndentationHelper::isBlankLine($line)) {
+            return false;
+        }
+
+        return !$this->continuationAttachesAtColumnZero($index);
+    }
+
+    protected function continuationAttachesAtColumnZero(int $index): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        if ($sourceLine < 0) {
+            return true;
+        }
+        $line = $this->sourceLines[$sourceLine] ?? null;
+        if ($line === null) {
+            return true;
+        }
+        $rest = $line;
+        while (preg_match('/^[ \t]*>[ \t]?/', $rest, $m) === 1) {
+            $rest = substr($rest, strlen($m[0]));
+        }
+
+        return $rest === ltrim($rest, " \t");
+    }
+
     protected function isContinuationMarker(string $line): bool
     {
         return rtrim($line, StringUtil::WHITESPACE_CHARS) === '+';
@@ -6770,6 +6861,20 @@ class BlockParser
      */
     protected function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent): array
     {
+        // AND ONLY A FLUSH-LEFT BLOCK (PART 9 SS17 L3, carve#1436). "flush-left"
+        // is the REACH, not a description of the usual case: the marker attaches
+        // a block that begins at DOCUMENT COLUMN 0 and nothing else, and a line
+        // at any other column falls through to the ordinary column rules that
+        // give it to whichever container its own column names.
+        //
+        // Asked of the ORIGINAL line, because `$lines` here is a container's
+        // body and is re-indented: `* * +` over a column-0 `x` and over a
+        // column-1 ` x` both arrive as `[' * +', ' x']`, byte-identical. Only
+        // the source line still carries the column, and `sourceLineFor()` still
+        // names it.
+        if (!$this->continuationAttachesAtColumnZero($i)) {
+            return [$i, [], []];
+        }
         // A MARKER INSIDE AN OPEN FENCE IS CODE TEXT here too (§24 S2). This
         // collector tracked no block state at all, so a `- x` line in the
         // attached block's fenced body ended the block and severed the body -
@@ -6825,6 +6930,7 @@ class BlockParser
      * @param array<string> $itemLines Collected item lines, appended in place.
      * @param array<int, int> $itemLineMap Source-line map, appended in place.
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $trailingState
+     * @param bool $leadIsBareContinuationMarker
      *
      * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}}
      */
@@ -6837,6 +6943,7 @@ class BlockParser
         array &$itemLines,
         array &$itemLineMap,
         array $trailingState,
+        bool $leadIsBareContinuationMarker = false,
     ): array {
         $sawIndentedUnclaimedColonFence = false;
         // A COMMENT FENCE'S BODY IS OPAQUE AT THE CONTENT COLUMN TOO (PART 9
@@ -6916,6 +7023,25 @@ class BlockParser
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
             $isBlockQuoteLazyLine = isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
+
+            // A MARKER THAT ATTACHES NOTHING DOES NOT END THE ITEM (SS17 L3,
+            // carve#1436). The marker reaches a block at DOCUMENT COLUMN 0 and
+            // nothing else; when the line below sits at any other column it
+            // attaches nothing, and ending the item over a line that renders
+            // nothing costs the lazy fold the same document without the marker
+            // still has - `- a` / `  - b` / `  +` / `  c` gave `b` and `c` as
+            // two blocks where `  c` folds into `b` on its own. Consumed and
+            // skipped instead, which is what "as if the marker line had been a
+            // comment" means for this collector.
+            if (
+                $nextIndent === $baseIndent
+                && $this->isContinuationMarker($nextTrimmed)
+                && $this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)
+            ) {
+                $i++;
+
+                continue;
+            }
 
             if ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
                 break;
@@ -7035,7 +7161,18 @@ class BlockParser
             // 357-3). The nonzero below-column exception is specifically the
             // COMMENT rule. A collected definition ended the paragraph and
             // keeps no such path open (markup-carve/carve#1376).
-            if (!$trailingState['openParagraph'] && ($nextIndent === 0 || !$trailingState['afterComment'])) {
+            // ...EXCEPT THE ONE BLOCK A BARE MARKER NAMES (SS17 L3,
+            // carve#1436). A lead whose bottom block is a lone `+` leaves no
+            // open paragraph - that is what stops an INDENTED line folding into
+            // it - but it is still waiting for its flush-left block, so a
+            // DOCUMENT-COLUMN-0 line has to reach the item rather than end it.
+            // Answering "no paragraph is open" alone passed `* * +` / ` x` and
+            // broke `* * +` / `x`; the column is what separates them.
+            if (
+                !$trailingState['openParagraph']
+                && ($nextIndent === 0 || !$trailingState['afterComment'])
+                && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationAttachesAtColumnZero($i))
+            ) {
                 break;
             }
 
@@ -7309,6 +7446,26 @@ class BlockParser
                     !$trailingState['openParagraph']
                     || $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
                     || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
+                ) {
+                    break;
+                }
+                // A BARE CONTINUATION MARKER LEAD FOLDS COLUMN 0 AND NOTHING
+                // ELSE (SS17 L3, carve#1436). The lead is an empty first-block
+                // item waiting for a flush-left block: the document-column-0
+                // line IS that block and has to reach the nested parse, and a
+                // line at any other column was never the marker's - it falls
+                // through to the ordinary column rules, which for a column
+                // below the item's own content column means no container holds
+                // it.
+                //
+                // Asked of the SOURCE line, because the fold below normalizes
+                // every below-column line to exactly ONE column: `* * +` over a
+                // column-0 line and over a column-1 line both arrive at the
+                // nested parse as ` x`, and by then they cannot be told apart.
+                if (
+                    $itemLines !== []
+                    && $this->leadBottomIsContinuationMarker((string)$itemLines[0])
+                    && !$this->continuationAttachesAtColumnZero($i)
                 ) {
                     break;
                 }
