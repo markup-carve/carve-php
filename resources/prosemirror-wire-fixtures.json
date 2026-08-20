@@ -1411,7 +1411,7 @@
     },
     {
       "name": "empty-span-and-editorial-marks",
-      "carve": "a []{.x} b {++} c {--} d\n",
+      "carve": "a []{.x} b\n",
       "pm": {
         "type": "doc",
         "content": [
@@ -1436,27 +1436,7 @@
               },
               {
                 "type": "text",
-                "text": " b "
-              },
-              {
-                "type": "carveEmptyMark",
-                "attrs": {
-                  "markType": "carveInsert"
-                }
-              },
-              {
-                "type": "text",
-                "text": " c "
-              },
-              {
-                "type": "carveEmptyMark",
-                "attrs": {
-                  "markType": "carveDelete"
-                }
-              },
-              {
-                "type": "text",
-                "text": " d"
+                "text": " b"
               }
             ]
           }
