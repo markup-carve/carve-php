@@ -34,6 +34,7 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\ContentNodeInterface;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
@@ -344,6 +345,25 @@ class BlockParser
     protected FencedBlockParser $fencedBlockParser;
 
     protected ReferenceDefinitionExtractor $referenceDefinitionExtractor;
+
+    /**
+     * The authoritative structural walk is currently collecting mixed
+     * definitions. Inline nodes are built normally; forward-only resolution is
+     * completed after the walk exposes every definition.
+     */
+    private bool $discoveringDefinitions = false;
+
+    /**
+     * @var array<string, array{lines: array<string>, lineMap: array<int, int>}>
+     */
+    private array $discoveredFootnoteBodies = [];
+
+    /**
+     * @var array<int, true>
+     */
+    private array $discoveredAbbreviationLines = [];
+
+    private bool $integratedDefinitionPass = false;
 
     /**
      * Remaining source bytes available to the parser-backed definition probe.
@@ -1024,8 +1044,17 @@ class BlockParser
             $this->extractHeadingReferences($lines);
         }
 
-        // Second pass: parse blocks
+        if ($this->integratedDefinitionPass) {
+            $this->discoveringDefinitions = true;
+        }
+
+        // Mixed-definition documents collect definitions in this authoritative
+        // structural walk; forward inline references are resolved afterwards.
         $this->parseBlocks($document, $lines, 0, topLevel: true);
+        if ($this->integratedDefinitionPass) {
+            $this->discoveringDefinitions = false;
+            $this->finishIntegratedDefinitionPass($document, $lines);
+        }
 
         // Third pass, and ONLY when the document needs it: an implicit
         // `[Heading][]` reference that found no definition.
@@ -1310,17 +1339,152 @@ class BlockParser
      */
     protected function extractDefinitions(array $lines, string $input): void
     {
-        $this->collectAbbreviationLayout = str_contains($input, '*[');
-        $this->collectDefinitionLayout = str_contains($input, '[^') || $this->collectAbbreviationLayout;
-        if (str_contains($input, ']:')) {
-            $this->extractReferences($lines);
+        $hasReferences = str_contains($input, ']:');
+        $hasFootnotes = str_contains($input, '[^');
+        $hasAbbreviations = str_contains($input, '*[');
+        $this->collectAbbreviationLayout = false;
+        $this->collectDefinitionLayout = false;
+        $kinds = (int)$hasReferences + (int)$hasFootnotes + (int)$hasAbbreviations;
+        if ($kinds === 0) {
+            return;
         }
-        if (str_contains($input, '[^')) {
-            $this->extractFootnotes($lines);
+        // One specialized collector is cheaper than integrated bookkeeping.
+        // The structural path wins when it replaces two or three independent
+        // state machines; keeping this adaptive path also protects ordinary
+        // reference-only core documents.
+        if ($kinds === 1) {
+            if ($hasReferences) {
+                $this->extractReferences($lines);
+            } elseif ($hasFootnotes) {
+                $this->extractFootnotes($lines);
+            } else {
+                $this->extractAbbreviations($lines);
+            }
+
+            return;
         }
-        if (str_contains($input, '*[')) {
-            $this->extractAbbreviations($lines);
+
+        $this->integratedDefinitionPass = true;
+    }
+
+    /**
+     * Parse definition-owned bodies after the document walk exposed every
+     * global definition, then resolve references that appeared before their
+     * definitions without rebuilding the block tree.
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @param array<string> $lines
+     */
+    private function finishIntegratedDefinitionPass(Document $document, array $lines): void
+    {
+        foreach ($this->discoveredFootnoteBodies as $label => $body) {
+            $this->discoveringDefinitions = true;
+            $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
+            $this->discoveringDefinitions = false;
+            $this->pendingAttributes = [];
+            $this->pendingAttributeOrder = [];
         }
+        if ($this->discoveredAbbreviationLines !== []) {
+            $firstAbbreviationLine = min(array_keys($this->discoveredAbbreviationLines));
+            $firstBodyLine = null;
+            foreach ($lines as $lineNumber => $line) {
+                if (IndentationHelper::isBlankLine($line) || isset($this->discoveredAbbreviationLines[$lineNumber])) {
+                    continue;
+                }
+                $firstBodyLine = $lineNumber;
+
+                break;
+            }
+            $this->abbreviationsBeforeBody = $firstBodyLine === null || $firstAbbreviationLine < $firstBodyLine;
+        }
+        $this->resolveForwardReferences($document);
+        foreach ($this->footnotes as $footnote) {
+            $this->resolveForwardReferences($footnote);
+        }
+        $this->warnings = array_values(array_filter(
+            $this->warnings,
+            function (ParseWarning $warning): bool {
+                if (
+                    preg_match("/^Undefined footnote '(.+)'$/", $warning->getMessage(), $match) === 1
+                    && isset($this->footnotes[$match[1]])
+                ) {
+                    return false;
+                }
+                if (
+                    preg_match("/^Undefined reference '(.+)'$/", $warning->getMessage(), $match) === 1
+                    && isset($this->references[$match[1]])
+                ) {
+                    return false;
+                }
+
+                return true;
+            },
+        ));
+        $this->integratedDefinitionPass = false;
+    }
+
+    private function resolveForwardReferences(Node $node, int $depth = 0): void
+    {
+        if ($depth >= self::MAX_HEADING_WALK_DEPTH) {
+            return;
+        }
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Link && UnresolvedReference::sourceOf($child) !== null) {
+                $label = $child->getReferenceLabel();
+                $definition = $label !== null ? ($this->references[$label] ?? null) : null;
+                if ($definition !== null) {
+                    $child->resolveReference($definition->url, $definition->title);
+                    $this->applyDeferredReferenceAttributes($child, $definition->attributes);
+                    $this->markReferenceUsed($label, 0);
+                }
+            } elseif ($child instanceof Image && UnresolvedReference::sourceOf($child) !== null) {
+                $label = $child->getReferenceLabel();
+                $definition = $label !== null ? ($this->references[$label] ?? null) : null;
+                if ($definition !== null) {
+                    $child->resolveReference($definition->url, $definition->title);
+                    $this->applyDeferredReferenceAttributes($child, $definition->attributes);
+                    $this->markReferenceUsed($label, 0);
+                }
+            } elseif ($child instanceof FootnoteRef && $child->isUnresolved() && $this->hasFootnote($child->getLabel())) {
+                $child->setUnresolved(false);
+            }
+            if ($child->hasChildren()) {
+                $this->resolveForwardReferences($child, $depth + 1);
+            }
+        }
+        if ($depth === 0 && $this->abbreviations !== []) {
+            $this->inlineParser->expandLateAbbreviations($node, $this->abbreviations);
+        }
+    }
+
+    /**
+     * Definition attributes precede authored trailing attributes; authored
+     * values win when both write the same key.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<string, string> $definitionAttributes
+     */
+    private function applyDeferredReferenceAttributes(Node $node, array $definitionAttributes): void
+    {
+        if ($definitionAttributes === []) {
+            return;
+        }
+        $authored = $node->getAttributes();
+        $authoredOrder = $node->getAttributeOrder();
+        $definition = $definitionAttributes;
+        if (isset($definition['class'], $authored['class'])) {
+            $authored['class'] = trim($definition['class'] . ' ' . $authored['class']);
+            unset($definition['class']);
+        }
+        $order = array_map(
+            static fn (string $name): string => match ($name) {
+                'id' => '#id',
+                'class' => '.class',
+                default => $name,
+            },
+            array_keys($definition),
+        );
+        $node->setAttributesWithOrder(array_merge($definition, $authored), [...$order, ...$authoredOrder]);
     }
 
     /**
@@ -2488,6 +2652,11 @@ class BlockParser
         $this->abbreviations = [];
         $this->abbreviationDefinitions = [];
         $this->abbreviationsBeforeBody = false;
+        $this->abbreviationSpans = [];
+        $this->discoveredFootnoteBodies = [];
+        $this->discoveredAbbreviationLines = [];
+        $this->integratedDefinitionPass = false;
+        $this->discoveringDefinitions = false;
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
         $this->warnings = [];
@@ -3254,7 +3423,7 @@ class BlockParser
                 ?? $this->tryParseBlockQuote($parent, $lines, $i)
                 ?? $this->tryParseList($parent, $lines, $i)
                 ?? $this->tryParseTable($parent, $lines, $i)
-                ?? $this->tryParseFootnoteDefinition($lines, $i)
+                ?? $this->tryParseFootnoteDefinition($parent, $lines, $i)
                 ?? $this->tryParseReferenceDefinition($lines, $i)
                 ?? $this->tryParseAbbreviationDefinition($parent, $lines, $i, $topLevel)
                 ?? $this->tryParseCaption($parent, $lines, $i);
@@ -9796,10 +9965,11 @@ class BlockParser
     /**
      * Skip footnote definitions (already extracted in first pass)
      *
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
      */
-    protected function tryParseFootnoteDefinition(array $lines, int $start): ?int
+    protected function tryParseFootnoteDefinition(Node $parent, array $lines, int $start): ?int
     {
         $line = $lines[$start];
 
@@ -9807,7 +9977,16 @@ class BlockParser
         // pre-pass collector exactly (literal space separator, PART 9 §16):
         // a bare `[^label]:` - or a tab-separated body the collector does not
         // accept - is never skipped here; it parses as a paragraph.
-        if (!preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line)) {
+        if (!preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line, $match)) {
+            return null;
+        }
+
+        $label = $match[1];
+        $content = $match[2];
+        if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
+            return null;
+        }
+        if ($parent instanceof ListItem && $parent->isTask()) {
             return null;
         }
 
@@ -9815,6 +9994,8 @@ class BlockParser
         $i = $start + 1;
         $count = count($lines);
 
+        $bodyLines = [$content];
+        $bodyLineMap = [$this->sourceLineFor($start)];
         while ($i < $count) {
             $nextLine = $lines[$i];
             if (IndentationHelper::isBlankLine($nextLine)) {
@@ -9828,6 +10009,8 @@ class BlockParser
                     && (IndentationHelper::getLeadingColumns($lines[$i + 1], self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
                         || preg_match('/^\+[ \t]*$/', $lines[$i + 1]))
                 ) {
+                    $bodyLines[] = '';
+                    $bodyLineMap[] = $this->sourceLineFor($i);
                     $i++;
 
                     continue;
@@ -9840,7 +10023,7 @@ class BlockParser
             // definition) - mirror extractFootnotes exactly.
             if (preg_match('/^\+[ \t]*$/', $nextLine)) {
                 $i++;
-                [$i] = $this->collectAttachedBlock(
+                [$i, $attached, $attachedLineMap] = $this->collectAttachedBlock(
                     $lines,
                     $i,
                     $count,
@@ -9848,14 +10031,52 @@ class BlockParser
                         || preg_match('/^\+[ \t]*$/', $a)
                         || preg_match('/^\[\^[^\]]+\]:/', $a),
                 );
+                if ($attached !== []) {
+                    $bodyLines[] = '';
+                    $bodyLineMap[] = -1;
+                    foreach ($attached as $attachedIndex => $attachedLine) {
+                        $bodyLines[] = $attachedLine;
+                        $bodyLineMap[] = $this->sourceLineFor($attachedLineMap[$attachedIndex]);
+                    }
+                }
 
                 continue;
             }
             if (IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN) {
+                $bodyLines[] = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
+                $bodyLineMap[] = $this->sourceLineFor($i);
                 $i++;
             } else {
                 break;
             }
+        }
+
+        while ($bodyLines !== [] && end($bodyLines) === '') {
+            array_pop($bodyLines);
+            array_pop($bodyLineMap);
+        }
+
+        if ($this->discoveringDefinitions && !isset($this->footnotes[$label])) {
+            $footnote = new Footnote($label);
+            if ($this->trackSourceLines) {
+                $footnote->setAttribute('data-source-line', (string)($this->sourceLineFor($start) + 1));
+            }
+            $sourceLine = $this->sourceLineFor($start);
+            $this->recordFootnoteDefinitionSpan(
+                $label,
+                $sourceLine,
+                $this->sourceLines[$sourceLine] ?? $line,
+                $line,
+            );
+            $lastLine = end($bodyLineMap);
+            if (is_int($lastLine) && $lastLine >= 0) {
+                $this->extendFootnoteDefinitionToLineStart($label, $lastLine + 1);
+            }
+            $this->footnotes[$label] = $footnote;
+            $this->discoveredFootnoteBodies[$label] = [
+                'lines' => $bodyLines,
+                'lineMap' => $bodyLineMap,
+            ];
         }
 
         return $i - $start;
@@ -9881,8 +10102,19 @@ class BlockParser
         //
         // The line is ANCHORED AT END OF LINE there: `[r]: a b c` is no longer a
         // definition, and `[a]: /u {.c}` only is when the block parses.
-        if ($this->referenceDefinitionExtractor->matchDefinitionLine($line) === null) {
+        $definition = $this->referenceDefinitionExtractor->matchDefinitionLine($line);
+        if ($definition === null) {
             return null;
+        }
+
+        if ($this->discoveringDefinitions) {
+            $sourceLine = $this->sourceLineFor($start);
+            $this->references[$definition['label']] = new ReferenceDefinition(
+                $definition['url'],
+                $definition['attrs'],
+                $sourceLine,
+                $definition['title'],
+            );
         }
 
         // The line is CONSUMED here and the node is appended at DOCUMENT level
@@ -9930,6 +10162,18 @@ class BlockParser
         if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $m) === 1) {
             $node = new AbbreviationDefinition($m[1], rtrim($m[2], " \t"));
             $parent->appendChild($node);
+            if ($this->discoveringDefinitions) {
+                $definition = rtrim($m[2], " \t");
+                $this->abbreviations[$m[1]] = $definition;
+                $this->abbreviationDefinitions[] = ['abbr' => $m[1], 'expansion' => $definition];
+                $this->discoveredAbbreviationLines[$this->sourceLineFor($start)] = true;
+                if ($this->trackPositions) {
+                    $span = $this->wholeLineSpan($this->sourceLineFor($start));
+                    if ($span !== null) {
+                        $this->abbreviationSpans[$m[1]] = $span->toArray();
+                    }
+                }
+            }
         }
 
         // The grammar's expansion ends at `newline`; an indented following
