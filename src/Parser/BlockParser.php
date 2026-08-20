@@ -361,6 +361,19 @@ class BlockParser
     protected array $references = [];
 
     /**
+     * Shared opacity/container facts collected while references are scanned.
+     *
+     * @var list<\MarkupCarve\Carve\Parser\DefinitionLayoutEvent>
+     */
+    protected array $definitionLayoutEvents = [];
+
+    protected bool $definitionLayoutCollected = false;
+
+    private bool $collectDefinitionLayout = false;
+
+    private bool $collectAbbreviationLayout = false;
+
+    /**
      * Heading-derived references keyed by folded heading text. Used only for
      * unresolved collapsed references (`[text][]`), after exact definitions lose.
      *
@@ -1275,7 +1288,13 @@ class BlockParser
      */
     protected function extractReferences(array $lines): void
     {
-        $this->references = $this->referenceDefinitionExtractor->extract($lines);
+        $this->references = $this->referenceDefinitionExtractor->extract(
+            $lines,
+            $this->collectDefinitionLayout,
+            $this->collectAbbreviationLayout,
+        );
+        $this->definitionLayoutEvents = $this->referenceDefinitionExtractor->getLayoutEvents();
+        $this->definitionLayoutCollected = true;
     }
 
     /**
@@ -1291,6 +1310,8 @@ class BlockParser
      */
     protected function extractDefinitions(array $lines, string $input): void
     {
+        $this->collectAbbreviationLayout = str_contains($input, '*[');
+        $this->collectDefinitionLayout = str_contains($input, '[^') || $this->collectAbbreviationLayout;
         if (str_contains($input, ']:')) {
             $this->extractReferences($lines);
         }
@@ -1412,7 +1433,7 @@ class BlockParser
         // INSIDE a blockquote (`> ``` ` / `> [^a]: note` / `> ``` `) is tracked
         // too: without this the container stripping below would wrongly read the
         // quoted code content as a real definition.
-        $fence = new PrepassFenceTracker();
+        $fence = $this->definitionLayoutCollected ? null : new PrepassFenceTracker();
         // Track an open LINE BLOCK the same way. A line block's body is inline
         // content (`line_block_line = {whitespace}, inline_content, newline`),
         // so the block-level definition form cannot occur there: a `[^a]: note`
@@ -1445,23 +1466,44 @@ class BlockParser
         // per depth and column, so no opener rescans the tail -- which is what
         // testDistinctWidthFenceOpenersDoNotRescanPerOpener forbids, and
         // `%%% x`, `%%%% x`, ... is all openers and no closers.
-        $commentFence = new PrepassCommentFence($lines);
+        $commentFence = $this->definitionLayoutCollected ? null : new PrepassCommentFence($lines);
         // Footnote bodies are parsed AFTER the scan registers every label, so a
         // forward reference inside a body resolves (`[^1]: a[^2]` before
         // `[^2]: b`). label -> raw content lines.
         $deferredBodies = [];
         // The item content column a definition on a CONTINUATION line has to
         // reach, tracked exactly as the link-reference prepass tracks it.
-        $contentColumns = new ListContentColumns();
+        $contentColumns = $this->definitionLayoutCollected ? null : new ListContentColumns();
+        $footnoteLayoutByLine = [];
+        if ($this->definitionLayoutCollected) {
+            foreach ($this->definitionLayoutEvents as $event) {
+                if ($event->kind === DefinitionLayoutEvent::FOOTNOTE) {
+                    $footnoteLayoutByLine[$event->line] = $event;
+                }
+            }
+        }
 
         while ($i < $count) {
             $line = $lines[$i];
+            $layoutEvent = $footnoteLayoutByLine[$i] ?? null;
+            if ($this->definitionLayoutCollected && $layoutEvent === null) {
+                $i++;
+
+                continue;
+            }
+            if ($layoutEvent !== null) {
+                $contentCol = $layoutEvent->contentColumn;
+                $reachedCol = $layoutEvent->reachedColumn;
+            } else {
+                $fence ??= new PrepassFenceTracker();
+                $commentFence ??= new PrepassCommentFence($lines);
+                $contentColumns ??= new ListContentColumns();
             // Inside a code fence a `- x` line is sample text, not a marker.
             // Content columns are measured INSIDE a block quote (carve#658);
             // see the same strip in ReferenceDefinitionExtractor. Only a
             // COLUMN-0 marker is stripped: an indented one sits at an item's
             // content column, and eating that indentation loses it.
-            $contentCol = $contentColumns->observe($line, $fence->isOpen());
+                $contentCol = $contentColumns->observe($line, $fence->isOpen());
             // One line can open SEVERAL items (`- - b` opens two, columns 2 and
             // 4), and a definition written under it belongs to whichever open
             // item's column it lands on - not necessarily the innermost
@@ -1470,79 +1512,79 @@ class BlockParser
             // prefix is columns the line supplies, and a definition behind
             // an alternating prefix sits past them
             // (markup-carve/carve-php#1431).
-            $reachedCol = $contentColumns->reachedByLine($line);
+                $reachedCol = $contentColumns->reachedByLine($line);
 
-            if ($fence->isOpen()) {
-                // LEFT means the line dropped out of the blockquote the fence
-                // was opened in, so the region ended without a closer and this
-                // line is read normally.
-                if ($fence->advance($line) !== PrepassFenceTracker::LEFT) {
-                    $i++;
+                if ($fence->isOpen()) {
+                    // LEFT means the line dropped out of the blockquote the fence
+                    // was opened in, so the region ended without a closer and this
+                    // line is read normally.
+                    if ($fence->advance($line) !== PrepassFenceTracker::LEFT) {
+                        $i++;
 
-                    continue;
+                        continue;
+                    }
                 }
-            }
             // A LINE BLOCK's body is verse, so a `%%%` written in one is text
             // and opens nothing. The open-region tests therefore all run before
             // any opener test: whichever region the line is already in owns it.
-            if ($lineBlockLen > 0) {
-                // The closer has to be read at the DEPTH the line block opened
-                // at: inside `> ::: |` a nested `> > :::` is a quoted `> :::`,
-                // which the real parser keeps as line-block content. Reading
-                // the fully stripped tail would close the region there and let
-                // the lines after it register again. A line that no longer
-                // reaches that depth has left the blockquote, so the line block
-                // ended with it.
-                //
-                // And at the COLUMN it opened at, for the same reason. Exactly
-                // that column comes off and never arbitrary indentation: an
-                // indented `:::` inside a TOP-LEVEL line block is verse text,
-                // and trimming it closed the block there, so the lines after it
-                // registered while the real parser still had them as verse.
-                // THE COLUMN IS REACHED BY COMPOSING THE STRIPS, so the
-                // closer is read by the walk that reached the opener rather
-                // than by peeling a leading quote run and then dedenting: a
-                // block opened inside `> - a` writes `>   :::`, where two of
-                // its four columns are the quote marker. The walk reports the
-                // DEPTH it spent them at, and a closer at a different depth is
-                // quoted content rather than the closer
-                // (markup-carve/carve-php#1431).
-                $closerView = ContainerPrefix::atColumnAndDepth($line, $lineBlockColumn, $lineBlockDepth);
-                // A blank line is inside the block, not out of its container:
-                // it reaches no column and ends nothing. Out of the QUOTE the
-                // block sits in it does end, which is why this is asked only of
-                // a block that has a column of its own.
-                if ($closerView === null && $lineBlockColumn > 0 && IndentationHelper::isBlankLine($line)) {
-                    $closerView = '';
-                }
-                if ($closerView === null) {
-                    // Out of the blockquote, or dedented past the column the
-                    // block was opened at: the container ended and took the
-                    // unclosed line block with it.
-                    $lineBlockLen = 0;
-                } elseif ($this->fencedBlockParser->isDivFenceCloser($closerView, $lineBlockLen)) {
-                    $lineBlockLen = 0;
-                    $i++;
+                if ($lineBlockLen > 0) {
+                    // The closer has to be read at the DEPTH the line block opened
+                    // at: inside `> ::: |` a nested `> > :::` is a quoted `> :::`,
+                    // which the real parser keeps as line-block content. Reading
+                    // the fully stripped tail would close the region there and let
+                    // the lines after it register again. A line that no longer
+                    // reaches that depth has left the blockquote, so the line block
+                    // ended with it.
+                    //
+                    // And at the COLUMN it opened at, for the same reason. Exactly
+                    // that column comes off and never arbitrary indentation: an
+                    // indented `:::` inside a TOP-LEVEL line block is verse text,
+                    // and trimming it closed the block there, so the lines after it
+                    // registered while the real parser still had them as verse.
+                    // THE COLUMN IS REACHED BY COMPOSING THE STRIPS, so the
+                    // closer is read by the walk that reached the opener rather
+                    // than by peeling a leading quote run and then dedenting: a
+                    // block opened inside `> - a` writes `>   :::`, where two of
+                    // its four columns are the quote marker. The walk reports the
+                    // DEPTH it spent them at, and a closer at a different depth is
+                    // quoted content rather than the closer
+                    // (markup-carve/carve-php#1431).
+                    $closerView = ContainerPrefix::atColumnAndDepth($line, $lineBlockColumn, $lineBlockDepth);
+                    // A blank line is inside the block, not out of its container:
+                    // it reaches no column and ends nothing. Out of the QUOTE the
+                    // block sits in it does end, which is why this is asked only of
+                    // a block that has a column of its own.
+                    if ($closerView === null && $lineBlockColumn > 0 && IndentationHelper::isBlankLine($line)) {
+                        $closerView = '';
+                    }
+                    if ($closerView === null) {
+                        // Out of the blockquote, or dedented past the column the
+                        // block was opened at: the container ended and took the
+                        // unclosed line block with it.
+                        $lineBlockLen = 0;
+                    } elseif ($this->fencedBlockParser->isDivFenceCloser($closerView, $lineBlockLen)) {
+                        $lineBlockLen = 0;
+                        $i++;
 
-                    continue;
-                } else {
-                    $i++;
+                        continue;
+                    } else {
+                        $i++;
 
-                    continue;
+                        continue;
+                    }
                 }
-            }
             // A comment fence's closer is a leading `%` run of the SAME length --
             // trailing text is allowed, so `%%% end` closes a `%%%` fence. Matching
             // only a bare fence missed real closers and left the state open.
-            if ($commentFence->isOpen()) {
-                $commentFence->advance($line);
-                // The body is opaque: a code fence opener in there is comment
-                // TEXT, and letting it reach the fence scanner below opened a
-                // code block that swallowed the real comment closer.
-                $i++;
+                if ($commentFence->isOpen()) {
+                    $commentFence->advance($line);
+                    // The body is opaque: a code fence opener in there is comment
+                    // TEXT, and letting it reach the fence scanner below opened a
+                    // code block that swallowed the real comment closer.
+                    $i++;
 
-                continue;
-            }
+                    continue;
+                }
             // Only a fence that CLOSES, and an indented one only when its
             // closer arrives before its container ends. An unterminated `%%%`
             // is not a fenced comment -- the block parser degrades it to a
@@ -1551,16 +1593,16 @@ class BlockParser
             //
             // Still BEFORE the line-block opener below: a `::: |` inside a
             // comment is comment text and opens no verse (carve-php#698).
-            if ($commentFence->opensOn($line, $i, $contentCol)) {
-                $i++;
+                if ($commentFence->opensOn($line, $i, $contentCol)) {
+                    $i++;
 
-                continue;
-            }
-            if ($fence->opensOn($line, $contentCol)) {
-                $i++;
+                    continue;
+                }
+                if ($fence->opensOn($line, $contentCol)) {
+                    $i++;
 
-                continue;
-            }
+                    continue;
+                }
             // An INDENTED `::: |` opens a line block too, when the indent is an
             // item's CONTENT COLUMN. This read the raw line, so a line block
             // inside a list item went untracked and a `%%%` written in its
@@ -1576,20 +1618,21 @@ class BlockParser
             // dedenting the quote-stripped tail by the whole column looked two
             // columns short and left the verse untracked - and a definition
             // written in it registered (markup-carve/carve-php#1431).
-            $openerWalk = $fence->containerOpenerView($line, $contentCol);
-            $openerColumn = $contentCol;
-            $openerView = $openerWalk['line'];
-            $openerDepth = $openerWalk['quoteDepth'];
-            $fc0 = $openerView[0] ?? '';
-            if ($fc0 === ':') {
-                $lineBlockOpener = $this->parseLineBlockOpener($openerView);
-                if ($lineBlockOpener !== null) {
-                    $lineBlockLen = $lineBlockOpener['length'];
-                    $lineBlockDepth = $openerDepth;
-                    $lineBlockColumn = $openerColumn;
-                    $i++;
+                $openerWalk = $fence->containerOpenerView($line, $contentCol);
+                $openerColumn = $contentCol;
+                $openerView = $openerWalk['line'];
+                $openerDepth = $openerWalk['quoteDepth'];
+                $fc0 = $openerView[0] ?? '';
+                if ($fc0 === ':') {
+                    $lineBlockOpener = $this->parseLineBlockOpener($openerView);
+                    if ($lineBlockOpener !== null) {
+                        $lineBlockLen = $lineBlockOpener['length'];
+                        $lineBlockDepth = $openerDepth;
+                        $lineBlockColumn = $openerColumn;
+                        $i++;
 
-                    continue;
+                        continue;
+                    }
                 }
             }
 
@@ -2108,6 +2151,43 @@ class BlockParser
      */
     protected function extractAbbreviations(array $lines): void
     {
+        if ($this->definitionLayoutCollected) {
+            $firstAbbreviationLine = null;
+            foreach ($this->definitionLayoutEvents as $event) {
+                if (
+                    $event->kind !== DefinitionLayoutEvent::ABBREVIATION
+                    || preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $event->subject, $matches) !== 1
+                ) {
+                    continue;
+                }
+                $firstAbbreviationLine ??= $event->line;
+                $abbr = $matches[1];
+                $definition = rtrim($matches[2], " \t");
+                $this->abbreviations[$abbr] = $definition;
+                $this->abbreviationDefinitions[] = ['abbr' => $abbr, 'expansion' => $definition];
+                if ($this->trackPositions) {
+                    $span = $this->wholeLineSpan($event->line);
+                    if ($span !== null) {
+                        $this->abbreviationSpans[$abbr] = $span->toArray();
+                    }
+                }
+            }
+            if ($firstAbbreviationLine !== null) {
+                $firstBodyLine = null;
+                foreach ($lines as $lineNumber => $line) {
+                    if (IndentationHelper::isBlankLine($line) || $this->isAbbreviationDefinitionLine($line)) {
+                        continue;
+                    }
+                    $firstBodyLine = $lineNumber;
+
+                    break;
+                }
+                $this->abbreviationsBeforeBody = $firstBodyLine === null || $firstAbbreviationLine < $firstBodyLine;
+            }
+
+            return;
+        }
+
         $i = 0;
         $count = count($lines);
         $firstAbbreviationLine = null;
@@ -2397,6 +2477,10 @@ class BlockParser
     protected function resetParseState(): void
     {
         $this->references = [];
+        $this->definitionLayoutEvents = [];
+        $this->definitionLayoutCollected = false;
+        $this->collectDefinitionLayout = false;
+        $this->collectAbbreviationLayout = false;
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->footnoteDefinitionSpans = [];
@@ -5843,20 +5927,36 @@ class BlockParser
             // (`- + text` keeps `+ text` as literal content). This lets an item
             // start directly with a table, code block, quote or div at column 0.
             if ($this->isContinuationMarker(ltrim($itemContent, " \t"))) {
+                // ...AND ONLY A FLUSH-LEFT ONE (SS17 L3, carve#1436). When the
+                // line below sits at any other column the marker attaches
+                // NOTHING, and this branch must not finish the item over it:
+                // `- +` / `  x` writes `x` at the item's OWN content column, so
+                // the ordinary collector below is what owns it. The marker is
+                // consumed either way - it is never content - so the fall-
+                // through carries an EMPTY lead rather than a literal `+`.
                 [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
+                $fallsThrough = $attached === []
+                    && $this->continuationMarkerHasIndentedFollower($i, $count, $lines)
+                    && IndentationHelper::getLeadingColumns($lines[$i] ?? '', $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo) + 1)
+                        >= $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo);
+                if ($fallsThrough) {
+                    $itemContent = '';
+                    $itemLines = [''];
+                } else {
                 // PART 12 §4: the item begins at its MARKER (carve#913). This
                 // item's body is flush left, so leaving the span to be derived
                 // from the children started it at the attached block - `- +`
                 // followed by a table gave the item the table's offset, past
                 // its own marker line entirely. `deriveContainerSpans` unions
                 // this with the body, so the extent still reaches the end.
-                $listItem->setPos($this->spanForLineMap([$listItemSourceLine]));
-                if ($attached !== []) {
-                    $this->parseItemBlocks($listItem, $attached, $attachedLineMap);
-                }
-                $list->appendChild($listItem);
+                    $listItem->setPos($this->spanForLineMap([$listItemSourceLine]));
+                    if ($attached !== []) {
+                        $this->parseItemBlocks($listItem, $attached, $attachedLineMap);
+                    }
+                    $list->appendChild($listItem);
 
-                continue;
+                    continue;
+                }
             }
 
             // Calculate content indent based on list type and marker width
@@ -5984,6 +6084,7 @@ class BlockParser
                 $itemLines,
                 $itemLineMap,
                 $trailingState,
+                $this->leadBottomIsContinuationMarker($itemContent),
             );
 
             // A marker-line colon fence whose body is BELOW the content column
@@ -6142,6 +6243,80 @@ class BlockParser
      * is content. The predicate was unified across seven sites by
      * carve-php#929; the DEFINITION was not (carve-php#1041).
      */
+    /**
+     * Does the continuation marker's candidate block begin at document column 0?
+     *
+     * Returns TRUE when the answer cannot be recovered, so a synthetic or
+     * rewritten line keeps the behavior it had rather than silently losing its
+     * attachment. A quote prefix is stripped first: inside a quote the marker's
+     * column 0 is the quote's content column, which is what the executable spec
+     * measures there too.
+     */
+
+    /**
+     * Is the bottom block of a marker line's content a lone `+`?
+     *
+     * `* +` is the outer item's content and the CONTINUATION MARKER one level
+     * in, exactly as `- - # H` is a heading two levels in. The peel is what
+     * PART 1 S4 asks for - a list item is decided by the block inside it - and
+     * this is the same question {@see self::isContinuationMarker()} answers for
+     * a line that carries no marker of its own.
+     */
+    protected function leadBottomIsContinuationMarker(string $content): bool
+    {
+        $rest = $content;
+        while (($offset = $this->listParser->markerContentOffset($rest)) !== null) {
+            $rest = substr($rest, $offset);
+        }
+
+        return $rest === ltrim($rest, " \t") && $this->isContinuationMarker($rest);
+    }
+
+    /**
+     * Did a continuation marker attach nothing BECAUSE OF THE COLUMN RULE?
+     *
+     * Distinguishes the two ways an attach comes back empty. Nothing following
+     * at all leaves an empty first-block item, which is a document in its own
+     * right; a follower at some other column means the marker reached past a
+     * line that belongs to whichever container its own column names (SS17 L3,
+     * carve#1436), and the ordinary collector has to be given the chance to
+     * claim it.
+     *
+     * @param int $index
+     * @param int $count
+     * @param array<string> $lines
+     */
+    protected function continuationMarkerHasIndentedFollower(int $index, int $count, array $lines): bool
+    {
+        if ($index >= $count) {
+            return false;
+        }
+        $line = $lines[$index] ?? null;
+        if ($line === null || IndentationHelper::isBlankLine($line)) {
+            return false;
+        }
+
+        return !$this->continuationAttachesAtColumnZero($index);
+    }
+
+    protected function continuationAttachesAtColumnZero(int $index): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        if ($sourceLine < 0) {
+            return true;
+        }
+        $line = $this->sourceLines[$sourceLine] ?? null;
+        if ($line === null) {
+            return true;
+        }
+        $rest = $line;
+        while (preg_match('/^[ \t]*>[ \t]?/', $rest, $m) === 1) {
+            $rest = substr($rest, strlen($m[0]));
+        }
+
+        return $rest === ltrim($rest, " \t");
+    }
+
     protected function isContinuationMarker(string $line): bool
     {
         return rtrim($line, StringUtil::WHITESPACE_CHARS) === '+';
@@ -6686,6 +6861,20 @@ class BlockParser
      */
     protected function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent): array
     {
+        // AND ONLY A FLUSH-LEFT BLOCK (PART 9 SS17 L3, carve#1436). "flush-left"
+        // is the REACH, not a description of the usual case: the marker attaches
+        // a block that begins at DOCUMENT COLUMN 0 and nothing else, and a line
+        // at any other column falls through to the ordinary column rules that
+        // give it to whichever container its own column names.
+        //
+        // Asked of the ORIGINAL line, because `$lines` here is a container's
+        // body and is re-indented: `* * +` over a column-0 `x` and over a
+        // column-1 ` x` both arrive as `[' * +', ' x']`, byte-identical. Only
+        // the source line still carries the column, and `sourceLineFor()` still
+        // names it.
+        if (!$this->continuationAttachesAtColumnZero($i)) {
+            return [$i, [], []];
+        }
         // A MARKER INSIDE AN OPEN FENCE IS CODE TEXT here too (§24 S2). This
         // collector tracked no block state at all, so a `- x` line in the
         // attached block's fenced body ended the block and severed the body -
@@ -6741,6 +6930,7 @@ class BlockParser
      * @param array<string> $itemLines Collected item lines, appended in place.
      * @param array<int, int> $itemLineMap Source-line map, appended in place.
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $trailingState
+     * @param bool $leadIsBareContinuationMarker
      *
      * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}}
      */
@@ -6753,6 +6943,7 @@ class BlockParser
         array &$itemLines,
         array &$itemLineMap,
         array $trailingState,
+        bool $leadIsBareContinuationMarker = false,
     ): array {
         $sawIndentedUnclaimedColonFence = false;
         // A COMMENT FENCE'S BODY IS OPAQUE AT THE CONTENT COLUMN TOO (PART 9
@@ -6832,6 +7023,25 @@ class BlockParser
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
             $isBlockQuoteLazyLine = isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
+
+            // A MARKER THAT ATTACHES NOTHING DOES NOT END THE ITEM (SS17 L3,
+            // carve#1436). The marker reaches a block at DOCUMENT COLUMN 0 and
+            // nothing else; when the line below sits at any other column it
+            // attaches nothing, and ending the item over a line that renders
+            // nothing costs the lazy fold the same document without the marker
+            // still has - `- a` / `  - b` / `  +` / `  c` gave `b` and `c` as
+            // two blocks where `  c` folds into `b` on its own. Consumed and
+            // skipped instead, which is what "as if the marker line had been a
+            // comment" means for this collector.
+            if (
+                $nextIndent === $baseIndent
+                && $this->isContinuationMarker($nextTrimmed)
+                && $this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)
+            ) {
+                $i++;
+
+                continue;
+            }
 
             if ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
                 break;
@@ -6951,7 +7161,18 @@ class BlockParser
             // 357-3). The nonzero below-column exception is specifically the
             // COMMENT rule. A collected definition ended the paragraph and
             // keeps no such path open (markup-carve/carve#1376).
-            if (!$trailingState['openParagraph'] && ($nextIndent === 0 || !$trailingState['afterComment'])) {
+            // ...EXCEPT THE ONE BLOCK A BARE MARKER NAMES (SS17 L3,
+            // carve#1436). A lead whose bottom block is a lone `+` leaves no
+            // open paragraph - that is what stops an INDENTED line folding into
+            // it - but it is still waiting for its flush-left block, so a
+            // DOCUMENT-COLUMN-0 line has to reach the item rather than end it.
+            // Answering "no paragraph is open" alone passed `* * +` / ` x` and
+            // broke `* * +` / `x`; the column is what separates them.
+            if (
+                !$trailingState['openParagraph']
+                && ($nextIndent === 0 || !$trailingState['afterComment'])
+                && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationAttachesAtColumnZero($i))
+            ) {
                 break;
             }
 
@@ -7225,6 +7446,26 @@ class BlockParser
                     !$trailingState['openParagraph']
                     || $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
                     || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
+                ) {
+                    break;
+                }
+                // A BARE CONTINUATION MARKER LEAD FOLDS COLUMN 0 AND NOTHING
+                // ELSE (SS17 L3, carve#1436). The lead is an empty first-block
+                // item waiting for a flush-left block: the document-column-0
+                // line IS that block and has to reach the nested parse, and a
+                // line at any other column was never the marker's - it falls
+                // through to the ordinary column rules, which for a column
+                // below the item's own content column means no container holds
+                // it.
+                //
+                // Asked of the SOURCE line, because the fold below normalizes
+                // every below-column line to exactly ONE column: `* * +` over a
+                // column-0 line and over a column-1 line both arrive at the
+                // nested parse as ` x`, and by then they cannot be told apart.
+                if (
+                    $itemLines !== []
+                    && $this->leadBottomIsContinuationMarker((string)$itemLines[0])
+                    && !$this->continuationAttachesAtColumnZero($i)
                 ) {
                     break;
                 }
