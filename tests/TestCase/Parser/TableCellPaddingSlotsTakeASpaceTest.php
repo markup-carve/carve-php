@@ -126,7 +126,9 @@ class TableCellPaddingSlotsTakeASpaceTest extends TestCase
             ];
             $rows["header cell, leading slot, {$runName}"] = [
                 "|={$run}h |= i |\n| 1 | 2 |\n",
-                "<th scope=\"col\">{$lead}h</th>",
+                str_starts_with($run, ' ')
+                    ? "<th scope=\"col\">{$lead}h</th>"
+                    : "<td>={$lead}h</td>",
             ];
             $rows["header cell, trailing slot, {$runName}"] = [
                 "|= h{$run}|= i |\n| 1 | 2 |\n",
@@ -168,7 +170,9 @@ class TableCellPaddingSlotsTakeASpaceTest extends TestCase
             // attributed cell disagreed with a bare one about the same slot.
             $rows["attributed data cell, leading slot, {$runName}"] = [
                 "| a | b |\n|{.x}{$run}c | d |\n",
-                "<td class=\"x\">{$lead}c</td>",
+                str_starts_with($run, ' ')
+                    ? "<td class=\"x\">{$lead}c</td>"
+                    : "<td>{.x}{$lead}c</td>",
             ];
         }
 
@@ -263,7 +267,7 @@ class TableCellPaddingSlotsTakeASpaceTest extends TestCase
             'data cell, no padding' => ["| a | b |\n|c| d |\n", '<td>c</td>'],
             'header cell, one space' => ["|= h |= i |\n| 1 | 2 |\n", '<th scope="col">h</th>'],
             'header cell, two spaces' => ["|=  h  |= i |\n| 1 | 2 |\n", '<th scope="col">h</th>'],
-            'header cell, no padding' => ["|=h|=i|\n| 1 | 2 |\n", '<th scope="col">h</th>'],
+            'header cell, no padding' => ["|=h|=i|\n| 1 | 2 |\n", '<td>=h</td>'],
             'delimiter cell, one space' => ["| a | b |\n| --- | --- |\n| 1 | 2 |\n", '<thead>'],
             'delimiter cell, two spaces' => ["| a | b |\n|  ---  | --- |\n| 1 | 2 |\n", '<thead>'],
             'delimiter cell, no padding' => ["| a | b |\n|---|---|\n| 1 | 2 |\n", '<thead>'],
@@ -278,7 +282,7 @@ class TableCellPaddingSlotsTakeASpaceTest extends TestCase
             'continuation cell, no padding' => ["| a | b |\n+x|y|\n", '<td>a x</td>'],
             'attributed data cell, one space' => ["| a | b |\n|{.x} c | d |\n", '<td class="x">c</td>'],
             'attributed data cell, two spaces' => ["| a | b |\n|{.x}  c  | d |\n", '<td class="x">c</td>'],
-            'attributed data cell, no padding' => ["| a | b |\n|{.x}c| d |\n", '<td class="x">c</td>'],
+            'attributed data cell, no padding' => ["| a | b |\n|{.x}c| d |\n", '<td>{.x}c</td>'],
         ];
     }
 

@@ -14,6 +14,8 @@ class TableColumnLinterTest extends TestCase
         $linter = new TableColumnLinter();
         $rules = static fn (array $warnings): array => array_map(static fn ($warning): string => $warning->rule, $warnings);
         self::assertSame(['table-alignment-run-padding'], $rules($linter->lint('|>text |')));
+        self::assertSame(['table-alignment-run-padding'], $rules($linter->lint('|>{#x}value |')));
+        self::assertSame([], $rules($linter->lint('|>{#x} value |')));
         self::assertContains('table-column-arity', $rules($linter->lint("{aligns=left}\n| a | b |")));
         self::assertContains('table-width-total', $rules($linter->lint("{widths=60,50}\n| a | b |")));
         self::assertContains('table-column-overlap', $rules($linter->lint("{aligns=left}\n|=> H |")));

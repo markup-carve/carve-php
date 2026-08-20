@@ -69,7 +69,7 @@ class PlainTextRendererTest extends TestCase
 
     public function testHeaderRowspanTableOmitsTrailingPlaceholderCell(): void
     {
-        $document = $this->converter->parse("|=A|\n|^|x|");
+        $document = $this->converter->parse("|= A |\n|^|x|");
 
         $this->assertSame("A\n | x\n", $this->renderer->render($document));
     }

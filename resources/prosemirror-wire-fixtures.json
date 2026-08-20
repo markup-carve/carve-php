@@ -505,7 +505,7 @@
     },
     {
       "name": "table-with-spans",
-      "carve": "| a || b |\n|=h |= i |\n",
+      "carve": "| a || b |\n|= h |= i |\n",
       "pm": {
         "type": "doc",
         "content": [

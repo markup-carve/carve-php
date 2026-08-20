@@ -447,6 +447,7 @@ class CarveCorpusTest extends TestCase
         // to their pinned HTML once the parser reads the marker run before the
         // attribute block, so the category is IMPLEMENTED rather than deferred.
         'cell-attributes-bind-after-the-kind-and-alignment-markers',
+        'a-table-cell-s-marker-run-ends-at-a-space',
         // carve#1229. Both documents render byte-identically to their pinned
         // HTML already: the padding between a code fence's language, title and
         // label was never significant here, so the category arrives IMPLEMENTED

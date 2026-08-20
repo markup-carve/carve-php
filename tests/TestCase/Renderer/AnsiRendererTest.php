@@ -155,7 +155,7 @@ class AnsiRendererTest extends TestCase
     public function testHeaderRowspanTablePadsToTheFullWidthBorder(): void
     {
         $renderer = new AnsiRenderer(80, false, false);
-        $doc = $this->converter->parse("|=A|\n|^|x|");
+        $doc = $this->converter->parse("|= A |\n|^|x|");
         $output = $renderer->render($doc);
 
         $this->assertStringContainsString('| A |   |', $output);

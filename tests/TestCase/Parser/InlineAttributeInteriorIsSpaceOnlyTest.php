@@ -187,8 +187,8 @@ class InlineAttributeInteriorIsSpaceOnlyTest extends TestCase
                 'class="a b"',
             ],
             'a table cell attribute block' => [
-                "|{.a\t.b}c |\n|---|\n| b |\n",
-                "|{.a .b}c |\n|---|\n| b |\n",
+                "|{.a\t.b} c |\n|---|\n| b |\n",
+                "|{.a .b} c |\n|---|\n| b |\n",
                 'class="a b"',
             ],
             'a table row attribute block' => [

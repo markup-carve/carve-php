@@ -538,28 +538,22 @@ class TableParser
             // payload must be valid attribute syntax (§15) -- otherwise the `{`
             // stays literal content.
             $markerLength = $this->cellMarkerRunLength($cellContent);
-            if (($cellContent[$markerLength] ?? '') === '{') {
-                $afterMarker = substr($cellContent, $markerLength);
-                $end = $this->findCellAttrEnd($afterMarker);
-                if ($end !== null) {
-                    $inner = substr($afterMarker, 1, $end - 1);
-                    if (
-                        $inner !== ''
-                        && !$this->isInlineMarker($inner)
-                        && AttributeParser::isValidInlinePayload($inner)
-                    ) {
-                        $attributes = $inner;
-                        $marker = substr($cellContent, 0, $markerLength);
-                        $rest = substr($afterMarker, $end + 1);
-                        // The slot between a cell attribute block and the
-                        // cell content is `data_cell`'s own `{space}` run
-                        // (PART 7), not a fresh one - so it takes a space and
-                        // a tab after `{...}` is content, exactly as it is
-                        // after a bare `|`.
-                        $content = ltrim($rest, ' ');
-                        $cellOffset += $markerLength + $end + 1 + (strlen($rest) - strlen($content));
-                    }
-                }
+            $blockEnd = $this->cellAttrBlockEnd($cellContent, $markerLength);
+            // PART 9 §5 T11: the block is part of the marker run, and the run
+            // ends at a space. Glued to the content it is not a block at all,
+            // so the braces reach the output - which is also what
+            // `cellMarkerRunLength()` decided about the markers ahead of it.
+            if ($blockEnd !== null && ($cellContent[$blockEnd] ?? '') === ' ') {
+                $attributes = substr($cellContent, $markerLength + 1, $blockEnd - $markerLength - 2);
+                $marker = substr($cellContent, 0, $markerLength);
+                $rest = substr($cellContent, $blockEnd);
+                // The slot between a cell attribute block and the
+                // cell content is `data_cell`'s own `{space}` run
+                // (PART 7), not a fresh one - so it takes a space and
+                // a tab after `{...}` is content, exactly as it is
+                // after a bare `|`.
+                $content = ltrim($rest, ' ');
+                $cellOffset += $blockEnd + (strlen($rest) - strlen($content));
             }
 
             $result[] = [
@@ -641,16 +635,58 @@ class TableParser
             }
         }
 
-        if ($length === $start) {
-            return $length;
+        // The alignment part of the run, kept only when it is a valid run.
+        // Rejected, it falls back to the kind marker alone - and PART 9 §5 T11
+        // then decides whether even that survives, because the run is ATOMIC:
+        // with nothing to terminate it, the `=` is content too.
+        $runEnd = $length === $start || (!$valid || (!$horizontal && !$inheritedHorizontal))
+            ? $start
+            : $length;
+
+        // PART 9 §5 T11: A MARKER RUN ENDS AT A SPACE. The kind marker, the
+        // alignment run and the attribute block are one run, and a cell
+        // carrying any of them must follow it with one literal space. Without
+        // it there is no run and every character of it is content, so
+        // `|=hot= |` is the highlight its author wrote rather than a header
+        // cell holding `hot=`. The closing pipe is not a terminator (`|= |` is
+        // the empty header cell) and neither is a tab, which PART 7 gives no
+        // padding role inline.
+        $afterBlock = $this->cellAttrBlockEnd($cell, $runEnd) ?? $runEnd;
+        if ($afterBlock === 0) {
+            // No marker and no block: the unpadded cell is unchanged.
+            return 0;
         }
-        $next = $cell[$length] ?? null;
-        $terminated = $next === ' ' || $next === '{';
-        if (!$valid || (!$horizontal && !$inheritedHorizontal) || !$terminated) {
-            return $start;
+        if (($cell[$afterBlock] ?? '') !== ' ') {
+            return 0;
         }
 
-        return $length;
+        return $runEnd;
+    }
+
+    /**
+     * End offset of a valid `{...}` attribute block glued at `$from`, or null
+     * when there is none there.
+     *
+     * The block is part of the cell's marker run (PART 9 §5 T10/T11), so both
+     * the run measurement and the cell reader ask this the same way. A rule
+     * spelled twice drifts, and this one is already read from two places.
+     */
+    public function cellAttrBlockEnd(string $cell, int $from): ?int
+    {
+        if (($cell[$from] ?? '') !== '{') {
+            return null;
+        }
+        $rest = substr($cell, $from);
+        $end = $this->findCellAttrEnd($rest);
+        if ($end === null) {
+            return null;
+        }
+        $inner = substr($rest, 1, $end - 1);
+        if ($inner === '' || $this->isInlineMarker($inner) || !AttributeParser::isValidInlinePayload($inner)) {
+            return null;
+        }
+
+        return $from + $end + 1;
     }
 
     /**

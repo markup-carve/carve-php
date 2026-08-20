@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use MarkupCarve\Carve\Parser\Block\TableParser;
+
 class TableColumnLinter
 {
     /**
@@ -15,9 +17,20 @@ class TableColumnLinter
         $lines = preg_split('/\R/', $source) ?: [];
         foreach ($lines as $lineIndex => $line) {
             if (str_starts_with(ltrim($line), '|')) {
-                if (preg_match_all('/(?:\||\|=)([<>~^v?]{1,2})(?![<>~^v?{\s])/', $line, $matches, PREG_OFFSET_CAPTURE)) {
+                if (preg_match_all('/(?:\||\|=)([<>~^v?]{1,2})(?![<>~^v?\s])/', $line, $matches, PREG_OFFSET_CAPTURE)) {
                     foreach ($matches[1] as [$run, $offset]) {
-                        $warnings[] = $this->warning($source, $lineIndex, $offset, strlen($run), 'table-alignment-run-padding', sprintf('The table alignment run "%s" has no terminating space, so it is literal cell content. Add a space after the run to make it alignment.', $run));
+                        $runEnd = $offset + strlen($run);
+                        // Ask the PARSER where the block ends rather than
+                        // matching braces here: a `}` inside a quoted value is
+                        // content, and a hand-rolled regex reports a terminated
+                        // run as unterminated on exactly those cells.
+                        $blockEnd = (new TableParser())->cellAttrBlockEnd($line, $runEnd);
+                        $block = $blockEnd !== null;
+                        $runEnd = $blockEnd ?? $runEnd;
+                        if (($line[$runEnd] ?? '') !== ' ') {
+                            $suffix = $block ? ' and its attribute block' : '';
+                            $warnings[] = $this->warning($source, $lineIndex, $offset, strlen($run), 'table-alignment-run-padding', sprintf('The table alignment run "%s" has no terminating space, so it is literal cell content. Add a space after the run%s to make it alignment.', $run, $suffix));
+                        }
                     }
                 }
 

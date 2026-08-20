@@ -88,7 +88,7 @@ class MarkdownRaggedTableTest extends TestCase
 
     public function testTheSpanFreeShapeIsReachedToo(): void
     {
-        $out = $this->md("|=a|\n| x | y |\n");
+        $out = $this->md("|= a |\n| x | y |\n");
 
         $this->assertSame("| a |\n| --- |\n| x | y |\n", $out);
     }
@@ -104,7 +104,7 @@ class MarkdownRaggedTableTest extends TestCase
     {
         $sources = [
             "| h |\n|---|\n| |x |\n",
-            "|=a|\n| x | y |\n",
+            "|= a |\n| x | y |\n",
             "| |x |\n|---|\n| y |\n",
             "|= A |= B |\n| 1 | 2 |\n",
             "|=> h |\n| x | y | z |\n",
@@ -134,7 +134,7 @@ class MarkdownRaggedTableTest extends TestCase
 
     public function testARectangularTableIsUnchanged(): void
     {
-        $out = $this->md("|=a|=b|\n| x | y |\n");
+        $out = $this->md("|= a |= b |\n| x | y |\n");
 
         $this->assertSame([2, 2, 2], $this->cellCounts($out));
     }

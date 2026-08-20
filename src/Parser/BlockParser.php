@@ -9355,8 +9355,11 @@ class BlockParser
             $lastRowConsumedColspanColumnSet = array_flip($consumedColspanColumns);
 
             // Carve header row: every cell is "=" prefixed (|= Header |).
-            // No separator row is used. "==x==" stays a normal cell
-            // (highlight), so "=" must not be followed by another "=".
+            // No separator row is used. Whether a cell opens with a header
+            // MARKER is the run measurement's question (PART 9 §5 T11: the run
+            // ends at a space), not a second regex here - which is also what
+            // keeps "==x==" a normal cell holding a highlight, without a
+            // special case saying so.
             $isHeaderRow = $processedCells !== [];
             // A row where every column is consumed by a span (an all-`^`
             // rowspan continuation, say) has NOTHING left to examine below,
@@ -9384,7 +9387,8 @@ class BlockParser
                     $cellData['isEmpty']
                     || ($cellData['attributes'] !== ''
                         ? !str_starts_with($cellData['marker'], '=')
-                        : preg_match('/^=([^=]|$)/', $content) !== 1)
+                        : !(str_starts_with($content, '=')
+                            && $this->tableParser->cellMarkerRunLength($content) > 0))
                 ) {
                     $isHeaderRow = false;
 
