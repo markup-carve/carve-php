@@ -186,7 +186,7 @@ $$`E = mc^2`
 DJOT);
 
         $this->assertStringContainsString('<figure>', $html);
-        $this->assertStringContainsString('<span class="math display">\[E = mc^2\]</span>', $html);
+        $this->assertStringContainsString('<span class="math display" role="math">\[E = mc^2\]</span>', $html);
         $this->assertStringContainsString('<figcaption>Equation 1: mass-energy</figcaption>', $html);
     }
 
@@ -197,7 +197,7 @@ $$`E = mc^2`
 DJOT);
 
         $this->assertStringNotContainsString('<figure>', $html);
-        $this->assertStringContainsString('<span class="math display">\[E = mc^2\]</span>', $html);
+        $this->assertStringContainsString('<span class="math display" role="math">\[E = mc^2\]</span>', $html);
     }
 
     public function testInlineMathIsNotWrapped(): void

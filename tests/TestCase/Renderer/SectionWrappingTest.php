@@ -124,7 +124,7 @@ class SectionWrappingTest extends TestCase
         $html = $this->flat("# A\n\nText[^n].\n\n[^n]: Note.\n");
 
         $this->assertStringContainsString('<h1 id="A">A</h1>', $html);
-        $this->assertStringContainsString('<section role="doc-endnotes">', $html);
+        $this->assertStringContainsString('<section role="doc-endnotes" aria-label="Footnotes">', $html);
         $this->assertStringNotContainsString('<section id=', $html);
     }
 

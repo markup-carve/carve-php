@@ -69,7 +69,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     /**
      * @var string
      */
-    private const COLON_HTML = '<aside class="admonition note"><p>a</p><p>b</p></aside>';
+    private const COLON_HTML = '<aside class="admonition note" aria-label="Note"><p>a</p><p>b</p></aside>';
 
     protected function html(string $source): string
     {
@@ -89,7 +89,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     private function note(string $body): string
     {
         return '<p>see<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>'
-            . '<section role="doc-endnotes"><hr><ol><li id="fn1"><p>n</p>'
+            . '<section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>n</p>'
             . $body
             . '<p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>';
     }
@@ -311,7 +311,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     public function testAColonFenceNestsThroughACodeFenceInItsBody(): void
     {
         $this->assertSame(
-            '<ul><li>x <aside class="admonition note"><p>a</p><pre><code>::: </code></pre><p>b</p>'
+            '<ul><li>x <aside class="admonition note" aria-label="Note"><p>a</p><pre><code>::: </code></pre><p>b</p>'
                 . '</aside></li></ul><p>z</p>',
             $this->html("- x\n+\n::: note\na\n```\n:::\n```\n\nb\n:::\n\nz\n"),
         );
@@ -325,7 +325,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     public function testAColonFenceNestsThroughACommentFenceInItsBody(): void
     {
         $this->assertSame(
-            '<ul><li>x <aside class="admonition note"><p>a</p><p>b</p></aside></li></ul><p>z</p>',
+            '<ul><li>x <aside class="admonition note" aria-label="Note"><p>a</p><p>b</p></aside></li></ul><p>z</p>',
             $this->html("- x\n+\n::: note\na\n%%%\n:::\n%%%\n\nb\n:::\n\nz\n"),
         );
     }
@@ -341,7 +341,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     public function testAWiderColonRunNestsInsideTheAttachedColonFence(): void
     {
         $this->assertSame(
-            '<ul><li>x <aside class="admonition note"><div class="inner"><p>a</p><p>b</p></div>'
+            '<ul><li>x <aside class="admonition note" aria-label="Note"><div class="inner"><p>a</p><p>b</p></div>'
                 . '</aside></li></ul><p>z</p>',
             $this->html("- x\n+\n::: note\n:::: inner\na\n\nb\n::::\n:::\n\nz\n"),
         );
@@ -356,7 +356,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     public function testABareWiderColonRunNestsRatherThanCloses(): void
     {
         $this->assertSame(
-            '<ul><li>x <aside class="admonition note"><div><p>a</p><p>b</p></div>'
+            '<ul><li>x <aside class="admonition note" aria-label="Note"><div><p>a</p><p>b</p></div>'
                 . '</aside></li></ul><p>z</p>',
             $this->html("- x\n+\n::: note\n::::\na\n\nb\n::::\n:::\n\nz\n"),
         );
@@ -389,7 +389,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     public function testAColonCloserHiddenInsideACodeFenceDoesNotCloseTheAttachedBlock(): void
     {
         $this->assertSame(
-            '<ul><li>x <aside class="admonition note"><pre><code>::: </code></pre></aside></li></ul><p>b</p>',
+            '<ul><li>x <aside class="admonition note" aria-label="Note"><pre><code>::: </code></pre></aside></li></ul><p>b</p>',
             $this->html("- x\n+\n::: note\n```\n:::\n```\n\nb\n"),
         );
     }
@@ -403,7 +403,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     public function testATypedColonOpenerNestsAtTheSameWidth(): void
     {
         $this->assertSame(
-            '<ul><li>x <aside class="admonition note"><div class="warn"><p>a</p><p>b</p></div>'
+            '<ul><li>x <aside class="admonition note" aria-label="Note"><div class="warn"><p>a</p><p>b</p></div>'
                 . '</aside></li></ul><p>z</p>',
             $this->html("- x\n+\n::: note\n::: warn\na\n\nb\n:::\n:::\n\nz\n"),
         );
@@ -420,7 +420,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     public function testAnUnterminatedAttachedColonFenceFallsBackToTheBoundary(): void
     {
         $this->assertSame(
-            '<ul><li>x <aside class="admonition note"><p>a</p></aside></li></ul><p>b</p>',
+            '<ul><li>x <aside class="admonition note" aria-label="Note"><p>a</p></aside></li></ul><p>b</p>',
             $this->html("- x\n+\n::: note\na\n\nb\n"),
         );
     }

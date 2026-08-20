@@ -64,7 +64,7 @@ class OverCapOpenerParagraphTest extends TestCase
     {
         $html = $this->converter->convert("::: note\nx\n:::");
 
-        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
         $this->assertStringContainsString('<p>x</p>', $html);
     }
 }

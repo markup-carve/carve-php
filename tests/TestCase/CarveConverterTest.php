@@ -323,7 +323,7 @@ class CarveConverterTest extends TestCase
     public function testTaskListMergesExistingClasses(): void
     {
         $djot = "{.outer}\n- [ ] Task";
-        $expected = "<ul class=\"outer\">\n  <li><input type=\"checkbox\" disabled> Task</li>\n</ul>\n";
+        $expected = "<ul class=\"outer\">\n  <li><input type=\"checkbox\" disabled aria-label=\"Task\"> Task</li>\n</ul>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
@@ -336,8 +336,8 @@ class CarveConverterTest extends TestCase
 
         $this->assertStringNotContainsString('task-list', $result);
         // Both underscore and space should render as unchecked checkboxes
-        $this->assertSame(2, substr_count($result, '<input type="checkbox" disabled>'));
-        $this->assertSame(1, substr_count($result, '<input type="checkbox" checked disabled>'));
+        $this->assertSame(2, substr_count($result, '<input type="checkbox" disabled aria-label='));
+        $this->assertSame(1, substr_count($result, '<input type="checkbox" checked disabled aria-label='));
         $this->assertStringContainsString('Unchecked with underscore', $result);
         $this->assertStringContainsString('Unchecked with space', $result);
         $this->assertStringContainsString('Checked', $result);
@@ -687,7 +687,7 @@ DJOT;
 
         $result = $converter->convert("Here is a footnote[^1].\n\n[^1]: Footnote.");
 
-        $this->assertStringContainsString('<section role="doc-endnotes">', $result);
+        $this->assertStringContainsString('<section role="doc-endnotes" aria-label="Footnotes">', $result);
         $this->assertStringContainsString('<hr />', $result);
     }
 
@@ -1199,8 +1199,8 @@ DJOT;
     public function testDivTitleAttributeAndQuotedOpenerHeaderStaySeparate(): void
     {
         $djot = "{title=\"attr title\"}\n::: note \"opener title\"\nBody.\n:::";
-        $expected = "<aside class=\"admonition note\" title=\"attr title\">\n"
-            . "  <p class=\"admonition-title\">opener title</p>\n"
+        $expected = "<aside class=\"admonition note\" title=\"attr title\" aria-labelledby=\"adm-1\">\n"
+            . "  <p class=\"admonition-title\" id=\"adm-1\">opener title</p>\n"
             . "  <p>Body.</p>\n"
             . "</aside>\n";
 
@@ -1210,7 +1210,7 @@ DJOT;
     public function testDivTitleAttributeWithoutQuotedHeaderDoesNotCreateAdmonitionTitle(): void
     {
         $djot = "{title=\"Custom\"}\n::: note\nBody.\n:::";
-        $expected = "<aside class=\"admonition note\" title=\"Custom\">\n"
+        $expected = "<aside class=\"admonition note\" title=\"Custom\" aria-label=\"Note\">\n"
             . "  <p>Body.</p>\n"
             . "</aside>\n";
 
@@ -1365,7 +1365,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString('<li class="completed">', $result);
-        $this->assertStringContainsString(' checked disabled>', $result);
+        $this->assertStringContainsString(' checked disabled aria-label="done">', $result);
     }
 
     public function testListItemAttributeInvalidPayloadIsNotMarker(): void
@@ -1380,7 +1380,7 @@ DJOT;
     {
         $result = $this->converter->convert('$`a^2`{.boxed #eq1}');
 
-        $this->assertStringContainsString('<span class="math inline boxed" id="eq1">', $result);
+        $this->assertStringContainsString('<span class="math inline boxed" id="eq1" role="math">', $result);
     }
 
     public function testFigureImageTrailingAttributeStaysOnImg(): void
@@ -1687,7 +1687,7 @@ DJOT;
         $result = $this->converter->convert($djot);
 
         $this->assertStringContainsString("<p>one<br>\ntwo</p>", $result);
-        $this->assertStringContainsString('<aside class="admonition note">', $result);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $result);
         $this->assertStringContainsString("<p>a\nb</p>", $result);
         $this->assertStringNotContainsString("<p>a<br>\nb</p>", $result);
     }
@@ -1948,7 +1948,7 @@ DJOT;
 
         $result = $converter->convert("::: warning\nSome content without closing");
 
-        $this->assertStringContainsString('<aside class="admonition warning">', $result);
+        $this->assertStringContainsString('<aside class="admonition warning" aria-label="Warning">', $result);
         $this->assertStringContainsString('Some content without closing', $result);
     }
 

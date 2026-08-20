@@ -46,7 +46,7 @@ class TightListItemTrailingTextTest extends TestCase
 
         $expected = "<ul>\n"
             . "  <li>item\n"
-            . "    <aside class=\"admonition note\">\n"
+            . "    <aside class=\"admonition note\" aria-label=\"Note\">\n"
             . "      <p>body</p>\n"
             . "    </aside>\n"
             . "    tail\n"

@@ -171,7 +171,7 @@ class CrossImplementationDivergenceTest extends TestCase
             "<p>See <a href=\"#Top\">Top</a> and <a href=\"#Inside\">Inside</a>.</p>\n"
             . "<section id=\"Top\">\n"
             . "  <h1>Top</h1>\n"
-            . "  <aside class=\"admonition note\">\n"
+            . "  <aside class=\"admonition note\" aria-label=\"Note\">\n"
             . "    <h1 id=\"Inside\">Inside</h1>\n"
             . "  </aside>\n"
             . "</section>\n",

@@ -30,6 +30,8 @@ class RenderContext
      */
     public int $footnoteCounter = 0;
 
+    public int $admonitionCounter = 0;
+
     /**
      * Collected footnote nodes for rendering at end.
      *
@@ -55,6 +57,7 @@ class RenderContext
         $this->headingIdTracker->reset();
         $this->footnoteNumbers = [];
         $this->footnoteCounter = 0;
+        $this->admonitionCounter = 0;
         $this->collectedFootnotes = [];
         $this->inlineFootnoteRenderers = [];
     }

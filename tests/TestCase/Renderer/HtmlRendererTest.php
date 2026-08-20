@@ -128,7 +128,7 @@ class HtmlRendererTest extends TestCase
         $html = (new CarveConverter())->convert("::: note \"link [x](/y) and _u_\"\nx\n:::");
 
         $this->assertSame(
-            "<aside class=\"admonition note\">\n  <p class=\"admonition-title\">link <a href=\"/y\">x</a> and <u>u</u></p>\n  <p>x</p>\n</aside>\n",
+            "<aside class=\"admonition note\" aria-labelledby=\"adm-1\">\n  <p class=\"admonition-title\" id=\"adm-1\">link <a href=\"/y\">x</a> and <u>u</u></p>\n  <p>x</p>\n</aside>\n",
             $html,
         );
     }

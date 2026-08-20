@@ -120,7 +120,7 @@ class NestedLinkTest extends TestCase
                 false,
                 '<p><a href="/outer">x <a id="fnref1" href="#fn1" role="doc-noteref">'
                     . "<sup>1</sup></a></a></p>\n"
-                    . "<section role=\"doc-endnotes\">\n  <hr>\n  <ol>\n"
+                    . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n"
                     . "    <li id=\"fn1\">\n"
                     . '      <p>see <a href="/inner">y</a>'
                     . "<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u{21A9}</a></p>\n"

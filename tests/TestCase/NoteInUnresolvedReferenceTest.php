@@ -137,7 +137,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
 
         $this->assertSame(
             "<p>a [t[^1]][nope] b <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> c</p>\n"
-            . "<section role=\"doc-endnotes\">\n"
+            . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n"
             . "  <hr>\n"
             . "  <ol>\n"
             . "    <li id=\"fn1\">\n"
@@ -293,7 +293,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
 
         $this->assertSame(
             "<p>a [t<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>] b</p>\n"
-            . "<section role=\"doc-endnotes\">\n"
+            . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n"
             . "  <hr>\n"
             . "  <ol>\n"
             . "    <li id=\"fn1\">\n"

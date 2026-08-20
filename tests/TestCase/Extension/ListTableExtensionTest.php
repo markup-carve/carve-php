@@ -359,7 +359,7 @@ class ListTableExtensionTest extends TestCase
         ]);
 
         $expected = implode("\n", [
-            '<aside class="admonition note">',
+            '<aside class="admonition note" aria-label="Note">',
             '  <p>Hello.</p>',
             '</aside>',
         ]);

@@ -62,7 +62,7 @@ class BlankBeforeASiblingMarkerSeparatesTheItemsTest extends TestCase
             ],
             'admonition' => [
                 "- ::: note\n  b\n\n- s\n",
-                "<ul>\n  <li>\n    <aside class=\"admonition note\">\n      <p>b</p>\n    </aside>\n  </li>\n  <li><p>s</p></li>\n</ul>\n",
+                "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>b</p>\n    </aside>\n  </li>\n  <li><p>s</p></li>\n</ul>\n",
             ],
             'raw block' => [
                 "- ```=html\n  b\n\n- s\n",

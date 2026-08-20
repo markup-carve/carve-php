@@ -65,7 +65,7 @@ class FootnoteDefinitionProfileTest extends TestCase
         $html = (new CarveConverter())->convert(self::SOURCE);
 
         $this->assertStringContainsString('<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a>', $html);
-        $this->assertStringContainsString('<section role="doc-endnotes">', $html);
+        $this->assertStringContainsString('<section role="doc-endnotes" aria-label="Footnotes">', $html);
         $this->assertStringContainsString('<p>note', $html);
     }
 

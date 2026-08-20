@@ -59,7 +59,7 @@ class LineBlockInlineRunReachesTheBlockEndTest extends TestCase
             ],
             'math' => [
                 "::: |\na \$`b\nc d\n:::\n",
-                "<div class=\"line-block\">\n  <p>a <span class=\"math inline\">\\(b\nc d\\)</span></p>\n</div>\n",
+                "<div class=\"line-block\">\n  <p>a <span class=\"math inline\" role=\"math\">\\(b\nc d\\)</span></p>\n</div>\n",
             ],
             'inline literal' => [
                 "::: |\na !`b\nc d\n:::\n",

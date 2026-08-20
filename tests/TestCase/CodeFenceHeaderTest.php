@@ -311,8 +311,8 @@ class CodeFenceHeaderTest extends TestCase
         Save early, save often.
         :::
         CARVE;
-        $expected = "<aside class=\"admonition tip\">\n"
-            . "  <p class=\"admonition-title\">Pro Tip</p>\n"
+        $expected = "<aside class=\"admonition tip\" aria-labelledby=\"adm-1\">\n"
+            . "  <p class=\"admonition-title\" id=\"adm-1\">Pro Tip</p>\n"
             . "  <p class=\"div-label\">Build</p>\n"
             . "  <p>Save early, save often.</p>\n"
             . "</aside>\n";

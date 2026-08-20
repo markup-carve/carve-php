@@ -68,7 +68,7 @@ class EmptyFootnoteBodySentinelTest extends TestCase
         // backlink and nothing else.
         $this->assertSame(
             '<p>r<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p> '
-            . '<section role="doc-endnotes"> <hr> <ol> <li id="fn1"> '
+            . '<section role="doc-endnotes" aria-label="Footnotes"> <hr> <ol> <li id="fn1"> '
             . '<p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p> </li> </ol> </section>',
             $this->squash($this->converter->convert($written)),
         );

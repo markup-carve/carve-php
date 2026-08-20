@@ -49,7 +49,7 @@ class WideBulletBlockOpenersTest extends TestCase
             'a thematic break' => ['---', '<hr>'],
             'a blockquote' => ['> quoted', '<blockquote>'],
             'a table' => ["| a | b |\n|---|---|\n| c | d |", '<table>'],
-            'a div' => ["::: note\nbody\n:::", '<aside class="admonition note">'],
+            'a div' => ["::: note\nbody\n:::", '<aside class="admonition note" aria-label="Note">'],
             // The two that always worked. Here so the sweep says which shapes
             // were load-bearing rather than implying all of them were.
             'a paragraph' => ['second para', '<p>second para</p>'],
