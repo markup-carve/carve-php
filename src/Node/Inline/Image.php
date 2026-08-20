@@ -63,6 +63,12 @@ class Image extends InlineNode
         return $this->title;
     }
 
+    public function resolveReference(string $source, ?string $title): void
+    {
+        $this->source = $source;
+        $this->title = $title;
+    }
+
     public function getType(): string
     {
         return 'image';

@@ -9,15 +9,15 @@ use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Definition and fence prepasses copy a bounded amount of each source line.
+ * Definition discovery uses the block parser's bounded layout work.
  *
- * These walks used to hand every prefix element a fresh suffix, so N nested
- * markers copied O(N squared) bytes before block parsing began. Counts pin the
- * allocation shape without depending on machine timing.
+ * The removed definition prepasses must stay removed: their counters remain
+ * zero. The structural walk shares the ordinary indentation machinery, whose
+ * counted work remains linear in this adversarial nested-prefix document.
  */
 class TheRemainingPrepassesReadTheLineAtAnOffsetTest extends TestCase
 {
-    public function testTheirCopyWorkIsLinearInTheDocument(): void
+    public function testTheRemovedPrepassesStayRemoved(): void
     {
         $prefix = str_repeat('> - ', 500);
         $source = $prefix . "[r]: /u\n"
@@ -33,20 +33,14 @@ class TheRemainingPrepassesReadTheLineAtAnOffsetTest extends TestCase
             LayoutWork::$on = false;
         }
 
-        $counts = [
+        $removed = [
             'fence' => LayoutWork::$fencePrescan,
             'comment' => LayoutWork::$commentPrescan,
             'reference' => LayoutWork::$referencePrescan,
             'footnote' => LayoutWork::$footnotePrescan,
         ];
-        foreach ($counts as $name => $count) {
-            $this->assertGreaterThan(0, $count, $name . ' counter is not counting');
-            $this->assertLessThan(strlen($source) * 16, $count, sprintf(
-                '%s copied %d bytes for a %d-byte document',
-                $name,
-                $count,
-                strlen($source),
-            ));
+        foreach ($removed as $name => $count) {
+            $this->assertSame(0, $count, $name . ' prepass unexpectedly ran');
         }
     }
 }
