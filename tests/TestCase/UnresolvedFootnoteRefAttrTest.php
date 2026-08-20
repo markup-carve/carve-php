@@ -49,7 +49,7 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
         $result = $this->converter->convert("Text[^a].\n\n[^a]: note.");
 
         $expected = "<p>Text<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>.</p>\n"
-            . "<section role=\"doc-endnotes\">\n"
+            . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n"
             . "  <hr>\n"
             . "  <ol>\n"
             . "    <li id=\"fn1\">\n"
@@ -79,7 +79,7 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
         $result = $this->converter->convert("Text[^a]{.ref}.\n\n[^a]: note.");
 
         $expected = "<p>Text<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\" class=\"ref\"><sup>1</sup></a>.</p>\n"
-            . "<section role=\"doc-endnotes\">\n"
+            . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n"
             . "  <hr>\n"
             . "  <ol>\n"
             . "    <li id=\"fn1\">\n"

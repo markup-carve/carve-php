@@ -62,7 +62,7 @@ class UnterminatedFenceInContainersTest extends TestCase
         // the admonition was being read a second time as an opener.
         $html = $this->squash($this->converter->convert("::: note\na\n```\n:::\n"));
 
-        $this->assertSame('<aside class="admonition note"> <p>a <code></code></p> </aside>', $html);
+        $this->assertSame('<aside class="admonition note" aria-label="Note"> <p>a <code></code></p> </aside>', $html);
         $this->assertStringNotContainsString('<div>', $html);
     }
 

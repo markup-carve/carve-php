@@ -50,8 +50,8 @@ class PlusBulletExtensionTest extends TestCase
 
         $html = $converter->convert("+ [ ] todo\n+ [x] done\n");
 
-        $this->assertStringContainsString('<input type="checkbox" disabled> todo', $html);
-        $this->assertStringContainsString('<input type="checkbox" checked disabled> done', $html);
+        $this->assertStringContainsString('<input type="checkbox" disabled aria-label="todo"> todo', $html);
+        $this->assertStringContainsString('<input type="checkbox" checked disabled aria-label="done"> done', $html);
     }
 
     public function testLonePlusStaysContinuationMarkerNotBullet(): void

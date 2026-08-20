@@ -46,6 +46,9 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'an-attribute-line-below-a-list-item-interrupts-it',
+        'an-attributed-cell-keeps-its-attributes-and-its-literal-marker',
+        'an-engine-written-shape-says-what-it-is-called',
         // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (carve#1455 needs the
         // corpus that states the backlink's accessible name, and the pin was
         // several rulings behind). Each renders byte-identically to its pinned

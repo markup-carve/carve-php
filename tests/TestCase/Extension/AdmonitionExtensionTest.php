@@ -149,7 +149,7 @@ class AdmonitionExtensionTest extends TestCase
         // to Carve's built-in simple admonition (renderer-level), not the
         // enhanced extension form.
         $html = $converter->convert("::: note\nContent.\n:::");
-        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
         $this->assertStringNotContainsString('admonition-title', $html);
     }
 

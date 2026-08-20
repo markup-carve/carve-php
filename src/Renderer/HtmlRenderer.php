@@ -174,6 +174,15 @@ class HtmlRenderer implements RendererInterface
      */
     public const LABEL_DEFAULTS = [
         'footnoteBacklink' => 'Back to reference',
+        'endnotes' => 'Footnotes',
+        'admonitionNote' => 'Note',
+        'admonitionTip' => 'Tip',
+        'admonitionWarning' => 'Warning',
+        'admonitionDanger' => 'Danger',
+        'admonitionInfo' => 'Info',
+        'admonitionSuccess' => 'Success',
+        'admonitionExample' => 'Example',
+        'admonitionQuote' => 'Quote',
     ];
 
     /**
@@ -1534,7 +1543,12 @@ class HtmlRenderer implements RendererInterface
         if ($node->isTask()) {
             $checked = $node->getChecked() ? ' checked' : '';
             $close = $this->xhtml ? ' />' : '>';
-            $lead = '<input type="checkbox"' . $checked . ' disabled' . $close . ' ' . $lead;
+            $first = $node->getChildren()[0] ?? null;
+            $taskName = $first instanceof Paragraph
+                ? trim((string)preg_replace('/[ \t\n\r\f\v]+/', ' ', $this->getPlainText($first)))
+                : '';
+            $name = $taskName === '' ? '' : ' aria-label="' . $this->escapeAttribute($taskName) . '"';
+            $lead = '<input type="checkbox"' . $checked . ' disabled' . $name . $close . ' ' . $lead;
         }
 
         if ($rest === '') {
@@ -1613,7 +1627,13 @@ class HtmlRenderer implements RendererInterface
         $titleAttr = $node->getHeader();
         $titleLine = '';
         if (is_string($titleAttr)) {
-            $titleLine = '  <p class="admonition-title">' . $this->renderInlineNodesFragment($node->getHeaderNodes()) . "</p>\n";
+            $titleLine = '  <p class="admonition-title">'
+                . $this->renderInlineNodesFragment($node->getHeaderNodes()) . "</p>\n";
+        }
+
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            $titleLine .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
         }
 
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
@@ -1623,11 +1643,6 @@ class HtmlRenderer implements RendererInterface
         // stacked panels stay distinguishable. Title (if any) renders first,
         // then the label. Diverges from the current spec corpus pending
         // adoption (companion: carve-rs proto/div-label-fallback, spec PR #205).
-        $label = $node->getLabel();
-        if ($label !== null && $label !== '') {
-            $titleLine .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
-        }
-
         // Tier 1: a canonical admonition type renders as a semantic
         // <aside class="admonition …">. Any extra classes and all other
         // node attributes (id, data-*, title, …) are preserved; `class` is
@@ -1640,6 +1655,37 @@ class HtmlRenderer implements RendererInterface
             ));
             $attrs = $this->getRenderableAttributes($node);
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
+            $hasAuthoredName = false;
+            foreach (array_keys($attrs) as $name) {
+                $folded = strtolower($name);
+                if ($folded === 'aria-label' || $folded === 'aria-labelledby') {
+                    $hasAuthoredName = true;
+
+                    break;
+                }
+            }
+            $titleId = null;
+            if (!$hasAuthoredName) {
+                if (is_string($titleAttr)) {
+                    $context = $this->getRenderContext();
+                    $titleId = $context->headingIdTracker->uniqueId('adm-' . ++$context->admonitionCounter);
+                    $attrs['aria-labelledby'] = $titleId;
+                } else {
+                    $kind = $types[0];
+                    $key = 'admonition' . ucfirst($kind);
+                    if (array_key_exists($key, self::LABEL_DEFAULTS)) {
+                        $attrs['aria-label'] = $this->label($key);
+                    }
+                }
+            }
+            if (is_string($titleAttr)) {
+                $id = $titleId === null ? '' : ' id="' . $this->escapeAttribute($titleId) . '"';
+                $titleLine = '  <p class="admonition-title"' . $id . '>'
+                    . $this->renderInlineNodesFragment($node->getHeaderNodes()) . "</p>\n";
+                if ($label !== null && $label !== '') {
+                    $titleLine .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
+                }
+            }
             $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
             if ($body === '') {
@@ -3286,7 +3332,8 @@ class HtmlRenderer implements RendererInterface
         $footnoteLabelsByNumber = array_flip($context->footnoteNumbers);
 
         // Indentation matches carve-js: hr/ol at 2, li at 4, body at 6.
-        $html = '<section role="doc-endnotes">' . "\n";
+        $html = '<section role="doc-endnotes" aria-label="'
+            . $this->escapeAttribute($this->label('endnotes')) . '">' . "\n";
         $html .= $this->xhtml ? "  <hr />\n" : "  <hr>\n";
         $html .= '  <ol>' . "\n";
 
@@ -3494,6 +3541,18 @@ class HtmlRenderer implements RendererInterface
         } else {
             // No authored class means no slot to keep, so the base class leads.
             $attrs = ['class' => $class] + $nodeAttrs;
+        }
+
+        $hasAuthoredRole = false;
+        foreach (array_keys($attrs) as $name) {
+            if (strtolower($name) === 'role') {
+                $hasAuthoredRole = true;
+
+                break;
+            }
+        }
+        if (!$hasAuthoredRole) {
+            $attrs['role'] = 'math';
         }
 
         return '<span' . $this->renderAttributeArray($attrs) . '>' . $delimOpen . $content . $delimClose . '</span>';

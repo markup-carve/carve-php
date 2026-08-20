@@ -49,7 +49,7 @@ class MarkerLineFenceBodyColumnTest extends TestCase
     {
         $html = $this->converter->convert("- ::: note\n  body\n  :::");
 
-        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
         $this->assertStringContainsString('<p>body</p>', $html);
     }
 
@@ -57,7 +57,7 @@ class MarkerLineFenceBodyColumnTest extends TestCase
     {
         $html = $this->converter->convert("- ::: note\n\n  body\n  :::");
 
-        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
     }
 
     public function testAnOpenerAloneIsStillAContainer(): void
@@ -65,13 +65,13 @@ class MarkerLineFenceBodyColumnTest extends TestCase
         // Nothing follows, so nothing contradicts the opener.
         $html = $this->converter->convert('- ::: note');
 
-        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
     }
 
     public function testAnOrderedMarkerBehavesTheSame(): void
     {
         $html = $this->converter->convert("1. ::: warning\n   body\n   :::");
 
-        $this->assertStringContainsString('<aside class="admonition warning">', $html);
+        $this->assertStringContainsString('<aside class="admonition warning" aria-label="Warning">', $html);
     }
 }

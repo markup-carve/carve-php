@@ -99,7 +99,7 @@ class MarkdownCarveConstructsStayTextTest extends TestCase
     {
         $html = $this->render("::: note\nx\n:::\n", new MarkdownToCarve(convertFencedDivs: true));
 
-        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
     }
 
     public function testTheAttributesFlagOptsBackIn(): void

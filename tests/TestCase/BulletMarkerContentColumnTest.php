@@ -73,7 +73,7 @@ class BulletMarkerContentColumnTest extends TestCase
     public function testTaskItemKeepsContentColumnAtTwo(): void
     {
         $this->assertHtml(
-            "<ul>\n  <li><input type=\"checkbox\" disabled> item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>",
+            "<ul>\n  <li><input type=\"checkbox\" disabled aria-label=\"item\"> item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>",
             "- [ ] item\n  # H\n",
         );
     }
@@ -85,7 +85,7 @@ class BulletMarkerContentColumnTest extends TestCase
      */
     public function testTaskItemColumnIgnoresCheckboxAndExtraSpaces(): void
     {
-        $expected = "<ul>\n  <li><input type=\"checkbox\" disabled> item\n# H</li>\n</ul>";
+        $expected = "<ul>\n  <li><input type=\"checkbox\" disabled aria-label=\"item # H\"> item\n# H</li>\n</ul>";
         $this->assertHtml($expected, "- [ ] item\n      # H\n");
         $this->assertHtml($expected, "-   [ ] item\n    # H\n");
         $this->assertHtml($expected, "-   [ ] item\n        # H\n");

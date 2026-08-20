@@ -337,7 +337,7 @@ class DetailsExtensionTest extends TestCase
     {
         $html = $this->render("::: note\nhi\n:::");
 
-        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
     }
 
     public function testLeavesOtherCustomAdmonitionTypesAsPlainDivs(): void

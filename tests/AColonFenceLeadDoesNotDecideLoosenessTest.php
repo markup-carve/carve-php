@@ -56,7 +56,7 @@ class AColonFenceLeadDoesNotDecideLoosenessTest extends TestCase
             ],
             'an admonition' => [
                 "- ::: note\n  b\n  :::\n\n  Body.\n",
-                "<ul>\n  <li>\n    <aside class=\"admonition note\">\n      <p>b</p>\n    </aside>\n    <p>Body.</p>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>b</p>\n    </aside>\n    <p>Body.</p>\n  </li>\n</ul>\n",
             ],
             'a longer colon fence' => [
                 "- ::::: d\n  b\n  :::::\n\n  Body.\n",

@@ -61,7 +61,7 @@ class StrictColumnAndOuterLoosenessTest extends TestCase
         // Control: with the body and closer AT the content column the admonition
         // forms as before -- the strict rule only suppresses below-column bodies.
         $this->assertHtml(
-            "<ul>\n  <li>\n    <aside class=\"admonition note\">\n"
+            "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n"
                 . "      <p>para text</p>\n    </aside>\n  </li>\n</ul>",
             "- ::: note\n  para text\n  :::\n",
         );

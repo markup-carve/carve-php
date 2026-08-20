@@ -109,19 +109,19 @@ class ConformanceBatchTest extends TestCase
         return [
             'unordered nested list body' => [
                 "- ::: note\n  - para text\n  :::\n",
-                "<ul>\n  <li>\n    <aside class=\"admonition note\">\n"
+                "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n"
                     . "      <ul>\n        <li>para text</li>\n      </ul>\n"
                     . "    </aside>\n  </li>\n</ul>\n",
             ],
             'ordered nested list body' => [
                 "- ::: note\n  1. para text\n  :::\n",
-                "<ul>\n  <li>\n    <aside class=\"admonition note\">\n"
+                "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n"
                     . "      <ol>\n        <li>para text</li>\n      </ol>\n"
                     . "    </aside>\n  </li>\n</ul>\n",
             ],
             'empty body still opens' => [
                 "- ::: note\n  :::\n",
-                "<ul>\n  <li>\n    <aside class=\"admonition note\">\n\n"
+                "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n\n"
                     . "    </aside>\n  </li>\n</ul>\n",
             ],
         ];
@@ -131,7 +131,7 @@ class ConformanceBatchTest extends TestCase
     {
         $html = $this->converter->convert("- ::: note\n  - para text\n");
 
-        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
         $this->assertStringContainsString('<li>para text</li>', $html);
     }
 
@@ -143,7 +143,7 @@ class ConformanceBatchTest extends TestCase
     {
         $html = $this->converter->convert("- ::: note\n  - para text\n:::\n");
 
-        $this->assertStringContainsString('<aside class="admonition note">', $html);
+        $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
         $this->assertStringContainsString("<div>\n</div>", $html);
     }
 

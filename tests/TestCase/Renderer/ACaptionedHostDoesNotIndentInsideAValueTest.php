@@ -94,7 +94,7 @@ class ACaptionedHostDoesNotIndentInsideAValueTest extends TestCase
     public function testDisplayMathSpanningALineBoundaryIsNotCaptionable(): void
     {
         $this->assertSame(
-            "<p><span class=\"math display\">\\[a\nb\\]</span>\n^ cap</p>\n",
+            "<p><span class=\"math display\" role=\"math\">\\[a\nb\\]</span>\n^ cap</p>\n",
             $this->html("$$`a\nb`\n^ cap\n"),
         );
     }

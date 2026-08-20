@@ -32,7 +32,7 @@ class DifferentialAuditRegressionTest extends TestCase
     public function testInlineMathMayRunUnclosedToTheEndOfTheBlock(): void
     {
         $html = (new CarveConverter())->convert("$`x\n");
-        $this->assertSame("<p><span class=\"math inline\">\\(x\\)</span></p>\n", $html);
+        $this->assertSame("<p><span class=\"math inline\" role=\"math\">\\(x\\)</span></p>\n", $html);
     }
 
     public function testInlineFootnoteContributesNothingToAHeadingId(): void

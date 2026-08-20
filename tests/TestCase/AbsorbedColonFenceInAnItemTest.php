@@ -61,7 +61,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // answers the same five lines get: a real admonition opens, its closer
         // completes it, and a closed block leaves no open paragraph.
         $this->assertSame(
-            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  ::: note\n  body\n  :::\ntail\n"),
         );
     }
@@ -118,7 +118,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // `:::` below is that block's closer, and a closed block leaves no open
         // paragraph - the same answer this engine gives at the top level.
         $this->assertSame(
-            "<ul>\n  <li>item\n:::note\n    <aside class=\"admonition note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li>item\n:::note\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  :::note\n  ::: note\n  body\n  :::\ntail\n"),
         );
     }
@@ -128,7 +128,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // The bare run under it is the admonition's closer, so absorbing it
         // would hold the paragraph open past the block's end.
         $this->assertSame(
-            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>:::oops</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>:::oops</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  ::: note\n  :::oops\n  :::\ntail\n"),
         );
     }
@@ -156,7 +156,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // the same block sequence at the top level, which gives one paragraph
         // holding `:::oops`, `:::` and `tail`.
         $this->assertSame(
-            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n\n    </aside>\n    :::oops\n:::\ntail\n  </li>\n</ul>",
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\" aria-label=\"Note\">\n\n    </aside>\n    :::oops\n:::\ntail\n  </li>\n</ul>",
             $this->html("- item\n  ::: note\n  :::\n  :::oops\n  :::\ntail\n"),
         );
     }
@@ -175,7 +175,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     public function testAnUnterminatedDivHoldingAParagraphTakesTheFlushLeftLine(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>body\ntail</p>\n    </aside>\n  </li>\n</ul>",
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>body\ntail</p>\n    </aside>\n  </li>\n</ul>",
             $this->html("- item\n  ::: note\n  body\ntail\n"),
         );
     }
@@ -185,7 +185,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // The control the flip must not reach: an opener is the last thing on
         // the stack, so there is no paragraph and the line is the document's.
         $this->assertSame(
-            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\" aria-label=\"Note\">\n\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  ::: note\ntail\n"),
         );
     }
@@ -203,11 +203,11 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     public function testANestedOpenerDoesNotTakeTheFlushLeftLine(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <aside class=\"admonition tip\">\n\n      </aside>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <aside class=\"admonition tip\" aria-label=\"Tip\">\n\n      </aside>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  ::: note\n  :::: tip\ntail\n"),
         );
         $this->assertSame(
-            "<blockquote>\n  <p>quote</p>\n  <aside class=\"admonition note\">\n    <aside class=\"admonition tip\">\n\n    </aside>\n  </aside>\n</blockquote>\n<p>tail</p>",
+            "<blockquote>\n  <p>quote</p>\n  <aside class=\"admonition note\" aria-label=\"Note\">\n    <aside class=\"admonition tip\" aria-label=\"Tip\">\n\n    </aside>\n  </aside>\n</blockquote>\n<p>tail</p>",
             $this->html("> quote\n> ::: note\n> :::: tip\ntail\n"),
         );
     }
@@ -243,7 +243,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     public function testAClosedDivDoesNotTakeTheFlushLeftLine(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>item\n    <aside class=\"admonition note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>body</p>\n    </aside>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  ::: note\n  body\n  :::\ntail\n"),
         );
     }

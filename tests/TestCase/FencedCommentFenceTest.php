@@ -21,7 +21,7 @@ class FencedCommentFenceTest extends TestCase
     /**
      * @var string
      */
-    protected const FOOTNOTE_SECTION = "<section role=\"doc-endnotes\">\n"
+    protected const FOOTNOTE_SECTION = "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n"
         . "  <hr>\n"
         . "  <ol>\n"
         . "    <li id=\"fn1\">\n"
