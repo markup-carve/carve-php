@@ -3358,7 +3358,15 @@ class InlineParser
         // MEANT a dash in that position had no way to say so. This is that way,
         // and it cost nothing: the string it took was an empty `<del>`.
         if ($marker === '-' && substr($text, $pos, 4) === '{--}') {
-            return ['node' => new Text("\u{2013}"), 'pos' => $pos + 4];
+            // The SAME node the bare run produces, carrying the authored
+            // spelling as its value - so the AST says "an en dash was written
+            // here" rather than holding a glyph in a text run, and `fmt` writes
+            // `{--}` back instead of the literal character. PART 12's
+            // vocabulary already has the kind; the braced form is a second
+            // spelling of it, not a second construct. A Text node also could
+            // not be PLACED: `placeAt` checks a Text against its own source,
+            // and this one holds a glyph the source does not.
+            return ['node' => new SmartPunctuation('en_dash', '{--}'), 'pos' => $pos + 4];
         }
 
         // Editorial substitution {~old~>new~} -> <del>old</del><ins>new</ins>.
