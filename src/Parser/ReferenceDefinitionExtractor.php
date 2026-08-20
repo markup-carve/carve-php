@@ -13,6 +13,11 @@ use MarkupCarve\Carve\Util\StringUtil;
 class ReferenceDefinitionExtractor
 {
     /**
+     * @var list<\MarkupCarve\Carve\Parser\DefinitionLayoutEvent>
+     */
+    private array $layoutEvents = [];
+
+    /**
      * A footnote body's own column: the indent PART 9 §16 requires of a
      * continuation line. A definition in a note body is collected at exactly
      * this column and nowhere else (carve#717).
@@ -38,11 +43,17 @@ class ReferenceDefinitionExtractor
      * Extract reference link definitions from the document.
      *
      * @param array<string> $lines
+     * @param bool $collectLayout
+     * @param bool $collectAbbreviations
      *
      * @return array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>
      */
-    public function extract(array $lines): array
-    {
+    public function extract(
+        array $lines,
+        bool $collectLayout = false,
+        bool $collectAbbreviations = false,
+    ): array {
+        $this->layoutEvents = [];
         $references = [];
         $i = 0;
         // A definition opener necessarily contains `]:`. Nothing after the
@@ -96,9 +107,22 @@ class ReferenceDefinitionExtractor
         // document, so the author's line rendered nowhere AND defined nothing
         // (carve#664). carve-js tracks the same state for the same reason.
         $inFootnoteBody = false;
+        $abbreviationLayout = $collectAbbreviations ? new AbbreviationLayoutTracker($lines) : null;
 
         while ($i < $count) {
             $line = $lines[$i];
+            $abbreviation = $abbreviationLayout?->observe($line, $i);
+            if ($abbreviation !== null) {
+                $this->layoutEvents[] = new DefinitionLayoutEvent(
+                    DefinitionLayoutEvent::ABBREVIATION,
+                    $i,
+                    0,
+                    0,
+                    $line,
+                    false,
+                    false,
+                );
+            }
             // Content columns are measured INSIDE a block quote: `> - a` puts
             // the item's content column at 2 of the QUOTED content. Feeding the
             // raw line matched no marker, so the column stayed 0 and a
@@ -249,6 +273,20 @@ class ReferenceDefinitionExtractor
 
             $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$i - 1] ?? '');
             $bare = $referenceLine['line'];
+            if ($collectLayout && str_starts_with($bare, '[') && str_contains($bare, ']:')) {
+                $kind = str_starts_with($bare, '[^')
+                    ? DefinitionLayoutEvent::FOOTNOTE
+                    : DefinitionLayoutEvent::REFERENCE;
+                $this->layoutEvents[] = new DefinitionLayoutEvent(
+                    $kind,
+                    $i,
+                    $contentCol,
+                    $reachedCol,
+                    $bare,
+                    $referenceLine['inQuote'],
+                    $referenceLine['inList'],
+                );
+            }
             // A footnote body has a content column of its own and it is TWO -
             // the indent §16 requires of a continuation line (carve#717). This
             // used to strip ALL leading whitespace instead, so a definition
@@ -325,6 +363,14 @@ class ReferenceDefinitionExtractor
     }
 
     /**
+     * @return list<\MarkupCarve\Carve\Parser\DefinitionLayoutEvent>
+     */
+    public function getLayoutEvents(): array
+    {
+        return $this->layoutEvents;
+    }
+
+    /**
      * @return array{line: string, inQuote: bool, inList: bool}
      */
     private function referenceLineView(string $line, int $contentCol, string $previousLine = ''): array
@@ -375,7 +421,7 @@ class ReferenceDefinitionExtractor
     {
         $descriptionMarker = self::opensDefinitionEntry($previousLine) ? ':[ \t]|' : '';
         $pattern = '/[ \t]*(?:' . $descriptionMarker
-            . '[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?='
+            . '[-*]|\.|(?:[0-9]+|[ivxlcdm]+|[a-z])[.)]) +(?:\[[ xX\-_>?]\] +)?(?='
             . StringUtil::NON_WHITESPACE_CLASS . ')/A';
 
         return preg_match($pattern, $line, $match, 0, $at) === 1
