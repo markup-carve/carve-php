@@ -42,6 +42,8 @@ class SmartPunctuation extends InlineNode implements ContentNodeInterface
         'rightwards_arrow' => "\u{2192}",
         'leftwards_arrow' => "\u{2190}",
         'rightwards_double_arrow' => "\u{21D2}",
+        'leftwards_double_arrow' => "\u{21D0}",
+        'left_right_double_arrow' => "\u{21D4}",
         'less_than_or_equal' => "\u{2264}",
         'greater_than_or_equal' => "\u{2265}",
         'not_equal' => "\u{2260}",

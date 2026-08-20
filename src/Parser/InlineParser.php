@@ -1366,6 +1366,26 @@ class InlineParser
             return true;
         }
 
+        // The FIXED-TOKEN table runs before the hyphen-run pass, or `-->` would
+        // be decomposed into an en dash plus `>` before it could be recognised
+        // as the canonical rightwards arrow (markup-carve/carve#1442). `--`
+        // with no `>` still falls through to the dash pass below.
+        $arrow = $this->parseSmartSymbol($text, $pos);
+        if (
+            $arrow !== null && str_contains(substr($text, $pos, $arrow[1]), '-')
+            && substr($text, $pos, $arrow[1]) !== '-'
+        ) {
+            $source = substr($text, $pos, $arrow[1]);
+            $this->flushText($parent, $textBuffer);
+            $textBuffer = '';
+            $node = new SmartPunctuation($this->smartSymbolKind($source), $source);
+            $this->placeAt($node, $pos, $pos + $arrow[1]);
+            $parent->appendChild($node);
+            $pos += $arrow[1];
+
+            return true;
+        }
+
         if ($char === '-' && $nextChar === '-') {
             return $this->parseSmartDashAt($parent, $text, $pos, $textBuffer);
         }
@@ -3576,19 +3596,34 @@ class InlineParser
 
     /**
      * Smart typography for arrows, comparison operators, and (c)/(r)/(tm).
-     * Longest-first so `<->` beats `<-` and `(tm)` beats `(c)`. Mirrors the
-     * carve-js SMART_TOKENS table (lowercase only).
+     *
+     * ORDERED LONGEST-FIRST, and the order is the rule (markup-carve/carve#1442):
+     * `<-->` beats `<->` and `<--`, `-->` beats the hyphen-run pass, `<==` beats
+     * `<=`, `(tm)` beats `(c)`. Mirrors the carve-js SMART_TOKENS table.
+     *
+     * The doubled run is the canonical arrow in both families. `<-` `->` `<->`
+     * still match and are DEPRECATED rather than removed, so a document written
+     * before the rule goes on working. `=>` is GONE: it is ubiquitous in prose
+     * about code (`key => value`, `x => x + 1`, `Some(x) => x`) and every one of
+     * those silently became an arrow in the rendered output only. `<=` keeps ≤
+     * for the mirror-image reason, which is what forces the left double arrow to
+     * grow a character in the first place.
      *
      * @return array{0: string, 1: int}|null [replacement, consumedLength]
      */
     protected function parseSmartSymbol(string $text, int $pos): ?array
     {
         static $map = [
+            '<-->' => "\u{2194}",
             '<->' => "\u{2194}",
+            '-->' => "\u{2192}",
+            '<--' => "\u{2190}",
+            '<=>' => "\u{21D4}",
+            '==>' => "\u{21D2}",
+            '<==' => "\u{21D0}",
             '(tm)' => "\u{2122}",
             '->' => "\u{2192}",
             '<-' => "\u{2190}",
-            '=>' => "\u{21D2}",
             '<=' => "\u{2264}",
             '>=' => "\u{2265}",
             '!=' => "\u{2260}",
@@ -3615,10 +3650,12 @@ class InlineParser
     protected function smartSymbolKind(string $source): string
     {
         return match ($source) {
-            '<->' => 'left_right_arrow',
-            '->' => 'rightwards_arrow',
-            '<-' => 'leftwards_arrow',
-            '=>' => 'rightwards_double_arrow',
+            '<-->', '<->' => 'left_right_arrow',
+            '-->', '->' => 'rightwards_arrow',
+            '<--', '<-' => 'leftwards_arrow',
+            '<=>' => 'left_right_double_arrow',
+            '==>' => 'rightwards_double_arrow',
+            '<==' => 'leftwards_double_arrow',
             '<=' => 'less_than_or_equal',
             '>=' => 'greater_than_or_equal',
             '!=' => 'not_equal',
