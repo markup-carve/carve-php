@@ -17,15 +17,74 @@ use MarkupCarve\Carve\Util\StringUtil;
 final class BorrowedHtmlLayout
 {
     /**
+     * @var array{
+     *   headingNumbers: array{minLevel: int}|null,
+     *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
+     *   externalLinks: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
+     *   lowercaseIds: bool,
+     *   mathBlockLanguage: string|null,
+     *   collectHeadings: bool
+     * }
+     */
+    private array $events = [
+        'headingNumbers' => null,
+        'headingPermalinks' => null,
+        'externalLinks' => null,
+        'lowercaseIds' => false,
+        'mathBlockLanguage' => null,
+        'collectHeadings' => false,
+    ];
+
+    /**
+     * @var list<array{level: int, text: string, html: string, id: string}>
+     */
+    private array $headings = [];
+
+    /**
+     * @var list<int>
+     */
+    private array $numberLevels = [];
+
+    /**
+     * @var list<int>
+     */
+    private array $numbers = [];
+
+    /**
      * @var int
      */
     private const MAX_SOURCE_BYTES = 65536;
 
     /**
-     * @return array{html: string, accepted: array<string, int>}|null
+     * @param string $source
+     * @param bool $observe
+     * @param array{
+     *   headingNumbers?: array{minLevel: int}|null,
+     *   headingPermalinks?: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
+     *   externalLinks?: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
+     *   lowercaseIds?: bool,
+     *   mathBlockLanguage?: string|null,
+     *   collectHeadings?: bool
+     * } $events
+     *
+     * @return array{html: string, accepted: array<string, int>, headings: list<array{level: int, text: string, html: string, id: string}>}|null
      */
-    public function render(string $source, bool $observe = false): ?array
+    public function render(string $source, bool $observe = false, array $events = []): ?array
     {
+        $this->events = array_replace(
+            [
+                'headingNumbers' => null,
+                'headingPermalinks' => null,
+                'externalLinks' => null,
+                'lowercaseIds' => false,
+                'mathBlockLanguage' => null,
+                'collectHeadings' => false,
+            ],
+            $events,
+        );
+        $this->headings = [];
+        $this->numberLevels = [];
+        $this->numbers = [];
         if (!$this->eligibleSource($source)) {
             return null;
         }
@@ -45,12 +104,17 @@ final class BorrowedHtmlLayout
         if ($definitions === null) {
             return null;
         }
-        $html = $this->renderBlocks($lines, $definitions, $stats);
-        if ($html === null) {
+        $rendered = $this->renderBlocks($lines, $definitions, $stats);
+        if ($rendered === null) {
             return null;
         }
+        $html = $rendered['html'];
 
-        return ['html' => $html === '' ? '' : $html . "\n", 'accepted' => $observe ? $stats : []];
+        return [
+            'html' => $html === '' ? '' : $html . ($rendered['endsWithoutNewline'] ? '' : "\n"),
+            'accepted' => $observe ? $stats : [],
+            'headings' => $this->headings,
+        ];
     }
 
     private function eligibleSource(string $source): bool
@@ -142,14 +206,20 @@ final class BorrowedHtmlLayout
      * @param list<string> $lines
      * @param array<string, array{href: string, title: ?string}> $definitions
      * @param array<string, int> $stats
+     *
+     * @return array{html: string, endsWithoutNewline: bool}|null
      */
-    private function renderBlocks(array $lines, array $definitions, array &$stats): ?string
+    private function renderBlocks(array $lines, array $definitions, array &$stats): ?array
     {
         $out = [];
         $sections = [];
         $ids = new HeadingIdTracker();
+        if ($this->events['lowercaseIds']) {
+            $ids->setLowercase(true);
+        }
         $i = 0;
         $wrote = false;
+        $previousMath = false;
         $count = count($lines);
         while ($i < $count) {
             $line = $lines[$i];
@@ -168,12 +238,42 @@ final class BorrowedHtmlLayout
                     $out[] = "\n" . $this->indent(count($sections) - 1) . '</section>';
                     array_pop($sections);
                 }
-                if ($wrote) {
+                if ($wrote && !$previousMath) {
                     $out[] = "\n";
                 }
+                $previousMath = false;
                 $id = $ids->getIdForText($title);
+                $heading = $this->escape($title);
+                if ($this->events['headingNumbers'] !== null) {
+                    $number = $this->nextHeadingNumber($level, $this->events['headingNumbers']['minLevel']);
+                    if ($number !== null) {
+                        $heading = '<span class="section-number">' . $number . '</span> ' . $heading;
+                    }
+                }
+                $permalink = $this->events['headingPermalinks'];
+                if ($permalink !== null && in_array($level, $permalink['levels'], true)) {
+                    $anchor = '<a href="#' . $this->escapeAttribute($id)
+                        . '" class="' . $this->escapeAttribute($permalink['cssClass'])
+                        . '" aria-label="' . $this->escapeAttribute($permalink['ariaLabel']) . '"'
+                        . ($permalink['copyToClipboard'] ? ' data-permalink-copy=""' : '')
+                        . '>' . $this->escape($permalink['symbol']) . '</a>';
+                    if ($permalink['showOnHover']) {
+                        $anchor = '<span class="permalink-wrapper permalink-hover">' . $anchor . '</span>';
+                    }
+                    $heading = $permalink['position'] === 'before'
+                        ? $anchor . ' ' . $heading
+                        : $heading . ' ' . $anchor;
+                }
+                if ($this->events['collectHeadings']) {
+                    $this->headings[] = [
+                        'level' => $level,
+                        'text' => $title,
+                        'html' => $this->escape($title),
+                        'id' => $id,
+                    ];
+                }
                 $out[] = $this->indent(count($sections)) . '<section id="' . $this->escapeAttribute($id) . '">' . "\n"
-                    . $this->indent(count($sections) + 1) . '<h' . $level . '>' . $this->escape($title)
+                    . $this->indent(count($sections) + 1) . '<h' . $level . '>' . $heading
                     . '</h' . $level . '>';
                 $this->accept($stats, 'headings', $i, $i + 1);
                 $sections[] = $level;
@@ -182,9 +282,10 @@ final class BorrowedHtmlLayout
 
                 continue;
             }
-            if ($wrote) {
+            if ($wrote && !$previousMath) {
                 $out[] = "\n";
             }
+            $previousMath = false;
             $depth = count($sections);
             $fence = $this->fenceOpen($line);
             if ($fence !== null) {
@@ -206,6 +307,16 @@ final class BorrowedHtmlLayout
                 $code = '';
                 for ($j = $i + 1; $j < $close; $j++) {
                     $code .= $this->escape($lines[$j]) . "\n";
+                }
+                if ($info === $this->events['mathBlockLanguage']) {
+                    $math = substr($code, 0, -1);
+                    $out[] = $this->indent($depth) . '<div class="math display">\\[' . $math . '\\]</div>';
+                    $this->accept($stats, 'codeFences', $i, $close + 1);
+                    $i = $close + 1;
+                    $wrote = true;
+                    $previousMath = true;
+
+                    continue;
                 }
                 if ($code === '') {
                     $code = "\n";
@@ -300,12 +411,16 @@ final class BorrowedHtmlLayout
             $this->accept($stats, 'paragraphs', $start, $i);
             $wrote = true;
         }
+        $hadOpenSections = $sections !== [];
         while ($sections !== []) {
             $out[] = "\n" . $this->indent(count($sections) - 1) . '</section>';
             array_pop($sections);
         }
 
-        return implode('', $out);
+        return [
+            'html' => implode('', $out),
+            'endsWithoutNewline' => $previousMath && !$hadOpenSections,
+        ];
     }
 
     /**
@@ -396,7 +511,9 @@ final class BorrowedHtmlLayout
                     return null;
                 }
                 $out .= '<a href="' . $this->escapeAttribute($href) . '"'
-                    . ($title === null ? '' : ' title="' . $this->escapeAttribute($title) . '"') . '>' . $inner . '</a>';
+                    . ($title === null ? '' : ' title="' . $this->escapeAttribute($title) . '"')
+                    . $this->externalLinkAttributes($href)
+                    . '>' . $inner . '</a>';
             }
             $plain = $i;
         }
@@ -669,6 +786,52 @@ final class BorrowedHtmlLayout
     private function safeUrl(string $url): bool
     {
         return preg_match('/^(?:https?:|mailto:|\/|#|\.\/|\.\.\/)/i', $url) === 1;
+    }
+
+    private function nextHeadingNumber(int $level, int $minLevel): ?string
+    {
+        if ($level < $minLevel) {
+            return null;
+        }
+        $depth = count($this->numberLevels);
+        while ($depth > 0 && $this->numberLevels[$depth - 1] > $level) {
+            array_pop($this->numberLevels);
+            array_pop($this->numbers);
+            $depth--;
+        }
+        if ($depth > 0 && $this->numberLevels[$depth - 1] === $level) {
+            $number = array_pop($this->numbers);
+            $this->numbers[] = ($number ?? 0) + 1;
+        } else {
+            $this->numberLevels[] = $level;
+            $this->numbers[] = 1;
+        }
+
+        return implode('.', $this->numbers);
+    }
+
+    private function externalLinkAttributes(string $href): string
+    {
+        $external = $this->events['externalLinks'];
+        if ($external === null || preg_match('#^https?://#i', $href) !== 1) {
+            return '';
+        }
+        $host = parse_url($href, PHP_URL_HOST);
+        if (!is_string($host)) {
+            return '';
+        }
+        foreach ($external['internalHosts'] as $internalHost) {
+            if (strtolower($internalHost) === strtolower($host)) {
+                return '';
+            }
+        }
+        $rel = $external['rel'];
+        if ($external['nofollow'] && !str_contains($rel, 'nofollow')) {
+            $rel .= ' nofollow';
+        }
+
+        return ' target="' . $this->escapeAttribute($external['target'])
+            . '" rel="' . $this->escapeAttribute(trim($rel)) . '"';
     }
 
     private function escape(string $text): string

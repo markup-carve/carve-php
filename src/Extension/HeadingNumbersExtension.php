@@ -57,6 +57,16 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
         $this->converter = $converter;
     }
 
+    /**
+     * Internal configuration consumed by the conservative borrowed HTML path.
+     *
+     * @return array{minLevel: int}
+     */
+    public function borrowedHtmlConfiguration(): array
+    {
+        return ['minLevel' => $this->minLevel];
+    }
+
     public function beforeRender(Document $document, BeforeRenderContext $context): Document
     {
         // HTML-only: section numbering needs heading-id resolution.

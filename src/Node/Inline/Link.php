@@ -100,6 +100,12 @@ class Link extends InlineNode
         return $this->title;
     }
 
+    public function resolveReference(string $destination, ?string $title): void
+    {
+        $this->destination = $destination;
+        $this->title = $title;
+    }
+
     public function getType(): string
     {
         return 'link';

@@ -71,6 +71,21 @@ class ExternalLinksExtension implements ExtensionInterface
         });
     }
 
+    /**
+     * Internal configuration consumed by the conservative borrowed HTML path.
+     *
+     * @return array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}
+     */
+    public function borrowedHtmlConfiguration(): array
+    {
+        return [
+            'internalHosts' => $this->internalHosts,
+            'target' => $this->target,
+            'rel' => $this->rel,
+            'nofollow' => $this->nofollow,
+        ];
+    }
+
     protected function isExternalUrl(string $url): bool
     {
         // Only http:// and https:// URLs are considered for external handling

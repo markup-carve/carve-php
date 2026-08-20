@@ -1578,6 +1578,82 @@ class InlineParser
     }
 
     /**
+     * Apply abbreviations discovered after an earlier text run was parsed.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<string, string> $abbreviations
+     * @param int $depth
+     */
+    public function expandLateAbbreviations(Node $node, array $abbreviations, int $depth = 0): void
+    {
+        if ($depth >= self::MAX_INLINE_DEPTH || $node instanceof Abbreviation) {
+            return;
+        }
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Text) {
+                $holder = new Span();
+                $this->flushTextWithAbbreviations($holder, $child->getContent(), $abbreviations);
+                $replacement = $holder->getChildren();
+                if (count($replacement) === 1 && $replacement[0] instanceof Text) {
+                    continue;
+                }
+                $cursor = $child->getPos();
+                foreach ($replacement as $part) {
+                    $partText = $part instanceof Text
+                        ? $part->getContent()
+                        : (($part->getChildren()[0] ?? null) instanceof Text
+                            ? $part->getChildren()[0]->getContent()
+                            : '');
+                    [$partSpan, $cursor] = $this->latePartSpan($cursor, $partText);
+                    $part->setPos($partSpan);
+                    foreach ($part->getChildren() as $label) {
+                        $label->setPos($partSpan);
+                    }
+                }
+                $node->replaceChildWithMany($child, array_values($replacement));
+
+                continue;
+            }
+            if ($child->hasChildren()) {
+                $this->expandLateAbbreviations($child, $abbreviations, $depth + 1);
+            }
+        }
+    }
+
+    /**
+     * @return array{0: ?\MarkupCarve\Carve\Ast\SourceSpan, 1: ?\MarkupCarve\Carve\Ast\SourceSpan}
+     */
+    private function latePartSpan(?SourceSpan $cursor, string $text): array
+    {
+        if ($cursor === null) {
+            return [null, null];
+        }
+        $line = $cursor->startLine;
+        $column = $cursor->startColumn;
+        $offset = $cursor->startOffset;
+        foreach (preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $character) {
+            $offset++;
+            if ($character === "\n") {
+                $line++;
+                $column = 1;
+            } else {
+                $column++;
+            }
+        }
+        $part = new SourceSpan(
+            $cursor->startLine,
+            $line,
+            $cursor->startColumn,
+            $column,
+            $cursor->startOffset,
+            $offset,
+        );
+        $next = new SourceSpan($line, $cursor->endLine, $column, $cursor->endColumn, $offset, $cursor->endOffset);
+
+        return [$part, $next];
+    }
+
+    /**
      * @return array{node: \MarkupCarve\Carve\Node\Node, end: int}|null
      */
     protected function tryInlineMatchers(string $text, int $pos): ?array

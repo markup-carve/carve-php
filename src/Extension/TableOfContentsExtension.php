@@ -198,6 +198,23 @@ class TableOfContentsExtension implements ResettableExtensionInterface
     }
 
     /**
+     * Replace manual TOC state from headings accepted by the borrowed HTML path.
+     * Auto-insert configurations retain the authoritative output-transformer path.
+     *
+     * @param list<array{level: int, text: string, html: string, id: string}> $headings
+     */
+    public function acceptBorrowedHeadings(array $headings): void
+    {
+        $this->toc = [];
+        foreach ($headings as $heading) {
+            if ($heading['level'] < $this->minLevel || $heading['level'] > $this->maxLevel) {
+                continue;
+            }
+            $this->toc[] = $heading;
+        }
+    }
+
+    /**
      * Render TOC as nested HTML list
      *
      * @param list<array{level: int, text: string, html: string, id: string}> $headings

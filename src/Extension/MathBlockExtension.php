@@ -99,6 +99,14 @@ class MathBlockExtension implements StaticRenderExtensionInterface
     }
 
     /**
+     * Internal configuration consumed by the conservative borrowed HTML path.
+     */
+    public function borrowedHtmlLanguage(): string
+    {
+        return $this->language;
+    }
+
+    /**
      * Static render: server-side output if a `math` renderer is supplied, else
      * the LaTeX source preserved verbatim (never blank). A KaTeX/MathJax client
      * script cannot run in a static target, so the interactive `\[ ... \]` div

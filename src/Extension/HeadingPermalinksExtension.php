@@ -159,6 +159,24 @@ class HeadingPermalinksExtension implements ExtensionInterface
         });
     }
 
+    /**
+     * Internal configuration consumed by the conservative borrowed HTML path.
+     *
+     * @return array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}
+     */
+    public function borrowedHtmlConfiguration(): array
+    {
+        return [
+            'symbol' => $this->symbol,
+            'position' => $this->position,
+            'cssClass' => $this->cssClass,
+            'ariaLabel' => $this->ariaLabel,
+            'levels' => $this->levels,
+            'showOnHover' => $this->showOnHover,
+            'copyToClipboard' => $this->copyToClipboard,
+        ];
+    }
+
     protected function hasPermalink(Heading $node, string $id): bool
     {
         foreach ($node->getChildren() as $child) {
