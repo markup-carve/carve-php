@@ -1371,8 +1371,10 @@ class InlineParser
         // as the canonical rightwards arrow (markup-carve/carve#1442). `--`
         // with no `>` still falls through to the dash pass below.
         $arrow = $this->parseSmartSymbol($text, $pos);
-        if ($arrow !== null && str_contains(substr($text, $pos, $arrow[1]), '-')
-            && substr($text, $pos, $arrow[1]) !== '-' ) {
+        if (
+            $arrow !== null && str_contains(substr($text, $pos, $arrow[1]), '-')
+            && substr($text, $pos, $arrow[1]) !== '-'
+        ) {
             $source = substr($text, $pos, $arrow[1]);
             $this->flushText($parent, $textBuffer);
             $textBuffer = '';
