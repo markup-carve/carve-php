@@ -668,7 +668,12 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '20-smart-typography-arrows-and-symbols' => [
+            'reason' => 'carve#1442 makes the doubled run canonical and removes `=>` as an arrow',
+            'html' => "<p>Flow: a \u{2192} b \u{2190} c \u{2194} d =&gt; e; x \u{2260} y, p \u{2264} q, r \u{2265} s, \u{00B1}1.\n\u{00A9} 2024, \u{00AE}, \u{2122}. Dates like 1/2/2024 stay literal.</p>",
+        ],
+    ];
 
     protected CarveConverter $converter;
 
