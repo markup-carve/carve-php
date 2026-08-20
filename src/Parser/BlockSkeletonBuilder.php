@@ -14,6 +14,11 @@ final class BlockSkeletonBuilder
      */
     private array $frames = [];
 
+    /**
+     * @var list<\MarkupCarve\Carve\Parser\BlockLayoutEvent>
+     */
+    private array $definitionEvents = [];
+
     public function beginFrame(int $lineCount): int
     {
         $id = count($this->frames);
@@ -27,6 +32,32 @@ final class BlockSkeletonBuilder
         $this->frames[$frame]['events'][] = $event;
     }
 
+    public function overlayDefinition(string $kind, int $sourceLine, bool $active): bool
+    {
+        $consumed = false;
+        foreach ($this->frames as $frame) {
+            foreach ($frame['events'] as $event) {
+                if (in_array($sourceLine, $event->sourceLines, true)) {
+                    $consumed = true;
+
+                    break 2;
+                }
+            }
+        }
+        $this->definitionEvents[] = new BlockLayoutEvent(
+            $sourceLine,
+            1,
+            'definition',
+            $consumed,
+            $kind,
+            $active,
+            $sourceLine,
+            [$sourceLine],
+        );
+
+        return $consumed;
+    }
+
     public function build(): BlockSkeleton
     {
         $frames = [];
@@ -34,6 +65,6 @@ final class BlockSkeletonBuilder
             $frames[] = new BlockLayoutFrame($frame['lineCount'], $frame['events']);
         }
 
-        return new BlockSkeleton($frames);
+        return new BlockSkeleton($frames, $this->definitionEvents);
     }
 }

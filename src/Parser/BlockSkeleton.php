@@ -16,9 +16,12 @@ final readonly class BlockSkeleton
 {
     /**
      * @param list<\MarkupCarve\Carve\Parser\BlockLayoutFrame> $frames
+     * @param list<\MarkupCarve\Carve\Parser\BlockLayoutEvent> $definitionEvents
      */
-    public function __construct(public array $frames)
-    {
+    public function __construct(
+        public array $frames,
+        public array $definitionEvents = [],
+    ) {
     }
 
     public function eventCount(): int
@@ -28,7 +31,7 @@ final readonly class BlockSkeleton
             $count += count($frame->events);
         }
 
-        return $count;
+        return $count + count($this->definitionEvents);
     }
 
     /**
@@ -47,6 +50,13 @@ final readonly class BlockSkeleton
                     $counters[$definitionKey] = ($counters[$definitionKey] ?? 0) + 1;
                 }
             }
+        }
+        foreach ($this->definitionEvents as $event) {
+            $key = $event->family;
+            $counters[$key] = ($counters[$key] ?? 0) + 1;
+            $state = $event->activeDefinition ? 'active' : 'inactive';
+            $definitionKey = 'definition.' . $event->definitionKind . '.' . $state;
+            $counters[$definitionKey] = ($counters[$definitionKey] ?? 0) + 1;
         }
         ksort($counters);
 

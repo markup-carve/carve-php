@@ -52,6 +52,11 @@ final class BlockSkeletonShadowTest extends TestCase
         self::assertArrayHasKey('paragraph', $families);
         self::assertArrayHasKey('heading', $families);
         self::assertArrayHasKey('table', $families);
+        self::assertSame(23, $families['definition.abbreviation.active'] ?? 0);
+        self::assertSame(73, $families['definition.footnote.active'] ?? 0);
+        self::assertSame(7, $families['definition.footnote.inactive'] ?? 0);
+        self::assertSame(91, $families['definition.reference.active'] ?? 0);
+        self::assertSame(19, $families['definition.reference.inactive'] ?? 0);
     }
 
     public function testAuthoritativeShadowIsExactOnTheConcatenatedCorpus(): void
@@ -74,6 +79,11 @@ final class BlockSkeletonShadowTest extends TestCase
         self::assertSame($expected, $actual);
         self::assertNotNull(BlockSkeletonWork::$last);
         self::assertGreaterThan(1000, BlockSkeletonWork::$last->eventCount());
+        $counters = BlockSkeletonWork::$last->acceptanceCounters();
+        self::assertSame(5, $counters['definition.footnote.active'] ?? 0);
+        self::assertSame(16, $counters['definition.footnote.inactive'] ?? 0);
+        self::assertSame(29, $counters['definition.reference.active'] ?? 0);
+        self::assertSame(5, $counters['definition.reference.inactive'] ?? 0);
     }
 
     private function converter(): CarveConverter

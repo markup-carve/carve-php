@@ -349,6 +349,11 @@ class BlockParser
     private ?BlockSkeletonBuilder $blockSkeletonBuilder = null;
 
     /**
+     * @var array<string, array<int, true>>
+     */
+    private array $activeDefinitionLines = [];
+
+    /**
      * Remaining source bytes available to the parser-backed definition probe.
      */
     private int $definitionProbeBudget = 0;
@@ -1131,6 +1136,10 @@ class BlockParser
         $document->setSourceLength($sourceLength);
 
         if ($this->blockSkeletonBuilder !== null) {
+            foreach ($this->definitionLayoutEvents as $event) {
+                $active = isset($this->activeDefinitionLines[$event->kind][$event->line]);
+                $this->blockSkeletonBuilder->overlayDefinition($event->kind, $event->line, $active);
+            }
             BlockSkeletonWork::$last = $this->blockSkeletonBuilder->build();
             $this->blockSkeletonBuilder = null;
         }
@@ -1306,6 +1315,10 @@ class BlockParser
             $this->collectAbbreviationLayout,
         );
         $this->definitionLayoutEvents = $this->referenceDefinitionExtractor->getLayoutEvents();
+        if ($this->blockSkeletonBuilder !== null) {
+            $this->activeDefinitionLines[DefinitionLayoutEvent::REFERENCE]
+                = $this->referenceDefinitionExtractor->getActiveLines();
+        }
         $this->definitionLayoutCollected = true;
     }
 
@@ -1323,7 +1336,9 @@ class BlockParser
     protected function extractDefinitions(array $lines, string $input): void
     {
         $this->collectAbbreviationLayout = str_contains($input, '*[');
-        $this->collectDefinitionLayout = str_contains($input, '[^') || $this->collectAbbreviationLayout;
+        $this->collectDefinitionLayout = $this->blockSkeletonBuilder !== null
+            || str_contains($input, '[^')
+            || $this->collectAbbreviationLayout;
         if (str_contains($input, ']:')) {
             $this->extractReferences($lines);
         }
@@ -1757,6 +1772,7 @@ class BlockParser
                         }
                         $this->recordFootnoteDefinitionSpan($label, $i, $line, $bare);
                         $this->footnotes[$label] = $footnote;
+                        $this->markActiveDefinition(DefinitionLayoutEvent::FOOTNOTE, $i);
                         $bodyLines = [$content];
                         $bodyLineMap = [$i];
                         // A definition at an item's CONTENT COLUMN keeps its
@@ -1935,6 +1951,7 @@ class BlockParser
                         (int)end($contentLineMap) + 1,
                     );
                     $this->footnotes[$label] = $footnote;
+                    $this->markActiveDefinition(DefinitionLayoutEvent::FOOTNOTE, $i);
                     if ($contentLines) {
                         $deferredBodies[$label] = [
                             'lines' => $contentLines,
@@ -2176,6 +2193,7 @@ class BlockParser
                 $abbr = $matches[1];
                 $definition = rtrim($matches[2], " \t");
                 $this->abbreviations[$abbr] = $definition;
+                $this->markActiveDefinition(DefinitionLayoutEvent::ABBREVIATION, $event->line);
                 $this->abbreviationDefinitions[] = ['abbr' => $abbr, 'expansion' => $definition];
                 if ($this->trackPositions) {
                     $span = $this->wholeLineSpan($event->line);
@@ -2326,6 +2344,7 @@ class BlockParser
                 // included, because the tree is pre-resolve (PART 12 section
                 // 3a).
                 $this->abbreviations[$abbr] = $definition;
+                $this->markActiveDefinition(DefinitionLayoutEvent::ABBREVIATION, $i);
                 $this->abbreviationDefinitions[] = ['abbr' => $abbr, 'expansion' => $definition];
                 // The expansion is one physical line, as the grammar's
                 // `abbreviation_expansion ... newline` production requires.
@@ -2493,6 +2512,7 @@ class BlockParser
         $this->definitionLayoutCollected = false;
         $this->collectDefinitionLayout = false;
         $this->collectAbbreviationLayout = false;
+        $this->activeDefinitionLines = [];
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->footnoteDefinitionSpans = [];
@@ -3324,6 +3344,13 @@ class BlockParser
         }
 
         $sourceLine = $this->sourceLineFor($start);
+        $sourceLines = [];
+        for ($offset = 0; $offset < $consumed; $offset++) {
+            $mapped = $this->sourceLineFor($start + $offset);
+            if ($mapped >= 0) {
+                $sourceLines[] = $mapped;
+            }
+        }
         $this->blockSkeletonBuilder?->append(
             $frame,
             new BlockLayoutEvent(
@@ -3331,8 +3358,16 @@ class BlockParser
                 $consumed,
                 $family,
                 sourceLine: $sourceLine >= 0 ? $sourceLine : null,
+                sourceLines: $sourceLines,
             ),
         );
+    }
+
+    private function markActiveDefinition(string $kind, int $sourceLine): void
+    {
+        if ($this->blockSkeletonBuilder !== null) {
+            $this->activeDefinitionLines[$kind][$sourceLine] = true;
+        }
     }
 
     private function recordBlockLayoutFromNode(

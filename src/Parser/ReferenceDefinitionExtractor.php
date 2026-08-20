@@ -18,6 +18,11 @@ class ReferenceDefinitionExtractor
     private array $layoutEvents = [];
 
     /**
+     * @var array<int, true>
+     */
+    private array $activeLines = [];
+
+    /**
      * A footnote body's own column: the indent PART 9 §16 requires of a
      * continuation line. A definition in a note body is collected at exactly
      * this column and nowhere else (carve#717).
@@ -54,6 +59,7 @@ class ReferenceDefinitionExtractor
         bool $collectAbbreviations = false,
     ): array {
         $this->layoutEvents = [];
+        $this->activeLines = [];
         $references = [];
         $i = 0;
         // A definition opener necessarily contains `]:`. Nothing after the
@@ -336,6 +342,7 @@ class ReferenceDefinitionExtractor
                 $definition = null;
             }
             if ($definition !== null) {
+                $this->activeLines[$i] = true;
                 $references[$definition['label']] = new ReferenceDefinition(
                     $definition['url'],
                     $definition['attrs'],
@@ -368,6 +375,14 @@ class ReferenceDefinitionExtractor
     public function getLayoutEvents(): array
     {
         return $this->layoutEvents;
+    }
+
+    /**
+     * @return array<int, true>
+     */
+    public function getActiveLines(): array
+    {
+        return $this->activeLines;
     }
 
     /**

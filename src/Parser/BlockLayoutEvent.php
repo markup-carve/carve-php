@@ -17,6 +17,18 @@ use LogicException;
  */
 final readonly class BlockLayoutEvent
 {
+    /**
+     * @param int $startLine
+     * @param int $linesConsumed
+     * @param string $family
+     * @param bool $consumed
+     * @param string|null $definitionKind
+     * @param bool $activeDefinition
+     * @param int|null $sourceLine
+     * @param list<int> $sourceLines
+     *
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public int $startLine,
         public int $linesConsumed,
@@ -25,6 +37,7 @@ final readonly class BlockLayoutEvent
         public ?string $definitionKind = null,
         public bool $activeDefinition = false,
         public ?int $sourceLine = null,
+        public array $sourceLines = [],
     ) {
         if ($startLine < 0 || $linesConsumed < 1) {
             throw new InvalidArgumentException('A block-layout event must cover at least one source line.');
@@ -48,6 +61,21 @@ final readonly class BlockLayoutEvent
             $this->definitionKind,
             $active,
             $this->sourceLine,
+            $this->sourceLines,
+        );
+    }
+
+    public function asDefinition(string $kind, bool $active): self
+    {
+        return new self(
+            $this->startLine,
+            $this->linesConsumed,
+            $this->family,
+            $this->consumed,
+            $kind,
+            $active,
+            $this->sourceLine,
+            $this->sourceLines,
         );
     }
 }
