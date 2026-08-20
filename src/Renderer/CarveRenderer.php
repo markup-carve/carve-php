@@ -3349,9 +3349,25 @@ class CarveRenderer implements RendererInterface
             return !$insideNote && self::inlineNoteCouldOpen($text, $offset + 1);
         }
 
+        // AN EMPTY BRACED PAIR IS TEXT, SO ITS CARETS OPEN NOTHING.
+        // `{^^}` holds no content, so no superscript can start in it
+        // (markup-carve/carve#1447), and escaping it manufactures the very
+        // difference PART 11 §1 forbids: `{^^}` reads back as ONE text node
+        // where `{\^\^}` reads back as text plus two escaped_text nodes plus
+        // text. An escape is PRESERVED where the author wrote one, not INVENTED
+        // where they did not - which is what this writer already does for a
+        // bare caret in prose (`a ^ b` stays `a ^ b`).
+        $previous = $text[$offset - 1] ?? '';
+        if (
+            ($previous === '{' && $next === '^' && ($text[$offset + 2] ?? '') === '}')
+            || ($next === '}' && $previous === '^' && ($text[$offset - 2] ?? '') === '{')
+        ) {
+            return false;
+        }
+
         // `{^` opens a braced superscript and `^}` closes one. Either half
         // bare would let the pair form around content it does not own.
-        return ($text[$offset - 1] ?? '') === '{' || $next === '}';
+        return $previous === '{' || $next === '}';
     }
 
     /**
