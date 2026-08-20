@@ -17,9 +17,14 @@ use MarkupCarve\Carve\Util\StringUtil;
 final class BorrowedHtmlLayout
 {
     /**
-     * @var array{headingNumbers: bool, headingPermalinks: bool, externalLinks: bool, lowercaseIds: bool}
+     * @var array{
+     *   headingNumbers: array{minLevel: int}|null,
+     *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
+     *   externalLinks: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
+     *   lowercaseIds: bool
+     * }
      */
-    private array $events = ['headingNumbers' => false, 'headingPermalinks' => false, 'externalLinks' => false, 'lowercaseIds' => false];
+    private array $events = ['headingNumbers' => null, 'headingPermalinks' => null, 'externalLinks' => null, 'lowercaseIds' => false];
 
     /**
      * @var list<int>
@@ -39,14 +44,19 @@ final class BorrowedHtmlLayout
     /**
      * @param string $source
      * @param bool $observe
-     * @param array{headingNumbers?: bool, headingPermalinks?: bool, externalLinks?: bool, lowercaseIds?: bool} $events
+     * @param array{
+     *   headingNumbers?: array{minLevel: int}|null,
+     *   headingPermalinks?: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
+     *   externalLinks?: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
+     *   lowercaseIds?: bool
+     * } $events
      *
      * @return array{html: string, accepted: array<string, int>}|null
      */
     public function render(string $source, bool $observe = false, array $events = []): ?array
     {
         $this->events = array_replace(
-            ['headingNumbers' => false, 'headingPermalinks' => false, 'externalLinks' => false, 'lowercaseIds' => false],
+            ['headingNumbers' => null, 'headingPermalinks' => null, 'externalLinks' => null, 'lowercaseIds' => false],
             $events,
         );
         $this->numberLevels = [];
@@ -201,12 +211,25 @@ final class BorrowedHtmlLayout
                 }
                 $id = $ids->getIdForText($title);
                 $heading = $this->escape($title);
-                if ($this->events['headingNumbers']) {
-                    $heading = '<span class="section-number">' . $this->nextHeadingNumber($level) . '</span> ' . $heading;
+                if ($this->events['headingNumbers'] !== null) {
+                    $number = $this->nextHeadingNumber($level, $this->events['headingNumbers']['minLevel']);
+                    if ($number !== null) {
+                        $heading = '<span class="section-number">' . $number . '</span> ' . $heading;
+                    }
                 }
-                if ($this->events['headingPermalinks']) {
-                    $heading .= ' <a href="#' . $this->escapeAttribute($id)
-                        . '" class="permalink" aria-label="Permalink">¶</a>';
+                $permalink = $this->events['headingPermalinks'];
+                if ($permalink !== null && in_array($level, $permalink['levels'], true)) {
+                    $anchor = '<a href="#' . $this->escapeAttribute($id)
+                        . '" class="' . $this->escapeAttribute($permalink['cssClass'])
+                        . '" aria-label="' . $this->escapeAttribute($permalink['ariaLabel']) . '"'
+                        . ($permalink['copyToClipboard'] ? ' data-permalink-copy=""' : '')
+                        . '>' . $this->escape($permalink['symbol']) . '</a>';
+                    if ($permalink['showOnHover']) {
+                        $anchor = '<span class="permalink-wrapper permalink-hover">' . $anchor . '</span>';
+                    }
+                    $heading = $permalink['position'] === 'before'
+                        ? $anchor . ' ' . $heading
+                        : $heading . ' ' . $anchor;
                 }
                 $out[] = $this->indent(count($sections)) . '<section id="' . $this->escapeAttribute($id) . '">' . "\n"
                     . $this->indent(count($sections) + 1) . '<h' . $level . '>' . $heading
@@ -433,9 +456,7 @@ final class BorrowedHtmlLayout
                 }
                 $out .= '<a href="' . $this->escapeAttribute($href) . '"'
                     . ($title === null ? '' : ' title="' . $this->escapeAttribute($title) . '"')
-                    . ($this->events['externalLinks'] && preg_match('#^https?://#i', $href) === 1
-                        ? ' target="_blank" rel="noopener noreferrer"'
-                        : '')
+                    . $this->externalLinkAttributes($href)
                     . '>' . $inner . '</a>';
             }
             $plain = $i;
@@ -711,8 +732,11 @@ final class BorrowedHtmlLayout
         return preg_match('/^(?:https?:|mailto:|\/|#|\.\/|\.\.\/)/i', $url) === 1;
     }
 
-    private function nextHeadingNumber(int $level): string
+    private function nextHeadingNumber(int $level, int $minLevel): ?string
     {
+        if ($level < $minLevel) {
+            return null;
+        }
         $depth = count($this->numberLevels);
         while ($depth > 0 && $this->numberLevels[$depth - 1] > $level) {
             array_pop($this->numberLevels);
@@ -728,6 +752,30 @@ final class BorrowedHtmlLayout
         }
 
         return implode('.', $this->numbers);
+    }
+
+    private function externalLinkAttributes(string $href): string
+    {
+        $external = $this->events['externalLinks'];
+        if ($external === null || preg_match('#^https?://#i', $href) !== 1) {
+            return '';
+        }
+        $host = parse_url($href, PHP_URL_HOST);
+        if (!is_string($host)) {
+            return '';
+        }
+        foreach ($external['internalHosts'] as $internalHost) {
+            if (strtolower($internalHost) === strtolower($host)) {
+                return '';
+            }
+        }
+        $rel = $external['rel'];
+        if ($external['nofollow'] && !str_contains($rel, 'nofollow')) {
+            $rel .= ' nofollow';
+        }
+
+        return ' target="' . $this->escapeAttribute($external['target'])
+            . '" rel="' . $this->escapeAttribute(trim($rel)) . '"';
     }
 
     private function escape(string $text): string

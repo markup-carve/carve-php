@@ -485,7 +485,12 @@ class CarveConverter
     }
 
     /**
-     * @return array{headingNumbers: bool, headingPermalinks: bool, externalLinks: bool, lowercaseIds: bool}|null
+     * @return array{
+     *   headingNumbers: array{minLevel: int}|null,
+     *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
+     *   externalLinks: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
+     *   lowercaseIds: bool
+     * }|null
      */
     private function borrowedHtmlPlan(string $source): ?array
     {

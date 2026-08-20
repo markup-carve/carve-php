@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Performance;
 
 use MarkupCarve\Carve\Extension\ExtensionInterface;
-use ReflectionObject;
+use MarkupCarve\Carve\Extension\ExternalLinksExtension;
+use MarkupCarve\Carve\Extension\HeadingNumbersExtension;
+use MarkupCarve\Carve\Extension\HeadingPermalinksExtension;
+use MarkupCarve\Carve\Extension\LowercaseHeadingIdsExtension;
 
 /**
- * Prototype compiler from configured extensions to borrowed-layout events.
+ * Compiler from configured extensions to borrowed-layout events.
  * Unknown or source-active unsupported extensions return null and preserve the
  * authoritative AST fallback.
  */
@@ -18,18 +21,20 @@ final class BorrowedExtensionPlan
      * @param array<\MarkupCarve\Carve\Extension\ExtensionInterface> $extensions
      * @param string $source
      *
-     * @return array{headingNumbers: bool, headingPermalinks: bool, externalLinks: bool, lowercaseIds: bool}|null
+     * @return array{
+     *   headingNumbers: array{minLevel: int}|null,
+     *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
+     *   externalLinks: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
+     *   lowercaseIds: bool
+     * }|null
      */
     public static function compile(array $extensions, string $source): ?array
     {
-        $plan = ['headingNumbers' => false, 'headingPermalinks' => false, 'externalLinks' => false, 'lowercaseIds' => false];
+        $plan = ['headingNumbers' => null, 'headingPermalinks' => null, 'externalLinks' => null, 'lowercaseIds' => false];
         foreach ($extensions as $extension) {
             $class = $extension::class;
             if (isset(self::EVENTS[$class])) {
-                if (!self::hasDefaultEventConfiguration($extension)) {
-                    return null;
-                }
-                $plan[self::EVENTS[$class]] = true;
+                self::addEvent($plan, $extension);
 
                 continue;
             }
@@ -80,43 +85,26 @@ final class BorrowedExtensionPlan
         };
     }
 
-    private static function hasDefaultEventConfiguration(ExtensionInterface $extension): bool
+    /**
+     * @param array{
+     *   headingNumbers: array{minLevel: int}|null,
+     *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
+     *   externalLinks: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
+     *   lowercaseIds: bool
+     * } $plan
+     * @param \MarkupCarve\Carve\Extension\ExtensionInterface $extension
+     */
+    private static function addEvent(array &$plan, ExtensionInterface $extension): void
     {
-        $expected = match ($extension::class) {
-            'MarkupCarve\\Carve\\Extension\\HeadingNumbersExtension' => [
-                'minLevel' => 1,
-                'label' => 'Section',
-                'crossref' => 'number-title',
-            ],
-            'MarkupCarve\\Carve\\Extension\\HeadingPermalinksExtension' => [
-                'symbol' => '¶',
-                'position' => 'after',
-                'cssClass' => 'permalink',
-                'ariaLabel' => 'Permalink',
-                'levels' => [1, 2, 3, 4, 5, 6],
-                'showOnHover' => false,
-                'copyToClipboard' => false,
-            ],
-            'MarkupCarve\\Carve\\Extension\\ExternalLinksExtension' => [
-                'internalHosts' => [],
-                'target' => '_blank',
-                'rel' => 'noopener noreferrer',
-                'nofollow' => false,
-            ],
-            'MarkupCarve\\Carve\\Extension\\LowercaseHeadingIdsExtension' => [],
-            default => null,
-        };
-        if ($expected === null) {
-            return false;
+        if ($extension instanceof HeadingNumbersExtension) {
+            $plan['headingNumbers'] = $extension->borrowedHtmlConfiguration();
+        } elseif ($extension instanceof HeadingPermalinksExtension) {
+            $plan['headingPermalinks'] = $extension->borrowedHtmlConfiguration();
+        } elseif ($extension instanceof ExternalLinksExtension) {
+            $plan['externalLinks'] = $extension->borrowedHtmlConfiguration();
+        } elseif ($extension instanceof LowercaseHeadingIdsExtension) {
+            $plan['lowercaseIds'] = true;
         }
-        $reflection = new ReflectionObject($extension);
-        foreach ($expected as $property => $value) {
-            if ($reflection->getProperty($property)->getValue($extension) !== $value) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static function couldAutolink(string $source): bool
