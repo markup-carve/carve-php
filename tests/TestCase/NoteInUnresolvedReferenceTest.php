@@ -141,7 +141,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
             . "  <hr>\n"
             . "  <ol>\n"
             . "    <li id=\"fn1\">\n"
-            . "      <p>n<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p>\n"
+            . "      <p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
             . "    </li>\n"
             . "  </ol>\n"
             . "</section>\n",
@@ -174,7 +174,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
         $html = $this->converter->convert("a [t[^1]][nope] b [^2] c\n\n[^1]: n1\n\n[^2]: n2\n");
 
         $this->assertStringContainsString('<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a>', $html);
-        $this->assertStringContainsString('<p>n2<a href="#fnref1" role="doc-backlink">↩</a></p>', $html);
+        $this->assertStringContainsString('<p>n2<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>', $html);
         // `n1` alone is a substring of `#fn1`, so the dropped body is named
         // with the paragraph that would have carried it.
         $this->assertStringNotContainsString('<p>n1', $html);
@@ -297,7 +297,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
             . "  <hr>\n"
             . "  <ol>\n"
             . "    <li id=\"fn1\">\n"
-            . "      <p>n<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p>\n"
+            . "      <p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
             . "    </li>\n"
             . "  </ol>\n"
             . "</section>\n",

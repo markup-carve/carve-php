@@ -215,6 +215,7 @@ class CarveConverter
      * @param string $mode Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC (HTML renderer only)
      * @param array<string, \Closure(string): string> $renderers Build-time renderers for client-script extensions (math/mermaid/chart), source-to-string, used in static mode
      * @param array<string, string> $symbols Trusted HTML replacements for `:name:` symbols (HTML renderer only)
+     * @param array<string, string> $labels Strings the ENGINE writes rather than the author, keyed as in HtmlRenderer::LABEL_DEFAULTS (HTML renderer only)
      * @param \MarkupCarve\Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict if set)
      * @param \MarkupCarve\Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode/roundTripMode if set)
      * @param bool $sourceLines Stamp block elements, li, dt, and dd with a `data-source-line` attribute (1-based source line). Opt-in, for editor scroll-sync; ignored when a pre-configured $parser is supplied.
@@ -231,6 +232,7 @@ class CarveConverter
         string $mode = RenderMode::INTERACTIVE,
         array $renderers = [],
         array $symbols = [],
+        array $labels = [],
         ?BlockParser $parser = null,
         ?RendererInterface $renderer = null,
         bool $sourceLines = false,
@@ -250,7 +252,7 @@ class CarveConverter
         if ($renderer !== null) {
             $this->renderer = $renderer;
         } else {
-            $htmlRenderer = new HtmlRenderer($xhtml, $symbols);
+            $htmlRenderer = new HtmlRenderer($xhtml, $symbols, $labels);
             $this->renderer = $htmlRenderer;
 
             // Configure safe mode

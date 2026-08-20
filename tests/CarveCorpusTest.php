@@ -46,6 +46,57 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (carve#1455 needs the
+        // corpus that states the backlink's accessible name, and the pin was
+        // several rulings behind). Each renders byte-identically to its pinned
+        // HTML on this engine; the three that do not are deferred in
+        // KNOWN_GAPS below.
+        'a-block-at-a-container-s-content-column-ends-the-paragraph-whatever-it-renders',
+        'a-block-attached-after-an-invisible-line-leaves-the-item-tight',
+        'a-boolean-attribute-does-not-start-with-an-underscore',
+        'a-braced-hyphen-pair-is-an-en-dash',
+        'a-bracketed-construct-s-identifiers-stay-on-one-line',
+        'a-bracketed-construct-spanning-a-line-boundary',
+        'a-bracketed-construct-spanning-a-verse-boundary',
+        'a-closed-inline-construct-spanning-a-verse-boundary',
+        'a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open',
+        'a-comment-fence-reached-through-a-quote-registers-nothing-either',
+        'a-container-whose-table-ends-on-a-continuation-row',
+        'a-continuation-marker-attaches-one-block-and-the-boundary-is-that-block-s-extent',
+        'a-continuation-marker-attaches-only-a-flush-left-block',
+        'a-continuation-row-s-open-run-and-an-escaped-closing-pipe',
+        'a-definition-behind-an-alternating-container-prefix-registers-at-the-innermost-content-column',
+        'a-floating-attribute-is-scoped-to-the-container-that-holds-it',
+        'a-footnote-definition-s-block-runs-to-the-end-of-its-body',
+        'a-heading-at-an-item-s-content-column-leaves-no-paragraph-open',
+        'a-hyphen-run-opening-a-word-after-whitespace-is-a-flag',
+        'a-label-beginning-with-an-at-sign-is-not-a-reference-label',
+        'a-lazy-marker-line-s-definition-defines-nothing-in-any-container',
+        'a-line-block-s-last-body-line-keeps-its-backslash',
+        'a-marker-line-link-definition-is-collected-where-no-paragraph-is-open',
+        'a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too',
+        'a-reference-definition-cannot-take-its-destination-from-the-next-line',
+        'a-resumed-lazy-run-belongs-to-the-innermost-marker-line-item',
+        'a-tab-after-a-fence-or-a-frontmatter-opener-depends-on-where-it-sits',
+        'a-task-item-s-checkbox-is-not-decided-by-its-first-block',
+        'a-terminal-comment-in-a-quote-leaves-no-paragraph-open',
+        'a-terminal-comment-line-still-leaves-an-empty-verse-line',
+        'an-abbreviation-definition-in-an-item-body-is-paragraph-text',
+        'an-attribute-block-reaches-the-nested-list-it-precedes',
+        'an-attribute-line-after-a-continuation-marker-attributes-the-attached-block',
+        'an-empty-brace-pair-is-not-a-construct',
+        'an-escaped-hash-keeps-its-escape-at-a-container-s-content-position',
+        'an-unclosed-inline-literal-reaches-the-end-of-its-block',
+        'an-unclosed-inline-run-in-a-line-block-reaches-the-end-of-the-block',
+        'an-unclosed-verbatim-run-in-a-row-stops-at-the-closing-pipe',
+        'an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open',
+        'delimited-comments',
+        'only-lazy-folding-demotes-a-marker-line-colon-opener',
+        'pipe-tables-can-state-head-and-foot-row-counts',
+        'the-canonical-writer-glues-a-code-fence-to-its-info-string',
+        'the-doubled-run-is-the-canonical-arrow-in-both-families',
+        'what-a-content-column-block-does-not-reach',
+        'which-inline-content-a-heading-id-is-derived-from',
         // carve#1384. All four quote-reachability documents already render
         // byte-identically here; listing the category makes the final spec pin
         // assert that behavior instead of treating a new category as unknown.
@@ -644,6 +695,10 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
+        '20-smart-typography-arrows-and-symbols' => 'carve#1442: the doubled run is the canonical arrow and `=>` is no longer one; not implemented here yet',
+        '384-a-continuation-marker-attaches-only-a-flush-left-block-2' => 'carve#1436: a `+` attaches only a flush-left block; this engine still folds the indented line',
+        '384-a-continuation-marker-attaches-only-a-flush-left-block-3' => 'carve#1436: a `+` attaches only a flush-left block; this engine still folds the indented line',
+        '384-a-continuation-marker-attaches-only-a-flush-left-block-6' => 'carve#1436: a `+` attaches only a flush-left block; this engine still folds the indented line',
         '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
         '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too-2' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
         '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too-3' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',

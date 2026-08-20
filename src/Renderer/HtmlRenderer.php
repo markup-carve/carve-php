@@ -156,6 +156,27 @@ class HtmlRenderer implements RendererInterface
     protected array $symbols;
 
     /**
+     * The strings the ENGINE writes rather than the author (PART 9 §16a).
+     *
+     * NOT the symbols map's twin: a symbol is emitted RAW because processor
+     * configuration is trusted, a label is TEXT and is escaped where it lands,
+     * so a host feeding these from a translation catalog is not handing the
+     * renderer an injection vector. A key left out keeps its English default.
+     *
+     * @var array<string, string>
+     */
+    protected array $labels = [];
+
+    /**
+     * The English defaults, and the whole key set.
+     *
+     * @var array<string, string>
+     */
+    public const LABEL_DEFAULTS = [
+        'footnoteBacklink' => 'Back to reference',
+    ];
+
+    /**
      * Dispatch table mapping node class names to render method names
      *
      * @var array<class-string<\MarkupCarve\Carve\Node\Node>, string>
@@ -165,10 +186,12 @@ class HtmlRenderer implements RendererInterface
     /**
      * @param bool $xhtml
      * @param array<string, string> $symbols Trusted symbol replacement HTML keyed by symbol name.
+     * @param array<string, string> $labels Strings the engine writes itself, keyed as in self::LABEL_DEFAULTS.
      */
-    public function __construct(protected bool $xhtml = false, array $symbols = [])
+    public function __construct(protected bool $xhtml = false, array $symbols = [], array $labels = [])
     {
         $this->symbols = $symbols;
+        $this->labels = $labels;
         $this->sharedRenderContext = new RenderContext();
         $this->initNodeRenderers();
     }
@@ -3331,9 +3354,18 @@ class HtmlRenderer implements RendererInterface
      */
     protected function generateBacklinks(int $number, int $refCount): string
     {
+        // The accessible name is the label plus WHAT THE LINK VISIBLY SAYS
+        // (PART 9 §16, markup-carve/carve#1455): the label alone for a lone
+        // `↩`, the label plus k for the k-th of several (`↩<sup>k</sup>`).
+        // Matching the visible text is WCAG 2.5.3, and it is why the number is
+        // the REFERENCE ORDINAL rather than the note's - the note number
+        // appears nowhere in this link's text.
+        $label = $this->label('footnoteBacklink');
+
         if ($refCount <= 1) {
             // Single reference - simple backlink
-            return '<a href="#fnref' . $number . '" role="doc-backlink">↩</a>';
+            return '<a href="#fnref' . $number . '" role="doc-backlink" aria-label="'
+                . $this->escapeAttribute($label) . '">↩</a>';
         }
 
         // Multiple references - generate numbered backlinks
@@ -3343,10 +3375,19 @@ class HtmlRenderer implements RendererInterface
             if ($i > 1) {
                 $refId .= '-' . $i;
             }
-            $links[] = '<a href="#' . $refId . '" role="doc-backlink">↩<sup>' . $i . '</sup></a>';
+            $links[] = '<a href="#' . $refId . '" role="doc-backlink" aria-label="'
+                . $this->escapeAttribute($label . ' ' . $i) . '">↩<sup>' . $i . '</sup></a>';
         }
 
         return implode(' ', $links);
+    }
+
+    /**
+     * The engine-written string for $key, or its English default.
+     */
+    protected function label(string $key): string
+    {
+        return $this->labels[$key] ?? self::LABEL_DEFAULTS[$key];
     }
 
     /**

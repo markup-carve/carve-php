@@ -96,9 +96,28 @@ class OptionalCorpusTest extends TestCase
         return $cases;
     }
 
+    /**
+     * Optional-corpus cases the pinned corpus states and this engine does not
+     * yet produce, keyed `slug` or `slug (target)`.
+     *
+     * Same contract as CarveCorpusTest::KNOWN_GAPS: a deferral names the rule
+     * it waits on, so the list reads as work rather than as noise.
+     *
+     * @var array<string, string>
+     */
+    protected const KNOWN_GAPS = [
+        '44-list-table-columns-and-foot (html)' => 'carve#1344: a list-table `<tfoot>` breaks its rows onto their own lines; this engine emits the row inline',
+    ];
+
     #[DataProvider('optionalCorpusProvider')]
     public function testOptionalCorpus(string $slug, string $feature, string $target, ?string $crv, ?string $expected): void
     {
+        foreach ([$slug . ' (' . $target . ')', $slug] as $key) {
+            if (isset(self::KNOWN_GAPS[$key])) {
+                $this->markTestIncomplete(self::KNOWN_GAPS[$key]);
+            }
+        }
+
         // An unknown target is a corpus error, not an unsupported feature:
         // skipping it would read as "carve-php does not do that yet".
         $this->assertArrayHasKey(

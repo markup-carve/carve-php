@@ -25,7 +25,7 @@ class FencedCommentFenceTest extends TestCase
         . "  <hr>\n"
         . "  <ol>\n"
         . "    <li id=\"fn1\">\n"
-        . "      <p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p>\n"
+        . "      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
         . "    </li>\n"
         . "  </ol>\n"
         . "</section>\n";
