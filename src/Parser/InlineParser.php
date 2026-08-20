@@ -3288,6 +3288,12 @@ class InlineParser
         if ($close === false) {
             return null;
         }
+        // AN EMPTY BRACE PAIR IS NOT A CONSTRUCT (carve#1447). `{##}` is the
+        // opener meeting its own closer with nothing between them, so it opened
+        // nothing and its characters are text.
+        if ($close === $pos + 2) {
+            return null;
+        }
         $comment = new CriticComment(substr($text, $pos + 2, $close - $pos - 2));
 
         return ['node' => $comment, 'pos' => $close + 2];
@@ -3347,6 +3353,14 @@ class InlineParser
             }
         }
 
+        // A BRACED HYPHEN PAIR IS AN EN DASH (carve#1447). The bare run carries
+        // a flanking guard, so `x --verbose y` stays literal and an author who
+        // MEANT a dash in that position had no way to say so. This is that way,
+        // and it cost nothing: the string it took was an empty `<del>`.
+        if ($marker === '-' && substr($text, $pos, 4) === '{--}') {
+            return ['node' => new Text("\u{2013}"), 'pos' => $pos + 4];
+        }
+
         // Editorial substitution {~old~>new~} -> <del>old</del><ins>new</ins>.
         // Skip the forward scan when no `~}` closer lies ahead (a run of `{~`
         // openers would otherwise each walk to end-of-text -> O(n^2)).
@@ -3389,6 +3403,25 @@ class InlineParser
         // closer, so an unclosed run is O(n^2). strrpos (memoized) short-circuits
         // in O(1) when no `marker}` lies at or after the content start.
         if (!$this->closerExistsFrom($text, $marker . '}', $pos + 2)) {
+            return null;
+        }
+
+        // AN EMPTY BRACE PAIR IS NOT A CONSTRUCT (carve#1447). `forced_content`
+        // and `inline_content` are both one-or-more repetitions, so an opener
+        // that meets its own closer opened nothing and its characters are text:
+        // `{//}`, `{**}`, `{__}`, `{~~}`, `{^^}`, `{,,}`, `{==}` and `{++}`
+        // were never permitted, and this engine rendered them as empty elements
+        // -- the author's braces in the source and nothing in the output.
+        //
+        // REFUSED HERE RATHER THAN SCANNED PAST. Starting the search one byte
+        // later would skip this closer and find the NEXT one, so `{++} x {+y+}`
+        // came back as a single insertion holding `+} x {+y` -- the empty pair
+        // silently swallowing the construct after it, which is worse than what
+        // it replaced.
+        //
+        // Substitution above is deliberately unaffected: its halves are
+        // independent, and a half-empty substitution is an ordinary edit.
+        if ($text[$pos + 2] === $marker && ($text[$pos + 3] ?? '') === '}') {
             return null;
         }
 

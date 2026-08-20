@@ -122,8 +122,12 @@ class AuthoredRunAndEmptyMarkTest extends TestCase
             'empty span' => ["a []{.x} b\n"],
             'empty span with no attributes at all' => ["a []{} b\n"],
             'empty abbreviation span' => ["a []{abbr=\"HyperText Markup Language\"} b\n"],
-            'empty insert and delete' => ["a {++} b {--} c\n"],
-            'all four in one paragraph' => ["[](https://e.com) []{.x} {++} {--}\n"],
+            // The empty INSERT and DELETE used to be here, spelled `{++}` and
+            // `{--}`. carve#1447 made an empty brace pair text, so no source
+            // spells them any more: the carrier still reads them off the wire,
+            // an editor can still hold one, and there is no Carve document to
+            // round-trip through. The carried shapes that remain are these.
+            'all three in one paragraph' => ["[](https://e.com) []{.x} []{abbr=\"HyperText Markup Language\"}\n"],
         ];
     }
 
@@ -136,15 +140,20 @@ class AuthoredRunAndEmptyMarkTest extends TestCase
      */
     public function testTheCarrierIsInThePayload(): void
     {
-        $payload = (new ProseMirrorRenderer())->render((new CarveConverter())->parse("a []{.x} b {++}\n"));
+        // Two different mark types, so the atom is read rather than a single
+        // shape being recognised. The second used to be an empty insert,
+        // spelled `{++}`; carve#1447 made that text, so the empty LINK stands
+        // in - it is the other carried mark a source can still write.
+        $payload = (new ProseMirrorRenderer())->render(
+            (new CarveConverter())->parse("a []{.x} b [](https://e.com)\n"),
+        );
         $inlines = $payload['content'][0]['content'];
 
         $this->assertSame('carveEmptyMark', $inlines[1]['type']);
         $this->assertSame('carveSpan', $inlines[1]['attrs']['markType']);
         $this->assertSame(['class' => 'x', 'carveAttrOrder' => ['.class']], $inlines[1]['attrs']['markAttrs']);
         $this->assertSame('carveEmptyMark', $inlines[3]['type']);
-        $this->assertSame('carveInsert', $inlines[3]['attrs']['markType']);
-        $this->assertArrayNotHasKey('markAttrs', $inlines[3]['attrs']);
+        $this->assertSame('link', $inlines[3]['attrs']['markType']);
     }
 
     /**

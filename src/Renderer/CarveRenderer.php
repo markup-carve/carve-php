@@ -1409,10 +1409,14 @@ class CarveRenderer implements RendererInterface
             // breaks PART 11 SS1 (carve#1137).
             if ($slot === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
                 $parts[] = ':' . $value;
-            } elseif ($value === '' && $this->isAttrIdentifier($slot)) {
+            } elseif ($value === '' && $this->isBooleanAttrName($slot)) {
                 // PART 11 SS6c: a value-less attribute comes back as the bare
                 // name, which is the production the language has for it. A key
-                // needing escaping has no bare spelling to fall back to.
+                // needing escaping has no bare spelling to fall back to, and
+                // neither does a `_`-first name: `boolean_attribute` refuses the
+                // leading underscore (carve#1450), so `{_u=""}` written bare is
+                // text and `{_x_=""}` is a forced underline. Either way the
+                // writer would change the document, which PART 11 SS1 forbids.
                 $parts[] = $this->escapeAttrKey($slot);
             } else {
                 $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value);
@@ -2714,10 +2718,14 @@ class CarveRenderer implements RendererInterface
             // breaks PART 11 SS1 (carve#1137).
             if ($slot === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
                 $parts[] = ':' . $value;
-            } elseif ($value === '' && $this->isAttrIdentifier($slot)) {
+            } elseif ($value === '' && $this->isBooleanAttrName($slot)) {
                 // PART 11 SS6c: a value-less attribute comes back as the bare
                 // name, which is the production the language has for it. A key
-                // needing escaping has no bare spelling to fall back to.
+                // needing escaping has no bare spelling to fall back to, and
+                // neither does a `_`-first name: `boolean_attribute` refuses the
+                // leading underscore (carve#1450), so `{_u=""}` written bare is
+                // text and `{_x_=""}` is a forced underline. Either way the
+                // writer would change the document, which PART 11 SS1 forbids.
                 $parts[] = $this->escapeAttrKey($slot);
             } else {
                 $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value);
@@ -3559,6 +3567,17 @@ class CarveRenderer implements RendererInterface
     protected function isAttrIdentifier(string $text): bool
     {
         return preg_match('/^[A-Za-z_][\w-]*$/', $text) === 1;
+    }
+
+    /**
+     * Whether a name can be written as a BOOLEAN attribute - a bare word with
+     * no value. Narrower than isAttrIdentifier by exactly one character: a
+     * leading `_` is legal in an id, a class and a key, and refused here,
+     * because `{_x_}` is a forced underline (carve#1450).
+     */
+    protected function isBooleanAttrName(string $text): bool
+    {
+        return preg_match('/^[A-Za-z][\w-]*$/', $text) === 1;
     }
 
     protected function quoteAttrValue(string $value): string

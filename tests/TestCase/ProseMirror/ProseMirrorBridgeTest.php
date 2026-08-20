@@ -995,12 +995,12 @@ class ProseMirrorBridgeTest extends TestCase
             // Nested emphasis and strong are one unordered mark set in the
             // editor model, so which delimiter was outermost is not recoverable.
             'nested emphasis order' => ["/*x*/\n", 'emphasis'],
-            // A mark with no content still has no text to attach to, and the
-            // schema names a carrier for four of them - not for a highlight.
-            // The empty link and the empty span moved to the carried provider
-            // below; this one is what is left of the class, and it is reported
-            // rather than dropped in silence.
-            'empty highlight' => ["x {==} y\n", 'highlight'],
+            // An empty HIGHLIGHT used to sit here, spelled `x {==} y`. It was
+            // the last member of the no-content-and-no-carrier class that a
+            // SOURCE could still write, and carve#1447 made an empty brace pair
+            // text - so the class is now unreachable from Carve entirely. The
+            // report path it exercised is still live for a mark that arrives
+            // from an editor; there is simply no document to build it from.
         ];
     }
 
