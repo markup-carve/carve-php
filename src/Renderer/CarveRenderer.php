@@ -1782,7 +1782,12 @@ class CarveRenderer implements RendererInterface
         }
         $recorded = $node->getFenceLength();
         if ($recorded === null && !str_contains($content, "\n")) {
-            return '%% ' . $content;
+            // An empty comment writes its marker and nothing else. The inline
+            // arm below has always done this; this one appended unconditionally
+            // and produced `%% `, a trailing space on a writer-produced line
+            // that no clause asks for and that made this engine disagree with
+            // carve-js on the corpus (markup-carve/carve#1472).
+            return $content === '' ? '%%' : '%% ' . $content;
         }
 
         // A fence must be WIDER than any run of `%` inside it - a nested `%%%`
