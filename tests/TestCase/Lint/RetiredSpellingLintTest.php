@@ -73,9 +73,11 @@ class RetiredSpellingLintTest extends TestCase
         $warnings = $this->linter->lint("|{#x}< content |\n");
 
         $this->assertCount(1, $warnings);
-        $this->assertStringContainsString('`<{#x}`', $warnings[0]->message);
+        // Both spellings carry the space that ENDS a marker run (PART 9 §5
+        // T11): glued, the braces are content and neither reading applies.
+        $this->assertStringContainsString('`<{#x} `', $warnings[0]->message);
         $this->assertStringContainsString('left-aligned', $warnings[0]->message);
-        $this->assertStringContainsString('`{#x}<`', $warnings[0]->message);
+        $this->assertStringContainsString('`{#x} <`', $warnings[0]->message);
     }
 
     /**
@@ -233,11 +235,18 @@ class RetiredSpellingLintTest extends TestCase
         $converter = new CarveConverter();
 
         $retired = $converter->convert("|{#x}< content |\n");
+        $kept = $converter->convert("|{#x} < content |\n");
         $rewritten = $converter->convert("|<{#x} content |\n");
 
-        $this->assertStringContainsString('<td id="x">&lt; content</td>', $retired);
+        // The retired spelling is now a third reading of its own: with no space
+        // to end the marker run there is no block either, so the braces render
+        // (PART 9 §5 T11). That is why the message names two SPACED spellings.
+        $this->assertStringNotContainsString('id="x"', $retired);
+        $this->assertStringNotContainsString('text-align', $retired);
+        $this->assertStringContainsString('<td id="x">&lt; content</td>', $kept);
         $this->assertStringContainsString('<td id="x" style="text-align: left;">content</td>', $rewritten);
         $this->assertNotSame($retired, $rewritten);
+        $this->assertNotSame($retired, $kept);
     }
 
     /**

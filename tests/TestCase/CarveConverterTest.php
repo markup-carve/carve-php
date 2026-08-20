@@ -3825,9 +3825,9 @@ DJOT;
         $this->assertStringContainsString('\\(a\\)', $this->converter->convert('$``a``'));
     }
 
-    public function testTableHeaderMarkerStrippedEvenWhenContentStartsWithEquals(): void
+    public function testTableHeaderMarkerStrippedWhenSpacePrecedesContentStartingWithEquals(): void
     {
-        $out = $this->converter->convert("|==|\n|--|");
+        $out = $this->converter->convert("|= = |\n|--|");
         $this->assertStringContainsString('<th scope="col">=</th>', $out);
     }
 

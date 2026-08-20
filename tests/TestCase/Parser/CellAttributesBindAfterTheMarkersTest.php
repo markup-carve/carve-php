@@ -74,11 +74,12 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
      * the one released spelling this rule reinterprets, which is why it ships
      * with `table-cell-attribute-before-marker` rather than a rewrite.
      */
-    public function testTheRetiredOrderIsContent(): void
+    public function testTheRetiredOrderIsEntirelyContentWithoutATerminatingSpace(): void
     {
         $html = $this->html("|{#x}< content |\n");
 
-        $this->assertStringContainsString('<td id="x">&lt; content</td>', $html);
+        $this->assertStringContainsString('<td>{<span class="tag"><strong>#x</strong></span>}&lt; content</td>', $html);
+        $this->assertStringNotContainsString('id="x"', $html);
         $this->assertStringNotContainsString('text-align', $html);
     }
 
@@ -87,9 +88,12 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
      * content begins with `=`. Reading it as an attributed header cell is the
      * alternative T10 rejects.
      */
-    public function testTheAmbiguousShapeIsStillADataCell(): void
+    public function testTheAmbiguousShapeIsADataCellWithTheBlockAsContent(): void
     {
-        $this->assertStringContainsString('<td id="x">=R</td>', $this->html("|{#x}=R|\n"));
+        $html = $this->html("|{#x}=R|\n");
+
+        $this->assertStringContainsString('<td>{<span class="tag"><strong>#x</strong></span>}=R</td>', $html);
+        $this->assertStringNotContainsString('id="x"', $html);
     }
 
     /**
@@ -170,7 +174,8 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
     {
         $html = $this->html("|=^^ Note |= Plain |\n| a | b |\n");
 
-        $this->assertStringContainsString('<th scope="col">^^ Note</th>', $html);
+        $this->assertStringContainsString('<td>=^^ Note</td>', $html);
+        $this->assertStringNotContainsString('<th scope="col">^^ Note</th>', $html);
         $this->assertStringNotContainsString('vertical-align', $html);
     }
 
@@ -178,11 +183,11 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
     {
         $html = $this->html("|=^ Top |=v Bottom |=<^ Paired |=v> Reverse |=~> Middle |\n| a | b | c | d | e |\n");
 
-        $this->assertStringContainsString('<th scope="col">^ Top</th>', $html);
-        $this->assertStringContainsString('<th scope="col">v Bottom</th>', $html);
+        $this->assertStringContainsString('<td>=^ Top</td>', $html);
+        $this->assertStringContainsString('<td>=v Bottom</td>', $html);
         $this->assertStringContainsString('text-align: left; vertical-align: top;', $html);
-        $this->assertStringContainsString('<th scope="col">v&gt; Reverse</th>', $html);
-        $this->assertStringContainsString('<th scope="col">~&gt; Middle</th>', $html);
+        $this->assertStringContainsString('<td>=v&gt; Reverse</td>', $html);
+        $this->assertStringContainsString('<td>=~&gt; Middle</td>', $html);
     }
 
     public function testQuestionMarkInheritsOnlyHorizontalAlignment(): void

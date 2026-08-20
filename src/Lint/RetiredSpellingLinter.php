@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Lint;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\BlockParser;
 
 /**
@@ -103,9 +104,12 @@ class RetiredSpellingLinter
      */
     private function retiredOrder(TableCell $cell, string $source, ?array $byteAt): ?LintWarning
     {
-        if ($cell->getAttributes() === []) {
-            return null;
-        }
+        // NOT gated on the cell CARRYING attributes any more. Under PART 9 §5
+        // T11 the block is part of the marker run and the run ends at a space,
+        // so the retired spelling has no block at all - gating on one silently
+        // dropped the finding on the very source it exists to name, while
+        // carve-js kept reporting it from the raw text. What the source SAYS is
+        // the question, so it is read from the source below.
         $pos = $cell->getPos();
         // A cell whose content was merged from a continuation row declines a
         // position, and PART 12 §4 forbids inventing one. Without the span
@@ -122,10 +126,15 @@ class RetiredSpellingLinter
         if (($raw[0] ?? '') !== '{') {
             return null;
         }
-        $close = strpos($raw, '}');
-        if ($close === false) {
+        // The payload must be a VALID attribute block, asked the way the parser
+        // asks it: an invalid one (`{not attrs!}`) was never a block in either
+        // order, so there is no retired spelling to report. Reading to the first
+        // `}` instead reported it, and truncated a quoted `}` in a value.
+        $blockEnd = (new TableParser())->cellAttrBlockEnd($raw, 0);
+        if ($blockEnd === null) {
             return null;
         }
+        $close = $blockEnd - 1;
         $sigil = $raw[$close + 1] ?? '';
         $alignment = BlockParser::TABLE_ALIGNMENT_MARKERS[$sigil] ?? null;
         if ($alignment === null) {
@@ -140,8 +149,10 @@ class RetiredSpellingLinter
             rule: self::RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER,
             message: sprintf(
                 'The `%s` after this cell\'s attribute block is content, not alignment: '
-                    . 'a cell\'s attributes bind after its markers. Write `%s%s` for a %s cell, '
-                    . 'or leave `%s%s` as a literal `%s`.',
+                    . 'a cell\'s attributes bind after its markers, and the block is part of '
+                    . 'the marker run, which ends at a space - so glued like this the braces '
+                    . 'are content too and the cell is neither attributed nor aligned. '
+                    . 'Write `%s%s ` for a %s cell, or `%s %s` to keep the `%s` as content.',
                 $sigil,
                 $sigil,
                 $block,

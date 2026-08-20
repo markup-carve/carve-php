@@ -59,7 +59,7 @@ class AJoinedRowsUntouchedCellKeepsItsPositionTest extends TestCase
      */
     public function testTheUntouchedHeaderCellsTextIsPlaced(): void
     {
-        $source = "|=a |=b |\n+ cont |\n";
+        $source = "|= a |= b |\n+ cont |\n";
         $cells = $this->cells($this->parse($source));
         $text = $cells[1]->getChildren()[0];
 
@@ -143,7 +143,7 @@ class AJoinedRowsUntouchedCellKeepsItsPositionTest extends TestCase
      */
     public function testTheJoinedCellItselfStaysUnplaced(): void
     {
-        $cells = $this->cells($this->parse("|=a |=b |\n+ cont |\n"));
+        $cells = $this->cells($this->parse("|= a |= b |\n+ cont |\n"));
         $text = $cells[0]->getChildren()[0];
 
         $this->assertInstanceOf(Text::class, $text);
@@ -157,7 +157,7 @@ class AJoinedRowsUntouchedCellKeepsItsPositionTest extends TestCase
      */
     public function testAPlainHeaderRowIsUnaffected(): void
     {
-        $source = "|=a |=b |\n";
+        $source = "|= a |= b |\n";
         $cells = $this->cells($this->parse($source));
 
         foreach ($cells as $index => $cell) {

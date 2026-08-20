@@ -205,7 +205,7 @@ class CrossImplementationDivergenceTest extends TestCase
 
     public function testHeaderRowspanIsRaggedInTextAndPaddedInAnsi(): void
     {
-        $source = "|=A|\n|^|x|";
+        $source = "|= A |\n|^|x|";
 
         $this->assertSame("| A |\n| --- |\n|  | x |\n", CarveConverter::markdown()->convert($source));
         $this->assertSame("A\n | x\n", CarveConverter::plainText()->convert($source));

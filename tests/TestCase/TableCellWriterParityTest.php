@@ -37,7 +37,7 @@ class TableCellWriterParityTest extends TestCase
 
         yield 'attribute before content that starts with equals' => [
             "|{#x}=R|\n",
-            "|{#x} =R |\n",
+            "| {#x}=R |\n",
         ];
 
         yield 'body alignment and attributes' => [
