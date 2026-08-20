@@ -54,6 +54,16 @@ class ATableCellSMarkerRunEndsAtASpaceTest extends TestCase
                 "<td>=\th</td>",
                 ['<th'],
             ],
+            'an unclosed brace after the marker is no block, and no run' => [
+                "|={.x a |\n",
+                '<td>={.x a</td>',
+                ['<th'],
+            ],
+            'an empty payload after the marker is no block either' => [
+                "|={} a |\n",
+                '<td>={} a</td>',
+                ['<th'],
+            ],
             'a cell with no run is unchanged' => [
                 "| a |\n",
                 '<td>a</td>',
