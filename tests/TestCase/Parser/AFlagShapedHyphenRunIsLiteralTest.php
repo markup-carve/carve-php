@@ -37,10 +37,12 @@ class AFlagShapedHyphenRunIsLiteralTest extends TestCase
             'long flag mid-sentence' => ["git log --oneline\n", "<p>git log --oneline</p>\n"],
             'long flag with hyphens in the name' => ["use --force-with-lease\n", "<p>use --force-with-lease</p>\n"],
             'flag at the start of the content' => ["--force x\n", "<p>--force x</p>\n"],
-            // Declining the run one hyphen at a time left `-->` as a stray `-`
-            // plus a live `->` symbol, which rendered a rightwards arrow. The
-            // whole run is consumed as text.
-            'the closing half of an HTML comment' => ["x -->\n", "<p>x --&gt;</p>\n"],
+            // `-->` is the CANONICAL rightwards arrow since markup-carve/carve#1442,
+            // and an arrow is matched before a hyphen run is decomposed - so this
+            // clause never reaches it. The ruling is deliberate: guarding `-->`
+            // for the HTML-comment context would put a context-sensitive
+            // exception into a set whose whole argument is that it has none.
+            'the closing half of an HTML comment is an arrow' => ["x -->\n", "<p>x \u{2192}</p>\n"],
             'a longer run keeps every hyphen' => ["x ---foo\n", "<p>x ---foo</p>\n"],
         ];
     }
@@ -71,9 +73,11 @@ class AFlagShapedHyphenRunIsLiteralTest extends TestCase
             // The corpus pins this one, and it is the case that kills a rule
             // requiring the two sides to match in kind.
             'mixed run lengths' => ["a---- b----- c------\n", "<p>a\u{2013}\u{2013} b\u{2014}\u{2013} c\u{2014}\u{2014}</p>\n"],
-            // Half repaired, and stated: the opening run is preceded by `!`
-            // rather than whitespace, so it still converts.
-            'html comment' => ["<!-- c -->\n", "<p>&lt;!\u{2013} c --&gt;</p>\n"],
+            // NEITHER half survives, and each is lost to a different rule: the
+            // opening run is preceded by `!` rather than whitespace, so this
+            // clause does not reach it and it converts to a dash; the closing run
+            // is the canonical rightwards arrow (markup-carve/carve#1442).
+            'html comment' => ["<!-- c -->\n", "<p>&lt;!\u{2013} c \u{2192}</p>\n"],
         ];
     }
 
