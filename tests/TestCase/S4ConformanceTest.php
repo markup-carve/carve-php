@@ -93,29 +93,32 @@ class S4ConformanceTest extends TestCase
 
     public function testGluedCellAttributesMatchInlineSourceOrderAndEdges(): void
     {
-        $row1 = fn (string $src): string => explode("\n", $this->c->convert($src))[1];
+        // The header ROW line. Line 1 is now `  <thead>` on its own - every
+        // section writes one row per line since markup-carve/carve#1459 - so
+        // the row this case is about moved down one.
+        $row1 = fn (string $src): string => explode("\n", $this->c->convert($src))[2];
         // glued `{...}` after the pipe sets the cell's attributes (source order).
         $this->assertSame(
-            '  <thead><tr><th scope="col" id="id" class="a" key="v">hi</th><th scope="col">b</th></tr></thead>',
+            '    <tr><th scope="col" id="id" class="a" key="v">hi</th><th scope="col">b</th></tr>',
             $row1("|{#id .a key=v} hi | b |\n|---|---|\n| c | d |"),
         );
         // a SPACE before the brace is literal content.
         $this->assertSame(
-            '  <thead><tr><th scope="col">{.x} hi</th><th scope="col">b</th></tr></thead>',
+            '    <tr><th scope="col">{.x} hi</th><th scope="col">b</th></tr>',
             $row1("| {.x} hi | b |\n|---|---|\n| c | d |"),
         );
         // quoted brace in a value; partial-invalid stays literal; attributed
         // cell is never a bare span marker.
         $this->assertSame(
-            '  <thead><tr><th scope="col" key="{y}">hi</th><th scope="col">b</th></tr></thead>',
+            '    <tr><th scope="col" key="{y}">hi</th><th scope="col">b</th></tr>',
             $row1("|{key=\"{y}\"} hi | b |\n|---|---|\n| c | d |"),
         );
         $this->assertSame(
-            '  <thead><tr><th scope="col">{.x 1bad} hi</th><th scope="col">b</th></tr></thead>',
+            '    <tr><th scope="col">{.x 1bad} hi</th><th scope="col">b</th></tr>',
             $row1("|{.x 1bad} hi | b |\n|---|---|\n| c | d |"),
         );
         $this->assertSame(
-            '  <thead><tr><th scope="col" class="x">&lt;</th><th scope="col">b</th></tr></thead>',
+            '    <tr><th scope="col" class="x">&lt;</th><th scope="col">b</th></tr>',
             $row1("|{.x} < | b |\n|---|---|\n| c | d |"),
         );
         // an attributed cell never makes the row a Carve all-`=` header row.

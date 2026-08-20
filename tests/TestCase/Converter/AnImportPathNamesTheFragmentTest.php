@@ -140,7 +140,7 @@ class AnImportPathNamesTheFragmentTest extends TestCase
         // A `<tfoot>` written between the head and the body keeps the number
         // its position gives it, rather than the one the rendered order would.
         $html = '<table><thead><tr><th>h</th></tr></thead>'
-            . '<tfoot><tr><td onclick="x()">f</td></tr></tfoot>'
+            . "<tfoot>\n    <tr><td onclick=\"x()\">f</td></tr>\n  </tfoot>"
             . '<tbody><tr><td>b</td></tr></tbody></table>';
 
         $this->assertContains('/table[1]/tr[2]/td[1]', $this->paths($html));

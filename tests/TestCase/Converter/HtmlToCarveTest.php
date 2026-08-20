@@ -654,7 +654,9 @@ class HtmlToCarveTest extends TestCase
     {
         $html = <<<'HTML'
 <table>
-<thead><tr><th>Name</th><th>Age</th></tr></thead>
+<thead>
+  <tr><th>Name</th><th>Age</th></tr>
+</thead>
 <tbody><tr><td>Alice</td><td>30</td></tr></tbody>
 </table>
 HTML;
@@ -857,7 +859,9 @@ HTML;
         $html = <<<'HTML'
 <table>
 <caption>Monthly Sales Data</caption>
-<thead><tr><th>Month</th><th>Sales</th></tr></thead>
+<thead>
+  <tr><th>Month</th><th>Sales</th></tr>
+</thead>
 <tbody><tr><td>Jan</td><td>100</td></tr></tbody>
 </table>
 HTML;
@@ -2525,7 +2529,9 @@ DJOT;
     {
         $html = <<<'HTML'
 <table>
-<thead><tr><th colspan="2">Header</th><th>Other</th></tr></thead>
+<thead>
+  <tr><th colspan="2">Header</th><th>Other</th></tr>
+</thead>
 <tbody><tr><td>A</td><td>B</td><td>C</td></tr></tbody>
 </table>
 HTML;
@@ -2542,7 +2548,9 @@ HTML;
     {
         $html = <<<'HTML'
 <table>
-<thead><tr><th colspan="2">Header</th><th>Other</th></tr></thead>
+<thead>
+  <tr><th colspan="2">Header</th><th>Other</th></tr>
+</thead>
 <tbody><tr><td>A</td><td>B</td><td>C</td></tr></tbody>
 </table>
 HTML;
@@ -2559,7 +2567,9 @@ HTML;
     {
         $html = <<<'HTML'
 <table>
-<thead><tr><th>A</th><th>B</th></tr></thead>
+<thead>
+  <tr><th>A</th><th>B</th></tr>
+</thead>
 <tbody>
 <tr><td rowspan="2">X</td><td>1</td></tr>
 <tr><td>2</td></tr>
@@ -2579,7 +2589,9 @@ HTML;
     {
         $html = <<<'HTML'
 <table>
-<thead><tr><th>A</th><th>B</th></tr></thead>
+<thead>
+  <tr><th>A</th><th>B</th></tr>
+</thead>
 <tbody>
 <tr><td rowspan="2">X</td><td>1</td></tr>
 <tr><td>2</td></tr>
@@ -2599,7 +2611,9 @@ HTML;
     {
         $html = <<<'HTML'
 <table>
-<thead><tr><th>H1</th><th>H2</th><th>H3</th></tr></thead>
+<thead>
+  <tr><th>H1</th><th>H2</th><th>H3</th></tr>
+</thead>
 <tbody>
 <tr><td rowspan="2" colspan="2">A</td><td>B</td></tr>
 <tr><td>C</td></tr>

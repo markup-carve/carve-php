@@ -1887,12 +1887,16 @@ class HtmlRenderer implements RendererInterface
             return '<tr' . $this->renderAttributes($row) . '>' . $cells . '</tr>';
         };
 
+        // A ROW IS A ROW, IN EVERY SECTION (PART 10 §7,
+        // markup-carve/carve#1459). `thead` and `tfoot` used to put their rows
+        // on the section's own line while `tbody` gave each row a line, and
+        // nothing said why one element had two layouts.
         if ($headerRowCount > 0) {
             $thead = '';
             for ($i = 0; $i < $headerRowCount; $i++) {
-                $thead .= $renderRow($tableRows[$i], $grid[$i], true, true);
+                $thead .= '    ' . $renderRow($tableRows[$i], $grid[$i], true, true) . "\n";
             }
-            $lines[] = '  <thead>' . $thead . '</thead>';
+            $lines[] = "  <thead>\n" . rtrim($thead, "\n") . "\n  </thead>";
         }
 
         $tableRowCount = count($tableRows);
@@ -1907,9 +1911,9 @@ class HtmlRenderer implements RendererInterface
         if ($footerStart < $tableRowCount) {
             $tfoot = '';
             for ($i = $footerStart; $i < $tableRowCount; $i++) {
-                $tfoot .= $renderRow($tableRows[$i], $grid[$i]);
+                $tfoot .= '    ' . $renderRow($tableRows[$i], $grid[$i]) . "\n";
             }
-            $lines[] = '  <tfoot>' . $tfoot . '</tfoot>';
+            $lines[] = "  <tfoot>\n" . rtrim($tfoot, "\n") . "\n  </tfoot>";
         }
 
         return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";

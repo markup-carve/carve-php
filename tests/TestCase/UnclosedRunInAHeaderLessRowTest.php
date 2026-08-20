@@ -111,7 +111,9 @@ class UnclosedRunInAHeaderLessRowTest extends TestCase
     {
         $expected = <<<'HTML'
         <table>
-          <thead><tr><th scope="col">a</th><th scope="col">b</th></tr></thead>
+          <thead>
+            <tr><th scope="col">a</th><th scope="col">b</th></tr>
+          </thead>
           <tbody>
             <tr><td>x</td><td>y</td></tr>
           </tbody>

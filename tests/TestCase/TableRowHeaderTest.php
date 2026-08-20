@@ -25,7 +25,7 @@ class TableRowHeaderTest extends TestCase
     {
         $html = $this->converter->convert("|= A |= B |\n|= R | 1 |");
 
-        $this->assertStringContainsString('<thead><tr><th scope="col">A</th><th scope="col">B</th></tr></thead>', $html);
+        $this->assertStringContainsString("<thead>\n    <tr><th scope=\"col\">A</th><th scope=\"col\">B</th></tr>\n  </thead>", $html);
         // The row header is a <th>, the rest of the row stays <td>, and the row
         // is still part of <tbody> (it is not promoted into <thead>).
         $this->assertStringContainsString('<tbody>', $html);
@@ -38,7 +38,7 @@ class TableRowHeaderTest extends TestCase
         // header must not be pulled into <thead>.
         $html = $this->converter->convert("|= A |= B |\n|= R1 | 1 |\n|= R2 | 2 |");
 
-        $this->assertStringContainsString('<thead><tr><th scope="col">A</th><th scope="col">B</th></tr></thead>', $html);
+        $this->assertStringContainsString("<thead>\n    <tr><th scope=\"col\">A</th><th scope=\"col\">B</th></tr>\n  </thead>", $html);
         $this->assertStringContainsString('<tr><th scope="row">R1</th><td>1</td></tr>', $html);
         $this->assertStringContainsString('<tr><th scope="row">R2</th><td>2</td></tr>', $html);
     }
