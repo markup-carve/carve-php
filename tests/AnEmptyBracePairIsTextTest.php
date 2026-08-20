@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -123,8 +124,30 @@ class AnEmptyBracePairIsTextTest extends TestCase
         $this->assertSame('<p><code>{--}</code></p>', $this->html("`{--}`\n"));
     }
 
+    public function testTheBracedPairIsTheSameNodeTheBareRunProduces(): void
+    {
+        // Not a glyph in a text run: `fmt` preserves `--` and `...` because
+        // they are smart_punctuation carrying the authored spelling, and the
+        // braced form is a second spelling of the same kind rather than a
+        // second construct. Written as a Text node it also could not be PLACED
+        // -- placeAt checks a Text against its own source, and that one held a
+        // glyph the source does not -- so PART 12 conformance reported the
+        // node as having no position.
+        $converter = new CarveConverter();
+        $converter->getParser()->enablePositionTracking();
+        $document = $converter->parse("a {--} b\n");
+        $inlines = $document->getChildren()[0]->getChildren();
+        $node = $inlines[1];
+
+        $this->assertInstanceOf(SmartPunctuation::class, $node);
+        $this->assertSame('en_dash', $node->getKind());
+        $this->assertSame('{--}', $node->getContent());
+        $this->assertNotNull($node->getPos());
+    }
+
     public function testTheWriterRoundTrips(): void
     {
+        $this->assertSame("a {--} b\n", $this->converter->toCarve("a {--} b\n"));
         foreach (["a {--} b\n", "{--}start\n", "{---} and {-x-}\n"] as $source) {
             $this->assertSame(
                 $this->html($source),
