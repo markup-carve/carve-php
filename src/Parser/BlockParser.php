@@ -46,6 +46,7 @@ use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Block\ListParser;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\BlockSkeletonWork;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
@@ -344,6 +345,8 @@ class BlockParser
     protected FencedBlockParser $fencedBlockParser;
 
     protected ReferenceDefinitionExtractor $referenceDefinitionExtractor;
+
+    private ?BlockSkeletonBuilder $blockSkeletonBuilder = null;
 
     /**
      * Remaining source bytes available to the parser-backed definition probe.
@@ -973,6 +976,10 @@ class BlockParser
         // the smaller of the two numbers.
         $input = StringUtil::toValidUtf8($input);
         $this->resetParseState();
+        $this->blockSkeletonBuilder = BlockSkeletonWork::$on ? new BlockSkeletonBuilder() : null;
+        if (BlockSkeletonWork::$on) {
+            BlockSkeletonWork::reset();
+        }
         $document = new Document();
         // Strip a single leading UTF-8 BOM (U+FEFF) at the document start so
         // `﻿# T` is a heading, not literal text. Root only: this is the
@@ -1122,6 +1129,11 @@ class BlockParser
         // Record the source byte length so renderers can size the
         // abbreviation-expansion budget (output-amplification DoS guard).
         $document->setSourceLength($sourceLength);
+
+        if ($this->blockSkeletonBuilder !== null) {
+            BlockSkeletonWork::$last = $this->blockSkeletonBuilder->build();
+            $this->blockSkeletonBuilder = null;
+        }
 
         return $document;
     }
@@ -2839,6 +2851,7 @@ class BlockParser
      */
     protected function parseBlocks(Node $parent, array $lines, int $indent, ?array $lineMap = null, bool $topLevel = false): void
     {
+        $layoutFrame = $this->blockSkeletonBuilder?->beginFrame(count($lines));
         if ($this->nestingDepth >= self::MAX_NESTING_DEPTH) {
             // PART 9 §25: past the cap an opener degrades to ORDINARY PARAGRAPH
             // TEXT, and therefore groups by the ordinary paragraph rule -
@@ -2899,7 +2912,7 @@ class BlockParser
         $this->blockQuoteCommentCloserIndex = null;
         $this->fenceCloserIndexCache = null;
         try {
-            $this->parseBlocksImpl($parent, $lines, $indent, $topLevel);
+            $this->parseBlocksImpl($parent, $lines, $indent, $topLevel, $layoutFrame);
         } finally {
             $this->currentLineMap = $previousLineMap;
             $this->currentContentColumns = $previousContentColumns;
@@ -3135,9 +3148,15 @@ class BlockParser
      * @param array<string> $lines
      * @param int $indent
      * @param bool $topLevel
+     * @param int|null $layoutFrame
      */
-    private function parseBlocksImpl(Node $parent, array $lines, int $indent, bool $topLevel = false): void
-    {
+    private function parseBlocksImpl(
+        Node $parent,
+        array $lines,
+        int $indent,
+        bool $topLevel = false,
+        ?int $layoutFrame = null,
+    ): void {
         $i = 0;
         $count = count($lines);
 
@@ -3154,6 +3173,7 @@ class BlockParser
             // Try to parse block attributes first
             $attrConsumed = $this->tryParseBlockAttributes($lines, $i);
             if ($attrConsumed !== null) {
+                $this->recordBlockLayout($layoutFrame, $i, $attrConsumed, 'attributes');
                 $i += $attrConsumed;
 
                 continue;
@@ -3164,7 +3184,9 @@ class BlockParser
             // stamped with `data-source-line` after the dispatch below.
             $sourceLine = $this->sourceLineFor($i);
             $tracking = $this->trackSourceLines || $this->trackPositions;
-            $childrenBefore = ($tracking && $sourceLine >= 0) ? count($parent->getChildren()) : -1;
+            $childrenBefore = (($tracking || $layoutFrame !== null) && $sourceLine >= 0)
+                ? count($parent->getChildren())
+                : -1;
 
             // A bare `---` at the very start of the document is ambiguous between
             // a thematic break and the opening of bare frontmatter (`---\n…\n---`).
@@ -3184,6 +3206,7 @@ class BlockParser
                         $sourceLine,
                         $matchConsumed > 0 ? $this->sourceLineFor($i + $matchConsumed - 1) : $sourceLine,
                     );
+                    $this->recordBlockLayout($layoutFrame, $i, $matchConsumed, 'matcher');
                     $i += $matchConsumed;
 
                     continue;
@@ -3207,6 +3230,7 @@ class BlockParser
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
                 $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                $this->recordBlockLayoutFromNode($layoutFrame, $i, $consumed, $parent, $childrenBefore);
                 $i += $consumed;
 
                 continue;
@@ -3222,6 +3246,7 @@ class BlockParser
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
                 $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                $this->recordBlockLayoutFromNode($layoutFrame, $i, $consumed, $parent, $childrenBefore);
                 $i += $consumed;
 
                 continue;
@@ -3232,6 +3257,7 @@ class BlockParser
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
                 $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                $this->recordBlockLayoutFromNode($layoutFrame, $i, $consumed, $parent, $childrenBefore);
                 $i += $consumed;
 
                 continue;
@@ -3268,6 +3294,7 @@ class BlockParser
                         $sourceLine,
                         $matchConsumed > 0 ? $this->sourceLineFor($i + $matchConsumed - 1) : $sourceLine,
                     );
+                    $this->recordBlockLayout($layoutFrame, $i, $matchConsumed, 'matcher');
                     $i += $matchConsumed;
 
                     continue;
@@ -3285,8 +3312,45 @@ class BlockParser
                 $sourceLine,
                 $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
             );
+            $this->recordBlockLayoutFromNode($layoutFrame, $i, $consumed, $parent, $childrenBefore);
             $i += $consumed;
         }
+    }
+
+    private function recordBlockLayout(?int $frame, int $start, int $consumed, string $family): void
+    {
+        if ($frame === null || $consumed < 1) {
+            return;
+        }
+
+        $sourceLine = $this->sourceLineFor($start);
+        $this->blockSkeletonBuilder?->append(
+            $frame,
+            new BlockLayoutEvent(
+                $start,
+                $consumed,
+                $family,
+                sourceLine: $sourceLine >= 0 ? $sourceLine : null,
+            ),
+        );
+    }
+
+    private function recordBlockLayoutFromNode(
+        ?int $frame,
+        int $start,
+        int $consumed,
+        Node $parent,
+        int $childrenBefore,
+    ): void {
+        $family = 'consumed';
+        if ($childrenBefore >= 0) {
+            $children = $parent->getChildren();
+            $child = $children[$childrenBefore] ?? null;
+            if ($child !== null) {
+                $family = $child->getType();
+            }
+        }
+        $this->recordBlockLayout($frame, $start, $consumed, $family);
     }
 
     private function sourceLineFor(int $index): int
