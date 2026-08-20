@@ -202,9 +202,21 @@ class TableCellPaddingSlotsTakeASpaceTest extends TestCase
                 "<td>{$lead}\u{2014}</td>",
                 '<thead>',
             ];
+            /*
+             * The dash spelling is DERIVED, because PART 9 §8 reads the
+             * character right after the run: a hyphen run preceded by
+             * whitespace and followed by a NON-whitespace character is a flag
+             * and stays literal (markup-carve/carve#1443). A vertical tab and a
+             * form feed are content, so those two rows keep their hyphens where
+             * the tab rows get an em dash. Writing one spelling for all five
+             * rows would assert the old rule in three of them.
+             */
+            $follows = $run[0];
+            $dashes = $follows === ' ' || $follows === "\t" ? "\u{2014}" : '---';
+
             $rows["delimiter cell, trailing slot, {$runName}"] = [
                 "| a | b |\n| ---{$run}| --- |\n| 1 | 2 |\n",
-                "<td>\u{2014}{$trail}</td>",
+                "<td>{$dashes}{$trail}</td>",
                 '<thead>',
             ];
             $rows["rowspan marker, leading slot, {$runName}"] = [

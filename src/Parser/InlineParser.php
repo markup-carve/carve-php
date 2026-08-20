@@ -1402,9 +1402,14 @@ class InlineParser
         $result = $this->parseSmartDash($text, $pos);
         $glyphs = $result['text'];
 
-        if ($glyphs === '-') {
-            $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 1);
-            $textBuffer .= '-';
+        // A run that stays literal comes back as the hyphens themselves: a lone
+        // `-`, or a flag-shaped run (PART 9 §8, markup-carve/carve#1443). It
+        // joins the text buffer as one piece rather than being declined a byte
+        // at a time - declining left `-->` as a stray `-` plus a live `->`
+        // symbol, and the flag rendered `-` followed by a rightwards arrow.
+        if ($glyphs !== '' && $glyphs[0] === '-') {
+            $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: strlen($glyphs));
+            $textBuffer .= $glyphs;
             $pos = $result['pos'];
 
             return true;
@@ -3626,6 +3631,64 @@ class InlineParser
     }
 
     /**
+     * The whole UTF-8 character ending at $pos, or '' at the start of the text.
+     *
+     * Byte-wise would be enough for the ASCII spaces, but the flanking test
+     * asks "does a space stand here" and a NO-BREAK SPACE is a space to the
+     * reader; reading one byte of it would answer with a continuation byte.
+     */
+    protected function characterBefore(string $text, int $pos): string
+    {
+        if ($pos <= 0) {
+            return '';
+        }
+
+        $start = $pos - 1;
+        while ($start > 0 && (ord($text[$start]) & 0xC0) === 0x80) {
+            $start--;
+        }
+
+        return substr($text, $start, $pos - $start);
+    }
+
+    /**
+     * The whole UTF-8 character beginning at $pos, or '' at the end of the text.
+     */
+    protected function characterAt(string $text, int $pos): string
+    {
+        if ($pos >= strlen($text)) {
+            return '';
+        }
+
+        $length = strlen($text);
+        $end = $pos + 1;
+        while ($end < $length && (ord($text[$end]) & 0xC0) === 0x80) {
+            $end++;
+        }
+
+        return substr($text, $pos, $end - $pos);
+    }
+
+    /**
+     * The whitespace class the hyphen-run flanking rule reads: PART 7's four
+     * characters plus the NO-BREAK SPACE.
+     *
+     * NOT any of the three classes PHP offers. PCRE `\s` and `ctype_space()`
+     * both take a VERTICAL TAB and a FORM FEED, which Carve reads as CONTENT -
+     * spelled that way, `---<VT>` converted while `---!` stayed literal, and
+     * {@see \MarkupCarve\Carve\Test\TestCase\Parser\OneWhitespaceDefinitionInTheRemainingConstructsTest}
+     * is the sweep that says those two must agree.
+     */
+    protected function isSpaceCharacter(string $character): bool
+    {
+        return $character === ' '
+            || $character === "\t"
+            || $character === "\n"
+            || $character === "\r"
+            || $character === "\u{00a0}";
+    }
+
+    /**
      * @return array{text: string, pos: int}
      */
     protected function parseSmartDash(string $text, int $pos): array
@@ -3647,6 +3710,28 @@ class InlineParser
         if ($dashCount === 1) {
             return [
                 'text' => '-',
+                'pos' => $pos + $dashCount,
+            ];
+        }
+
+        // PART 9 §8 (markup-carve/carve#1443): a run PRECEDED by whitespace (or
+        // the start of the content) and FOLLOWED by a non-whitespace character
+        // is a long CLI flag, not a dash, and stays literal. `git log
+        // --oneline` rendered an en dash before `oneline` - silently, and in
+        // the rendered output only.
+        //
+        // Only that one shape is excluded. `pages 1--10`, `the Mon--Fri
+        // window` and a trailing `text --` are left-flanked by a word or
+        // right-flanked by space, and every one of them still converts.
+        $before = $this->characterBefore($text, $pos);
+        $after = $this->characterAt($text, $pos + $dashCount);
+        if (
+            ($before === '' || $this->isSpaceCharacter($before))
+            && $after !== ''
+            && !$this->isSpaceCharacter($after)
+        ) {
+            return [
+                'text' => str_repeat('-', $dashCount),
                 'pos' => $pos + $dashCount,
             ];
         }
