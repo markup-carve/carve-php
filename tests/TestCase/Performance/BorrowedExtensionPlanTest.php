@@ -70,6 +70,8 @@ CRV;
             'headingPermalinks' => null,
             'externalLinks' => null,
             'lowercaseIds' => false,
+            'mathBlockLanguage' => null,
+            'collectHeadings' => false,
         ], $plan);
 
         $attempt = (new BorrowedHtmlLayout())->render(self::SOURCE, false, $plan);
@@ -108,6 +110,33 @@ CRV;
         $attempt = (new BorrowedHtmlLayout())->render(self::SOURCE, false, $plan);
         self::assertNotNull($attempt);
         self::assertSame($this->authoritative($extensions)->convert(self::SOURCE), $attempt['html']);
+    }
+
+    public function testCustomMathFenceEventRemainsExact(): void
+    {
+        $source = "```latex\na < b & c > d\n```\n";
+        $extension = new MathBlockExtension(language: 'latex');
+        $plan = BorrowedExtensionPlan::compile([$extension], $source);
+        self::assertNotNull($plan);
+        self::assertNotNull((new BorrowedHtmlLayout())->render($source, false, $plan));
+
+        $fast = new CarveConverter();
+        $fast->addExtension($extension);
+        self::assertSame($this->authoritative([new MathBlockExtension(language: 'latex')])->convert($source), $fast->convert($source));
+    }
+
+    public function testManualTocStateIsCommittedOnlyAfterBorrowedAcceptance(): void
+    {
+        $source = "# A\n\n## Child\n\n# a\n";
+        $fastToc = new TableOfContentsExtension(listType: 'ol', collapsible: true, summary: 'Contents', open: true);
+        $fast = new CarveConverter();
+        $fast->addExtensions([$fastToc, new LowercaseHeadingIdsExtension()]);
+
+        $slowToc = new TableOfContentsExtension(listType: 'ol', collapsible: true, summary: 'Contents', open: true);
+        $slow = $this->authoritative([$slowToc, new LowercaseHeadingIdsExtension()]);
+        self::assertSame($slow->convert($source), $fast->convert($source));
+        self::assertSame($slowToc->getToc(), $fastToc->getToc());
+        self::assertSame($slowToc->getTocHtml(), $fastToc->getTocHtml());
     }
 
     public function testHeadingEventsPreserveNumberingAndCaseCollisionSemantics(): void

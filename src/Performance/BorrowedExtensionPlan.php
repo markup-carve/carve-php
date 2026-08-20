@@ -9,6 +9,8 @@ use MarkupCarve\Carve\Extension\ExternalLinksExtension;
 use MarkupCarve\Carve\Extension\HeadingNumbersExtension;
 use MarkupCarve\Carve\Extension\HeadingPermalinksExtension;
 use MarkupCarve\Carve\Extension\LowercaseHeadingIdsExtension;
+use MarkupCarve\Carve\Extension\MathBlockExtension;
+use MarkupCarve\Carve\Extension\TableOfContentsExtension;
 
 /**
  * Compiler from configured extensions to borrowed-layout events.
@@ -25,12 +27,21 @@ final class BorrowedExtensionPlan
      *   headingNumbers: array{minLevel: int}|null,
      *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
      *   externalLinks: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
-     *   lowercaseIds: bool
+     *   lowercaseIds: bool,
+     *   mathBlockLanguage: string|null,
+     *   collectHeadings: bool
      * }|null
      */
     public static function compile(array $extensions, string $source): ?array
     {
-        $plan = ['headingNumbers' => null, 'headingPermalinks' => null, 'externalLinks' => null, 'lowercaseIds' => false];
+        $plan = [
+            'headingNumbers' => null,
+            'headingPermalinks' => null,
+            'externalLinks' => null,
+            'lowercaseIds' => false,
+            'mathBlockLanguage' => null,
+            'collectHeadings' => false,
+        ];
         foreach ($extensions as $extension) {
             $class = $extension::class;
             if (isset(self::EVENTS[$class])) {
@@ -54,6 +65,8 @@ final class BorrowedExtensionPlan
         'MarkupCarve\\Carve\\Extension\\HeadingPermalinksExtension' => 'headingPermalinks',
         'MarkupCarve\\Carve\\Extension\\ExternalLinksExtension' => 'externalLinks',
         'MarkupCarve\\Carve\\Extension\\LowercaseHeadingIdsExtension' => 'lowercaseIds',
+        'MarkupCarve\\Carve\\Extension\\MathBlockExtension' => 'mathBlockLanguage',
+        'MarkupCarve\\Carve\\Extension\\TableOfContentsExtension' => 'collectHeadings',
     ];
 
     private static function inactive(string $class, string $source): bool
@@ -74,13 +87,10 @@ final class BorrowedExtensionPlan
                 !str_contains($source, ':term[') && !str_contains($source, '::: glossary'),
             'MarkupCarve\\Carve\\Extension\\IndexExtension' => !str_contains($source, ':index['),
             'MarkupCarve\\Carve\\Extension\\CodeGroupExtension' => !str_contains($source, '::: code-group'),
-            'MarkupCarve\\Carve\\Extension\\TableOfContentsExtension' => !str_contains($source, '::: toc'),
             'MarkupCarve\\Carve\\Extension\\WikilinksExtension' => !str_contains($source, '[['),
             'MarkupCarve\\Carve\\Extension\\ColorSwatchExtension' => !str_contains($source, ':color['),
             // BorrowedHtmlLayout already rejects non-ASCII source.
             'MarkupCarve\\Carve\\Extension\\AsciiHeadingIdsExtension' => true,
-            'MarkupCarve\\Carve\\Extension\\MathBlockExtension' =>
-                preg_match('/(?:^|\n)`{3,}math(?:\s|$)/', $source) !== 1,
             default => false,
         };
     }
@@ -90,7 +100,9 @@ final class BorrowedExtensionPlan
      *   headingNumbers: array{minLevel: int}|null,
      *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
      *   externalLinks: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
-     *   lowercaseIds: bool
+     *   lowercaseIds: bool,
+     *   mathBlockLanguage: string|null,
+     *   collectHeadings: bool
      * } $plan
      * @param \MarkupCarve\Carve\Extension\ExtensionInterface $extension
      */
@@ -104,6 +116,25 @@ final class BorrowedExtensionPlan
             $plan['externalLinks'] = $extension->borrowedHtmlConfiguration();
         } elseif ($extension instanceof LowercaseHeadingIdsExtension) {
             $plan['lowercaseIds'] = true;
+        } elseif ($extension instanceof MathBlockExtension) {
+            $plan['mathBlockLanguage'] = $extension->borrowedHtmlLanguage();
+        } elseif ($extension instanceof TableOfContentsExtension) {
+            $plan['collectHeadings'] = true;
+        }
+    }
+
+    /**
+     * Publish stateful borrowed events only after the whole document was accepted.
+     *
+     * @param array<\MarkupCarve\Carve\Extension\ExtensionInterface> $extensions
+     * @param list<array{level: int, text: string, html: string, id: string}> $headings
+     */
+    public static function commit(array $extensions, array $headings): void
+    {
+        foreach ($extensions as $extension) {
+            if ($extension instanceof TableOfContentsExtension) {
+                $extension->acceptBorrowedHeadings($headings);
+            }
         }
     }
 

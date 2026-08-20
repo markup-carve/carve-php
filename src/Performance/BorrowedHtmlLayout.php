@@ -21,10 +21,24 @@ final class BorrowedHtmlLayout
      *   headingNumbers: array{minLevel: int}|null,
      *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
      *   externalLinks: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
-     *   lowercaseIds: bool
+     *   lowercaseIds: bool,
+     *   mathBlockLanguage: string|null,
+     *   collectHeadings: bool
      * }
      */
-    private array $events = ['headingNumbers' => null, 'headingPermalinks' => null, 'externalLinks' => null, 'lowercaseIds' => false];
+    private array $events = [
+        'headingNumbers' => null,
+        'headingPermalinks' => null,
+        'externalLinks' => null,
+        'lowercaseIds' => false,
+        'mathBlockLanguage' => null,
+        'collectHeadings' => false,
+    ];
+
+    /**
+     * @var list<array{level: int, text: string, html: string, id: string}>
+     */
+    private array $headings = [];
 
     /**
      * @var list<int>
@@ -48,17 +62,27 @@ final class BorrowedHtmlLayout
      *   headingNumbers?: array{minLevel: int}|null,
      *   headingPermalinks?: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
      *   externalLinks?: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
-     *   lowercaseIds?: bool
+     *   lowercaseIds?: bool,
+     *   mathBlockLanguage?: string|null,
+     *   collectHeadings?: bool
      * } $events
      *
-     * @return array{html: string, accepted: array<string, int>}|null
+     * @return array{html: string, accepted: array<string, int>, headings: list<array{level: int, text: string, html: string, id: string}>}|null
      */
     public function render(string $source, bool $observe = false, array $events = []): ?array
     {
         $this->events = array_replace(
-            ['headingNumbers' => null, 'headingPermalinks' => null, 'externalLinks' => null, 'lowercaseIds' => false],
+            [
+                'headingNumbers' => null,
+                'headingPermalinks' => null,
+                'externalLinks' => null,
+                'lowercaseIds' => false,
+                'mathBlockLanguage' => null,
+                'collectHeadings' => false,
+            ],
             $events,
         );
+        $this->headings = [];
         $this->numberLevels = [];
         $this->numbers = [];
         if (!$this->eligibleSource($source)) {
@@ -80,12 +104,17 @@ final class BorrowedHtmlLayout
         if ($definitions === null) {
             return null;
         }
-        $html = $this->renderBlocks($lines, $definitions, $stats);
-        if ($html === null) {
+        $rendered = $this->renderBlocks($lines, $definitions, $stats);
+        if ($rendered === null) {
             return null;
         }
+        $html = $rendered['html'];
 
-        return ['html' => $html === '' ? '' : $html . "\n", 'accepted' => $observe ? $stats : []];
+        return [
+            'html' => $html === '' ? '' : $html . ($rendered['endsWithoutNewline'] ? '' : "\n"),
+            'accepted' => $observe ? $stats : [],
+            'headings' => $this->headings,
+        ];
     }
 
     private function eligibleSource(string $source): bool
@@ -177,8 +206,10 @@ final class BorrowedHtmlLayout
      * @param list<string> $lines
      * @param array<string, array{href: string, title: ?string}> $definitions
      * @param array<string, int> $stats
+     *
+     * @return array{html: string, endsWithoutNewline: bool}|null
      */
-    private function renderBlocks(array $lines, array $definitions, array &$stats): ?string
+    private function renderBlocks(array $lines, array $definitions, array &$stats): ?array
     {
         $out = [];
         $sections = [];
@@ -188,6 +219,7 @@ final class BorrowedHtmlLayout
         }
         $i = 0;
         $wrote = false;
+        $previousMath = false;
         $count = count($lines);
         while ($i < $count) {
             $line = $lines[$i];
@@ -206,9 +238,10 @@ final class BorrowedHtmlLayout
                     $out[] = "\n" . $this->indent(count($sections) - 1) . '</section>';
                     array_pop($sections);
                 }
-                if ($wrote) {
+                if ($wrote && !$previousMath) {
                     $out[] = "\n";
                 }
+                $previousMath = false;
                 $id = $ids->getIdForText($title);
                 $heading = $this->escape($title);
                 if ($this->events['headingNumbers'] !== null) {
@@ -231,6 +264,14 @@ final class BorrowedHtmlLayout
                         ? $anchor . ' ' . $heading
                         : $heading . ' ' . $anchor;
                 }
+                if ($this->events['collectHeadings']) {
+                    $this->headings[] = [
+                        'level' => $level,
+                        'text' => $title,
+                        'html' => $this->escape($title),
+                        'id' => $id,
+                    ];
+                }
                 $out[] = $this->indent(count($sections)) . '<section id="' . $this->escapeAttribute($id) . '">' . "\n"
                     . $this->indent(count($sections) + 1) . '<h' . $level . '>' . $heading
                     . '</h' . $level . '>';
@@ -241,9 +282,10 @@ final class BorrowedHtmlLayout
 
                 continue;
             }
-            if ($wrote) {
+            if ($wrote && !$previousMath) {
                 $out[] = "\n";
             }
+            $previousMath = false;
             $depth = count($sections);
             $fence = $this->fenceOpen($line);
             if ($fence !== null) {
@@ -265,6 +307,16 @@ final class BorrowedHtmlLayout
                 $code = '';
                 for ($j = $i + 1; $j < $close; $j++) {
                     $code .= $this->escape($lines[$j]) . "\n";
+                }
+                if ($info === $this->events['mathBlockLanguage']) {
+                    $math = substr($code, 0, -1);
+                    $out[] = $this->indent($depth) . '<div class="math display">\\[' . $math . '\\]</div>';
+                    $this->accept($stats, 'codeFences', $i, $close + 1);
+                    $i = $close + 1;
+                    $wrote = true;
+                    $previousMath = true;
+
+                    continue;
                 }
                 if ($code === '') {
                     $code = "\n";
@@ -359,12 +411,16 @@ final class BorrowedHtmlLayout
             $this->accept($stats, 'paragraphs', $start, $i);
             $wrote = true;
         }
+        $hadOpenSections = $sections !== [];
         while ($sections !== []) {
             $out[] = "\n" . $this->indent(count($sections) - 1) . '</section>';
             array_pop($sections);
         }
 
-        return implode('', $out);
+        return [
+            'html' => implode('', $out),
+            'endsWithoutNewline' => $previousMath && !$hadOpenSections,
+        ];
     }
 
     /**

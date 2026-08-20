@@ -477,6 +477,8 @@ class CarveConverter
         if ($borrowedPlan !== null) {
             $attempt = (new BorrowedHtmlLayout())->render($djot, false, $borrowedPlan);
             if ($attempt !== null) {
+                BorrowedExtensionPlan::commit($this->extensions, $attempt['headings']);
+
                 return $attempt['html'];
             }
         }
@@ -489,7 +491,9 @@ class CarveConverter
      *   headingNumbers: array{minLevel: int}|null,
      *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
      *   externalLinks: array{internalHosts: array<string>, target: string, rel: string, nofollow: bool}|null,
-     *   lowercaseIds: bool
+     *   lowercaseIds: bool,
+     *   mathBlockLanguage: string|null,
+     *   collectHeadings: bool
      * }|null
      */
     private function borrowedHtmlPlan(string $source): ?array

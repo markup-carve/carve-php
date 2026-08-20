@@ -19,10 +19,13 @@ The decision is whole-document and fail-closed:
 
 Inactive built-ins are admitted only behind conservative source predicates.
 The borrowed renderer currently implements typed events for heading numbering,
-heading permalinks, external-link attributes, and lowercase heading IDs. Their
-constructor configuration is copied through explicit typed accessors, including
-custom numbering levels, permalink placement and presentation, internal hosts,
-link target/`rel`, and `nofollow`.
+heading permalinks, external-link attributes, lowercase heading IDs, display-math
+fences, and manual table-of-contents state. Their constructor configuration is
+copied through explicit typed accessors, including custom numbering levels,
+permalink placement and presentation, internal hosts, link target/`rel`,
+`nofollow`, and custom math language tags. TOC auto-insertion has an output
+transformer and therefore deliberately remains authoritative; manual TOC data is
+committed only after the complete borrowed document succeeds.
 
 The existing facade limits remain deliberate: at most 64 KiB, ASCII input, HTML
 output, and the already accepted unambiguous block/inline subset. Ascii heading
@@ -36,7 +39,7 @@ The performance tests compare borrowed output with a caller-supplied
 
 - every standalone corpus document accepted by the core facade;
 - the reproducible Tier-2 and Tier-3 extension stacks;
-- active default and custom event configurations;
+- active default and custom event configurations, including math and TOC state;
 - heading numbering, case-colliding IDs, reference/direct/table links;
 - active unsupported syntax and unknown configuration fallback.
 
