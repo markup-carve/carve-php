@@ -156,6 +156,15 @@ class OptionalCorpusTest extends TestCase
             'semantic-span' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new SemanticSpanExtension()),
             'spoiler' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new SpoilerExtension()),
             'tabs' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new TabsExtension()),
+            // A SECOND feature for the SAME extension in its other mode. The
+            // manifest states `tabs-aria` from markup-carve/carve#1489
+            // (Extensions §13.3, case 47), and this engine ships the mode - so
+            // the runner is written now rather than at the pin bump, where its
+            // absence would fail as a case nobody compared.
+            'tabs-aria' => static fn (?RendererInterface $r): CarveConverter => self::withExtension(
+                $r,
+                new TabsExtension(mode: TabsExtension::MODE_ARIA),
+            ),
             // The map is consumed by the HTML renderer, so on another target it
             // reaches nothing - which is what the Markdown case asserts: a
             // symbol keeps its `:name:` source spelling there.

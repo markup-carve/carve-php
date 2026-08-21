@@ -3065,7 +3065,19 @@ class HtmlRenderer implements RendererInterface
         return $attrs;
     }
 
-    protected function escape(string $text): string
+    /**
+     * Escape a string for HTML TEXT content - the counterpart of
+     * {@see self::escapeAttribute()}.
+     *
+     * PART 10 §2 states the two escapings apart: an attribute value escapes
+     * `&`, `<`, `>`, `"` and `'`, while text content escapes `&`, `<` and `>`
+     * and NOT quotes. Public because an extension rendering an author's string
+     * as element text needs the text one - reaching for
+     * `StringUtil::escapeHtml()` there produced `&quot;` in text content, which
+     * §2 does not permit and which no sibling engine writes
+     * (markup-carve/carve-php#1538).
+     */
+    public function escape(string $text): string
     {
         // Strip Trojan-Source bidi override/isolate controls so rendered text
         // and code can never visually reorder. Removal (not entity-escaping)

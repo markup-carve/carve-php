@@ -323,7 +323,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             $body = rtrim($tab['content'], "\n");
             $html .= '  <section class="' . StringUtil::escapeHtml($this->tabClass) . "\">\n"
                 . '  <h3 class="' . StringUtil::escapeHtml($this->labelClass) . '">'
-                . StringUtil::escapeHtml($tab['label']) . "</h3>\n"
+                . $renderer->escape($tab['label']) . "</h3>\n"
                 . ($body !== '' ? $body . "\n" : '')
                 . "  </section>\n";
         }
@@ -499,7 +499,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
 
             $html .= '<label for="' . StringUtil::escapeHtml($inputId) . '" ';
             $html .= 'class="' . StringUtil::escapeHtml($this->labelClass) . '">';
-            $html .= StringUtil::escapeHtml($tab['label']);
+            $html .= $renderer->escape($tab['label']);
             $html .= "</label>\n";
         }
 
@@ -570,7 +570,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             $html .= 'aria-selected="' . $selected . '" ';
             $html .= 'aria-controls="' . $panelId . '" ';
             $html .= 'class="' . StringUtil::escapeHtml($this->labelClass) . '"' . $tabindex . '>';
-            $html .= StringUtil::escapeHtml($tab['label']);
+            $html .= $renderer->escape($tab['label']);
             $html .= "</button>\n";
         }
 
