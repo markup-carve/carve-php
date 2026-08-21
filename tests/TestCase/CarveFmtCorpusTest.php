@@ -223,43 +223,49 @@ class CarveFmtCorpusTest extends TestCase
             return $value;
         }
 
-        // ONLY on a node. `pos` and `srcByteLength` are attribute names an
-        // author may write, and inside `attrs.keyValues` they are content -
-        // stripping them there would make `{pos=x}` and `{pos=y}` canonicalize
-        // alike and leave the sweep unable to see the writer move them.
-        if (isset($value['type'])) {
-            unset($value['srcByteLength'], $value['pos']);
-            if ($value['type'] === 'escaped_text') {
-                $value['type'] = 'text';
+        if (array_is_list($value)) {
+            $out = [];
+            foreach ($value as $child) {
+                $child = self::canonical($child);
+                $last = $out === [] ? null : array_key_last($out);
+                if (
+                    $last !== null
+                    && is_array($child)
+                    && is_array($out[$last])
+                    && array_keys($child) === ['type', 'value']
+                    && array_keys($out[$last]) === ['type', 'value']
+                    && $child['type'] === 'text'
+                    && $out[$last]['type'] === 'text'
+                ) {
+                    $out[$last]['value'] .= $child['value'];
+
+                    continue;
+                }
+                $out[] = $child;
             }
+
+            return array_values($out);
         }
+
+        unset($value['srcByteLength'], $value['pos']);
+        if (($value['type'] ?? null) === 'escaped_text') {
+            $value['type'] = 'text';
+        }
+        // NOT INTO `attrs`. AstCodec::mapInternalTypes() states the same rule
+        // for the same reason: `attrs` holds named slots rather than nodes, and
+        // a `keyValues` entry can be spelled `type`, `pos` or `srcByteLength` -
+        // descending would rename or delete an ATTRIBUTE. Attributes are
+        // content, so they compare verbatim, and skipping the one map whose keys
+        // an author controls is what makes the node handling above sound
+        // everywhere else.
         foreach ($value as $key => $child) {
-            $value[$key] = self::canonical($child);
-        }
-        if (!array_is_list($value)) {
-            return $value;
-        }
-
-        $out = [];
-        foreach ($value as $child) {
-            $last = $out === [] ? null : array_key_last($out);
-            if (
-                $last !== null
-                && is_array($child)
-                && is_array($out[$last])
-                && array_keys($child) === ['type', 'value']
-                && array_keys($out[$last]) === ['type', 'value']
-                && $child['type'] === 'text'
-                && $out[$last]['type'] === 'text'
-            ) {
-                $out[$last]['value'] .= $child['value'];
-
+            if ($key === 'attrs') {
                 continue;
             }
-            $out[] = $child;
+            $value[$key] = self::canonical($child);
         }
 
-        return array_values($out);
+        return $value;
     }
 
     /**
@@ -342,7 +348,9 @@ class CarveFmtCorpusTest extends TestCase
         // An attribute moving: not forgiven.
         $this->assertNotSame(self::tree("{#x}\na\n"), self::tree("{#y}\na\n"));
 
-        // An attribute NAMED like node metadata is content, not metadata.
+        // An attribute NAMED like node metadata is CONTENT, not metadata. The
+        // one map whose keys an author controls is never descended into, so a
+        // `type`, `pos` or `srcByteLength` attribute is compared as written.
         $this->assertNotSame(
             self::tree("{pos=\"x\"}\na\n"),
             self::tree("{pos=\"y\"}\na\n"),
@@ -350,6 +358,14 @@ class CarveFmtCorpusTest extends TestCase
         $this->assertNotSame(
             self::tree("{srcByteLength=\"1\"}\na\n"),
             self::tree("{srcByteLength=\"2\"}\na\n"),
+        );
+        $this->assertNotSame(
+            self::tree("{type=\"x\" pos=\"y\"}\na\n"),
+            self::tree("{type=\"x\" pos=\"z\"}\na\n"),
+        );
+        $this->assertNotSame(
+            self::tree("{type=\"escaped_text\"}\na\n"),
+            self::tree("{type=\"text\"}\na\n"),
         );
     }
 
