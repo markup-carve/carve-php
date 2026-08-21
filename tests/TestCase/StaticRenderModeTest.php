@@ -23,6 +23,18 @@ use PHPUnit\Framework\TestCase;
  * labeled sections), expands client-script blocks (math / mermaid → image or
  * source), and rejects unknown mode values. The Markdown / plain-text / ANSI
  * renderers are inherently static and carry the label-caption floor regardless.
+ *
+ * WHICH EXPECTATIONS ARE ORACLES. A test named `…MatchesCarveJsOracle` was
+ * measured against a build of carve-js and its expectation is that engine's
+ * bytes; the rest state this engine's own contract against the two documents
+ * above. The distinction used to be invisible: the code-group expectation sat
+ * beside two declared tabs oracles and DIVERGED from carve-js without saying so,
+ * writing its panel label as a `<p>` where every sibling writes an `<h3>`, so a
+ * reader could not tell which expectations were measured and which were merely
+ * current behavior (markup-carve/carve-php#1535). It is measured now, and named
+ * for it.
+ *
+ * The carve-js build is `8fb450d8`.
  */
 class StaticRenderModeTest extends TestCase
 {
@@ -164,7 +176,15 @@ class StaticRenderModeTest extends TestCase
         $this->assertSame($expected, trim($converter->convert($source)));
     }
 
-    public function testCodeGroupFlattensToLabeledSectionsInStaticMode(): void
+    /**
+     * The code-group half of the same flatten, and the same oracle.
+     *
+     * Extensions §2.5: "each panel as a `<section>` headed by its `[label]`",
+     * and graceful-degradation calls that label a caption HEADING. A `<p>` kept
+     * the label out of the document outline, which is the point of surfacing it
+     * in a medium that cannot click.
+     */
+    public function testCodeGroupStaticShapeMatchesCarveJsOracle(): void
     {
         $source = implode("\n", [
             '::: code-group',
@@ -184,16 +204,16 @@ class StaticRenderModeTest extends TestCase
 
         $expected = implode("\n", [
             '<div class="code-group" role="group" aria-label="Code examples">',
-            '<section class="code-group-panel">',
-            '<p class="code-group-label">Install</p>',
+            '  <section class="code-group-panel">',
+            '  <h3 class="code-group-label">Install</h3>',
             '<pre><code class="language-php">composer require x',
             '</code></pre>',
-            '</section>',
-            '<section class="code-group-panel">',
-            '<p class="code-group-label">NPM</p>',
+            '  </section>',
+            '  <section class="code-group-panel">',
+            '  <h3 class="code-group-label">NPM</h3>',
             '<pre><code class="language-bash">npm i x',
             '</code></pre>',
-            '</section>',
+            '  </section>',
             '</div>',
         ]);
         $this->assertSame($expected, $html);

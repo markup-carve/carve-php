@@ -93,6 +93,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A static code-group panel label is a heading** (#1535, Extensions §2.5).
+  The static flatten wrote the panel label as an unindented `<p>` where
+  `TabsExtension` beside it - and carve-js for both - writes an indented `<h3>`.
+  §2.5 says "each panel as a `<section>` headed by its `[label]`" and
+  graceful-degradation calls it a caption heading, so a paragraph kept the label
+  out of the document outline that is the point of surfacing it offline.
+
 - **A tab or code-group label is text, not an attribute value** (#1538, PART 10
   §2). The extensions escaped a double quote in the label ELEMENT's text, where
   §2 says text content escapes `&`, `<` and `>` and NOT quotes. The label's
