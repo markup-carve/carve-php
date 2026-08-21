@@ -16,12 +16,13 @@ use ReflectionClass;
  *
  * carve#286 spent the marker axis, "emit the marker as authored", which
  * separates them only while the markers DIFFER. When both are `1.` at column 0
- * there is nothing left to preserve and indentation is the axis remaining.
+ * there is nothing left to preserve.
  *
- * One space is the only offset safe for both kinds: a bullet's content column
- * is 2, so two spaces already NESTS. The step is cumulative per list, because a
- * flat +1 leaves the second and third at the same column, merging with each
- * other.
+ * Section 11 N1a spells the separator: three blank lines. These used to assert
+ * a cumulative one-space indent, which was what the writer had before the
+ * boundary existed. That offset could not survive its own third list -- the
+ * second and third landed at the same column -- and it handed the reader a list
+ * indented by a space it never wrote.
  */
 class AdjacentSiblingListsStaySeparateTest extends TestCase
 {
@@ -45,24 +46,35 @@ class AdjacentSiblingListsStaySeparateTest extends TestCase
         return $types;
     }
 
-    public function testTwoOrderedListsAreSeparatedByOneSpace(): void
+    public function testTwoOrderedListsAreSeparatedByTheHardBoundary(): void
     {
         $source = "1. a\n\n  1. b\n";
 
         $this->assertSame(['ListBlock', 'ListBlock'], $this->topTypes($source));
-        $this->assertSame("1. a\n\n 1. b\n", $this->converter->toCarve($source));
+        $this->assertSame("1. a\n\n\n\n1. b\n", $this->converter->toCarve($source));
         $this->assertSame(['ListBlock', 'ListBlock'], $this->topTypes($this->converter->toCarve($source)));
     }
 
-    public function testEachFurtherListStepsByOneMoreSpace(): void
+    public function testAThirdListIsSeparatedTheSameWayAtTheSameColumn(): void
     {
+        // The offset this replaced could not do this: +1 per list put the second
+        // at one space and the third at two, where a bullet's content column is
+        // 2 and the third would NEST inside the second.
         $source = "1. a\n\n  1. b\n\n   1. c\n";
 
-        $this->assertSame("1. a\n\n 1. b\n\n  1. c\n", $this->converter->toCarve($source));
+        $this->assertSame("1. a\n\n\n\n1. b\n\n\n\n1. c\n", $this->converter->toCarve($source));
         $this->assertSame(
             ['ListBlock', 'ListBlock', 'ListBlock'],
             $this->topTypes($this->converter->toCarve($source)),
         );
+    }
+
+    public function testTheBoundaryIsWrittenAtColumnZeroNotAsIndentation(): void
+    {
+        // The reader gets the list back at the column the author wrote it.
+        foreach (explode("\n", $this->converter->toCarve("1. a\n\n  1. b\n")) as $line) {
+            $this->assertSame($line, ltrim($line, ' '));
+        }
     }
 
     public function testTheWriterIsIdempotent(): void
@@ -105,5 +117,55 @@ class AdjacentSiblingListsStaySeparateTest extends TestCase
     {
         $this->assertSame("1. a\n2. b\n", $this->converter->toCarve("1. a\n1. b\n"));
         $this->assertSame("1. a\n\nx\n\n1. b\n", $this->converter->toCarve("1. a\n\nx\n\n1. b\n"));
+    }
+
+    public function testOneBlankLineStillLoosens(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n",
+            $this->converter->convert("- a\n\n- b\n"),
+        );
+    }
+
+    public function testTwoBlankLinesStillLoosenRatherThanSeparate(): void
+    {
+        // The threshold is three precisely so the run lengths documents already
+        // contain -- changelog spacing, generator output -- keep their meaning.
+        $this->assertSame(
+            "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n",
+            $this->converter->convert("- a\n\n\n- b\n"),
+        );
+    }
+
+    public function testThreeBlankLinesOpenANewSiblingList(): void
+    {
+        $this->assertSame(['ListBlock', 'ListBlock'], $this->topTypes("- a\n\n\n\n- b\n"));
+        $this->assertSame(['ListBlock', 'ListBlock'], $this->topTypes("- a\n\n\n\n\n- b\n"));
+    }
+
+    public function testTheBoundaryAppliesInsideAQuote(): void
+    {
+        $this->assertStringContainsString(
+            "</ul>\n  <ul>",
+            $this->converter->convert("> - a\n>\n>\n>\n> - b\n"),
+        );
+    }
+
+    public function testTheBoundaryAppliesToAListNestedInAnItem(): void
+    {
+        // The clause is stated for every level, and the nested case is what pins
+        // it: a boundary that fired only at the top level would make one
+        // spelling mean two things depending on where it sits.
+        $this->assertStringContainsString(
+            "</ul>\n    <ul>",
+            $this->converter->convert("- outer\n\n  - a\n\n\n\n  - b\n"),
+        );
+    }
+
+    public function testTheRunClosesNothingOnItsOwn(): void
+    {
+        // The run denies a following SIBLING MARKER the right to join. It is not
+        // an item terminator, so content at the content column still continues.
+        $this->assertSame(['ListBlock'], $this->topTypes("- a\n\n\n\n  still a\n"));
     }
 }
