@@ -161,13 +161,21 @@ class CarveRenderer implements RendererInterface
      * document's BLOCK STRUCTURE rather than a character
      * (markup-carve/carve-php#1087).
      *
-     * A run of six also cannot collide with itself: the picker returns six
+     * A run of seven also cannot collide with itself: the picker returns seven
      * DISTINCT consecutive code points, so the tag differs from every carrier by
      * construction rather than by being parked at a hopefully-unused address.
      *
-     * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string}
+     * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string}
      */
-    protected array $verbatimSentinels = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}", "\u{E005}", "\u{E006}"];
+    protected array $verbatimSentinels = [
+        "\u{E001}",
+        "\u{E002}",
+        "\u{E003}",
+        "\u{E004}",
+        "\u{E005}",
+        "\u{E006}",
+        "\u{E007}",
+    ];
 
     /**
      * Every string in the tree, joined.
@@ -183,14 +191,24 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * @return array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string}
+     * @return array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string}
      */
     protected function pickVerbatimSentinels(string $text): array
     {
-        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string} $picked */
-        $picked = DocumentSentinels::pick($text, 6, 0xE001);
+        // SEVEN, not six: the last is §11 N1a's list boundary. It is picked
+        // here rather than fixed for the reason the whole scheme exists - a
+        // fixed code point cannot be told apart from an authored one, and this
+        // sentinel expands to THREE BLANK LINES, so an authored occurrence
+        // would be rewritten into a list boundary the author never wrote.
+        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string} $picked */
+        $picked = DocumentSentinels::pick($text, 7, 0xE001);
 
         return $picked;
+    }
+
+    protected function listBoundary(): string
+    {
+        return $this->verbatimSentinels[6];
     }
 
     public function render(Document $document): string
@@ -560,14 +578,17 @@ class CarveRenderer implements RendererInterface
             // markers DIFFER; when both are `1.` at column 0 there is nothing
             // left to preserve and indentation is the axis remaining.
             //
-            // ONE SPACE, CUMULATIVE, RELATIVE TO THE LIST BEFORE IT. One space is
-            // the only offset safe for both kinds: a bullet's content column is
-            // 2, so two spaces already NEST the second list inside the first. And
-            // the step is per list rather than per run - writing every later list
-            // at a flat +1 leaves the second and third at the same column, where
-            // they merge with each other.
+            // THE SEPARATOR IS THE HARD BOUNDARY (§11 N1a): three blank lines.
+            // That is the language's own way of saying "these are two lists", so
+            // the writer says it instead of encoding the same fact as layout.
+            //
+            // It REPLACES a cumulative one-space offset, which existed only
+            // because no separator was spelled. That offset returned a list at a
+            // column the author never wrote, and it could not survive a third
+            // list: +1 per list put the second at one space and the third at two,
+            // where a bullet's content column NESTS the later list in the earlier.
             $previousList = null;
-            $listOffset = 0;
+            $listSeparated = false;
             foreach ($blocks as $block) {
                 $rendered = $this->renderBlock($block);
                 // Remember, for the NEXT block, whether a `^ ` line after it
@@ -575,16 +596,20 @@ class CarveRenderer implements RendererInterface
                 // marker need escaping (PART 11 §2, carve-php#758).
                 $this->afterCaptionHost = self::hostsACaption($block);
                 if ($block instanceof ListBlock) {
-                    $listOffset = $previousList !== null && self::listsWouldMerge($previousList, $block)
-                        ? $listOffset + 1
-                        : 0;
+                    $listSeparated = $previousList !== null && self::listsWouldMerge($previousList, $block);
                     $previousList = $block;
                 } elseif ($rendered !== '') {
                     $previousList = null;
-                    $listOffset = 0;
+                    $listSeparated = false;
                 }
                 if ($rendered !== '') {
-                    $parts[] = $listOffset > 0 ? self::indentLines($rendered, $listOffset) : $rendered;
+                    if ($listSeparated && $parts !== []) {
+                        // Two more blank lines than the "\n\n" join below already
+                        // writes, which makes three.
+                        $parts[array_key_last($parts)] .= $this->listBoundary() . $rendered;
+                    } else {
+                        $parts[] = $rendered;
+                    }
                 }
             }
 
@@ -2899,7 +2924,11 @@ class CarveRenderer implements RendererInterface
             $lines[$i] = (string)preg_replace('/[ \t]+$/', '', $line);
         }
         $text = implode("\n", $lines);
+        // The squeeze runs FIRST, so a decorative run still normalizes to one
+        // blank line; the boundary sentinel is not a newline yet and passes
+        // through untouched. Only the writer knows which run is which.
         $text = (string)preg_replace("/\n{3,}/", "\n\n", $text);
+        $text = (string)preg_replace('/\n*' . preg_quote($this->listBoundary(), '/') . '\n*/u', "\n\n\n\n", $text);
 
         $out = $this->restoreVerbatim($this->trimNonNbsp($text));
 

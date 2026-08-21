@@ -33,6 +33,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `css` mode. `css` stays the default in both - §2.5's rule is that content is
   never dropped, only interaction, and `aria` mode reveals with `hidden`.
 
+- **Three blank lines are a hard list boundary** (markup-carve/carve#1430,
+  §11 N1a). A run of three or more before a compatible sibling marker opens a
+  new list instead of loosening the current one, at every level. One and two
+  blank lines are unchanged.
+- **The canonical writer separates two adjacent sibling lists with that
+  boundary** instead of indenting the later one by a space. The old offset
+  returned a list at a column the author never wrote and could not survive a
+  third list.
 - **HTML conversion has a conservative borrowed fast path, for configured
   converters too** (#1506, #1515). Plain headings and paragraphs, explicit block
   quotes, tight lists, code fences, basic pipe tables, thematic breaks, and

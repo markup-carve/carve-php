@@ -6032,6 +6032,37 @@ class BlockParser
                 }
             }
 
+            // §11 N1 HARD LIST BOUNDARY. A run of THREE OR MORE blank lines
+            // before a compatible sibling marker ends this list; the marker
+            // opens a new sibling list instead of joining this one. One or two
+            // blank lines remain the ordinary loose separator (§17 L1).
+            //
+            // The axes are already decided here - a marker that opened a
+            // DIFFERENT list under §11 never reaches this point - so the run
+            // length is the only question left. It is counted from the source
+            // rather than carried in a flag: `$lastItemHadBlankAfter` is a
+            // boolean set from several paths that are not runs of blank lines
+            // at all (a sub-list's own blank, an attached block's), and
+            // widening it would answer this question from the wrong ones. The
+            // scan stops at THREE: the rule asks whether the run reaches the
+            // threshold, never how long it is, so the loop is bounded by the
+            // constant and a document of nothing but blank lines pays nothing
+            // for it.
+            //
+            // Breaking leaves `$i` on the marker line, so the caller resumes
+            // there and parses it as the first item of the next list.
+            if ($i > $start && $list->hasChildren()) {
+                $blankRun = 0;
+                $k = $i - 1;
+                while ($blankRun < 3 && $k >= $start && IndentationHelper::isBlankLine($lines[$k])) {
+                    $blankRun++;
+                    $k--;
+                }
+                if ($blankRun >= 3) {
+                    break;
+                }
+            }
+
             // If there was a blank line before this item, list is loose
             if ($lastItemHadBlankAfter) {
                 $list->setTight(false);
