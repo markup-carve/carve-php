@@ -89,14 +89,32 @@ use MarkupCarve\Carve\Util\StringUtil;
  * </div>
  * ```
  *
+ * The radio inputs are the control: they are what a keyboard reaches and what
+ * a screen reader announces. So they are hidden visually and kept in the focus
+ * order and the accessibility tree - `display: none` or `visibility: hidden`
+ * would remove them from both and leave a tab set that cannot be operated
+ * without a mouse. Because the input itself is invisible, the focus ring is
+ * drawn on the label it controls.
+ *
  * Required CSS:
  * ```css
  * .tabs { display: flex; flex-wrap: wrap; }
- * .tabs-radio { display: none; }
+ * .tabs-radio {
+ *   position: absolute;
+ *   width: 1px;
+ *   height: 1px;
+ *   overflow: hidden;
+ *   clip-path: inset(50%);
+ *   white-space: nowrap;
+ * }
  * .tabs-label {
  *   padding: 0.5rem 1rem;
  *   cursor: pointer;
  *   border-bottom: 2px solid transparent;
+ * }
+ * .tabs-radio:focus-visible + .tabs-label {
+ *   outline: 2px solid currentColor;
+ *   outline-offset: 2px;
  * }
  * .tabs-radio:checked + .tabs-label {
  *   border-bottom-color: currentColor;

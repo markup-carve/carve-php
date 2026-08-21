@@ -80,6 +80,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The published tab CSS keeps the control reachable from the keyboard**
+  (#1525). The recipe in `TabsExtension`'s docblock hid the radio inputs with
+  `display: none`, which takes them out of the focus order and the
+  accessibility tree at once, so a page styled with it had tabs nobody could
+  switch without a mouse. The radios are now clipped rather than removed, and
+  the focus ring is drawn on the label each one controls. `CodeGroupExtension`
+  publishes the same recipe for its own class names, where it previously
+  published none.
 - **The footnote backlink has an accessible name** (markup-carve/carve#1455,
   PART 9 §16). `role="doc-backlink"` was right and the name was the `↩` glyph,
   so a screen reader announced its Unicode name or skipped the link. The name is
