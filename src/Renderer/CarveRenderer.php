@@ -3365,9 +3365,30 @@ class CarveRenderer implements RendererInterface
             return false;
         }
 
-        // `{^` opens a braced superscript and `^}` closes one. Either half
-        // bare would let the pair form around content it does not own.
-        return $previous === '{' || $next === '}';
+        // `{^` OPENS A BRACED SUPERSCRIPT - BUT ONLY WHERE THE PAIR COMPLETES.
+        // The reader refuses the opener outright when no `^}` lies at or after
+        // the content start, so a HALF pair closes into nothing and writing it
+        // bare forms no construct at all: `{^x`, `x^}`, `{^`, `^}` and `{^}`
+        // each re-render byte-identically stripped of the escape. §2 escapes a
+        // character IF AND ONLY IF omitting it would change the re-parsed AST,
+        // and here it does not - the escape only manufactures the difference §1
+        // forbids, turning one text node into text plus an `escaped_text` node
+        // plus text (markup-carve/carve-php#1522).
+        //
+        // THE OPENER IS THE UNIT (§2), so only the opening half is escaped.
+        // `^}` closes nothing on its own, and every opener that could reach a
+        // closer is escaped in its own right - `{^a{^b^}` escapes BOTH, because
+        // leaving the second bare would let it form the pair the first one's
+        // escape just freed.
+        //
+        // The condition mirrors the reader's own refusal in
+        // InlineParser::parseBracedInline(): the search starts one byte past
+        // the caret, exactly where the reader starts its own.
+        if ($previous === '{') {
+            return strpos($text, '^}', $offset + 1) !== false;
+        }
+
+        return false;
     }
 
     /**

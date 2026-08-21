@@ -30,10 +30,13 @@ class CaretEscapeTest extends TestCase
             'spaced' => ['a ^ b', 'a ^ b'],
             'sup-shaped run' => ['a ^sup^ ,sub, stays literal', 'a ^sup^ ,sub, stays literal'],
             'before a bracket keeps it' => ['a\\^[x]', 'a\\^[x]'],
-            // The two braced-superscript delimiters: bare, each half would let
-            // the pair form around content it does not own.
-            'after a brace opener keeps it' => ['a{^b', 'a{\\^b'],
-            'before a brace closer keeps it' => ['a^}b', 'a\\^}b'],
+            // A HALF pair closes into nothing, so neither half needs an
+            // escape: the reader refuses a `{^` opener outright when no `^}`
+            // follows it (carve-php#1522). The complete pair - where the
+            // escape is load-bearing - is pinned in
+            // AHalfFormedBracedPairKeepsItsCaretsBareTest.
+            'after a brace opener with no closer' => ['a{^b', 'a{^b'],
+            'before a brace closer with no opener' => ['a^}b', 'a^}b'],
         ];
     }
 

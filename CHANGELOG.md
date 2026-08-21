@@ -80,6 +80,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A half-formed braced pair keeps its carets bare** (#1522, PART 11 §2).
+  `{^x`, `x^}`, `{^`, `^}`, `{^}` and `{^{^x^}^}` were written with an invented
+  `\^`. The reader refuses a `{^` opener outright when no `^}` follows it, so
+  the escape prevented nothing and only turned one text node into text plus an
+  `escaped_text` node plus text - the difference §1 forbids. The escape is
+  narrowed, not removed: where the pair does complete inside one text run the
+  opener still carries it.
 - **A tab set and a code group say what they are** (#1526,
   markup-carve/carve#1468, Extensions §1.5). Each tab was already named by its
   own `<label>` and the SET was anonymous, so a reader could hear the parts and
