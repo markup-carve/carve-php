@@ -101,6 +101,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A tab control is `type="button"`, and two marked items select one tab**
+  (#1537, markup-carve/carve#1504, Extensions §13.3 and §13.5). A generated
+  `aria`-mode control carried no `type`, so a tab set or code group inside a
+  `<form>` submitted the form instead of switching panels. And several
+  `{selected}` items each got their own selection - the first mark now wins and
+  later ones are ignored, in both modes and both extensions, with no diagnostic
+  for a document that over-specifies. `css` mode is unaffected by the first
+  half: its control is an `<input type="radio">`.
 - **Math survives HTML import** (#1543, grammar §18). A `<span class="math
   inline">` / `<span class="math display">` - what this engine, djot.js and
   pandoc all write - imported as an attributed span holding the raw `\(…\)`

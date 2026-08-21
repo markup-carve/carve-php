@@ -117,7 +117,7 @@ use MarkupCarve\Carve\Util\StringUtil;
  *
  * ```html
  * <div class="code-group" role="tablist" aria-label="Code examples">
- *   <button role="tab" id="codegroup-1-tab-1" aria-selected="true"
+ *   <button type="button" role="tab" id="codegroup-1-tab-1" aria-selected="true"
  *           aria-controls="codegroup-1-panel-1" class="code-group-label">Install</button>
  *   <div role="tabpanel" id="codegroup-1-panel-1" aria-labelledby="codegroup-1-tab-1"
  *        class="code-group-panel"><pre><code class="language-php">...</code></pre></div>
@@ -143,6 +143,7 @@ use MarkupCarve\Carve\Util\StringUtil;
 class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderExtensionInterface
 {
     use ExtensionAttributesTrait;
+    use SingleSelectionTrait;
 
     /**
      * Output mode: 'css' for CSS-only, 'aria' for ARIA with JS
@@ -309,9 +310,12 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             ];
         }
 
-        // If no block is explicitly selected, select the first one
-        if ($blocks !== [] && !in_array(true, array_column($blocks, 'selected'), true)) {
-            $blocks[0]['selected'] = true;
+        // EXACTLY ONE PANEL IS SELECTED (Extensions §13.5): the first one the
+        // document marks, or the first block where it marks none. Both branches
+        // are the same statement, which is why they are one.
+        $winner = $this->resolveSelectedIndex(array_column($blocks, 'selected'));
+        foreach (array_keys($blocks) as $index) {
+            $blocks[$index]['selected'] = $index === $winner;
         }
 
         return $blocks;
@@ -452,7 +456,12 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             $selected = $item['selected'] ? 'true' : 'false';
             $tabindex = $item['selected'] ? '' : ' tabindex="-1"';
 
-            $html .= '<button role="tab" id="' . StringUtil::escapeHtml($ids[$index]['tab']) . '" ';
+            // `type="button"`, NOT the implicit `submit` (Extensions §13.3).
+            // A bare `<button>` is a submit button, so a code group inside a
+            // `<form>` submitted the form instead of switching panels - the one
+            // interaction the mode exists to provide, traded for the one thing
+            // the page never asked for.
+            $html .= '<button type="button" role="tab" id="' . StringUtil::escapeHtml($ids[$index]['tab']) . '" ';
             $html .= 'aria-selected="' . $selected . '" ';
             $html .= 'aria-controls="' . StringUtil::escapeHtml($ids[$index]['panel']) . '" ';
             $html .= 'class="' . StringUtil::escapeHtml($this->labelClass) . '"' . $tabindex . '>';

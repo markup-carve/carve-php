@@ -625,6 +625,11 @@ accessible tabbed interface. Tab labels come from the first heading or a
 CSS-only mode (no JavaScript) and an ARIA mode with keyboard navigation. HTML
 output only.
 
+Exactly one tab is selected: the first one the document marks `{selected}`, and
+the first tab where it marks none. Marking several is not an error and is not
+diagnosed - the later marks are simply ignored, so both modes open the same tab
+(Extensions §13.5).
+
 Constructor options:
 
 - `mode` (`string`, default `'css'`) - `'css'` or `'aria'`.
@@ -658,6 +663,15 @@ binds a panel to the control that reveals it and the panel would otherwise be
 anonymous. In `aria` mode it is bound instead of named - `role="tabpanel"` plus
 `aria-labelledby`, and neither `role="group"` nor an `aria-label`. This is
 Extensions §13.
+
+The `aria`-mode control is a `<button type="button">`. Without the `type` a
+`<button>` is a submit button, so a tab set inside a `<form>` submitted the form
+instead of switching panels (Extensions §13.3). `css` mode is unaffected: its
+control is an `<input type="radio">`.
+
+~~~ html
+<button type="button" role="tab" id="tabset-1-tab-1" aria-selected="true" aria-controls="tabset-1-panel-1" class="tabs-label">First</button>
+~~~
 
 Generated ids (`tabset-1`, `tabset-1-tab-1`, ...) are deduplicated against the
 document id namespace: when an explicit `{#id}` attribute or a generated
@@ -732,6 +746,12 @@ tab. In `aria` mode the panel is BOUND rather than named: it keeps
 `role="tabpanel"` with `aria-labelledby` and takes neither `role="group"` nor an
 `aria-label`, since naming it as well would give one element two accessible
 names. This is Extensions §13.
+
+Both §13 rules `TabsExtension` carries bind here too, because §13 binds the two
+constructs alike: the `aria`-mode control is a `<button type="button">` so that
+a code group inside a `<form>` does not submit it, and exactly one panel is
+selected - the first `{selected}` mark wins, later marks are ignored, and
+marking none opens the first panel.
 
 ~~~ php
 $converter->addExtension(new CodeGroupExtension());
