@@ -3118,6 +3118,17 @@ class CarveRenderer implements RendererInterface
             ? '/([\\\\`"\'^!$])/'
             : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'$])/';
         $insideNote = $this->inlineNoteDepth > 0;
+        // The LAST braced-superscript closer in this text, found once.
+        //
+        // `caretOpensAConstruct()` asks whether a closer lies at or after a
+        // given offset, and the answer is `$lastSupCloser >= $offset`: if the
+        // last one is not there, none is. Asking `strpos()` per caret instead
+        // rescans the tail once for every `{^` in the text, which is quadratic
+        // on `{^{^{^...^}` - the class of unclosed-run scan this engine has had
+        // to fix three times already. The reader avoids it the same way, with
+        // the memoized `strrpos` in InlineParser::closerExistsFrom().
+        $lastCloser = strrpos($text, '^}');
+        $lastSupCloser = $lastCloser === false ? -1 : $lastCloser;
 
         return (string)preg_replace_callback(
             $pattern,
@@ -3127,6 +3138,7 @@ class CarveRenderer implements RendererInterface
                 $insideNote,
                 $minimal,
                 $nextOpensVerbatim,
+                $lastSupCloser,
             ): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
@@ -3145,7 +3157,7 @@ class CarveRenderer implements RendererInterface
                 if ($char === '$' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
                     return '$';
                 }
-                if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote)) {
+                if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote, $lastSupCloser)) {
                     return '^';
                 }
                 // A COLON only opens something at the start of a line - `::`
@@ -3338,8 +3350,12 @@ class CarveRenderer implements RendererInterface
         }
     }
 
-    private static function caretOpensAConstruct(string $text, int $offset, bool $insideNote): bool
-    {
+    private static function caretOpensAConstruct(
+        string $text,
+        int $offset,
+        bool $insideNote,
+        int $lastSupCloser,
+    ): bool {
         $next = $text[$offset + 1] ?? '';
         // `^[` opens an inline footnote - but only where a note can open at
         // all. PART 9 §16 rules out three positions, and none of them needs an
@@ -3365,9 +3381,32 @@ class CarveRenderer implements RendererInterface
             return false;
         }
 
-        // `{^` opens a braced superscript and `^}` closes one. Either half
-        // bare would let the pair form around content it does not own.
-        return $previous === '{' || $next === '}';
+        // `{^` OPENS A BRACED SUPERSCRIPT - BUT ONLY WHERE THE PAIR COMPLETES.
+        // The reader refuses the opener outright when no `^}` lies at or after
+        // the content start, so a HALF pair closes into nothing and writing it
+        // bare forms no construct at all: `{^x`, `x^}`, `{^`, `^}` and `{^}`
+        // each re-render byte-identically stripped of the escape. §2 escapes a
+        // character IF AND ONLY IF omitting it would change the re-parsed AST,
+        // and here it does not - the escape only manufactures the difference §1
+        // forbids, turning one text node into text plus an `escaped_text` node
+        // plus text (markup-carve/carve-php#1522).
+        //
+        // THE OPENER IS THE UNIT (§2), so only the opening half is escaped.
+        // `^}` closes nothing on its own, and every opener that could reach a
+        // closer is escaped in its own right - `{^a{^b^}` escapes BOTH, because
+        // leaving the second bare would let it form the pair the first one's
+        // escape just freed.
+        //
+        // The condition mirrors the reader's own refusal in
+        // InlineParser::parseBracedInline(): a closer must lie one byte past
+        // the caret or later, exactly where the reader starts its own search.
+        // `$lastSupCloser` is that search done once for the whole text - see
+        // the note where it is computed.
+        if ($previous === '{') {
+            return $lastSupCloser >= $offset + 1;
+        }
+
+        return false;
     }
 
     /**
