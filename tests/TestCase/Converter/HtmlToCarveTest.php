@@ -2278,7 +2278,7 @@ DJOT;
         $html = '<math alttext="x^2 + y^2"><mrow></mrow></math>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('$`x^2 + y^2`$', $result);
+        $this->assertSame('$`x^2 + y^2`', $result);
     }
 
     public function testMathMLDisplayMode(): void
@@ -2286,7 +2286,7 @@ DJOT;
         $html = '<math display="block" alttext="\\int_0^1 f(x) dx"><mrow></mrow></math>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('$$`\\int_0^1 f(x) dx`$$', $result);
+        $this->assertSame('$$`\\int_0^1 f(x) dx`', $result);
     }
 
     public function testMathMLWithAnnotation(): void
@@ -2294,7 +2294,7 @@ DJOT;
         $html = '<math><semantics><mrow></mrow><annotation encoding="application/x-tex">E = mc^2</annotation></semantics></math>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('$`E = mc^2`$', $result);
+        $this->assertSame('$`E = mc^2`', $result);
     }
 
     public function testMathMLWithoutTexIsDropped(): void
@@ -2313,7 +2313,7 @@ DJOT;
         $html = '<p>Equation: <math alttext="a + b"></math> here</p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('Equation: $`a + b`$ here', $result);
+        $this->assertSame('Equation: $`a + b` here', $result);
     }
 
     public function testMathMLNonTexAnnotationIsNotTexAndLeavesNoMath(): void
@@ -2329,7 +2329,7 @@ DJOT;
         $html = '<math alttext="x`y"><mrow></mrow></math>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('$``x`y``$', $result);
+        $this->assertSame('$``x`y``', $result);
     }
 
     // ==================== Semantic Span Elements ====================

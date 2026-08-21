@@ -39,7 +39,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
     {
         $result = (new HtmlToCarve())->convertWithReport('<p>Thus ' . $this->fixture('wikipedia-math') . '</p>');
 
-        $this->assertSame('Thus $`{\displaystyle E=mc^{2}.}`$', trim($result->value));
+        $this->assertSame('Thus $`{\displaystyle E=mc^{2}.}`', trim($result->value));
         $this->assertSame([], $result->report()['diagnostics']);
     }
 
@@ -56,13 +56,13 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
         $result = (new HtmlToCarve())->convertWithReport($this->fixture('ar5iv-math'));
 
         $this->assertSame(
-            '$$`\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(\frac{QK^{T}}{\sqrt{d_{k}}})V`$$',
+            '$$`\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(\frac{QK^{T}}{\sqrt{d_{k}}})V`',
             trim($result->value),
         );
         // `id` and `class` JOINED THE REPORT when the diagnostic started
         // reading the emitted document instead of predicting it
         // (carve-php#1346). Both are declared representable for every element,
-        // and a mapped `<math>` emits `$$`…`$$` - a bare math block with no
+        // and a mapped `<math>` emits `$$`…`` - a bare math block with no
         // attribute block on it - so this fixture's `id` and `class` really are
         // gone. They were dropped just as silently before; the drop is not new,
         // only the row saying so is.
@@ -103,7 +103,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
 
         $result = (new HtmlToCarve())->convertWithReport($html);
 
-        $this->assertSame('$`x`$', trim($result->value));
+        $this->assertSame('$`x`', trim($result->value));
         $this->assertSame(
             [['attribute-dropped', 'warning'], ['style-unmapped', 'info']],
             array_map(
@@ -125,7 +125,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
 
         $result = (new HtmlToCarve())->convertWithReport($html);
 
-        $this->assertSame('$`DECLARED`$', trim($result->value));
+        $this->assertSame('$`DECLARED`', trim($result->value));
         $this->assertSame([], $result->report()['diagnostics']);
     }
 
@@ -151,7 +151,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
     {
         $result = (new HtmlToCarve())->convertWithReport('<p><math alttext="a + b"><mrow><mi>a</mi></mrow></math></p>');
 
-        $this->assertSame('$`a + b`$', trim($result->value));
+        $this->assertSame('$`a + b`', trim($result->value));
         $this->assertSame(
             [
                 [
@@ -247,10 +247,10 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
     public static function texEncodingProvider(): array
     {
         return [
-            'application/x-tex' => ['application/x-tex', '$`E`$'],
-            'text/x-tex' => ['text/x-tex', '$`E`$'],
-            'LaTeX' => ['LaTeX', '$`E`$'],
-            'uppercased' => ['APPLICATION/X-TEX', '$`E`$'],
+            'application/x-tex' => ['application/x-tex', '$`E`'],
+            'text/x-tex' => ['text/x-tex', '$`E`'],
+            'LaTeX' => ['LaTeX', '$`E`'],
+            'uppercased' => ['APPLICATION/X-TEX', '$`E`'],
         ];
     }
 

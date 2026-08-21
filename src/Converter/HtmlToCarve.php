@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+use Closure;
 use DOMComment;
 use DOMDocument;
 use DOMElement;
@@ -2228,12 +2229,34 @@ class HtmlToCarve
         'address', 'details', 'dialog', 'fieldset', 'form', 'hgroup', 'menu', 'search',
     ];
 
-    protected function processBlock(DOMNode $node): string
+    /**
+     * A container's children, with a BLANK LINE at every inline-to-block seam.
+     *
+     * The seam is the whole point. Loose text beside a block sibling has no
+     * separator of its own in the DOM, so concatenating the two writes the
+     * block's opener onto the text's line, and the opener stops being one:
+     * `First` beside a `<div class="tabs-panel">` came back as the paragraph
+     * `First::: tabs-panel` with the panel's content lazily continued into it,
+     * and the same glue turned a `<blockquote>` into a `>` mid-sentence and a
+     * `<h2>` into `##` mid-sentence (carve-php#1543). Nothing is dropped, so
+     * no diagnostic fires - the source simply says something else.
+     *
+     * `docs/html-import.md` puts the rule on the importer rather than on the
+     * writer: an importer that builds source by hand "has to hold that line
+     * itself", the line being that it emits what the canonical writer emits.
+     *
+     * @param \DOMNode $node
+     * @param \Closure(\DOMNode): bool|null $skip A child to leave out entirely.
+     */
+    protected function processBlock(DOMNode $node, ?Closure $skip = null): string
     {
         $content = '';
         $inlineBuffer = '';
 
         foreach ($node->childNodes as $child) {
+            if ($skip !== null && $skip($child)) {
+                continue;
+            }
             $isBlock = false;
 
             if ($child instanceof DOMElement) {
@@ -2391,6 +2414,30 @@ class HtmlToCarve
             return $this->processLineBlock($node);
         }
 
+        // The block form of the same loss the inline math span had: the
+        // MathBlockExtension writes ``` math ``` as <div class="math display">,
+        // and importing that as a colon fence turned the equation into a
+        // paragraph of escaped backslashes (carve-php#1543). The fence is the
+        // exact inverse, and `docs/html-import.md` already settles the case
+        // where the inverse needs an extension to render as its element: the
+        // semantic survives as something a reader recovers by enabling the
+        // extension, where unwrapping discarded it outright. Without the
+        // extension a ``` math ``` block is still a readable code block.
+        $blockMath = $this->mathDelimitedContent($node, 'div');
+        if ($blockMath !== null) {
+            $suffix = $this->mathAttributeSuffix($node, $blockMath['classes']);
+            $body = $blockMath['content'];
+            $backticks = StringUtil::findSafeCodeFence($body, 3);
+
+            // Verbatim, NOT rtrimmed: the payload between the delimiters is the
+            // equation's own bytes, and `\[x  \]` is not `\[x\]`. A fence's
+            // content is its lines JOINED by newlines, so the closer's own
+            // newline is always the one added here - a body that already ends
+            // in one ends in a blank line, and the blank line is content too.
+            return ($suffix === '' ? '' : $suffix . "\n")
+                . $backticks . 'math' . "\n" . $body . "\n" . $backticks . "\n\n";
+        }
+
         $classes = $this->getElementClassList($node);
         $fenceClass = array_shift($classes);
 
@@ -2414,7 +2461,7 @@ class HtmlToCarve
                 return $this->degradeToContent($node);
             }
 
-            $content = trim($this->processChildren($node));
+            $content = trim($this->processBlock($node));
             $fence = $this->colonFenceFor($content);
             $output = $attrs . $fence . "\n";
             if ($content !== '') {
@@ -2440,7 +2487,7 @@ class HtmlToCarve
 
         $header = $this->extractAdmonitionTitle($node);
         $content = $header === null
-            ? trim($this->processChildren($node))
+            ? trim($this->processBlock($node))
             : $this->processAdmonitionContent($node);
         $parts = [];
         $id = $node->getAttribute('id');
@@ -2643,22 +2690,15 @@ class HtmlToCarve
      */
     protected function processAdmonitionContent(DOMElement $node): string
     {
-        $output = '';
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                $tag = strtolower($child->tagName);
-                // Skip the title element (p.admonition-title or summary)
-                if ($tag === 'p' && $this->hasClass($child, 'admonition-title')) {
-                    continue;
-                }
-                if ($tag === 'summary') {
-                    continue;
-                }
+        return $this->processBlock($node, function (DOMNode $child): bool {
+            if (!$child instanceof DOMElement) {
+                return false;
             }
-            $output .= $this->processNode($child);
-        }
+            $tag = strtolower($child->tagName);
 
-        return trim($output);
+            // Skip the title element (p.admonition-title or summary)
+            return ($tag === 'p' && $this->hasClass($child, 'admonition-title')) || $tag === 'summary';
+        });
     }
 
     /**
@@ -3475,12 +3515,128 @@ class HtmlToCarve
         return ['tier' => 3, 'content' => ''];
     }
 
+    /**
+     * The TeX a Carve-rendered math element carries, or null if it is not one.
+     *
+     * TWO SIGNALS have to agree before this claims an element, because either
+     * alone is something else. `class="math inline"` on its own is a class a
+     * stylesheet could have put anywhere, and a `\(…\)` payload on its own is
+     * ordinary text that happens to contain escapes. Together they are the
+     * shape this engine's renderer writes - and djot.js and pandoc write it
+     * too - so reading it back as math is a round trip, not a guess.
+     *
+     * The delimiter must MATCH the declared display mode: a `display` class
+     * around `\(…\)` disagrees with itself, and guessing which half is right
+     * would change the equation's typesetting on a document that never said so.
+     *
+     * Element children disqualify the element. `textContent` would flatten
+     * `<span class="math inline">\(<em>x</em>\)</span>` to the same string as
+     * the plain form, silently discarding the emphasis, and TeX has no markup
+     * inside it to lose in the first place - so the shape is not this engine's
+     * output and falls through to the ordinary attributed span.
+     *
+     * @param \DOMElement $node
+     * @param string $tag The element name this shape is spelled with.
+     *
+     * @return array{content: string, display: bool, classes: array<string>}|null
+     */
+    protected function mathDelimitedContent(DOMElement $node, string $tag): ?array
+    {
+        if (strtolower($node->tagName) !== $tag) {
+            return null;
+        }
+
+        $classes = $this->getElementClassList($node);
+        $mathAt = array_search('math', $classes, true);
+        if ($mathAt === false) {
+            return null;
+        }
+        unset($classes[$mathAt]);
+
+        $display = null;
+        foreach ($classes as $index => $class) {
+            if ($class === 'inline' || $class === 'display') {
+                $display = $class === 'display';
+                unset($classes[$index]);
+
+                break;
+            }
+        }
+        if ($display === null) {
+            return null;
+        }
+
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                return null;
+            }
+        }
+
+        $text = trim($node->textContent);
+        $open = $display ? '\\[' : '\\(';
+        $close = $display ? '\\]' : '\\)';
+        if (!str_starts_with($text, $open) || !str_ends_with($text, $close)) {
+            return null;
+        }
+
+        $content = substr($text, strlen($open), -strlen($close));
+        if (trim($content) === '') {
+            return null;
+        }
+
+        return ['content' => $content, 'display' => $display, 'classes' => array_values($classes)];
+    }
+
+    /**
+     * The attribute block riding a reconstructed math node, in writer slot order.
+     *
+     * The two classes that SPELL the math are consumed by the spelling, exactly
+     * as `<abbr title>`'s title is consumed by `{abbr="…"}`. Everything the
+     * renderer merged in beside them - an authored id, authored classes,
+     * `data-*` - is the author's and comes back.
+     *
+     * @param \DOMElement $node
+     * @param array<string> $classes The classes left after the math pair.
+     */
+    protected function mathAttributeSuffix(DOMElement $node, array $classes): string
+    {
+        $parts = [];
+        $id = $node->getAttribute('id');
+        if ($id !== '') {
+            $parts[] = '#' . $id;
+        }
+        foreach ($classes as $class) {
+            $parts[] = '.' . $class;
+        }
+        /** @var \DOMAttr $attr */
+        foreach ($node->attributes as $attr) {
+            $name = $attr->name;
+            if ($name === 'id' || $name === 'class' || $this->isStrippedImportAttribute($name)) {
+                continue;
+            }
+            $value = $attr->value;
+            $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
+        }
+
+        return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
+    }
+
+    /**
+     * Carve math is a PREFIX on a code span, and has no closing delimiter.
+     *
+     * The grammar spells it `math_inline = '$', code_span` and
+     * `math_display = "$$", code_span` (§18), so the code span's own closing
+     * backticks end the math. A trailing `$` after them is not part of the
+     * construct: it is the next character of the paragraph, and it came back as
+     * literal text sitting beside the equation - `$`x`$` rendered the math span
+     * and then a stray `$` (carve-php#1543).
+     */
     protected function renderMath(string $content, bool $isDisplay): string
     {
         $delimiter = $isDisplay ? '$$' : '$';
         $backticks = StringUtil::findSafeCodeFence($content, 1);
 
-        return $delimiter . $backticks . $content . $backticks . $delimiter;
+        return $delimiter . $backticks . $content . $backticks;
     }
 
     /**
@@ -4909,6 +5065,18 @@ class HtmlToCarve
             ) {
                 return $text;
             }
+        }
+
+        // The engine's own math output: <span class="math inline">\(x\)</span>,
+        // which is also what djot.js and pandoc write. Imported as an attributed
+        // span the equation stopped being an equation - the delimiters became
+        // literal text a re-render escapes as prose, so a typesetter has nothing
+        // left to find (carve-php#1543). Math carries no active content, so
+        // `safe` maps it exactly as `semantic` and `roundtrip` do.
+        $math = $this->mathDelimitedContent($node, 'span');
+        if ($math !== null) {
+            return $this->renderMath($math['content'], $math['display'])
+                . $this->mathAttributeSuffix($node, $math['classes']);
         }
 
         $content = $this->processChildren($node);
@@ -6356,11 +6524,15 @@ class HtmlToCarve
         $inFootnote = false;
         $lineBlockFence = 0;
         $result = [];
+        // Which emitted lines sit inside a fence, so the blank-line collapse
+        // below can leave their blanks alone.
+        $verbatim = [];
 
         foreach ($lines as $line) {
             // Track line blocks (::: line-block ... :::) so verse indentation
             // is preserved verbatim - the default branch below ltrims lines.
             if ($lineBlockFence > 0) {
+                $verbatim[count($result)] = true;
                 $result[] = $line;
                 if (preg_match('/^(:{3,})\s*$/', $line, $lbm) === 1 && strlen($lbm[1]) >= $lineBlockFence) {
                     $lineBlockFence = 0;
@@ -6370,6 +6542,7 @@ class HtmlToCarve
             }
             if (preg_match('/^(:{3,})\s+\|/', $line, $lbm) === 1) {
                 $lineBlockFence = strlen($lbm[1]);
+                $verbatim[count($result)] = true;
                 $result[] = $line;
 
                 continue;
@@ -6384,6 +6557,7 @@ class HtmlToCarve
             }
 
             if ($inCodeBlock) {
+                $verbatim[count($result)] = true;
                 $result[] = $line;
 
                 continue;
@@ -6473,10 +6647,22 @@ class HtmlToCarve
             $inFootnote = false;
         }
 
-        $djot = implode("\n", $result);
+        // Normalize runs of blank lines to ONE, but never inside a fence: a
+        // blank line there is content, and collapsing it rewrote the payload -
+        // `<pre><code>a\n\n\nb</code></pre>` came back with one blank line
+        // where the source had two (carve-php#1543).
+        $collapsed = [];
+        $previousWasBlank = false;
+        foreach ($result as $index => $line) {
+            $isVerbatim = isset($verbatim[$index]);
+            if (!$isVerbatim && $line === '' && $previousWasBlank) {
+                continue;
+            }
+            $previousWasBlank = !$isVerbatim && $line === '';
+            $collapsed[] = $line;
+        }
 
-        // Normalize multiple blank lines to max 2 (must run after line processing)
-        $djot = preg_replace("/\n{3,}/", "\n\n", $djot) ?? $djot;
+        $djot = implode("\n", $collapsed);
 
         // Remove leading/trailing whitespace
         $djot = trim($djot);
