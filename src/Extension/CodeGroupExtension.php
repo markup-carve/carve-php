@@ -260,11 +260,18 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         $attrs = $this->buildWrapperAttributes($node, $renderer);
         $html = '<div' . $attrs . ">\n";
         foreach ($codeBlocks as $item) {
-            $html .= '<section class="' . StringUtil::escapeHtml($this->panelClass) . "\">\n"
-                . '<p class="' . StringUtil::escapeHtml($this->labelClass) . '">'
-                . $renderer->escapeText($item['label']) . "</p>\n"
+            // A HEADING, and indented, exactly as TabsExtension writes its own
+            // static panels and as carve-js writes both. Extensions §2.5 says
+            // "each panel as a `<section>` headed by its `[label]`" and
+            // graceful-degradation calls it a caption HEADING - a `<p>` is the
+            // outlier rather than a considered choice, and it left the label
+            // out of the document outline that is the whole point of surfacing
+            // it offline (markup-carve/carve-php#1535).
+            $html .= '  <section class="' . StringUtil::escapeHtml($this->panelClass) . "\">\n"
+                . '  <h3 class="' . StringUtil::escapeHtml($this->labelClass) . '">'
+                . $renderer->escapeText($item['label']) . "</h3>\n"
                 . $this->renderCodeBlock($item['block'], $item['language'], $renderer)
-                . "</section>\n";
+                . "  </section>\n";
         }
         $html .= "</div>\n";
 

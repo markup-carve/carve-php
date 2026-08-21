@@ -64,7 +64,7 @@ class AnExtensionLabelIsTextNotAnAttributeValueTest extends TestCase
                 null,
                 '</button>',
             ],
-            'code group static label' => [$group, new CodeGroupExtension(), 'static', '</p>'],
+            'code group static label' => [$group, new CodeGroupExtension(), 'static', '</h3>'],
         ];
     }
 
