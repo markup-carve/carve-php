@@ -75,10 +75,14 @@ class ACssModePanelIsNamedAndAnAriaOneIsBoundTest extends TestCase
     }
 
     /**
-     * The name is TEXT and is attribute-escaped, which is a different escaping
-     * from the label element's own content.
+     * The name is TEXT, escaped for an ATTRIBUTE.
+     *
+     * Not the same escaper the label ELEMENT's content uses: that one turns a
+     * literal non-breaking space into `&nbsp;`, which an attribute value must
+     * keep as the character. Both halves are asserted, so swapping one escaper
+     * for the other fails, and so does dropping the escaping entirely.
      */
-    public function testThePanelNameIsAttributeEscaped(): void
+    public function testThePanelNameIsEscapedForAnAttribute(): void
     {
         $source = ":::: tabs\n::: tab [R&D \"core\" <x>]\nc\n:::\n::::\n";
         $html = $this->convert($source, new TabsExtension());
@@ -87,6 +91,12 @@ class ACssModePanelIsNamedAndAnAriaOneIsBoundTest extends TestCase
             '<div class="tabs-panel" role="group" aria-label="R&amp;D &quot;core&quot; &lt;x&gt;">',
             $html,
         );
+
+        $nbsp = ":::: tabs\n::: tab [a\u{00A0}b]\nc\n:::\n::::\n";
+        $withNbsp = $this->convert($nbsp, new TabsExtension());
+
+        $this->assertStringContainsString('>a&nbsp;b</label>', $withNbsp);
+        $this->assertStringContainsString("aria-label=\"a\u{00A0}b\"", $withNbsp);
     }
 
     /**
