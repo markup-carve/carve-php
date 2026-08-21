@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Throwable;
 use function array_is_list;
 use function array_key_last;
 use function array_keys;
@@ -22,6 +23,12 @@ use function file_get_contents;
 use function glob;
 use function is_array;
 use function json_encode;
+use function max;
+use function str_contains;
+use function str_starts_with;
+use function strlen;
+use function substr;
+use function trim;
 
 /**
  * Corpus-level safety net for the AST->Carve formatter (`carve fmt`).
@@ -41,6 +48,11 @@ use function json_encode;
  *    another that renders the same - `* %%` written as `* +`, a line comment
  *    becoming the continuation marker. Every one of those passes the three
  *    properties above (carve-php#1523).
+ *  - MINIMALITY, PART 11 §2's other half: an escape is written IF AND ONLY IF
+ *    omitting it would change the re-parse. The tree comparison cannot see
+ *    this one, because it has to forgive escaping or §1 contradicts §2 - so an
+ *    invented escape passes every property above. It is red on 28 documents
+ *    and gated by a shrink-only ratchet (carve-php#1533).
  *
  * Plus a clean-parse guard: the formatted output must re-parse without error.
  *
@@ -54,6 +66,68 @@ use function json_encode;
 #[Group('corpus')]
 class CarveFmtCorpusTest extends TestCase
 {
+    /**
+     * The two causes carve-php#1533 measured, one of which every ratchet entry
+     * below must name. An entry belonging to neither is a cause nobody has
+     * looked at yet, which is a finding rather than a resident.
+     *
+     * @var array<int, string>
+     */
+    private const IDLE_ESCAPE_CAUSES = ['escalation: ', 'minimal class: '];
+
+    /**
+     * THE DEBT, NOT A BLESSING: documents where the writer emits an escape the
+     * re-parse does not need, with the exact count of invented escapes.
+     *
+     * PART 11 §2 escapes a character IF AND ONLY IF omitting the escape would
+     * change the re-parse, and this list is where this engine breaks the "only
+     * if" half. It is a shrink-only ratchet: an entry may be lowered or deleted
+     * as the writer improves, and NOTHING may be added or raised. A count that
+     * goes up is a regression and fails; a count that goes down fails too, so
+     * the entry is tightened rather than left as slack a later defect could
+     * spend.
+     *
+     * Every entry carries a reason, because an entry nobody can explain is the
+     * next thing to investigate. An empty reason fails
+     * {@see self::testEveryRatchetEntryCarriesACountAndAReason()}.
+     *
+     * Seeded from measurement at d3ae737: 28 documents, 72 invented escapes,
+     * 26 of them from the per-document escalation and 2 from inside the
+     * minimal class.
+     *
+     * @var array<string, array{0: int, 1: string}>
+     */
+    private const IDLE_ESCAPE_RATCHET = [
+        '72-escape-coverage-2' => [4, 'minimal class: a literal backslash is written doubled, and a lone backslash before a non-escapable character re-parses the same bare'],
+        '87-compact-list-blocks-10' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `{`, `}`'],
+        '103-heading-marker-column-zero-2' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `#` x2'],
+        '129-emphasis-opener-slash-adjacency-3' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `_` x2'],
+        '132-thematic-break-requires-contiguous-markers-3' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `*` x3'],
+        '145-definition-list-as-a-first-class-block-opener-3' => [1, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `:`'],
+        '146-table-as-a-block-opener-in-a-list-item-2' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `=`, `|` x2'],
+        '151-indented-ordered-marker-content-column-includes-the-marker-indent' => [1, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `|`'],
+        '157-indented-attribute-line-stays-literal' => [4, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.` x2, `{`, `}`'],
+        '157-indented-attribute-line-stays-literal-2' => [5, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `-` x2, `.`, `{`, `}`'],
+        '158-indented-image-and-caption-stay-literal-2' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `{`, `}`'],
+        '159-indented-reference-and-footnote-definitions-stay-literal' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `]`'],
+        '159-indented-reference-and-footnote-definitions-stay-literal-2' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.` x2'],
+        '160-indented-colon-fence-blocks-stay-literal' => [1, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`'],
+        '160-indented-colon-fence-blocks-stay-literal-2' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `:`, `|`'],
+        '160-indented-colon-fence-blocks-stay-literal-3' => [1, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`'],
+        '195-a-definition-inside-a-container-is-collected-at-that-container-s-content-column-3' => [4, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `[`, `]`'],
+        '218-a-footnote-body-s-own-column-is-two-and-a-third-column-is-its-text' => [4, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `-`, `|` x3'],
+        '219-a-definition-below-a-footnote-body-s-column-is-the-document-s-own-text' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `/`, `]`'],
+        '220-a-definition-past-a-footnote-body-s-column-is-the-body-s-own-text' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `/`, `]`'],
+        '287-a-column-zero-definition-ends-an-open-list-item-3' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `/`, `]`'],
+        '322-an-attribute-block-reaches-the-nested-list-it-precedes-9' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `{`, `}`'],
+        '350-a-definition-at-a-container-s-content-column-3' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `/`, `]`'],
+        '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `]`'],
+        '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one-2' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `]`'],
+        '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one-3' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `]`'],
+        '379-a-reference-definition-cannot-take-its-destination-from-the-next-line' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `[`, `]`'],
+        '390-a-table-cell-s-marker-run-ends-at-a-space-5' => [1, 'minimal class: an authored `\=` is kept after the writer\'s own cell padding retired it - padded, the `=` no longer starts the cell'],
+    ];
+
     /**
      * @throws \RuntimeException when the spec submodule is not initialized
      *
@@ -293,6 +367,197 @@ class CarveFmtCorpusTest extends TestCase
             self::tree(CarveConverter::toCarve($crv)),
             'parse(fmt(x)) != parse(x) for ' . $slug,
         );
+    }
+
+    /**
+     * The render and the canonical tree of a document, as one comparable
+     * string, or null when the document does not parse at all.
+     *
+     * Both halves are needed. The tree comparison forgives escaping - it has
+     * to, or §1 contradicts §2 - so on its own it would call EVERY escape
+     * idle. The render is what still separates an escape that changes the
+     * document from one that changes nothing.
+     */
+    private static function escapeFingerprint(CarveConverter $converter, AstCodec $codec, string $source): ?string
+    {
+        try {
+            $html = $converter->convert($source);
+            $tree = (string)json_encode(self::canonical($codec->encode($converter->parse($source))));
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $html . "\0" . $tree;
+    }
+
+    /**
+     * A document's IDLE escapes, counted per escaped character - PART 11 §2's
+     * "only if".
+     *
+     * Each backslash is removed on its own and the document re-measured. One
+     * whose removal leaves BOTH the render and the canonical tree unchanged is
+     * an escape the re-parse never needed, and it is counted under the byte it
+     * was escaping.
+     *
+     * PER CHARACTER RATHER THAN A TOTAL, so that retiring one escape cannot pay
+     * for inventing a different one - see {@see self::inventedIdleEscapes()}.
+     *
+     * A removal that makes the document unparseable is not idle: the
+     * fingerprint is null, which matches nothing.
+     *
+     * @return array<string, int>
+     */
+    private static function idleEscapes(string $source): array
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        $base = self::escapeFingerprint($converter, $codec, $source);
+        if ($base === null) {
+            return [];
+        }
+
+        $idle = [];
+        $length = strlen($source);
+        for ($i = 0; $i < $length; $i++) {
+            if ($source[$i] !== '\\') {
+                continue;
+            }
+            $without = substr($source, 0, $i) . substr($source, $i + 1);
+            if (self::escapeFingerprint($converter, $codec, $without) !== $base) {
+                continue;
+            }
+            $escaped = $i + 1 < $length ? $source[$i + 1] : '';
+            $idle[$escaped] = ($idle[$escaped] ?? 0) + 1;
+        }
+
+        return $idle;
+    }
+
+    /**
+     * The idle escapes the WRITER added, over the ones the author already had.
+     *
+     * Counting only fmt(x) would charge the writer for an escape the author
+     * wrote and the writer merely carried through, so the same count is taken
+     * on the source and subtracted.
+     *
+     * THE SUBTRACTION IS PER CHARACTER AND CLAMPED AT ZERO PER CHARACTER. A
+     * document-wide total would let the writer pay for a newly invented escape
+     * with an unrelated one it retired - drop two of the author's idle `.`
+     * escapes, invent an idle `|`, and the net is negative while a new defect
+     * is on the page. Per character, the invented `|` still counts. Clamping
+     * per character is what keeps that sound: retiring an author's escape is
+     * §2's job, not credit.
+     *
+     * What is left is a FLOOR, not an exact count: two idle escapes of the
+     * SAME character, one retired and one invented in another place, still
+     * cancel. Positional matching would close that, and nothing in the corpus
+     * currently exercises it - the per-character count reproduces the seeded
+     * 28 documents and 72 escapes exactly.
+     */
+    private static function inventedIdleEscapes(string $crv): int
+    {
+        return self::inventedIdleEscapesBetween($crv, CarveConverter::toCarve($crv));
+    }
+
+    /**
+     * The same count between any two spellings, so the property above can be
+     * demonstrated without going through the writer.
+     */
+    private static function inventedIdleEscapesBetween(string $source, string $formatted): int
+    {
+        if (!str_contains($source, '\\') && !str_contains($formatted, '\\')) {
+            return 0;
+        }
+
+        $authored = self::idleEscapes($source);
+        $invented = 0;
+        foreach (self::idleEscapes($formatted) as $escaped => $count) {
+            $invented += max(0, $count - ($authored[$escaped] ?? 0));
+        }
+
+        return $invented;
+    }
+
+    /**
+     * The writer invents no escape the re-parse does not need (PART 11 §2).
+     *
+     * The equality invariant above cannot see this one: it forgives escaping
+     * by construction, so an invented escape passes it, passes the HTML
+     * comparison, passes idempotency and re-parses cleanly. Minimality is the
+     * only property that would have caught carve-php#1520's doubled caret or
+     * carve-php#1522's half-formed braced pair, and both of those were found
+     * by a human reading output instead.
+     *
+     * Red on 28 of 1341 documents when this landed, so it is gated by the
+     * shrink-only ratchet above rather than an allowlist - the entries are
+     * known violations with a number attached, not blessings.
+     */
+    #[DataProvider('corpusProvider')]
+    public function testTheWriterInventsNoEscapeTheReParseDoesNotNeed(string $slug, string $crv): void
+    {
+        $allowed = self::IDLE_ESCAPE_RATCHET[$slug][0] ?? 0;
+        $invented = self::inventedIdleEscapes($crv);
+
+        $message = $invented > $allowed
+            ? 'the writer invented ' . $invented . ' escape(s) the re-parse does not need in ' . $slug
+                . ', and the ratchet allows ' . $allowed
+                . '. PART 11 §2 escapes a character only if omitting it would change the re-parse. '
+                . 'The ratchet may only shrink, so this is a regression to fix, not an entry to raise.'
+            : 'the ratchet entry for ' . $slug . ' is stale: it records ' . $allowed
+                . ' invented escape(s) and the writer now emits ' . $invented
+                . '. Lower the entry to ' . $invented . ' (or delete it at 0) so the debt cannot grow back into the slack.';
+
+        $this->assertSame($allowed, $invented, $message);
+    }
+
+    /**
+     * Every ratchet entry names a real document, a positive count and a cause.
+     *
+     * An entry with an empty reason is a build failure rather than an entry:
+     * a list nobody has to justify is how an allowlist quietly becomes the
+     * thing that hides the problem.
+     */
+    public function testEveryRatchetEntryCarriesACountAndAReason(): void
+    {
+        $corpus = self::corpusProvider();
+
+        foreach (self::IDLE_ESCAPE_RATCHET as $slug => [$count, $reason]) {
+            $this->assertArrayHasKey($slug, $corpus, 'the ratchet names a document the corpus does not have: ' . $slug);
+            $this->assertGreaterThan(0, $count, 'a ratchet entry records no invented escape, so it is not debt: ' . $slug);
+            $this->assertNotSame('', trim($reason), 'the ratchet entry for ' . $slug . ' has no reason, and an entry nobody can explain is the next thing to investigate');
+
+            $named = false;
+            foreach (self::IDLE_ESCAPE_CAUSES as $cause) {
+                $named = $named || str_starts_with($reason, $cause);
+            }
+            $this->assertTrue($named, 'the ratchet entry for ' . $slug . ' names no measured cause: ' . $reason);
+        }
+    }
+
+    /**
+     * THE SWEEP CAN FAIL, and it fails on exactly what §2 forbids.
+     *
+     * Without this the whole check could be a count that is structurally
+     * always zero - the shape carve-php#1523 exists to close. So both halves
+     * are pinned: an escape that changes nothing is seen, and an escape that
+     * is load-bearing is not counted against the writer.
+     */
+    public function testTheIdleSweepSeesAnInventedEscapeAndKeepsANeededOne(): void
+    {
+        // Idle: mid-line, a `>` is text with or without the backslash.
+        $this->assertSame(['>' => 1], self::idleEscapes("a \\> b\n"));
+
+        // Needed: at column zero, bare it opens a quote.
+        $this->assertSame([], self::idleEscapes("\\> a\n"));
+
+        // And the count is backslashes that do nothing, not backslashes.
+        $this->assertSame([], self::idleEscapes("a > b\n"));
+        $this->assertSame([], self::idleEscapes("a b\n"));
+
+        // Per character, so a retired escape cannot pay for an invented one:
+        // the same total, a different character, is still one invented escape.
+        $this->assertSame(1, self::inventedIdleEscapesBetween("a \\. b\n", "a \\| b\n"));
+        $this->assertSame(0, self::inventedIdleEscapesBetween("a \\. b\n", "a \\. b\n"));
     }
 
     /**
