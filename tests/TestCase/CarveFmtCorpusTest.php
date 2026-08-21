@@ -223,9 +223,15 @@ class CarveFmtCorpusTest extends TestCase
             return $value;
         }
 
-        unset($value['srcByteLength'], $value['pos']);
-        if (($value['type'] ?? null) === 'escaped_text') {
-            $value['type'] = 'text';
+        // ONLY on a node. `pos` and `srcByteLength` are attribute names an
+        // author may write, and inside `attrs.keyValues` they are content -
+        // stripping them there would make `{pos=x}` and `{pos=y}` canonicalize
+        // alike and leave the sweep unable to see the writer move them.
+        if (isset($value['type'])) {
+            unset($value['srcByteLength'], $value['pos']);
+            if ($value['type'] === 'escaped_text') {
+                $value['type'] = 'text';
+            }
         }
         foreach ($value as $key => $child) {
             $value[$key] = self::canonical($child);
@@ -335,6 +341,16 @@ class CarveFmtCorpusTest extends TestCase
 
         // An attribute moving: not forgiven.
         $this->assertNotSame(self::tree("{#x}\na\n"), self::tree("{#y}\na\n"));
+
+        // An attribute NAMED like node metadata is content, not metadata.
+        $this->assertNotSame(
+            self::tree("{pos=\"x\"}\na\n"),
+            self::tree("{pos=\"y\"}\na\n"),
+        );
+        $this->assertNotSame(
+            self::tree("{srcByteLength=\"1\"}\na\n"),
+            self::tree("{srcByteLength=\"2\"}\na\n"),
+        );
     }
 
     /**
