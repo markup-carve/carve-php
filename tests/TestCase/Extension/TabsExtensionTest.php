@@ -71,8 +71,13 @@ DJOT;
 
         $this->assertStringContainsString('>First</label>', $html);
         $this->assertStringContainsString('>Second</label>', $html);
-        // the [label] is inert structured metadata: never a rendered attribute
-        $this->assertStringNotContainsString('label="First"', $html);
+        // The [label] is inert structured metadata: never a `label=` attribute
+        // of its own. Anchored on the space so it cannot match the panel's
+        // `aria-label`, which IS the label and is Extensions §13.2 - the
+        // unanchored form went green against the wrong string
+        // (markup-carve/carve-js#1266 hit the same trap).
+        $this->assertStringNotContainsString(' label="First"', $html);
+        $this->assertStringNotContainsString('<label label=', $html);
     }
 
     public function testQuotedOpenerTitleStaysInsidePanel(): void
@@ -329,8 +334,12 @@ DJOT;
         $html = $converter->convert($djot);
 
         $this->assertStringContainsString('>Tab Title</label>', $html);
-        // Heading should not appear twice (once in label, once in content)
-        $this->assertEquals(1, substr_count($html, 'Tab Title'));
+        // The heading became the tab name, so it must not ALSO render inside
+        // the panel. Counted as text-node occurrences - `>Tab Title<` - rather
+        // than as a substring of the whole document, which now also matches the
+        // panel's `aria-label` (Extensions §13.2).
+        $this->assertSame(1, substr_count($html, '>Tab Title<'));
+        $this->assertStringNotContainsString('<h3', $html);
     }
 
     public function testTabsPreserveFootnotesOutsideTabContent(): void

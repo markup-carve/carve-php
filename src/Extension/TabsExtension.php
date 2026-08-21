@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Extension;
 
+use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Event\RenderEvent;
@@ -240,6 +241,17 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         protected string $idPrefix = 'tabset',
         protected ?string $groupLabel = null,
     ) {
+        // AN UNKNOWN MODE IS REFUSED, NOT GUESSED (Extensions §13.1). The
+        // dispatch below was `mode === MODE_ARIA ? aria : css`, so `arai` -
+        // or `'ARIA'` - rendered the CSS mode silently and the host had no way
+        // to find out. §2.5 makes the same call for render modes: a guess turns
+        // a typo into different output nobody asked for.
+        if ($mode !== self::MODE_CSS && $mode !== self::MODE_ARIA) {
+            throw new InvalidArgumentException(
+                'TabsExtension mode must be "' . self::MODE_CSS . '" or "'
+                . self::MODE_ARIA . '", got "' . $mode . '"',
+            );
+        }
     }
 
     public function register(CarveConverter $converter): void
@@ -489,9 +501,20 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             $html .= "</label>\n";
         }
 
-        // Render all tab panels
+        // Render all tab panels, each NAMED BY ITS OWN TAB (Extensions §13.2).
+        //
+        // Under `css` there are no tab roles, so nothing binds a panel to the
+        // control that reveals it: every radio and label is emitted before
+        // every panel, and the panel itself is anonymous. `group` rather than
+        // `tabpanel` because the control IS a radio, and a `<div>` rather than
+        // a `<section>` because one landmark per panel is N landmarks per set.
+        //
+        // The name is DERIVED from the document - it is the tab's own label -
+        // so per §1.5 it takes no `labels` key, exactly as an admonition title
+        // does not: a translated document translates it once, in the document.
         foreach ($tabs as $tab) {
-            $html .= '<div class="' . StringUtil::escapeHtml($this->tabClass) . '">';
+            $html .= '<div class="' . StringUtil::escapeHtml($this->tabClass) . '"'
+                . ' role="group" aria-label="' . $renderer->escapeAttribute($tab['label']) . '">';
             $html .= "\n" . $tab['content'];
             $html .= "</div>\n";
         }
@@ -549,7 +572,11 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             $html .= "</button>\n";
         }
 
-        // Render all tab panels
+        // Render all tab panels. NEITHER `role="group"` NOR A NAME here
+        // (Extensions §13.3): the association already exists, so naming the
+        // panel as well would give one element two accessible names and pull it
+        // out of the `tablist` relationship that is the only reason to be in
+        // this mode. §13.2 is a `css`-mode rule, not "every panel gets a name".
         foreach ($tabs as $index => $tab) {
             $tabId = $tabIds[$index]['tab'];
             $panelId = $tabIds[$index]['panel'];

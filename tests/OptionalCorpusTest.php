@@ -110,11 +110,11 @@ class OptionalCorpusTest extends TestCase
      */
     protected const AHEAD_OF_PIN = [
         '28-tabs-panel-title' => [
-            'reason' => 'markup-carve/carve#1468: the tab set names itself; the pinned corpus predates it and spec main already states the named form',
+            'reason' => 'markup-carve/carve#1468 + #1489 (Extensions §13.2): the tab SET names itself and each css-mode PANEL is named by its own tab; the pinned corpus predates both and spec main already states the named form',
             'expected' => "<div class=\"tabs\" role=\"group\" aria-label=\"Tabs\">\n"
                 . "<input type=\"radio\" name=\"tabset-1\" id=\"tabset-1-tab-1\" class=\"tabs-radio\" checked>\n"
                 . "<label for=\"tabset-1-tab-1\" class=\"tabs-label\">First</label>\n"
-                . "<div class=\"tabs-panel\">\n"
+                . "<div class=\"tabs-panel\" role=\"group\" aria-label=\"First\">\n"
                 . "<p class=\"admonition-title\">Inner <strong>Title</strong></p>\n"
                 . "<p>Content one.</p>\n"
                 . "</div>\n"

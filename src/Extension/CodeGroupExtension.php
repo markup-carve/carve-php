@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use Closure;
+use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -107,6 +108,22 @@ use MarkupCarve\Carve\Util\StringUtil;
  * }
  * ```
  *
+ * ### ARIA mode
+ *
+ * Semantic roles with a button/tabpanel structure. Requires JavaScript: the
+ * reveal is `hidden`, which is why `css` stays the default (Extensions §13.1 -
+ * a page that registers this mode and ships no script loses every panel but the
+ * first, while `css` with no stylesheet at all shows them all).
+ *
+ * ```html
+ * <div class="code-group" role="tablist" aria-label="Code examples">
+ *   <button role="tab" id="codegroup-1-tab-1" aria-selected="true"
+ *           aria-controls="codegroup-1-panel-1" class="code-group-label">Install</button>
+ *   <div role="tabpanel" id="codegroup-1-panel-1" aria-labelledby="codegroup-1-tab-1"
+ *        class="code-group-panel"><pre><code class="language-php">...</code></pre></div>
+ * </div>
+ * ```
+ *
  * ## Comparison with TabsExtension
  *
  * Use **CodeGroupExtension** when:
@@ -117,11 +134,27 @@ use MarkupCarve\Carve\Util\StringUtil;
  * Use **TabsExtension** when:
  * - You have arbitrary content (not just code)
  * - Labels come from headings or attributes
- * - You need ARIA mode with full keyboard navigation
+ *
+ * ARIA mode is no longer a reason to reach for Tabs: this extension carries the
+ * same `mode` option, and sending a reader there for accessible output cost
+ * them the language-hint labels and the highlighter integration that are the
+ * reason to use a code group at all (Extensions §13).
  */
 class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderExtensionInterface
 {
     use ExtensionAttributesTrait;
+
+    /**
+     * Output mode: 'css' for CSS-only, 'aria' for ARIA with JS
+     *
+     * @var string
+     */
+    public const MODE_CSS = 'css';
+
+    /**
+     * @var string
+     */
+    public const MODE_ARIA = 'aria';
 
     /**
      * Counter for generating unique group IDs
@@ -136,6 +169,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
      * @param string $idPrefix Prefix for generated IDs
      * @param \Closure|null $highlighter Optional syntax highlighter callback: fn(string $code, ?string $lang): string
      * @param string|null $groupLabel Accessible name for the code group AS A WHOLE; null takes the render's `labels` map under `codeGroup`
+     * @param string $mode Output mode: 'css' (default) or 'aria'
      */
     public function __construct(
         protected string $wrapperClass = 'code-group',
@@ -145,7 +179,24 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         protected string $idPrefix = 'codegroup',
         protected ?Closure $highlighter = null,
         protected ?string $groupLabel = null,
+        protected string $mode = self::MODE_CSS,
     ) {
+        // `css` IS THE DEFAULT AND MUST STAY IT (Extensions §13.1). Not for
+        // compatibility - for §2.5: content is never dropped, only interaction.
+        // `aria` mode reveals with `hidden`, so a page that registers it and
+        // ships no script loses every panel but the first, while `css` with no
+        // stylesheet at all shows every panel. A default whose failure mode is
+        // missing content is the wrong default.
+        //
+        // And an unknown value is REFUSED rather than guessed, for the reason
+        // §2.5 gives about render modes: a guess turns a typo into silently
+        // different output.
+        if ($mode !== self::MODE_CSS && $mode !== self::MODE_ARIA) {
+            throw new InvalidArgumentException(
+                'CodeGroupExtension mode must be "' . self::MODE_CSS . '" or "'
+                . self::MODE_ARIA . '", got "' . $mode . '"',
+            );
+        }
     }
 
     public function register(CarveConverter $converter): void
@@ -171,7 +222,9 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
                 return;
             }
 
-            $html = $this->renderCodeGroup($node, $codeBlocks, $renderer);
+            $html = $this->mode === self::MODE_ARIA
+                ? $this->renderAriaCodeGroup($node, $codeBlocks, $renderer)
+                : $this->renderCodeGroup($node, $codeBlocks, $renderer);
             $event->setHtml($html);
         });
     }
@@ -319,9 +372,79 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             $html .= "</label>\n";
         }
 
-        // Render all code panels
+        // Render all code panels, each NAMED BY ITS OWN LABEL (Extensions
+        // §13.2) - the tab name where one was written, otherwise the language
+        // word. `group` rather than `tabpanel` because the control revealing it
+        // IS a radio, and the name is derived from the document, so per §1.5 it
+        // takes no `labels` key.
         foreach ($codeBlocks as $item) {
-            $html .= '<div class="' . StringUtil::escapeHtml($this->panelClass) . '">';
+            $html .= '<div class="' . StringUtil::escapeHtml($this->panelClass) . '"'
+                . ' role="group" aria-label="' . $renderer->escapeAttribute($item['label']) . '">';
+            $html .= $this->renderCodeBlock($item['block'], $item['language'], $renderer);
+            $html .= "</div>\n";
+        }
+
+        $html .= "</div>\n";
+
+        return $html;
+    }
+
+    /**
+     * ARIA mode: `<button role="tab">` controls and `role="tabpanel"` panels.
+     *
+     * Mirrors `TabsExtension::renderAriaTabs()`, because two constructs of the
+     * same shape do not get different accessibility ceilings because one of
+     * them was written second (Extensions §13, markup-carve/carve#1468).
+     *
+     * The panel is BOUND, NOT NAMED (§13.3): `aria-labelledby` points at the
+     * button, so it takes neither `role="group"` nor an `aria-label` - a second
+     * name would give one element two, and pull it out of the `tablist`
+     * relationship that is the only reason to be in this mode.
+     *
+     * Requires a client script: the reveal is `hidden`, which is exactly why
+     * §13.1 keeps `css` the default.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
+     * @param array<array{block: \MarkupCarve\Carve\Node\Block\CodeBlock, language: string|null, label: string, selected: bool}> $codeBlocks
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
+     */
+    protected function renderAriaCodeGroup(Div $wrapper, array $codeBlocks, HtmlRenderer $renderer): string
+    {
+        $this->groupCounter++;
+        $tracker = $renderer->getHeadingIdTracker();
+        $groupId = $tracker->uniqueId($this->idPrefix . '-' . $this->groupCounter);
+
+        // Each tab/panel id pair is computed ONCE and reused in both loops, so a
+        // bumped generated id keeps the ARIA wiring consistent.
+        $ids = [];
+        foreach ($codeBlocks as $index => $item) {
+            $num = $index + 1;
+            $ids[$index] = [
+                'tab' => $tracker->uniqueId($groupId . '-tab-' . $num),
+                'panel' => $tracker->uniqueId($groupId . '-panel-' . $num),
+            ];
+        }
+
+        $html = '<div' . $this->buildWrapperAttributes($wrapper, $renderer, 'tablist') . ">\n";
+
+        foreach ($codeBlocks as $index => $item) {
+            $selected = $item['selected'] ? 'true' : 'false';
+            $tabindex = $item['selected'] ? '' : ' tabindex="-1"';
+
+            $html .= '<button role="tab" id="' . StringUtil::escapeHtml($ids[$index]['tab']) . '" ';
+            $html .= 'aria-selected="' . $selected . '" ';
+            $html .= 'aria-controls="' . StringUtil::escapeHtml($ids[$index]['panel']) . '" ';
+            $html .= 'class="' . StringUtil::escapeHtml($this->labelClass) . '"' . $tabindex . '>';
+            $html .= StringUtil::escapeHtml($item['label']);
+            $html .= "</button>\n";
+        }
+
+        foreach ($codeBlocks as $index => $item) {
+            $hidden = $item['selected'] ? '' : ' hidden';
+
+            $html .= '<div role="tabpanel" id="' . StringUtil::escapeHtml($ids[$index]['panel']) . '" ';
+            $html .= 'aria-labelledby="' . StringUtil::escapeHtml($ids[$index]['tab']) . '" ';
+            $html .= 'class="' . StringUtil::escapeHtml($this->panelClass) . '"' . $hidden . '>';
             $html .= $this->renderCodeBlock($item['block'], $item['language'], $renderer);
             $html .= "</div>\n";
         }
@@ -453,7 +576,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
     /**
      * Build wrapper div attributes
      */
-    protected function buildWrapperAttributes(Div $wrapper, HtmlRenderer $renderer): string
+    protected function buildWrapperAttributes(Div $wrapper, HtmlRenderer $renderer, ?string $role = null): string
     {
         // A plain GROUP: there are no tab/panel roles here to associate, so
         // that is all the wrapper can honestly claim - and the name is the half
@@ -467,7 +590,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             $this->groupNameAttributes(
                 $wrapper,
                 $renderer,
-                'group',
+                $role ?? 'group',
                 $this->groupLabel ?? $renderer->label('codeGroup'),
             ),
         );
