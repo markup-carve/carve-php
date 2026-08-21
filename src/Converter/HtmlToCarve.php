@@ -15,6 +15,7 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
 use Throwable;
@@ -2489,6 +2490,10 @@ class HtmlToCarve
         $content = $header === null
             ? trim($this->processBlock($node))
             : $this->processAdmonitionContent($node);
+        // The fence class is what NAMES this container - `tabs` is why the
+        // wrapper is called "Tabs" - and it is written as the fence word rather
+        // than kept in `$classes`, so the derived-name test is told about it.
+        $this->structuralClassInProgress = $fenceClass;
         $parts = [];
         $id = $node->getAttribute('id');
         if ($id !== '') {
@@ -2504,8 +2509,15 @@ class HtmlToCarve
                 continue;
             }
             $value = $attr->value;
+            if (
+                $this->isConsumedTitleReference($node, $name, $value)
+                || $this->isDerivedAccessibleName($node, $name, $value)
+            ) {
+                continue;
+            }
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
         }
+        $this->structuralClassInProgress = null;
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
         $fence = $this->colonFenceFor($content);
         $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
@@ -2556,7 +2568,10 @@ class HtmlToCarve
                 continue;
             }
             $value = $attr->value;
-            if ($this->isConsumedTitleReference($node, $name, $value)) {
+            if (
+                $this->isConsumedTitleReference($node, $name, $value)
+                || $this->isDerivedAccessibleName($node, $name, $value)
+            ) {
                 continue;
             }
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
@@ -2608,7 +2623,10 @@ class HtmlToCarve
                 continue;
             }
             $value = $attr->value;
-            if ($this->isConsumedTitleReference($node, $name, $value)) {
+            if (
+                $this->isConsumedTitleReference($node, $name, $value)
+                || $this->isDerivedAccessibleName($node, $name, $value)
+            ) {
                 continue;
             }
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
@@ -2654,6 +2672,145 @@ class HtmlToCarve
      * a second copy of a policy drifts - which is the defect carve-php#1346 and
      * carve-php#1337 both came back to.
      */
+    /**
+     * Is this the accessible name the RENDERER derives for this element?
+     *
+     * PART 9 §16a and Extensions §13 write a name onto elements the author never
+     * spelled. Re-importing it makes a generated string look authored, and §12
+     * writes a name only where the author wrote NONE - so the imported copy WINS
+     * on the next render and the document can no longer be localized: a source
+     * carrying `{aria-label=Note}` still emits `aria-label="Note"` under
+     * `labels: {admonitionNote: 'Hinweis'}` (markup-carve/carve#1500).
+     *
+     * Dropping it is free. The renderer regenerates the same string, so the
+     * output is byte-identical with the attribute gone - measured on every shape
+     * below - and only then does the `labels` map reach it again.
+     *
+     * MATCHED ON VALUE, NOT ON PROVENANCE. If the value equals what the renderer
+     * derives, the output is identical whether the author wrote it or the engine
+     * did, so this cannot repeat carve-php#1337: a name that DIFFERS is the
+     * author's and is kept. Same rule the generated `scope` on a `<th>` already
+     * gets.
+     *
+     * The residue is deliberate. A document rendered with a non-default `labels`
+     * map carries a value this cannot recognize, so it is kept. Closing that
+     * needs the importer to be handed the same map, which is step 2 on #1500.
+     */
+    /**
+     * The structural class a writer has temporarily lifted off the node, so the
+     * derived-name test can still see what the element IS.
+     */
+    protected ?string $structuralClassInProgress = null;
+
+    protected function isDerivedAccessibleName(DOMElement $node, string $name, string $value): bool
+    {
+        if (strtolower($name) !== 'aria-label' || $value === '') {
+            return false;
+        }
+        $derived = $this->derivedAccessibleName($node);
+
+        return $derived !== null && $derived === $value;
+    }
+
+    /**
+     * The name the renderer would write for this element, or null where it
+     * writes none.
+     */
+    protected function derivedAccessibleName(DOMElement $node): ?string
+    {
+        $tag = strtolower($node->tagName);
+        $classes = $this->getElementClassList($node);
+        if ($this->structuralClassInProgress !== null) {
+            $classes[] = $this->structuralClassInProgress;
+        }
+        $labels = HtmlRenderer::LABEL_DEFAULTS;
+
+        // PART 9 §12: an UNTITLED admonition is named by its type word. A titled
+        // one is named by `aria-labelledby`, which `isConsumedTitleReference()`
+        // handles, so only the type word is derived here.
+        if ($tag === 'aside' && in_array('admonition', $classes, true)) {
+            foreach ($classes as $class) {
+                $key = 'admonition' . ucfirst($class);
+                if (isset($labels[$key])) {
+                    return $labels[$key];
+                }
+            }
+        }
+
+        // PART 9 §16: the endnotes section.
+        if ($tag === 'section' && $node->getAttribute('role') === 'doc-endnotes') {
+            return $labels['endnotes'];
+        }
+
+        // Extensions §13: a tab set and a code group are named as a whole.
+        if (in_array('tabs', $classes, true)) {
+            return $labels['tabsGroup'];
+        }
+        if (in_array('code-group', $classes, true)) {
+            return $labels['codeGroup'];
+        }
+
+        // Extensions §13.2: a css-mode panel is named by its own tab, which is
+        // the `<label>` that reveals it - the nearest preceding sibling one.
+        if (in_array('tabs-panel', $classes, true) || in_array('code-group-panel', $classes, true)) {
+            for ($prev = $node->previousSibling; $prev !== null; $prev = $prev->previousSibling) {
+                if ($prev instanceof DOMElement && strtolower($prev->tagName) === 'label') {
+                    return trim($prev->textContent);
+                }
+            }
+
+            return null;
+        }
+
+        // markup-carve/carve#1469: an index back-link is named by the label plus
+        // the term it returns to, plus the ordinal when the term has several.
+        // The term is the item's own display text and the ordinal is in the
+        // href, so the whole name is reconstructible from the element.
+        if ($tag === 'a' && in_array('index-backref', $classes, true)) {
+            $parent = $node->parentNode;
+            if (!$parent instanceof DOMElement || strtolower($parent->tagName) !== 'li') {
+                return null;
+            }
+            $term = '';
+            foreach ($parent->childNodes as $child) {
+                if ($child instanceof DOMElement) {
+                    break;
+                }
+                $term .= $child->textContent;
+            }
+            $term = trim($term);
+            if ($term === '') {
+                return null;
+            }
+            $lead = $labels['indexBackref'];
+            $total = 0;
+            foreach ($parent->childNodes as $child) {
+                if (
+                    $child instanceof DOMElement
+                    && strtolower($child->tagName) === 'a'
+                    && in_array('index-backref', $this->getElementClassList($child), true)
+                ) {
+                    $total++;
+                }
+            }
+            if ($total === 1) {
+                return $lead . ' ' . $term;
+            }
+            if (preg_match('/-(\d+)$/', $node->getAttribute('href'), $m) !== 1) {
+                return null;
+            }
+
+            return $lead . ' ' . $term . ' ' . $m[1];
+        }
+
+        // A diagram fence is named by its own fence word, which is its class.
+        if (($tag === 'pre' || $tag === 'div') && $classes !== []) {
+            return $classes[0];
+        }
+
+        return null;
+    }
+
     protected function isConsumedTitleReference(DOMElement $node, string $name, string $value): bool
     {
         if (strtolower($name) !== 'aria-labelledby') {
@@ -2838,7 +2995,10 @@ class HtmlToCarve
                 continue;
             }
             $value = $attr->value;
-            if ($this->isConsumedTitleReference($node, $name, $value)) {
+            if (
+                $this->isConsumedTitleReference($node, $name, $value)
+                || $this->isDerivedAccessibleName($node, $name, $value)
+            ) {
                 continue;
             }
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
@@ -5400,10 +5560,17 @@ class HtmlToCarve
         $classes = array_values(array_diff($this->getElementClassList($node), [$structuralClass]));
         $originalClass = $node->getAttribute('class');
         $node->setAttribute('class', implode(' ', $classes));
+        // The structural class is what NAMES the element - `tabs` is why the
+        // wrapper is called "Tabs" - so the derived-name test has to see it even
+        // while it is lifted off the node for the attribute writer's benefit.
+        // Without this the name is unrecognizable exactly on the constructs that
+        // carry one (markup-carve/carve#1500).
+        $this->structuralClassInProgress = $structuralClass;
         try {
             return $this->formatBlockAttributes($node);
         } finally {
             $node->setAttribute('class', $originalClass);
+            $this->structuralClassInProgress = null;
         }
     }
 
@@ -5557,6 +5724,9 @@ class HtmlToCarve
             }
 
             $value = $attr->value;
+            if ($this->isDerivedAccessibleName($node, $name, $value)) {
+                continue;
+            }
             if ($value === '') {
                 // Boolean attribute
                 $parts[] = $name;
