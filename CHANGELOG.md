@@ -109,6 +109,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   With this, the spec's `46-tabs-css-panel-name` and
   `47-tabs-aria-panel-binding` match byte for byte.
 
+- **A titled admonition's generated title reference no longer survives import**
+  (markup-carve/carve#1468). PART 9 §12 names a titled admonition with
+  `aria-labelledby` pointing at the id on its own `<p class="admonition-title">`.
+  The import consumes that element - its text becomes the opener's quoted title -
+  so the id went with it and the attribute was left naming nothing. Worse, §12
+  writes a name only where the author wrote none, so on the next render the
+  stale attribute suppressed the correct name as well. A reference pointing
+  anywhere else is the author's and still survives, as does an authored
+  `aria-label`.
+
 - **The index back-link says where it goes** (markup-carve/carve#1469). A `↩`
   with no accessible name is announced as "leftwards arrow with hook", or
   skipped - and an index entry carries one per occurrence, so a reader met a row
