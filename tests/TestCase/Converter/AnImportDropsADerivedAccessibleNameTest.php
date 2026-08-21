@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -46,9 +47,85 @@ class AnImportDropsADerivedAccessibleNameTest extends TestCase
 
     public function testADiagramFenceNameIsDropped(): void
     {
-        $carve = $this->import("<pre class=\"mermaid\" aria-label=\"mermaid\">graph TD;</pre>\n");
+        $carve = $this->import("<pre class=\"mermaid\" role=\"img\" aria-label=\"mermaid\">graph TD;</pre>\n");
 
         $this->assertStringNotContainsString('aria-label', $carve);
+        $this->assertStringContainsString('{.mermaid}', $carve);
+    }
+
+    /**
+     * The renderer names a CLAIMED fence and nothing else, so an ordinary
+     * classed element gets no derived name and its `aria-label` is the
+     * author's - even where the value happens to equal the class word.
+     *
+     * `FencedRenderExtension::namingDefaults()` never writes the default name
+     * without `role="img"` beside it, which is what tells the two apart from
+     * the element alone. Without this, all three shapes below lost a name that
+     * no re-render brings back: `<div class="callout">` and
+     * `<pre class="listing">` are emitted with no accessible name at all.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function unclaimedElementsWhoseLabelEqualsTheirClass(): array
+    {
+        return [
+            'div' => ["<div class=\"callout\" aria-label=\"callout\"><p>x</p></div>\n", 'aria-label=callout'],
+            'pre' => ["<pre class=\"listing\" aria-label=\"listing\">code</pre>\n", 'aria-label=listing'],
+            'div with a second class' => [
+                "<div class=\"callout extra\" aria-label=\"callout\"><p>x</p></div>\n",
+                'aria-label=callout',
+            ],
+        ];
+    }
+
+    #[DataProvider('unclaimedElementsWhoseLabelEqualsTheirClass')]
+    public function testANameOnAnUnclaimedElementSurvivesEvenWhenItEqualsTheClass(
+        string $html,
+        string $expected,
+    ): void {
+        $this->assertStringContainsString($expected, $this->import($html));
+    }
+
+    /**
+     * The discriminator is the role, so the same fence WITHOUT it keeps its
+     * name: nothing in the element then says the renderer wrote one.
+     */
+    public function testADiagramClassWithoutTheGeneratedRoleKeepsItsName(): void
+    {
+        $carve = $this->import("<pre class=\"mermaid\" aria-label=\"mermaid\">graph TD;</pre>\n");
+
+        $this->assertStringContainsString('aria-label=mermaid', $carve);
+    }
+
+    /**
+     * The one residue, pinned so it stays a known limit rather than a surprise.
+     *
+     * An author who wrote their own `role` keeps it, and `namingDefaults()`
+     * still writes the default name beside it, so the name is not recognizable
+     * from the element and survives. It fails in the SAFE direction - a name
+     * kept, never a name lost - and closing it needs either a roster of claimed
+     * fence classes or the render's own `labels` map.
+     */
+    public function testAGeneratedNameBesideAnAuthoredRoleIsAKnownResidue(): void
+    {
+        $carve = $this->import(
+            "<pre class=\"mermaid\" role=\"group\" aria-label=\"mermaid\">graph TD;</pre>\n",
+        );
+
+        $this->assertStringContainsString('aria-label=mermaid', $carve);
+    }
+
+    /**
+     * The authored half on the same claimed fence, which the fixture in
+     * `tests/html-import/derived-accessible-name` pins as its second block.
+     */
+    public function testAnAuthoredNameOnAClaimedFenceSurvives(): void
+    {
+        $carve = $this->import(
+            "<pre class=\"mermaid\" role=\"img\" aria-label=\"Architecture overview\">graph TD;</pre>\n",
+        );
+
+        $this->assertStringContainsString('aria-label="Architecture overview"', $carve);
     }
 
     public function testAnIndexBackLinkNameIsDropped(): void

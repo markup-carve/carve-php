@@ -1806,6 +1806,12 @@ class HtmlToCarve
     ];
 
     /**
+     * The structural class a writer has temporarily lifted off the node, so the
+     * derived-name test can still see what the element IS.
+     */
+    protected ?string $structuralClassInProgress = null;
+
+    /**
      * The importer's strip policy, asked as ONE question.
      *
      * WHAT IT REFUSES is a rule, not a roster. `on*` is unbounded and browsers
@@ -2647,32 +2653,6 @@ class HtmlToCarve
     }
 
     /**
-     * Does this attribute point at the admonition title this import consumes?
-     *
-     * A REFERENCE THE IMPORT DOES NOT KEEP IS NOT A REFERENCE. PART 9 §12 names
-     * a TITLED admonition with `aria-labelledby` pointing at the id on its own
-     * `<p class="admonition-title">`. That element does not survive the import:
-     * its text becomes the opener's quoted title, so the id goes with it and the
-     * attribute is left naming nothing.
-     *
-     * Keeping it was worse than noise. §12 writes a name only where the author
-     * wrote NONE, so on the next render the stale attribute - by then
-     * indistinguishable from an authored one - SUPPRESSES the correct name, and
-     * the aside points at an id no document has. Rendering the imported source
-     * shows both halves: `aria-labelledby="adm-1"` on the aside and no `id` on
-     * the title at all.
-     *
-     * Same rule as the generated `scope` on a `<th>`: an attribute the renderer
-     * DERIVES is dropped when the import cannot carry what it derives from. An
-     * `aria-labelledby` pointing anywhere else names an element this import is
-     * not consuming, so it is the author's and it stays.
-     *
-     * Asked HERE and only here because `processAside()` and
-     * `processAdmonition()` each carry their own copy of the attribute loop, and
-     * a second copy of a policy drifts - which is the defect carve-php#1346 and
-     * carve-php#1337 both came back to.
-     */
-    /**
      * Is this the accessible name the RENDERER derives for this element?
      *
      * PART 9 §16a and Extensions §13 write a name onto elements the author never
@@ -2694,14 +2674,9 @@ class HtmlToCarve
      *
      * The residue is deliberate. A document rendered with a non-default `labels`
      * map carries a value this cannot recognize, so it is kept. Closing that
-     * needs the importer to be handed the same map, which is step 2 on #1500.
+     * needs the importer to be handed the same map, which is step 2 on
+     * markup-carve/carve#1500.
      */
-    /**
-     * The structural class a writer has temporarily lifted off the node, so the
-     * derived-name test can still see what the element IS.
-     */
-    protected ?string $structuralClassInProgress = null;
-
     protected function isDerivedAccessibleName(DOMElement $node, string $name, string $value): bool
     {
         if (strtolower($name) !== 'aria-label' || $value === '') {
@@ -2803,14 +2778,65 @@ class HtmlToCarve
             return $lead . ' ' . $term . ' ' . $m[1];
         }
 
-        // A diagram fence is named by its own fence word, which is its class.
-        if (($tag === 'pre' || $tag === 'div') && $classes !== []) {
+        // A CLAIMED fence is named by its own fence word, which is its class -
+        // and `FencedRenderExtension::namingDefaults()` never writes that
+        // default name without `role="img"` beside it, because an `img` with
+        // no accessible name is skipped entirely. An ordinary classed `<div>`
+        // or `<pre>` is not a claimed fence and the renderer names it not at
+        // all, so an `aria-label` that happens to equal its first class word is
+        // the AUTHOR's and stays - dropping it would lose a name no re-render
+        // brings back, which is the regression carve-php#1337 records.
+        //
+        // The role is the discriminator rather than a list of preset fence
+        // words: a roster would be importer policy the three engines have to
+        // agree on first, and it would still be wrong for a custom preset.
+        //
+        // ONE RESIDUE, DELIBERATE and measured: an author who wrote their own
+        // `role` keeps it, and `namingDefaults()` still writes the default name
+        // beside it - `{role=group}` on a mermaid fence renders as
+        // `<pre class="mermaid" role="group" aria-label="mermaid">`, so the name
+        // is not recognized here and survives the import. That fails in the SAFE
+        // direction: it keeps a name rather than losing one, which is the side
+        // markup-carve/carve#1502 says a value-matched drop must never get wrong.
+        // Closing it needs the roster above, or the render's own `labels` map,
+        // which is step 2 on markup-carve/carve#1500.
+        if (
+            ($tag === 'pre' || $tag === 'div')
+            && $classes !== []
+            && strtolower($node->getAttribute('role')) === 'img'
+        ) {
             return $classes[0];
         }
 
         return null;
     }
 
+    /**
+     * Does this attribute point at the admonition title this import consumes?
+     *
+     * A REFERENCE THE IMPORT DOES NOT KEEP IS NOT A REFERENCE. PART 9 §12 names
+     * a TITLED admonition with `aria-labelledby` pointing at the id on its own
+     * `<p class="admonition-title">`. That element does not survive the import:
+     * its text becomes the opener's quoted title, so the id goes with it and the
+     * attribute is left naming nothing.
+     *
+     * Keeping it was worse than noise. §12 writes a name only where the author
+     * wrote NONE, so on the next render the stale attribute - by then
+     * indistinguishable from an authored one - SUPPRESSES the correct name, and
+     * the aside points at an id no document has. Rendering the imported source
+     * shows both halves: `aria-labelledby="adm-1"` on the aside and no `id` on
+     * the title at all.
+     *
+     * Same rule as the generated `scope` on a `<th>`: an attribute the renderer
+     * DERIVES is dropped when the import cannot carry what it derives from. An
+     * `aria-labelledby` pointing anywhere else names an element this import is
+     * not consuming, so it is the author's and it stays.
+     *
+     * Asked HERE and only here because `processAside()` and
+     * `processAdmonition()` each carry their own copy of the attribute loop, and
+     * a second copy of a policy drifts - which is the defect carve-php#1346 and
+     * carve-php#1337 both came back to.
+     */
     protected function isConsumedTitleReference(DOMElement $node, string $name, string $value): bool
     {
         if (strtolower($name) !== 'aria-labelledby') {
