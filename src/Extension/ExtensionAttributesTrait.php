@@ -123,19 +123,33 @@ trait ExtensionAttributesTrait
      * undefined, and theirs is the more specific statement. HTML attribute
      * names are ASCII-case-insensitive, so the comparison is too.
      *
+     * The author's attributes are read through the SAME hardening and safe-mode
+     * filtering {@see self::renderExtensionAttributes()} applies to them, so a
+     * value safe mode is about to strip counts as absent - the convention that
+     * method already documents. Reading the raw node instead would let a host
+     * blocking `aria-label` suppress the author's name AND ours, and leave the
+     * group anonymous: the exact defect the name exists to fix.
+     *
      * The result feeds the `$defaultAttrs` slot above, which APPENDS - naming
      * the group never moves an attribute the author placed.
      *
      * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      * @param string $role The role to claim when the author claimed none.
      * @param string $groupLabel The resolved name; empty suppresses the name.
      *
      * @return array<string, string>
      */
-    protected function groupNameAttributes(Node $node, string $role, string $groupLabel): array
+    protected function groupNameAttributes(Node $node, HtmlRenderer $renderer, string $role, string $groupLabel): array
     {
+        $surviving = $renderer->sanitizeAttributes($node->getAttributes());
+        $safeMode = $renderer->getSafeMode();
+        if ($safeMode !== null) {
+            $surviving = $safeMode->filterAttributes($surviving);
+        }
+
         $authored = [];
-        foreach (array_keys($node->getAttributes()) as $name) {
+        foreach (array_keys($surviving) as $name) {
             $authored[strtolower((string)$name)] = true;
         }
 

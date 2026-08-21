@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\SafeMode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -179,6 +180,27 @@ class ATabSetAndACodeGroupSayWhatTheyAreTest extends TestCase
         $this->assertSame(
             '<div class="code-group" role="group" aria-label="Code examples">',
             $this->wrapper(self::CODE_GROUP, [new CodeGroupExtension()], [], RenderMode::STATIC),
+        );
+    }
+
+    /**
+     * A name safe mode is about to strip is not a name. Reading the author's
+     * attributes raw would let a host that blocks `aria-label` suppress the
+     * author's name AND the engine's, leaving the group anonymous - the exact
+     * defect the name exists to fix.
+     */
+    public function testAnAuthoredNameSafeModeStripsDoesNotSuppressOurs(): void
+    {
+        $safeMode = new SafeMode();
+        $safeMode->setBlockedAttributes(['aria-label']);
+
+        $converter = new CarveConverter();
+        $converter->addExtension(new TabsExtension());
+        $converter->setSafeMode($safeMode);
+
+        $this->assertSame(
+            '<div class="tabs" role="group" aria-label="Tabs">',
+            explode("\n", $converter->convert('{aria-label="Choose"}' . "\n" . self::TABS))[0],
         );
     }
 
