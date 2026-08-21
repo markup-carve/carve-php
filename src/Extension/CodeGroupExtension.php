@@ -262,7 +262,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         foreach ($codeBlocks as $item) {
             $html .= '<section class="' . StringUtil::escapeHtml($this->panelClass) . "\">\n"
                 . '<p class="' . StringUtil::escapeHtml($this->labelClass) . '">'
-                . $renderer->escape($item['label']) . "</p>\n"
+                . $renderer->escapeText($item['label']) . "</p>\n"
                 . $this->renderCodeBlock($item['block'], $item['language'], $renderer)
                 . "</section>\n";
         }
@@ -370,7 +370,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
 
             $html .= '<label for="' . StringUtil::escapeHtml($inputId) . '" ';
             $html .= 'class="' . StringUtil::escapeHtml($this->labelClass) . '">';
-            $html .= $renderer->escape($item['label']);
+            $html .= $renderer->escapeText($item['label']);
             $html .= "</label>\n";
         }
 
@@ -449,7 +449,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             $html .= 'aria-selected="' . $selected . '" ';
             $html .= 'aria-controls="' . StringUtil::escapeHtml($ids[$index]['panel']) . '" ';
             $html .= 'class="' . StringUtil::escapeHtml($this->labelClass) . '"' . $tabindex . '>';
-            $html .= $renderer->escape($item['label']);
+            $html .= $renderer->escapeText($item['label']);
             $html .= "</button>\n";
         }
 

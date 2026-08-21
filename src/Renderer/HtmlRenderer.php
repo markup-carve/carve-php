@@ -3066,18 +3066,28 @@ class HtmlRenderer implements RendererInterface
     }
 
     /**
-     * Escape a string for HTML TEXT content - the counterpart of
+     * Escape a string for HTML TEXT content - the public counterpart of
      * {@see self::escapeAttribute()}.
      *
      * PART 10 §2 states the two escapings apart: an attribute value escapes
      * `&`, `<`, `>`, `"` and `'`, while text content escapes `&`, `<` and `>`
-     * and NOT quotes. Public because an extension rendering an author's string
-     * as element text needs the text one - reaching for
-     * `StringUtil::escapeHtml()` there produced `&quot;` in text content, which
-     * §2 does not permit and which no sibling engine writes
-     * (markup-carve/carve-php#1538).
+     * and NOT quotes. An extension rendering an author's string as element text
+     * needs the TEXT one - reaching for `StringUtil::escapeHtml()` there
+     * produced `&quot;` in text content, which §2 does not permit and which no
+     * sibling engine writes (markup-carve/carve-php#1538).
+     *
+     * A WRAPPER RATHER THAN WIDENING `escape()`. Making the protected method
+     * public would fatal at class-load time in any subclass that overrides it
+     * with the visibility it has always had - "Access level to Sub::escape()
+     * must be public" - so the extension point keeps its contract and this is a
+     * new name beside it.
      */
-    public function escape(string $text): string
+    public function escapeText(string $text): string
+    {
+        return $this->escape($text);
+    }
+
+    protected function escape(string $text): string
     {
         // Strip Trojan-Source bidi override/isolate controls so rendered text
         // and code can never visually reorder. Removal (not entity-escaping)
