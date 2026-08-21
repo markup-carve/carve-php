@@ -170,6 +170,8 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
      * @param \Closure|null $highlighter Optional syntax highlighter callback: fn(string $code, ?string $lang): string
      * @param string|null $groupLabel Accessible name for the code group AS A WHOLE; null takes the render's `labels` map under `codeGroup`
      * @param string $mode Output mode: 'css' (default) or 'aria'
+     *
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         protected string $wrapperClass = 'code-group',

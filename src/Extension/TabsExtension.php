@@ -231,6 +231,8 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
      * @param string $radioClass CSS class for radio inputs (CSS mode only)
      * @param string $idPrefix Prefix for generated IDs
      * @param string|null $groupLabel Accessible name for the tab set AS A WHOLE; null takes the render's `labels` map under `tabsGroup`
+     *
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         protected string $mode = self::MODE_CSS,
