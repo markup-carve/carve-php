@@ -80,6 +80,16 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A tab set and a code group say what they are** (#1526,
+  markup-carve/carve#1468, Extensions §1.5). Each tab was already named by its
+  own `<label>` and the SET was anonymous, so a reader could hear the parts and
+  never the thing they belong to. Both wrappers now carry a `role` - `group`,
+  or `tablist` in the tabs ARIA mode - together with an accessible name, in the
+  interactive and the static render alike. The name resolves as: an
+  `aria-label` or `aria-labelledby` the author wrote on the block, then the
+  extension's new `groupLabel` option, then the `labels` map under `tabsGroup` /
+  `codeGroup`, then `Tabs` / `Code examples`. Both attributes are appended, so
+  naming the set never moves an attribute the author placed.
 - **The published tab CSS keeps the control reachable from the keyboard**
   (#1525). The recipe in `TabsExtension`'s docblock hid the radio inputs with
   `display: none`, which takes them out of the focus order and the

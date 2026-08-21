@@ -229,6 +229,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
      * @param string $labelClass CSS class for tab labels/buttons
      * @param string $radioClass CSS class for radio inputs (CSS mode only)
      * @param string $idPrefix Prefix for generated IDs
+     * @param string|null $groupLabel Accessible name for the tab set AS A WHOLE; null takes the render's `labels` map under `tabsGroup`
      */
     public function __construct(
         protected string $mode = self::MODE_CSS,
@@ -237,6 +238,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         protected string $labelClass = 'tabs-label',
         protected string $radioClass = 'tabs-radio',
         protected string $idPrefix = 'tabset',
+        protected ?string $groupLabel = null,
     ) {
     }
 
@@ -570,13 +572,21 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
      */
     protected function buildWrapperAttributes(Div $wrapper, HtmlRenderer $renderer, ?string $role = null): string
     {
+        // The CSS mode has no tab/panel roles to associate, so `group` - a
+        // plain grouping - is all it can honestly claim. The ARIA mode passes
+        // `tablist`. Either way the wrapper takes a NAME, which is the half
+        // that was missing (markup-carve/carve#1468).
         return $this->renderExtensionAttributes(
             $wrapper,
             $renderer,
             [$this->wrapperClass],
             [],
             ['tabs'],
-            $role !== null ? ['role' => $role] : [],
+            $this->groupNameAttributes(
+                $wrapper,
+                $role ?? 'group',
+                $this->groupLabel ?? $renderer->label('tabsGroup'),
+            ),
         );
     }
 

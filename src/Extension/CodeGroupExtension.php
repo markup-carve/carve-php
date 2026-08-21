@@ -135,6 +135,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
      * @param string $radioClass CSS class for radio inputs
      * @param string $idPrefix Prefix for generated IDs
      * @param \Closure|null $highlighter Optional syntax highlighter callback: fn(string $code, ?string $lang): string
+     * @param string|null $groupLabel Accessible name for the code group AS A WHOLE; null takes the render's `labels` map under `codeGroup`
      */
     public function __construct(
         protected string $wrapperClass = 'code-group',
@@ -143,6 +144,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         protected string $radioClass = 'code-group-radio',
         protected string $idPrefix = 'codegroup',
         protected ?Closure $highlighter = null,
+        protected ?string $groupLabel = null,
     ) {
     }
 
@@ -453,6 +455,20 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
      */
     protected function buildWrapperAttributes(Div $wrapper, HtmlRenderer $renderer): string
     {
-        return $this->renderExtensionAttributes($wrapper, $renderer, [$this->wrapperClass], [], ['code-group']);
+        // A plain GROUP: there are no tab/panel roles here to associate, so
+        // that is all the wrapper can honestly claim - and the name is the half
+        // that was missing (markup-carve/carve#1468).
+        return $this->renderExtensionAttributes(
+            $wrapper,
+            $renderer,
+            [$this->wrapperClass],
+            [],
+            ['code-group'],
+            $this->groupNameAttributes(
+                $wrapper,
+                'group',
+                $this->groupLabel ?? $renderer->label('codeGroup'),
+            ),
+        );
     }
 }

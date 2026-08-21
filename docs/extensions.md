@@ -633,6 +633,16 @@ Constructor options:
 - `labelClass` (`string`, default `'tabs-label'`).
 - `radioClass` (`string`, default `'tabs-radio'`).
 - `idPrefix` (`string`, default `'tabset'`).
+- `groupLabel` (`?string`, default `null`) - the accessible name for the tab set
+  as a whole. Left unset the string comes from the converter's `labels` map
+  under `tabsGroup` (default `Tabs`).
+
+The wrapper carries `role` and an accessible name: `group` in CSS mode - which
+has no tab/panel roles to associate, so a plain grouping is all it can honestly
+claim - and `tablist` in ARIA mode. An `aria-label` or `aria-labelledby` the
+author wrote on the block wins over the engine's, and an authored `role` stands;
+both attributes are appended, so naming the set never moves an attribute the
+author placed.
 
 Generated ids (`tabset-1`, `tabset-1-tab-1`, ...) are deduplicated against the
 document id namespace: when an explicit `{#id}` attribute or a generated
@@ -682,6 +692,13 @@ Constructor options:
 - `idPrefix` (`string`, default `'codegroup'`).
 - `highlighter` (`?Closure`, default null) - `fn(string $code, ?string $lang):
   string` to integrate a syntax highlighter.
+- `groupLabel` (`?string`, default `null`) - the accessible name for the code
+  group as a whole. Left unset the string comes from the converter's `labels`
+  map under `codeGroup` (default `Code examples`).
+
+The wrapper carries `role="group"` and that name, on the same terms as
+`TabsExtension`: an author's `role`, `aria-label` or `aria-labelledby` wins, and
+the engine's attributes are appended.
 
 ~~~ php
 $converter->addExtension(new CodeGroupExtension());

@@ -108,7 +108,19 @@ class OptionalCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, expected: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '28-tabs-panel-title' => [
+            'reason' => 'markup-carve/carve#1468: the tab set names itself; the pinned corpus predates it and spec main already states the named form',
+            'expected' => "<div class=\"tabs\" role=\"group\" aria-label=\"Tabs\">\n"
+                . "<input type=\"radio\" name=\"tabset-1\" id=\"tabset-1-tab-1\" class=\"tabs-radio\" checked>\n"
+                . "<label for=\"tabset-1-tab-1\" class=\"tabs-label\">First</label>\n"
+                . "<div class=\"tabs-panel\">\n"
+                . "<p class=\"admonition-title\">Inner <strong>Title</strong></p>\n"
+                . "<p>Content one.</p>\n"
+                . "</div>\n"
+                . "</div>\n",
+        ],
+    ];
 
     /**
      * How each feature the manifest states is configured on this engine.

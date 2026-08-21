@@ -83,7 +83,7 @@ class StaticRenderModeTest extends TestCase
         $html = trim($converter->convert($this->tabsSource()));
 
         $expected = implode("\n", [
-            '<div class="tabs">',
+            '<div class="tabs" role="group" aria-label="Tabs">',
             '  <section class="tabs-panel">',
             '  <h3 class="tabs-label">Installation</h3>',
             '<p><code>composer require</code></p>',
@@ -116,7 +116,7 @@ class StaticRenderModeTest extends TestCase
         $converter->addExtension(new TabsExtension());
 
         $expected = implode("\n", [
-            '<div class="tabs">',
+            '<div class="tabs" role="group" aria-label="Tabs">',
             '  <section class="tabs-panel">',
             '  <h3 class="tabs-label">Name</h3>',
             '<p class="admonition-title">T</p>',
@@ -150,7 +150,7 @@ class StaticRenderModeTest extends TestCase
         $converter->addExtension(new TabsExtension());
 
         $expected = implode("\n", [
-            '<div id="install" class="tabs">',
+            '<div id="install" class="tabs" role="group" aria-label="Tabs">',
             '  <section class="tabs-panel">',
             '  <h3 class="tabs-label">One</h3>',
             '<p>A.</p>',
@@ -183,7 +183,7 @@ class StaticRenderModeTest extends TestCase
         $html = trim($converter->convert($source));
 
         $expected = implode("\n", [
-            '<div class="code-group">',
+            '<div class="code-group" role="group" aria-label="Code examples">',
             '<section class="code-group-panel">',
             '<p class="code-group-label">Install</p>',
             '<pre><code class="language-php">composer require x',
