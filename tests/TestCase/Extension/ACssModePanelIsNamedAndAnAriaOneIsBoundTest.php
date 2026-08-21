@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -191,6 +192,29 @@ class ACssModePanelIsNamedAndAnAriaOneIsBoundTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         new CodeGroupExtension(mode: $mode);
+    }
+
+    /**
+     * The new mode does not cost a capability the old one had.
+     *
+     * Round-trip metadata is emitted by both Tabs renderers and by the CSS
+     * code-group one, so an `aria` code group that dropped it would break the
+     * HTML -> Carve round trip on a mode switch alone - the shape §13 exists to
+     * prevent, one layer down: two renderers of the same construct do not get
+     * different capabilities because one was written second.
+     */
+    public function testTheAriaCodeGroupKeepsItsRoundTripMetadata(): void
+    {
+        $renderer = new HtmlRenderer();
+        $renderer->setRoundTripMode(true);
+        $converter = CarveConverter::create(renderer: $renderer);
+        $converter->addExtension(new CodeGroupExtension(mode: CodeGroupExtension::MODE_ARIA));
+
+        $html = $converter->convert(self::CODE_GROUP);
+
+        $this->assertStringContainsString('data-djot-src="', $html);
+        $this->assertStringContainsString('::: code-group', $html);
+        $this->assertStringContainsString('role="tablist"', $html);
     }
 
     /**

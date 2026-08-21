@@ -425,7 +425,19 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             ];
         }
 
-        $html = '<div' . $this->buildWrapperAttributes($wrapper, $renderer, 'tablist') . ">\n";
+        $attrs = $this->buildWrapperAttributes($wrapper, $renderer, 'tablist');
+
+        // Round-trip metadata, as both Tabs renderers and the CSS one here do.
+        // Without it, switching only the mode silently broke the HTML -> Carve
+        // round trip, which is the shape §13 exists to prevent: two renderers
+        // of the same construct do not get different capabilities because one
+        // was written second.
+        if ($renderer->isRoundTripMode()) {
+            $djotSrc = $this->reconstructDjotSource($wrapper, $codeBlocks);
+            $attrs .= ' data-djot-src="' . StringUtil::escapeHtml($djotSrc) . '"';
+        }
+
+        $html = '<div' . $attrs . ">\n";
 
         foreach ($codeBlocks as $index => $item) {
             $selected = $item['selected'] ? 'true' : 'false';
