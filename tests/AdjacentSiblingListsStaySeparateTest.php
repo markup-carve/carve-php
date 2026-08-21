@@ -168,4 +168,56 @@ class AdjacentSiblingListsStaySeparateTest extends TestCase
         // an item terminator, so content at the content column still continues.
         $this->assertSame(['ListBlock'], $this->topTypes("- a\n\n\n\n  still a\n"));
     }
+
+    public function testTwoSiblingSubListsInATightItemKeepTheirColumn(): void
+    {
+        // markup-carve/carve#1501. The marker-column route writes both sub-lists at
+        // the item's MARKER column, which is where they merge back into one.
+        $this->assertSame(
+            "- o\n  - a\n\n\n\n  - b\n",
+            $this->converter->toCarve("- o\n\n  - a\n\n\n\n  - b\n"),
+        );
+    }
+
+    public function testTheNestedBoundaryRoundTrips(): void
+    {
+        $sources = [
+            "- o\n\n  - a\n\n\n\n  - b\n",
+            "- o\n\n  - a\n\n\n\n  - b\n\n\n\n  - c\n",
+            "- o\n\n  1. a\n\n\n\n  1. b\n",
+            "- o\n\n  - m\n\n    - a\n\n\n\n    - b\n",
+            "- o\n\n  text\n\n  - a\n\n\n\n  - b\n",
+            "- o\n\n  - a\n\n\n\n  - b\n\n\n\n- p\n",
+        ];
+        foreach ($sources as $source) {
+            $written = $this->converter->toCarve($source);
+            $this->assertSame(
+                $this->converter->convert($source),
+                $this->converter->convert($written),
+                $source,
+            );
+            $this->assertSame($written, $this->converter->toCarve($written), $source);
+        }
+    }
+
+    public function testABlankLineInsideAQuoteIsWrittenAsAMarker(): void
+    {
+        // The boundary line carries the container's prefix by the time it
+        // expands, and what it stands for is three blank lines IN THAT CONTEXT.
+        // Dropping the prefix would end the quote instead of spacing inside it.
+        $source = "> - o\n>\n>   - a\n>\n>\n>\n>   - b\n";
+        $this->assertSame("> - o\n>   - a\n>\n>\n>\n>   - b\n", $this->converter->toCarve($source));
+        $this->assertSame(
+            $this->converter->convert($source),
+            $this->converter->convert($this->converter->toCarve($source)),
+        );
+    }
+
+    public function testTheTwoBlankSpellingIsUntouchedWhenNested(): void
+    {
+        $this->assertSame(
+            "- o\n  - a\n\n  - b\n",
+            $this->converter->toCarve("- o\n\n  - a\n\n\n  - b\n"),
+        );
+    }
 }

@@ -20,6 +20,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The canonical writer spells two sibling sub-lists in a tight item**
+  (markup-carve/carve#1501). The marker-column route wrote both at the column
+  where they merge back into one, so the item came back as a flat list. The
+  §11 N1a boundary separates them instead, and a blank line inside a quote is
+  written as `>` rather than as nothing.
 - **A css-mode panel is named, and `code-group` grows the same `mode`** (#1528,
   markup-carve/carve#1489, Extensions §13). Under the `css` default each tabs
   and code-group panel now carries `role="group"` named by its own tab's label,

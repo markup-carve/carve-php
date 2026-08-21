@@ -604,9 +604,15 @@ class CarveRenderer implements RendererInterface
                 }
                 if ($rendered !== '') {
                     if ($listSeparated && $parts !== []) {
-                        // Two more blank lines than the "\n\n" join below already
-                        // writes, which makes three.
-                        $parts[array_key_last($parts)] .= $this->listBoundary() . $rendered;
+                        // ON A LINE OF ITS OWN, which is what makes the same
+                        // marker work inside a list item too. An item indents
+                        // each of its content LINES; a sentinel glued to the
+                        // front of the next list's first line is indented with
+                        // it and then expands in place, leaving a
+                        // whitespace-only line and the list below it at column
+                        // 0. A line holding nothing else is indented harmlessly
+                        // and expands to the blank lines it stands for.
+                        $parts[array_key_last($parts)] .= "\n" . $this->listBoundary() . "\n" . $rendered;
                     } else {
                         $parts[] = $rendered;
                     }
@@ -1216,9 +1222,27 @@ class CarveRenderer implements RendererInterface
                 // would change corpus 228's canonical form. It does not release
                 // a run that is already at the marker column, because the
                 // column, not the paragraph, is what the later child continues.
+                // TWO SIBLING SUB-LISTS IN A TIGHT ITEM (§11 N1a,
+                // markup-carve/carve#1501). The marker-column route below cannot
+                // separate them: it writes both at the item's MARKER column,
+                // which is exactly where they merge back into one, so the item
+                // came back as a flat list and lost the nesting with the
+                // boundary. The boundary can, because it is a line of its own.
+                // The item stays TIGHT - a blank run before a sub-list is §17
+                // L2's attach-and-stay-tight case, not a second paragraph.
+                if (
+                    $previous instanceof ListBlock
+                    && $child instanceof ListBlock
+                    && $this->adjacentBlocksMerge($previous, $child)
+                ) {
+                    $out .= $this->listBoundary() . "\n" . $rendered;
+                    $previous = $child;
+
+                    continue;
+                }
                 if (
                     $atMarkerColumn
-                    || ($next !== null && $this->adjacentBlocksMerge($child, $next))
+                    || ($next !== null && !$child instanceof ListBlock && $this->adjacentBlocksMerge($child, $next))
                     || (
                         !$separated
                         && $previous instanceof Paragraph
@@ -2928,7 +2952,21 @@ class CarveRenderer implements RendererInterface
         // blank line; the boundary sentinel is not a newline yet and passes
         // through untouched. Only the writer knows which run is which.
         $text = (string)preg_replace("/\n{3,}/", "\n\n", $text);
-        $text = (string)preg_replace('/\n*' . preg_quote($this->listBoundary(), '/') . '\n*/u', "\n\n\n\n", $text);
+        // The boundary line carries whatever the containers around it added
+        // before it got here - an item's indent, a quote's `>` markers - and
+        // what it stands for is three BLANK lines IN THAT CONTEXT. Inside a
+        // quote a blank line is `>`, not nothing, so the prefix is captured and
+        // repeated rather than dropped; elsewhere it trims to nothing and the
+        // three lines come out empty.
+        $text = (string)preg_replace_callback(
+            '/^([ \t>]*)' . preg_quote($this->listBoundary(), '/') . '[ \t]*$/mu',
+            static function (array $m): string {
+                $blank = rtrim($m[1], " \t");
+
+                return $blank . "\n" . $blank . "\n" . $blank;
+            },
+            $text,
+        );
 
         $out = $this->restoreVerbatim($this->trimNonNbsp($text));
 
