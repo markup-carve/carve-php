@@ -637,12 +637,27 @@ Constructor options:
   as a whole. Left unset the string comes from the converter's `labels` map
   under `tabsGroup` (default `Tabs`).
 
+An unknown `mode` value throws rather than falling back, so a typo cannot become
+silently different output.
+
 The wrapper carries `role` and an accessible name: `group` in CSS mode - which
 has no tab/panel roles to associate, so a plain grouping is all it can honestly
 claim - and `tablist` in ARIA mode. An `aria-label` or `aria-labelledby` the
 author wrote on the block wins over the engine's, and an authored `role` stands;
 both attributes are appended, so naming the set never moves an attribute the
 author placed.
+
+Each panel is named as well, by its own tab's label:
+
+~~~ html
+<div class="tabs-panel" role="group" aria-label="First">
+~~~
+
+Under `css` every radio and label is emitted before every panel, so nothing
+binds a panel to the control that reveals it and the panel would otherwise be
+anonymous. In `aria` mode it is bound instead of named - `role="tabpanel"` plus
+`aria-labelledby`, and neither `role="group"` nor an `aria-label`. This is
+Extensions §13.
 
 Generated ids (`tabset-1`, `tabset-1-tab-1`, ...) are deduplicated against the
 document id namespace: when an explicit `{#id}` attribute or a generated
@@ -695,10 +710,28 @@ Constructor options:
 - `groupLabel` (`?string`, default `null`) - the accessible name for the code
   group as a whole. Left unset the string comes from the converter's `labels`
   map under `codeGroup` (default `Code examples`).
+- `mode` (`string`, default `'css'`) - `'css'` or `'aria'`, the same two modes
+  `TabsExtension` carries. An unknown value throws.
 
 The wrapper carries `role="group"` and that name, on the same terms as
 `TabsExtension`: an author's `role`, `aria-label` or `aria-labelledby` wins, and
-the engine's attributes are appended.
+the engine's attributes are appended. In `aria` mode it is `role="tablist"`
+instead and keeps the same name.
+
+Each panel is named too, by its own label - the `[Label]` where one was written,
+otherwise the language word:
+
+~~~ html
+<div class="code-group-panel" role="group" aria-label="Node"><pre><code class="language-js">
+~~~
+
+`role="group"` and not `role="tabpanel"`, because under `css` the control that
+reveals the panel is a radio rather than a tab. The name is derived from the
+document, so it has no `labels` key - an author renames a panel by renaming its
+tab. In `aria` mode the panel is BOUND rather than named: it keeps
+`role="tabpanel"` with `aria-labelledby` and takes neither `role="group"` nor an
+`aria-label`, since naming it as well would give one element two accessible
+names. This is Extensions §13.
 
 ~~~ php
 $converter->addExtension(new CodeGroupExtension());

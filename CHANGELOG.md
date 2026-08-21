@@ -20,6 +20,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **A css-mode panel is named, and `code-group` grows the same `mode`** (#1528,
+  markup-carve/carve#1489, Extensions §13). Under the `css` default each tabs
+  and code-group panel now carries `role="group"` named by its own tab's label,
+  attribute-escaped - under `css` every radio and label is emitted before every
+  panel, so nothing binds a panel to the control that reveals it. The name is
+  derived from the document, so it has no `labels` key. An `aria`-mode panel is
+  unchanged: bound by `aria-labelledby`, and deliberately neither
+  `role="group"` nor named. `CodeGroupExtension` gains the `mode` option Tabs
+  already had, with an `aria` renderer that mirrors it. **BREAKING: an unknown
+  `mode` on either extension now throws** instead of silently rendering the
+  `css` mode. `css` stays the default in both - §2.5's rule is that content is
+  never dropped, only interaction, and `aria` mode reveals with `hidden`.
+
 - **HTML conversion has a conservative borrowed fast path, for configured
   converters too** (#1506, #1515). Plain headings and paragraphs, explicit block
   quotes, tight lists, code fences, basic pipe tables, thematic breaks, and
