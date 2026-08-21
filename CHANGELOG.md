@@ -7,17 +7,38 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Table column metadata** (#1451, markup-carve/carve#1391). Positional alignment, vertical alignment and widths reach the AST as `table.columns` and `table_cell.valign`, with schema validation and ProseMirror fidelity; two-axis marker parsing, `<colgroup>` and CSS rendering, canonical Carve writing with inherited-axis suppression, ListTable column metadata and footer rows, and lint coverage for marker padding, column arity, overlap and width totals.
+- **Semantic table row partitions** (#1482). Pipe tables take `{header-rows=N footer-rows=N}` for explicit head/body/foot ranges; a ListTable cell takes `{align= valign=}` over the positional column default. The consumed attributes do not leak into the HTML.
+- **Local ListTable headers** (#1479, markup-carve/carve#1248). `header-row` on a row's first cell starts a header-led body group; `header` on any cell emits a single `<th>`.
+- **Inherited horizontal table alignment** (#1477, markup-carve/carve#1408). `?^`, `?~` and `?v` set only the vertical axis and keep the column's horizontal default; a lone `?` stays visible cell content.
+- **`SourceUnspellableException`, exposed** (#1462). The canonical Carve writer refuses an empty `raw_inline` - which has no Carve spelling and reparsed as a different node - instead of emitting one. The exception carries machine-readable `nodeType` and `reason`.
+- **A `labels` converter option carries the strings the engine writes itself**
+  (markup-carve/carve#1456, PART 9 §16a). Values are text and are escaped where
+  they land, unlike the raw `symbols` map.
+
 ### Changed
 
-- **Default core HTML conversion has a conservative borrowed fast path.** Plain
-  headings and paragraphs, explicit block quotes, tight lists, code fences,
-  basic pipe tables, thematic breaks, and straightforward links can render
-  directly from source slices without constructing the public AST. Any
-  ambiguous boundary, non-default converter configuration, extension, custom
-  parser/renderer access, or document over 64 KiB falls back for the whole
-  document before output is published. The pinned corpus is shadow-rendered
-  through both paths and must remain byte-identical.
-
+- **HTML conversion has a conservative borrowed fast path, for configured
+  converters too** (#1506, #1515). Plain headings and paragraphs, explicit block
+  quotes, tight lists, code fences, basic pipe tables, thematic breaks, and
+  straightforward links render directly from source slices without constructing
+  the public AST. A configured converter is no longer disqualified outright: the
+  built-in extension stack compiles into typed borrowed events covering heading
+  numbering, heading permalinks, external-link attributes, heading-ID casing and
+  folding, display-math fences and a manual table of contents. `parse()`,
+  alternate renderers, source positions, warnings, strict/safe/profile modes,
+  output transformers, explicit parser access, active unsupported extensions,
+  third-party extensions, non-ASCII input and documents over 64 KiB keep the
+  owned AST. Nothing is published until the whole borrowed document is accepted,
+  and the pinned corpus is shadow-rendered through both paths and must stay
+  byte-identical. On the 49 KiB comparison document the Tier-2 and Tier-3
+  profiles measured about 20x faster locally.
+- **The default parse and extension dispatch paths do much less work** (#1489, #1490, #1491, #1498). Reference, footnote and abbreviation collectors share one authoritative structural walk instead of three document-wide scans; collectors skip documents with no possible opening bytes; inline plain text skips to the next significant delimiter instead of advancing a byte at a time; an inline regex matcher can declare a literal its input must contain; Citations and Index skip their deep AST clones when the document has none; and the pipe-table header separator is split once. The measured comparison workload went from about 121 ms/op to about 38 ms/op locally.
+- **The doubled run is the canonical arrow, in both families** (#1496, markup-carve/carve#1442). `<--` `-->` `<-->` and `<==` `==>` `<=>` convert. **BREAKING: `=>` no longer converts** - `key => value` and `x => x + 1` were silently becoming an arrow in rendered output only. `<=` keeps `≤`.
+- **An empty brace pair is text, and `{--}` is an en dash** (#1497, markup-carve/carve#1447, markup-carve/carve#1450, §6c). `{//}`, `{**}`, `{^^}` and the rest render literally; a pair holding content is still the construct.
+- **Admonitions, task checkboxes and the footnote section carry accessible names** (#1512). A canonical admonition takes `aria-labelledby` on its title or an `aria-label` for its kind, a task checkbox is named by its item text, and the endnotes section is labeled. An authored `aria-label` or `aria-labelledby` wins.
 - **A row is a row, in every table section** (markup-carve/carve#1459, PART 10
   §7). `<thead>` and `<tfoot>` now write one row per line, as `<tbody>` always
   did. Nothing renders differently - whitespace between rows in table context is
@@ -32,32 +53,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rejected alignment run takes the `=` with it. A cell with no run is unchanged,
   and the canonical writer already pads every cell, so a formatted document
   needs no migration.
-
-### Added
-
-- **A `labels` converter option carries the strings the engine writes itself**
-  (markup-carve/carve#1456, PART 9 §16a). One key today, `footnoteBacklink`,
-  defaulting to `Back to reference`. Values are text and are escaped where they
-  land, unlike the raw `symbols` map.
-
-### Fixed
-
-- **The footnote backlink has an accessible name** (markup-carve/carve#1455,
-  PART 9 §16). `role="doc-backlink"` was right and the name was the `↩` glyph,
-  so a screen reader announced its Unicode name or skipped the link. The name is
-  now the label plus what the link visibly says: `Back to reference` for a lone
-  backlink, `Back to reference 2` for the second of several.
-
-### Fixed
-
-- **A hyphen run that opens a word after whitespace is a flag, not a dash**
-  (markup-carve/carve#1443, PART 9 §8). `git log --oneline` and
-  `--force-with-lease` keep their hyphens; every other position converts as
-  before, including `pages 1--10` and a trailing `text --`.
-
-### Changed
-
+- **A table cell's alignment run is horizontal-first** (#1478). Reverse-order pairs such as `^<` and `v>` stay literal cell content instead of being normalized silently.
 - **A vertical table-cell marker requires a horizontal partner.** Lone `^` and `v` prefixes remain visible content; paired two-axis runs are unchanged.
+
+### Deprecated
+
+- **The single-hyphen arrows `<-`, `->` and `<->`** (#1496). They still render, so documents written before the doubled-run rule keep working; prefer `<--`, `-->` and `<-->`.
 
 ### Security
 
@@ -79,6 +80,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The footnote backlink has an accessible name** (markup-carve/carve#1455,
+  PART 9 §16). `role="doc-backlink"` was right and the name was the `↩` glyph,
+  so a screen reader announced its Unicode name or skipped the link. The name is
+  now the label plus what the link visibly says: `Back to reference` for a lone
+  backlink, `Back to reference 2` for the second of several.
+- **A hyphen run that opens a word after whitespace is a flag, not a dash**
+  (markup-carve/carve#1443, PART 9 §8). `git log --oneline` and
+  `--force-with-lease` keep their hyphens; every other position converts as
+  before, including `pages 1--10` and a trailing `text --`.
+- **An empty braced pair keeps its carets bare** (#1516, markup-carve/carve#1447). `{^^}` holds no content, so no construct opens in it, but the writer escaped both carets anyway and turned one text node into four - the difference PART 11 §1 forbids.
+- **An empty comment writes its marker and nothing else** (#1514). The block arm of the comment writer appended its content unconditionally, so an empty comment came back as `%% ` with a trailing space no clause asks for. The inline arm always had the guard.
+- **The braced en dash keeps the spelling its author typed** (#1499). It is the same node the bare run produces, so the canonical writer writes `{--}` back instead of the resolved glyph.
+- **A continuation marker attaches only a flush-left block** (#1501, markup-carve/carve#1436, §17). A line at any other column falls through to the ordinary column rules, as if the marker line had been a comment.
+- **A lazy marker line's definition defines nothing** (#1487, #1486), and **the definition probe sees legacy custom block patterns** (#1488), so a document registered through `addBlockPattern()` is classified the same way by the probe and by the real parse.
+- **A definition hosted by an emptied marker item is written back into it** (#1493, markup-carve/carve#620, PART 11 §1), instead of the writer spelling the item with a continuation marker.
+- **An unclosed inline literal reaches the end of its block**, and **a list item beginning with an empty-destination reference-shaped line keeps that line and its lazy continuation** (#1485, markup-carve/carve#1418, markup-carve/carve#1420). The reference-definition matcher could cross an interior newline and take the next line as a missing destination.
+- **A complete table alignment marker run is validated as a whole** (#1472, markup-carve/carve#1344), so duplicate axes such as `<<` fall back visibly, and **an unmarked definition-shaped lazy continuation inside a quoted list is preserved** rather than consumed as a definition.
 - **An all-blank raw payload remains distinct from an absent payload.** One
   blank line between raw fences produces one newline, matching the general
   payload-preservation rule (markup-carve/carve#1414, corpus 372).
@@ -86,11 +104,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unterminated fence-shaped text inside an open list/definition paragraph keeps
   that paragraph open. PHP now agrees with the other engines on corpus groups
   366 and 367 (markup-carve/carve#1414).
-
 - **Definitions collected at a list item's content column close its paragraph**
   (markup-carve/carve#1376). A following line below that column no longer uses
   the comment-only continuation path; bare-dot items use the bullet column.
-
 - **A hard break ends at column 1 of the following physical line**, including
   where the line after it is a comment-only line the block layer removes
   (markup-carve/carve-php#1457).
