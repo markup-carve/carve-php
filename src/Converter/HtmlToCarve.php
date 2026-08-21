@@ -2509,6 +2509,9 @@ class HtmlToCarve
                 continue;
             }
             $value = $attr->value;
+            if ($this->isConsumedTitleReference($node, $name, $value)) {
+                continue;
+            }
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
         }
 
@@ -2558,6 +2561,9 @@ class HtmlToCarve
                 continue;
             }
             $value = $attr->value;
+            if ($this->isConsumedTitleReference($node, $name, $value)) {
+                continue;
+            }
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
         }
 
@@ -2573,6 +2579,52 @@ class HtmlToCarve
         }
 
         return $output . $fence . "\n\n";
+    }
+
+    /**
+     * Does this attribute point at the admonition title this import consumes?
+     *
+     * A REFERENCE THE IMPORT DOES NOT KEEP IS NOT A REFERENCE. PART 9 §12 names
+     * a TITLED admonition with `aria-labelledby` pointing at the id on its own
+     * `<p class="admonition-title">`. That element does not survive the import:
+     * its text becomes the opener's quoted title, so the id goes with it and the
+     * attribute is left naming nothing.
+     *
+     * Keeping it was worse than noise. §12 writes a name only where the author
+     * wrote NONE, so on the next render the stale attribute - by then
+     * indistinguishable from an authored one - SUPPRESSES the correct name, and
+     * the aside points at an id no document has. Rendering the imported source
+     * shows both halves: `aria-labelledby="adm-1"` on the aside and no `id` on
+     * the title at all.
+     *
+     * Same rule as the generated `scope` on a `<th>`: an attribute the renderer
+     * DERIVES is dropped when the import cannot carry what it derives from. An
+     * `aria-labelledby` pointing anywhere else names an element this import is
+     * not consuming, so it is the author's and it stays.
+     *
+     * Asked HERE and only here because `processAside()` and
+     * `processAdmonition()` each carry their own copy of the attribute loop, and
+     * a second copy of a policy drifts - which is the defect carve-php#1346 and
+     * carve-php#1337 both came back to.
+     */
+    protected function isConsumedTitleReference(DOMElement $node, string $name, string $value): bool
+    {
+        if (strtolower($name) !== 'aria-labelledby') {
+            return false;
+        }
+        foreach ($node->childNodes as $child) {
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            if (strtolower($child->tagName) !== 'p' || !$this->hasClass($child, 'admonition-title')) {
+                continue;
+            }
+            $id = $child->getAttribute('id');
+
+            return $id !== '' && $id === $value;
+        }
+
+        return false;
     }
 
     protected function extractAdmonitionTitle(DOMElement $node): ?string
@@ -2746,6 +2798,9 @@ class HtmlToCarve
                 continue;
             }
             $value = $attr->value;
+            if ($this->isConsumedTitleReference($node, $name, $value)) {
+                continue;
+            }
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
         }
 
