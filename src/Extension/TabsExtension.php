@@ -142,9 +142,9 @@ use MarkupCarve\Carve\Util\StringUtil;
  *
  * ```html
  * <div class="tabs" role="tablist">
- *   <button role="tab" id="tabset-1-tab-1" aria-selected="true"
+ *   <button type="button" role="tab" id="tabset-1-tab-1" aria-selected="true"
  *           aria-controls="tabset-1-panel-1" class="tabs-tab">First Tab</button>
- *   <button role="tab" id="tabset-1-tab-2" aria-selected="false"
+ *   <button type="button" role="tab" id="tabset-1-tab-2" aria-selected="false"
  *           aria-controls="tabset-1-panel-2" class="tabs-tab" tabindex="-1">Second Tab</button>
  *   <div role="tabpanel" id="tabset-1-panel-1" aria-labelledby="tabset-1-tab-1"
  *        class="tabs-panel">Content for the first tab.</div>
@@ -200,6 +200,7 @@ use MarkupCarve\Carve\Util\StringUtil;
 class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensionInterface
 {
     use ExtensionAttributesTrait;
+    use SingleSelectionTrait;
 
     /**
      * Output mode: 'css' for CSS-only, 'aria' for ARIA with JS
@@ -364,9 +365,12 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             ];
         }
 
-        // If no tab is explicitly selected, select the first one
-        if ($tabs !== [] && !in_array(true, array_column($tabs, 'selected'), true)) {
-            $tabs[0]['selected'] = true;
+        // EXACTLY ONE TAB IS SELECTED (Extensions §13.5): the first one the
+        // document marks, or the first tab where it marks none. Both branches
+        // are the same statement, which is why they are one.
+        $winner = $this->resolveSelectedIndex(array_column($tabs, 'selected'));
+        foreach (array_keys($tabs) as $index) {
+            $tabs[$index]['selected'] = $index === $winner;
         }
 
         return $tabs;
@@ -566,7 +570,12 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             $selected = $tab['selected'] ? 'true' : 'false';
             $tabindex = $tab['selected'] ? '' : ' tabindex="-1"';
 
-            $html .= '<button role="tab" id="' . $tabId . '" ';
+            // `type="button"`, NOT the implicit `submit` (Extensions §13.3).
+            // A bare `<button>` is a submit button, so a tab set inside a
+            // `<form>` submitted the form instead of switching panels - the one
+            // interaction the mode exists to provide, traded for the one thing
+            // the page never asked for.
+            $html .= '<button type="button" role="tab" id="' . $tabId . '" ';
             $html .= 'aria-selected="' . $selected . '" ';
             $html .= 'aria-controls="' . $panelId . '" ';
             $html .= 'class="' . StringUtil::escapeHtml($this->labelClass) . '"' . $tabindex . '>';

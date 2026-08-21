@@ -108,6 +108,9 @@ class AnExtensionLabelIsTextNotAnAttributeValueTest extends TestCase
      *
      * `46-tabs-css-panel-name` and `47-tabs-aria-panel-binding` land with
      * markup-carve/carve#1489 and both carry `[R&D "core" <x>]` deliberately.
+     * Case 47's control gained `type="button"` in markup-carve/carve#1504
+     * (Extensions §13.3), so the bytes below are spec main's, not the ones
+     * that PR replaced.
      * They are NOT in the pinned corpus yet, so the corpus runner cannot reach
      * them - and a test that read them off disk would SKIP, which is a check
      * that cannot fail. The bytes are inlined from spec main instead, the
@@ -129,7 +132,7 @@ class AnExtensionLabelIsTextNotAnAttributeValueTest extends TestCase
             ],
             '47 aria panel binding' => [
                 ":::: tabs\n::: tab [First]\nContent one.\n:::\n::: tab [R&D \"core\" <x>]\nContent two.\n:::\n::::\n",
-                "<div class=\"tabs\" role=\"tablist\" aria-label=\"Tabs\">\n<button role=\"tab\" id=\"tabset-1-tab-1\" aria-selected=\"true\" aria-controls=\"tabset-1-panel-1\" class=\"tabs-label\">First</button>\n<button role=\"tab\" id=\"tabset-1-tab-2\" aria-selected=\"false\" aria-controls=\"tabset-1-panel-2\" class=\"tabs-label\" tabindex=\"-1\">R&amp;D \"core\" &lt;x&gt;</button>\n<div role=\"tabpanel\" id=\"tabset-1-panel-1\" aria-labelledby=\"tabset-1-tab-1\" class=\"tabs-panel\">\n<p>Content one.</p>\n</div>\n<div role=\"tabpanel\" id=\"tabset-1-panel-2\" aria-labelledby=\"tabset-1-tab-2\" class=\"tabs-panel\" hidden>\n<p>Content two.</p>\n</div>\n</div>\n",
+                "<div class=\"tabs\" role=\"tablist\" aria-label=\"Tabs\">\n<button type=\"button\" role=\"tab\" id=\"tabset-1-tab-1\" aria-selected=\"true\" aria-controls=\"tabset-1-panel-1\" class=\"tabs-label\">First</button>\n<button type=\"button\" role=\"tab\" id=\"tabset-1-tab-2\" aria-selected=\"false\" aria-controls=\"tabset-1-panel-2\" class=\"tabs-label\" tabindex=\"-1\">R&amp;D \"core\" &lt;x&gt;</button>\n<div role=\"tabpanel\" id=\"tabset-1-panel-1\" aria-labelledby=\"tabset-1-tab-1\" class=\"tabs-panel\">\n<p>Content one.</p>\n</div>\n<div role=\"tabpanel\" id=\"tabset-1-panel-2\" aria-labelledby=\"tabset-1-tab-2\" class=\"tabs-panel\" hidden>\n<p>Content two.</p>\n</div>\n</div>\n",
                 TabsExtension::MODE_ARIA,
             ],
         ];
