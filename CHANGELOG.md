@@ -112,6 +112,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `<h2>`, `<pre>` and `<p>`. The seam now carries the blank line the writer
   would have written.
 
+- **An import drops an accessible name the renderer derives** (markup-carve/carve#1500).
+  PART 9 §16a and Extensions §13 write names onto elements the author never
+  spelled; re-importing one made it look authored, and §12 writes a name only
+  where the author wrote none - so the imported copy won on the next render and
+  the document could no longer be localized. Dropping it is free: the renderer
+  regenerates the same string, so the HTML is byte-identical with the attribute
+  gone. Matched on VALUE, and only on the constructs the renderer actually
+  names: a name that differs is the author's, and so is one on an ordinary
+  classed element. Covers the untitled admonition, the endnotes section, a tab
+  set and code group, a css-mode panel, a claimed diagram fence and an index
+  back-link.
+
 - **A static code-group panel label is a heading** (#1535, Extensions §2.5).
   The static flatten wrote the panel label as an unindented `<p>` where
   `TabsExtension` beside it - and carve-js for both - writes an indented `<h3>`.
