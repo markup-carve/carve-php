@@ -93,6 +93,25 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Math survives HTML import** (#1543, grammar §18). A `<span class="math
+  inline">` / `<span class="math display">` - what this engine, djot.js and
+  pandoc all write - imported as an attributed span holding the raw `\(…\)`
+  delimiters as text, so the equation stopped being one. It now imports as
+  `$`…`` / `$$`…``, keeping any authored id, class and `data-*`; the
+  `MathBlockExtension` `<div class="math display">` block form imports as the
+  ``` math ``` fence. A span carrying only the class, or only the delimiters,
+  is unchanged. The `<math>` (MathML) path no longer writes a TRAILING `$` /
+  `$$`: Carve math is a prefix on a code span, so the extra delimiter came back
+  as a stray character beside the equation.
+
+- **A block beside loose text in a container stays a block** (#1543,
+  `docs/html-import.md`). An imported container concatenated a bare text child
+  onto its block sibling with no separator, so the block's opener landed inside
+  the text's line and stopped opening anything: a tab panel became the literal
+  `First::: tabs-panel`, and the same glue swallowed a `<blockquote>`, `<ul>`,
+  `<h2>`, `<pre>` and `<p>`. The seam now carries the blank line the writer
+  would have written.
+
 - **A static code-group panel label is a heading** (#1535, Extensions §2.5).
   The static flatten wrote the panel label as an unindented `<p>` where
   `TabsExtension` beside it - and carve-js for both - writes an indented `<h3>`.
