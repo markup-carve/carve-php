@@ -138,7 +138,7 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
     public function testAnIndexTermsDisplayKeepsItsNodes(): void
     {
         $this->assertStringContainsString(
-            '<li><strong>bold</strong> <code>c</code> <a href="#idx-bold-c-1" class="index-backref">',
+            '<li><strong>bold</strong> <code>c</code> <a href="#idx-bold-c-1" class="index-backref" aria-label="Back to bold c">',
             $this->html("x :index[*bold* `c`] y\n\n::: index\n:::\n", new IndexExtension()),
         );
     }

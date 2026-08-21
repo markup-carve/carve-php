@@ -96,6 +96,8 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
 
     protected string $figureClass;
 
+    protected string $label;
+
     /**
      * @param array<string>|string $language Fence info word(s) this instance claims.
      * @param string|null $cssClass Class on the output element (default: the first language word).
@@ -103,6 +105,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
      * @param string $contentMode self::MODE_TEXT or self::MODE_JSON.
      * @param bool $wrapInFigure Wrap output in `<figure class="{cssClass}-figure">`.
      * @param string|null $figureClass Figure class (default: `{cssClass}-figure`).
+     * @param string|null $label
      *
      * @throws \InvalidArgumentException
      */
@@ -113,6 +116,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         protected string $contentMode = self::MODE_TEXT,
         protected bool $wrapInFigure = false,
         ?string $figureClass = null,
+        ?string $label = null,
     ) {
         $languages = array_values(array_filter((array)$language, fn (string $word): bool => $word !== ''));
         if ($languages === []) {
@@ -126,6 +130,53 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         $this->cssClass = $cssClass ?? $languages[0];
         $this->tag = $tag ?? ($contentMode === self::MODE_JSON ? 'div' : 'pre');
         $this->figureClass = $figureClass ?? $this->cssClass . '-figure';
+        // Default: the fence's OWN word rather than invented English, which is
+        // what keeps mermaid() byte-identical to the factory it is a preset of -
+        // and means there is no English here to translate, so this stays an
+        // option rather than a `labels` key.
+        $this->label = $label ?? $this->cssClass;
+    }
+
+    /**
+     * The `role="img"` / `aria-label` pair for a claimed fence (carve#1468).
+     *
+     * The body is diagram SOURCE. Before the client library runs - and if it
+     * never runs, which is the default, since no engine ships one - a reader
+     * announces the backslashes and arrows as prose; afterwards the injected
+     * `<svg>` has no name either. The role says the block IS AN IMAGE and the
+     * name says which.
+     *
+     * The two are decided INDEPENDENTLY: an author who wrote only an
+     * `aria-label` has supplied the name and still needs the role. What holds
+     * is narrower - the role is never written WITHOUT a name, from either
+     * source, because an `img` with no accessible name is skipped entirely,
+     * which is worse than the source being read out. So an empty label on a
+     * fence the author did not name removes both.
+     *
+     * @return array<string, string>
+     */
+    protected function namingDefaults(CodeBlock $node): array
+    {
+        $authoredName = false;
+        $authoredRole = false;
+        foreach (array_keys($node->getAttributes()) as $name) {
+            $lower = strtolower((string)$name);
+            if ($lower === 'aria-label' || $lower === 'aria-labelledby') {
+                $authoredName = true;
+            }
+            if ($lower === 'role') {
+                $authoredRole = true;
+            }
+        }
+        $defaults = [];
+        if (!$authoredRole && ($authoredName || $this->label !== '')) {
+            $defaults['role'] = 'img';
+        }
+        if ($this->label !== '' && !$authoredName) {
+            $defaults['aria-label'] = $this->label;
+        }
+
+        return $defaults;
     }
 
     /**
@@ -278,14 +329,20 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         // static output never loses authored metadata and matches carve-js/rs.
         // Round-trip mode carries the same data-djot-src the interactive openTag()
         // emits, so Djot -> static HTML -> Djot still reconstructs the fence.
+        $source = $node->getContent();
+        $build = $renderer->getStaticRenderer($this->cssClass);
         $defaults = [];
         if ($this->roundTripMode) {
             $defaults['data-djot-src'] = $this->reconstructCodeBlockSource($node);
         }
+        // ONLY the rendered image is named. The no-renderer path really is
+        // SOURCE TEXT in a `<pre><code>` - calling that an image would hide the
+        // one thing it exists to show, and a reader would be told to skip the
+        // only content on the page (carve#1468).
+        if ($build !== null) {
+            $defaults = array_merge($this->namingDefaults($node), $defaults);
+        }
         $attrs = $this->renderExtensionAttributes($node, $renderer, [$this->cssClass], [], [], $defaults);
-
-        $source = $node->getContent();
-        $build = $renderer->getStaticRenderer($this->cssClass);
         $element = $build !== null
             // The build-time renderer owns its escaping (it emits SVG / <img>).
             ? '<div' . $attrs . '>' . $build($source) . "</div>\n"
@@ -357,6 +414,11 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
     protected function openTag(CodeBlock $node): string
     {
         $attrs = ' class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"' . $this->buildExtraAttributes($node);
+
+        // APPENDED, so naming the fence never moves an attribute the author placed.
+        foreach ($this->namingDefaults($node) as $name => $value) {
+            $attrs .= ' ' . $name . '="' . StringUtil::escapeHtml($value) . '"';
+        }
 
         if ($this->roundTripMode) {
             $attrs .= ' data-djot-src="' . StringUtil::escapeHtml($this->reconstructCodeBlockSource($node)) . '"';

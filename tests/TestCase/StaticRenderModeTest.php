@@ -258,7 +258,7 @@ class StaticRenderModeTest extends TestCase
 
         $html = trim($converter->convert("```mermaid\ngraph TD\n```\n"));
 
-        $this->assertSame('<div class="mermaid"><svg data-src="graph TD"></svg></div>', $html);
+        $this->assertSame('<div class="mermaid" role="img" aria-label="mermaid"><svg data-src="graph TD"></svg></div>', $html);
     }
 
     public function testMermaidStaticPreservesAuthorAttributes(): void
@@ -289,7 +289,7 @@ class StaticRenderModeTest extends TestCase
             return $c->convert($source);
         })());
         $this->assertSame(
-            '<div id="diagram" class="mermaid wide" data-x="1"><svg/></div>',
+            '<div id="diagram" class="mermaid wide" data-x="1" role="img" aria-label="mermaid"><svg/></div>',
             $withRenderer,
         );
     }
@@ -329,7 +329,7 @@ class StaticRenderModeTest extends TestCase
 
         $html = trim($converter->convert("```graphviz\ndigraph { A -> B }\n```\n"));
 
-        $this->assertSame('<div class="graphviz"><svg data-src="digraph { A -> B }"></svg></div>', $html);
+        $this->assertSame('<div class="graphviz" role="img" aria-label="graphviz"><svg data-src="digraph { A -> B }"></svg></div>', $html);
     }
 
     public function testGraphvizDotAliasConsultsTheGraphvizRendererKey(): void
@@ -344,7 +344,7 @@ class StaticRenderModeTest extends TestCase
 
         $html = trim($converter->convert("```dot\ndigraph { A -> B }\n```\n"));
 
-        $this->assertSame('<div class="graphviz"><svg/></div>', $html);
+        $this->assertSame('<div class="graphviz" role="img" aria-label="graphviz"><svg/></div>', $html);
     }
 
     public function testPlantumlStaticFallsBackToSourceWithoutRenderer(): void
@@ -371,7 +371,7 @@ class StaticRenderModeTest extends TestCase
 
         $html = trim($converter->convert("```plantuml\n@startuml\nA -> B\n@enduml\n```\n"));
 
-        $this->assertSame('<div class="plantuml"><img alt="plantuml" src="uml.svg"></div>', $html);
+        $this->assertSame('<div class="plantuml" role="img" aria-label="plantuml"><img alt="plantuml" src="uml.svg"></div>', $html);
     }
 
     public function testPlantumlPumlAliasConsultsThePlantumlRendererKey(): void
@@ -386,7 +386,7 @@ class StaticRenderModeTest extends TestCase
 
         $html = trim($converter->convert("```puml\nA -> B\n```\n"));
 
-        $this->assertSame('<div class="plantuml"><img alt="plantuml" src="uml.svg"></div>', $html);
+        $this->assertSame('<div class="plantuml" role="img" aria-label="plantuml"><img alt="plantuml" src="uml.svg"></div>', $html);
     }
 
     public function testCustomFenceWordIsStaticCapableViaTheOpenRenderersMap(): void
@@ -402,7 +402,7 @@ class StaticRenderModeTest extends TestCase
 
         $html = trim($converter->convert("```myuml\nA -> B\n```\n"));
 
-        $this->assertSame('<div class="myuml"><img alt="myuml" src="my.svg"></div>', $html);
+        $this->assertSame('<div class="myuml" role="img" aria-label="myuml"><img alt="myuml" src="my.svg"></div>', $html);
     }
 
     public function testCustomFenceWithoutRendererDegradesToSource(): void
@@ -439,7 +439,7 @@ class StaticRenderModeTest extends TestCase
 
         // Interactive text mode preserves `>` so arrow syntax survives for the
         // client library (only `&` and `<` are escaped).
-        $this->assertSame('<pre class="mermaid">graph TD; A-->B</pre>', $html);
+        $this->assertSame('<pre class="mermaid" role="img" aria-label="mermaid">graph TD; A-->B</pre>', $html);
     }
 
     protected function detailsSource(): string

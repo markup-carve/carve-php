@@ -25,7 +25,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<pre class="mermaid">', $html);
+        $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('graph TD;', $html);
         // Raw syntax preserved for Mermaid.js (not HTML-escaped)
         $this->assertStringContainsString('A-->B;', $html);
@@ -47,7 +47,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<pre class="mermaid">', $html);
+        $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('sequenceDiagram', $html);
         $this->assertStringContainsString('Alice', $html);
     }
@@ -100,7 +100,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<div class="mermaid">', $html);
+        $this->assertStringContainsString('<div class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('</div>', $html);
         $this->assertStringNotContainsString('<pre', $html);
     }
@@ -139,7 +139,7 @@ DJOT;
         $html = $converter->convert($djot);
 
         $this->assertStringContainsString('<figure class="mermaid-figure">', $html);
-        $this->assertStringContainsString('<pre class="mermaid">', $html);
+        $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('</figure>', $html);
     }
 
@@ -246,7 +246,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<pre class="mermaid">', $html);
+        $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('classDiagram', $html);
         $this->assertStringContainsString('Animal', $html);
     }
@@ -268,7 +268,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<pre class="mermaid">', $html);
+        $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('gantt', $html);
     }
 
@@ -287,7 +287,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<pre class="mermaid">', $html);
+        $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('erDiagram', $html);
         $this->assertStringContainsString('CUSTOMER', $html);
     }
@@ -313,7 +313,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<pre class="mermaid">', $html);
+        $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('gitGraph', $html);
     }
 
@@ -336,7 +336,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('<pre class="mermaid">', $html);
+        $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('stateDiagram-v2', $html);
     }
 
@@ -363,7 +363,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertSame(2, substr_count($html, '<pre class="mermaid">'));
+        $this->assertSame(2, substr_count($html, '<pre class="mermaid" role="img" aria-label="mermaid">'));
         // Raw syntax preserved for Mermaid.js
         $this->assertStringContainsString('A-->B;', $html);
         $this->assertStringContainsString('C-->D;', $html);
@@ -387,7 +387,7 @@ DJOT;
         $html = $converter->convert($djot);
 
         $this->assertStringContainsString('<figure class="mermaid-figure">', $html);
-        $this->assertStringContainsString('<div class="mermaid">', $html);
+        $this->assertStringContainsString('<div class="mermaid" role="img" aria-label="mermaid">', $html);
         $this->assertStringContainsString('</div>', $html);
         $this->assertStringContainsString('</figure>', $html);
     }

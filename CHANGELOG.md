@@ -80,6 +80,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The index back-link says where it goes** (markup-carve/carve#1469). A `↩`
+  with no accessible name is announced as "leftwards arrow with hook", or
+  skipped - and an index entry carries one per occurrence, so a reader met a row
+  of identical unnamed arrows. The k-th back-link is now named
+  `Back to {term} {k}` and shows `↩<sup>k</sup>`, mirroring PART 9 §16's
+  footnote rule. The leading words come from the `indexBackref` label, or a
+  constructor argument on the extension.
+
+- **A rendered diagram fence is an image with a name** (markup-carve/carve#1468).
+  The body is diagram SOURCE, so before the client library runs - and if it never
+  runs - a reader announced the backslashes and arrows as prose. The hydration
+  element and the static rendered wrapper carry `role="img"` and a `label`
+  defaulting to the fence's own word. The two are written together or not at all:
+  an image with no accessible name is skipped entirely. The no-renderer source
+  fallback stays unnamed, because that path really is source text. An
+  `aria-label`, `aria-labelledby` or `role` the author wrote always wins.
+
 - **A half-formed braced pair keeps its carets bare** (#1522, PART 11 §2).
   `{^x`, `x^}`, `{^`, `^}`, `{^}` and `{^{^x^}^}` were written with an invented
   `\^`. The reader refuses a `{^` opener outright when no `^}` follows it, so

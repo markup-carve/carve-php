@@ -27,7 +27,7 @@ class FencedRenderExtensionTest extends TestCase
         // Text mode escapes & and <, but preserves > so arrow syntax survives
         // (matches MermaidExtension). The < escape already blocks tag injection.
         $this->assertSame(
-            '<pre class="d2">a -> b &amp; &lt;c</pre>',
+            '<pre class="d2" role="img" aria-label="d2">a -> b &amp; &lt;c</pre>',
             $this->render($djot, FencedRenderExtension::d2()),
         );
     }
@@ -37,8 +37,8 @@ class FencedRenderExtensionTest extends TestCase
         $dot = $this->render("``` dot\na -> b\n```", FencedRenderExtension::graphviz());
         $graphviz = $this->render("``` graphviz\na -> b\n```", FencedRenderExtension::graphviz());
 
-        $this->assertSame('<pre class="graphviz">a -> b</pre>', $dot);
-        $this->assertSame('<pre class="graphviz">a -> b</pre>', $graphviz);
+        $this->assertSame('<pre class="graphviz" role="img" aria-label="graphviz">a -> b</pre>', $dot);
+        $this->assertSame('<pre class="graphviz" role="img" aria-label="graphviz">a -> b</pre>', $graphviz);
     }
 
     public function testJsonModeWrapsBodyInScriptTagInsideDiv(): void
@@ -46,7 +46,7 @@ class FencedRenderExtensionTest extends TestCase
         $djot = "``` vega-lite\n{\"mark\": \"bar\"}\n```";
 
         $this->assertSame(
-            '<div class="vega-lite"><script type="application/json">{"mark": "bar"}</script></div>',
+            '<div class="vega-lite" role="img" aria-label="vega-lite"><script type="application/json">{"mark": "bar"}</script></div>',
             $this->render($djot, FencedRenderExtension::vegaLite()),
         );
     }
@@ -60,7 +60,7 @@ class FencedRenderExtensionTest extends TestCase
         $html = $this->render($djot, FencedRenderExtension::vegaLite());
 
         $this->assertSame(
-            '<div class="vega-lite"><script type="application/json">{"x": "<\/script>"}</script></div>',
+            '<div class="vega-lite" role="img" aria-label="vega-lite"><script type="application/json">{"x": "<\/script>"}</script></div>',
             $html,
         );
         // Exactly one real closing tag (the wrapper's), none from the body.
@@ -72,7 +72,7 @@ class FencedRenderExtensionTest extends TestCase
         $ext = new FencedRenderExtension(language: 'chart', contentMode: FencedRenderExtension::MODE_JSON);
         $html = $this->render("``` chart\n{}\n```", $ext);
 
-        $this->assertStringStartsWith('<div class="chart">', $html);
+        $this->assertStringStartsWith('<div class="chart" role="img" aria-label="chart">', $html);
         $this->assertStringContainsString('<script type="application/json">{}</script>', $html);
     }
 
@@ -89,7 +89,7 @@ class FencedRenderExtensionTest extends TestCase
         $djot = "{.tall .wide}\n``` d2\na -> b\n```";
 
         $this->assertSame(
-            '<pre class="d2 tall wide">a -> b</pre>',
+            '<pre class="d2 tall wide" role="img" aria-label="d2">a -> b</pre>',
             $this->render($djot, FencedRenderExtension::d2()),
         );
     }
@@ -148,7 +148,7 @@ class FencedRenderExtensionTest extends TestCase
         $html = $this->render("``` d2\na\n```", $ext);
 
         $this->assertStringContainsString('<figure class="d2-figure">', $html);
-        $this->assertStringContainsString('<pre class="d2">a</pre>', $html);
+        $this->assertStringContainsString('<pre class="d2" role="img" aria-label="d2">a</pre>', $html);
         $this->assertStringContainsString('</figure>', $html);
     }
 
@@ -157,7 +157,7 @@ class FencedRenderExtensionTest extends TestCase
         $ext = new FencedRenderExtension(language: 'd2', cssClass: 'diagram', tag: 'div');
 
         $this->assertSame(
-            '<div class="diagram">a -> b</div>',
+            '<div class="diagram" role="img" aria-label="diagram">a -> b</div>',
             $this->render("``` d2\na -> b\n```", $ext),
         );
     }
@@ -169,7 +169,7 @@ class FencedRenderExtensionTest extends TestCase
         $viaPreset = $this->render($djot, FencedRenderExtension::mermaid());
 
         // `>` preserved (arrow syntax), identical to MermaidExtension today.
-        $this->assertSame('<pre class="mermaid">graph TD; A-->B</pre>', $viaPreset);
+        $this->assertSame('<pre class="mermaid" role="img" aria-label="mermaid">graph TD; A-->B</pre>', $viaPreset);
     }
 
     public function testRoundTripPreservesFenceLabel(): void
@@ -213,17 +213,17 @@ class FencedRenderExtensionTest extends TestCase
         $converter->addExtensions(FencedRenderExtension::presets());
 
         $mermaid = trim($converter->convert("``` mermaid\ngraph TD; A-->B\n```"));
-        $this->assertStringContainsString('<pre class="mermaid">', $mermaid);
+        $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">', $mermaid);
 
         $dot = trim($converter->convert("``` dot\ndigraph { a -> b }\n```"));
-        $this->assertStringContainsString('<pre class="graphviz">', $dot);
+        $this->assertStringContainsString('<pre class="graphviz" role="img" aria-label="graphviz">', $dot);
 
         $chart = trim($converter->convert("``` chart\n{\"type\":\"bar\"}\n```"));
-        $this->assertStringContainsString('<div class="chart">', $chart);
+        $this->assertStringContainsString('<div class="chart" role="img" aria-label="chart">', $chart);
         $this->assertStringContainsString('<script type="application/json">', $chart);
 
         $puml = trim($converter->convert("``` puml\nA -> B\n```"));
-        $this->assertStringContainsString('<pre class="plantuml">', $puml);
+        $this->assertStringContainsString('<pre class="plantuml" role="img" aria-label="plantuml">', $puml);
     }
 
     public function testPlantumlPresetClaimsBothFenceWords(): void
@@ -232,11 +232,11 @@ class FencedRenderExtensionTest extends TestCase
         $converter->addExtension(FencedRenderExtension::plantuml());
 
         $this->assertSame(
-            '<pre class="plantuml">@startuml' . "\n" . 'A -> B' . "\n" . '@enduml</pre>',
+            '<pre class="plantuml" role="img" aria-label="plantuml">@startuml' . "\n" . 'A -> B' . "\n" . '@enduml</pre>',
             trim($converter->convert("``` plantuml\n@startuml\nA -> B\n@enduml\n```")),
         );
         $this->assertSame(
-            '<pre class="plantuml">A -> B</pre>',
+            '<pre class="plantuml" role="img" aria-label="plantuml">A -> B</pre>',
             trim($converter->convert("``` puml\nA -> B\n```")),
         );
     }
@@ -252,7 +252,7 @@ class FencedRenderExtensionTest extends TestCase
         $converter->addExtension(FencedRenderExtension::plantuml());
 
         $this->assertSame(
-            '<pre class="plantuml">A &lt;|-- B' . "\n" . 'C &lt;&lt;actor>> D' . "\n" . 'E --> F</pre>',
+            '<pre class="plantuml" role="img" aria-label="plantuml">A &lt;|-- B' . "\n" . 'C &lt;&lt;actor>> D' . "\n" . 'E --> F</pre>',
             trim($converter->convert("``` plantuml\nA <|-- B\nC <<actor>> D\nE --> F\n```")),
         );
     }
