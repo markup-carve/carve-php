@@ -62,6 +62,51 @@ use MarkupCarve\Carve\Util\StringUtil;
  * </div>
  * ```
  *
+ * The radio inputs are the control: they are what a keyboard reaches and what
+ * a screen reader announces. So they are hidden visually and kept in the focus
+ * order and the accessibility tree - `display: none` or `visibility: hidden`
+ * would remove them from both and leave a code group that cannot be operated
+ * without a mouse. Because the input itself is invisible, the focus ring is
+ * drawn on the label it controls.
+ *
+ * Required CSS:
+ * ```css
+ * .code-group { display: flex; flex-wrap: wrap; }
+ * .code-group-radio {
+ *   position: absolute;
+ *   width: 1px;
+ *   height: 1px;
+ *   overflow: hidden;
+ *   clip-path: inset(50%);
+ *   white-space: nowrap;
+ * }
+ * .code-group-label {
+ *   padding: 0.5rem 1rem;
+ *   cursor: pointer;
+ *   border-bottom: 2px solid transparent;
+ * }
+ * .code-group-radio:focus-visible + .code-group-label {
+ *   outline: 2px solid currentColor;
+ *   outline-offset: 2px;
+ * }
+ * .code-group-radio:checked + .code-group-label {
+ *   border-bottom-color: currentColor;
+ *   font-weight: bold;
+ * }
+ * .code-group-panel {
+ *   display: none;
+ *   width: 100%;
+ *   order: 1;
+ * }
+ * .code-group-radio:nth-of-type(1):checked ~ .code-group-panel:nth-of-type(1),
+ * .code-group-radio:nth-of-type(2):checked ~ .code-group-panel:nth-of-type(2),
+ * .code-group-radio:nth-of-type(3):checked ~ .code-group-panel:nth-of-type(3),
+ * .code-group-radio:nth-of-type(4):checked ~ .code-group-panel:nth-of-type(4),
+ * .code-group-radio:nth-of-type(5):checked ~ .code-group-panel:nth-of-type(5) {
+ *   display: block;
+ * }
+ * ```
+ *
  * ## Comparison with TabsExtension
  *
  * Use **CodeGroupExtension** when:
