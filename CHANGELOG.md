@@ -93,6 +93,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A tab or code-group label is text, not an attribute value** (#1538, PART 10
+  §2). The extensions escaped a double quote in the label ELEMENT's text, where
+  §2 says text content escapes `&`, `<` and `>` and NOT quotes. The label's
+  accessible name is the same string in an attribute and keeps its `&quot;`.
+  Invisible in prose - smart typography retires a straight quote before text is
+  rendered - and visible on a label, which never goes through inline parsing.
+  With this, the spec's `46-tabs-css-panel-name` and
+  `47-tabs-aria-panel-binding` match byte for byte.
+
 - **The index back-link says where it goes** (markup-carve/carve#1469). A `↩`
   with no accessible name is announced as "leftwards arrow with hook", or
   skipped - and an index entry carries one per occurrence, so a reader met a row
