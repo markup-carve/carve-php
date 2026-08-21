@@ -174,6 +174,8 @@ class HtmlRenderer implements RendererInterface
      */
     public const LABEL_DEFAULTS = [
         'footnoteBacklink' => 'Back to reference',
+        'tabsGroup' => 'Tabs',
+        'codeGroup' => 'Code examples',
         'endnotes' => 'Footnotes',
         'admonitionNote' => 'Note',
         'admonitionTip' => 'Tip',
@@ -3435,8 +3437,13 @@ class HtmlRenderer implements RendererInterface
 
     /**
      * The engine-written string for $key, or its English default.
+     *
+     * Public because the EXTENSION keys live in the same map: PART 9 §16a says
+     * an extension must not make the host configure the same text twice, so one
+     * `labels` map localizes a whole document rather than each extension
+     * carrying its own option to find and miss.
      */
-    protected function label(string $key): string
+    public function label(string $key): string
     {
         return $this->labels[$key] ?? self::LABEL_DEFAULTS[$key];
     }
