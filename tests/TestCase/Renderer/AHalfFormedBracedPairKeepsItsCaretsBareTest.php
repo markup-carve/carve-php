@@ -11,10 +11,13 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use function hrtime;
 use function json_encode;
 use function rtrim;
 use function str_contains;
+use function str_repeat;
 use function var_export;
 
 /**
@@ -212,6 +215,34 @@ class AHalfFormedBracedPairKeepsItsCaretsBareTest extends TestCase
         $this->assertFalse(
             str_contains(self::shape($carve . "\n"), '"superscript"'),
             'writing ' . var_export($content, true) . ' grew a superscript nobody wrote',
+        );
+    }
+
+    /**
+     * The closer lookup is done ONCE for the text, not once per caret.
+     *
+     * Asking `strpos()` per opener rescans the tail for every `{^` in the run,
+     * which is quadratic on a long run of openers over one closer - the same
+     * unclosed-run scan class this engine has had to fix three times. The
+     * reader avoids it with a memoized `strrpos`, and so does the writer.
+     *
+     * IN THE `scaling` GROUP because it is a WALL-CLOCK measurement: the
+     * default suite runs under paratest, where a timing assertion measures a
+     * machine every sibling process is loading.
+     */
+    #[Group('scaling')]
+    public function testALongRunOfOpenersFormatsInLinearTime(): void
+    {
+        $source = str_repeat('{^', 16000) . "x^}\n";
+
+        $start = hrtime(true);
+        CarveConverter::toCarve($source);
+        $elapsed = (hrtime(true) - $start) / 1e9;
+
+        $this->assertLessThan(
+            3.0,
+            $elapsed,
+            '16000 braced-superscript openers took ' . $elapsed . 's (quadratic regression?)',
         );
     }
 

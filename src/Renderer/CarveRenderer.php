@@ -3118,6 +3118,17 @@ class CarveRenderer implements RendererInterface
             ? '/([\\\\`"\'^!$])/'
             : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'$])/';
         $insideNote = $this->inlineNoteDepth > 0;
+        // The LAST braced-superscript closer in this text, found once.
+        //
+        // `caretOpensAConstruct()` asks whether a closer lies at or after a
+        // given offset, and the answer is `$lastSupCloser >= $offset`: if the
+        // last one is not there, none is. Asking `strpos()` per caret instead
+        // rescans the tail once for every `{^` in the text, which is quadratic
+        // on `{^{^{^...^}` - the class of unclosed-run scan this engine has had
+        // to fix three times already. The reader avoids it the same way, with
+        // the memoized `strrpos` in InlineParser::closerExistsFrom().
+        $lastCloser = strrpos($text, '^}');
+        $lastSupCloser = $lastCloser === false ? -1 : $lastCloser;
 
         return (string)preg_replace_callback(
             $pattern,
@@ -3127,6 +3138,7 @@ class CarveRenderer implements RendererInterface
                 $insideNote,
                 $minimal,
                 $nextOpensVerbatim,
+                $lastSupCloser,
             ): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
@@ -3145,7 +3157,7 @@ class CarveRenderer implements RendererInterface
                 if ($char === '$' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
                     return '$';
                 }
-                if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote)) {
+                if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote, $lastSupCloser)) {
                     return '^';
                 }
                 // A COLON only opens something at the start of a line - `::`
@@ -3338,8 +3350,12 @@ class CarveRenderer implements RendererInterface
         }
     }
 
-    private static function caretOpensAConstruct(string $text, int $offset, bool $insideNote): bool
-    {
+    private static function caretOpensAConstruct(
+        string $text,
+        int $offset,
+        bool $insideNote,
+        int $lastSupCloser,
+    ): bool {
         $next = $text[$offset + 1] ?? '';
         // `^[` opens an inline footnote - but only where a note can open at
         // all. PART 9 §16 rules out three positions, and none of them needs an
@@ -3382,10 +3398,12 @@ class CarveRenderer implements RendererInterface
         // escape just freed.
         //
         // The condition mirrors the reader's own refusal in
-        // InlineParser::parseBracedInline(): the search starts one byte past
-        // the caret, exactly where the reader starts its own.
+        // InlineParser::parseBracedInline(): a closer must lie one byte past
+        // the caret or later, exactly where the reader starts its own search.
+        // `$lastSupCloser` is that search done once for the whole text - see
+        // the note where it is computed.
         if ($previous === '{') {
-            return strpos($text, '^}', $offset + 1) !== false;
+            return $lastSupCloser >= $offset + 1;
         }
 
         return false;
