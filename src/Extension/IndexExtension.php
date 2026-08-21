@@ -107,9 +107,22 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
      */
     protected int $budget = self::BUDGET_BASE;
 
+    /**
+     * Plain text of each slug's first occurrence, for the back-link's accessible
+     * name. Kept beside `$display` rather than derived from it: the name is TEXT
+     * and the display is NODES, and flattening rendered HTML back to text would
+     * have to undo the escaping the renderer just applied.
+     *
+     * @var array<string, string>
+     */
+    protected array $termText = [];
+
     protected HeadingIdTracker $slugger;
 
-    public function __construct()
+    /**
+     * @param string|null $backrefLabel Leading words of a back-link's accessible name; null takes the render's `labels` map under `indexBackref`
+     */
+    public function __construct(protected ?string $backrefLabel = null)
     {
         $this->slugger = new HeadingIdTracker();
         $this->slugger->setLowercase(true);
@@ -145,6 +158,7 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
     {
         $this->counts = [];
         $this->display = [];
+        $this->termText = [];
         $this->emittedBytes = 0;
         $this->budget = max(self::BUDGET_BASE, self::BUDGET_FACTOR * $document->getExpansionBudgetLength());
 
@@ -169,6 +183,7 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
                     array_values($marker->getChildren()),
                     false,
                 );
+                $this->termText[$slug] = $this->slugger->getPlainText($marker);
             }
         });
 
@@ -231,9 +246,26 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
             }
             $item = $prefix;
             $stopped = false;
-            for ($m = 1; $m <= $this->counts[$slug]; $m++) {
+            // THE BACK-LINK SAYS WHERE IT GOES (carve#1469). A bare arrow is
+            // announced as "leftwards arrow with hook", or skipped - the
+            // sentence PART 9 §16 exists to prevent, on the identical element
+            // one document over. §16's rule is MIRRORED rather than reinvented:
+            // the name is the label plus WHAT THE LINK VISIBLY SAYS. One
+            // occurrence shows the bare glyph and is named label + term; the
+            // k-th of several shows the glyph plus `<sup>k</sup>` and takes that
+            // k, so a row of otherwise identical arrows is distinguishable by
+            // sight and by ear alike (WCAG 2.5.3).
+            $total = $this->counts[$slug];
+            $term = $this->termText[$slug] ?? '';
+            $backrefLabel = $this->backrefLabel ?? $renderer->label('indexBackref');
+            for ($m = 1; $m <= $total; $m++) {
+                $name = $total === 1
+                    ? $backrefLabel . ' ' . $term
+                    : $backrefLabel . ' ' . $term . ' ' . $m;
+                $body = $total === 1 ? '↩' : '↩<sup>' . $m . '</sup>';
                 $link = ' <a href="#idx-' . $renderer->escapeAttribute($slug) . '-' . $m
-                    . '" class="index-backref">↩</a>';
+                    . '" class="index-backref" aria-label="' . $renderer->escapeAttribute($name)
+                    . '">' . $body . '</a>';
                 if (!$this->charge($link)) {
                     $stopped = true;
 

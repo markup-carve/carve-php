@@ -3766,11 +3766,11 @@ DJOT;
 
         $this->assertSame($converter, $result);
         $this->assertStringContainsString(
-            '<pre class="mermaid">',
+            '<pre class="mermaid" role="img" aria-label="mermaid">',
             $converter->convert("``` mermaid\ngraph TD; A-->B\n```"),
         );
         $this->assertStringContainsString(
-            '<div class="vega-lite">',
+            '<div class="vega-lite" role="img" aria-label="vega-lite">',
             $converter->convert("``` vega-lite\n{\"mark\":\"bar\"}\n```"),
         );
     }
@@ -3785,8 +3785,8 @@ DJOT;
 
         $converter->addExtensions($extensions);
 
-        $this->assertStringContainsString('<pre class="d2">', $converter->convert("``` d2\na -> b\n```"));
-        $this->assertStringContainsString('<div class="chart">', $converter->convert("``` chart\n{\"type\":\"bar\"}\n```"));
+        $this->assertStringContainsString('<pre class="d2" role="img" aria-label="d2">', $converter->convert("``` d2\na -> b\n```"));
+        $this->assertStringContainsString('<div class="chart" role="img" aria-label="chart">', $converter->convert("``` chart\n{\"type\":\"bar\"}\n```"));
     }
 
     public function testUnclosedCodeSpanExtendsToEndOfBlock(): void

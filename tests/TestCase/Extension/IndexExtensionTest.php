@@ -31,11 +31,11 @@ class IndexExtensionTest extends TestCase
         $this->assertStringContainsString('<ul class="index">', $out);
         $this->assertLessThan(strpos($out, '>parser '), strpos($out, '>lexer '));
         $this->assertStringContainsString(
-            '<li>parser <a href="#idx-parser-1" class="index-backref">↩</a> '
-            . '<a href="#idx-parser-2" class="index-backref">↩</a></li>',
+            '<li>parser <a href="#idx-parser-1" class="index-backref" aria-label="Back to parser 1">↩<sup>1</sup></a> '
+            . '<a href="#idx-parser-2" class="index-backref" aria-label="Back to parser 2">↩<sup>2</sup></a></li>',
             $out,
         );
-        $this->assertStringContainsString('<li>lexer <a href="#idx-lexer-1" class="index-backref">↩</a></li>', $out);
+        $this->assertStringContainsString('<li>lexer <a href="#idx-lexer-1" class="index-backref" aria-label="Back to lexer">↩</a></li>', $out);
     }
 
     public function testNumbersOccurrencesPerSlug(): void
@@ -94,7 +94,7 @@ class IndexExtensionTest extends TestCase
     {
         $out = $this->html("A :index[parser].\n\n> ::: index\n> :::");
         $this->assertStringContainsString('<ul class="index">', $out);
-        $this->assertStringContainsString('<li>parser <a href="#idx-parser-1" class="index-backref">↩</a></li>', $out);
+        $this->assertStringContainsString('<li>parser <a href="#idx-parser-1" class="index-backref" aria-label="Back to parser">↩</a></li>', $out);
     }
 
     public function testReEmissionIsBoundedAcrossManyBlocks(): void
@@ -126,12 +126,12 @@ class IndexExtensionTest extends TestCase
         );
 
         $this->assertStringContainsString(
-            '<li>parser <a href="#idx-parser-1" class="index-backref">↩</a> '
-            . '<a href="#idx-parser-2" class="index-backref">↩</a></li>',
+            '<li>parser <a href="#idx-parser-1" class="index-backref" aria-label="Back to parser 1">↩<sup>1</sup></a> '
+            . '<a href="#idx-parser-2" class="index-backref" aria-label="Back to parser 2">↩<sup>2</sup></a></li>',
             $out,
         );
         $this->assertStringContainsString(
-            '<li>lexer <a href="#idx-lexer-1" class="index-backref">↩</a></li>',
+            '<li>lexer <a href="#idx-lexer-1" class="index-backref" aria-label="Back to lexer">↩</a></li>',
             $out,
         );
     }

@@ -174,6 +174,7 @@ class HtmlRenderer implements RendererInterface
      */
     public const LABEL_DEFAULTS = [
         'footnoteBacklink' => 'Back to reference',
+        'indexBackref' => 'Back to',
         'tabsGroup' => 'Tabs',
         'codeGroup' => 'Code examples',
         'endnotes' => 'Footnotes',
