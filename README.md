@@ -398,7 +398,3 @@ carve lint --platform github doc.crv
 
 Rules, options and what each one does and does not read:
 [`docs/lint.md`](docs/lint.md).
-
-## License
-
-MIT — see [LICENSE](LICENSE).
