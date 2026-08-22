@@ -101,6 +101,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An HTML import writes the core `$$` math form, never the ``` math ``` fence**
+  (#1554, markup-carve/carve#1518, markup-carve/carve#1514, PART 9 §18).
+  `<div class="math display">` came back as the extension fence, which without
+  that extension loaded is a `language-math` code block rather than an equation.
+  The payload also folds to one line, because Carve math is a prefix on a code
+  span: a blank line inside one used to split the paragraph around it.
+
 - **A block matched on a first-character fast path spans every line it
   consumed** (markup-carve/carve#1451, PART 12 §4). A tagged frontmatter opener
   (`---json`) reported the opening line as its whole extent while a bare `---`

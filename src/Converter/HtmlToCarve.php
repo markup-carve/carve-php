@@ -2421,28 +2421,37 @@ class HtmlToCarve
             return $this->processLineBlock($node);
         }
 
-        // The block form of the same loss the inline math span had: the
-        // MathBlockExtension writes ``` math ``` as <div class="math display">,
-        // and importing that as a colon fence turned the equation into a
-        // paragraph of escaped backslashes (carve-php#1543). The fence is the
-        // exact inverse, and `docs/html-import.md` already settles the case
-        // where the inverse needs an extension to render as its element: the
-        // semantic survives as something a reader recovers by enabling the
-        // extension, where unwrapping discarded it outright. Without the
-        // extension a ``` math ``` block is still a readable code block.
+        // The block form of the same loss the inline math span had: pandoc and
+        // the MathBlockExtension both write <div class="math display">, and
+        // importing that as a colon fence turned the equation into a paragraph
+        // of escaped backslashes (carve-php#1543).
+        //
+        // It comes back as the CORE display form - `$$` in front of a verbatim
+        // span, a paragraph holding one math node - and never as a ``` math ```
+        // fence (PART 9 section 18, ruled at markup-carve/carve#1514).
+        //
+        // THE FENCE WAS THE FIRST ANSWER HERE, on the argument that the
+        // extension WRITES that div, so the fence is an exact inverse and
+        // `docs/html-import.md` already accepts an inverse a reader recovers by
+        // enabling an extension. That argument was weighed by the ruling and
+        // lost. The fence is an EXTENSION: with it not loaded the same imported
+        // document is an ordinary `language-math` code block, so the equation
+        // is mathematics for one consumer and a code block for another.
+        // `math_display` is core and needs nothing loaded. An importer's job is
+        // to produce a document that MEANS what the HTML meant, not to
+        // reconstruct the document that happened to generate it - and it cannot
+        // know an extension generated it at all, since HTML from anywhere else
+        // carrying those classes arrives here identically. Emitting the fence
+        // only when the extension is registered was rejected on purpose: it
+        // makes two runs of the same tool over the same input differ.
         $blockMath = $this->mathDelimitedContent($node, 'div');
         if ($blockMath !== null) {
-            $suffix = $this->mathAttributeSuffix($node, $blockMath['classes']);
-            $body = $blockMath['content'];
-            $backticks = StringUtil::findSafeCodeFence($body, 3);
-
-            // Verbatim, NOT rtrimmed: the payload between the delimiters is the
-            // equation's own bytes, and `\[x  \]` is not `\[x\]`. A fence's
-            // content is its lines JOINED by newlines, so the closer's own
-            // newline is always the one added here - a body that already ends
-            // in one ends in a blank line, and the blank line is content too.
-            return ($suffix === '' ? '' : $suffix . "\n")
-                . $backticks . 'math' . "\n" . $body . "\n" . $backticks . "\n\n";
+            // The display flag decides the sigil, so a div spelled
+            // `class="math inline"` writes the INLINE form rather than being
+            // promoted to display by the block position it was found in.
+            return $this->renderMath($blockMath['content'], $blockMath['display'])
+                . $this->mathAttributeSuffix($node, $blockMath['classes'])
+                . "\n\n";
         }
 
         $classes = $this->getElementClassList($node);
@@ -3765,8 +3774,24 @@ class HtmlToCarve
             return null;
         }
 
-        $content = substr($text, strlen($open), -strlen($close));
-        if (trim($content) === '') {
+        // A CODE SPAN IS ONE LINE, so the payload is folded to one. Carve math
+        // is a prefix on a code span (`math_inline = '$', code_span`), and a
+        // payload that arrived across source lines has no other spelling: a
+        // blank line inside one ENDS the paragraph, so `\(p\n\nq\)` written out
+        // verbatim came back as an equation `p`, a paragraph `q` and a stray
+        // code span - the document destroyed by the whitespace it carried. TeX
+        // reads a whitespace run as one space, so the folded equation is the
+        // same equation.
+        //
+        // EVERY run folds, not only the ones holding a newline, because that is
+        // what carve-js and carve-rs already do and the importers' output is
+        // compared across engines. The cases where TeX itself is whitespace-
+        // sensitive - a `%` comment whose line break folds away, a `\verb` run
+        // holding two spaces - are real and are a question for all three
+        // engines at once; folding differently HERE would put three engines on
+        // three spellings, which is what PART 9 section 18 exists to stop.
+        $content = trim((string)preg_replace('/\s+/u', ' ', substr($text, strlen($open), -strlen($close))));
+        if ($content === '') {
             return null;
         }
 
