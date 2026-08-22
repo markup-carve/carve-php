@@ -67,13 +67,19 @@ use function trim;
 class CarveFmtCorpusTest extends TestCase
 {
     /**
-     * The two causes carve-php#1533 measured, one of which every ratchet entry
-     * below must name. An entry belonging to neither is a cause nobody has
+     * The three causes measured here, one of which every ratchet entry below
+     * must name. An entry belonging to none of them is a cause nobody has
      * looked at yet, which is a finding rather than a resident.
+     *
+     * `escalation: ` was the fourth, and it is gone: PART 11 §2b narrowed the
+     * fallback from the document to the failing unit, and every document that
+     * carried an escape only because a DIFFERENT block needed one now writes it
+     * bare. What the narrowing did NOT retire is split between the two causes
+     * that replaced it, because the two are fixed by different work.
      *
      * @var array<int, string>
      */
-    private const IDLE_ESCAPE_CAUSES = ['escalation: ', 'minimal class: '];
+    private const IDLE_ESCAPE_CAUSES = ['unit scope: ', 'opener run: ', 'minimal class: '];
 
     /**
      * THE DEBT, NOT A BLESSING: documents where the writer emits an escape the
@@ -91,40 +97,57 @@ class CarveFmtCorpusTest extends TestCase
      * next thing to investigate. An empty reason fails
      * {@see self::testEveryRatchetEntryCarriesACountAndAReason()}.
      *
-     * Seeded from measurement at d3ae737: 28 documents, 72 invented escapes,
-     * 26 of them from the per-document escalation and 2 from inside the
-     * minimal class.
+     * Seeded from measurement at d3ae737 at 28 documents and 72 invented
+     * escapes, and re-measured at 24 and 57 when PART 11 §2b narrowed the
+     * escalation. carve-js measures the same 24 documents with the same 24
+     * counts, character for character.
+     *
+     * UNIT SCOPE, the 20-document cause: PART 11 §4's two-render strategy has
+     * one knob per unit - minimal or conservative - so a unit that fails is
+     * written conservatively IN FULL, and every other candidate character in
+     * the same run is escaped with the one that needed it. §2b bounds how far
+     * that reaches (the run, or the block holding it, never the document) and
+     * this is what is left inside the bound. Retiring it needs §2's own per
+     * OPENER OCCURRENCE test - `\{.note}` rather than `\{\.note\}` - which is a
+     * different mechanism, not a narrower scope.
+     *
+     * OPENER RUN, two documents: §2's THE UNIT IS THE OPENER requires the WHOLE
+     * opener run escaped - `\#\# H` and not `\## H`, `\*\*\*` and not `\***` -
+     * and PART 11 §2b names the first of those as its own worked example. The
+     * sweep removes ONE backslash at a time, so it reads the second `\#` as
+     * idle: with the first still there no heading forms either way. These two
+     * entries are a floor this measurement cannot go below while §2 says what
+     * it says, and they are here to be seen rather than to be fixed.
+     *
+     * MINIMAL CLASS, the other two: both passes agree, so nothing escalated,
+     * and the escape is still idle.
      *
      * @var array<string, array{0: int, 1: string}>
      */
     private const IDLE_ESCAPE_RATCHET = [
         '72-escape-coverage-2' => [4, 'minimal class: a literal backslash is written doubled, and a lone backslash before a non-escapable character re-parses the same bare'],
-        '87-compact-list-blocks-10' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `{`, `}`'],
-        '103-heading-marker-column-zero-2' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `#` x2'],
-        '129-emphasis-opener-slash-adjacency-3' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `_` x2'],
-        '132-thematic-break-requires-contiguous-markers-3' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `*` x3'],
-        '145-definition-list-as-a-first-class-block-opener-3' => [1, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `:`'],
-        '146-table-as-a-block-opener-in-a-list-item-2' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `=`, `|` x2'],
-        '151-indented-ordered-marker-content-column-includes-the-marker-indent' => [1, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `|`'],
-        '157-indented-attribute-line-stays-literal' => [4, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.` x2, `{`, `}`'],
-        '157-indented-attribute-line-stays-literal-2' => [5, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `-` x2, `.`, `{`, `}`'],
-        '158-indented-image-and-caption-stay-literal-2' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `{`, `}`'],
-        '159-indented-reference-and-footnote-definitions-stay-literal' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `]`'],
-        '159-indented-reference-and-footnote-definitions-stay-literal-2' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.` x2'],
-        '160-indented-colon-fence-blocks-stay-literal' => [1, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`'],
-        '160-indented-colon-fence-blocks-stay-literal-2' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `:`, `|`'],
-        '160-indented-colon-fence-blocks-stay-literal-3' => [1, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`'],
-        '195-a-definition-inside-a-container-is-collected-at-that-container-s-content-column-3' => [4, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `[`, `]`'],
-        '218-a-footnote-body-s-own-column-is-two-and-a-third-column-is-its-text' => [4, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `-`, `|` x3'],
-        '219-a-definition-below-a-footnote-body-s-column-is-the-document-s-own-text' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `/`, `]`'],
-        '220-a-definition-past-a-footnote-body-s-column-is-the-body-s-own-text' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `/`, `]`'],
-        '287-a-column-zero-definition-ends-an-open-list-item-3' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `/`, `]`'],
-        '322-an-attribute-block-reaches-the-nested-list-it-precedes-9' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `{`, `}`'],
-        '350-a-definition-at-a-container-s-content-column-3' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `/`, `]`'],
-        '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `]`'],
-        '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one-2' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `]`'],
-        '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one-3' => [3, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `.`, `/`, `]`'],
-        '379-a-reference-definition-cannot-take-its-destination-from-the-next-line' => [2, 'escalation: one needed escape puts the whole document in the conservative class, which then escapes `[`, `]`'],
+        '87-compact-list-blocks-10' => [3, 'unit scope: the failing run is written conservatively in full, which escapes `.`, `{`, `}` where any one of them alone stops the attribute line'],
+        '103-heading-marker-column-zero-2' => [2, 'opener run: the heading opener `##` is escaped in full, and removing either backslash alone still leaves a paragraph'],
+        '129-emphasis-opener-slash-adjacency-3' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `_` x2 where the opener alone would do'],
+        '132-thematic-break-requires-contiguous-markers-3' => [3, 'opener run: the break opener `***` is escaped in full, and removing any one backslash alone still leaves a paragraph'],
+        '146-table-as-a-block-opener-in-a-list-item-2' => [3, 'unit scope: the failing run is written conservatively in full, which escapes `=`, `|` x2 beyond the opener'],
+        '151-indented-ordered-marker-content-column-includes-the-marker-indent' => [1, 'unit scope: the failing run is written conservatively in full, which escapes the closing `|` beyond the opener'],
+        '157-indented-attribute-line-stays-literal' => [3, 'unit scope: the failing run is written conservatively in full, which escapes `{`, `.`, `}` where any one of them alone stops the attribute line'],
+        '157-indented-attribute-line-stays-literal-2' => [3, 'unit scope: the failing run is written conservatively in full, which escapes `{`, `.`, `}` where any one of them alone stops the attribute line'],
+        '158-indented-image-and-caption-stay-literal-2' => [3, 'unit scope: the failing run is written conservatively in full, which escapes `{`, `.`, `}` where any one of them alone stops the attribute line'],
+        '159-indented-reference-and-footnote-definitions-stay-literal' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
+        '159-indented-reference-and-footnote-definitions-stay-literal-2' => [1, 'unit scope: the failing run is written conservatively in full, which escapes a `.` beyond the opener'],
+        '160-indented-colon-fence-blocks-stay-literal-2' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `:`, `|` beyond the opener'],
+        '195-a-definition-inside-a-container-is-collected-at-that-container-s-content-column-3' => [3, 'unit scope: the failing run is written conservatively in full, which escapes `[`, `]`, `/` where any one of them alone stops the definition'],
+        '218-a-footnote-body-s-own-column-is-two-and-a-third-column-is-its-text' => [4, 'unit scope: the failing run is written conservatively in full, which escapes `|` x3, `-` beyond the openers'],
+        '219-a-definition-below-a-footnote-body-s-column-is-the-document-s-own-text' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
+        '220-a-definition-past-a-footnote-body-s-column-is-the-body-s-own-text' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
+        '287-a-column-zero-definition-ends-an-open-list-item-3' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
+        '322-an-attribute-block-reaches-the-nested-list-it-precedes-9' => [3, 'unit scope: the failing run is written conservatively in full, which escapes `{`, `.`, `}` where any one of them alone stops the attribute line'],
+        '350-a-definition-at-a-container-s-content-column-3' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
+        '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
+        '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one-2' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
+        '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one-3' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
         '390-a-table-cell-s-marker-run-ends-at-a-space-5' => [1, 'minimal class: an authored `\=` is kept after the writer\'s own cell padding retired it - padded, the `=` no longer starts the cell'],
     ];
 

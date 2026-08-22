@@ -124,6 +124,64 @@ class CarveRenderer implements RendererInterface
     protected string $escapeMode = self::ESCAPE_MODE_CONSERVATIVE;
 
     /**
+     * The units written in the conservative form, keyed by `spl_object_id`,
+     * when the writer is deciding unit by unit rather than document by
+     * document.
+     *
+     * Null means the whole pass follows $escapeMode, which is what the two
+     * exploratory renders in render() do. Non-null is PART 11 section 2b's
+     * pass: a unit in the set is escaped in full, every other unit is emitted
+     * by section 2's own test, and for a character nothing needs that means
+     * bare.
+     *
+     * @var array<int, true>|null
+     */
+    protected ?array $escalatedUnits = null;
+
+    /**
+     * How many more narrowing renders the current document may pay for.
+     *
+     * THE SEARCH IS BOUNDED, because its cost is proportional to how many units
+     * FAIL. A group that holds no failing unit is relaxed in one render, so a
+     * document with a handful of them costs about log(n) renders - but one where
+     * nearly every unit fails drives the recursion to its leaves and pays a
+     * render and a parse per unit, which is quadratic in the document.
+     *
+     * Such a document gains almost nothing from narrowing: it IS the
+     * conservative form, arrived at because every block needed it. So the search
+     * stops when the budget runs out and returns the state it has reached, which
+     * is verified like every other - the escalation is wider than §2b's minimum
+     * there, never narrower, and no document's output can be wrong for it.
+     *
+     * MEASURED before it was chosen: over the 1341 pinned corpus documents 50
+     * reach the search at all, the most expensive spends 22 renders on 209
+     * units, and the budget below gives that document 72.
+     */
+    protected int $narrowingBudget = 0;
+
+    /**
+     * The node whose render arm is currently writing, and therefore the unit
+     * the next escaped character belongs to.
+     *
+     * Set by renderBlock() and renderInline(), so a run of prose is charged to
+     * its text node and the strings a block writes itself are charged to the
+     * block.
+     */
+    protected ?Node $escapeUnit = null;
+
+    protected function escapeModeHere(): string
+    {
+        if ($this->escalatedUnits === null) {
+            return $this->escapeMode;
+        }
+        if ($this->escapeUnit !== null && isset($this->escalatedUnits[spl_object_id($this->escapeUnit)])) {
+            return self::ESCAPE_MODE_CONSERVATIVE;
+        }
+
+        return self::ESCAPE_MODE_MINIMAL;
+    }
+
+    /**
      * The four writer-only sentinels, chosen per render from code points the
      * DOCUMENT does not contain.
      *
@@ -221,8 +279,195 @@ class CarveRenderer implements RendererInterface
         if ($minimal === $conservative) {
             return $minimal;
         }
+        if ($this->escapingIsRedundant($minimal, $conservative)) {
+            return $minimal;
+        }
 
-        return $this->escapingIsRedundant($minimal, $conservative) ? $minimal : $conservative;
+        // The minimal form of the WHOLE document does not hold, which used to
+        // end the decision here with the conservative form of the whole
+        // document. PART 11 section 2b says how far that fallback actually
+        // reaches: the smallest unit whose minimal form fails, and section 2's
+        // own test everywhere else.
+        return $this->narrowEscalation($document, $conservative);
+    }
+
+    /**
+     * The conservative form of the units that need it, and the minimal form of
+     * every other unit (PART 11 section 2b).
+     *
+     * WHY THIS IS A SEARCH AND NOT A LOOKUP. The comparison stays
+     * document-scoped - section 4's argument holds, a unit re-parsed alone has
+     * lost the document's link-reference and footnote definitions - so what a
+     * failure reports is THAT the document changed, never WHERE. The unit is
+     * found by trying: start from the conservative form, which is known to
+     * hold, and hand each unit back its minimal form only while the whole
+     * document still re-parses to the same tree. Every state this walks through
+     * is verified, and the one returned is the last that passed.
+     *
+     * HALVED RATHER THAN SWEPT, because a document is mostly units that need
+     * nothing. A group is offered its minimal form all at once and only split
+     * when that fails, so a document with one failing unit costs about log(n)
+     * renders instead of n.
+     *
+     * THE FIRST RENDER IS A CONTROL. With every unit escalated this must
+     * reproduce the conservative form byte for byte; if it does not, the
+     * selection is deciding something other than the escape mode - a unit the
+     * walk did not reach, for instance - and the document-scoped form is
+     * returned rather than a narrowing built on a state that is not what it
+     * claims.
+     */
+    protected function narrowEscalation(Document $document, string $conservative): string
+    {
+        $conservativeTree = $this->canonicalTree($conservative);
+        // Null answers "cannot tell", exactly as it does for the minimal form:
+        // with no tree to hold the narrowing against, there is nothing to
+        // narrow toward.
+        if ($conservativeTree === null) {
+            return $conservative;
+        }
+
+        $units = $this->collectEscapeUnits($document);
+        if ($units === []) {
+            return $conservative;
+        }
+
+        $escalated = [];
+        foreach ($units as $unit) {
+            $escalated[spl_object_id($unit)] = true;
+        }
+        $this->escalatedUnits = $escalated;
+        // Eight times the depth of the halving, which is what narrowing four
+        // independent failing units costs.
+        $this->narrowingBudget = 8 * (int)ceil(log(count($units) + 1, 2)) + 8;
+
+        try {
+            $best = $this->renderSelectively($document);
+            if ($best !== $conservative) {
+                return $conservative;
+            }
+            $this->relaxUnits($document, $units, $conservativeTree, $best);
+
+            return $best;
+        } finally {
+            $this->escalatedUnits = null;
+        }
+    }
+
+    /**
+     * Hand `$units` their minimal form where the document still holds, halving
+     * the group on failure.
+     *
+     * `$best` carries the render of the CURRENT escalation set, so the caller
+     * always holds bytes that were verified: an accepted relaxation replaces
+     * it, a rejected one restores the set it was measured against.
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $units
+     * @param array{tree: mixed} $conservativeTree
+     * @param string $best
+     */
+    protected function relaxUnits(Document $document, array $units, array $conservativeTree, string &$best): void
+    {
+        $count = count($units);
+        if ($count === 0 || $this->narrowingBudget <= 0) {
+            return;
+        }
+        $this->narrowingBudget--;
+        foreach ($units as $unit) {
+            unset($this->escalatedUnits[spl_object_id($unit)]);
+        }
+        $candidate = $this->renderSelectively($document);
+        $candidateTree = $this->canonicalTree($candidate);
+        // Loose, because escapingIsRedundant() compares the same trees the same
+        // way: two spellings of one document differ in field ORDER, not in
+        // content, and a stricter comparison would reject relaxations that are
+        // in fact the same tree.
+        if ($candidateTree !== null && $candidateTree == $conservativeTree) {
+            $best = $candidate;
+
+            return;
+        }
+        foreach ($units as $unit) {
+            $this->escalatedUnits[spl_object_id($unit)] = true;
+        }
+        if ($count === 1) {
+            return;
+        }
+        $half = intdiv($count, 2);
+        $this->relaxUnits($document, array_slice($units, 0, $half), $conservativeTree, $best);
+        $this->relaxUnits($document, array_slice($units, $half), $conservativeTree, $best);
+    }
+
+    protected function renderSelectively(Document $document): string
+    {
+        return $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
+    }
+
+    /**
+     * The canonical tree of `$source`, or null when it does not parse.
+     *
+     * Null answers "cannot tell" for every caller, exactly as it does in
+     * escapingIsRedundant(): a writer bug that produces unparseable source must
+     * not throw out of the renderer.
+     *
+     * @return array{tree: mixed}|null
+     */
+    protected function canonicalTree(string $source): ?array
+    {
+        try {
+            // Wrapped, so "did not parse" is null and cannot compare equal to
+            // another document that did not parse either.
+            return ['tree' => $this->canonicalizeAst((new CarveConverter())->parse($source))];
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Every node that can carry an escaped character, in document order.
+     *
+     * A GENERIC WALK rather than a list of types, because the unit is "the node
+     * whose render arm wrote this character" and every arm can grow one. A node
+     * this misses is not silently mis-escaped: it is charged to no unit,
+     * written minimally, and the control render in narrowEscalation() sees the
+     * byte difference and declines to narrow.
+     *
+     * @return array<int, \MarkupCarve\Carve\Node\Node>
+     */
+    protected function collectEscapeUnits(Document $document): array
+    {
+        $out = [];
+        $seen = [];
+        $stack = [$document];
+        while ($stack !== []) {
+            $value = array_pop($stack);
+            if (is_array($value)) {
+                foreach (array_reverse($value) as $item) {
+                    $stack[] = $item;
+                }
+
+                continue;
+            }
+            if (!is_object($value)) {
+                continue;
+            }
+            $id = spl_object_id($value);
+            if (isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            if ($value instanceof Node) {
+                $out[] = $value;
+            }
+            // The cast reaches private and protected properties too, which is
+            // the point: a node's children are not all behind getChildren(),
+            // and a walk that only asked for those would miss a table's rows.
+            foreach (array_reverse(array_values((array)$value)) as $property) {
+                $stack[] = $property;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -689,7 +934,27 @@ class CarveRenderer implements RendererInterface
      */
     protected bool $paragraphStartsAfterCaptionHost = false;
 
+    /**
+     * Render one block, recording it as the escape unit its own arm writes
+     * with.
+     *
+     * PART 11 section 2b bounds an escalation to the smallest unit that fails,
+     * so the escape pass has to know which unit each escaped character belongs
+     * to. The unit is the node whose render arm is running: a text node for a
+     * run of prose, the block itself for the strings a block writes directly.
+     */
     protected function renderBlock(Node $node): string
+    {
+        $previous = $this->escapeUnit;
+        $this->escapeUnit = $node;
+        try {
+            return $this->renderBlockBody($node);
+        } finally {
+            $this->escapeUnit = $previous;
+        }
+    }
+
+    protected function renderBlockBody(Node $node): string
     {
         $attrs = $this->renderAttrs($node);
         $withAttrs = static fn (string $body): string => $attrs === '' ? $body : $attrs . "\n" . $body;
@@ -2108,6 +2373,22 @@ class CarveRenderer implements RendererInterface
         bool $captionCanOpen = false,
         bool $nextOpensVerbatim = false,
     ): string {
+        $previous = $this->escapeUnit;
+        $this->escapeUnit = $node;
+        try {
+            return $this->renderInlineBody($node, $prevChar, $nextChar, $captionCanOpen, $nextOpensVerbatim);
+        } finally {
+            $this->escapeUnit = $previous;
+        }
+    }
+
+    protected function renderInlineBody(
+        InlineNode $node,
+        string $prevChar = '',
+        string $nextChar = '',
+        bool $captionCanOpen = false,
+        bool $nextOpensVerbatim = false,
+    ): string {
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
         // An unresolved reference renders as the source the author
         // wrote, never as a link (PART 12 section 3a).
@@ -3137,7 +3418,7 @@ class CarveRenderer implements RendererInterface
             return $text;
         }
 
-        $minimal = $this->escapeMode === self::ESCAPE_MODE_MINIMAL;
+        $minimal = $this->escapeModeHere() === self::ESCAPE_MODE_MINIMAL;
         // `!` AND `$` JOIN THEIR CLASSES SO THE BINDING CASE CAN BE FORCED.
         // Both are returned bare below wherever they do not bind, so the only
         // renders that change are the ones where the escape is structural: `!`
