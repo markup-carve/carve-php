@@ -114,6 +114,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The payload also folds to one line, because Carve math is a prefix on a code
   span: a blank line inside one used to split the paragraph around it.
 
+- **An escape escalation reaches the block that failed, not the document**
+  (#1552, markup-carve/carve#1516, PART 11 §2b). The writer took the
+  conservative form for the whole document as soon as its minimal form did not
+  re-parse, so one needed escape dragged every other candidate along; the
+  fallback now reaches the smallest unit that fails - the inline run, or the
+  block containing it - and every other candidate is written bare.
+
 - **A block matched on a first-character fast path spans every line it
   consumed** (markup-carve/carve#1451, PART 12 §4). A tagged frontmatter opener
   (`---json`) reported the opening line as its whole extent while a bare `---`
