@@ -264,6 +264,26 @@ class CarveRenderer implements RendererInterface
         return $picked;
     }
 
+    /**
+     * The tag that says section 11 N1a's boundary - three blank lines - goes
+     * ABOVE the line it opens.
+     *
+     * IT MARKS A LINE, NOT A JOIN. It used to be spliced BETWEEN two rendered
+     * blocks (`a` + tag + `b`), which reads the same at the document level and
+     * is wrong everywhere else: splicing hides a line break from every host
+     * that indents its body line by line. A list item prefixes each of its
+     * content lines with its content column and a blockquote prefixes each with
+     * `> `, and neither can see a second line inside `- a<tag>- b` - so the
+     * boundary came out at column 0, taking the list it opened out of the item
+     * with it (markup-carve/carve#1501).
+     *
+     * Written at the START of the following block's first line instead, the tag
+     * rides through every host's prefix pass as ordinary text, and normalize()
+     * expands it once the prefix it has to repeat is finally visible: whatever
+     * columns sit to its left ARE the host's, so the three blank lines are
+     * spelled with them - nothing at all inside a list item, `>` inside a
+     * blockquote, which is exactly how each host spells a blank line of its own.
+     */
     protected function listBoundary(): string
     {
         return $this->verbatimSentinels[6];
@@ -849,9 +869,12 @@ class CarveRenderer implements RendererInterface
                 }
                 if ($rendered !== '') {
                     if ($listSeparated && $parts !== []) {
-                        // Two more blank lines than the "\n\n" join below already
-                        // writes, which makes three.
-                        $parts[array_key_last($parts)] .= $this->listBoundary() . $rendered;
+                        // The tag OPENS the next block's first line rather than
+                        // joining two blocks, so every host that indents line by
+                        // line can see the break and prefix the line - see
+                        // listBoundary(). normalize() spells the three blank
+                        // lines with whatever prefix ends up to its left.
+                        $parts[array_key_last($parts)] .= "\n" . $this->listBoundary() . $rendered;
                     } else {
                         $parts[] = $rendered;
                     }
@@ -1335,6 +1358,75 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
+     * Whether this block leaves a PARAGRAPH OPEN on its last line, so a line
+     * written below it at the same column is read as its continuation rather
+     * than as a block of its own.
+     *
+     * The other half of foldsIntoAnOpenParagraph()'s question: not "does this
+     * block fold INTO an open paragraph" but "does it leave one open BELOW it".
+     * The first three members are the same three, for the same reason - their
+     * canonical source IS a bare inline run on its own line. A definition list
+     * joins them because its last description ends in one too.
+     *
+     * EACH MEMBER IS LOAD-BEARING, not carried along for symmetry: in an item
+     * holding a sub-list, a table, one of these four blocks and a second
+     * sub-list, that second sub-list is lost without the blank line. A heading,
+     * fence, table, break, div, admonition and a sub-list with a different
+     * marker close at their last line and owe the block under them nothing.
+     */
+    protected function leavesAParagraphOpen(Node $node): bool
+    {
+        return $this->foldsIntoAnOpenParagraph($node) || $node instanceof DefinitionList;
+    }
+
+    /**
+     * Whether a sub-list written at the item's content column needs a blank line
+     * above it to open at all.
+     *
+     * THE MARKER COLUMN. A block attached by section 17 L3's marker sits at
+     * column 0, and a sub-list at the item's content column below it is INDENTED
+     * under an open paragraph - lazy continuation, so the list never opens and
+     * its markers come back as text.
+     *
+     * A BLOCKQUOTE. It takes any non-blank line below it as lazy continuation,
+     * bullet line included, so an item holding a quote and then a bullet at the
+     * content column came back as a quote whose paragraph carries the bullet
+     * line as its own text. That shape holds no section 11 N1a
+     * boundary at all: it failed on its own account before
+     * markup-carve/carve#1501, and the same rule settles it.
+     *
+     * A PARAGRAPH BELOW A SUB-LIST THAT ALREADY OPENED. Once a sub-list has
+     * opened at the item's content column, a bullet written at that column below
+     * a paragraph joins THAT list instead of opening under the paragraph - so
+     * the paragraph keeps the line and the list keeps the marker. Without an
+     * earlier sub-list the same two lines open a list, which is why this is
+     * conditional rather than a blanket blank line after every paragraph:
+     * writing one there would re-spell every nested list in the corpus.
+     *
+     * A BLANK LINE IS SAFE HERE. It loosens an item only before a PARAGRAPH;
+     * before a sub-list the item stays tight, which is why an item whose
+     * sub-list follows a blank line and one whose sub-list follows the marker
+     * line directly are the same document.
+     */
+    protected function needsABlankLineAbove(
+        ?Node $previousEmitted,
+        bool $previousAtMarkerColumn,
+        bool $aSubListAlreadyOpened,
+    ): bool {
+        if ($previousAtMarkerColumn) {
+            return true;
+        }
+        if ($previousEmitted === null) {
+            return false;
+        }
+        if ($previousEmitted instanceof BlockQuote) {
+            return true;
+        }
+
+        return $aSubListAlreadyOpened && $this->leavesAParagraphOpen($previousEmitted);
+    }
+
+    /**
      * Whether the WRITTEN form of a block opens with a block-attributes line.
      *
      * The three kinds above fold into an open paragraph one column in because
@@ -1414,6 +1506,16 @@ class CarveRenderer implements RendererInterface
             // which is column 0. Everything after it has to sit there too - see
             // below - so this only ever latches on.
             $atMarkerColumn = false;
+            // The last child that actually WROTE something, which is what the
+            // block below it is read against. `$previous` is not that: a
+            // definition hoisted out of the item renders nothing and still sits
+            // in the children.
+            $previousEmitted = null;
+            // Whether a sub-list has already opened at this item's content
+            // column - the condition under which a later bullet written there
+            // joins it instead of opening below the paragraph above it. See
+            // needsABlankLineAbove().
+            $aSubListAlreadyOpened = false;
             foreach ($children as $index => $child) {
                 $next = $children[$index + 1] ?? null;
                 // A definition the author wrote BETWEEN these two blocks was
@@ -1481,6 +1583,61 @@ class CarveRenderer implements RendererInterface
                 // would change corpus 228's canonical form. It does not release
                 // a run that is already at the marker column, because the
                 // column, not the paragraph, is what the later child continues.
+                // A LIST CHILD NEVER GOES TO THE MARKER COLUMN. The marker
+                // column is column 0, which is where the list this item belongs
+                // to writes ITS markers - so a sub-list put there is not
+                // attached to the item, it is dissolved into the list around it,
+                // and the `+` above it is read as the sibling item's own text.
+                // `- outer` / `+` / `- a` / `+` / `- b` came back as one flat
+                // list of three items with both sub-lists and the boundary
+                // between them gone (markup-carve/carve#1501). Section 17 L3's
+                // marker cannot help here: it attaches a block that could not
+                // open at column 0 on its own, and a list opens there in
+                // preference to being attached.
+                //
+                // So a sub-list is written at the item's CONTENT column, and
+                // what it needs there is the right separator above it. Three
+                // shapes, one question each - what would eat this list if
+                // nothing separated it:
+                //
+                //   - THE LIST ABOVE IT WOULD SWALLOW IT. Two sibling sub-lists
+                //     whose markers match are one list when written adjacent,
+                //     which is the whole of section 11 N1's merge rule; N1a's
+                //     boundary is the language's way of saying they are two, and
+                //     section 10i fixes its length at three blank lines.
+                //   - THE BLOCK ABOVE IT SITS AT COLUMN 0, or is a BLOCKQUOTE.
+                //     Either way a line at the item's content column is INDENTED
+                //     under it and reads as its lazy continuation, so the list
+                //     never opens. One blank line closes the block above without
+                //     loosening the item - a blank line before a sub-list does
+                //     not make a list loose, only a blank line before a
+                //     paragraph does.
+                //   - NOTHING ABOVE IT REACHES DOWN. Every other block kind was
+                //     swept: heading, fence, table, break, div, admonition, and a
+                //     sub-list with a different marker all close at their last
+                //     line, and the list opens on the next one with no separator
+                //     at all.
+                if ($child instanceof ListBlock) {
+                    if (!$separated && $previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child)) {
+                        $out .= $this->listBoundary() . $rendered;
+                    } elseif (
+                        !$separated
+                        && $this->needsABlankLineAbove($previousEmitted, $atMarkerColumn, $aSubListAlreadyOpened)
+                    ) {
+                        $out .= "\n" . $rendered;
+                    } else {
+                        $out .= $rendered;
+                    }
+                    // Back at the content column, so a child below this one is
+                    // read against the list rather than against whatever stood
+                    // at column 0 above it.
+                    $atMarkerColumn = false;
+                    $aSubListAlreadyOpened = true;
+                    $previous = $child;
+                    $previousEmitted = $child;
+
+                    continue;
+                }
                 if (
                     $atMarkerColumn
                     || ($next !== null && $this->adjacentBlocksMerge($child, $next))
@@ -1493,11 +1650,13 @@ class CarveRenderer implements RendererInterface
                 ) {
                     $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                     $previous = $child;
+                    $previousEmitted = $child;
                     $atMarkerColumn = true;
 
                     continue;
                 }
                 $previous = $child;
+                $previousEmitted = $child;
                 $out .= $rendered;
             }
 
@@ -3209,7 +3368,28 @@ class CarveRenderer implements RendererInterface
         // blank line; the boundary sentinel is not a newline yet and passes
         // through untouched. Only the writer knows which run is which.
         $text = (string)preg_replace("/\n{3,}/", "\n\n", $text);
-        $text = (string)preg_replace('/\n*' . preg_quote($this->listBoundary(), '/') . '\n*/u', "\n\n\n\n", $text);
+        // The boundary tag opens the line it sits on, and everything to its LEFT
+        // is the prefix its host had already put there - two columns of a list
+        // item's content, `> ` from a blockquote, both together when a list sits
+        // in a quote. The three blank lines have to carry that same prefix,
+        // minus its trailing whitespace, because that is how each host spells a
+        // blank line: a list item writes nothing, a blockquote writes `>`.
+        // Taking the prefix from the line rather than passing it down means no
+        // host has to know the boundary exists.
+        //
+        // ONE TAG PER LINE, always: every site that writes one puts it directly
+        // after a newline, so the lazy prefix cannot run past a line it does not
+        // own.
+        $text = (string)preg_replace_callback(
+            '/^(.*?)' . preg_quote($this->listBoundary(), '/') . '/mu',
+            static function (array $m): string {
+                $prefix = $m[1];
+                $blank = (string)preg_replace('/[ \t]+$/', '', $prefix);
+
+                return $blank . "\n" . $blank . "\n" . $blank . "\n" . $prefix;
+            },
+            $text,
+        );
 
         $out = $this->restoreVerbatim($this->trimNonNbsp($text));
 

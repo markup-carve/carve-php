@@ -107,6 +107,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The canonical writer spells two sibling sub-lists inside a list item**
+  (#1553, markup-carve/carve#1501, PART 9 §11 N1a and §10i). A tight item wrote
+  its sub-lists behind the `+` marker at column 0, where a compatible marker
+  dissolves them into the list around the item; they are written at the item's
+  content column now, separated by the boundary. The same repair covers a
+  sub-list below a blockquote in a tight item, which was read as the quote's
+  lazy continuation.
 - **An HTML import writes the core `$$` math form, never the ``` math ``` fence**
   (#1554, markup-carve/carve#1518, markup-carve/carve#1514, PART 9 §18).
   `<div class="math display">` came back as the extension fence, which without
@@ -132,7 +139,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   list-item or `dd` prefix reached its span into the blank line below the
   container, one codepoint past the block that holds it. A definition at column
   0 still reaches that blank, which is where its body may resume.
-
 - **A tab control is `type="button"`, and two marked items select one tab**
   (#1537, markup-carve/carve#1504, Extensions §13.3 and §13.5). A generated
   `aria`-mode control carried no `type`, so a tab set or code group inside a
