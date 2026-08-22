@@ -101,6 +101,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A block matched on a first-character fast path spans every line it
+  consumed** (markup-carve/carve#1451, PART 12 §4). A tagged frontmatter opener
+  (`---json`) reported the opening line as its whole extent while a bare `---`
+  reported the block, and a `-` bullet list reported its first line where the
+  same document written with `*` or `1.` reported the block. 33 corpus
+  documents span differently against carve-js and carve-rs; they now agree.
+- **A footnote definition inside a container ends with its body**
+  (markup-carve/carve#1451, PART 12 §4). A definition written behind a quote,
+  list-item or `dd` prefix reached its span into the blank line below the
+  container, one codepoint past the block that holds it. A definition at column
+  0 still reaches that blank, which is where its body may resume.
+
 - **A tab control is `type="button"`, and two marked items select one tab**
   (#1537, markup-carve/carve#1504, Extensions §13.3 and §13.5). A generated
   `aria`-mode control carried no `type`, so a tab set or code group inside a

@@ -433,6 +433,20 @@ class BlockParser
     protected array $footnoteDefinitionSpans = [];
 
     /**
+     * Which recorded definitions were written behind a CONTAINER PREFIX.
+     *
+     * A definition at column 0 owns the blank line below it - nothing else
+     * does, and its body may resume under that blank. A definition inside a
+     * quote, a list item or a `dd` does not: the blank line that follows the
+     * container is outside the container, so reaching into it puts the
+     * definition's span past the end of the block that holds it. See
+     * `extendFootnoteDefinitionToLineStart()`.
+     *
+     * @var array<string, bool>
+     */
+    protected array $footnoteDefinitionPrefixed = [];
+
+    /**
      * @var array<int, true> Nodes reassembled from discontiguous source.
      */
     protected array $unplaceableNodeIds = [];
@@ -2648,6 +2662,7 @@ class BlockParser
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->footnoteDefinitionSpans = [];
+        $this->footnoteDefinitionPrefixed = [];
         $this->unplaceableNodeIds = [];
         $this->abbreviations = [];
         $this->abbreviationDefinitions = [];
@@ -3375,7 +3390,23 @@ class BlockParser
                 $consumed = $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
-                $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                // END LINE, not just the start. A block matched here can run
+                // several lines - an extension matcher registered through
+                // `addBlockPattern()` places no span of its own, so this stamp
+                // is the only one it gets - and stamping the opener alone gave
+                // it a one-line extent. A tagged frontmatter opener (`---json`)
+                // reaches this path through the `-` family while a bare `---`
+                // takes the branch above, which already passes the end line: one
+                // construct, two spans, decided by whether the author wrote the
+                // format tag (markup-carve/carve#1451). Blocks whose own parser
+                // already placed them are unaffected - `stampBlockSpan()` never
+                // overwrites a span.
+                $this->stampSourceLine(
+                    $parent,
+                    $childrenBefore,
+                    $sourceLine,
+                    $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
+                );
                 $i += $consumed;
 
                 continue;
@@ -3390,7 +3421,23 @@ class BlockParser
                 $consumed = $this->tryParseTable($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
-                $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                // END LINE, not just the start. A block matched here can run
+                // several lines - an extension matcher registered through
+                // `addBlockPattern()` places no span of its own, so this stamp
+                // is the only one it gets - and stamping the opener alone gave
+                // it a one-line extent. A tagged frontmatter opener (`---json`)
+                // reaches this path through the `-` family while a bare `---`
+                // takes the branch above, which already passes the end line: one
+                // construct, two spans, decided by whether the author wrote the
+                // format tag (markup-carve/carve#1451). Blocks whose own parser
+                // already placed them are unaffected - `stampBlockSpan()` never
+                // overwrites a span.
+                $this->stampSourceLine(
+                    $parent,
+                    $childrenBefore,
+                    $sourceLine,
+                    $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
+                );
                 $i += $consumed;
 
                 continue;
@@ -3400,7 +3447,23 @@ class BlockParser
                     ?? $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
-                $this->stampSourceLine($parent, $childrenBefore, $sourceLine);
+                // END LINE, not just the start. A block matched here can run
+                // several lines - an extension matcher registered through
+                // `addBlockPattern()` places no span of its own, so this stamp
+                // is the only one it gets - and stamping the opener alone gave
+                // it a one-line extent. A tagged frontmatter opener (`---json`)
+                // reaches this path through the `-` family while a bare `---`
+                // takes the branch above, which already passes the end line: one
+                // construct, two spans, decided by whether the author wrote the
+                // format tag (markup-carve/carve#1451). Blocks whose own parser
+                // already placed them are unaffected - `stampBlockSpan()` never
+                // overwrites a span.
+                $this->stampSourceLine(
+                    $parent,
+                    $childrenBefore,
+                    $sourceLine,
+                    $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
+                );
                 $i += $consumed;
 
                 continue;
@@ -10922,9 +10985,23 @@ class BlockParser
         );
         if ($span !== null) {
             $this->footnoteDefinitionSpans[$label] = $span;
+            $this->footnoteDefinitionPrefixed[$label] = $raw !== $bare;
         }
     }
 
+    /**
+     * Reach the definition's span to the start of the blank line below it.
+     *
+     * ONLY AT COLUMN 0. A definition written behind a container prefix - in a
+     * quote, a list item, a `dd` - is not followed by that blank line: the
+     * container ends first, and the blank belongs to the document below it. So
+     * reaching there gave the definition a span ending one codepoint past the
+     * block that holds it, and past the last codepoint the construct owns,
+     * which is where PART 12 §4 puts the end. carve-js and carve-rs both stop
+     * at the definition's last body line for exactly these shapes; this engine
+     * reached on for all of them, which is the `footnote (extent)` row of the
+     * three-way span panel (markup-carve/carve#1451).
+     */
     private function extendFootnoteDefinitionToLineStart(string $label, int $lineIndex): void
     {
         $span = $this->footnoteDefinitionSpans[$label] ?? null;
@@ -10932,6 +11009,7 @@ class BlockParser
         if (
             $span === null
             || $endByte === null
+            || ($this->footnoteDefinitionPrefixed[$label] ?? false)
             || $lineIndex >= count($this->sourceLines) - 1
             || !IndentationHelper::isBlankLine($this->sourceLines[$lineIndex] ?? '')
         ) {
@@ -14072,6 +14150,7 @@ class BlockParser
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->footnoteDefinitionSpans = [];
+        $this->footnoteDefinitionPrefixed = [];
         $this->abbreviations = [];
         $this->abbreviationDefinitions = [];
         $this->abbreviationsBeforeBody = false;
