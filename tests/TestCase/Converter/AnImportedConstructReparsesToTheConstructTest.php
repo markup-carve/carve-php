@@ -36,8 +36,115 @@ class AnImportedConstructReparsesToTheConstructTest extends TestCase
             'display math' => ["A \$\$`E = mc^2` formula.\n"],
             'math carrying authored attributes' => ["An inline \$`x^2`{#eq .highlight} formula.\n"],
             'math holding a backtick run' => ["An inline \$``x`y`` formula.\n"],
-            'the block math fence' => ["``` math\n\\int_0^1 x^2 \\, dx\n```\n"],
+            'core display math' => ["\$\$`\\int_0^1 x^2 \\, dx`\n"],
         ];
+    }
+
+    /**
+     * `<div class="math display">` imports as the CORE `$$` form, never as the
+     * ``` math ``` fence (PART 9 section 18, ruled at markup-carve/carve#1514).
+     *
+     * THIS ROW USED TO BE `'the block math fence'` IN THE PROVIDER ABOVE, and
+     * it asserted the strictly stronger thing: that the fence's rendered HTML
+     * re-rendered BYTE-IDENTICALLY after the import. It did, because the
+     * importer wrote the fence back and the extension rendered the same div.
+     * The argument was that the extension WRITES that div, so the fence is an
+     * exact inverse. The ruling weighed it and it lost: the fence is an
+     * EXTENSION, so with the extension not loaded the imported document is a
+     * `language-math` code block instead of an equation, and the same file is
+     * mathematics for one reader and code for another. The byte round trip was
+     * therefore pinning a property nobody wanted - it could only hold while the
+     * importer emitted a construct whose meaning depends on the consumer's
+     * configuration.
+     *
+     * So the equality moved down a level, to the one the ruling actually asks
+     * for: the imported source means what the HTML meant. It holds a display
+     * math node carrying the same TeX, and it needs no extension to say so.
+     */
+    public function testABlockMathDivImportsAsTheCoreFormAndNotTheFence(): void
+    {
+        $html = $this->render("``` math\n\\int_0^1 x^2 \\, dx\n```\n");
+        $this->assertSame('<div class="math display">\[\int_0^1 x^2 \, dx\]</div>', trim($html));
+
+        $imported = (new HtmlToCarve())->convert($html);
+
+        $this->assertSame("\$\$`\\int_0^1 x^2 \\, dx`\n", $imported);
+        $this->assertStringNotContainsString('```', $imported);
+        $this->assertSameTree("\$\$`\\int_0^1 x^2 \\, dx`\n", $imported);
+
+        // The point of the ruling, stated where it can be seen: the imported
+        // source is an equation with NO extension registered. Under the fence
+        // this rendered `<pre><code class="language-math">`.
+        $this->assertSame(
+            '<p><span class="math display" role="math">\[\int_0^1 x^2 \, dx\]</span></p>',
+            trim((new CarveConverter())->convert($imported)),
+        );
+    }
+
+    /**
+     * The importer's whole block-math answer, on the shape the shared contract
+     * fixture `tests/html-import/math-block-and-mathml` carries: the div, a
+     * block `<math>` and an inline `<math>` in one document.
+     */
+    public function testTheSharedImportContractsMathDocument(): void
+    {
+        $imported = (new HtmlToCarve())->convert(
+            '<div class="math display">\[E = mc^2\]</div>'
+            . '<math display="block" alttext="a - b"></math>'
+            . '<p>x <math alttext="c + d"></math> y</p>',
+        );
+
+        $this->assertSame("\$\$`E = mc^2`\n\n\$\$`a - b`\n\nx \$`c + d` y\n", $imported);
+    }
+
+    /**
+     * The display class decides the sigil, so a div spelled `math inline`
+     * writes the INLINE form. Under the fence every recognized div became
+     * display math, because a ``` math ``` block has no other mode.
+     */
+    public function testADivSpelledInlineWritesTheInlineForm(): void
+    {
+        $this->assertSame("\$`x`\n", (new HtmlToCarve())->convert('<div class="math inline">\(x\)</div>'));
+    }
+
+    /**
+     * The author's attributes ride the math NODE now, not a block attribute
+     * line in front of a fence.
+     */
+    public function testABlockMathDivKeepsTheAuthorsAttributes(): void
+    {
+        $imported = (new HtmlToCarve())->convert('<div id="eq" class="math display big" data-k="v">\[x\]</div>');
+
+        $this->assertSame("\$\$`x`{#eq .big data-k=v}\n", $imported);
+        $this->assertSameTree("\$\$`x`{#eq .big data-k=v}\n", $imported);
+    }
+
+    /**
+     * A div needs BOTH signals too, exactly as the span does: the class pair
+     * AND a payload delimited to match it. Either alone is an ordinary div and
+     * must come back as one, or a stylesheet class named `math` would turn a
+     * wrapper into an equation.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function notBlockMathProvider(): array
+    {
+        return [
+            'no delimiters' => ['<div class="math display">x^2</div>'],
+            'no display mode' => ['<div class="math">\[x^2\]</div>'],
+            'delimiter disagrees with the mode' => ['<div class="math display">\(x^2\)</div>'],
+            'element children' => ['<div class="math display">\[<em>x</em>\]</div>'],
+            'delimiters with nothing between them' => ['<div class="math display">\[\]</div>'],
+        ];
+    }
+
+    #[DataProvider('notBlockMathProvider')]
+    public function testADivThatOnlyLooksLikeMathStaysADiv(string $html): void
+    {
+        $imported = (new HtmlToCarve())->convert($html);
+
+        $this->assertStringNotContainsString('$$`', $imported);
+        $this->assertStringNotContainsString('$`', $imported);
     }
 
     #[DataProvider('mathSourceProvider')]
@@ -166,34 +273,62 @@ class AnImportedConstructReparsesToTheConstructTest extends TestCase
     }
 
     /**
-     * A math body is the equation's OWN BYTES, so its whitespace comes back.
+     * A math body folds to ONE LINE, because a code span is one line.
      *
-     * @return array<string, array{0: string}>
+     * THIS TEST USED TO ASSERT THE OPPOSITE - that a body came back
+     * BYTE-VERBATIM, tabs and blank runs and all - and it could, because the
+     * importer wrote a fence, and a fence's content is its lines joined by
+     * newlines. The core `$$` form the ruling requires has nowhere to put a
+     * newline: Carve math is a PREFIX on a code span
+     * (`math_display = "$$", code_span`), and a code span is one line by
+     * construction. So the verbatim guarantee went out with the fence, and what
+     * replaces it is the guarantee that actually matters - the equation is the
+     * same equation. TeX reads a whitespace run as a single space, so folding
+     * one cannot change what is typeset.
+     *
+     * Each row is the body and the equation it folds to.
+     *
+     * @return array<string, array{0: string, 1: string}>
      */
     public static function mathBodyProvider(): array
     {
         return [
-            'plain' => ['x'],
-            'trailing spaces' => ['x  '],
-            'leading spaces' => ['  x'],
-            'a trailing blank line' => ["x\n"],
-            'two trailing blank lines' => ["x\n\n"],
-            'a tab' => ["x\ty"],
-            'an interior blank run' => ["a\n\n\nb"],
+            'plain' => ['x', 'x'],
+            'trailing spaces' => ['x  ', 'x'],
+            'leading spaces' => ['  x', 'x'],
+            'a trailing blank line' => ["x\n", 'x'],
+            'two trailing blank lines' => ["x\n\n", 'x'],
+            'a tab' => ["x\ty", 'x y'],
+            'an interior blank run' => ["a\n\n\nb", 'a b'],
         ];
     }
 
     #[DataProvider('mathBodyProvider')]
-    public function testABlockMathBodyIsCarriedVerbatim(string $body): void
+    public function testABlockMathBodyFoldsToTheEquationItSpells(string $body, string $folded): void
     {
         $html = $this->render("``` math\n" . $body . "\n```\n");
         $imported = (new HtmlToCarve())->convert($html);
 
-        $this->assertSame(
-            $html,
-            $this->render($imported),
-            "the equation's own bytes must survive; imported source was:\n" . $imported,
-        );
+        $this->assertSame('$$`' . $folded . "`\n", $imported);
+
+        // What the fold is FOR. Written out verbatim, a body carrying a blank
+        // line ends the paragraph the math node lives in, so `\[a\n\n\nb\]`
+        // came back as an equation `a`, a paragraph `b` and a stray code span -
+        // the document destroyed by whitespace the equation did not need.
+        $this->assertSameTree('$$`' . $folded . "`\n", $imported);
+    }
+
+    /**
+     * The same fold on the inline side, which had the same hole: the payload
+     * of `<span class="math inline">` reached the source verbatim, so a blank
+     * line inside one split the paragraph around it.
+     */
+    public function testAnInlineMathBodyFoldsForTheSameReason(): void
+    {
+        $imported = (new HtmlToCarve())->convert('<p>a <span class="math inline">\(p' . "\n\n" . 'q\)</span> b</p>');
+
+        $this->assertSame("a \$`p q` b\n", $imported);
+        $this->assertSameTree("a \$`p q` b\n", $imported);
     }
 
     /**
