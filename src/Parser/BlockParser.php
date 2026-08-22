@@ -1006,6 +1006,35 @@ class BlockParser
         // pre-substitution length keeps the abbreviation-expansion guard on
         // the smaller of the two numbers.
         $input = StringUtil::toValidUtf8($input);
+        // Replace any NUL (U+0000) with the U+FFFD replacement character so a
+        // control byte never reaches output (decided cross-impl behavior;
+        // WHATWG-style). For carve-php this also prevents an input NUL from
+        // colliding with the internal SOFT_BREAK_GUARD sentinel (also \x00).
+        //
+        // AHEAD OF THE OFFSET TABLE, because PART 0 INPUT puts the substitution
+        // before the first line is read: the document §4 positions describe is
+        // the one that HAS the replacement, not the bytes that arrived. Done
+        // after the table was built instead, the two strings disagreed about
+        // one character and every published position went wrong twice over
+        // (markup-carve/carve-php#1563):
+        //
+        // - PositionIndex converts the parser's BYTE offsets to codepoints from
+        //   the string it is handed. Handed the pre-substitution text, it saw a
+        //   NUL - one ASCII byte - took its pure-ASCII identity path, and
+        //   published the parser's post-substitution byte offset unconverted.
+        //   `a` U+FFFD `b` ended at 5, its byte length, where §4 counts three
+        //   codepoints. One NUL anywhere moved every later offset in the
+        //   document, including blocks holding no NUL at all.
+        // - {@see SourceMap::spanFor()} verifies a node by slicing the same
+        //   string and comparing it to the node's text. The slice held the NUL
+        //   and the text held U+FFFD, so the check failed honestly and the text
+        //   node was published with NO position.
+        //
+        // One stale string, both symptoms. Left after `$sourceLength` above, so
+        // `srcByteLength` still reports the bytes that arrived.
+        if (str_contains($input, "\0")) {
+            $input = str_replace("\0", "\u{FFFD}", $input);
+        }
         $this->resetParseState();
         $document = new Document();
         // Strip a single leading UTF-8 BOM (U+FEFF) at the document start so
@@ -1016,13 +1045,6 @@ class BlockParser
         $this->originalSource = $input;
         if (str_starts_with($input, "\u{FEFF}")) {
             $input = substr($input, 3);
-        }
-        // Replace any NUL (U+0000) with the U+FFFD replacement character so a
-        // control byte never reaches output (decided cross-impl behavior;
-        // WHATWG-style). For carve-php this also prevents an input NUL from
-        // colliding with the internal SOFT_BREAK_GUARD sentinel (also \x00).
-        if (str_contains($input, "\0")) {
-            $input = str_replace("\0", "\u{FFFD}", $input);
         }
         $lines = $this->splitLines($input);
 
