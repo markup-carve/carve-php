@@ -103,9 +103,20 @@ class AFastPathBlockKeepsItsWholeExtentTest extends TestCase
             // A definition below the item is collected to document level, and
             // the list's extent reached over it in every engine. What differed
             // was the MARKER: `-` was stamped at line 1, `*` and `1.` whole.
-            'a collected reference definition' => ["- a\n\n  [r]: /u\n", "* a\n\n  [r]: /u\n", 14],
+            //
+            // THE EXPECTED EXTENT MOVED FROM 14 AND 10 TO 3, and this test's own
+            // subject did not. It asks whether the marker decides an extent, and
+            // it still answers no; what changed underneath it is which extent
+            // both markers now agree on. markup-carve/carve#1522 ruled that a
+            // container ends at its LAST PLACED CHILD - the definition is
+            // hoisted to document level, so it is the list's sibling rather than
+            // its child - and #1524 excludes the floating attribute block, which
+            // attaches to nothing and yields no child at all. Making the extents
+            // marker-independent first is what left one convention to narrow
+            // rather than two to chase.
+            'a collected reference definition' => ["- a\n\n  [r]: /u\n", "* a\n\n  [r]: /u\n", 3],
             // A floating attribute block below the item, same shape.
-            'a floating attribute block' => ["- a\n  {.x}\ntail\n", "* a\n  {.x}\ntail\n", 10],
+            'a floating attribute block' => ["- a\n  {.x}\ntail\n", "* a\n  {.x}\ntail\n", 3],
         ];
     }
 

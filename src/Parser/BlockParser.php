@@ -10708,6 +10708,23 @@ class BlockParser
      * Runs bottom-up so a container of containers resolves too, and never
      * overwrites a span the parser already set, which is always more precise.
      */
+
+    /**
+     * The markup an EMPTIED container of each kind spans, and null for a node
+     * this rule leaves alone.
+     */
+    private function emptiedContainerMarkup(Node $node): ?string
+    {
+        if ($node instanceof BlockQuote) {
+            return '/^[ \t]*>[ \t]*/';
+        }
+        if ($node instanceof ListBlock || $node instanceof ListItem) {
+            return '/^[ \t]*(?:[-+*]|[0-9]+[.)]|[A-Za-z]+[.)]|\.)[ \t]*/';
+        }
+
+        return null;
+    }
+
     private function deriveContainerSpans(Node $node): ?SourceSpan
     {
         if (isset($this->unplaceableNodeIds[spl_object_id($node)])) {
@@ -10748,7 +10765,26 @@ class BlockParser
 
             return $exact;
         }
-        if (($node instanceof ListItem || $node instanceof DefinitionDescription) && $own !== null && $last !== null) {
+        // A CONTAINER ENDS AT ITS LAST PLACED CHILD (PART 12 §4,
+        // markup-carve/carve#1522 and markup-carve/carve#1524). None of these
+        // has a closer, so its extent came from the lines it CONSUMED - and a
+        // container consumes lines whose content ends up somewhere else. A
+        // definition written at an item's content column is collected and
+        // hoisted to the document, so it becomes the list's SIBLING and the two
+        // spans overlapped; an attribute block that attaches to nothing yields
+        // no child at all, which §4 excludes by name. `DefinitionList` is
+        // deliberately absent: it answers the floating-attribute question the
+        // other way, settled at markup-carve/carve#1281 and #1362.
+        if (
+            (
+                $node instanceof ListItem
+                || $node instanceof DefinitionDescription
+                || $node instanceof ListBlock
+                || $node instanceof BlockQuote
+            )
+            && $own !== null
+            && $last !== null
+        ) {
             $own = new SourceSpan(
                 startLine: $own->startLine,
                 endLine: $last->endLine,
@@ -10758,6 +10794,30 @@ class BlockParser
                 endOffset: $last->endOffset,
             );
             $node->setPos($own);
+        }
+        // AND A CONTAINER WITH NO PLACED CHILD AT ALL SPANS ITS OWN MARKUP.
+        // "Ends at its last placed child" is silent when there is none, and a
+        // definition written as an item's only content is collected out of it
+        // and leaves nothing behind. Zero width was rejected - it discards the
+        // marker the author typed, and is a shape every consumer has to
+        // special-case - and so was the extent the author typed, which is what
+        // the ruling above rejects for a container that does have children.
+        $emptiedMarkup = $this->emptiedContainerMarkup($node);
+        if ($emptiedMarkup !== null && $own !== null && $last === null) {
+            $line = $this->sourceLines[$own->startLine - 1] ?? '';
+            $tail = mb_substr($line, $own->startColumn - 1, null, 'UTF-8');
+            if (preg_match($emptiedMarkup, $tail, $matched) === 1) {
+                $width = mb_strlen($matched[0], 'UTF-8');
+                $own = new SourceSpan(
+                    startLine: $own->startLine,
+                    endLine: $own->startLine,
+                    startColumn: $own->startColumn,
+                    endColumn: $own->startColumn + $width,
+                    startOffset: $own->startOffset,
+                    endOffset: $own->startOffset + $width,
+                );
+                $node->setPos($own);
+            }
         }
         if (
             $node instanceof ListItem
@@ -10778,29 +10838,13 @@ class BlockParser
                 $node->setPos($own);
             }
         }
-        if ($own !== null && $node instanceof ListBlock) {
-            $lineIndex = $own->endLine - 1;
-            $continuation = $this->sourceLines[$lineIndex + 2] ?? '';
-            if (
-                ($this->sourceLines[$lineIndex + 1] ?? null) === ''
-                && array_key_exists($lineIndex + 2, $this->sourceLines)
-                && $own->endColumn === mb_strlen($this->sourceLines[$lineIndex] ?? '', 'UTF-8') + 1
-                && strlen($continuation) - strlen(ltrim($continuation, " \t")) >= $own->startColumn - 1
-            ) {
-                $nextByte = $this->lineStartOffsets[$lineIndex + 1] ?? null;
-                if ($nextByte !== null) {
-                    $own = new SourceSpan(
-                        startLine: $own->startLine,
-                        endLine: $own->endLine + 1,
-                        startColumn: $own->startColumn,
-                        endColumn: 1,
-                        startOffset: $own->startOffset,
-                        endOffset: $this->positionIndex?->codepointAt($nextByte) ?? $own->endOffset,
-                    );
-                    $node->setPos($own);
-                }
-            }
-        }
+        // A LIST NO LONGER REACHES OVER A BLANK LINE INTO AN INDENTED
+        // CONTINUATION. That extension was added with the exact-extent work in
+        // #1136, when a list's end came from the lines it consumed; a
+        // continuation that produced a CHILD is already covered by the rule
+        // above, and one that produced none is precisely what
+        // markup-carve/carve#1522 and markup-carve/carve#1524 say a container
+        // must stop before.
         if ($own !== null) {
             // A node contains what it holds, so its extent is the UNION of its
             // own and its children's - not whichever was set first. A list item
@@ -10832,30 +10876,6 @@ class BlockParser
             startOffset: $first->startOffset,
             endOffset: $last->endOffset,
         );
-        // A blank line closes a list after the terminator of its last content
-        // line. The terminator is owned by the list; the blank line is not.
-        if ($node instanceof ListBlock) {
-            $lineIndex = $derived->endLine - 1;
-            $continuation = $this->sourceLines[$lineIndex + 2] ?? '';
-            if (
-                ($this->sourceLines[$lineIndex + 1] ?? null) === ''
-                && array_key_exists($lineIndex + 2, $this->sourceLines)
-                && $derived->endColumn === mb_strlen($this->sourceLines[$lineIndex] ?? '', 'UTF-8') + 1
-                && strlen($continuation) - strlen(ltrim($continuation, " \t")) >= $derived->startColumn - 1
-            ) {
-                $nextByte = $this->lineStartOffsets[$lineIndex + 1] ?? null;
-                if ($nextByte !== null) {
-                    $derived = new SourceSpan(
-                        startLine: $derived->startLine,
-                        endLine: $derived->endLine + 1,
-                        startColumn: $derived->startColumn,
-                        endColumn: 1,
-                        startOffset: $derived->startOffset,
-                        endOffset: $this->positionIndex?->codepointAt($nextByte) ?? $derived->endOffset,
-                    );
-                }
-            }
-        }
         $node->setPos($derived);
 
         return $derived;
