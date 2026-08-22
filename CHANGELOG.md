@@ -107,6 +107,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A replaced NUL leaves codepoint offsets, and the text node keeps its
+  position** (#1563, markup-carve/carve#1525, markup-carve/carve#1534, PART 0
+  INPUT, PART 12 §4). The U+0000 to U+FFFD substitution now runs before the
+  offset table is built, so §4 positions count codepoints on the substituted
+  document. A NUL anywhere used to shift every later `pos` in the document to a
+  byte figure and drop the containing text node's position. Published `pos`
+  values move on documents holding a NUL. `srcByteLength` is unchanged and
+  still counts the bytes that arrived.
 - **The canonical writer spells two sibling sub-lists inside a list item**
   (#1553, markup-carve/carve#1501, PART 9 §11 N1a and §10i). A tight item wrote
   its sub-lists behind the `+` marker at column 0, where a compatible marker
