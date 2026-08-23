@@ -335,11 +335,36 @@ Constructor options:
   when `position` is set.
 - `collapsible` (`bool`, default `false`) - wrap the TOC in a
   `<details>`/`<summary>` disclosure so it can be collapsed. When off (the
-  default) the output is the unchanged `<nav class="toc">`.
+  default) the output is the named `<nav class="toc">` below.
 - `summary` (`string`, default `'Table of Contents'`) - disclosure label, used
   only when `collapsible` is true.
 - `open` (`bool`, default `false`) - render the disclosure expanded by default,
   used only when `collapsible` is true.
+
+#### The nav says what it is called
+
+`<nav>` is a navigation landmark unconditionally, so an unnamed one is an entry
+in a reader's landmark list reading only "navigation" - and a page holds more
+than one the moment `TocPlacementExtension` is registered beside this one, a
+document writes `::: toc` twice, or a site template contributes its own. Both
+extensions therefore write an `aria-label` on the nav, from the converter's
+`labels` map under `tocNav` (default `Table of contents`), so one map localizes
+the whole document and the two navs stay byte-identical:
+
+~~~ html
+<nav class="toc" aria-label="Table of contents">
+<ul> ... </ul>
+</nav>
+~~~
+
+An `aria-label` (or `aria-labelledby`) the author wrote on a `::: toc` block
+wins and nothing is added beside it - the attribute name is matched
+case-insensitively, and the author's own spelling is what renders. Set the map
+entry to `''` to emit no name at all.
+
+The `summary` string below is not this name wearing a second hat: the disclosure
+shape has no `<nav>` at all, so one is a landmark's accessible name and the
+other visible text in a widget, and they never appear together.
 
 When `collapsible` is on, the heading list sits directly inside the disclosure:
 

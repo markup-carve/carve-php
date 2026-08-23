@@ -9,6 +9,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The table-of-contents nav carries an accessible name**
+  (markup-carve/carve#1547, ruling markup-carve/carve#1509, #1574). Both TOC
+  extensions write `aria-label` on the `<nav>` from a new `labels` key
+  `tocNav`, default `Table of contents`; an authored `aria-label` still wins,
+  and an empty entry emits no name. The `<details>` disclosure shape has no
+  `<nav>` and is unchanged.
+
 - **Table column metadata** (#1451, markup-carve/carve#1391). Positional alignment, vertical alignment and widths reach the AST as `table.columns` and `table_cell.valign`, with schema validation and ProseMirror fidelity; two-axis marker parsing, `<colgroup>` and CSS rendering, canonical Carve writing with inherited-axis suppression, ListTable column metadata and footer rows, and lint coverage for marker padding, column arity, overlap and width totals.
 - **Semantic table row partitions** (#1482). Pipe tables take `{header-rows=N footer-rows=N}` for explicit head/body/foot ranges; a ListTable cell takes `{align= valign=}` over the positional column default. The consumed attributes do not leak into the HTML.
 - **Local ListTable headers** (#1479, markup-carve/carve#1248). `header-row` on a row's first cell starts a header-led body group; `header` on any cell emits a single `<th>`.

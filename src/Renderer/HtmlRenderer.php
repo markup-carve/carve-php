@@ -178,6 +178,7 @@ class HtmlRenderer implements RendererInterface
         'tabsGroup' => 'Tabs',
         'codeGroup' => 'Code examples',
         'endnotes' => 'Footnotes',
+        'tocNav' => 'Table of contents',
         'admonitionNote' => 'Note',
         'admonitionTip' => 'Tip',
         'admonitionWarning' => 'Warning',

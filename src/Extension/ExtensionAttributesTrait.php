@@ -142,6 +142,68 @@ trait ExtensionAttributesTrait
      */
     protected function groupNameAttributes(Node $node, HtmlRenderer $renderer, string $role, string $groupLabel): array
     {
+        $authored = $this->authoredAttributeNames($node, $renderer);
+
+        $attrs = [];
+        if (!isset($authored['role'])) {
+            $attrs['role'] = $role;
+        }
+
+        // Union, so the role stays ahead of the name it belongs to.
+        return $attrs + $this->accessibleNameAttributes($node, $renderer, $groupLabel);
+    }
+
+    /**
+     * The accessible name alone, for an element whose role is already implicit.
+     *
+     * `<nav>` is a navigation landmark unconditionally - unlike `<section>`,
+     * which maps to `generic` until it is named - so a table-of-contents nav
+     * needs the NAME half and must not be given a redundant `role`
+     * (Extensions §8b.1, markup-carve/carve#1509). That is the whole difference
+     * from {@see self::groupNameAttributes()}, whose wrapper has no role of its
+     * own to claim.
+     *
+     * The author's precedence and the safe-mode reading are that method's,
+     * verbatim: a name the author wrote wins with nothing added beside it,
+     * matched on the attribute NAME case-insensitively because HTML attribute
+     * names are, and an empty label suppresses the name entirely.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
+     * @param string $label The resolved name; empty suppresses it.
+     *
+     * @return array<string, string>
+     */
+    protected function accessibleNameAttributes(Node $node, HtmlRenderer $renderer, string $label): array
+    {
+        $authored = $this->authoredAttributeNames($node, $renderer);
+        if (
+            $label === ''
+            || isset($authored['aria-label'])
+            || isset($authored['aria-labelledby'])
+        ) {
+            return [];
+        }
+
+        return ['aria-label' => $label];
+    }
+
+    /**
+     * The lower-cased names of the author's attributes that SURVIVE hardening.
+     *
+     * Read through the same hardening and safe-mode filtering
+     * {@see self::renderExtensionAttributes()} applies, so a value safe mode is
+     * about to strip counts as absent. Reading the raw node instead would let a
+     * host blocking `aria-label` suppress the author's name AND ours, and leave
+     * the element anonymous: the exact defect the name exists to fix.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
+     *
+     * @return array<string, bool>
+     */
+    protected function authoredAttributeNames(Node $node, HtmlRenderer $renderer): array
+    {
         $surviving = $renderer->sanitizeAttributes($node->getAttributes());
         $safeMode = $renderer->getSafeMode();
         if ($safeMode !== null) {
@@ -153,18 +215,6 @@ trait ExtensionAttributesTrait
             $authored[strtolower((string)$name)] = true;
         }
 
-        $attrs = [];
-        if (!isset($authored['role'])) {
-            $attrs['role'] = $role;
-        }
-        if (
-            $groupLabel !== ''
-            && !isset($authored['aria-label'])
-            && !isset($authored['aria-labelledby'])
-        ) {
-            $attrs['aria-label'] = $groupLabel;
-        }
-
-        return $attrs;
+        return $authored;
     }
 }
