@@ -70,6 +70,12 @@ class TheHtmlRoundTripWithoutTheSidecarTest extends TestCase
             'a line block' => ["::: |\nLine one\nLine two\nLine three\n:::\n"],
             'a line block with attributes' => ["{.poem}\n::: |\nRoses are red\nViolets are blue\n:::\n"],
             'an escaped backslash' => ["A backslash: \\\\ here.\n"],
+            // The renderer's own slug IS case-preserving, so an authored id
+            // differing from it only in case is authored and must be kept.
+            // Dropping it regenerated `id="Methods"` and broke every `#methods`
+            // anchor (carve-php#1289 in the shape it left open).
+            'a heading id the renderer would not regenerate' => ["{#methods}\n## Methods\n"],
+            'a heading id equal to the generated slug' => ["## Methods\n"],
         ];
     }
 
@@ -150,12 +156,6 @@ class TheHtmlRoundTripWithoutTheSidecarTest extends TestCase
             'a doubly escaped run' => [
                 "This is \\*not bold\\* text.\n",
                 "This is \\*not bold* text.\n",
-            ],
-            // An id equal to the heading's own slug is indistinguishable from
-            // the one the renderer generates, so it is not written back.
-            'a heading id that is its own slug' => [
-                "{#methods}\n## Methods\n",
-                "## Methods\n",
             ],
         ];
     }

@@ -2587,7 +2587,18 @@ class HtmlToCarve
         // KEPT, deliberately: written back as an authored id it renders the
         // same HTML, while stripping it would also strip a real authored
         // `{#a-2}` and break its anchors - the ambiguity has no third reading.
-        return strcasecmp($sectionId, $expected) !== 0;
+        //
+        // Compared EXACTLY, not case-insensitively. `normalizeId()` only folds
+        // case under the `lowercase` option, so this tracker - built with
+        // defaults, because the importer cannot know which mode rendered the
+        // HTML - derives the case-PRESERVING slug. A case-insensitive match
+        // therefore read `{#methods}` on `## Methods` as generated and dropped
+        // it, and regeneration wrote `id="Methods"`: the same broken `#methods`
+        // anchor carve-php#1289 fixed, in the one shape it left open. Keeping
+        // it is the safe half of the ambiguity, and the rule above already says
+        // so - an id that cannot be CONFIRMED generated is kept, and a kept
+        // lowercase-mode id re-renders to the id it came from either way.
+        return $sectionId !== $expected;
     }
 
     /**
