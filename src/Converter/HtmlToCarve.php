@@ -181,9 +181,10 @@ class HtmlToCarve
      * @param bool $trustedRoundTrip
      * @param array<string, string> $alignmentClasses text-align value => class name
      * @param bool $listTableForBlockCells Emit `::: list-table` for a table with block-content cells.
-     * @param int $maxDiagnostics
-     * @param string $importAdapter
      * @param string $importMode
+     * @param string $importAdapter
+     * @param int $maxDiagnostics
+     * @param array<string, string> $labels The `labels` map the HTML was RENDERED with, keyed as in HtmlRenderer::LABEL_DEFAULTS
      *
      * @throws \InvalidArgumentException
      */
@@ -194,6 +195,7 @@ class HtmlToCarve
         string $importMode = 'safe',
         string $importAdapter = 'generic',
         int $maxDiagnostics = 1000,
+        protected array $labels = [],
     ) {
         $modes = ['safe', 'semantic', 'roundtrip'];
         $adapters = ['generic', 'tiptap', 'prosemirror', 'ckeditor', 'tinymce', 'word', 'google-docs'];
@@ -2707,7 +2709,18 @@ class HtmlToCarve
         if ($this->structuralClassInProgress !== null) {
             $classes[] = $this->structuralClassInProgress;
         }
-        $labels = HtmlRenderer::LABEL_DEFAULTS;
+        // THE HOST'S OWN MAP FIRST, then the English defaults.
+        //
+        // Matching the defaults alone catches only a document rendered in
+        // English. One rendered with `labels: {admonitionNote: 'Hinweis'}`
+        // carries a value no default can recognize, so the generated name was
+        // kept and laundered into source - and a German document is exactly the
+        // one §16a's map exists to serve (markup-carve/carve#1500 step 2).
+        //
+        // The host that rendered the HTML knows the map it used. Handing the
+        // same map to the importer is the whole fix; a caller that passes
+        // nothing keeps the previous behavior exactly.
+        $labels = $this->labels + HtmlRenderer::LABEL_DEFAULTS;
 
         // PART 9 §12: an UNTITLED admonition is named by its type word. A titled
         // one is named by `aria-labelledby`, which `isConsumedTitleReference()`
