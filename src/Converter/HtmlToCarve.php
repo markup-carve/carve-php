@@ -2176,12 +2176,7 @@ class HtmlToCarve
             // A backslash in HTML text is a character, not an escape, so it
             // is doubled before the delimiter escaping runs. Inside `pre` the
             // text is verbatim and nothing is escaped at all.
-            return $this->inPre
-                ? $text
-                : $this->escapePlainCarveInlineSyntax(
-                    $this->escapeAttributeBlockOpener($this->escapeVerbatimDelimiter($this->escapeLiteralBackslashes($text))),
-                    self::HANDLED_PLAIN,
-                );
+            return $this->inPre ? $text : $this->escapeHtmlTextAsCarveProse($text);
         }
 
         if (!($node instanceof DOMElement)) {
@@ -2294,6 +2289,27 @@ class HtmlToCarve
             'script', 'style', 'noscript' => '', // Skip these
             default => $this->processChildren($node),
         };
+    }
+
+    /**
+     * HTML text, escaped for the Carve PROSE slot it is about to land in.
+     *
+     * Every character Carve reads as an opener is literal in HTML text, so the
+     * value carries none of the author's intent as markup and all of it as
+     * characters. The four passes are one production - the backslash doubling
+     * has to run FIRST so the already-escaped guard in the rest sees an even
+     * run - and they are named here rather than spelled at each call site,
+     * because a second copy is what drifts. `<img alt>` promoted to prose is
+     * the second caller, and it reached the same slot by a different route.
+     *
+     * @param string $text
+     */
+    protected function escapeHtmlTextAsCarveProse(string $text): string
+    {
+        return $this->escapePlainCarveInlineSyntax(
+            $this->escapeAttributeBlockOpener($this->escapeVerbatimDelimiter($this->escapeLiteralBackslashes($text))),
+            self::HANDLED_PLAIN,
+        );
     }
 
     protected function processChildren(DOMNode $node): string
@@ -3834,8 +3850,39 @@ class HtmlToCarve
 
     protected function processLink(DOMElement $node): string
     {
+        // The trusted verbatim escape hatch stays ahead of everything: it
+        // re-emits the element as it stands, `href=""` included, so it carries
+        // no destination back either.
         if ($this->linkRequiresRawHtmlFallback($node)) {
             return $this->processRawHtmlInlineElement($node);
+        }
+
+        // A DESTINATION CARVE CANNOT CARRY IS NOT A DESTINATION
+        // (`docs/html-import.md`). Carve spells a link's destination in one
+        // slot and has NO spelling for an empty one - `[t]()` is literal text -
+        // so writing the empty slot emitted four punctuation characters the
+        // HTML never held, into the middle of the prose. No link node is built:
+        // the element's CONTENT stands in its place, carried by a span where an
+        // attribute survives and bare where none does.
+        //
+        // AND THE DESTINATION IS NOT REBUILT, which is the normative half. This
+        // is what Carve's own renderer emits: PART 9 §25 blanks a dangerous
+        // destination and writes no provenance for it, keeping the visible
+        // text, so any route from a `title`, from the anchor's text or from a
+        // round-trip attribute back to a destination would reconstruct the
+        // exact value a security rule removed. The round trip owes the text.
+        //
+        // AHEAD OF THE ROUND-TRIP BRANCHES, so the clause holds with no
+        // exception to state. None of them can be reached with an empty
+        // destination from this engine's own output - `HeadingReferenceExtension`
+        // rewrites the placeholder to `href="#slug"` before it appends its
+        // attribute, and `InlineFootnotesExtension` and the renderer's footnote
+        // reference both write `href="#fnN"` before theirs - so nothing that
+        // round-trips loses its route here. What the order settles is
+        // hand-written input, where a `data-djot-*` attribute beside a blanked
+        // destination would otherwise rebuild a link the rule says is not one.
+        if ($this->importDestinationIsEmpty($node->getAttribute('href'))) {
+            return $this->unwrapDestinationLessElement($node, $this->processChildren($node), ['href']);
         }
 
         if ($node->hasAttribute('data-djot-heading-ref')) {
@@ -3895,25 +3942,6 @@ class HtmlToCarve
         }
 
         $href = $node->getAttribute('href');
-
-        // A DESTINATION CARVE CANNOT CARRY IS NOT A DESTINATION
-        // (`docs/html-import.md`). Carve spells a link's destination in one
-        // slot and has NO spelling for an empty one - `[t]()` is literal text -
-        // so writing the empty slot emitted four punctuation characters the
-        // HTML never held, into the middle of the prose. No link node is built:
-        // the element's CONTENT stands in its place, carried by a span where an
-        // attribute survives and bare where none does.
-        //
-        // AND THE DESTINATION IS NOT REBUILT, which is the normative half. This
-        // is what Carve's own renderer emits: PART 9 §25 blanks a dangerous
-        // destination and writes no provenance for it, keeping the visible
-        // text, so any route from a `title`, from the anchor's text or from a
-        // round-trip attribute back to a destination would reconstruct the
-        // exact value a security rule removed. The round trip owes the text.
-        if ($this->importDestinationIsEmpty($href)) {
-            return $this->unwrapDestinationLessElement($node, $this->processChildren($node), ['href']);
-        }
-
         $text = trim($this->processChildren($node));
         $title = $node->getAttribute('title');
 
@@ -4020,9 +4048,14 @@ class HtmlToCarve
         // browser shows for one it cannot load - so the alt text is what stands
         // in its place.
         if ($this->importDestinationIsEmpty($src)) {
+            // ESCAPED AS PROSE, not as an image label. The alt value has not
+            // been through `processNode`, so unlike the anchor's content above
+            // it arrives raw - and it is landing in a slot where every Carve
+            // opener is live. Emitted bare, `alt="a *bold* b"` came back as
+            // markup the HTML never held.
             return $this->unwrapDestinationLessElement(
                 $node,
-                $this->escapeLiteralBackslashes($rawAlt),
+                $this->escapeHtmlTextAsCarveProse($rawAlt),
                 ['src', 'alt'],
             );
         }

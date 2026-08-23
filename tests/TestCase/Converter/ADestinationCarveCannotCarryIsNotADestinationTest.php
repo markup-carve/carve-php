@@ -145,6 +145,84 @@ class ADestinationCarveCannotCarryIsNotADestinationTest extends TestCase
     }
 
     /**
+     * An unwrapped image's alt text is escaped for the PROSE slot it lands in.
+     *
+     * The value has not been through `processNode`, so unlike an anchor's
+     * content it arrives raw - and every Carve opener is live where it is
+     * going. Emitted bare, an `alt` reading `a *bold* b` came back as markup
+     * the HTML never held, which is the same §2 test the sigil answers one
+     * fixture over.
+     *
+     * The emitted SOURCE is asserted beside the render, because the render
+     * alone cannot see every case: a `symbol` node with no configured map
+     * renders as the characters it was built from, so `:rocket:` looks
+     * unharmed there while the tree already holds a node the HTML never named.
+     *
+     * @return array<string, array{string, string, string}>
+     */
+    public static function markupShapedAltText(): array
+    {
+        return [
+            'a symbol shortcode' => ['a :rocket: b', 'a \:rocket: b', '<p>a :rocket: b</p>'],
+            'a strong run' => ['a *bold* b', 'a \*bold* b', '<p>a *bold* b</p>'],
+            'a tag' => ['a #tag b', 'a \#tag b', '<p>a #tag b</p>'],
+            'a code span' => ['a `code` b', 'a \`code\` b', '<p>a `code` b</p>'],
+        ];
+    }
+
+    #[DataProvider('markupShapedAltText')]
+    public function testAnUnwrappedAltTextIsEscapedAsProse(
+        string $alt,
+        string $expectedCarve,
+        string $expectedHtml,
+    ): void {
+        $carve = (new HtmlToCarve())->convert('<img src="" alt="' . $alt . '">');
+
+        $this->assertSame($expectedCarve, trim($carve));
+        $this->assertSame($expectedHtml, trim((new CarveConverter())->convert($carve)));
+    }
+
+    /**
+     * A round-trip attribute does not carry an anchor past the rule either.
+     *
+     * None of these can be reached with an empty destination from this engine's
+     * own output - every emitter writes a real `href` beside its `data-djot-*`
+     * attribute - so what this pins is hand-written input, where the attribute
+     * beside a blanked destination would otherwise rebuild a link the rule says
+     * is not one.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function provenanceCarryingAnchors(): array
+    {
+        return [
+            'a heading reference' => ['<p><a href="" data-djot-heading-ref="H">t</a></p>'],
+            'a footnote label' => ['<p><a href="" data-djot-footnote-label="1">t</a></p>'],
+            'an inline footnote' => ['<p><a href="" data-djot-inline-footnote-html="&lt;p&gt;n&lt;/p&gt;">t</a></p>'],
+        ];
+    }
+
+    #[DataProvider('provenanceCarryingAnchors')]
+    public function testProvenanceDoesNotCarryAnAnchorPastTheRule(string $html): void
+    {
+        $this->assertSame('t', trim((new HtmlToCarve(trustedRoundTrip: true))->convert($html)));
+    }
+
+    /**
+     * And the round trips that DO carry a destination are untouched by the
+     * order, which is what makes the order safe to state without an exception.
+     */
+    public function testARealRoundTripKeepsItsRoute(): void
+    {
+        $roundTrip = new CarveConverter(roundTripMode: true);
+
+        $this->assertSame(
+            "A ref[^1].\n\n[^1]: note\n",
+            (new HtmlToCarve(trustedRoundTrip: true))->convert($roundTrip->convert("A ref[^1].\n\n[^1]: note\n")),
+        );
+    }
+
+    /**
      * The loss is observable: a link that comes back as prose says so.
      *
      * It is not the bare `<div>`'s case, where nothing was lost because nothing
