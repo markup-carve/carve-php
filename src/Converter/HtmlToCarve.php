@@ -2212,17 +2212,20 @@ class HtmlToCarve
             'div' => $this->processDiv($node),
             'p' => $this->processParagraph($node),
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6' => $this->processHeading($node),
-            'strong', 'b' => $this->processInlineFormatting($node, '*', '*'),
-            'em', 'i' => $this->processInlineFormatting($node, '/', '/'),
-            'u' => $this->processInlineFormatting($node, '_', '_'),
+            // The five single-character delimiters (`*` strong, `/` emphasis,
+            // `_` underline, `~` strike, `=` highlight) are bare when the
+            // element is word-bounded (canonical) and take the forced brace
+            // form intraword (Sy<strong>rup</strong>-free, H<sub>2</sub>O),
+            // where a bare delimiter would not open at all and its two
+            // characters would land in the prose as literal text.
+            'strong', 'b' => $this->processBareInlineFormatting($node, '*'),
+            'em', 'i' => $this->processBareInlineFormatting($node, '/'),
+            'u' => $this->processBareInlineFormatting($node, '_'),
+            's', 'strike' => $this->processBareInlineFormatting($node, '~'),
+            'mark' => $this->processBareInlineFormatting($node, '='),
             'ins' => $this->processInlineFormatting($node, '{+', '+}'),
-            's', 'strike' => $this->processInlineFormatting($node, '~', '~'),
             'del' => $this->processInlineFormatting($node, '{-', '-}'),
-            // Single-char delimiters (`=` mark, `^` sup, `,` sub): bare when the
-            // element is whitespace-bounded (canonical), forced brace form only
-            // intraword (H<sub>2</sub>O, E=mc<sup>2</sup>) where a bare delimiter
-            // would not open under the word-boundary rule.
-            'mark' => $this->processInlineFormatting($node, ...$this->boundaryDelimiters($node, '=')),
+            // Superscript and subscript have no bare form at all.
             'sup' => $this->processInlineFormatting($node, '{^', '^}'),
             'sub' => $this->processInlineFormatting($node, '{,', ',}'),
             'kbd' => $this->processSemanticSpan($node, 'kbd'),
@@ -3503,27 +3506,174 @@ class HtmlToCarve
     }
 
     /**
-     * Choose bare vs forced-brace delimiters for the highlight mark (`=`).
-     * A bare delimiter parses only at a word boundary, so emit the bare form
-     * (`=x=`) when the element is whitespace-bounded on both sides (or at the
-     * start/end of its container) and the forced form (`{=x=}`) otherwise, so
-     * an intraword mark still round-trips. Superscript/subscript do not use
-     * this helper: they have no bare form and are always braced.
+     * The inline elements that convert to a construct of their own rather than
+     * to a text run, so a neighbour of one has no character next to the
+     * delimiter. Each closes with its own punctuation - `/`, `)`, `}`, `"` -
+     * which is never a word character, so a bare delimiter opens beside it.
+     *
+     * `code` is deliberately absent: it converts to a verbatim span, whose
+     * CONTENT is what the writer measures the boundary from, so it is handled
+     * on its own below.
+     *
+     * @var array<int, string>
+     */
+    protected const BOUNDARY_OPAQUE_TAGS = [
+        'a', 'abbr', 'b', 'br', 'cite', 'del', 'dfn', 'em', 'i', 'img',
+        'ins', 'kbd', 'mark', 'math', 'q', 's', 'samp', 'strike', 'strong',
+        'sub', 'sup', 'time', 'u', 'var',
+    ];
+
+    /**
+     * The structural elements `$blockElements` leaves out. A sibling of any of
+     * these ENDS the inline run rather than continuing it, so the delimiter
+     * sits at a block boundary and has no neighbour at all - which is not the
+     * same answer as descending into the block for its last word.
+     *
+     * @var array<int, string>
+     */
+    protected const BOUNDARY_BLOCK_TAGS = [
+        'body', 'caption', 'dd', 'dt', 'figcaption', 'html', 'summary',
+        'tbody', 'td', 'tfoot', 'th', 'thead', 'tr',
+    ];
+
+    /**
+     * Convert one of the five single-character inline kinds, bare or braced.
+     *
+     * A bare delimiter opens and closes only away from a word character, which
+     * is the whole reason the braced form exists: `Sy*rup*-free` renders the
+     * two asterisks as prose and throws the emphasis away, while
+     * `Sy{*rup*}-free` is the same document the HTML was. So the intraword case
+     * takes `{*x*}` and every other case keeps the canonical bare `*x*`.
+     */
+    protected function processBareInlineFormatting(DOMElement $node, string $ch): string
+    {
+        $content = trim($this->processChildren($node));
+        if ($content === '') {
+            return '';
+        }
+
+        [$open, $close] = $this->boundaryDelimiters($node, $ch, $content);
+
+        return $open . $content . $close . $this->formatInlineAttributes($node);
+    }
+
+    /**
+     * Choose bare vs forced-brace delimiters for a single-character inline kind.
+     *
+     * The test is the canonical writer's, `CarveRenderer::renderEmphasis`: a
+     * word character on either side, or content that itself starts or ends with
+     * the delimiter, forces the braces. Anything else keeps the bare form. That
+     * is what makes the importer's output a fixed point of `carve fmt` - the
+     * two would otherwise disagree about which spelling this span wants, and
+     * formatting an imported document would rewrite it.
      *
      * @return array{0: string, 1: string}
      */
-    protected function boundaryDelimiters(DOMElement $node, string $ch): array
+    protected function boundaryDelimiters(DOMElement $node, string $ch, string $content = ''): array
     {
-        $prev = $node->previousSibling;
-        $next = $node->nextSibling;
-        $prevOk = $prev === null
-            || ($prev instanceof DOMText
-                && ($prev->textContent === '' || ctype_space(substr($prev->textContent, -1))));
-        $nextOk = $next === null
-            || ($next instanceof DOMText
-                && ($next->textContent === '' || ctype_space($next->textContent[0])));
+        $needsForced = $this->isWordCharacter($this->boundaryCharacter($node->previousSibling, true))
+            || $this->isWordCharacter($this->boundaryCharacter($node->nextSibling, false))
+            || str_starts_with($content, $ch)
+            || str_ends_with($content, $ch);
 
-        return ($prevOk && $nextOk) ? [$ch, $ch] : ['{' . $ch, $ch . '}'];
+        return $needsForced ? ['{' . $ch, $ch . '}'] : [$ch, $ch];
+    }
+
+    /**
+     * The character a sibling puts next to the delimiter, or '' when it puts
+     * none there.
+     *
+     * Mirrors `CarveRenderer::inlineBoundaryText`, which answers the same
+     * question one layer down: only a text run and a verbatim span contribute a
+     * character, and every other construct contributes its own closing
+     * punctuation, which never blocks a bare delimiter. An element that is not
+     * a construct here - an attribute-less `<span>`, a wrapper the walk does
+     * not know - flattens to its children, so the search descends into it.
+     */
+    protected function boundaryCharacter(?DOMNode $sibling, bool $trailing): string
+    {
+        // How many flattening wrappers the walk has stepped INTO, so it can
+        // step back out of exactly those and no further. Leaving the inline run
+        // is a different answer from finding nothing inside a wrapper.
+        $depth = 0;
+        while ($sibling !== null) {
+            $descend = null;
+            if ($sibling instanceof DOMText) {
+                if ($sibling->textContent !== '') {
+                    return $this->edgeCharacter($sibling->textContent, $trailing);
+                }
+            } elseif ($sibling instanceof DOMElement) {
+                $tag = strtolower($sibling->tagName);
+                if (
+                    in_array($tag, $this->blockElements, true)
+                    || in_array($tag, static::BOUNDARY_BLOCK_TAGS, true)
+                ) {
+                    return '';
+                }
+                if ($tag === 'code' && !$this->inPre) {
+                    // A verbatim span is a node even when it holds nothing, and
+                    // its CONTENT is what the writer measures - so an empty one
+                    // contributes '' and ENDS the search rather than being
+                    // stepped over.
+                    return $this->edgeCharacter($sibling->textContent, $trailing);
+                }
+                if (in_array($tag, static::BOUNDARY_OPAQUE_TAGS, true)) {
+                    // An element with nothing in it renders nothing, so it is
+                    // not in the tree the writer measures and the search keeps
+                    // going. A link, a break and an image are nodes whatever
+                    // they contain.
+                    if ($sibling->textContent !== '' || in_array($tag, ['a', 'br', 'img'], true)) {
+                        return '';
+                    }
+                } elseif ($tag === 'span' && $sibling->attributes->length > 0) {
+                    return '';
+                } else {
+                    // Everything left flattens to its own children, so the
+                    // neighbour is whatever they end with.
+                    $descend = $trailing ? $sibling->lastChild : $sibling->firstChild;
+                }
+            }
+            if ($descend !== null) {
+                $sibling = $descend;
+                $depth++;
+
+                continue;
+            }
+            // Nothing here - a comment, an empty text node, an element that
+            // renders nothing, or a wrapper with no children. Step sideways,
+            // climbing back out of the wrappers this walk entered.
+            $step = $trailing ? $sibling->previousSibling : $sibling->nextSibling;
+            while ($step === null && $depth > 0) {
+                $sibling = $sibling->parentNode;
+                $depth--;
+                if ($sibling === null) {
+                    return '';
+                }
+                $step = $trailing ? $sibling->previousSibling : $sibling->nextSibling;
+            }
+            $sibling = $step;
+        }
+
+        return '';
+    }
+
+    protected function edgeCharacter(string $text, bool $trailing): string
+    {
+        if ($text === '') {
+            return '';
+        }
+
+        return $trailing ? substr($text, -1) : $text[0];
+    }
+
+    /**
+     * A byte from the middle of a multi-byte sequence is >= 0x80 and matches
+     * nothing here, which is the right answer: the rule is ASCII-only in every
+     * engine, so `é*b*é` opens.
+     */
+    protected function isWordCharacter(string $character): bool
+    {
+        return $character !== '' && preg_match('/[A-Za-z0-9_]/', $character) === 1;
     }
 
     protected function processInlineFormatting(DOMElement $node, string $open, string $close): string
