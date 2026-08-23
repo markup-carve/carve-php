@@ -12,12 +12,13 @@ use PHPUnit\Framework\TestCase;
 /**
  * Two adjacent <ol>s import as two lists, not one.
  *
- * With one shared `.` delimiter, `<ol><li>a</li></ol><ol><li>b</li></ol>`
- * imported as `1. a` / `1. b`, which reparses as ONE loose list of two
- * items - the lists merged and the second's numbering was gone
- * (carve-php#1290). Carve separates sibling lists by their DELIM, so the
- * delimiter alternates `.`/`)` across adjacent ordered siblings, the same
- * rule bullet lists already follow with `-`/`*`.
+ * With one shared `.` delimiter and a single blank line between them,
+ * `<ol><li>a</li></ol><ol><li>b</li></ol>` imported as `1. a` / `1. b`, which
+ * reparses as ONE loose list of two items - the lists merged and the second's
+ * numbering was gone (carve-php#1290). The first fix alternated the delimiter
+ * `.`/`)` across adjacent ordered siblings; the separator is now the HARD LIST
+ * BOUNDARY (three blank lines, PART 9 §11 N1a), so both lists keep the
+ * `.` the source implies.
  */
 class AdjacentOrderedListsImportSeparateTest extends TestCase
 {
@@ -51,11 +52,11 @@ class AdjacentOrderedListsImportSeparateTest extends TestCase
         );
     }
 
-    public function testTwoDecimalListsAlternateTheirDelimiter(): void
+    public function testTwoDecimalListsKeepTheirDelimiterAndTakeTheBoundary(): void
     {
         $imported = (new HtmlToCarve())->convert('<ol><li>a</li></ol><ol><li>b</li></ol>');
 
-        $this->assertStringContainsString('1. a', $imported);
-        $this->assertStringContainsString('1) b', $imported);
+        // `1) b` is what the alternating writer produced here.
+        $this->assertSame("1. a\n\n\n\n1. b\n", $imported);
     }
 }
