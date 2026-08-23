@@ -1823,7 +1823,7 @@ class MarkdownRenderer implements RendererInterface
 
     protected function renderCaption(Caption $node): string
     {
-        return trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+        return rtrim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
     }
 
     /**

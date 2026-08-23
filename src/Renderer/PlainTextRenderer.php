@@ -700,7 +700,7 @@ class PlainTextRenderer implements RendererInterface
         $output = '';
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Caption) {
-                $output = rtrim($output, "\n") . $sep . trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+                $output = rtrim($output, "\n") . $sep . rtrim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
             } else {
                 $output .= $this->renderNode($child);
             }
