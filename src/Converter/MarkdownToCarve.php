@@ -103,11 +103,19 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
-        // Strip NUL bytes: the inline pass uses a NUL-delimited placeholder
-        // sentinel (\x00P<n>\x00) for protected spans, so an input NUL could
-        // collide with it and crash the restore loop (TypeError). NUL is not
-        // meaningful Markdown content.
-        $markdown = str_replace("\x00", '', $markdown);
+        // REPLACED WITH U+FFFD, not deleted. CommonMark 2.3 is the rule for the
+        // flavour this converter reads and it says replace; the parse entry says
+        // the same for Carve source, and PART 12 §21 says it for a reader at
+        // either boundary. Deleting removed the character without leaving the
+        // mark the two specs put in its place, and disagreed with carve-js on a
+        // document neither flavour calls invalid.
+        //
+        // It is also what makes this file's placeholders safe: the inline pass
+        // holds protected spans behind `\x00P<n>\x00`, so an input NUL used to
+        // collide with the sentinel and crash the restore loop (TypeError).
+        // Either spelling closes that; only this one is what the format asks
+        // for.
+        $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         // Frontmatter is opaque metadata in Markdown and in Carve alike - both

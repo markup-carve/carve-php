@@ -107,6 +107,18 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The AST-JSON ingest replaces U+0000, as the parse boundary already does**
+  (#1562, markup-carve/carve#1528, PART 12 §21). Every string value
+  `AstCodec::decode()` reads has its NULs replaced by U+FFFD before anything
+  else reads them, and `decodeJson()` inherits it. An ingested document now
+  renders like the same document written as source: the canonical writer used
+  to emit the byte, producing source the parser does not read back the same
+  way. It also closes a data loss - two abbreviation pairs that differed only
+  around a NUL shared the §10f pair key, and rendering a document holding both
+  deleted the second definition line. The Markdown importer now REPLACES the
+  character rather than deleting it (CommonMark 2.3), and the BBCode importer
+  replaces it rather than passing it through.
+
 - **A replaced NUL leaves codepoint offsets, and the text node keeps its
   position** (#1563, markup-carve/carve#1525, markup-carve/carve#1534, PART 0
   INPUT, PART 12 §4). The U+0000 to U+FFFD substitution now runs before the

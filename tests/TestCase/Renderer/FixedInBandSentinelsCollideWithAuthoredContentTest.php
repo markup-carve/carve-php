@@ -269,8 +269,16 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
      */
     public function testAnAuthoredStashKeySubstitutesNothing(): void
     {
+        // THE NUL ITSELF IS NOW REPLACED, and the row is still about
+        // substitution. PART 12 §21 makes an importer replace U+0000 with
+        // U+FFFD on the way in, as the parse boundary does, so what comes back
+        // is the author's own characters with that one rewritten - and NOT an
+        // unrelated span of the same post, which is what this row exists to
+        // measure. Two independent defenses now: the key is picked from what
+        // the input does not contain, and the input cannot contain this
+        // character by the time the key is picked.
         $this->assertSame(
-            "*x* \x00B0\x00 tail\n",
+            "*x* \u{FFFD}B0\u{FFFD} tail\n",
             (new BbcodeToCarve())->convert("[b]x[/b] \x00B0\x00 tail"),
         );
     }
@@ -282,8 +290,11 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
         // post. The row is on the OUTPUT rather than on the absence of an
         // exception, because `expectNotToPerformAssertions()` would pass against
         // a converter that returned the empty string.
+        //
+        // The expected text carries U+FFFD for the same reason as the row
+        // above: §21's replacement runs before the stash key is picked.
         $this->assertSame(
-            "plain \x00B7\x00 tail\n",
+            "plain \u{FFFD}B7\u{FFFD} tail\n",
             (new BbcodeToCarve())->convert("plain \x00B7\x00 tail"),
         );
     }

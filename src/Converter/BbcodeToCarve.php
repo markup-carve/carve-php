@@ -55,7 +55,18 @@ class BbcodeToCarve
             );
         }
 
-        $djot = $bbcode;
+        // A U+0000 IN THE INPUT IS REPLACED BY U+FFFD, before anything reads the
+        // text. An importer is the same boundary as an ingest, and PART 12 §21
+        // states it as a SHOULD rather than a MUST because the format being read
+        // may have a rule of its own - BBCode has none, so Carve's applies, and
+        // a converter that emitted the byte was writing source the Carve parser
+        // replaces on read.
+        //
+        // Not the same act as picking the stash key below: a picked key is drawn
+        // from characters the input MAY legitimately carry, so it needs a scan
+        // and a refusal when the private-use area is full. NUL is not a
+        // character this converter may emit at all.
+        $djot = str_replace("\0", "\u{FFFD}", $bbcode);
 
         // Normalize line endings
         $djot = str_replace("\r\n", "\n", $djot);
