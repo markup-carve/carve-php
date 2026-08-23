@@ -156,6 +156,26 @@ class SourcePositionTest extends TestCase
                 if (self::isVerseIndent($selected, $node->getContent())) {
                     continue;
                 }
+                // The third one-for-one rewrite, and the one the corpus only
+                // reached at carve#1525: a NUL is replaced with U+FFFD BEFORE
+                // the document is read, so the span covers the byte the author
+                // wrote while the text holds what the parser put in its place.
+                // One character for one character, so the offsets are the same
+                // ones a caller slices with - which is why this is applied to
+                // the SELECTED slice and then handed back through the two
+                // rewrites above, rather than made a fourth exclusive branch.
+                $replaced = str_replace("\0", "\u{FFFD}", $selected);
+                if ($replaced !== $selected) {
+                    if ($replaced === $node->getContent()) {
+                        continue;
+                    }
+                    if (self::applyEscapes($replaced) === $node->getContent()) {
+                        continue;
+                    }
+                    if (self::isVerseIndent($replaced, $node->getContent())) {
+                        continue;
+                    }
+                }
 
                 $wrong[] = basename($file) . ': ' . json_encode($selected);
             }

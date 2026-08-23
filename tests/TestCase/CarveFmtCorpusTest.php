@@ -111,13 +111,23 @@ class CarveFmtCorpusTest extends TestCase
      * OPENER OCCURRENCE test - `\{.note}` rather than `\{\.note\}` - which is a
      * different mechanism, not a narrower scope.
      *
-     * OPENER RUN, two documents: §2's THE UNIT IS THE OPENER requires the WHOLE
+     * OPENER RUN, three documents since the pin moved past carve#1516: §2's
+     * THE UNIT IS THE OPENER requires the WHOLE
      * opener run escaped - `\#\# H` and not `\## H`, `\*\*\*` and not `\***` -
      * and PART 11 §2b names the first of those as its own worked example. The
      * sweep removes ONE backslash at a time, so it reads the second `\#` as
-     * idle: with the first still there no heading forms either way. These two
+     * idle: with the first still there no heading forms either way. These
      * entries are a floor this measurement cannot go below while §2 says what
      * it says, and they are here to be seen rather than to be fixed.
+     *
+     * The third opener-run document arrived WITH THE CORPUS rather than with
+     * the writer. `396-an-idle-escape-does-not-spread-from-the-block-that-
+     * needed-one` is the document carve#1516 added - an indented `## H` plus a
+     * second paragraph - and this writer emits the spec's own `.fmt` golden for
+     * it byte for byte, as carve-js and carve-rs do, each measuring the same 2
+     * on it. PART 11 §2b's prose still says two opener-run documents and 24 /
+     * 57 overall; that count was taken on a pin that predated its own corpus
+     * case.
      *
      * MINIMAL CLASS, the other two: both passes agree, so nothing escalated,
      * and the escape is still idle.
@@ -149,6 +159,7 @@ class CarveFmtCorpusTest extends TestCase
         '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one-2' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
         '369-a-quote-is-reached-by-its-marker-and-a-column-never-reaches-into-one-3' => [2, 'unit scope: the failing run is written conservatively in full, which escapes `]`, `/` beyond the opener'],
         '390-a-table-cell-s-marker-run-ends-at-a-space-5' => [1, 'minimal class: an authored `\=` is kept after the writer\'s own cell padding retired it - padded, the `=` no longer starts the cell'],
+        '396-an-idle-escape-does-not-spread-from-the-block-that-needed-one' => [2, 'opener run: the heading opener `##` is escaped in full, and removing either backslash alone still leaves a paragraph'],
     ];
 
     /**
