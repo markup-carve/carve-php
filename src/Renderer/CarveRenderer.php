@@ -1265,11 +1265,14 @@ class CarveRenderer implements RendererInterface
                 if ($block instanceof ListBlock) {
                     $listSeparated = $previousList !== null && self::listsWouldMerge($previousList, $block);
                     $previousList = $block;
-                } elseif ($rendered !== '') {
+                } elseif (self::spellsSomething($rendered)) {
                     $previousList = null;
                     $listSeparated = false;
                 }
-                if ($rendered !== '') {
+                // A block that spells nothing contributes nothing - not even
+                // the blank line a part of its own would open. As far as the
+                // page is concerned it is the empty paragraph (PART 11 §10j).
+                if (self::spellsSomething($rendered)) {
                     if ($listSeparated && $parts !== []) {
                         // The tag OPENS the next block's first line rather than
                         // joining two blocks, so every host that indents line by
@@ -1288,6 +1291,48 @@ class CarveRenderer implements RendererInterface
             $this->blockDepth--;
             $this->afterCaptionHost = $previousCaptionHost;
         }
+    }
+
+    /**
+     * Does this block put anything on the page that a re-parse can see?
+     *
+     * PART 11 §10j: an unspellable block does not cancel the adjacency it
+     * cannot spell. When two sibling lists are parted by a block that
+     * reaches the page, that block separates them and PART 9 §11 N1a's
+     * boundary is not needed; when it reaches the page with NOTHING, the
+     * lists are still adjacent and the boundary is the only thing keeping
+     * them two.
+     *
+     * ASKED OVER WHAT THE BLOCK SPELLS, NEVER OVER ITS TYPE. A test written
+     * against a paragraph would pass the shape that found this and miss the
+     * rule - a figure wrapping a table is interchange-only too (PART 12
+     * §17), and so is anything a later clause makes unspellable.
+     *
+     * An emptiness test was the near miss: an EMPTY paragraph renders to
+     * nothing and was already handled, while a paragraph holding one space
+     * rendered to one space and cancelled the boundary - so the writer
+     * disagreed with itself about two trees it puts the same page on. A
+     * space and a tab are the `whitespace` terminal, which a re-parse reads
+     * as a blank line. A NO-BREAK space is not in it and IS content
+     * (PART 11 §7), so a paragraph holding one spells a paragraph and does
+     * separate the lists.
+     *
+     * The class is spelled out rather than left to `trim()`, which happens
+     * to agree here: PHP trims a NUL and a vertical tab and does NOT trim
+     * U+00A0, so it lands on the same answer for every character this rule
+     * is about. Naming the characters keeps the rule readable against the
+     * clause instead of against a function's charset - and the sibling
+     * engine's `trim` DOES eat U+00A0, so agreement here is a coincidence
+     * of this language rather than a property to rely on.
+     *
+     * @param string $rendered The block's rendered source.
+     *
+     * @return bool True when a character outside the whitespace terminal
+     *   reaches the page.
+     */
+    private static function spellsSomething(string $rendered): bool
+    {
+        return preg_match('/[^ \\t\\r\\n]/u', $rendered) === 1;
     }
 
     /**

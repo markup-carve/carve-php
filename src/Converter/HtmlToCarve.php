@@ -563,6 +563,28 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'p' && $this->holdsOnlyLayoutCharacters($node)) {
+            // PART 11 §7 DECIDES WHAT AN IMPORT KEEPS, and it draws the line
+            // at the two-character `whitespace` terminal. A block whose
+            // every character is layout builds nothing - a lone space or
+            // tab line is a blank line, so a paragraph there is a node no
+            // Carve source spells. This engine already wrote nothing for
+            // it; what it did not do was SAY so, and an element that left
+            // the document is what `element-dropped` is for.
+            //
+            // A block holding a character §7 calls content keeps it and
+            // keeps its paragraph, which this engine already gets right: a
+            // NO-BREAK space, U+202F and U+3000 all survive, and each reads
+            // back as a paragraph.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-dropped',
+                'Dropped whitespace-only <' . $tag . '> holding no content character',
+                'warning',
+                $path,
+            );
+        }
+
         if (($tag === 'ins' || $tag === 'del') && !$this->hasImportContentToUnwrap($node)) {
             // AN EMPTY ONE HAS NOTHING TO MARK, and Carve spells the pair
             // AROUND its content, so there is no marker to write and the
@@ -2539,6 +2561,43 @@ class HtmlToCarve
         }
 
         return trim($content);
+    }
+
+    /**
+     * Does this element hold characters, and are they ALL layout?
+     *
+     * The divider is PART 11 §7's two-character `whitespace` terminal, plus
+     * the line terminators HTML folds into it - and nothing else. U+00A0,
+     * U+202F and U+3000 are CONTENT, so an element holding one of those is
+     * not this shape.
+     *
+     * An element holding NO characters is not this shape either, and the
+     * distinction is deliberate: §7 weighs the characters a block holds,
+     * and an empty one holds none for the clause to call layout.
+     *
+     * NEITHER IS AN ELEMENT THAT HOLDS AN ELEMENT. `<p><canvas> </canvas></p>`
+     * has whitespace for its text, but what left the document was the
+     * `<canvas>`, and the report already says so on the element it happened
+     * to. A row for the paragraph around it would name a second loss where
+     * there was one. So the test reads this element's OWN children: the
+     * clause is about a block whose CHARACTERS are all layout, and a block
+     * holding an element is not holding characters.
+     *
+     * @param \DOMElement $node The element to weigh.
+     *
+     * @return bool True when it held characters and every one was layout.
+     */
+    protected function holdsOnlyLayoutCharacters(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                return false;
+            }
+        }
+
+        $text = $node->textContent;
+
+        return $text !== '' && preg_match('/[^ \\t\\r\\n\\f]/u', $text) !== 1;
     }
 
     /**
