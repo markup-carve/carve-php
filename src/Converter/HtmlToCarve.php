@@ -563,6 +563,29 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'dl' && $this->definitionListSplits($node)) {
+            // THE GROUPING IS A REAL LOSS AND TAKES ITS OWN ROW
+            // (markup-carve/carve#1636). A `<dd>` that writes nothing ends the
+            // list it is in, because one list would give the term above it the
+            // NEXT entry's description - an ADDITION, which no row can declare
+            // and which the ceiling forbids outright.
+            //
+            // NOT `structure-unspellable`: that code is for a shape the syntax
+            // cannot spell at all, and here every part is spellable, present and
+            // exact. What the source cannot say is that they were ONE list.
+            //
+            // It is a SERIALIZATION loss, so it belongs to the exit that writes
+            // source; the tree keeps one list with the empty description in it.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-split',
+                'A <dd> that writes nothing ends the list it is in; the entries after it are written as a second <dl>, '
+                    . 'because one list would give the term above it the next entry\'s description',
+                'warning',
+                $path,
+            );
+        }
+
         if ($tag === 'dd' && !$this->hasImportContentToUnwrap($node)) {
             // A DECLARED LOSS IS A CEILING, NOT A LICENCE
             // (`docs/html-import.md`). Carve has no spelling for an empty
@@ -6184,9 +6207,27 @@ class HtmlToCarve
         $dlAttrs = $this->formatBlockAttributes($node);
         $output = $dlAttrs !== '' ? $dlAttrs . "\n" : '';
 
+        // A DROPPED ENTRY BREAKS THE LIST (markup-carve/carve#1636). Consecutive
+        // `::` lines SHARE the description written below them, so dropping an
+        // entry that writes nothing and continuing the same list hands the
+        // surviving term the NEXT entry's description - an ADDITION, which no
+        // row can declare and which the ceiling forbids outright. The separator
+        // is a COMMENT LINE, the only construct that both renders nothing where
+        // it stands and stays where it was written; a blank line neither ends a
+        // definition list nor survives the canonical writer.
+        //
+        // Spent on a TERM and cleared on a description: what the break prevents
+        // is a term ABOVE the drop acquiring a description written BELOW it, and
+        // a second description of the SAME entry is not that. An unspent mark is
+        // dropped, which is the one-entry shape markup-carve/carve#1627 ruled.
+        $pendingBreak = false;
         foreach ($this->definitionListEntries($node) as $child) {
             $tag = strtolower($child->tagName);
             if ($tag === 'dt') {
+                if ($pendingBreak) {
+                    $output .= "\n%%\n\n";
+                    $pendingBreak = false;
+                }
                 $output .= ':: ' . trim($this->processChildren($child)) . "\n";
             } elseif ($tag === 'dd') {
                 $description = trim($this->processChildren($child));
@@ -6211,9 +6252,12 @@ class HtmlToCarve
                     // `<dd>` whose only child renders to a non-breaking space
                     // writes `:` and three spaces, which round-trips exactly,
                     // so it is not this case and keeps its line.
+                    $pendingBreak = true;
+
                     continue;
                 }
 
+                $pendingBreak = false;
                 $lines = explode("\n", $description);
                 $output .= ':  ' . array_shift($lines) . "\n";
                 foreach ($lines as $line) {
@@ -6223,6 +6267,34 @@ class HtmlToCarve
         }
 
         return $output . "\n";
+    }
+
+    /**
+     * Does writing this `<dl>` split it into more than one list?
+     *
+     * The same test the writer applies, kept beside it so the ROW and the
+     * SOURCE cannot answer differently: an entry that writes nothing followed by
+     * a TERM. A second description of the same entry is not a new entry - the
+     * term above it already has that description - and a drop with nothing after
+     * it writes the term alone and stays one list, which is the shape
+     * markup-carve/carve#1627 ruled.
+     */
+    protected function definitionListSplits(DOMElement $node): bool
+    {
+        $dropped = false;
+        foreach ($this->definitionListEntries($node) as $child) {
+            $tag = strtolower($child->tagName);
+            if ($tag === 'dt') {
+                if ($dropped) {
+                    return true;
+                }
+
+                continue;
+            }
+            $dropped = !$this->hasImportContentToUnwrap($child);
+        }
+
+        return false;
     }
 
     /**

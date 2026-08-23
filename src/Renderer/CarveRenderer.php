@@ -2436,8 +2436,46 @@ class CarveRenderer implements RendererInterface
     protected function renderDefinitionList(DefinitionList $node): string
     {
         $out = [];
+        // A DROPPED ENTRY BREAKS THE LIST (markup-carve/carve#1636).
+        //
+        // Consecutive `::` lines SHARE the description written below them - that
+        // is the `<dl>` model the syntax mirrors - so dropping an entry that
+        // writes nothing and continuing the same list hands the surviving term
+        // the NEXT entry's description: `t1` / empty / `t2` / `d2` came back as
+        // `:: t1` / `:: t2` / `:  d2`, and `t1` acquired `d2`.
+        //
+        // AN ADDITION IS NOT A LOSS AND NO ROW CAN DECLARE IT. A loss that stays
+        // inside a declared ceiling is acceptable because the reader is told
+        // what is missing; an addition changes what the surviving term MEANS,
+        // and a reader told the empty description was dropped has been told
+        // nothing about `t1` acquiring `d2`. So the ceiling binds in both
+        // directions.
+        //
+        // THE SEPARATOR IS A COMMENT LINE, and it is the only construct that can
+        // be. A blank line neither ends a definition list nor loosens one, and
+        // this writer removes it again. The separator has to render nothing
+        // where it stands AND stay where it was written: a link-reference or
+        // footnote definition is hoisted to the end of the document and lets the
+        // two lists re-merge, frontmatter is document-start only, and an
+        // abbreviation definition is a fixed point but defines an abbreviation
+        // the input never had - an addition, which is the thing being avoided.
+        //
+        // SPENT ON A TERM, CLEARED ON A DESCRIPTION. What the break prevents is
+        // a term ABOVE the drop acquiring a description written BELOW it, and
+        // only a `::` line starts an entry that could carry one. A second
+        // description of the SAME entry is not that - the term already has it -
+        // and breaking there would strand `:  d2` outside the list, where it
+        // re-reads as a paragraph. An unspent mark is dropped, which is the
+        // one-entry shape markup-carve/carve#1627 already ruled.
+        $pendingBreak = false;
         foreach ($node->getChildren() as $child) {
             if ($child instanceof DefinitionTerm) {
+                if ($pendingBreak) {
+                    $out[] = '';
+                    $out[] = '%%';
+                    $out[] = '';
+                    $pendingBreak = false;
+                }
                 $out[] = ':: ' . $this->renderInlines($child->getChildren());
             } elseif ($child instanceof DefinitionDescription) {
                 // An EMPTY description whose line carries a collected definition
@@ -2451,6 +2489,7 @@ class CarveRenderer implements RendererInterface
                     $written = $collected instanceof Footnote
                         ? $this->renderFootnote($collected)
                         : $this->renderLinkReferenceDefinition($collected);
+                    $pendingBreak = false;
                     $out[] = ':  ' . $written;
 
                     continue;
@@ -2488,9 +2527,17 @@ class CarveRenderer implements RendererInterface
                     // `trimNonNbsp()` keeps a non-breaking space, so a
                     // description holding one still writes its line and still
                     // round-trips.
+                    //
+                    // THE CONDITION IS "THIS ENTRY WRITES NOTHING", which is what
+                    // `$body` already answers, so every path that reaches this
+                    // writer - an ingested AST, a reformatted parse - takes the
+                    // same branch and the same break above.
+                    $pendingBreak = true;
+
                     continue;
                 }
 
+                $pendingBreak = false;
                 $lines = explode("\n", $body);
                 $out[] = ':  ' . array_shift($lines);
                 foreach ($lines as $line) {
