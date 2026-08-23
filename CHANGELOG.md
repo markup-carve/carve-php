@@ -120,6 +120,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   character rather than deleting it (CommonMark 2.3), and the BBCode importer
   replaces it rather than passing it through.
 
+- **An import can take the `labels` map the HTML was rendered with**
+  (markup-carve/carve#1500). Matching the English defaults alone caught only a
+  document rendered in English; one rendered with `labels` carried a value no
+  default could recognize, so its generated name was kept and baked into the
+  imported source - and a translated document is exactly the one §16a's map
+  exists to serve. `new HtmlToCarve(labels: [...])` closes that. A caller that
+  passes nothing behaves exactly as before.
+
 - **A replaced NUL leaves codepoint offsets, and the text node keeps its
   position** (#1563, markup-carve/carve#1525, markup-carve/carve#1534, PART 0
   INPUT, PART 12 §4). The U+0000 to U+FFFD substitution now runs before the
