@@ -232,4 +232,40 @@ class AnImportKeepsTheMeaningTheHtmlHeldTest extends TestCase
         $this->assertSame("{-a-}\n", $this->converter->convert('<p><del>a</del></p>'));
         $this->assertSame([], $this->converter->convertWithReport('<p><ins>a</ins></p>')->diagnostics);
     }
+
+    /**
+     * An empty `<dd>` is dropped, and the drop is DECLARED.
+     *
+     * Carve has no spelling for an empty definition description, so the
+     * description goes and the term stays - which is the loss
+     * `docs/html-import.md` permits under "a declared loss is a ceiling, not a
+     * licence". Permitting it is conditional on declaring it, and the writer
+     * dropped it in silence.
+     */
+    public function testAnEmptyDefinitionDescriptionSaysItWasDropped(): void
+    {
+        $report = $this->converter->convertWithReport('<dl><dt>term</dt><dd></dd></dl>');
+
+        // The source is the ruled one and does not move here.
+        $this->assertSame(":: term\n", $this->converter->convert('<dl><dt>term</dt><dd></dd></dl>'));
+        $this->assertSame(
+            ['structure-unspellable'],
+            array_map(static fn ($row): string => $row->code, $report->diagnostics),
+        );
+        $this->assertSame('/dl[1]/dd[2]', $report->diagnostics[0]->path);
+    }
+
+    /**
+     * EMPTY IS WHAT WRITES NOTHING, not what holds nothing.
+     *
+     * A `<dd>` holding a no-break space writes a line that round-trips exactly,
+     * so nothing is lost and nothing is owed. Reporting it would declare a loss
+     * that did not happen, which is the same defect as the silence above with
+     * the sign flipped.
+     */
+    public function testADescriptionThatWritesSomethingIsNotDeclaredLost(): void
+    {
+        $this->assertSame([], $this->converter->convertWithReport('<dl><dt>term</dt><dd>&nbsp;</dd></dl>')->diagnostics);
+        $this->assertSame([], $this->converter->convertWithReport('<dl><dt>term</dt><dd>d</dd></dl>')->diagnostics);
+    }
 }
