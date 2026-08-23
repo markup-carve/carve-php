@@ -1428,24 +1428,22 @@ class CarveRenderer implements RendererInterface
     {
         $attrs = $this->renderAttrs($node);
         $withAttrs = static fn (string $body): string => $attrs === '' ? $body : $attrs . "\n" . $body;
-        /**
-         * PART 9 §17 L7: the writer spells looseness with `{loose}` ONLY where
-         * the blank-line spelling cannot.
-         *
-         * This is the load-bearing rule for churn. Deriving the key onto every
-         * loose container would rewrite a large share of the corpus and of every
-         * document anyone has written - on a multi-item loose list the blank
-         * lines already say it, so the key would be an idle mark. The precedent
-         * is PART 12 §15, whose writer retains `header-rows` where it is present
-         * rather than deriving it onto every table, and PART 11 §2, which spends
-         * a mark only where omitting it would change the re-parsed document.
-         *
-         * `$attrs` is the node's own already-rendered attribute run, which never
-         * contains `loose`: the parser CONSUMED it, so the writer re-derives it
-         * from the tree rather than echoing what the author wrote. That is what
-         * makes a redundant `{loose}` a no-op through a format pass as well as
-         * through a render.
-         */
+        // PART 9 §17 L7: the writer spells looseness with `{loose}` ONLY where
+        // the blank-line spelling cannot.
+        //
+        // This is the load-bearing rule for churn. Deriving the key onto every
+        // loose container would rewrite a large share of the corpus and of every
+        // document anyone has written - on a multi-item loose list the blank
+        // lines already say it, so the key would be an idle mark. The precedent
+        // is PART 12 §15, whose writer retains `header-rows` where it is present
+        // rather than deriving it onto every table, and PART 11 §2, which spends
+        // a mark only where omitting it would change the re-parsed document.
+        //
+        // `$attrs` is the node's own already-rendered attribute run, which never
+        // contains `loose`: the parser CONSUMED it, so the writer re-derives it
+        // from the tree rather than echoing what the author wrote. That is what
+        // makes a redundant `{loose}` a no-op through a format pass as well as
+        // through a render.
         $withLooseAttrs = function (ListBlock|DefinitionList $container, string $body) use ($attrs): string {
             if (!$this->needsLooseKey($container, $body)) {
                 return $attrs === '' ? $body : $attrs . "\n" . $body;
@@ -3658,7 +3656,11 @@ class CarveRenderer implements RendererInterface
             }
             // A BLANK LINE BETWEEN ITEMS ALWAYS LOOSENS (§17 L2), and this
             // writer emits one between every pair of a loose list's items, so
-            // two or more items already spell it.
+            // two or more items already spell it. A FAST PATH, not a rule: the
+            // re-parse below reaches the same answer, which is why reverting
+            // this branch breaks nothing. It is here so the common shape - every
+            // multi-item loose list in every document - does not pay for a parse
+            // to be told what the layout already says.
             if (count($items) > 1) {
                 return false;
             }

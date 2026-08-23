@@ -288,7 +288,14 @@ class AstCodecTest extends TestCase
             ],
         ]);
 
-        $this->assertSame("- a\n", (new CarveRenderer())->render($document));
+        // AND SURVIVING MEANS SURVIVING THE WRITER TOO. This asserted `- a` until
+        // PART 9 §17 L7 (markup-carve/carve-php#1634), which is the source that
+        // re-reads TIGHT - so the explicit `false` was carried through the
+        // decoder and then written away one step later, and the assertion pinned
+        // that loss under a name that says the opposite. A one-item list has no
+        // "between items" for a blank line to stand in, so the consumed `loose`
+        // boolean is the only spelling it has.
+        $this->assertSame("{loose}\n- a\n", (new CarveRenderer())->render($document));
     }
 
     public function testDecodeRejectsAnUnknownNodeType(): void
