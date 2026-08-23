@@ -562,6 +562,69 @@ class DjotToCarveTest extends TestCase
     }
 
     /**
+     * A fence inside a quote starts its line with the quote marker, so the
+     * fenced-line map has to read the line through that prefix too. Otherwise
+     * the block reads as ordinary text and the collapse rewrites the code the
+     * author wrote.
+     */
+    public function testALongBlankRunInsideAQuotedFencedBlockIsUntouched(): void
+    {
+        $djot = <<<'DJOT'
+        > ```
+        > - one
+        >
+        >
+        >
+        > - two
+        > ```
+        DJOT;
+
+        $this->assertSame($djot, $this->converter->convert($djot));
+    }
+
+    public function testALongBlankRunInsideAQuotedTildeFencedBlockIsUntouched(): void
+    {
+        $djot = <<<'DJOT'
+        > ~~~
+        > - one
+        >
+        >
+        >
+        > - two
+        > ~~~
+        DJOT;
+
+        $this->assertSame($djot, $this->converter->convert($djot));
+    }
+
+    /**
+     * Regression guard for the line ABOVE the run: `quoted()` returns the
+     * content after the quote marker WITHOUT trimming the item's own
+     * indentation, so indented item content still keeps the list open and the
+     * run still collapses.
+     */
+    public function testAQuotedRunUnderIndentedItemContentStillCollapses(): void
+    {
+        $djot = <<<'DJOT'
+        > - apples
+        >   more apples
+        >
+        >
+        >
+        > - oranges
+        DJOT;
+
+        $expected = <<<'CARVE'
+        > - apples
+        >   more apples
+        >
+        > - oranges
+        CARVE;
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    /**
      * Performance guard: the same-family overlap check is O(n log n), not the
      * old O(n^2) linear scan over every prior match. A large emphasis-heavy
      * input must complete quickly and produce the correct output. The bound is

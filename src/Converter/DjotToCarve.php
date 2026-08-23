@@ -438,6 +438,12 @@ class DjotToCarve
      * keeps the newlines, so a masked code line and a blank line look the same.
      * Anything that has to reason about blankness must consult this map first.
      *
+     * Every line is read THROUGH its block-quote prefix. A fence written inside
+     * a quote starts its line with the quote marker, not with the delimiter
+     * run, so a test on the raw line recognizes neither the opener nor the
+     * closer and reports the whole block as ordinary text - and the blank-run
+     * pass then rewrites lines that are a code block's own content.
+     *
      * @param array<int, string> $lines
      *
      * @return array<int, bool>
@@ -448,9 +454,10 @@ class DjotToCarve
         $fenceChar = null;
         $fenceLen = 0;
         foreach ($lines as $i => $line) {
+            [, $content] = $this->quoted($line);
             if ($fenceChar !== null) {
                 if (
-                    preg_match('/^ {0,3}([`~]{3,})[ \t]*$/', $line, $close)
+                    preg_match('/^ {0,3}([`~]{3,})[ \t]*$/', $content, $close)
                     && $close[1][0] === $fenceChar
                     && strlen($close[1]) >= $fenceLen
                 ) {
@@ -461,7 +468,7 @@ class DjotToCarve
 
                 continue;
             }
-            if (preg_match('/^\s*(`{3,}|~{3,})\s*[a-zA-Z0-9_-]*\s*$/', $line, $open)) {
+            if (preg_match('/^\s*(`{3,}|~{3,})\s*[a-zA-Z0-9_-]*\s*$/', $content, $open)) {
                 $fenceChar = $open[1][0];
                 $fenceLen = strlen($open[1]);
                 $fenced[$i] = true;
