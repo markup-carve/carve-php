@@ -221,7 +221,7 @@ class DjotToCarve
             $source = substr($source, 0, $editStart) . $replacement . substr($source, $editEnd);
         }
 
-        $carve = $this->normalizePlusBullets($source, $masked);
+        $carve = $this->collapseFalseListBoundaries($this->normalizePlusBullets($source, $masked));
 
         return $this->applyHeadingIdPreservation($carve, $djot);
     }
@@ -380,26 +380,9 @@ class DjotToCarve
     {
         // Stage 1: fenced blocks, line by line.
         $lines = explode("\n", $source);
-        $fenceChar = null;
-        $fenceLen = 0;
-        foreach ($lines as $i => $line) {
-            if ($fenceChar !== null) {
-                if (
-                    preg_match('/^ {0,3}([`~]{3,})[ \t]*$/', $line, $close)
-                    && $close[1][0] === $fenceChar
-                    && strlen($close[1]) >= $fenceLen
-                ) {
-                    $fenceChar = null;
-                    $fenceLen = 0;
-                }
-                $lines[$i] = $this->blanks($line);
-
-                continue;
-            }
-            if (preg_match('/^\s*(`{3,}|~{3,})\s*[a-zA-Z0-9_-]*\s*$/', $line, $open)) {
-                $fenceChar = $open[1][0];
-                $fenceLen = strlen($open[1]);
-                $lines[$i] = $this->blanks($line);
+        foreach ($this->fencedLineMap($lines) as $i => $fenced) {
+            if ($fenced) {
+                $lines[$i] = $this->blanks($lines[$i]);
             }
         }
         $masked = implode("\n", $lines);
@@ -445,6 +428,178 @@ class DjotToCarve
         );
 
         return $masked ?? $source;
+    }
+
+    /**
+     * Which lines belong to a fenced block, opener and closer included?
+     *
+     * Shared by the code mask and the blank-run pass. The mask cannot answer
+     * this question after the fact: it replaces fence content with SPACES and
+     * keeps the newlines, so a masked code line and a blank line look the same.
+     * Anything that has to reason about blankness must consult this map first.
+     *
+     * @param array<int, string> $lines
+     *
+     * @return array<int, bool>
+     */
+    protected function fencedLineMap(array $lines): array
+    {
+        $fenced = [];
+        $fenceChar = null;
+        $fenceLen = 0;
+        foreach ($lines as $i => $line) {
+            if ($fenceChar !== null) {
+                if (
+                    preg_match('/^ {0,3}([`~]{3,})[ \t]*$/', $line, $close)
+                    && $close[1][0] === $fenceChar
+                    && strlen($close[1]) >= $fenceLen
+                ) {
+                    $fenceChar = null;
+                    $fenceLen = 0;
+                }
+                $fenced[$i] = true;
+
+                continue;
+            }
+            if (preg_match('/^\s*(`{3,}|~{3,})\s*[a-zA-Z0-9_-]*\s*$/', $line, $open)) {
+                $fenceChar = $open[1][0];
+                $fenceLen = strlen($open[1]);
+                $fenced[$i] = true;
+
+                continue;
+            }
+            $fenced[$i] = false;
+        }
+
+        return $fenced;
+    }
+
+    /**
+     * Collapse a blank-line run that only Carve reads as a list boundary.
+     *
+     * The two languages disagree about what a long blank run between two
+     * sibling markers MEANS. Carve (PART 9 §11, clause N1a) makes three or more
+     * blank lines a hard boundary: the marker after the run opens a NEW list.
+     * Djot has no such rule - any run of blanks between compatible markers is
+     * one loose list. So a verbatim rewrite silently changes the document: the
+     * seam is invisible for bullets, but an ordered list restarts numbering.
+     *
+     * The run is cut back to a single blank line, which both languages read the
+     * same way. Only a run Carve alone would break on is touched: it must be
+     * followed by a marker line and preceded by a line that keeps a list open
+     * (a marker, or an item's indented content - Djot has no indented code
+     * blocks, so an indented line under a list is that list's content). A run
+     * before an item's own indented content closes nothing under N1a and stays,
+     * and a run inside a fenced block is that block's content, not layout.
+     *
+     * Every line is read THROUGH its block-quote prefix, because inside a quote
+     * a blank line is written `>` and a marker line `> - item`, so a test on the
+     * raw line recognizes neither and the same silent split happens one
+     * container down. The run, the marker after it and the line above it must
+     * share a quote depth: a marker one level away separates nothing this run
+     * could join. The run's OWN first line survives the collapse, so a quoted
+     * run keeps its `>` and an unquoted one stays the empty line it was.
+     *
+     * carve-rs applies the same rule in `collapse_false_list_boundaries`; the
+     * two importers must agree byte for byte.
+     */
+    protected function collapseFalseListBoundaries(string $source): string
+    {
+        $lines = explode("\n", $source);
+        $fenced = $this->fencedLineMap($lines);
+        $count = count($lines);
+
+        /** @var array<int, int> $depth */
+        $depth = [];
+        /** @var array<int, string> $content */
+        $content = [];
+        foreach ($lines as $i => $line) {
+            [$depth[$i], $content[$i]] = $this->quoted($line);
+        }
+
+        $result = [];
+        for ($i = 0; $i < $count; $i++) {
+            if ($fenced[$i] || trim($content[$i]) !== '') {
+                $result[] = $lines[$i];
+
+                continue;
+            }
+
+            $here = $depth[$i];
+            $end = $i;
+            while (
+                $end + 1 < $count
+                && !$fenced[$end + 1]
+                && trim($content[$end + 1]) === ''
+                && $depth[$end + 1] === $here
+            ) {
+                $end++;
+            }
+
+            $next = $end + 1;
+            if (
+                $end - $i + 1 >= 3
+                && $next < $count
+                && !$fenced[$next]
+                && $depth[$next] === $here
+                && $this->isMarkerLine($content[$next])
+            ) {
+                $above = -1;
+                for ($k = $i - 1; $k >= 0; $k--) {
+                    if (trim($content[$k]) !== '') {
+                        $above = $k;
+
+                        break;
+                    }
+                }
+                if (
+                    $above >= 0
+                    && $depth[$above] === $here
+                    && ($this->isMarkerLine($content[$above]) || preg_match('/^[ \t]/', $content[$above]))
+                ) {
+                    $result[] = $lines[$i];
+                    $i = $end;
+
+                    continue;
+                }
+            }
+
+            for ($k = $i; $k <= $end; $k++) {
+                $result[] = $lines[$k];
+            }
+            $i = $end;
+        }
+
+        return implode("\n", $result);
+    }
+
+    /**
+     * Split a line into its block-quote depth and the content inside it.
+     *
+     * A prefix is a run of `>` markers, each optionally followed by one space
+     * and repeatable for nesting, so `> > text` is depth 2 holding `text` and a
+     * lone `>` is a blank line one level in.
+     *
+     * @return array{0: int, 1: string}
+     */
+    protected function quoted(string $line): array
+    {
+        $depth = 0;
+        while (preg_match('/^[ \t]*>[ ]?/', $line, $prefix)) {
+            $depth++;
+            $line = substr($line, strlen($prefix[0]));
+        }
+
+        return [$depth, $line];
+    }
+
+    /**
+     * Does the line open a list item: a bullet, or an ordered marker, followed
+     * by a space and content?
+     */
+    protected function isMarkerLine(string $line): bool
+    {
+        return (bool)preg_match('/^[ \t]*(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+\S/', $line);
     }
 
     protected function maskProtectedInlineForms(string $masked): string
