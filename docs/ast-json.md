@@ -198,6 +198,27 @@ nothing to say about them. And a `srcByteLength` that is present but WRONG stays
 accepted - it is derivable, nothing in the tree depends on it, and §12(a) is
 about presence while (d) is about type and sign.
 
+## What an ingest replaces
+
+One thing is rewritten rather than refused: **every U+0000 in a string value
+becomes U+FFFD**, before the value is read for anything else. That is PART 12
+§21, and it is what the parser already does to Carve source (PART 0 INPUT),
+which is why PART 9 §29 leaves the character out of the content class. An AST is
+a second door into the same renderers, so an ingested document renders like the
+same document written as source.
+
+It is not a repair, which is why it does not join the refusal list above. §11
+and §12 refuse structure a producer got wrong; this is the replacement the parse
+boundary already performs on the identical string, and refusing would make an
+ingested document stricter than the same document written as source.
+
+The subject is the **decoded value**. RFC 8259 forbids an unescaped U+0000
+inside a string, so a raw control byte in JSON text is still a
+`JsonException: Control character error` from `decodeJson()` - unchanged, and
+not a Carve rule. What the clause reaches is the `\u0000` escape and the value
+a host hands to `AstCodec::decode()`, which takes an array and has no JSON layer
+at all.
+
 ## Upgrading a stored payload
 
 Five payload shapes this package used to read no longer decode. They predate
