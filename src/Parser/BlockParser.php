@@ -4075,6 +4075,54 @@ class BlockParser
     }
 
     /**
+     * PART 9 §17 L7: consume the `loose` boolean off a container's preceding
+     * block-attribute line.
+     *
+     * The key is STRUCTURAL and it is CONSUMED - it never reaches the output as
+     * an HTML attribute. The precedent is PART 12 §15's `header-rows`, which
+     * rides the same line, carries a structural fact as a boolean, and is
+     * likewise consumed rather than emitted.
+     *
+     * It says the container's children render as BLOCKS rather than as inline
+     * runs, which reaches the shapes a blank line cannot spell: a ONE-ITEM loose
+     * list has no "between items" to put one in, and a definition description
+     * holding ONE block has none at any entry count, since a blank line between
+     * two ENTRIES does not loosen a `<dl>` at all.
+     *
+     * THE AXIS EXISTS IN EXACTLY TWO PLACES, so the key applies in exactly two.
+     * On a block quote, a div or anything else the name has no meaning at all
+     * and renders `loose=""` like any other boolean - the clause adds a meaning
+     * where there is one and reserves the name nowhere else.
+     *
+     * A BOOLEAN AND AN EMPTY VALUE ARE ONE KEY (PART 4), so `{loose}` and
+     * `{loose=""}` both arrive here as `''` and both are consumed. `loose=x`
+     * names a value this key does not take, so it stays an ordinary attribute
+     * and renders `loose="x"`. There is no error state.
+     *
+     * REDUNDANT USE IS A NO-OP: on a list the blank lines already loosened, and
+     * on a description that already holds two blocks, this changes nothing.
+     */
+    protected function consumeLooseKey(ListBlock|DefinitionList $node): void
+    {
+        if ($node->getAttribute('loose') !== '') {
+            return;
+        }
+
+        $node->removeAttribute('loose');
+        $node->setAttributeOrder(array_values(array_filter(
+            $node->getAttributeOrder(),
+            static fn (string $slot): bool => $slot !== 'loose',
+        )));
+
+        if ($node instanceof ListBlock) {
+            $node->setTight(false);
+
+            return;
+        }
+        $node->setLoose(true);
+    }
+
+    /**
      * Apply pending attributes to a node and clear them
      */
     protected function applyPendingAttributes(Node $node): void
@@ -6438,6 +6486,7 @@ class BlockParser
         if ($listAttributes !== []) {
             $list->setAttributesWithOrder($listAttributes, $listAttributeOrder);
         }
+        $this->consumeLooseKey($list);
         $parent->appendChild($list);
 
         return $i - $start;
@@ -7886,6 +7935,7 @@ class BlockParser
 
         $dl = new DefinitionList();
         $this->applyPendingAttributes($dl);
+        $this->consumeLooseKey($dl);
         $i = $start;
         $count = count($lines);
 
