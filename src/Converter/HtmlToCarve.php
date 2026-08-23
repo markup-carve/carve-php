@@ -128,6 +128,34 @@ class HtmlToCarve
     protected const MATH_TEX_ENCODINGS = ['application/x-tex', 'text/x-tex', 'latex'];
 
     /**
+     * An element the renderer names not at all - see `derivedElementNaming()`.
+     *
+     * @var array{role: list<string>, aria-label: list<string>}
+     */
+    protected const DERIVES_NOTHING = ['role' => [], 'aria-label' => []];
+
+    /**
+     * The roles a tab set or a code group is written with.
+     *
+     * TWO SPELLINGS OF ONE SHAPE: `TabsExtension` and `CodeGroupExtension` put
+     * `group` on the wrapper under their CSS mode and `tablist` under their
+     * ARIA one. Which mode produced a document is not readable from it, so both
+     * are the renderer's.
+     *
+     * @var list<string>
+     */
+    protected const DERIVED_GROUP_ROLES = ['group', 'tablist'];
+
+    /**
+     * The roles a tab or code-group PANEL is written with, the same two modes
+     * apart: `group` beside a name the CSS mode reads off the panel's own
+     * control, `tabpanel` beside the `aria-labelledby` the ARIA mode writes.
+     *
+     * @var list<string>
+     */
+    protected const DERIVED_PANEL_ROLES = ['group', 'tabpanel'];
+
+    /**
      * When true, trust and re-emit a `data-djot-src` round-trip attribute on the
      * input. Default false: untrusted HTML must not be able to smuggle raw Carve
      * (incl. a raw-HTML block) through that attribute.
@@ -840,6 +868,25 @@ class HtmlToCarve
                 // if the author had typed it, and it comes back from the
                 // position on the way out - so it is reproduced, not dropped.
                 // Same predicate the converter uses, rather than a second one.
+                continue;
+            } elseif ($this->isDerivedImportAttribute($node, $name, $attribute->value)) {
+                // The value the RENDERER writes for this element. It is not in
+                // the emitted Carve on purpose - baking it into source makes a
+                // generated string look authored and the imported copy then
+                // wins over the `labels` map on every later render
+                // (markup-carve/carve#1500) - and it comes back on the next
+                // render regardless, so it is reproduced, not dropped.
+                //
+                // Same shape as the generated `scope` above, and asked through
+                // the same predicates the WRITERS drop by, so the report cannot
+                // disagree with the conversion about what was derived. Reading
+                // the emitted document instead cannot answer this: that oracle
+                // re-renders with a bare converter, and every value here is
+                // written by a renderer the importer was never handed - the
+                // extension that claims the fence, the one that builds the tab
+                // set - so it asks a document where the attribute could not
+                // have come back and calls the absence a loss
+                // (markup-carve/carve#1502).
                 continue;
             } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
                 // THE DOCUMENT DECIDES, and nothing here knows the attribute's
@@ -2699,10 +2746,86 @@ class HtmlToCarve
     }
 
     /**
+     * Is this an attribute the RENDERER writes back for this element?
+     *
+     * Asked by the report, and only by it. Every writer already drops these -
+     * the two accessible-name predicates below are the same ones the attribute
+     * loops consult, and `role` is on `$skipAttributes` for every element - so
+     * this answers the different question the report has: whether the drop
+     * COST anything.
+     *
+     * IT MUST NOT BE A SECOND POLICY. `isDerivedAccessibleName()` and
+     * `isConsumedTitleReference()` are called rather than re-derived, so a name
+     * this importer learns to recognize is one the report stops diagnosing in
+     * the same edit. A second copy is what carve-php#1337 and carve-php#1346
+     * each came back to.
+     *
+     * `role` HAS NO SUCH PREDICATE, because no writer needs one: the strip is
+     * unconditional. So the roles are read off the same shape test the name is,
+     * which is why `derivedElementNaming()` returns both.
+     */
+    protected function isDerivedImportAttribute(DOMElement $node, string $name, string $value): bool
+    {
+        $name = strtolower($name);
+        if ($name === 'aria-label') {
+            return $this->isDerivedAccessibleName($node, $name, $value);
+        }
+        if ($name === 'aria-labelledby') {
+            return $this->isConsumedTitleReference($node, $name, $value);
+        }
+        if ($name !== 'role') {
+            return false;
+        }
+
+        return in_array(strtolower(trim($value)), $this->derivedElementNaming($node)['role'], true);
+    }
+
+    /**
      * The name the renderer would write for this element, or null where it
      * writes none.
      */
     protected function derivedAccessibleName(DOMElement $node): ?string
+    {
+        return $this->derivedElementNaming($node)['aria-label'][0] ?? null;
+    }
+
+    /**
+     * WHAT THE RENDERER DERIVES for this element: the `role` values it can
+     * write, and the accessible name it writes beside them.
+     *
+     * ONE SHAPE TEST, TWO ANSWERS. The role and the name are decided by the
+     * same fact - that this element IS a claimed fence, a tab set, an endnotes
+     * section - so reading them off one walk is what keeps them from
+     * disagreeing about which elements those are. They are still applied
+     * INDEPENDENTLY: `FencedRenderExtension::namingDefaults()` writes the role
+     * whenever the fence has a name from EITHER side, so a fence carrying the
+     * author's own `aria-label` keeps that name and still has its role derived
+     * - which is the second half of the spec's `derived-accessible-name`
+     * fixture.
+     *
+     * A ROLE HAS SEVERAL SPELLINGS where one shape has several renderings. A
+     * tab set is `group` under the CSS mode and `tablist` under the ARIA one,
+     * and a panel is `group` or `tabpanel` the same way; the importer cannot
+     * see which mode produced the HTML, so both are the renderer's.
+     *
+     * The classes are the ones the renderers write at their DEFAULT options -
+     * an importer cannot see a host's `wrapperClass`, nor whether the extension
+     * that names this shape is even registered on the render that reads the
+     * source back - which is the same blind spot the default-only label match
+     * already accepts. A `<div class="tabs">` holding no tabs is the sharp end
+     * of it: nothing reconstructs a tab set from it, so neither the role nor
+     * the name comes back.
+     *
+     * THAT RESIDUE IS NOT DECIDED HERE. The name is already dropped from such a
+     * div, by `isDerivedAccessibleName()`, and the role by `$skipAttributes` -
+     * both before this method existed. Reporting the drop did not mitigate it;
+     * it only made the report contradict the conversion, which is what
+     * markup-carve/carve#1502 measured. If the drop is too eager the fix is in
+     * the shape test below, in one place, and this map follows it.
+     *
+     * @return array{role: list<string>, aria-label: list<string>}
+     */
+    protected function derivedElementNaming(DOMElement $node): array
     {
         $tag = strtolower($node->tagName);
         $classes = $this->getElementClassList($node);
@@ -2729,22 +2852,24 @@ class HtmlToCarve
             foreach ($classes as $class) {
                 $key = 'admonition' . ucfirst($class);
                 if (isset($labels[$key])) {
-                    return $labels[$key];
+                    // No role: `<aside>` already says what it is, so the core
+                    // renderer writes the name alone.
+                    return ['role' => [], 'aria-label' => [$labels[$key]]];
                 }
             }
         }
 
         // PART 9 §16: the endnotes section.
         if ($tag === 'section' && $node->getAttribute('role') === 'doc-endnotes') {
-            return $labels['endnotes'];
+            return ['role' => ['doc-endnotes'], 'aria-label' => [$labels['endnotes']]];
         }
 
         // Extensions §13: a tab set and a code group are named as a whole.
         if (in_array('tabs', $classes, true)) {
-            return $labels['tabsGroup'];
+            return ['role' => self::DERIVED_GROUP_ROLES, 'aria-label' => [$labels['tabsGroup']]];
         }
         if (in_array('code-group', $classes, true)) {
-            return $labels['codeGroup'];
+            return ['role' => self::DERIVED_GROUP_ROLES, 'aria-label' => [$labels['codeGroup']]];
         }
 
         // Extensions §13.2: a css-mode panel is named by its own tab, which is
@@ -2752,11 +2877,14 @@ class HtmlToCarve
         if (in_array('tabs-panel', $classes, true) || in_array('code-group-panel', $classes, true)) {
             for ($prev = $node->previousSibling; $prev !== null; $prev = $prev->previousSibling) {
                 if ($prev instanceof DOMElement && strtolower($prev->tagName) === 'label') {
-                    return trim($prev->textContent);
+                    return ['role' => self::DERIVED_PANEL_ROLES, 'aria-label' => [trim($prev->textContent)]];
                 }
             }
 
-            return null;
+            // A panel cut from its controls derives no NAME - guessing one
+            // would drop a label nothing writes back - but it is still a panel,
+            // and the role is written from the shape rather than from the tab.
+            return ['role' => self::DERIVED_PANEL_ROLES, 'aria-label' => []];
         }
 
         // markup-carve/carve#1469: an index back-link is named by the label plus
@@ -2766,7 +2894,7 @@ class HtmlToCarve
         if ($tag === 'a' && in_array('index-backref', $classes, true)) {
             $parent = $node->parentNode;
             if (!$parent instanceof DOMElement || strtolower($parent->tagName) !== 'li') {
-                return null;
+                return self::DERIVES_NOTHING;
             }
             $term = '';
             foreach ($parent->childNodes as $child) {
@@ -2777,7 +2905,7 @@ class HtmlToCarve
             }
             $term = trim($term);
             if ($term === '') {
-                return null;
+                return self::DERIVES_NOTHING;
             }
             $lead = $labels['indexBackref'];
             $total = 0;
@@ -2791,13 +2919,13 @@ class HtmlToCarve
                 }
             }
             if ($total === 1) {
-                return $lead . ' ' . $term;
+                return ['role' => [], 'aria-label' => [$lead . ' ' . $term]];
             }
             if (preg_match('/-(\d+)$/', $node->getAttribute('href'), $m) !== 1) {
-                return null;
+                return self::DERIVES_NOTHING;
             }
 
-            return $lead . ' ' . $term . ' ' . $m[1];
+            return ['role' => [], 'aria-label' => [$lead . ' ' . $term . ' ' . $m[1]]];
         }
 
         // A CLAIMED fence is named by its own fence word, which is its class -
@@ -2827,10 +2955,10 @@ class HtmlToCarve
             && $classes !== []
             && strtolower($node->getAttribute('role')) === 'img'
         ) {
-            return $classes[0];
+            return ['role' => ['img'], 'aria-label' => [$classes[0]]];
         }
 
-        return null;
+        return self::DERIVES_NOTHING;
     }
 
     /**
