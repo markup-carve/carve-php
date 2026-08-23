@@ -4402,9 +4402,36 @@ class HtmlToCarve
                     $checkbox = $isChecked ? '[x] ' : '[ ] ';
                 }
 
+                // AN ITEM'S ATTRIBUTES ABUT ITS MARKER (carve-php#1587). They
+                // used to be written on an indented line BELOW the marker,
+                // where a block attribute floats FORWARD - so it landed on
+                // whatever block came next instead of on the item, and on a
+                // one-block item it left the document entirely. A degraded
+                // footnote's `id` was lost that way, and on a two-block note it
+                // attached to the second paragraph.
+                //
+                // The floating itself is correct and is not what changes here;
+                // what changes is that the attribute is no longer put somewhere
+                // it can float away from. `1.{#fn1} n` is the spelling carve-js
+                // writes, and the abutting shape was already in this writer for
+                // an item whose only content is a nested list - it simply was
+                // not reached on any other path.
+                //
+                // The attributes go on the MARKER, ahead of a task checkbox:
+                // `-{#t} [x] a`. A checkbox is item CONTENT rather than part of
+                // the marker, so `- [x]{#t} a` would parse as a span carrying
+                // the id around the letter `x`.
+                //
+                // For TipTap task items only, drop the editor's
+                // data-type/data-checked markers; ordinary list items keep
+                // their attributes.
+                $liSkipAttrs = $isTaskList ? ['data-type', 'data-checked'] : [];
+                $liAttrs = $this->getElementAttributes($child, $liSkipAttrs);
+                $attrToken = $liAttrs !== '' ? '{' . $liAttrs . '}' : '';
+
                 $prefix = $isOrdered
-                    ? $this->orderedListMarkerText($counter, $olType) . $marker . ' '
-                    : $marker . ' ' . $checkbox;
+                    ? $this->orderedListMarkerText($counter, $olType) . $marker . $attrToken . ' '
+                    : $marker . $attrToken . ' ' . $checkbox;
 
                 // Process list item content, separating nested lists from other content
                 $contentParts = [];
@@ -4442,11 +4469,8 @@ class HtmlToCarve
 
                 $this->flushListItemInlineBuffer($contentParts, $inlineBuffer);
 
-                // Add list item attributes on next line (indented). For TipTap
-                // task items only, drop the editor's data-type/data-checked
-                // markers; ordinary list items keep their attributes.
-                $liSkipAttrs = $isTaskList ? ['data-type', 'data-checked'] : [];
-                $liAttrs = $this->getElementAttributes($child, $liSkipAttrs);
+                // The attributes widen the marker, so the item's content column
+                // moves with it and every continuation line follows.
                 $continuation = $indent . str_repeat(' ', strlen($prefix));
 
                 // An item whose ONLY content is a nested list puts that list
@@ -4459,10 +4483,13 @@ class HtmlToCarve
                 $markerCarriesNested = $contentParts === [] && $nestedContent !== '';
 
                 if ($contentParts === [] && !$markerCarriesNested) {
-                    $output .= $indent . $prefix . "\n";
-                    if ($liAttrs !== '') {
-                        $output .= $continuation . '{' . $liAttrs . "}\n";
-                    }
+                    // An EMPTY item that carries attributes needs something
+                    // after the abutted brace pair: a marker line ending in
+                    // `-{#x}` is not a marker at all, and comes back as a
+                    // paragraph reading the braces as a tag span. `+` is the
+                    // continuation marker, which is how carve-js spells an
+                    // empty item here too, and it re-parses as `<li id="x">`.
+                    $output .= $indent . $prefix . ($liAttrs !== '' ? '+' : '') . "\n";
                 } elseif ($contentParts !== []) {
                     $firstPart = array_shift($contentParts);
                     $firstPartLines = preg_split('/\R/', $firstPart) ?: [''];
@@ -4476,9 +4503,6 @@ class HtmlToCarve
                     // content came back as a paragraph reading `-` with the
                     // container loose beside it (markup-carve/carve-php#1224).
                     $output .= $indent . $prefix . $firstLine . "\n";
-                    if ($liAttrs !== '') {
-                        $output .= $continuation . '{' . $liAttrs . "}\n";
-                    }
                     foreach ($firstPartLines as $line) {
                         // A blank line is kept as a blank line, not dropped: it
                         // separates the blocks inside the part, and removing it
@@ -4501,7 +4525,10 @@ class HtmlToCarve
                 // task checkbox is content, not marker, so a task/bullet item's
                 // content column stays two.
                 if ($nestedContent !== '') {
-                    $markerWidth = $isOrdered ? strlen($prefix) : 2;
+                    // A bullet's content column is two - the checkbox is
+                    // content, not marker - plus whatever the attributes added
+                    // to the marker itself.
+                    $markerWidth = $isOrdered ? strlen($prefix) : 2 + strlen($attrToken);
                     $surplus = $markerWidth - 2;
                     if ($surplus > 0) {
                         $pad = str_repeat(' ', $surplus);
@@ -4518,16 +4545,14 @@ class HtmlToCarve
                         // Attributes go ON the marker (`-{.x} - a`), not on a
                         // line below it: the line below is now the nested
                         // list's own second item, so an attribute line there
-                        // would attach to that item instead of this one.
-                        $marker = $liAttrs !== ''
-                            ? rtrim($prefix) . '{' . $liAttrs . '} '
-                            : $prefix;
-                        $output .= $indent . $marker . $firstNested . "\n";
+                        // would attach to that item instead of this one. The
+                        // prefix already carries them, ahead of any checkbox.
+                        $output .= $indent . $prefix . $firstNested . "\n";
                         // Attributes widen the marker, and the content column
                         // moves with it. Without this the following lines sit
                         // at the UNattributed column and dedent out of the
                         // item, splitting the nested list off into its own.
-                        $attrSurplus = strlen($marker) - $markerWidth;
+                        $attrSurplus = strlen($prefix) - $markerWidth;
                         if ($attrSurplus > 0) {
                             $attrPad = str_repeat(' ', $attrSurplus);
                             $nestedLines = array_map(
@@ -7288,7 +7313,26 @@ class HtmlToCarve
             // fell through to the ltrim branch, so a list nested under one lost
             // its indentation and dedented out of its parent - which only
             // showed up once anything emitted those markers.
-            if (preg_match('/^(\s*)([-*+]|\d+\.|[A-Za-z]\.|[ivxlcdm]{2,}\.|[IVXLCDM]{2,}\.)\s/', $line, $m)) {
+            //
+            // A marker may ABUT an attribute brace pair - `1.{#fn1} n` is where
+            // an item's attributes go (carve-php#1587) - and the space the
+            // marker is recognized by comes after that pair, not before it.
+            // Without the optional group the attributed marker line fell to the
+            // ltrim branch, which also closed the list context, so every
+            // continuation line under the item was flattened to column zero and
+            // the item's later blocks dedented out of it.
+            //
+            // The pair is spelled as `ListParser` spells it, quoted values and
+            // all: a title an editor export carries a `}` in - and a `<li>` may
+            // - is inside quotes, and a plain `[^{}]*` ended the block at it.
+            if (
+                preg_match(
+                    '/^(\s*)([-*+]|\d+\.|[A-Za-z]\.|[ivxlcdm]{2,}\.|[IVXLCDM]{2,}\.)'
+                    . '(\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})?\s/',
+                    $line,
+                    $m,
+                )
+            ) {
                 $result[] = $line;
                 $inDefinitionList = false;
                 $inList = true;
