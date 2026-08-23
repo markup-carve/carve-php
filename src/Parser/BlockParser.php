@@ -1981,23 +1981,20 @@ class BlockParser
                                     // both - so the second block was consumed
                                     // by one pass, collected by neither, and
                                     // left the document entirely.
-                                    $ahead = $k;
-                                    while ($ahead < $count && IndentationHelper::isBlankLine($lines[$ahead])) {
-                                        $ahead++;
-                                    }
-                                    if ($ahead >= $count) {
-                                        break;
-                                    }
-                                    // COLUMNS, NOT BYTES. A tab is one byte and
-                                    // four columns, so a byte measure read a
-                                    // tab-indented body as below the column,
-                                    // ended the note there - and the block
-                                    // parser went on skipping the line as the
-                                    // note's, so it was collected by neither
-                                    // pass and left the document. The
-                                    // continuation check below measures the
-                                    // same way for the same reason.
-                                    if (IndentationHelper::getLeadingColumns($lines[$ahead], $bodyIndent) < $bodyIndent) {
+                                    // ONE SPELLING, shared with the definition
+                                    // skipper - see
+                                    // {@see self::footnoteBodyResumesAfter()}.
+                                    // A lone `+` does not resume a body under a
+                                    // column container, so the marker is not
+                                    // accepted here.
+                                    $ahead = $this->footnoteBodyResumesAfter(
+                                        $lines,
+                                        $k,
+                                        $count,
+                                        $bodyIndent,
+                                        false,
+                                    );
+                                    if ($ahead === null) {
                                         break;
                                     }
                                     for (; $k < $ahead; $k++) {
@@ -10124,6 +10121,67 @@ class BlockParser
     }
 
     /**
+     * Where a footnote body resumes after a run of blank lines, or null when
+     * the run ends the definition.
+     *
+     * THE WHOLE RUN, NOT THE NEXT LINE. A body extends to following lines that
+     * reach its content column (PART 9 §16), and a `+` marker keeps it open
+     * too (§17). Asking that of `lines[$i + 1]` answers it about a line that is
+     * itself blank as soon as there are two blanks, so the definition ended at
+     * the second one and an indented continuation was ejected to a top-level
+     * paragraph - and not to where it was written either: it landed ahead of
+     * the endnotes section, so the content moved backward past unrelated
+     * blocks. Ruled in markup-carve/carve#1620: the continuation stays in the
+     * note. A blank run does not end an indented block anywhere else in Carve -
+     * a list item, a quote and a container all keep one across it - and nothing
+     * in §16 says a footnote definition differs.
+     *
+     * THIS IS NOT §11 N1a. That fires at three or more blanks and only before a
+     * LIST MARKER; this fired at two, and for a plain paragraph as readily as a
+     * list, so the boundary settled in carve#1430 is untouched. Callers push
+     * the run through INTACT rather than collapsing it, so a genuine N1a
+     * boundary written INSIDE a note body still reaches the parser as the
+     * author wrote it.
+     *
+     * ONE SPELLING FOR THE THREE THAT EXISTED. The container collector already
+     * scanned the run this way and the definition skipper did not, so a body
+     * the one claimed the other released - the shape carve#1363 fixed once at
+     * one site and left standing at another. Extracted so the next reader finds
+     * one rule rather than deciding which copy is current.
+     *
+     * @param array<string> $lines
+     * @param int $blank the index of the first blank line of the run
+     * @param int $count
+     * @param int $bodyColumn the column a continuation has to reach
+     * @param bool $allowContinuationMarker whether a lone `+` also resumes it
+     */
+    private function footnoteBodyResumesAfter(
+        array $lines,
+        int $blank,
+        int $count,
+        int $bodyColumn,
+        bool $allowContinuationMarker,
+    ): ?int {
+        $ahead = $blank;
+        while ($ahead < $count && IndentationHelper::isBlankLine($lines[$ahead])) {
+            $ahead++;
+        }
+        if ($ahead >= $count) {
+            return null;
+        }
+        // COLUMNS, NOT BYTES. A tab is one byte and four columns, so a byte
+        // measure reads a tab-indented body as below the column.
+        if (IndentationHelper::getLeadingColumns($lines[$ahead], $bodyColumn) >= $bodyColumn) {
+            return $ahead;
+        }
+        if ($allowContinuationMarker && preg_match('/^\+[ \t]*$/', $lines[$ahead]) === 1) {
+            return $ahead;
+        }
+
+        return null;
+    }
+
+    /**
      * Skip footnote definitions (already extracted in first pass)
      *
      * @param \MarkupCarve\Carve\Node\Node $parent
@@ -10160,24 +10218,30 @@ class BlockParser
         while ($i < $count) {
             $nextLine = $lines[$i];
             if (IndentationHelper::isBlankLine($nextLine)) {
-                // A blank line continues the footnote only if a >= 2-indented
-                // line (or a `+` continuation marker) follows; otherwise it ends
-                // the footnote. Must mirror the body-collection logic so a line
-                // is never skipped here without being collected there (grammar
-                // PART 9 §16, §17).
-                if (
-                    $i + 1 < $count
-                    && (IndentationHelper::getLeadingColumns($lines[$i + 1], self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
-                        || preg_match('/^\+[ \t]*$/', $lines[$i + 1]))
-                ) {
+                // A BLANK RUN continues the footnote when the body resumes
+                // after it. Must mirror the body-collection logic so a line is
+                // never skipped here without being collected there (grammar
+                // PART 9 §16, §17) - see
+                // {@see self::footnoteBodyResumesAfter()} for why the whole run
+                // has to be measured rather than the line after the blank.
+                $resumes = $this->footnoteBodyResumesAfter(
+                    $lines,
+                    $i,
+                    $count,
+                    self::FOOTNOTE_BODY_COLUMN,
+                    true,
+                );
+                if ($resumes === null) {
+                    break;
+                }
+                // INTACT, one blank per source line, so a §11 N1a boundary
+                // inside the body survives to the parser.
+                for (; $i < $resumes; $i++) {
                     $bodyLines[] = '';
                     $bodyLineMap[] = $this->sourceLineFor($i);
-                    $i++;
-
-                    continue;
                 }
 
-                break;
+                continue;
             }
             // Form B: a `+` continuation marker plus its attached flush-left
             // block (ends at a blank line, another `+`, or the next footnote
