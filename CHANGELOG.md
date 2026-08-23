@@ -108,6 +108,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A marker at an item's content column opens a sublist, first in the item or
+  not** (markup-carve/carve#1517, PART 9 §24 C3). Only the item's first marker
+  did; a later one folded into the paragraph above it, so the answer depended on
+  a sub-list the document had already closed.
+
 - **A blank verbatim line inside a block quote drops the prefix's trailing
   space** (markup-carve/carve#1544, PART 11 §7). The canonical writer emitted
   `> ` for a blank line inside a fenced block inside a quote, where an authored

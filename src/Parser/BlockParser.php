@@ -3042,9 +3042,16 @@ class BlockParser
      * @param int $indent
      * @param array<int, int>|null $lineMap
      * @param bool $topLevel
+     * @param bool $itemBody
      */
-    protected function parseBlocks(Node $parent, array $lines, int $indent, ?array $lineMap = null, bool $topLevel = false): void
-    {
+    protected function parseBlocks(
+        Node $parent,
+        array $lines,
+        int $indent,
+        ?array $lineMap = null,
+        bool $topLevel = false,
+        bool $itemBody = false,
+    ): void {
         if ($this->nestingDepth >= self::MAX_NESTING_DEPTH) {
             // PART 9 §25: past the cap an opener degrades to ORDINARY PARAGRAPH
             // TEXT, and therefore groups by the ordinary paragraph rule -
@@ -3105,7 +3112,7 @@ class BlockParser
         $this->blockQuoteCommentCloserIndex = null;
         $this->fenceCloserIndexCache = null;
         try {
-            $this->parseBlocksImpl($parent, $lines, $indent, $topLevel);
+            $this->parseBlocksImpl($parent, $lines, $indent, $topLevel, $itemBody);
         } finally {
             $this->currentLineMap = $previousLineMap;
             $this->currentContentColumns = $previousContentColumns;
@@ -3341,9 +3348,15 @@ class BlockParser
      * @param array<string> $lines
      * @param int $indent
      * @param bool $topLevel
+     * @param bool $itemBody
      */
-    private function parseBlocksImpl(Node $parent, array $lines, int $indent, bool $topLevel = false): void
-    {
+    private function parseBlocksImpl(
+        Node $parent,
+        array $lines,
+        int $indent,
+        bool $topLevel = false,
+        bool $itemBody = false,
+    ): void {
         $i = 0;
         $count = count($lines);
 
@@ -3411,7 +3424,7 @@ class BlockParser
             if ($fc !== '' && ($fc >= 'a' && $fc <= 'z' || $fc >= 'A' && $fc <= 'Z')) {
                 $consumed = $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
-                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel, $itemBody);
                 // END LINE, not just the start. A block matched here can run
                 // several lines - an extension matcher registered through
                 // `addBlockPattern()` places no span of its own, so this stamp
@@ -3442,7 +3455,7 @@ class BlockParser
             if ($fc === '|') {
                 $consumed = $this->tryParseTable($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
-                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel, $itemBody);
                 // END LINE, not just the start. A block matched here can run
                 // several lines - an extension matcher registered through
                 // `addBlockPattern()` places no span of its own, so this stamp
@@ -3468,7 +3481,7 @@ class BlockParser
                 $consumed = $this->tryParseThematicBreak($parent, $line, $i)
                     ?? $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
-                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+                    ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel, $itemBody);
                 // END LINE, not just the start. A block matched here can run
                 // several lines - an extension matcher registered through
                 // `addBlockPattern()` places no span of its own, so this stamp
@@ -3528,7 +3541,7 @@ class BlockParser
                 }
             }
 
-            $consumed ??= $this->tryParseParagraph($parent, $lines, $i, $topLevel);
+            $consumed ??= $this->tryParseParagraph($parent, $lines, $i, $topLevel, $itemBody);
 
             // The block ran from $i to $i + $consumed - 1 in THIS line array;
             // resolve the last one back to the top-level array the offsets are
@@ -6438,7 +6451,13 @@ class BlockParser
      */
     protected function parseItemBlocks(Node $item, array $lines, ?array $lineMap = null): void
     {
-        $this->parseBlocks($item, $lines, 0, $lineMap);
+        // THESE LINES ARE THE ITEM'S BODY, so their column 0 IS the item's
+        // content column and a marker reaching it opens a sublist (PART 9 §24
+        // C3, markup-carve/carve#1517). Passed the way `$topLevel` is passed and
+        // for the same reason: `parseBlocksImpl` hands it to the paragraph loop
+        // at THIS level and to no nested container, so a quote, a div or a
+        // definition body inside the item asks the ordinary §10 I2 question.
+        $this->parseBlocks($item, $lines, 0, $lineMap, false, true);
         if ($lineMap !== null && $lineMap !== []) {
             $this->repairNestedParagraphSuffixes($item, $lineMap[0]);
         }
@@ -10254,9 +10273,15 @@ class BlockParser
      * @param array<string> $lines
      * @param int $start
      * @param bool $topLevel
+     * @param bool $itemBody
      */
-    protected function tryParseParagraph(Node $parent, array $lines, int $start, bool $topLevel = false): int
-    {
+    protected function tryParseParagraph(
+        Node $parent,
+        array $lines,
+        int $start,
+        bool $topLevel = false,
+        bool $itemBody = false,
+    ): int {
         $line = $lines[$start];
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line, " \t");
@@ -10301,7 +10326,7 @@ class BlockParser
             // written for, and PART 9 §10's I1 says nothing about brace state.
             // It protected nothing either - an inline attribute block cannot
             // span lines in any engine.
-            if ($this->interruptsParagraph($lines, $i, $contentParts, $start, $hasUnclaimedColonFenceLine, $topLevel)) {
+            if ($this->interruptsParagraph($lines, $i, $contentParts, $start, $hasUnclaimedColonFenceLine, $topLevel, $itemBody)) {
                 break;
             }
 
@@ -11554,6 +11579,7 @@ class BlockParser
      * @param int $sourceLine
      * @param bool $hasUnclaimedColonFenceLine
      * @param bool $topLevel
+     * @param bool $itemBody
      */
     protected function interruptsParagraph(
         array $lines,
@@ -11562,8 +11588,41 @@ class BlockParser
         int $sourceLine,
         bool $hasUnclaimedColonFenceLine,
         bool $topLevel = false,
+        bool $itemBody = false,
     ): bool {
         $line = $lines[$i];
+
+        // A MARKER AT A LIST ITEM'S CONTENT COLUMN OPENS A SUBLIST, first in the
+        // item or not (PART 9 §24 C3, markup-carve/carve#1517). These lines are
+        // the item's body, so their column 0 IS that content column: "AT
+        // content_column: dedented to the body's column 0, a block opener nests
+        // and a list marker opens a sublist", holding "whether or not a blank
+        // line precedes the child". §10 I2 defers to it by name rather than
+        // competing with it.
+        //
+        // The collector answered it for the FIRST marker only, by injecting a
+        // synthetic blank before it while `!$subSawListMarker`. That guard is
+        // right about what it protects - a SIBLING marker of the sublist already
+        // open must not get a loosening blank - and wrong about how to tell the
+        // two apart, because whether the sublist is still open is a fact about
+        // the parsed stream and not about whether a marker has been seen. So the
+        // question moves to where the stream is actually parsed, and the
+        // collector's blank stays where it is: for the first marker both answers
+        // agree, and after it only this one can be right.
+        //
+        // COLUMN 0 EXACTLY. §24 C3's other band is explicit that BELOW the
+        // content column "a list marker folds as lazy item text", and the
+        // collector forwards such a line with its residual indent intact - so
+        // the leading-whitespace test is what keeps the two bands apart.
+        if (
+            $itemBody
+            && $line !== ''
+            && $line[0] !== ' '
+            && $line[0] !== "\t"
+            && $this->listParser->parseListItemMarker($line) !== null
+        ) {
+            return true;
+        }
 
         if (preg_match('/^\^ +.*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
             return $this->isCaptionableParagraphContent(implode("\n", $contentLines), $sourceLine);
