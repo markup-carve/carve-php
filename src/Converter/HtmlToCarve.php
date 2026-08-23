@@ -14,6 +14,7 @@ use DOMXPath;
 use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -546,6 +547,31 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'a' && $this->importDestinationIsEmpty($node->getAttribute('href'))) {
+            // A LINK THAT COMES BACK AS PROSE IS A LOSSY DECISION, and this
+            // page requires those to be observable. It is not the bare `<div>`'s
+            // case, where nothing was lost because nothing was carried: an
+            // anchor has a slot for a destination, and this one is standing
+            // empty.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Unwrapped <a> with no destination',
+                'info',
+                $path,
+            );
+        }
+
+        if ($tag === 'img' && $this->importDestinationIsEmpty($node->getAttribute('src'))) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Unwrapped <img> with no source',
+                'info',
+                $path,
+            );
+        }
+
         $this->inspectImportChildren($node, $tag, $path, $diagnostics);
     }
 
@@ -888,6 +914,18 @@ class HtmlToCarve
                 // if the author had typed it, and it comes back from the
                 // position on the way out - so it is reproduced, not dropped.
                 // Same predicate the converter uses, rather than a second one.
+                continue;
+            } elseif ($name === 'alt' && $tag === 'img' && $this->importDestinationIsEmpty($node->getAttribute('src'))) {
+                // AN IMAGE'S CONTENT IS ITS ALTERNATIVE TEXT, and an image with
+                // no source is written as that content: the alt value is in the
+                // emitted document as prose, not in an attribute position, so
+                // the output oracle below correctly finds no `alt=` and would
+                // call preserved text a loss. Same shape as `<math alttext>`
+                // one predicate up - read as content, never written back as an
+                // attribute - but node-dependent rather than tag/name, because
+                // an image that HAS a source writes its alt as an attribute
+                // again. The `element-unwrapped` row already names what became
+                // of the element.
                 continue;
             } elseif ($this->isDerivedImportAttribute($node, $name, $attribute->value)) {
                 // The value the RENDERER writes for this element. It is not in
@@ -3857,6 +3895,25 @@ class HtmlToCarve
         }
 
         $href = $node->getAttribute('href');
+
+        // A DESTINATION CARVE CANNOT CARRY IS NOT A DESTINATION
+        // (`docs/html-import.md`). Carve spells a link's destination in one
+        // slot and has NO spelling for an empty one - `[t]()` is literal text -
+        // so writing the empty slot emitted four punctuation characters the
+        // HTML never held, into the middle of the prose. No link node is built:
+        // the element's CONTENT stands in its place, carried by a span where an
+        // attribute survives and bare where none does.
+        //
+        // AND THE DESTINATION IS NOT REBUILT, which is the normative half. This
+        // is what Carve's own renderer emits: PART 9 §25 blanks a dangerous
+        // destination and writes no provenance for it, keeping the visible
+        // text, so any route from a `title`, from the anchor's text or from a
+        // round-trip attribute back to a destination would reconstruct the
+        // exact value a security rule removed. The round trip owes the text.
+        if ($this->importDestinationIsEmpty($href)) {
+            return $this->unwrapDestinationLessElement($node, $this->processChildren($node), ['href']);
+        }
+
         $text = trim($this->processChildren($node));
         $title = $node->getAttribute('title');
 
@@ -3956,6 +4013,20 @@ class HtmlToCarve
             return $this->processRawHtmlInlineElement($node);
         }
 
+        // The same rule as the link one layer up, and it is the SAME shape: an
+        // `<img>` whose `src` names no destination the source can carry builds
+        // no image node either. AN IMAGE'S CONTENT IS ITS ALTERNATIVE TEXT -
+        // that is what every target with no image shows for it, and what a
+        // browser shows for one it cannot load - so the alt text is what stands
+        // in its place.
+        if ($this->importDestinationIsEmpty($src)) {
+            return $this->unwrapDestinationLessElement(
+                $node,
+                $this->escapeLiteralBackslashes($rawAlt),
+                ['src', 'alt'],
+            );
+        }
+
         $alt = $this->escapeLinkOrImageLabel($this->escapeLiteralBackslashes($rawAlt));
 
         // Check for reference image (round-trip support)
@@ -4009,6 +4080,59 @@ class HtmlToCarve
         }
 
         return '![' . $alt . '](' . $src . ')' . $attrs;
+    }
+
+    /**
+     * Does this URL attribute name no destination at all?
+     *
+     * EMPTY IS A PROPERTY OF THE STRING, read the way an HTML URL attribute is
+     * read: a value of zero length, or of zero length once leading and trailing
+     * ASCII whitespace is stripped, because that is what a URL parser strips
+     * before resolving one. A value that is merely unusual is not empty and is
+     * kept - the rule is over the DESTINATION, not over the reason it is
+     * missing.
+     *
+     * An ABSENT attribute is the same shape and reaches this the same way:
+     * `DOMElement::getAttribute()` answers `''` for one, and an `<a>` with no
+     * `href` names no destination just as an `<a href="">` does.
+     *
+     * The character list is the URL spec's ASCII whitespace rather than PHP's
+     * default `trim()` set, which omits the form feed and adds a NUL and a
+     * vertical tab that are not whitespace here.
+     *
+     * @param string $value
+     */
+    protected function importDestinationIsEmpty(string $value): bool
+    {
+        return trim($value, " \t\n\f\r") === '';
+    }
+
+    /**
+     * The Carve an element with no destination leaves behind: its content, in a
+     * span where an attribute survives and bare where none does.
+     *
+     * That is the attribute-less `<div>` boundary one layer down, and it is the
+     * same boundary because it is the same question - what is the element still
+     * needed to hold? Nothing here reads the destination slot: `$skipAttrs`
+     * carries it out, and the caller passes the content it wants stood in the
+     * element's place.
+     *
+     * The brackets are escaped ONLY in the span case, where an unescaped `]` in
+     * the content would end the label early. Bare, the content is ordinary
+     * prose and a backslash there would be a character the author never wrote.
+     *
+     * @param \DOMElement $node
+     * @param string $content
+     * @param array<string> $skipAttrs The destination slot, and anything the content already carries.
+     */
+    protected function unwrapDestinationLessElement(DOMElement $node, string $content, array $skipAttrs): string
+    {
+        $attrs = $this->formatInlineAttributes($node, $skipAttrs);
+        if ($attrs === '') {
+            return $content;
+        }
+
+        return '[' . $this->escapeLinkOrImageLabel($content) . ']' . $attrs;
     }
 
     protected function processHr(DOMNode $node): string
@@ -5052,7 +5176,7 @@ class HtmlToCarve
                     $attributedCells[count($cells)] = true;
                     $cells[] = '{' . $cellAttrs . '} ' . $cellContent;
                 } else {
-                    $cells[] = $cellContent;
+                    $cells[] = $this->escapeSpanMarkerCellPayload($cellContent);
                 }
 
                 $realCells++;
@@ -5814,6 +5938,73 @@ class HtmlToCarve
      * The tight alignment marker glued to a `|=` header cell: `<` left,
      * `>` right, `~` center, empty for default.
      */
+    /**
+     * The parser that reads a cell, so this converter can ask it what a cell it
+     * is about to write would come back as.
+     *
+     * @var \MarkupCarve\Carve\Parser\Block\TableParser|null
+     */
+    protected ?TableParser $cellReader = null;
+
+    /**
+     * Escape a cell payload that would otherwise re-read as a SPAN MARKER.
+     *
+     * PADDING IS NOT AN ESCAPE WHERE THE PRODUCTION ADMITS PADDING (PART 11
+     * §6f). §6e's one space in front of the content puts it out of reach of the
+     * three slots that are read GLUED to the opening pipe, and that argument
+     * holds only where the construct forbids the padding. The span cell is
+     * written WITH the padding inside it:
+     *
+     *     span_cell = rowspan_marker | colspan_marker ;
+     *     rowspan_marker = {space}, '^', {space} ;
+     *     colspan_marker = {space}, '<', {space} ;
+     *
+     * so a cell whose whole payload is `^` or `<` re-reads as a span however it
+     * is padded, and §2 is what applies: omitting the escape changes the
+     * re-parsed AST, so the payload is escaped.
+     *
+     * IT LOSES THE CELL, not a byte of spelling, which is why this is a §1
+     * failure rather than an under-escaped character. An ordinary
+     * `<td>^</td>` under a two-cell row came back as `| ^ |`, and the cell
+     * ABOVE it grew a `rowspan="2"` while the caret's own cell was deleted
+     * outright. In the GFM separator form the same payload in the header row
+     * emits `<th></th>` and the caret is simply gone.
+     *
+     * THE TEST, NOT THE TWO CHARACTERS: the payload is handed to the parser's
+     * OWN span-marker predicates rather than compared against a list here.
+     * Naming `^` and `<` in this file would be an enumeration that goes stale
+     * the next time a cell-level marker is added, and §6e's history is what
+     * that costs - each writer answered the alignment-sigil class with its own
+     * slightly different set of characters.
+     *
+     * ONLY A CONTENT-DERIVED PAYLOAD REACHES THIS. The `^` and `<` this
+     * converter writes for a real `rowspan` / `colspan` are pushed onto the row
+     * directly and are markers on purpose; escaping those would destroy the
+     * span the HTML actually held. An ATTRIBUTED cell is not asked either, for
+     * the reason the parser does not ask it: an attribute block ahead of the
+     * payload already makes the cell content.
+     *
+     * A cell emitted with the glued `=` header marker does not NEED the escape
+     * - `|= ^ |` is already a header cell holding a caret - and it gets one
+     * anyway, because which of the two header forms a row will take is decided
+     * after the cells are built. That spends one idle escape on a rare cell and
+     * renders identically; the other direction deletes the cell.
+     *
+     * @param string $payload
+     */
+    protected function escapeSpanMarkerCellPayload(string $payload): string
+    {
+        $this->cellReader ??= new TableParser();
+        if (
+            !$this->cellReader->isRowspanMarker($payload)
+            && !$this->cellReader->isColspanMarker($payload)
+        ) {
+            return $payload;
+        }
+
+        return str_replace(['^', '<'], ['\^', '\<'], $payload);
+    }
+
     protected function tableAlignMarker(string $alignment): string
     {
         return match ($alignment) {

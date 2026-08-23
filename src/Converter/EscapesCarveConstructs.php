@@ -310,6 +310,29 @@ trait EscapesCarveConstructs
             $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9_])@(?=[A-Za-z0-9_-])/', $line);
         }
 
+        // THE SYMBOL SIGIL, the third member of that family and the one that
+        // was missing. `a :rocket: b` came back bare and re-parsed as a
+        // `symbol` node, so under a configured symbol map the prose stopped
+        // being the prose the source held. PART 11 §2 already asks for the
+        // escape - omitting it changes the re-parsed AST - and `:` is already
+        // in §5's candidate set, which is why the tag sigil beside it is
+        // hardened and this one was not.
+        //
+        // ONLY THE OPENING COLON is escaped, because only the opening colon
+        // opens anything: the closing one is preceded by a name character, so
+        // the lookbehind declines it and `a \:rocket: b` is the whole escape.
+        //
+        // Mirrors `InlineParser::parseSymbol()` rather than approximating it: a
+        // symbol opens on a `:` NOT preceded by `_` or an alphanumeric and
+        // followed by a name that closes on another `:`, where the first name
+        // character is a letter, a digit, `+` or `-` and the rest adds `_`.
+        // Matching the CLOSER too is what leaves `a : b : c` alone - a colon
+        // that closes no shortcode opens no symbol - and the lookbehind is what
+        // leaves a URL alone, since `http://x` has a letter before its colon.
+        if (!str_contains($bareHandled, ':')) {
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9_]):(?=[A-Za-z0-9+-][\w+-]*:)/', $line);
+        }
+
         return $line;
     }
 
