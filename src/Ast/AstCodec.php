@@ -665,6 +665,44 @@ class AstCodec
             self::verifySchema($data);
         }
 
+        // PART 12 §21, and BEFORE every read of a VALUE below - before an
+        // abbreviation half is joined into a pair key, before a label becomes
+        // an array key, before anything reaches a renderer, which are the three
+        // readings the clause names.
+        //
+        // THE PARSE BOUNDARY ALREADY DOES THIS: `BlockParser` replaces an
+        // authored NUL with U+FFFD before the first line of a document is read,
+        // and PART 9 §29 carves the character out of the content class on that
+        // basis. The AST is a SECOND DOOR into the same renderers and it had no
+        // equivalent, so an authored NUL and an ingested one stood on different
+        // footings - one replaced, one content - which is the divergence §29
+        // exists to remove.
+        //
+        // THE SUBJECT IS THE DECODED VALUE, not the bytes of a JSON document.
+        // RFC 8259 forbids an unescaped U+0000 inside a string, so a raw byte in
+        // JSON text is a `JsonException: Control character error` that
+        // `decodeJson()` raises before any Carve rule is reached, and stays one.
+        // What reaches here is the `\u0000` escape, or a string a host built in
+        // memory and handed to this method directly - and THIS entry point takes
+        // an array, so it has no JSON layer at all, which is why the clause is
+        // stated on the value.
+        //
+        // NOT A REFUSAL, unlike §11's unnamed slot and §12's deviant root. Those
+        // are structure a producer got wrong. This is the opposite case: the
+        // replacement is what the parse boundary already does to the identical
+        // string, so performing it is the documented reading rather than a
+        // repair, and refusing would make an ingested document stricter than the
+        // same document written as source.
+        //
+        // AFTER THE REFUSALS ABOVE, which costs §21 nothing: they read STRUCTURE
+        // - a version envelope, a field name, a value's kind - and no refusal
+        // outcome turns on this character, since a type spelled with a NUL is
+        // not a known type and is not one with the NUL replaced either. It is
+        // BEFORE `verifyNothingWasLost()`, which compares the payload against
+        // the decoded node: normalizing after that comparison would report the
+        // engine's own replacement as a lost value.
+        $data = self::replaceNulValues($data);
+
         // Read BEFORE the walk: the definitions drive expansion, which is
         // engine state on the document rather than anything the block nodes
         // carry. The nodes themselves stay in `children` and decode like any
@@ -1052,6 +1090,45 @@ class AstCodec
             $violation,
             $hint,
         ));
+    }
+
+    /**
+     * Replace every U+0000 with U+FFFD in every string value of a payload.
+     *
+     * PART 12 §21. Values only: a NUL in a KEY is a slot the format does not
+     * name, and `verifyNoUnnamedSlots()` has already refused the payload for it.
+     *
+     * WHAT IT MAKES SAFE HERE. `ConsumedAbbreviationDefinitions` joins a term
+     * and an expansion on a NUL, on the premise that "both come from source
+     * text that the writers strip control characters out of" - true of the parse
+     * path and false of this one. Through the ingest, `("A" NUL "b", "c")` and
+     * `("A", "b" NUL "c")` keyed identically, and rendering a document holding
+     * both definitions with an occurrence of only the first DROPPED the second
+     * definition line, deleting the author's text - the loss PART 11 §10f's
+     * two-pass design exists to prevent. The separator does not have to change
+     * once the character cannot arrive.
+     *
+     * @param array<mixed> $data
+     *
+     * @return array<mixed>
+     */
+    private static function replaceNulValues(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if (is_string($value)) {
+                if (str_contains($value, "\0")) {
+                    $data[$key] = str_replace("\0", "\u{FFFD}", $value);
+                }
+
+                continue;
+            }
+
+            if (is_array($value)) {
+                $data[$key] = self::replaceNulValues($value);
+            }
+        }
+
+        return $data;
     }
 
     /**

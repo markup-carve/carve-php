@@ -49,8 +49,16 @@ final class ConsumedAbbreviationDefinitions
     /**
      * The separator between a key's two halves.
      *
-     * NUL, so it cannot occur in either half: both come from source text that
-     * the writers strip control characters out of before emitting.
+     * NUL, so it cannot occur in either half.
+     *
+     * TRUE AT BOTH DOORS, which it was not. The premise was "both come from
+     * source text that the writers strip control characters out of", and source
+     * is one of two ways a tree reaches a renderer: through the AST-JSON ingest
+     * the pairs `("A" NUL "b", "c")` and `("A", "b" NUL "c")` DID key
+     * identically, and one occurrence of the first dropped the second's
+     * definition line - the deletion this class exists to avoid. PART 12 §21
+     * now replaces U+0000 at that boundary too, so no string reaching here can
+     * carry one by any route.
      *
      * @var string
      */
