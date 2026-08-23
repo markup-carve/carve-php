@@ -91,6 +91,22 @@ class HtmlToCarve
     protected const ACTIVE_ELEMENTS = ['script', 'style', 'template', 'noscript'];
 
     /**
+     * Elements that write something with no text of their own to write.
+     *
+     * The companion to `ACTIVE_ELEMENTS` for `writesNothing()`: an empty
+     * `<div>` writes nothing, an empty `<img>` writes its alternative text and
+     * an `<hr>` writes a rule. Anything not named here and holding no text is
+     * taken to write nothing.
+     *
+     * @var list<string>
+     */
+    protected const SELF_STANDING_ELEMENTS = [
+        'img', 'br', 'hr', 'input', 'textarea', 'select', 'button', 'iframe',
+        'embed', 'object', 'video', 'audio', 'canvas', 'svg', 'math', 'picture',
+        'progress', 'meter', 'output',
+    ];
+
+    /**
      * The HTML attribute each semantic span name carries its value in.
      *
      * A name absent here has no value to carry and is always the bare boolean.
@@ -5003,6 +5019,86 @@ class HtmlToCarve
     }
 
     /**
+     * The nearest preceding sibling that puts anything in the emitted source.
+     *
+     * A node that writes nothing does not separate what stands on either side
+     * of it, so it cannot be what the adjacency question is answered against
+     * (carve-php#1617). Returns null when the walk runs out of siblings, and
+     * null when it reaches content that IS written - the caller wants the
+     * element it can compare against, and content that is not an element ends
+     * the walk with the same answer as no sibling at all.
+     *
+     * @param \DOMNode $node The node to walk back from.
+     *
+     * @return \DOMNode|null The sibling that writes something, or null.
+     */
+    protected function precedingSiblingThatWritesSomething(DOMNode $node): ?DOMNode
+    {
+        for ($prev = $node->previousSibling; $prev !== null; $prev = $prev->previousSibling) {
+            if ($prev instanceof DOMComment) {
+                // A comment is not written at all, at any nesting level.
+                continue;
+            }
+
+            if ($prev instanceof DOMElement) {
+                if ($this->writesNothing($prev)) {
+                    continue;
+                }
+
+                return $prev;
+            }
+
+            // A text node. Whitespace between two blocks is layout and writes
+            // nothing of its own; anything else is content that separates them.
+            if (trim($prev->textContent) === '') {
+                continue;
+            }
+
+            return $prev;
+        }
+
+        return null;
+    }
+
+    /**
+     * Does this element put NOTHING in the emitted source?
+     *
+     * Deliberately conservative, and one-directional in its risk. Answering
+     * "writes nothing" for an element that writes something would insert a hard
+     * boundary where content already separates two lists, which is visible
+     * damage; answering "writes something" for an element that writes nothing
+     * only leaves carve-php#1617 unfixed for that shape. So the test asks for
+     * POSITIVE evidence that something reaches the output, and treats anything
+     * it does not recognize as evidence.
+     *
+     * @param \DOMElement $node The element to test.
+     *
+     * @return bool True when nothing this element holds reaches the output.
+     */
+    protected function writesNothing(DOMElement $node): bool
+    {
+        // A dropped-whole subtree never reaches the output, whatever it holds -
+        // a `<script>` is all text and writes none of it.
+        if (in_array(strtolower($node->tagName), self::ACTIVE_ELEMENTS, true)) {
+            return true;
+        }
+
+        if (trim($node->textContent) !== '') {
+            return false;
+        }
+
+        // No text anywhere below. Only an element that stands for itself can
+        // still write something from here.
+        foreach ($node->getElementsByTagName('*') as $descendant) {
+            if (in_array(strtolower($descendant->tagName), self::SELF_STANDING_ELEMENTS, true)) {
+                return false;
+            }
+        }
+
+        return !in_array(strtolower($node->tagName), self::SELF_STANDING_ELEMENTS, true);
+    }
+
+    /**
      * Would this list MERGE with the sibling list written immediately before
      * it, if the two were only parted by the usual blank line?
      *
@@ -5015,13 +5111,28 @@ class HtmlToCarve
      * holds at every nesting level and for a run of three or more lists: each
      * list asks only about the one before it.
      *
+     * WHAT SITS BETWEEN THEM IS MEASURED BY WHAT IT WRITES, not by whether the
+     * DOM holds a node (carve-php#1617). `previousElementSibling` alone read an
+     * `<p></p>` between two lists as separation, so the boundary was never
+     * armed and the two came back as ONE list - the empty paragraph writes
+     * nothing, so nothing stood between the markers in the source that was
+     * emitted. Every element that renders to nothing did it: `<div></div>`,
+     * `<span></span>`, an empty `<table>`, a `<script>`, a `<p>` holding only
+     * whitespace or an empty `<span>`.
+     *
+     * So the walk steps back over siblings that write nothing and stops at the
+     * first one that writes something. It walks ALL node types rather than
+     * elements only, because a text node is content too: a comment writes
+     * nothing and is stepped over, while a run of text separates the lists by
+     * itself and ends the walk with no boundary.
+     *
      * @param \DOMElement $node The `<ul>` or `<ol>` element.
      *
      * @return bool True when the two lists need the hard boundary between them.
      */
     protected function precedingSiblingListWouldMerge(DOMElement $node): bool
     {
-        $prev = $node->previousElementSibling;
+        $prev = $this->precedingSiblingThatWritesSomething($node);
         if (!$prev instanceof DOMElement) {
             return false;
         }

@@ -187,4 +187,113 @@ class AdjacentSiblingListsGetTheHardBoundaryTest extends TestCase
             "the boundary must keep the lists apart; imported source was:\n" . $imported,
         );
     }
+
+    /**
+     * An element between the lists that RENDERS TO NOTHING (carve-php#1617).
+     *
+     * `noBoundaryProvider`'s paragraph case says "a block between the lists
+     * separates them by itself", and that is true of a block that WRITES
+     * something. An empty one writes nothing, so nothing stands between the two
+     * markers in the emitted source and they merge back into one list - the
+     * exact damage the boundary exists to prevent, reached by the one route
+     * that skipped the question.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function writesNothingProvider(): array
+    {
+        return [
+            'an empty paragraph' => ['<p></p>', "- a\n\n\n\n- b\n"],
+            'a paragraph of one space' => ['<p> </p>', "- a\n\n\n\n- b\n"],
+            'a paragraph of one newline' => ["<p>\n</p>", "- a\n\n\n\n- b\n"],
+            'a paragraph holding an empty span' => ['<p><span></span></p>', "- a\n\n\n\n- b\n"],
+            'an empty div' => ['<div></div>', "- a\n\n\n\n- b\n"],
+            'an empty span' => ['<span></span>', "- a\n\n\n\n- b\n"],
+            'an empty anchor' => ['<a></a>', "- a\n\n\n\n- b\n"],
+            'an empty emphasis' => ['<em></em>', "- a\n\n\n\n- b\n"],
+            'an empty table' => ['<table></table>', "- a\n\n\n\n- b\n"],
+            // All text, none of it written.
+            'a script' => ['<script>x()</script>', "- a\n\n\n\n- b\n"],
+            'a style' => ['<style>p{}</style>', "- a\n\n\n\n- b\n"],
+            // The walk steps over as many as it meets, not just one.
+            'two empty paragraphs' => ['<p></p><p></p>', "- a\n\n\n\n- b\n"],
+        ];
+    }
+
+    /**
+     * @param string $between
+     * @param string $expected
+     */
+    #[DataProvider('writesNothingProvider')]
+    public function testAnElementThatWritesNothingDoesNotSeparateTheLists(string $between, string $expected): void
+    {
+        $html = '<ul><li>a</li></ul>' . $between . '<ul><li>b</li></ul>';
+
+        $this->assertSame($expected, $this->converter->convert($html));
+        $this->assertSame(
+            2,
+            substr_count((new CarveConverter())->convert($this->converter->convert($html)), '<ul>'),
+            'the two lists must come back as two',
+        );
+    }
+
+    /**
+     * The other half: what DOES write something still separates them, and the
+     * walk must not step over it (carve-php#1617).
+     *
+     * Over-stepping is the failure this direction catches, and it is the one
+     * that passes every gate aimed at the shape above: an inserted boundary
+     * where content already parts the lists is damage the fix would cause
+     * rather than repair. A text node counts as content, which is why the walk
+     * reads every node type and not just elements.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function writesSomethingProvider(): array
+    {
+        return [
+            'a paragraph with text' => ['<p>hi</p>', "- a\n\nhi\n\n- b\n"],
+            'a heading' => ['<h2>h</h2>', "- a\n\n## h\n\n- b\n"],
+            'a block quote' => ['<blockquote><p>q</p></blockquote>', "- a\n\n> q\n\n- b\n"],
+            'a code block' => ['<pre><code>c</code></pre>', "- a\n\n```\nc\n```\n\n- b\n"],
+            // An element with no text that still stands for itself.
+            'an image' => ['<img src="i.png" alt="i">', "- a\n\n![i](i.png)\n\n- b\n"],
+            // A bare text node between the lists is content the walk stops at.
+            'a run of text' => ['text', "- a\n\ntext\n\n- b\n"],
+        ];
+    }
+
+    /**
+     * @param string $between
+     * @param string $expected
+     */
+    #[DataProvider('writesSomethingProvider')]
+    public function testWhatWritesSomethingStillSeparatesTheLists(string $between, string $expected): void
+    {
+        $html = '<ul><li>a</li></ul>' . $between . '<ul><li>b</li></ul>';
+
+        $this->assertSame($expected, $this->converter->convert($html));
+    }
+
+    /**
+     * The boundary is not a top-level affair, and neither is the walk
+     * (carve-php#1617). A comment writes nothing at any depth.
+     */
+    public function testTheWalkHoldsInsideAContainerAndInsideAnItem(): void
+    {
+        $quoted = $this->converter->convert(
+            '<blockquote><ul><li>a</li></ul><p></p><ul><li>b</li></ul></blockquote>',
+        );
+        $this->assertSame(">\n> - a\n>\n>\n>\n> - b\n", $quoted);
+        $this->assertSame(2, substr_count((new CarveConverter())->convert($quoted), '<ul>'));
+
+        // Three lists in the source - the item's own, and the two inside it.
+        $item = $this->converter->convert(
+            '<ul><li><ul><li>a</li></ul><p></p><ul><li>b</li></ul></li></ul>',
+        );
+        $this->assertSame(3, substr_count((new CarveConverter())->convert($item), '<ul>'));
+
+        $commented = $this->converter->convert('<ul><li>a</li></ul><!-- c --><ul><li>b</li></ul>');
+        $this->assertSame("- a\n\n\n\n- b\n", $commented);
+    }
 }
