@@ -253,6 +253,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (markup-carve/carve#1443, PART 9 §8). `git log --oneline` and
   `--force-with-lease` keep their hyphens; every other position converts as
   before, including `pages 1--10` and a trailing `text --`.
+- **An empty braced pair keeps its carets bare** (#1516, markup-carve/carve#1482, PART 11 §4 with §1). `{^^}` holds no content, so no construct opens in it, but the writer escaped both carets anyway and turned one text node into four - the difference §1's equality-modulo-escaping forbids. `}^p` and `[^` write bare too.
 - **An empty comment writes its marker and nothing else** (#1514). The block arm of the comment writer appended its content unconditionally, so an empty comment came back as `%% ` with a trailing space no clause asks for. The inline arm always had the guard.
 - **A continuation marker attaches only a flush-left block** (#1501, markup-carve/carve#1436, §17). A line at any other column falls through to the ordinary column rules, as if the marker line had been a comment.
 - **A lazy marker line's definition defines nothing** (#1487, #1486).
