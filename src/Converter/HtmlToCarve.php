@@ -1043,6 +1043,7 @@ class HtmlToCarve
      */
     protected function inspectImportListChildren(DOMElement $node, string $path, array &$diagnostics): void
     {
+        $tag = strtolower($node->tagName);
         $item = 0;
         $index = 0;
         foreach ($node->childNodes as $child) {
@@ -1059,8 +1060,73 @@ class HtmlToCarve
             // Not an item, so it has no number in the list the converter
             // builds. It keeps its position among the child nodes rather than
             // going unreported, which would lose the diagnostics it owes.
-            $this->inspectImportNode($child, $this->importChildPath($path, $child, $index), $diagnostics);
+            $childPath = $this->importChildPath($path, $child, $index);
+            $this->reportStrayListChild($child, $tag, $childPath, $diagnostics);
+            $this->inspectImportNode($child, $childPath, $diagnostics);
         }
+
+        // Bare text directly inside the list is a child node too, and it is the
+        // one the element walk above never reaches. It keeps every word - the
+        // converter emits it as a paragraph ahead of the list - so it owes the
+        // same note the elements owe.
+        $index = 0;
+        foreach ($node->childNodes as $child) {
+            $index++;
+            if ($child instanceof DOMElement || $child instanceof DOMComment) {
+                continue;
+            }
+            if (trim($child->textContent) === '') {
+                continue;
+            }
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Text directly inside <' . $tag . '> kept its content but not its place among the items:'
+                    . ' it is emitted as a paragraph ahead of the list',
+                'warning',
+                $path . '/text()[' . $index . ']',
+            );
+        }
+    }
+
+    /**
+     * Say that a non-`li` child of a list kept its content but not its place.
+     *
+     * `element-unwrapped` is the code: the vocabulary glosses it as a structural
+     * note about the INPUT that loses no meaning, which is exactly what this is.
+     * No engine spells "moved", and inventing a vocabulary entry for it is a
+     * three-engine decision rather than this defect's
+     * (markup-carve/carve-rs#1266).
+     *
+     * An ACTIVE element gets no note at all: the walk drops it with the
+     * `element-dropped` every other site gives it, and a position note beside
+     * that would tell the reader the content survived ahead of the list when it
+     * did not.
+     *
+     * @param \DOMElement $child
+     * @param string $listTag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function reportStrayListChild(
+        DOMElement $child,
+        string $listTag,
+        string $path,
+        array &$diagnostics,
+    ): void {
+        $childTag = strtolower($child->tagName);
+        if (in_array($childTag, self::ACTIVE_ELEMENTS, true)) {
+            return;
+        }
+
+        $this->addImportDiagnostic(
+            $diagnostics,
+            'element-unwrapped',
+            'A <' . $childTag . '> inside <' . $listTag . '> kept its content but not its place among the items:'
+                . ' it is emitted as blocks ahead of the list',
+            'warning',
+            $path,
+        );
     }
 
     /**
@@ -4205,6 +4271,33 @@ class HtmlToCarve
 
     protected function processList(DOMElement $node): string
     {
+        // A NON-`li` CHILD IS NOT DISCARDED, and it is not discarded in silence
+        // either (carve-php#1589). The item loop below acts only on `li` and
+        // has no `else`, so the WHOLE of anything else the list carried used to
+        // leave the document: `<ul><div id="stray">z</div><li>a</li></ul>` came
+        // back as one item, with the text `z` gone and nothing in the report
+        // saying it had been.
+        //
+        // HTML5 does not allow the shape. A sliced-up editor export produces it
+        // anyway, and that is the input an importer exists for.
+        //
+        // The content is emitted as blocks AHEAD OF THE LIST, which is the call
+        // `<dd>`-with-no-`<dt>` already makes: it keeps every word and stays
+        // valid Carve, where a list holding a non-item has no Carve spelling at
+        // all. The stray child goes through the ORDINARY block walk rather than
+        // being unwrapped by hand, so it keeps its own element and attributes
+        // too - a `<div id="stray">` comes back as a Carve div still carrying
+        // the id. Unwrapping it, the way the `<dd>` has to, would drop the id
+        // for no reason: a `<dd>` has no standalone spelling and a div has one.
+        //
+        // Collected BEFORE the depth counter moves, so the stray blocks render
+        // at the depth they are written at rather than one level in.
+        //
+        // The report says `element-unwrapped` for these, from
+        // `inspectImportListChildren()`; the matching ruling is
+        // markup-carve/carve-rs#1266.
+        $strayBlocks = $this->processStrayListChildren($node);
+
         $this->listDepth++;
         $isOrdered = strtolower($node->tagName) === 'ol';
         // Recognize both the rendered form (class="task-list") and the TipTap
@@ -4457,7 +4550,43 @@ class HtmlToCarve
         $this->listDepth--;
 
         // Add trailing newline for top-level lists
-        return $output . ($this->listDepth === 0 ? "\n" : '');
+        return $strayBlocks . $output . ($this->listDepth === 0 ? "\n" : '');
+    }
+
+    /**
+     * Render every child of a list that is not an `<li>`, as blocks that go
+     * ahead of the list.
+     *
+     * Delegating to the ordinary node walk settles the kinds that are not
+     * elements at all: the margin between pretty-printed items is blank text
+     * and produces nothing, a comment produces nothing, an ACTIVE element
+     * (`script`, `style`, `template`, `noscript`) is dropped by the walk with
+     * the `element-dropped` every other site gives it, and bare text directly
+     * inside the list comes back as the paragraph it needs.
+     *
+     * @param \DOMElement $node The `<ul>` or `<ol>` element.
+     *
+     * @return string Blocks, blank-line separated and blank-line terminated, or
+     *   the empty string when the list carries nothing but items.
+     */
+    protected function processStrayListChildren(DOMElement $node): string
+    {
+        $blocks = [];
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'li') {
+                continue;
+            }
+            if ($child instanceof DOMComment) {
+                continue;
+            }
+            $rendered = trim($this->processNode($child));
+            if ($rendered === '') {
+                continue;
+            }
+            $blocks[] = $rendered;
+        }
+
+        return $blocks === [] ? '' : implode("\n\n", $blocks) . "\n\n";
     }
 
     /**
