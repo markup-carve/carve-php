@@ -161,6 +161,33 @@ class AnUnreferencedEndnotesSectionKeepsItsTextTest extends TestCase
         $this->assertSame(1, substr_count($imported, 'note'), $imported);
     }
 
+    /**
+     * NO LIST AT ALL is the same silent deletion one shape over: the section
+     * held no `<ol>`, so the old path returned the empty string and everything
+     * inside it left with no diagnostic. It is an ordinary section now.
+     */
+    public function testASectionWithNoListKeepsItsContent(): void
+    {
+        $imported = (new HtmlToCarve())->convert('<section role="doc-endnotes"><p>x</p></section>');
+
+        $this->assertSame("x\n", $imported);
+    }
+
+    /**
+     * An INLINE note beside a regular one, in the round-trip shape that marks
+     * the inline item as one: the inline item is consumed with the rest, so the
+     * section still resolves whole rather than leaving a copy of the note behind
+     * as a list.
+     */
+    public function testAnInlineNoteBesideARegularOneIsConsumedWithIt(): void
+    {
+        $html = (new CarveConverter(roundTripMode: true))->convert("a^[inline] b[^1]\n\n[^1]: note\n");
+        $imported = (new HtmlToCarve())->convert($html);
+
+        $this->assertStringNotContainsString('1.', $imported);
+        $this->assertStringContainsString("[^1]: note\n", $imported);
+    }
+
     private function normalize(string $html): string
     {
         return (string)preg_replace('/\n\s*/', '', $html) . "\n";
