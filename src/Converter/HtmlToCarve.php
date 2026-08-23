@@ -563,6 +563,23 @@ class HtmlToCarve
             );
         }
 
+        if (($tag === 'ins' || $tag === 'del') && !$this->hasImportContentToUnwrap($node)) {
+            // AN EMPTY ONE HAS NOTHING TO MARK, and Carve spells the pair
+            // AROUND its content, so there is no marker to write and the
+            // element is dropped. Dropping is the right half of the answer -
+            // the other engine wrote an empty brace pair, which is not a
+            // construct and renders as characters the HTML never held - but a
+            // silent drop is still an element that left the document, and
+            // `element-dropped` is what says so (carve-php#1615).
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-dropped',
+                'Dropped an empty <' . $tag . '>: Carve spells the pair around its content, and an empty brace pair is not a construct',
+                'warning',
+                $path,
+            );
+        }
+
         if ($tag === 'a' && $this->importDestinationIsEmpty($node->getAttribute('href'))) {
             // A LINK THAT COMES BACK AS PROSE IS A LOSSY DECISION, and this
             // page requires those to be observable. It is not the bare `<div>`'s
@@ -2477,6 +2494,10 @@ class HtmlToCarve
     {
         $content = '';
         $inlineBuffer = '';
+        // The last block written, for the caption-opener test below: a caption
+        // line reaches back across ONE blank line, which is exactly the
+        // separation this loop writes.
+        $previousBlock = '';
 
         foreach ($node->childNodes as $child) {
             if ($skip !== null && $skip($child)) {
@@ -2493,12 +2514,18 @@ class HtmlToCarve
                 // Flush any accumulated inline content as an implicit paragraph
                 $inlineText = trim($inlineBuffer);
                 if ($inlineText !== '') {
+                    $inlineText = $this->escapeDetachedCaptionOpener($previousBlock, $inlineText);
                     $content .= $inlineText . "\n\n";
+                    $previousBlock = $inlineText;
                 }
                 $inlineBuffer = '';
 
                 // Process the block element
-                $content .= $this->processNode($child);
+                $rendered = $this->escapeDetachedCaptionOpener($previousBlock, $this->processNode($child));
+                $content .= $rendered;
+                if (trim($rendered) !== '') {
+                    $previousBlock = trim($rendered);
+                }
             } else {
                 // Accumulate inline content
                 $inlineBuffer .= $this->processNode($child);
@@ -2508,10 +2535,67 @@ class HtmlToCarve
         // Flush any remaining inline content
         $inlineText = trim($inlineBuffer);
         if ($inlineText !== '') {
-            $content .= $inlineText . "\n\n";
+            $content .= $this->escapeDetachedCaptionOpener($previousBlock, $inlineText) . "\n\n";
         }
 
         return trim($content);
+    }
+
+    /**
+     * Harden a caption caret that would attach to the block written before it.
+     *
+     * A caption line reaches BACK across one blank line and makes a figure of
+     * the block above it (PART 9 §4b), and one blank line is exactly what this
+     * importer writes between blocks. So a paragraph whose text happens to
+     * begin `^ ` stopped being a paragraph: `<table>` followed by `<p>^ c</p>`
+     * came back as the table plus a caption, and the paragraph was gone
+     * (carve-php#1615).
+     *
+     * THE TEST IS THE ONE PART 11 §2 STATES, run rather than approximated: the
+     * escape is written if and only if omitting it changes what the source
+     * means. The two candidate spellings are rendered and compared, so the
+     * hosts a caption attaches to are never enumerated here - a table, a quote,
+     * a code block, an image, a display-math paragraph and a figure group all
+     * answer for themselves, and a host added later answers too.
+     *
+     * That also settles the other half, which is the half a writer gets wrong
+     * silently: where nothing captionable stands above, both spellings render
+     * the same and the caret is left alone.
+     *
+     * Bounded to the PREVIOUS block rather than the document so far, because
+     * that is all a caption can reach, and so a document full of caret-shaped
+     * paragraphs cannot make this quadratic.
+     *
+     * @param string $previousBlock The block written immediately above, if any.
+     * @param string $block The block about to be written.
+     *
+     * @return string The block, with the caret escaped if it would attach.
+     */
+    protected function escapeDetachedCaptionOpener(string $previousBlock, string $block): string
+    {
+        if (trim($previousBlock) === '') {
+            return $block;
+        }
+
+        $offset = strspn($block, " \t\n\r");
+        $newline = strpos($block, "\n", $offset);
+        $firstLine = $newline === false ? substr($block, $offset) : substr($block, $offset, $newline - $offset);
+        // A caption opener is the caret, a run of spaces, and something that is
+        // not more whitespace - the parser own opener test.
+        if (preg_match('/^\^ +.*\S/u', $firstLine) !== 1) {
+            return $block;
+        }
+
+        $escaped = substr($block, 0, $offset) . '\\' . substr($block, $offset);
+        $renderer = new CarveConverter();
+        $meaning = $renderer->convert($previousBlock . "\n\n" . $block);
+        if ($meaning === $renderer->convert($previousBlock . "\n\n" . $escaped)) {
+            // Nothing above for the caret to reach, so the escape would be idle
+            // and PART 11 §2 forbids writing it.
+            return $block;
+        }
+
+        return $escaped;
     }
 
     /**
@@ -3946,7 +4030,7 @@ class HtmlToCarve
                 $cssClass = 'fn';
             }
 
-            return '[' . $content . ']{.' . $cssClass . '}';
+            return '[' . $this->escapeNoteReferenceLabel($content) . ']{.' . $cssClass . '}';
         }
 
         // The engine's own footnote reference outside round-trip mode:
@@ -3976,7 +4060,7 @@ class HtmlToCarve
             $text = $href;
         }
 
-        $text = $this->escapeLinkOrImageLabel($text);
+        $text = $this->escapeNoteReferenceLabel($this->escapeLinkOrImageLabel($text));
 
         // Check for @mention (round-trip support for MentionsExtension)
         if ($node->hasAttribute('data-username')) {
@@ -6265,7 +6349,7 @@ class HtmlToCarve
 
         // If span has any attributes, convert to Djot span syntax
         if ($attrs !== '') {
-            return '[' . $content . ']{' . $attrs . '}';
+            return '[' . $this->escapeNoteReferenceLabel($content) . ']{' . $attrs . '}';
         }
 
         return $content;
@@ -6412,7 +6496,7 @@ class HtmlToCarve
             $attrParts[] = $type;
         }
 
-        return '[' . $content . ']{' . implode(' ', $attrParts) . '}';
+        return '[' . $this->escapeNoteReferenceLabel($content) . ']{' . implode(' ', $attrParts) . '}';
     }
 
     /**
@@ -7822,6 +7906,36 @@ class HtmlToCarve
      * `[a \\\\ b]` for a label containing one backslash. The raw `alt` attribute
      * has NOT been through that path, so its call site doubles first.
      */
+
+    /**
+     * Harden a label whose text would open a NOTE REFERENCE.
+     *
+     * A span and an inline link both write their content in a bracket run,
+     * and `[^x]` is a note reference (PART 11 §2). So an element whose text
+     * begins with a caret came back as a reference instead of as itself:
+     * `<abbr title="y">^1</abbr>` was written `[^1]{abbr=y}`, which renders
+     * `<p>[^1]</p>` - the span gone and the attribute block literal text
+     * (carve-php#1615).
+     *
+     * ONLY THE LABELED HALF COLLIDES, which is the other half of §2 and the
+     * half that is wrong silently, because an idle escape passes every gate
+     * aimed at the missing one. The parser's rule is `[^` followed by at
+     * least one character that is not `]` or a line break, so `[^]` is not a
+     * reference and keeps no escape, and a caret anywhere but the first
+     * position is ordinary punctuation.
+     *
+     * An IMAGE label is not this slot: `![^1](u)` is an image whose
+     * alternative text is `^1`, because the `!` takes the `[` first.
+     *
+     * @param string $text The label text, already escaped as prose.
+     *
+     * @return string The label, with a colliding caret escaped.
+     */
+    protected function escapeNoteReferenceLabel(string $text): string
+    {
+        return preg_match('/^\\^[^\\]\\r\\n]/u', $text) === 1 ? '\\' . $text : $text;
+    }
+
     protected function escapeLinkOrImageLabel(string $text): string
     {
         return str_replace(
