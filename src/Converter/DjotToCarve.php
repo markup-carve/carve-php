@@ -492,6 +492,14 @@ class DjotToCarve
      * before an item's own indented content closes nothing under N1a and stays,
      * and a run inside a fenced block is that block's content, not layout.
      *
+     * Every line is read THROUGH its block-quote prefix, because inside a quote
+     * a blank line is written `>` and a marker line `> - item`, so a test on the
+     * raw line recognizes neither and the same silent split happens one
+     * container down. The run, the marker after it and the line above it must
+     * share a quote depth: a marker one level away separates nothing this run
+     * could join. The run's OWN first line survives the collapse, so a quoted
+     * run keeps its `>` and an unquoted one stays the empty line it was.
+     *
      * carve-rs applies the same rule in `collapse_false_list_boundaries`; the
      * two importers must agree byte for byte.
      */
@@ -500,32 +508,56 @@ class DjotToCarve
         $lines = explode("\n", $source);
         $fenced = $this->fencedLineMap($lines);
         $count = count($lines);
-        $result = [];
 
+        /** @var array<int, int> $depth */
+        $depth = [];
+        /** @var array<int, string> $content */
+        $content = [];
+        foreach ($lines as $i => $line) {
+            [$depth[$i], $content[$i]] = $this->quoted($line);
+        }
+
+        $result = [];
         for ($i = 0; $i < $count; $i++) {
-            if ($fenced[$i] || trim($lines[$i]) !== '') {
+            if ($fenced[$i] || trim($content[$i]) !== '') {
                 $result[] = $lines[$i];
 
                 continue;
             }
 
+            $here = $depth[$i];
             $end = $i;
-            while ($end + 1 < $count && !$fenced[$end + 1] && trim($lines[$end + 1]) === '') {
+            while (
+                $end + 1 < $count
+                && !$fenced[$end + 1]
+                && trim($content[$end + 1]) === ''
+                && $depth[$end + 1] === $here
+            ) {
                 $end++;
             }
-            $run = $end - $i + 1;
 
-            if ($run >= 3 && $end + 1 < $count && !$fenced[$end + 1] && $this->isMarkerLine($lines[$end + 1])) {
-                $above = null;
+            $next = $end + 1;
+            if (
+                $end - $i + 1 >= 3
+                && $next < $count
+                && !$fenced[$next]
+                && $depth[$next] === $here
+                && $this->isMarkerLine($content[$next])
+            ) {
+                $above = -1;
                 for ($k = $i - 1; $k >= 0; $k--) {
-                    if (trim($lines[$k]) !== '') {
-                        $above = $lines[$k];
+                    if (trim($content[$k]) !== '') {
+                        $above = $k;
 
                         break;
                     }
                 }
-                if ($above !== null && ($this->isMarkerLine($above) || preg_match('/^[ \t]/', $above))) {
-                    $result[] = '';
+                if (
+                    $above >= 0
+                    && $depth[$above] === $here
+                    && ($this->isMarkerLine($content[$above]) || preg_match('/^[ \t]/', $content[$above]))
+                ) {
+                    $result[] = $lines[$i];
                     $i = $end;
 
                     continue;
@@ -539,6 +571,26 @@ class DjotToCarve
         }
 
         return implode("\n", $result);
+    }
+
+    /**
+     * Split a line into its block-quote depth and the content inside it.
+     *
+     * A prefix is a run of `>` markers, each optionally followed by one space
+     * and repeatable for nesting, so `> > text` is depth 2 holding `text` and a
+     * lone `>` is a blank line one level in.
+     *
+     * @return array{0: int, 1: string}
+     */
+    protected function quoted(string $line): array
+    {
+        $depth = 0;
+        while (preg_match('/^[ \t]*>[ ]?/', $line, $prefix)) {
+            $depth++;
+            $line = substr($line, strlen($prefix[0]));
+        }
+
+        return [$depth, $line];
     }
 
     /**

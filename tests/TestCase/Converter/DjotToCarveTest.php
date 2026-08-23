@@ -504,6 +504,64 @@ class DjotToCarveTest extends TestCase
     }
 
     /**
+     * Inside a quote a blank line is written `>` and a marker line `> - item`,
+     * so the same silent split happens one container down unless every line is
+     * read through its quote prefix.
+     */
+    public function testALongBlankRunInsideAQuoteCollapsesAndKeepsItsPrefix(): void
+    {
+        $djot = <<<'DJOT'
+        > 1. one
+        >
+        >
+        >
+        > 2. two
+        DJOT;
+
+        $expected = <<<'CARVE'
+        > 1. one
+        >
+        > 2. two
+        CARVE;
+
+        $carve = $this->converter->convert($djot);
+        $this->assertSame($expected, $carve);
+
+        $html = (new CarveConverter())->convert($carve);
+        $this->assertSame(1, substr_count($html, '<ol'));
+        $this->assertStringNotContainsString('start="2"', $html);
+    }
+
+    public function testAQuotedRunWithTheMarkerAtAnotherDepthIsUntouched(): void
+    {
+        // The marker is outside the quote, so it continues no list the run
+        // could have joined.
+        $djot = <<<'DJOT'
+        > - a
+        >
+        >
+        >
+        - b
+        DJOT;
+
+        $this->assertSame($djot, $this->converter->convert($djot));
+    }
+
+    public function testAnUnquotedRunWithTheMarkerInsideAQuoteIsUntouched(): void
+    {
+        $djot = <<<'DJOT'
+        - a
+
+
+
+
+        > - b
+        DJOT;
+
+        $this->assertSame($djot, $this->converter->convert($djot));
+    }
+
+    /**
      * Performance guard: the same-family overlap check is O(n log n), not the
      * old O(n^2) linear scan over every prior match. A large emphasis-heavy
      * input must complete quickly and produce the correct output. The bound is
