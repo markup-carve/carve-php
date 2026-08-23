@@ -1428,6 +1428,40 @@ class CarveRenderer implements RendererInterface
     {
         $attrs = $this->renderAttrs($node);
         $withAttrs = static fn (string $body): string => $attrs === '' ? $body : $attrs . "\n" . $body;
+        /**
+         * PART 9 §17 L7: the writer spells looseness with `{loose}` ONLY where
+         * the blank-line spelling cannot.
+         *
+         * This is the load-bearing rule for churn. Deriving the key onto every
+         * loose container would rewrite a large share of the corpus and of every
+         * document anyone has written - on a multi-item loose list the blank
+         * lines already say it, so the key would be an idle mark. The precedent
+         * is PART 12 §15, whose writer retains `header-rows` where it is present
+         * rather than deriving it onto every table, and PART 11 §2, which spends
+         * a mark only where omitting it would change the re-parsed document.
+         *
+         * `$attrs` is the node's own already-rendered attribute run, which never
+         * contains `loose`: the parser CONSUMED it, so the writer re-derives it
+         * from the tree rather than echoing what the author wrote. That is what
+         * makes a redundant `{loose}` a no-op through a format pass as well as
+         * through a render.
+         */
+        $withLooseAttrs = function (ListBlock|DefinitionList $container, string $body) use ($attrs): string {
+            if (!$this->needsLooseKey($container, $body)) {
+                return $attrs === '' ? $body : $attrs . "\n" . $body;
+            }
+            // The key LEADS, which is where an author writes it and where the
+            // corpus shows it. Its position among the other slots is not
+            // observable in the output - it is consumed before any renderer sees
+            // it - so leading is a spelling choice rather than a fact moved.
+            $order = array_values(array_filter(
+                $container->getAttributeOrder(),
+                static fn (string $slot): bool => $slot !== 'loose',
+            ));
+            array_unshift($order, 'loose');
+
+            return $this->renderAttrList($container->getAttributes() + ['loose' => ''], $order) . "\n" . $body;
+        };
 
         return match (true) {
             $node instanceof Frontmatter => $withAttrs($this->renderFrontmatter($node)),
@@ -1452,7 +1486,7 @@ class CarveRenderer implements RendererInterface
             // spelling, so it wins.
             $node instanceof CodeBlock => $this->withCodeBlockAttrs($node),
             $node instanceof BlockQuote => $withAttrs($this->renderBlockQuote($node)),
-            $node instanceof ListBlock => $withAttrs($this->renderList($node)),
+            $node instanceof ListBlock => $withLooseAttrs($node, $this->renderList($node)),
             $node instanceof ListItem => $this->renderListItem($node),
             $node instanceof ThematicBreak => $withAttrs(
                 $this->thematicBreakMarker === '---' ? str_repeat($node->char, 3) : $this->thematicBreakMarker,
@@ -1462,7 +1496,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof Div && $node->isTyped() && $this->admonitionKind($node) !== null => $this->withFencedDivAttrs($node, [$this->admonitionKind($node)], $this->renderAdmonition($node)),
             $node instanceof Div => $withAttrs($this->renderDiv($node)),
             $node instanceof LineBlock => $withAttrs($this->renderLineBlock($node)),
-            $node instanceof DefinitionList => $withAttrs($this->renderDefinitionList($node)),
+            $node instanceof DefinitionList => $withLooseAttrs($node, $this->renderDefinitionList($node)),
             $node instanceof FigureGroup => $withAttrs($this->renderFigureGroup($node)),
             $node instanceof Figure => $withAttrs($this->renderFigure($node)),
             $node instanceof RawBlock => $withAttrs($this->renderRawBlock($node)),
@@ -3607,6 +3641,78 @@ class CarveRenderer implements RendererInterface
         // never fire, on any input, for as long as it has existed
         // (carve-php#831). The attribute list is rendered directly instead.
         return $this->renderAttrList($own, $node->getAttributeOrder());
+    }
+
+    /**
+     * Does this container's looseness need the `{loose}` key spelled?
+     *
+     * Only where the blank-line spelling cannot say it (PART 9 §17 L7), because
+     * a mark that says what the layout already says is an idle one.
+     */
+    protected function needsLooseKey(ListBlock|DefinitionList $node, string $body): bool
+    {
+        if ($node instanceof ListBlock) {
+            $items = $node->getChildren();
+            if ($node->isTight() || $items === []) {
+                return false;
+            }
+            // A BLANK LINE BETWEEN ITEMS ALWAYS LOOSENS (§17 L2), and this
+            // writer emits one between every pair of a loose list's items, so
+            // two or more items already spell it.
+            if (count($items) > 1) {
+                return false;
+            }
+            // ONE ITEM has no "between items" for a blank line to stand in, so
+            // the only spelling left is one the item's own content produces -
+            // and whether it does is the PARSER's question, not a shape this
+            // writer can read off the tree. §17's looseness rules (L1, L2, L6)
+            // decide it together, so a second copy of them here would answer
+            // differently the day any of them moves: a lead container holding a
+            // blank line re-reads LOOSE, while the same blank line before a
+            // fence does not.
+            //
+            // A body with NO blank line in it cannot re-read loose either way,
+            // so the common shape - a one-item list holding one paragraph - is
+            // answered without a parse.
+            if (preg_match('/\n[ \t]*\n/', $body) !== 1) {
+                return true;
+            }
+
+            try {
+                $first = (new CarveConverter())->parse($body)->getChildren()[0] ?? null;
+            } catch (Throwable) {
+                // A writer bug that produces unparseable source must not throw
+                // out of the renderer, and the conservative answer is the mark.
+                return true;
+            }
+
+            return !$first instanceof ListBlock || $first->isTight();
+        }
+
+        if (!$node->isLoose()) {
+            return false;
+        }
+
+        // A description already holding a second block takes the wrapper without
+        // the key, so it spells its own looseness; one that renders as a single
+        // paragraph has no blank-line spelling at all - a blank line between two
+        // ENTRIES does not loosen a `<dl>`. The key is needed as soon as ONE
+        // description is in that second state, because a sibling's second block
+        // says nothing about it.
+        foreach ($node->getChildren() as $child) {
+            if (!$child instanceof DefinitionDescription) {
+                continue;
+            }
+            $visible = array_values(array_filter(
+                $child->getChildren(),
+                static fn (Node $block): bool => !$block instanceof Comment,
+            ));
+            if (count($visible) === 1 && $visible[0] instanceof Paragraph) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function renderAttrs(?Node $node): string

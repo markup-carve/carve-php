@@ -3283,8 +3283,25 @@ class HtmlRenderer implements RendererInterface
             $children,
             static fn (Node $child): bool => !$child instanceof Comment,
         ));
+        // PART 9 §17 L7: a consumed `{loose}` on the list says the descriptions
+        // render as BLOCKS, which is the one shape no blank line can spell - a
+        // blank line between two ENTRIES does not loosen a `<dl>` at all, so
+        // otherwise only a SECOND block inside the description reaches the
+        // wrapper. Redundant use is a no-op: a description already holding two
+        // blocks takes the block arm regardless of the key.
+        //
+        // The single-paragraph description still closes on its own line, the way
+        // a single-paragraph list item does: looseness moves the `<p>`, never
+        // the framing.
+        $parent = $node->getParent();
+        $loose = $parent instanceof DefinitionList && $parent->isLoose();
         if (count($visible) === 1 && $visible[0] instanceof Paragraph) {
-            return '  <dd' . $attrs . '>' . $this->renderChildren($visible[0]) . "</dd>\n";
+            $inner = $this->renderChildren($visible[0]);
+            $body = $loose
+                ? '<p' . $this->renderAttributes($visible[0]) . '>' . $inner . '</p>'
+                : $inner;
+
+            return '  <dd' . $attrs . '>' . $body . "</dd>\n";
         }
 
         $content = rtrim($this->renderChildren($node));
