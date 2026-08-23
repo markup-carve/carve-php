@@ -465,7 +465,9 @@ Formatter:
 
 Migration (other markup to Carve, on stdout):
   migrate --from FORMAT   html, markdown (md), djot or bbcode
-  migrate --mode MODE     HTML only: safe (default) or raw
+  migrate --mode MODE     HTML only: safe (default), semantic or roundtrip
+                          (roundtrip is for trusted input only: it reads the
+                          source back out of the sidecar attributes)
   migrate --adapter NAME  HTML only: the source generator (default generic)
   migrate --report FILE   HTML only: write the loss report as JSON (- is stderr)
   migrate --check-loss    HTML only: exit 1 when anything was dropped
