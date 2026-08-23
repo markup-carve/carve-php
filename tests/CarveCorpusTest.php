@@ -816,8 +816,7 @@ class CarveCorpusTest extends TestCase
 
     protected static function isImplemented(string $slug): bool
     {
-        $named = preg_replace('/^\d+-/', '', $slug);
-        $base = preg_replace('/-\d+$/', '', (string)$named);
+        [$named, $base] = self::categoryNames($slug);
         foreach (self::IMPLEMENTED as $category) {
             if ($named === $category || $base === $category) {
                 return true;
@@ -825,6 +824,19 @@ class CarveCorpusTest extends TestCase
         }
 
         return false;
+    }
+
+    /**
+     * Return exactly the two category names an IMPLEMENTED entry may match.
+     *
+     * @return array{string, string}
+     */
+    private static function categoryNames(string $slug): array
+    {
+        $named = (string)preg_replace('/^\d+-/', '', $slug);
+        $base = (string)preg_replace('/-\d+$/', '', $named);
+
+        return [$named, $base];
     }
 
     /**
@@ -869,6 +881,34 @@ class CarveCorpusTest extends TestCase
             $orphaned,
             'AHEAD_OF_PIN names case(s) the corpus does not have: ' . implode(', ', $orphaned)
                 . ' - renamed upstream, or already retired; either way the entry asserts nothing.',
+        );
+    }
+
+    public function testImplementedAndKnownGapsNameCorpusCases(): void
+    {
+        $slugs = array_keys(self::corpusProvider());
+        $categories = [];
+        foreach ($slugs as $slug) {
+            foreach (self::categoryNames($slug) as $category) {
+                $categories[$category] = true;
+            }
+        }
+
+        $orphanedImplemented = array_values(array_diff(self::IMPLEMENTED, array_keys($categories)));
+        $orphanedGaps = array_values(array_diff(array_keys(self::KNOWN_GAPS), $slugs));
+
+        self::assertSame(
+            [],
+            $orphanedImplemented,
+            'IMPLEMENTED names category or categories the corpus does not have: '
+                . implode(', ', $orphanedImplemented)
+                . ' - renamed upstream, or already retired; either way the entry asserts nothing.',
+        );
+        self::assertSame(
+            [],
+            $orphanedGaps,
+            'KNOWN_GAPS names case(s) the corpus does not have: ' . implode(', ', $orphanedGaps)
+                . ' - renamed upstream, or already retired; either way the entry defers nothing.',
         );
     }
 
