@@ -563,7 +563,7 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'dl' && $this->definitionListSplits($node)) {
+        if ($tag === 'dl' && $this->definitionListSplits($path)) {
             // THE GROUPING IS A REAL LOSS AND TAKES ITS OWN ROW
             // (markup-carve/carve#1636). A `<dd>` that writes nothing ends the
             // list it is in, because one list would give the term above it the
@@ -2152,6 +2152,7 @@ class HtmlToCarve
         $this->abbreviationDefinitions = [];
         $this->abbreviationMap = [];
         $this->captionFlattenDiagnostics = [];
+        $this->splitDefinitionLists = [];
 
         // Wrap in a single root element unless the input is already a full
         // document. Only a leading <!doctype>/<html>/<body> counts as a root:
@@ -2482,6 +2483,26 @@ class HtmlToCarve
      * @var list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic>
      */
     protected array $captionFlattenDiagnostics = [];
+
+    /**
+     * The `<dl>` elements this conversion wrote as more than one list.
+     *
+     * RECORDED BY THE WRITER, not re-derived by the diagnostic walk. Whether an
+     * entry writes nothing is answered by RENDERING it - `<dd><p> </p></dd>` and
+     * `<dd><ul></ul></dd>` hold elements and still write nothing - so a second
+     * predicate over the DOM answers differently from the one that actually
+     * split the list, and the split goes undeclared. `convertWithReport()`
+     * converts first and inspects afterwards, so what the writer saw is
+     * available by the time the row is written.
+     *
+     * KEYED BY PATH, not by object id: `convertWithReport()` inspects a SECOND
+     * parse of the same HTML, so no node object is shared between the two
+     * passes. The path is what both walks agree on, and it is what the row
+     * carries anyway.
+     *
+     * @var array<string, true>
+     */
+    protected array $splitDefinitionLists = [];
 
     private function conversionNodePath(DOMElement $node): string
     {
@@ -6227,6 +6248,7 @@ class HtmlToCarve
                 if ($pendingBreak) {
                     $output .= "\n%%\n\n";
                     $pendingBreak = false;
+                    $this->splitDefinitionLists[$this->conversionNodePath($node)] = true;
                 }
                 $output .= ':: ' . trim($this->processChildren($child)) . "\n";
             } elseif ($tag === 'dd') {
@@ -6270,31 +6292,18 @@ class HtmlToCarve
     }
 
     /**
-     * Does writing this `<dl>` split it into more than one list?
+     * Did writing this `<dl>` split it into more than one list?
      *
-     * The same test the writer applies, kept beside it so the ROW and the
-     * SOURCE cannot answer differently: an entry that writes nothing followed by
-     * a TERM. A second description of the same entry is not a new entry - the
-     * term above it already has that description - and a drop with nothing after
-     * it writes the term alone and stays one list, which is the shape
-     * markup-carve/carve#1627 ruled.
+     * READ OFF THE WRITER'S OWN RECORD rather than re-derived here, so the ROW
+     * and the SOURCE cannot answer differently. Whether an entry writes nothing
+     * is a question about the RENDERED description - `<dd><p> </p></dd>` and
+     * `<dd><ul></ul></dd>` both hold elements and both write nothing - and a
+     * DOM-shaped predicate gets those two wrong, which would split the list and
+     * declare nothing.
      */
-    protected function definitionListSplits(DOMElement $node): bool
+    protected function definitionListSplits(string $path): bool
     {
-        $dropped = false;
-        foreach ($this->definitionListEntries($node) as $child) {
-            $tag = strtolower($child->tagName);
-            if ($tag === 'dt') {
-                if ($dropped) {
-                    return true;
-                }
-
-                continue;
-            }
-            $dropped = !$this->hasImportContentToUnwrap($child);
-        }
-
-        return false;
+        return isset($this->splitDefinitionLists[$path]);
     }
 
     /**

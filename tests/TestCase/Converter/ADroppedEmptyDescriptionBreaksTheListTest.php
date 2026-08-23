@@ -238,4 +238,30 @@ class ADroppedEmptyDescriptionBreaksTheListTest extends TestCase
             $this->import('<dl><dt>t1</dt><dd><ul></ul></dd><dt>t2</dt><dd>d2</dd></dl>'),
         );
     }
+
+    /**
+     * AND EVERY SPLIT DECLARES ITSELF, including these two.
+     *
+     * Whether an entry writes nothing is a question about the RENDERED
+     * description, and `<dd><p> </p></dd>` and `<dd><ul></ul></dd>` both hold
+     * elements while writing nothing. A DOM-shaped predicate in the report walk
+     * answers `false` for both, so the list split and nothing said so - an
+     * UNDECLARED loss, which is the one thing the ceiling never permits. The row
+     * is read off the writer's own record instead.
+     *
+     * (The `structure-unspellable` row for the `<dd>` itself still uses the
+     * DOM-shaped test and is absent here. That row belongs to
+     * markup-carve/carve-php#1615 and is not this clause's to move.)
+     */
+    public function testEverySplitDeclaresItselfIncludingTheOnesTheDomCannotSee(): void
+    {
+        $this->assertContains(
+            'structure-split',
+            $this->codes('<dl><dt>t1</dt><dd><p>  </p></dd><dt>t2</dt><dd>d2</dd></dl>'),
+        );
+        $this->assertContains(
+            'structure-split',
+            $this->codes('<dl><dt>t1</dt><dd><ul></ul></dd><dt>t2</dt><dd>d2</dd></dl>'),
+        );
+    }
 }
