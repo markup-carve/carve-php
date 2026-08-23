@@ -541,6 +541,16 @@ class MarkdownToCarveTest extends TestCase
                 'two \{^a^} and \{,b,} x',
                 '<p>two {^a^} and {,b,} x</p>',
             ],
+            'escapes the symbol sigil' => [
+                ':rocket:',
+                '\:rocket:',
+                '<p>:rocket:</p>',
+            ],
+            'escapes only the OPENING colon of a shortcode' => [
+                'a :rocket: b',
+                'a \:rocket: b',
+                '<p>a :rocket: b</p>',
+            ],
             'escapes an emphasis run whose closer is followed by a slash' => [
                 'a /it// b',
                 'a \/it// b',
@@ -584,7 +594,16 @@ class MarkdownToCarveTest extends TestCase
             'plain brackets' => ['[x]'],
             'plain angle brackets' => ['<x>'],
             'plain pipes' => ['|x|'],
-            'emoji shortcode' => [':rocket:'],
+            // `:rocket:` MOVED to the escaping provider. It sat here from
+            // before anyone had ruled the symbol sigil, and PART 11 §2's test
+            // decides it the other way: `parse(':rocket:')` yields a `symbol`
+            // node, so omitting the escape changes the re-parsed AST and the
+            // text stops being the text under a configured symbol map. The
+            // shared corpus `corpus-escape/a-symbol-shortcode` requires
+            // `a \:rocket: b` under this profile too (markup-carve/carve#1601).
+            // A colon that closes no shortcode is still bare, below.
+            'a colon that closes no shortcode' => ['a : b : c'],
+            'a time of day' => ['at 10:30 today'],
             'plain dollar math' => ['$x$'],
             'windows-style path' => ['C:/path/to/file'],
             'aspect ratio' => ['ratio 16/9'],
