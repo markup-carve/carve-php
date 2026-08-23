@@ -48,6 +48,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`carve fmt` keeps a heading's leading tab** (#1595, markup-carve/carve#1587, PART 11 §1). A heading's marker separator is a run of SPACES, so the first character that is not one begins the heading - the reader already kept it, and the writer trimmed it away, so `##<SP><TAB>x` came back as `##<SP>x`. Corpus 406.
 - **An imported list item's attributes abut its marker** (#1587). They were written on an indented line below it, where a block attribute floats forward, so a one-block item lost the attribute and a two-block item put it on the second block - a degraded footnote's `id` went that way. `1.{#fn1} n` is what carve-js writes. A quoted marker attribute value may hold an escaped quote and a brace, as a block attribute's already could.
 - **A non-`li` child of a list keeps its content and says so** (#1589, ruling markup-carve/carve-rs#1266). The HTML importer dropped it whole and in silence; it now goes through the ordinary block walk, is emitted ahead of the list, and reports `element-unwrapped`. A NESTED list's strays stay inside the item that holds the list, instead of splitting it apart at column zero.
 - **An endnotes section nothing references keeps its text** (#1582, markup-carve/carve#1558). The importer rebuilt a footnote definition from an unreferenced `<section role="doc-endnotes">`, which renders to nothing; it now imports as the `<hr>` and `<ol>` it is built from.

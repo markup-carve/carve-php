@@ -710,6 +710,25 @@ class CarveCorpusTest extends TestCase
         // byte-identically to their pinned HTML, so both are IMPLEMENTED.
         'a-container-starts-at-its-opening-markup-even-where-its-first-child-is-unplaced',
         'a-marker-at-an-item-content-column-opens-a-sublist-first-in-the-item-or-not',
+        // ARRIVED WITH THE BUMP TO carve d0b6c92. Each renders byte-identically
+        // to its pinned HTML on this engine already, so all five are declared
+        // rather than deferred - the bump found no reader defect here.
+        // markup-carve/carve#1564: a container ends at the markup that closes
+        // it even where its last child is unplaced.
+        'a-container-ends-at-the-markup-that-closes-it-even-where-its-last-child-is-unplaced',
+        // markup-carve/carve#1570: the writer escapes per opener OCCURRENCE,
+        // which carve-php#1578 had already landed.
+        'an-idle-escape-does-not-spread-from-the-occurrence-that-needed-one',
+        // markup-carve/carve#1583: a caption's marker separator is a run and
+        // none of it is content, and a quoted figure indents like any other
+        // nested block. carve-php#1594 landed the caption half.
+        'a-caption-s-marker-separator-is-a-run-and-none-of-it-is-content',
+        'a-quote-holding-a-captioned-block-indents-it-like-any-other-nested-block',
+        // markup-carve/carve#1587: a heading's marker separator is a run and
+        // none of it is content. The READER already agreed; the WRITER dropped
+        // the leading tab of `406-3`, which is fixed in this change rather
+        // than deferred.
+        'a-heading-s-marker-separator-is-a-run-and-none-of-it-is-content',
     ];
 
     /**
@@ -720,26 +739,18 @@ class CarveCorpusTest extends TestCase
      * EMPTY, AND THAT IS THE POINT. An entry here is an EXCLUSION: the document
      * is named, its assertion is skipped, and the suite goes green around it.
      * Nothing in the pins may be excluded, so a new gap is closed rather than
-     * listed. The eighteen that arrived with the bump to carve b6917ab were
-     * four container-boundary rules and are all closed.
+     * listed.
+     *
+     * The thirteen entries that stood here up to the bump to carve d0b6c92 all
+     * rendered byte-identically to their pinned HTML - measured one document at
+     * a time against BOTH pins, so they were stale before the bump too, not by
+     * it. Each was skipping an assertion the engine passes. They are deleted
+     * rather than re-worded: a deferral nobody re-measures is how a guard stops
+     * guarding.
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        '20-smart-typography-arrows-and-symbols' => 'carve#1442: the doubled run is the canonical arrow and `=>` is no longer one; not implemented here yet',
-        '384-a-continuation-marker-attaches-only-a-flush-left-block-2' => 'carve#1436: a `+` attaches only a flush-left block; this engine still folds the indented line',
-        '384-a-continuation-marker-attaches-only-a-flush-left-block-3' => 'carve#1436: a `+` attaches only a flush-left block; this engine still folds the indented line',
-        '384-a-continuation-marker-attaches-only-a-flush-left-block-6' => 'carve#1436: a `+` attaches only a flush-left block; this engine still folds the indented line',
-        '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
-        '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too-2' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
-        '366-a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too-3' => 'carve#1398: raw-block terminal blank preservation is separate from this table change',
-        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
-        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-2' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
-        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-3' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
-        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-4' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
-        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-5' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
-        '367-an-unterminated-fence-at-a-content-column-opens-no-block-so-the-paragraph-stays-open-6' => 'carve#1399: unterminated-fence container tracking is separate from this table change',
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
@@ -752,14 +763,16 @@ class CarveCorpusTest extends TestCase
      * and it must still DIFFER from the pinned golden, so an entry that went
      * stale when the submodule bumped fails and has to be deleted with it.
      *
+     * EMPTY: the pin has caught up everywhere. The one entry that stood here,
+     * for carve#1442's arrow rule, named a document that was ALSO in
+     * KNOWN_GAPS - and the gap is consulted first, so the entry was skipped
+     * before either of its two assertions ran. It could not have failed in
+     * either direction, which is what `testNoCaseIsBothDeferredAndAheadOfPin`
+     * below now refuses.
+     *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '20-smart-typography-arrows-and-symbols' => [
-            'reason' => 'carve#1442 makes the doubled run canonical and removes `=>` as an arrow',
-            'html' => "<p>Flow: a \u{2192} b \u{2190} c \u{2194} d =&gt; e; x \u{2260} y, p \u{2264} q, r \u{2265} s, \u{00B1}1.\n\u{00A9} 2024, \u{00AE}, \u{2122}. Dates like 1/2/2024 stay literal.</p>",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
@@ -824,6 +837,28 @@ class CarveCorpusTest extends TestCase
      * `293-a-semantic-name-renames-the-span-…`; entries naming the old slug
      * would have gone on "passing" while checking nothing in either direction.
      */
+
+    /**
+     * A CASE IN BOTH LISTS IS IN NEITHER.
+     *
+     * `testCorpus()` consults KNOWN_GAPS first and returns, so a slug named by
+     * both constants is skipped before AHEAD_OF_PIN's two assertions run. The
+     * entry then reads as a pinned divergence while checking nothing, and stays
+     * readable that way after the divergence closes - which is exactly what
+     * carve#1442's entry did until the bump to carve d0b6c92 was worked.
+     */
+    public function testNoCaseIsBothDeferredAndAheadOfPin(): void
+    {
+        $both = array_values(array_intersect(array_keys(self::AHEAD_OF_PIN), array_keys(self::KNOWN_GAPS)));
+
+        self::assertSame(
+            [],
+            $both,
+            'Case(s) in KNOWN_GAPS and AHEAD_OF_PIN at once: ' . implode(', ', $both)
+                . ' - the gap is consulted first, so the AHEAD_OF_PIN assertions never run.',
+        );
+    }
+
     public function testAheadOfPinNamesOnlyCasesThatExist(): void
     {
         $slugs = array_keys(self::corpusProvider());

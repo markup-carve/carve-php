@@ -202,7 +202,10 @@ CRV;
             }
         }
 
-        self::assertSame(['tier2' => 47, 'events' => 47], $accepted, 'A configured fast-path routing change needs explicit review.');
+        // 48 apiece since the bump to carve d0b6c92 - the same one new
+        // corpus document the unconfigured layout newly accepts, and it
+        // renders identically under both profiles.
+        self::assertSame(['tier2' => 48, 'events' => 48], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]

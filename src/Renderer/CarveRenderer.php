@@ -1386,7 +1386,7 @@ class CarveRenderer implements RendererInterface
 
         return match (true) {
             $node instanceof Frontmatter => $withAttrs($this->renderFrontmatter($node)),
-            $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->collapseBreaks($this->trimNonNbsp($this->renderInlines($node->getChildren())))),
+            $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->trimHeadingText($this->collapseBreaksUntrimmed($this->renderInlines($node->getChildren())))),
             // A REFERENCE image cannot carry its attributes inline: the writer
             // returns the authored `rawRef` verbatim, and an attribute block
             // that came from the block-attribute LINE above is not part of that
@@ -3908,13 +3908,24 @@ class CarveRenderer implements RendererInterface
      */
     protected function collapseBreaks(string $text): string
     {
+        return $this->trimNonNbsp($this->collapseBreaksUntrimmed($text));
+    }
+
+    /**
+     * The collapse alone, for a caller that trims by its own construct's rule.
+     *
+     * A heading trims only spaces off the front, so it cannot go through the
+     * trim baked into `collapseBreaks()`, which takes a tab with it.
+     */
+    protected function collapseBreaksUntrimmed(string $text): string
+    {
         $collapsed = preg_replace_callback(
             '/(\\\\*)\\n[ \\t]*/',
             static fn (array $m): string => (strlen($m[1]) % 2 === 1 ? substr($m[1], 1) : $m[1]) . ' ',
             $text,
         );
 
-        return $this->trimNonNbsp((string)$collapsed);
+        return (string)$collapsed;
     }
 
     /**
@@ -3932,6 +3943,26 @@ class CarveRenderer implements RendererInterface
     protected function trimNonNbsp(string $text): string
     {
         return trim($text, " \t\n\r");
+    }
+
+    /**
+     * A heading's separator run is SPACES, so only spaces may be trimmed off
+     * the front.
+     *
+     * The marker takes `space+` and every one of those spaces is separator,
+     * but `space` is U+0020 alone: the run ends at the first character that is
+     * not one, and that character BEGINS the heading. So `##<SP><TAB>x` is the
+     * heading `<TAB>x`, and writing it back as `##<SP>x` drops a character the
+     * parser kept - PART 11 §1's first invariant, `parse(fmt(x)) == parse(x)`.
+     * Written with the tab, `##<SP><TAB>x` re-reads as the same heading,
+     * because the run still stops at the tab.
+     *
+     * A leading SPACE stays trimmed: the writer has no spelling for it, since
+     * any space it emitted would be re-consumed as separator.
+     */
+    protected function trimHeadingText(string $text): string
+    {
+        return rtrim(ltrim($text, " \n\r"), " \t\n\r");
     }
 
     protected function trimEndNonNbsp(string $text): string
