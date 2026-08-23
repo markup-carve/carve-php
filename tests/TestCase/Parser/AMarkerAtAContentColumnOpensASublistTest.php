@@ -110,20 +110,24 @@ class AMarkerAtAContentColumnOpensASublistTest extends TestCase
         $this->assertSame('<ol> <li>outer 1. inner</li> </ol>', $this->html("1. outer\n  1. inner\n"));
     }
 
-    public function testAMarkerOnAQuoteLazyContinuationIsUNCHANGEDByThisRule(): void
+    /**
+     * NOW FIXED, AND THE PIN MOVED WITH IT (markup-carve/carve-php#1575). This
+     * test was written to FAIL when the divergence was closed, and asserted
+     *
+     *     <ul> <li> <blockquote><p>q</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>
+     *
+     * - this engine's own answer, on purpose, because markup-carve/carve#1517
+     * moved nothing here and a test asserting the right answer would have failed
+     * for the wrong reason. §10 I6 was the guard that did move it: a quote's OPEN
+     * paragraph claims the line before the item's content column does, so the
+     * marker is text. The row now asserts what carve-js, carve-rs and the
+     * executable spec have always produced, and it keeps its place here as the
+     * boundary of §24 C3 rather than an instance of it.
+     */
+    public function testAMarkerOnAQuoteLazyContinuationIsNotWhatThisRuleDecides(): void
     {
-        // DECLARED, NOT FIXED, and pinned so it fails when it is. This engine
-        // opens a sub-list here where carve-js, carve-rs and the executable spec
-        // keep the line as text - carve-js#1200 ruled that a quote's OPEN
-        // paragraph claims the line before the item's content column does. It is
-        // a pre-existing divergence on a different guard, measured identical
-        // before and after this change, and it is not what §24 C3 decides.
-        //
-        // The assertion is this engine's own answer on purpose: the point is
-        // that markup-carve/carve#1517 moved nothing here, and a test asserting
-        // the right answer would fail for the wrong reason.
         $this->assertSame(
-            '<ul> <li> <blockquote><p>q</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
+            '<ul> <li> <blockquote><p>q - s tail</p></blockquote> </li> </ul>',
             $this->html("- > q\n  - s\ntail\n"),
         );
     }

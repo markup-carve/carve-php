@@ -99,9 +99,9 @@ class BlockParser
      * is exactly that shape, and the old default made the empty item swallow
      * `tail` (corpus 326-5). See advanceTrailingBlockState().
      *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}
+     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}
      */
-    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'afterComment' => false, 'inFootnoteBody' => false, 'quotedTable' => false];
+    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'afterComment' => false, 'inFootnoteBody' => false, 'quotedTable' => false, 'quoteParagraph' => false];
 
     /**
      * Abbreviation definitions use a space-free alphanumeric term and require
@@ -5833,11 +5833,19 @@ class BlockParser
                             // into the open PLAIN paragraph. Once the stream
                             // holds list content, sibling markers belong to that
                             // nested list and must not get a loosening blank.
+                            // ...AND NOT WHERE A QUOTE'S OWN PARAGRAPH HOLDS
+                            // THE LINE. The blank is what makes the marker open
+                            // a sublist, so injecting one where the quote claims
+                            // the line is the same defect as breaking the stream
+                            // for it, reached through the post-blank door (PART 9
+                            // §10 I6, markup-carve/carve-php#1575). `- x` /
+                            // blank / `  > q` / `  - s` is one quoted paragraph.
                             $strippedIsMarker = $this->listParser->parseListItemMarker(ltrim($stripped, " \t")) !== null;
                             if (
                                 $strippedIsMarker
                                 && !$subSawListMarker
                                 && $subTrailingState['openParagraph']
+                                && !$subTrailingState['quoteParagraph']
                                 && !$subTrailingState['inFence']
                                 && !$subTrailingState['inDiv']
                             ) {
@@ -7086,7 +7094,7 @@ class BlockParser
      * @param string $line
      * @param array<string> $lines
      * @param int $index
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $trailingState
      */
     protected function attachedBlockHasEnded(string $kind, string $line, array $lines, int $index, array $trailingState): bool
     {
@@ -7233,10 +7241,10 @@ class BlockParser
      * @param int $contentIndent The item's content column.
      * @param array<string> $itemLines Collected item lines, appended in place.
      * @param array<int, int> $itemLineMap Source-line map, appended in place.
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $trailingState
      * @param bool $leadIsBareContinuationMarker
      *
-     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}}
+     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}}
      */
     protected function collectPlainListItemContinuation(
         array $lines,
@@ -7396,11 +7404,32 @@ class BlockParser
                 // the div in two around a nested list and published a spurious
                 // empty `<div>` (corpus category 279 row 5). A COMMENT body is
                 // verbatim on the same reading (§28).
+                //
+                // AND THE FOURTH THING THAT HOLDS THE LINE IS A QUOTE'S OPEN
+                // PARAGRAPH (PART 9 §10 I6, markup-carve/carve-js#1200,
+                // markup-carve/carve-php#1575). Same derivation as the three
+                // fences, one construct over: §24's S1/S2 place a line by the
+                // COLUMN it reaches and never read its first character, so a
+                // marker at the item's content column under `> q` is the same
+                // continuation plain `s` is - and plain `s` has always folded
+                // into the quoted paragraph here. Splitting the stream at the
+                // marker ended the quote and opened a sub-list, where carve-js,
+                // carve-rs and the executable spec all keep one quoted
+                // paragraph.
+                //
+                // THE QUOTE'S PARAGRAPH, NOT THE QUOTE. `openParagraph` is true
+                // for prose as well, and under prose §24 C3 really does open the
+                // sublist - so testing that instead would take every marker in
+                // every item. `- > # h` / `  - s` still opens one, because a
+                // heading leaves the quote no paragraph to fold into; so do the
+                // table, the blank quote line and the thematic break, which are
+                // the four rows carve-js#1200 names.
                 if (
                     !$trailingState['inFence']
                     && !$trailingState['inDiv']
                     && $trailingState['divDepth'] === 0
                     && $openCommentLength === null
+                    && !$trailingState['quoteParagraph']
                     && $this->listParser->parseListItemMarker($nextTrimmed) !== null
                 ) {
                     break;
@@ -12806,14 +12835,14 @@ class BlockParser
      * paragraph" only for a trailing fenced code block or table, leaving every
      * other shape to the existing lazy-continuation behavior.
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $state
      * @param string $line Collected line, stripped to content-relative indentation.
      * @param bool $atContentColumn Whether the line sits AT the container's
      *   content column rather than below it. Only the comment branch reads it:
      *   an invisible block at the column ends the paragraph, while the same
      *   line collected lazily adds no block at all.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}
      */
     protected function advanceTrailingBlockState(
         array $state,
@@ -12855,14 +12884,14 @@ class BlockParser
      * whether a closer exists, so container collectors that own the remaining
      * lines ask here before arming `inFence` (carve#1414, corpus 367).
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $state
      * @param string $line
      * @param array<string> $lines
      * @param int $index
      * @param bool $atContentColumn
      * @param int $stripColumns
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}
      */
     protected function advanceTrailingBlockStateWithFenceLookahead(
         array $state,
@@ -12920,7 +12949,7 @@ class BlockParser
      * twice ({@see \MarkupCarve\Carve\Parser\ContainerPrefix} states why that
      * matters here).
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $state
      * @param string $line The whole line the walk is reading.
      * @param int $at Byte offset the walk has reached.
      * @param int $end One past the last byte of the SUBJECT - `strlen($line)`
@@ -12930,7 +12959,7 @@ class BlockParser
      * @param int $lastInteriorNewline {@see self::lastInteriorNewline()}.
      * @param bool $atContentColumn {@see self::advanceTrailingBlockState()}.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}
      */
     private function advanceTrailingBlockStateAt(
         array $state,
@@ -12963,6 +12992,13 @@ class BlockParser
         // spent on this container's - see the quote branch below.
         $wasQuotedTable = $state['quotedTable'];
         $state['quotedTable'] = false;
+        // WHOSE open paragraph it is - the quote's or this container's - which
+        // `openParagraph` alone cannot say. Cleared here and re-armed only by
+        // the quote branch below, so any other line answers no: it is the
+        // QUOTE'S paragraph that claims a marker line, and one line of prose
+        // after the quote makes the paragraph this container's again (PART 9
+        // §10 I6, markup-carve/carve-js#1200).
+        $state['quoteParagraph'] = false;
         // AN INVISIBLE BLOCK ENDS THE PARAGRAPH WITHOUT ENDING THE CONTAINER,
         // which are two questions one flag used to answer
         // (markup-carve/carve-php#1421). Cleared here and re-armed only by the
@@ -13246,6 +13282,24 @@ class BlockParser
                 false,
             );
             $state['openParagraph'] = $inner['openParagraph'];
+            // A MARKER ON A QUOTE'S LAZY CONTINUATION IS TEXT (PART 9 §10 I6,
+            // markup-carve/carve-js#1200, markup-carve/carve-php#1575). §24 C3
+            // gives a marker at the item's content column a sublist, but only
+            // where that column is what the line reaches first - and a quote
+            // holding an OPEN PARAGRAPH reaches it before the item does: `> q` /
+            // `- s` is one quoted paragraph at the top level in this engine
+            // already, and the same two lines inside an item have to be one
+            // there too.
+            //
+            // IT IS THE QUOTE'S PARAGRAPH, NOT THE QUOTE. `openParagraph` above
+            // is true for the quote and for ordinary prose alike, and §24 C3
+            // really does open the sublist under prose - so a flag that only
+            // said "a paragraph is open" would take every marker in every item.
+            // This says which container is holding it, which is also what keeps
+            // `- > # h` / `  - s` opening a sublist: a heading leaves the quote
+            // with no paragraph to fold into, and the recursion above has
+            // already answered that.
+            $state['quoteParagraph'] = $inner['openParagraph'];
             // THE ROW ABOVE IS THE ONE IN THE SAME CONTAINER (PART 9 §5 T6,
             // markup-carve/carve-php#1436). A table inside the QUOTE is not
             // above a `+` line written in the ITEM, so the quote's run is
