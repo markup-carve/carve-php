@@ -91,6 +91,24 @@ class AClosersLessContainerEndsAtItsLastChildTest extends TestCase
             'a footnote whose body is a list stops at the list' => [
                 "x[^n]\n\n[^n]: - a\n\ntail\n",
             ],
+            // The shapes that make the one-site property VISIBLE. A container
+            // whose trailing source produced no child of its own is where a
+            // line-derived extent and a child-derived one come apart, so these
+            // are the arrangements in which `list`, `list_item` and
+            // `block_quote` go red together with the three reported types when
+            // the predicate is removed. Reduced from the corpus documents that
+            // carry them: 05-lists-28, 194-an-abbreviation-at-a-list-item-s-
+            // content-column-is-still-not-a-definition-2, and
+            // 266-a-reference-definition-is-anchored-at-end-of-line-14.
+            'a quoted list stops before the blank quote lines after it' => [
+                "> > - a\n> >\n> >\n> >\n> > - b\n",
+            ],
+            'a list item stops before a definition collected out of it' => [
+                "- a\n  [r]: /u\n\nsee [t][r]\n",
+            ],
+            'a block quote stops before a definition anchored out of it' => [
+                "> text\n> [a]: /u {.c}\nlazy\n",
+            ],
         ];
     }
 
