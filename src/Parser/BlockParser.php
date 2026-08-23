@@ -10798,6 +10798,43 @@ class BlockParser
         return null;
     }
 
+    /**
+     * Every container that has NO CLOSER, and therefore ends at its last placed
+     * child rather than at the lines it consumed (PART 12 §4).
+     *
+     * ONE PREDICATE, NOT ONE PATCH PER TYPE. This used to be an `instanceof`
+     * chain written inline at the one call site, and the chain is why the rule
+     * was wrong: a type had to be REMEMBERED into it, so `Heading`, `Footnote`,
+     * `DefinitionTerm` and `Figure` were simply never added and kept deriving
+     * their extent from the lines they consumed. That is the same rule with two
+     * spellings, and the second one drifted - `checkStopsAtChildren` in the spec
+     * repository reported 34 findings against this engine over the corpus, on
+     * three of those four types, while every type the chain did name agreed.
+     *
+     * The set mirrors `ENDS_AT_LAST_CHILD` in `scripts/spec/ast-positions.mjs`,
+     * which is the rule that measures it, so the two can be diffed by eye.
+     * `Paragraph` is in that set and absent here because the branch above
+     * already gives it an exact extent from both ends, which is strictly
+     * stronger than this one. `DefinitionDescription` is here and not there: it
+     * has no closer either, so the rule holds for it, and the spec's set names
+     * only the types its own checker walks.
+     *
+     * A container that DOES have a closer - a div, a fence, a table - is absent
+     * by construction: it ends at that closer, which is source no child owns.
+     */
+    private static function endsAtLastChild(Node $node): bool
+    {
+        return $node instanceof ListItem
+            || $node instanceof DefinitionDescription
+            || $node instanceof DefinitionList
+            || $node instanceof DefinitionTerm
+            || $node instanceof ListBlock
+            || $node instanceof BlockQuote
+            || $node instanceof Figure
+            || $node instanceof Footnote
+            || $node instanceof Heading;
+    }
+
     private function deriveContainerSpans(Node $node): ?SourceSpan
     {
         if (isset($this->unplaceableNodeIds[spl_object_id($node)])) {
@@ -10849,17 +10886,7 @@ class BlockParser
         // too since markup-carve/carve#1530: it was the one container that
         // answered the floating-attribute question the other way, and its own
         // extent is derived from its children where it is built.
-        if (
-            (
-                $node instanceof ListItem
-                || $node instanceof DefinitionDescription
-                || $node instanceof DefinitionList
-                || $node instanceof ListBlock
-                || $node instanceof BlockQuote
-            )
-            && $own !== null
-            && $last !== null
-        ) {
+        if (self::endsAtLastChild($node) && $own !== null && $last !== null) {
             $own = new SourceSpan(
                 startLine: $own->startLine,
                 endLine: $last->endLine,
