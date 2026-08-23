@@ -43,6 +43,26 @@ class HtmlToCarve
     use EscapesCarveConstructs;
 
     /**
+     * Stands in for the HARD LIST BOUNDARY (PART 9 §11 N1a) until the
+     * final clean-up pass, which expands it into the three blank lines the
+     * boundary is spelled with.
+     *
+     * It cannot be emitted as three blank lines directly: `cleanup()` collapses
+     * every run of blank lines to one, which is right for the layout the walk
+     * produces and would erase the one place the run carries meaning. A
+     * sentinel line survives that collapse and is expanded once it is over.
+     *
+     * The delimiter is `\x01` rather than a NUL, because `trim()` and
+     * `ltrim()` count a NUL as whitespace: the leading byte was stripped by the
+     * time the expansion ran, so the sentinel no longer matched and LEAKED into
+     * the output as literal text. Neither is a byte any HTML document hands
+     * back as text.
+     *
+     * @var string
+     */
+    protected const LIST_BOUNDARY = "\x01carve-list-boundary\x01";
+
+    /**
      * @var list<string>
      */
     protected const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
@@ -4312,11 +4332,14 @@ class HtmlToCarve
                 $strayBlocks,
             );
         }
+        // Does a sibling list sit immediately before this one, close enough to
+        // merge with it? Read BEFORE anything is emitted, because the answer
+        // goes at the very front of what this list returns.
+        $needsListBoundary = $this->precedingSiblingListWouldMerge($node);
         $isOrdered = strtolower($node->tagName) === 'ol';
         // Recognize both the rendered form (class="task-list") and the TipTap
         // editor form (data-type="taskList").
-        $isTaskList = $node->getAttribute('class') === 'task-list'
-            || $node->getAttribute('data-type') === 'taskList';
+        $isTaskList = $this->isTaskList($node);
         $output = '';
         $counter = 1;
 
@@ -4325,23 +4348,19 @@ class HtmlToCarve
             $counter = (int)$node->getAttribute('start');
         }
 
-        // Get marker from data attribute (for round-trip fidelity)
-        $marker = $node->getAttribute('data-marker');
-        if ($isOrdered) {
-            // Same rule the bullets follow below: two back-to-back <ol>s with
-            // the same numbering style would merge into one loose list on
-            // reparse (`1. a` / `1. b` is one list of two items), and Carve
-            // separates sibling lists by their DELIM - so the delimiter
-            // alternates `.`/`)` across adjacent ordered siblings
-            // (carve-php#1290).
-            $marker = $marker ?: $this->alternatingOrderedDelim($node);
-        } elseif ($marker === '' || $marker === '+') {
-            // No explicit marker (or a stray `+`, which is the continuation
-            // marker, not a Carve bullet): pick `-`/`*` by the parity of
-            // preceding adjacent sibling <ul>s so that two back-to-back bullet
-            // lists stay distinct in Carve instead of merging into one list.
-            $marker = $this->alternatingBulletMarker($node);
-        }
+        // Get marker from data attribute (for round-trip fidelity), otherwise
+        // the ordinary default: `-` for a bullet list, `.` for an ordered one.
+        //
+        // THE MARKER IS NOT THE SEPARATOR ANY MORE. Two back-to-back lists used
+        // to be kept apart by ALTERNATING the marker across adjacent siblings -
+        // `-`/`*` for bullets, `.`/`)` for ordered ones (carve-php#1290) -
+        // because two same-marker lists parted by a single blank line reparse
+        // as one list. That invented a marker the source HTML never carried,
+        // and it disagreed with the other engines' importers. Carve now spells
+        // the split itself: PART 9 §11 N1a makes a run of three or more
+        // blank lines a HARD LIST BOUNDARY, so the lists are separated by the
+        // boundary below and every list keeps the marker it was authored with.
+        $marker = $isOrdered ? $this->resolveOrderedDelim($node) : $this->resolveBulletMarker($node);
 
         $olType = $isOrdered ? $this->orderedListNumberingStyle($node) : null;
 
@@ -4587,8 +4606,15 @@ class HtmlToCarve
 
         $this->listDepth--;
 
+        // THE HARD BOUNDARY GOES AHEAD OF EVERYTHING THIS LIST EMITS, so that
+        // three blank lines land between the previous list's last item and this
+        // list's first marker. Stray blocks are the exception: they are emitted
+        // ahead of the list and already stand between the two, so there is no
+        // merge left to prevent.
+        $boundary = $needsListBoundary && $strayBlocks === '' ? self::LIST_BOUNDARY . "\n" : '';
+
         // Add trailing newline for top-level lists
-        return $strayBlocks . $output . ($this->listDepth === 0 ? "\n" : '');
+        return $boundary . $strayBlocks . $output . ($this->listDepth === 0 ? "\n" : '');
     }
 
     /**
@@ -4628,68 +4654,96 @@ class HtmlToCarve
     }
 
     /**
-     * Pick `-` or `*` for a bullet list so a run of adjacent sibling <ul>s
-     * alternates markers. Two same-marker bullet lists separated only by a
-     * blank line merge into one list in Carve; alternating keeps them separate.
+     * Resolve the delimiter an `<ol>` emits: its explicit data-marker when set,
+     * otherwise `.`.
      *
-     * The choice is the opposite of the immediately preceding adjacent <ul>'s
-     * actual marker (so an explicit data-marker="*" is respected), or `-` when
-     * there is no preceding adjacent bullet list.
+     * @param \DOMElement $node The `<ol>` element.
      *
-     * @param \DOMElement $node The <ul> element
-     *
-     * @return string `-` or `*`
-     */
-    protected function alternatingOrderedDelim(DOMElement $node): string
-    {
-        $prev = $node->previousElementSibling;
-        if ($prev instanceof DOMElement && strtolower($prev->tagName) === 'ol') {
-            return $this->resolveOrderedDelim($prev) === '.' ? ')' : '.';
-        }
-
-        return '.';
-    }
-
-    /**
-     * Resolve the delimiter an <ol> emits: its explicit data-marker when set,
-     * otherwise the alternating default.
+     * @return string The ordered delimiter, `.` unless the source named one.
      */
     protected function resolveOrderedDelim(DOMElement $node): string
     {
         $marker = $node->getAttribute('data-marker');
-        if ($marker !== '') {
-            return $marker;
-        }
 
-        return $this->alternatingOrderedDelim($node);
-    }
-
-    protected function alternatingBulletMarker(DOMElement $node): string
-    {
-        $prev = $node->previousElementSibling;
-        if ($prev instanceof DOMElement && strtolower($prev->tagName) === 'ul') {
-            return $this->resolveBulletMarker($prev) === '*' ? '-' : '*';
-        }
-
-        return '-';
+        return $marker !== '' ? $marker : '.';
     }
 
     /**
-     * Resolve the bullet marker a <ul> emits: its explicit data-marker when set
-     * (and not the `+` continuation marker), otherwise the alternating default.
+     * Resolve the bullet marker a `<ul>` emits: its explicit data-marker when
+     * set (and not the `+` continuation marker, which is not a Carve bullet),
+     * otherwise `-`.
      *
-     * @param \DOMElement $node The <ul> element
+     * @param \DOMElement $node The `<ul>` element.
      *
-     * @return string `-` or `*`
+     * @return string The bullet marker, `-` unless the source named one.
      */
     protected function resolveBulletMarker(DOMElement $node): string
     {
         $marker = $node->getAttribute('data-marker');
-        if ($marker !== '' && $marker !== '+') {
-            return $marker;
+
+        return $marker !== '' && $marker !== '+' ? $marker : '-';
+    }
+
+    /**
+     * Would this list MERGE with the sibling list written immediately before
+     * it, if the two were only parted by the usual blank line?
+     *
+     * The predicate is the writer's own, from
+     * `CarveRenderer::listsWouldMerge()`: same list type, same marker, same
+     * numbering style. Anything the two differ on already separates them, and
+     * the boundary is only needed where nothing else does.
+     *
+     * Adjacency is read off the DOM rather than off the emitted string, so it
+     * holds at every nesting level and for a run of three or more lists: each
+     * list asks only about the one before it.
+     *
+     * @param \DOMElement $node The `<ul>` or `<ol>` element.
+     *
+     * @return bool True when the two lists need the hard boundary between them.
+     */
+    protected function precedingSiblingListWouldMerge(DOMElement $node): bool
+    {
+        $prev = $node->previousElementSibling;
+        if (!$prev instanceof DOMElement) {
+            return false;
         }
 
-        return $this->alternatingBulletMarker($node);
+        $tag = strtolower($node->tagName);
+        if (strtolower($prev->tagName) !== $tag) {
+            return false;
+        }
+
+        if ($tag === 'ol') {
+            return $this->resolveOrderedDelim($prev) === $this->resolveOrderedDelim($node)
+                && $this->orderedListNumberingStyle($prev) === $this->orderedListNumberingStyle($node);
+        }
+
+        if ($tag !== 'ul') {
+            return false;
+        }
+
+        // A TASK LIST IS ITS OWN LIST TYPE. `- [ ] a` and `- b` parse as two
+        // lists however they are laid out, so the marker they share does not
+        // merge them and the boundary would be noise.
+        if ($this->isTaskList($prev) !== $this->isTaskList($node)) {
+            return false;
+        }
+
+        return $this->resolveBulletMarker($prev) === $this->resolveBulletMarker($node);
+    }
+
+    /**
+     * Is this `<ul>` a task list - the rendered `class="task-list"` form or the
+     * TipTap `data-type="taskList"` one?
+     *
+     * @param \DOMElement $node The `<ul>` element.
+     *
+     * @return bool True when the list's items carry checkboxes.
+     */
+    protected function isTaskList(DOMElement $node): bool
+    {
+        return $node->getAttribute('class') === 'task-list'
+            || $node->getAttribute('data-type') === 'taskList';
     }
 
     protected function processListItem(DOMElement $node): string
@@ -7250,6 +7304,58 @@ class HtmlToCarve
         return strpbrk($alt, '[]\\') !== false;
     }
 
+    /**
+     * Turn each boundary sentinel line into the three blank lines PART 9
+     * §11 N1a spells the hard list boundary with.
+     *
+     * WHATEVER SITS TO THE SENTINEL'S LEFT IS THE PREFIX, and the blank lines
+     * are written with it: inside a block quote the boundary is three `>` lines,
+     * not three empty ones, which would end the quote instead of splitting the
+     * list inside it. That is why the sentinel opens a line rather than joining
+     * two - every container that indents line by line has already prefixed it
+     * by the time this runs.
+     *
+     * The blank line the walk left on either side is absorbed, so the run is
+     * exactly three however the two lists were laid out - a nested pair arrives
+     * with none, a top-level pair with one on each side.
+     *
+     * @param list<string> $lines The cleaned-up lines.
+     *
+     * @return list<string> The lines with every sentinel expanded.
+     */
+    protected function expandListBoundaries(array $lines): array
+    {
+        $expanded = [];
+        $dropBlank = null;
+        foreach ($lines as $line) {
+            if ($dropBlank !== null) {
+                $blank = $dropBlank;
+                $dropBlank = null;
+                if (rtrim($line) === $blank) {
+                    continue;
+                }
+            }
+
+            $at = strpos($line, self::LIST_BOUNDARY);
+            if ($at === false) {
+                $expanded[] = $line;
+
+                continue;
+            }
+
+            $prefix = rtrim(substr($line, 0, $at));
+            if ($expanded !== [] && rtrim((string)end($expanded)) === $prefix) {
+                array_pop($expanded);
+            }
+            $expanded[] = $prefix;
+            $expanded[] = $prefix;
+            $expanded[] = $prefix;
+            $dropBlank = $prefix;
+        }
+
+        return $expanded;
+    }
+
     protected function cleanup(string $djot): string
     {
         // Remove leading whitespace from lines (except in code blocks and indented content)
@@ -7265,6 +7371,16 @@ class HtmlToCarve
         $verbatim = [];
 
         foreach ($lines as $line) {
+            // The boundary sentinel passes through untouched, whatever a
+            // container prefix put to its left. It has to be caught ahead of
+            // every other branch: those trim and re-indent, and the expansion
+            // at the end of this method reads the prefix off this line.
+            if (str_contains($line, self::LIST_BOUNDARY)) {
+                $result[] = $line;
+
+                continue;
+            }
+
             // Track line blocks (::: line-block ... :::) so verse indentation
             // is preserved verbatim - the default branch below ltrims lines.
             if ($lineBlockFence > 0) {
@@ -7417,7 +7533,7 @@ class HtmlToCarve
             $collapsed[] = $line;
         }
 
-        $djot = implode("\n", $collapsed);
+        $djot = implode("\n", $this->expandListBoundaries($collapsed));
 
         // Remove leading/trailing whitespace
         $djot = trim($djot);

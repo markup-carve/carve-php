@@ -591,32 +591,30 @@ class HtmlToCarveTest extends TestCase
         $this->assertStringContainsString('2. Second', $result);
     }
 
-    public function testAdjacentBulletListsAlternateMarkers(): void
+    public function testAdjacentBulletListsAreSpelledWithTheHardBoundary(): void
     {
         $html = '<ul><li>a</li><li>b</li></ul><ul><li>c</li><li>d</li></ul>';
         $result = $this->converter->convert($html);
 
-        // The second list must use a different marker, otherwise the two
-        // lists would merge into one when rendered back to HTML.
-        $this->assertStringContainsString('- a', $result);
-        $this->assertStringContainsString('- b', $result);
-        $this->assertStringContainsString('* c', $result);
-        $this->assertStringContainsString('* d', $result);
+        // BOTH lists keep the marker `-`. What separates them is the hard list
+        // boundary - three blank lines, PART 9 §11 N1a - not a marker
+        // the source never carried. The importer used to write `* c` here.
+        $this->assertSame("- a\n- b\n\n\n\n- c\n- d\n", $result);
 
         // Round-trip: still two separate lists.
         $html2 = (new CarveConverter())->convert($result);
         $this->assertSame(2, substr_count($html2, '<ul>'));
     }
 
-    public function testAdjacentBulletListAlternatesOffExplicitStarMarker(): void
+    public function testAdjacentBulletListsThatDifferOnTheMarkerNeedNoBoundary(): void
     {
-        // The first list explicitly uses `*`; the unmarked second list must
-        // pick `-`, not `*`, or the two would merge on round-trip.
+        // The first list explicitly uses `*` and the second takes the default
+        // `-`, so the markers already keep them apart and the ordinary single
+        // blank line is enough.
         $html = '<ul data-marker="*"><li>a</li></ul><ul><li>b</li></ul>';
         $result = $this->converter->convert($html);
 
-        $this->assertStringContainsString('* a', $result);
-        $this->assertStringContainsString('- b', $result);
+        $this->assertSame("* a\n\n- b\n", $result);
         $this->assertSame(2, substr_count((new CarveConverter())->convert($result), '<ul>'));
     }
 
