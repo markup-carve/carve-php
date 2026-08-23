@@ -116,11 +116,11 @@ output:
 
 | Extension | Static (`renderStaticHtml`) output |
 | --- | --- |
-| `TabsExtension` | each panel as a `<section class="tabs-panel">` headed by `<p class="tabs-label">[label]</p>` (no radio inputs) |
-| `CodeGroupExtension` | each code block as a `<section class="code-group-panel">` headed by its `[label]` |
+| `TabsExtension` | each panel as a `<section class="tabs-panel">` headed by `<h3 class="tabs-label">` carrying the tab label (no radio inputs, no tab buttons) |
+| `CodeGroupExtension` | each code block as a `<section class="code-group-panel">` headed by `<h3 class="code-group-label">` carrying its `[label]` |
 | `MathBlockExtension` | the `math` renderer's server-side output (MathML/HTML) inside `<div class="math display">`, else the LaTeX source inside `<pre class="math display">` |
-| `FencedRenderExtension` (mermaid, chart, ...) | the renderer's image (keyed by the fence's CSS class) inside `<div class="...">`, else the source inside `<pre><code class="language-...">` |
-| `ImgFenceExtension` | the sanitized SVG inline, else the source |
+| `FencedRenderExtension` (mermaid, chart, ...) | the renderer's image inside a `<div class="mermaid">` named for the fence's CSS class, else the source inside `<pre class="mermaid">` holding `<code class="language-mermaid">` |
+| `ImgFenceExtension` | what it emits interactively, unchanged: the sanitized SVG in a sandboxed `<img>` carrying a `data:image/svg+xml` URI - or inline `<svg>`, but only where the host passed `allowInline: true` AND the block attribute line carries `{inline}`. A body the sanitizer rejects falls back to the source inside `<pre>` holding `<code class="language-img">` |
 | `SpoilerExtension` | block: a revealed `<section class="spoiler spoiler-revealed">` headed by `<h3 class="spoiler-title">`, with any grouping `[label]` following as a `<p class="div-label">` caption; inline: `<span class="spoiler spoiler-revealed">` |
 
 `DetailsExtension` reaches the same end without implementing the interface: it
