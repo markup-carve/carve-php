@@ -683,6 +683,33 @@ class CarveCorpusTest extends TestCase
         // markup-carve/carve#1377. A heading at an item's content column is a
         // bounded block and leaves no paragraph open for a flush-left line.
         'a-heading-at-an-item-s-content-column-leaves-no-paragraph-open',
+        // The bump to carve e88d6e3. Six categories, ten documents, and every
+        // one renders byte-identically to its pinned HTML here - each names a
+        // ruling this engine already decides the way the clause states, so all
+        // six are IMPLEMENTED rather than deferred.
+        //
+        // markup-carve/carve#1526 and #1542: a container's span - and a
+        // definition list's - ends at its last PLACED child.
+        'a-container-s-span-ends-at-its-last-placed-child',
+        'a-definition-list-ends-at-its-last-placed-child-too',
+        // markup-carve/carve#1516: an escape escalation reaches the block that
+        // needed one, never the whole document.
+        'a-leading-escaped-caret-keeps-its-escape',
+        'an-idle-escape-does-not-spread-from-the-block-that-needed-one',
+        // markup-carve/carve#1513: a hard list boundary is written as exactly
+        // three blank lines.
+        'a-longer-run-at-a-list-boundary-is-written-as-exactly-three-blank-lines',
+        // markup-carve/carve#1525: a null byte is replaced before the document
+        // is read.
+        'a-null-byte-is-replaced-before-the-document-is-read',
+        // The same bump, second half. markup-carve/carve#1550: a container's
+        // span starts at its OPENING MARKUP even where its first child is
+        // unplaced. markup-carve/carve#1548 pins what carve-php#1576 already
+        // fixed here - a marker at an item's content column opens a sublist
+        // whether or not it is the first thing in the item. Both render
+        // byte-identically to their pinned HTML, so both are IMPLEMENTED.
+        'a-container-starts-at-its-opening-markup-even-where-its-first-child-is-unplaced',
+        'a-marker-at-an-item-content-column-opens-a-sublist-first-in-the-item-or-not',
     ];
 
     /**
