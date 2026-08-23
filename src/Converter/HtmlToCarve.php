@@ -563,6 +563,30 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'dd' && !$this->hasImportContentToUnwrap($node)) {
+            // A DECLARED LOSS IS A CEILING, NOT A LICENCE
+            // (`docs/html-import.md`). Carve has no spelling for an empty
+            // definition description - every candidate leaks a colon into
+            // the text, folds into the term, or renders a non-breaking
+            // space - so the description is dropped and the term kept.
+            // That is the loss the clause permits, and permitting it is
+            // conditional on DECLARING it: the writer already dropped the
+            // description and said nothing, which is the half the ceiling
+            // does not cover (carve-php#1615).
+            //
+            // `structure-unspellable` is the code the shared fixture
+            // carries, and the message is the sibling engine's, so the two
+            // reports say the same thing about the same shape.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'A <dd> that writes nothing has no Carve spelling; the empty description is dropped, '
+                    . 'because the only line that could carry it is read as more of the term above it',
+                'warning',
+                $path,
+            );
+        }
+
         if ($tag === 'p' && $this->holdsOnlyLayoutCharacters($node)) {
             // PART 11 §7 DECIDES WHAT AN IMPORT KEEPS, and it draws the line
             // at the two-character `whitespace` terminal. A block whose
