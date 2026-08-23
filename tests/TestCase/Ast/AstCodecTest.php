@@ -480,12 +480,18 @@ class AstCodecTest extends TestCase
      * It is not a loss this change introduces. The node was already off the
      * wire, so the second save of such a document produced a `text` node and
      * this same escaping - the upgrade only brings that forward by one hop.
+     *
+     * ONE BACKSLASH, on the OPENER. PART 11 §2 decides per opener occurrence
+     * (markup-carve/carve#1533), and a reference link opens on its first `[`:
+     * suppress that one and the rest of the run is ordinary text. The
+     * unit-scoped form wrote `\\[a\\]\\[\\]` and the last three backslashes were
+     * idle.
      */
     public function testTheDeclinedMarkupIsWrittenEscapedAfterTheUpgrade(): void
     {
         $decoded = $this->codec->decode(StoredPayloadUpgrade::upgrade(self::storedRawTextPayload()));
 
-        $this->assertSame("\\[a\\]\\[\\]\n", (new CarveRenderer())->render($decoded));
+        $this->assertSame("\\[a][]\n", (new CarveRenderer())->render($decoded));
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
+use ArrayObject;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
@@ -203,6 +204,153 @@ class CarveRenderer implements RendererInterface
         $this->askedUnits = null;
 
         return $asked;
+    }
+
+    /**
+     * The characters the occurrence search never offers back.
+     *
+     * Section 5's UNCONDITIONAL set is written in the minimal form too, so
+     * relaxing one is not a narrower escaping of the same tree but a different
+     * document. `^`, `!` and `$` join them for a different reason: the callback
+     * in escapeText() already applies section 2's own test to each of them,
+     * position by position, so there is nothing left for a search to decide -
+     * and leaving every guarded character out is what keeps this engine and
+     * carve-js offering the SAME sites in the same order.
+     *
+     * @var string
+     */
+    protected const NOT_OFFERED_PER_OCCURRENCE = '\\`"\'^!$';
+
+    /**
+     * Which units the occurrence search numbers, keyed by `spl_object_id`, so
+     * a key survives a re-render.
+     *
+     * Non-null only during that search. Everywhere else the whole unit follows
+     * escapeModeHere(), which is section 2b's per-unit knob.
+     *
+     * @var array<int, int>|null
+     */
+    protected ?array $unitNumbers = null;
+
+    /**
+     * The occurrences handed back their bare form by the search (PART 11
+     * section 2).
+     *
+     * @var array<string, true>|null
+     */
+    protected ?array $relaxedOccurrences = null;
+
+    /**
+     * Where a pass records the occurrences it visited, in emission order.
+     *
+     * AN ArrayObject AND NOT AN ARRAY, because the collector is not the reader:
+     * the log is filled from occurrenceIsRelaxed() several frames inside a
+     * render, and static analysis reading narrowOccurrences() on its own sees
+     * only the empty array it was opened with - which makes the "did this pass
+     * visit anything?" test look like a constant. A handle keeps the question
+     * honest at the one place it is asked.
+     *
+     * @var \ArrayObject<int, string>|null
+     */
+    protected ?ArrayObject $occurrenceLog = null;
+
+    /**
+     * The decision the last candidate site took, so a RUN can inherit it.
+     */
+    protected bool $lastOccurrenceRelaxed = false;
+
+    /**
+     * How many escaped runs each unit has written in this pass, keyed by
+     * `spl_object_id`.
+     *
+     * THE OFFSET ALONE IS NOT A KEY. A unit is the node whose arm wrote the
+     * character, and a BLOCK's arm can write several runs - a table row's
+     * cells, a fence title beside its info string - each with its own offsets
+     * starting at zero. Two of them collide at offset 0 and the search would
+     * then relax both sites or neither, which is the per-unit knob this whole
+     * change removes, one level down.
+     *
+     * The count is stable across the search for the same reason the offsets
+     * are: relaxing an occurrence changes which characters are emitted and
+     * never which arms run, so a unit writes the same runs in the same order on
+     * every render.
+     *
+     * @var array<int, int>|null
+     */
+    protected ?array $escapeCallIndexes = null;
+
+    /**
+     * The index of the run now being escaped, within its unit.
+     */
+    protected function nextEscapeCallIndex(): int
+    {
+        if ($this->escapeCallIndexes === null || $this->escapeUnit === null) {
+            return 0;
+        }
+        $id = spl_object_id($this->escapeUnit);
+        $index = $this->escapeCallIndexes[$id] ?? 0;
+        $this->escapeCallIndexes[$id] = $index + 1;
+
+        return $index;
+    }
+
+    /**
+     * How many more occurrence renders the current document may pay for.
+     */
+    protected int $occurrenceBudget = 0;
+
+    /**
+     * The occurrences the pass just rendered visited, in emission order.
+     *
+     * Read through a method rather than in place, so the list is typed by the
+     * PROPERTY - which is what the collector fills - instead of by the empty
+     * handle the caller opened two statements earlier.
+     *
+     * @return array<int, string>
+     */
+    protected function loggedOccurrences(): array
+    {
+        return $this->occurrenceLog === null ? [] : array_values($this->occurrenceLog->getArrayCopy());
+    }
+
+    /**
+     * Whether the search has handed the candidate at `$offset` back its bare
+     * form.
+     *
+     * THE KEY IS THE POSITION, NOT AN ORDINAL, and that is what makes it
+     * survive a re-render: relaxing an occurrence changes the emitted BYTES and
+     * never the node's own text, so a site keeps the offset it had. An ordinal
+     * would have to be counted at every site whether it was offered or not, and
+     * two engines whose escape classes differ by one character would then
+     * number every later site differently.
+     *
+     * THE OCCURRENCE IS THE RUN, WHICH IS SECTION 2's OWN UNIT. "THE UNIT IS
+     * THE OPENER, NOT THE CHARACTER" - where a construct opens on a run of
+     * characters the whole run is escaped, so `\\#\\# H` and never `\\## H`. A
+     * search that offered the two hashes separately relaxes the second one,
+     * because with the first still escaped no heading forms either way, and
+     * emits precisely the half-escaped run section 2 calls "a shape that
+     * happens to work rather than one that says what it means". So a candidate
+     * repeating the character before it inherits that character's decision
+     * instead of taking one, and the run is escaped or bare as a whole.
+     */
+    protected function occurrenceIsRelaxed(int $call, int $offset, bool $continuesRun): bool
+    {
+        if ($this->unitNumbers === null || $this->escapeUnit === null) {
+            return false;
+        }
+        if ($continuesRun) {
+            return $this->lastOccurrenceRelaxed;
+        }
+        $unit = $this->unitNumbers[spl_object_id($this->escapeUnit)] ?? null;
+        if ($unit === null) {
+            return false;
+        }
+        $key = $unit . ':' . $call . ':' . $offset;
+        $this->occurrenceLog?->append($key);
+        $this->lastOccurrenceRelaxed = isset($this->relaxedOccurrences[$key]);
+
+        return $this->lastOccurrenceRelaxed;
     }
 
     protected function escapeModeHere(): string
@@ -446,6 +594,13 @@ class CarveRenderer implements RendererInterface
             // independent failing units costs.
             $this->narrowingBudget = 8 * (int)ceil(log(count($units) + 1, 2)) + 8;
             $this->relaxUnits($document, $units, $conservativeTree, $best);
+            // PART 11 section 2 TAKES THE DECISION PER OPENER OCCURRENCE, and
+            // a unit is still ONE KNOB: a unit that fails is written
+            // conservatively IN FULL, so every candidate character beside the
+            // one that needed it is escaped for nothing. Section 2b bounds how
+            // far the fallback reaches; this is what is left inside the bound
+            // (markup-carve/carve#1533).
+            $this->narrowOccurrences($document, $units, $conservativeTree, $best);
 
             return $best;
         } finally {
@@ -496,6 +651,150 @@ class CarveRenderer implements RendererInterface
         $half = intdiv($count, 2);
         $this->relaxUnits($document, array_slice($units, 0, $half), $conservativeTree, $best);
         $this->relaxUnits($document, array_slice($units, $half), $conservativeTree, $best);
+    }
+
+    /**
+     * The candidate escapes an escalated unit can still hand back, one
+     * occurrence at a time (PART 11 section 2).
+     *
+     * SAME SEARCH, ONE LEVEL FINER. The comparison is still document-scoped,
+     * so a failure still reports THAT the document changed and never WHERE;
+     * the occurrence is found by trying, and every state kept is one that
+     * re-parsed to the tree the conservative form parses to.
+     *
+     * THE OCCURRENCES ARE LOGGED, NOT PREDICTED. A candidate site is whatever
+     * the writer's own escape arms visit, so they are collected by rendering
+     * once with the log switched on rather than by a second enumeration here
+     * that could drift from the one that emits. A key is `unit:ordinal` within
+     * the unit, which is stable across the search because relaxing one
+     * occurrence changes the bytes and not the sites: the arms walk the node's
+     * own text, which no relaxation touches.
+     *
+     * THE FIRST RENDER IS A CONTROL, as it is one level up. With nothing
+     * relaxed it must reproduce the state the unit search settled on byte for
+     * byte; if logging changed what was written, the unit-scoped answer stands
+     * rather than a narrowing built on a pass that is not the pass being
+     * measured.
+     *
+     * BOUNDED THE SAME WAY AND FOR THE SAME REASON. A group holding no failing
+     * occurrence is relaxed in one render, so a document with a handful of them
+     * costs about log(n) renders - but a document where every occurrence is
+     * load bearing drives the halving to its leaves and pays a render and a
+     * parse per occurrence, which is a render of the whole document per escaped
+     * character. A paragraph of indented table rows is exactly that, and it is
+     * ordinary input rather than an adversarial one. The OUTPUT is unchanged
+     * where the budget binds: those occurrences are the opener runs section 2
+     * requires escaped in full.
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $units
+     * @param array{tree: mixed} $conservativeTree
+     * @param string $best
+     */
+    protected function narrowOccurrences(
+        Document $document,
+        array $units,
+        array $conservativeTree,
+        string &$best,
+    ): void {
+        $numbers = [];
+        foreach (array_values($units) as $index => $unit) {
+            $numbers[spl_object_id($unit)] = $index;
+        }
+        $unitScoped = $best;
+
+        $this->unitNumbers = $numbers;
+        $this->relaxedOccurrences = [];
+        $this->occurrenceLog = new ArrayObject();
+        try {
+            $control = $this->renderSelectively($document);
+            $occurrences = $this->loggedOccurrences();
+            $this->occurrenceLog = null;
+            if ($control !== $unitScoped || $occurrences === []) {
+                return;
+            }
+
+            $this->occurrenceBudget = 8 * (int)ceil(log(count($occurrences) + 1, 2)) + 8;
+            // OFFERED FROM THE END OF THE DOCUMENT BACKWARDS, which is what
+            // makes the escape that survives the OPENER's. Section 2 asks
+            // whether omitting the escapes on an occurrence would let the
+            // construct FORM, and a construct forms at its opener - so with the
+            // opener still escaped every later candidate on the same line is
+            // free, while relaxing the opener first leaves the escape on a
+            // closer that was never load bearing (`{.note \}` where section 2
+            // wants `\{.note}`). Both spellings re-parse to the same tree, so
+            // only the order separates them.
+            $order = array_reverse($occurrences);
+            $this->relaxOccurrences($document, $order, $conservativeTree, $best);
+            // AND THEN ONE SWEEP OF WHAT IS LEFT, because the halving is not a
+            // FIXPOINT. Relaxing occurrences is not monotone: an occurrence
+            // rejected while a neighbour was still escaped can be free once
+            // that neighbour is relaxed, and the halving never revisits a group
+            // it has descended past. Corpus 160 is the case - the closing
+            // `:::` line cannot go bare while the OPENING one is escaped,
+            // because then it is the only fence marker on the page, and it can
+            // once the opener is bare. The sweep offers every still-escalated
+            // occurrence once more, on top of everything the halving accepted,
+            // and spends the same budget - so where the budget is already gone
+            // it costs nothing, which is the pathological document.
+            foreach ($order as $key) {
+                if ($this->occurrenceBudget <= 0) {
+                    break;
+                }
+                if (isset($this->relaxedOccurrences[$key])) {
+                    continue;
+                }
+                $this->relaxOccurrences($document, [$key], $conservativeTree, $best);
+            }
+        } finally {
+            $this->unitNumbers = null;
+            $this->relaxedOccurrences = null;
+            $this->occurrenceLog = null;
+            $this->escapeCallIndexes = null;
+        }
+    }
+
+    /**
+     * Hand `$group` its bare form where the document still holds, halving the
+     * group on failure.
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @param array<int, string> $group
+     * @param array{tree: mixed} $conservativeTree
+     * @param string $best
+     */
+    protected function relaxOccurrences(
+        Document $document,
+        array $group,
+        array $conservativeTree,
+        string &$best,
+    ): void {
+        $count = count($group);
+        if ($count === 0 || $this->occurrenceBudget <= 0) {
+            return;
+        }
+        $this->occurrenceBudget--;
+        foreach ($group as $key) {
+            $this->relaxedOccurrences[$key] = true;
+        }
+        $candidate = $this->renderSelectively($document);
+        $candidateTree = $this->canonicalTree($candidate);
+        // Loose, for the reason relaxUnits() states: two spellings of one
+        // document differ in field ORDER, not in content.
+        if ($candidateTree !== null && $candidateTree == $conservativeTree) {
+            $best = $candidate;
+
+            return;
+        }
+        foreach ($group as $key) {
+            unset($this->relaxedOccurrences[$key]);
+        }
+        if ($count === 1) {
+            return;
+        }
+        $half = intdiv($count, 2);
+        $this->relaxOccurrences($document, array_slice($group, 0, $half), $conservativeTree, $best);
+        $this->relaxOccurrences($document, array_slice($group, $half), $conservativeTree, $best);
     }
 
     protected function renderSelectively(Document $document): string
@@ -692,6 +991,13 @@ class CarveRenderer implements RendererInterface
         $previousColonFenceDepth = $this->colonFenceDepth;
         $this->escapeMode = $escapeMode;
         $this->colonFenceDepth = 0;
+        // The LOG and the call indexes are per PASS: renderWithEscapeMode() can
+        // render twice for the frontmatter fallback, and keeping either would
+        // count the second pass's runs on from the end of the first.
+        if ($this->unitNumbers !== null) {
+            $this->escapeCallIndexes = [];
+            $this->occurrenceLog?->exchangeArray([]);
+        }
         try {
             return $this->renderDocumentParts($document);
         } finally {
@@ -3724,6 +4030,7 @@ class CarveRenderer implements RendererInterface
         }
 
         $minimal = $this->escapeModeHere() === self::ESCAPE_MODE_MINIMAL;
+        $call = $minimal ? 0 : $this->nextEscapeCallIndex();
         // `!` AND `$` JOIN THEIR CLASSES SO THE BINDING CASE CAN BE FORCED.
         // Both are returned bare below wherever they do not bind, so the only
         // renders that change are the ones where the escape is structural: `!`
@@ -3747,16 +4054,29 @@ class CarveRenderer implements RendererInterface
 
         return (string)preg_replace_callback(
             $pattern,
-            static function (array $match) use (
+            function (array $match) use (
                 $text,
                 $opensBlockLine,
                 $insideNote,
                 $minimal,
                 $nextOpensVerbatim,
                 $lastSupCloser,
+                $call,
             ): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
+                // PART 11 section 2's decision is taken per OPENER OCCURRENCE.
+                // In a unit the search has escalated, each candidate site is
+                // offered back on its own, so the one occurrence that needed
+                // the escape no longer drags the rest of the unit with it. The
+                // unconditional set is not a candidate and is never offered.
+                if (
+                    !$minimal
+                    && !str_contains(self::NOT_OFFERED_PER_OCCURRENCE, $char)
+                    && $this->occurrenceIsRelaxed($call, $offset, $offset > 0 && $text[$offset - 1] === $char)
+                ) {
+                    return $char;
+                }
                 if ($char === '^' && self::caretOpensACaption($text, $offset, $opensBlockLine)) {
                     // Forced in BOTH modes - see the note on the method.
                     return '\\^';
