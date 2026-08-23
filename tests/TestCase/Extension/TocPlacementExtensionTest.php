@@ -25,7 +25,7 @@ class TocPlacementExtensionTest extends TestCase
         // not context-indented: byte-identical to carve-js / TableOfContentsExtension.
         $out = $this->html("::: toc\n:::\n\n# Intro\n\n## Setup\n\n### Details\n\n## Usage\n");
         $this->assertStringContainsString(
-            "<nav class=\"toc\">\n<ul>\n<li><a href=\"#Intro\">Intro</a>\n<ul>\n"
+            "<nav class=\"toc\" aria-label=\"Table of contents\">\n<ul>\n<li><a href=\"#Intro\">Intro</a>\n<ul>\n"
                 . "<li><a href=\"#Setup\">Setup</a>\n<ul>\n<li><a href=\"#Details\">Details</a></li>\n</ul>\n</li>\n"
                 . "<li><a href=\"#Usage\">Usage</a></li>\n</ul>\n</li>\n</ul>\n</nav>",
             $out,
@@ -74,7 +74,7 @@ class TocPlacementExtensionTest extends TestCase
     public function testCarriesAuthorAttrsAndStripsWindowKeys(): void
     {
         $out = $this->html("# A\n\n{#nav .side depth=1}\n::: toc\n:::\n\n## B\n");
-        $this->assertStringContainsString('<nav id="nav" class="toc side">', $out);
+        $this->assertStringContainsString('<nav id="nav" class="toc side" aria-label="Table of contents">', $out);
         $this->assertStringNotContainsString('depth=', $out);
     }
 
@@ -89,7 +89,7 @@ class TocPlacementExtensionTest extends TestCase
     public function testEmptyWindowRendersEmptyNav(): void
     {
         $out = $this->html("::: toc\n:::\n\nplain paragraph\n");
-        $this->assertStringContainsString('<nav class="toc"></nav>', $out);
+        $this->assertStringContainsString('<nav class="toc" aria-label="Table of contents"></nav>', $out);
     }
 
     public function testInertWithoutExtension(): void

@@ -59,6 +59,15 @@ class TableOfContentsExtension implements ResettableExtensionInterface
     protected array $toc = [];
 
     /**
+     * The renderer this extension was registered against, for the `labels` map.
+     *
+     * Nullable because {@see self::getTocHtml()} is public and a host may call
+     * it on an unregistered instance; the nav then falls back to the English
+     * default rather than throwing.
+     */
+    protected ?HtmlRenderer $renderer = null;
+
+    /**
      * @param int $minLevel Minimum heading level to include (1-6)
      * @param int $maxLevel Maximum heading level to include (1-6)
      * @param string $listType HTML list type: 'ul' or 'ol'
@@ -66,7 +75,8 @@ class TableOfContentsExtension implements ResettableExtensionInterface
      * @param string|null $position Auto-insert position: 'top', 'bottom', or null for manual placement
      * @param string $separator HTML separator between TOC and content (when position is set)
      * @param bool $collapsible Wrap the TOC in a `<details>`/`<summary>` disclosure so it can be
-     *   collapsed. Off by default; when off the output is the unchanged `<nav class="toc">`.
+     *   collapsed. Off by default; when off the output is the named `<nav class="toc">`, whose
+     *   `aria-label` comes from the `tocNav` label rather than from here.
      * @param string $summary Summary label for the disclosure (only used when $collapsible is true).
      * @param bool $open Render the disclosure expanded by default (only used when $collapsible is true).
      */
@@ -92,6 +102,7 @@ class TableOfContentsExtension implements ResettableExtensionInterface
 
         $tracker = $converter->getHeadingIdTracker();
         $renderer = $converter->getRenderer();
+        $this->renderer = $renderer;
 
         // Hook into heading rendering to collect TOC entries
         $converter->on('render.heading', function ($event) use ($tracker, $renderer): void {
@@ -226,10 +237,27 @@ class TableOfContentsExtension implements ResettableExtensionInterface
         }
 
         if (!$this->collapsible) {
-            return '<nav class="' . StringUtil::escapeHtml($this->cssClass) . '">' . "\n"
+            // `<nav>` is a navigation landmark unconditionally, so an unnamed
+            // one is an entry in a reader's landmark list reading only
+            // "navigation" - and a page holds more than one the moment the
+            // `::: toc` directive is registered beside this extension, or a
+            // site template contributes its own (Extensions §8b.1,
+            // markup-carve/carve#1509). Named from the SAME `labels` key
+            // TocPlacementExtension reads, so the fragment §8b.3 makes the
+            // cross-impl contract stays byte-identical between them.
+            $label = $this->navLabel();
+            $named = $label === '' ? '' : ' aria-label="' . StringUtil::escapeHtml($label) . '"';
+
+            return '<nav class="' . StringUtil::escapeHtml($this->cssClass) . '"' . $named . '>' . "\n"
                 . $this->renderTocList($headings)
                 . '</nav>' . "\n";
         }
+
+        // The disclosure shape has NO `<nav>` at all, so nothing here takes the
+        // landmark's name: `$summary` is visible text in a widget and stays
+        // this extension's own option (markup-carve/carve#1510). The two
+        // strings sit on mutually exclusive shapes, which is what keeps their
+        // near-identical defaults from being one string wearing two hats.
 
         // Collapsible: the heading list sits directly inside a <details>
         // disclosure so it can be toggled, closed by default unless $open.
@@ -240,6 +268,14 @@ class TableOfContentsExtension implements ResettableExtensionInterface
         $html .= '</details>' . "\n";
 
         return $html;
+    }
+
+    /**
+     * The nav's accessible name, from the render's `labels` map (PART 9 §16a).
+     */
+    protected function navLabel(): string
+    {
+        return $this->renderer?->label('tocNav') ?? HtmlRenderer::LABEL_DEFAULTS['tocNav'];
     }
 
     /**

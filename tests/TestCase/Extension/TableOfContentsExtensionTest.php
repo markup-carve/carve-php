@@ -99,7 +99,7 @@ DJOT;
 
         $html = $tocExtension->getTocHtml();
 
-        $this->assertStringContainsString('<nav class="toc">', $html);
+        $this->assertStringContainsString('<nav class="toc" aria-label="Table of contents">', $html);
         $this->assertStringContainsString('<a href="#First">First</a>', $html);
         $this->assertStringContainsString('<a href="#Second">Second</a>', $html);
     }
@@ -235,7 +235,7 @@ DJOT;
         $html = $converter->convert("## First\n\nContent.\n\n## Second");
 
         // TOC should appear before content
-        $tocPos = strpos($html, '<nav class="toc">');
+        $tocPos = strpos($html, '<nav class="toc" aria-label="Table of contents">');
         $contentPos = strpos($html, '<h2');
         $this->assertNotFalse($tocPos);
         $this->assertNotFalse($contentPos);
@@ -252,7 +252,7 @@ DJOT;
         $document = $converter->parse("# One\n\nText.");
         $html = $converter->render($document);
 
-        $this->assertStringContainsString('<nav class="toc">', $html);
+        $this->assertStringContainsString('<nav class="toc" aria-label="Table of contents">', $html);
         $this->assertStringContainsString('<a href="#One">One</a>', $html);
     }
 
@@ -264,7 +264,7 @@ DJOT;
         $html = $converter->convert("## First\n\nContent.\n\n## Second");
 
         // TOC should appear after content
-        $tocPos = strpos($html, '<nav class="toc">');
+        $tocPos = strpos($html, '<nav class="toc" aria-label="Table of contents">');
         $contentPos = strrpos($html, '</h2>');
         $this->assertNotFalse($tocPos);
         $this->assertNotFalse($contentPos);
@@ -346,12 +346,14 @@ DJOT;
 
         $html = $converter->convert("## First\n\nContent.");
 
-        // TOC should NOT be auto-inserted
-        $this->assertStringNotContainsString('<nav class="toc">', $html);
+        // TOC should NOT be auto-inserted. The needle is the open TAG, not the
+        // named form: a nav emitted with a different name would otherwise slip
+        // past a check meant to prove there is no nav here at all.
+        $this->assertStringNotContainsString('<nav', $html);
 
         // But should be available via getTocHtml()
         $tocHtml = $tocExtension->getTocHtml();
-        $this->assertStringContainsString('<nav class="toc">', $tocHtml);
+        $this->assertStringContainsString('<nav class="toc" aria-label="Table of contents">', $tocHtml);
     }
 
     public function testInlineCodeTextIsIncludedInTocEntry(): void
@@ -442,7 +444,7 @@ DJOT;
         $converter->convert("# One\n\n## Two\n");
         $html = $tocExtension->getTocHtml();
 
-        $this->assertStringStartsWith('<nav class="toc">', $html);
+        $this->assertStringStartsWith('<nav class="toc" aria-label="Table of contents">', $html);
         $this->assertStringNotContainsString('<details', $html);
     }
 

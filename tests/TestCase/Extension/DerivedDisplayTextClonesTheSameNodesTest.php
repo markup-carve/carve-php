@@ -67,7 +67,7 @@ class DerivedDisplayTextClonesTheSameNodesTest extends TestCase
         // second time by the list builder, which published `&quot;` where the
         // heading published `"`; carve-js emits the bare quote.
         $this->assertSame(
-            "<nav class=\"toc\">\n<ul>\n<li><a href=\"#The-quoted-heading\">The \"quoted\" -- heading</a></li>\n</ul>\n</nav>\n<section id=\"The-quoted-heading\">\n  <h1>The \"quoted\" -- heading</h1>\n</section>\n",
+            "<nav class=\"toc\" aria-label=\"Table of contents\">\n<ul>\n<li><a href=\"#The-quoted-heading\">The \"quoted\" -- heading</a></li>\n</ul>\n</nav>\n<section id=\"The-quoted-heading\">\n  <h1>The \"quoted\" -- heading</h1>\n</section>\n",
             $this->html(
                 "::: toc\n:::\n\n# The \"quoted\" -- heading\n",
                 SmartTypographyMode::Source,

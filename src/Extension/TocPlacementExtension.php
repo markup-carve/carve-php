@@ -18,7 +18,7 @@ use MarkupCarve\Carve\Util\StringUtil;
 /**
  * In-document table-of-contents placement directive (Tier-3). Unlike
  * {@see TableOfContentsExtension} (which injects one TOC at the document top or
- * bottom), this renders a `<nav class="toc">` exactly where the author writes a
+ * bottom), this renders a named `<nav class="toc">` exactly where the author writes a
  * `::: toc` block, so a long document can place its contents after an intro.
  * Off by default.
  *
@@ -295,7 +295,19 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
      */
     protected function openAttributes(Div $div, HtmlRenderer $renderer): string
     {
-        return $this->renderExtensionAttributes($div, $renderer, [self::KIND], ['title', ...self::RESERVED_ATTRS]);
+        return $this->renderExtensionAttributes(
+            $div,
+            $renderer,
+            [self::KIND],
+            ['title', ...self::RESERVED_ATTRS],
+            [],
+            // The landmark's accessible name, from the SAME `labels` key the
+            // injecting TableOfContentsExtension reads - Extensions §8b.3 makes
+            // this nav fragment the cross-impl contract, and a name chosen
+            // per-extension is the one change that would break its
+            // byte-identity (§8b.1, markup-carve/carve#1509).
+            $this->accessibleNameAttributes($div, $renderer, $renderer->label('tocNav')),
+        );
     }
 
     /**
