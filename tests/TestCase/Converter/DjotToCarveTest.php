@@ -368,6 +368,142 @@ class DjotToCarveTest extends TestCase
     }
 
     /**
+     * Djot reads any blank run between two sibling markers as one list; Carve
+     * (PART 9 §11 N1a) breaks the list on three or more. A verbatim rewrite
+     * would therefore turn one imported list into two.
+     */
+    public function testLongBlankRunBeforeASiblingMarkerCollapses(): void
+    {
+        $djot = <<<'DJOT'
+        - apples
+
+
+
+
+        - oranges
+        DJOT;
+
+        $expected = <<<'CARVE'
+        - apples
+
+        - oranges
+        CARVE;
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testTheCollapsedListRendersAsOneList(): void
+    {
+        $djot = <<<'DJOT'
+        1. a
+
+
+
+
+        2. b
+        DJOT;
+
+        $html = (new CarveConverter())->convert($this->converter->convert($djot));
+
+        $this->assertSame(1, substr_count($html, '<ol'));
+        $this->assertStringNotContainsString('start="2"', $html);
+    }
+
+    public function testLongBlankRunBeforeANestedSiblingMarkerCollapses(): void
+    {
+        $djot = <<<'DJOT'
+        - a
+          - x
+
+
+
+
+          - y
+        DJOT;
+
+        $expected = <<<'CARVE'
+        - a
+          - x
+
+          - y
+        CARVE;
+
+        $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    public function testTwoBlankLinesBeforeASiblingMarkerAreUntouched(): void
+    {
+        $djot = <<<'DJOT'
+        - a
+
+
+        - b
+        DJOT;
+
+        $this->assertSame($djot, $this->converter->convert($djot));
+    }
+
+    public function testAChangedBulletMarkerIsUntouched(): void
+    {
+        // Both languages read this as two lists, because the marker changed.
+        $djot = <<<'DJOT'
+        - a
+
+        * b
+        DJOT;
+
+        $this->assertSame($djot, $this->converter->convert($djot));
+    }
+
+    public function testALongBlankRunAfterAParagraphIsUntouched(): void
+    {
+        // No list is open above the run, so N1a closes nothing.
+        $djot = <<<'DJOT'
+        para
+
+
+
+
+        - a
+        DJOT;
+
+        $this->assertSame($djot, $this->converter->convert($djot));
+    }
+
+    public function testALongBlankRunBeforeAnItemsIndentedContentIsUntouched(): void
+    {
+        // The run is followed by the item's own content, not by a marker: one
+        // item with two paragraphs in both languages.
+        $djot = <<<'DJOT'
+        - apples
+
+
+
+
+          still apples
+        DJOT;
+
+        $this->assertSame($djot, $this->converter->convert($djot));
+    }
+
+    public function testALongBlankRunInsideAFencedBlockIsUntouched(): void
+    {
+        // Those blanks are the block's content, not layout.
+        $djot = <<<'DJOT'
+        ```
+        - a
+
+
+
+
+        - b
+        ```
+        DJOT;
+
+        $this->assertSame($djot, $this->converter->convert($djot));
+    }
+
+    /**
      * Performance guard: the same-family overlap check is O(n log n), not the
      * old O(n^2) linear scan over every prior match. A large emphasis-heavy
      * input must complete quickly and produce the correct output. The bound is
