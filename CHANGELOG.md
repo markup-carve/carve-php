@@ -79,8 +79,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rejected alignment run takes the `=` with it. A cell with no run is unchanged,
   and the canonical writer already pads every cell, so a formatted document
   needs no migration.
-- **A table cell's alignment run is horizontal-first** (#1478). Reverse-order pairs such as `^<` and `v>` stay literal cell content instead of being normalized silently.
-- **A vertical table-cell marker requires a horizontal partner.** Lone `^` and `v` prefixes remain visible content; paired two-axis runs are unchanged.
 
 ### Deprecated
 
@@ -121,13 +119,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   content column now, separated by the boundary. The same repair covers a
   sub-list below a blockquote in a tight item, which was read as the quote's
   lazy continuation.
-- **An HTML import writes the core `$$` math form, never the ``` math ``` fence**
-  (#1554, markup-carve/carve#1518, markup-carve/carve#1514, PART 9 §18).
-  `<div class="math display">` came back as the extension fence, which without
-  that extension loaded is a `language-math` code block rather than an equation.
-  The payload also folds to one line, because Carve math is a prefix on a code
-  span: a blank line inside one used to split the paragraph around it.
-
 - **An escape escalation reaches the block that failed, not the document**
   (#1552, markup-carve/carve#1516, PART 11 §2b). The writer took the
   conservative form for the whole document as soon as its minimal form did not
@@ -262,11 +253,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (markup-carve/carve#1443, PART 9 §8). `git log --oneline` and
   `--force-with-lease` keep their hyphens; every other position converts as
   before, including `pages 1--10` and a trailing `text --`.
-- **An empty braced pair keeps its carets bare** (#1516, markup-carve/carve#1482, PART 11 §4 with §1). `{^^}` holds no content, so no construct opens in it, but the writer escaped both carets anyway and turned one text node into four - the difference §1's equality-modulo-escaping forbids. `}^p` and `[^` write bare too.
 - **An empty comment writes its marker and nothing else** (#1514). The block arm of the comment writer appended its content unconditionally, so an empty comment came back as `%% ` with a trailing space no clause asks for. The inline arm always had the guard.
-- **The braced en dash keeps the spelling its author typed** (#1499). It is the same node the bare run produces, so the canonical writer writes `{--}` back instead of the resolved glyph.
 - **A continuation marker attaches only a flush-left block** (#1501, markup-carve/carve#1436, §17). A line at any other column falls through to the ordinary column rules, as if the marker line had been a comment.
-- **A lazy marker line's definition defines nothing** (#1487, #1486), and **the definition probe sees legacy custom block patterns** (#1488), so a document registered through `addBlockPattern()` is classified the same way by the probe and by the real parse.
+- **A lazy marker line's definition defines nothing** (#1487, #1486).
 - **A definition hosted by an emptied marker item is written back into it** (#1493, markup-carve/carve#620, PART 11 §1), instead of the writer spelling the item with a continuation marker.
 - **An unclosed inline literal reaches the end of its block**, and **a list item beginning with an empty-destination reference-shaped line keeps that line and its lazy continuation** (#1485, markup-carve/carve#1418, markup-carve/carve#1420). The reference-definition matcher could cross an interior newline and take the next line as a missing destination.
 - **A complete table alignment marker run is validated as a whole** (#1472, markup-carve/carve#1344), so duplicate axes such as `<<` fall back visibly, and **an unmarked definition-shaped lazy continuation inside a quoted list is preserved** rather than consumed as a definition.
