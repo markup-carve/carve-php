@@ -180,8 +180,65 @@ final class SourceMap
     {
         $textOffset += $this->shift;
 
-        return $this->resolveIn($this->segments, $this->tiling, $textOffset)
+        $at = $this->resolveIn($this->segments, $this->tiling, $textOffset)
             ?? $this->resolveIn($this->fallbackSegments, $this->fallbackTiling, $textOffset);
+
+        return $at === null ? null : $this->onItsOwnLine($at);
+    }
+
+    /**
+     * Put a resolved position on the line its OFFSET is on.
+     *
+     * A segment carries the line it starts on, and {@see self::at()} advances
+     * the column by the delta and leaves that line alone. That is right for as
+     * long as a segment stays on one line, and a segment does not: the block
+     * layer joins continuation lines, and it REMOVES lines - a comment-only
+     * line, a `+` continuation marker - before the inline parser ever sees the
+     * string it built. Once a run crosses a newline, `column + delta` names a
+     * column the line does not have, and the offset and the line/column pair
+     * that are supposed to describe the same position stop agreeing with each
+     * other.
+     *
+     * That was visible on the terminal-comment verse line: the offset was right
+     * and every engine published it, while this one spelled it `line 2,
+     * column 3` for a line two codepoints long. It needed no cross-engine vote,
+     * because a position inconsistent with its own offset is wrong on its own
+     * terms.
+     *
+     * SO THE OFFSET WINS, which is the same order §4 already gives them: the
+     * offset is the position, and the line and column are a spelling of it. The
+     * correction is general rather than per removal path - it asks the SOURCE
+     * how many lines the run actually crossed, so a removal this parser gains
+     * later is covered without being remembered here.
+     *
+     * @param array{int, int, int} $at
+     *
+     * @return array{int, int, int}
+     */
+    private function onItsOwnLine(array $at): array
+    {
+        if ($this->source === null) {
+            return $at;
+        }
+
+        [$offset, $line, $column] = $at;
+        if ($column <= 1) {
+            return $at;
+        }
+        $lineStart = $offset - ($column - 1);
+        if ($lineStart < 0) {
+            return $at;
+        }
+
+        $run = substr($this->source, $lineStart, $column - 1);
+        $crossed = substr_count($run, "\n");
+        if ($crossed === 0) {
+            return $at;
+        }
+
+        $lastBreak = strrpos($run, "\n");
+
+        return [$offset, $line + $crossed, $column - 1 - (int)$lastBreak];
     }
 
     /**
