@@ -27,6 +27,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **An imported nested container widens inward, as `carve fmt` writes it**
+  (#1583, `docs/html-import.md`, PART 9 §12). The HTML importer emitted the
+  outer fence wider than the inner at every nesting depth, so its own output
+  was not a fixed point of this engine's formatter. A closer-shaped verse line
+  in a line block is escaped rather than widened around.
+
 - **The writer escapes per opener occurrence, not per unit**
   (markup-carve/carve#1533, PART 11 §2). A unit that needs the conservative form
   no longer escapes every candidate in it beside the one that needed it:
