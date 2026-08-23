@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+use Closure;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 
@@ -149,18 +150,32 @@ class BbcodeToCarve
         [$open, $close] = DocumentSentinels::pick($text, 2, self::STASH_KEY_CODE);
         $this->codeSentinels = [$open, $close];
 
-        $protect = function (array $match) use (&$stash, $open, $close): string {
-            $stash[] = $match[2];
+        $protect = function (bool $trim) use (&$stash, $open, $close): Closure {
+            return function (array $match) use (&$stash, $open, $close, $trim): string {
+                $stash[] = $trim ? trim($match[2]) : $match[2];
 
-            return $match[1] . $open . (count($stash) - 1) . $close . $match[3];
+                return $match[1] . $open . (count($stash) - 1) . $close . $match[3];
+            };
         };
 
+        // THE FENCE TRIM HAPPENS HERE, not in convertCode(). A block fence is
+        // built around the body, and once that body is a KEY there is no
+        // whitespace left for a trim to find: the newlines sit inside the stash
+        // and come back with the content, so every fence gained a blank line
+        // above and below its code. A forum post's [code] almost always carries
+        // a newline right after the opening tag, so it fired on ordinary input
+        // (markup-carve/carve-php#1612). carve-js trims in the same place
+        // (markup-carve/carve-js#1375).
+        //
+        // BLOCK FAMILY ONLY. The inline family is written verbatim between
+        // backticks and has never been trimmed - `[c] a [/c]` is a code span
+        // holding a space on each side - so it is stashed as it stands.
         $patterns = [
-            '/(\[code(?:=[^\]]*)?\])(.*?)(\[\/code\])/is',
-            '/(\[(?:c|icode)\])(.*?)(\[\/(?:c|icode)\])/is',
+            '/(\[code(?:=[^\]]*)?\])(.*?)(\[\/code\])/is' => true,
+            '/(\[(?:c|icode)\])(.*?)(\[\/(?:c|icode)\])/is' => false,
         ];
-        foreach ($patterns as $pattern) {
-            $text = preg_replace_callback($pattern, $protect, $text) ?? $text;
+        foreach ($patterns as $pattern => $trim) {
+            $text = preg_replace_callback($pattern, $protect($trim), $text) ?? $text;
         }
 
         // [noparse] has no Carve construct to become. Its whole effect is "the
@@ -337,20 +352,27 @@ class BbcodeToCarve
 
     protected function convertCode(string $text): string
     {
+        // THE BODY IS A KEY BY NOW, not the author's text. stashCodeContent()
+        // runs before every converter, so a trim here has no whitespace to find
+        // and the newlines it used to remove sit inside the stash - which is why
+        // it moved there rather than being kept in both places
+        // (markup-carve/carve-php#1612). One rule, one spelling: a trim left
+        // here would be a check that cannot fail.
+        //
         // [code=lang]...[/code] -> ```lang\n...\n```
         $text = preg_replace_callback(
             '/\[code=([^\]]+)\](.*?)\[\/code\]/is',
             // Neutralize a leading `=` in the [code=..] language so untrusted
             // Bbcode cannot mint a Carve `=html` raw-HTML block (live HTML under
             // the default renderer). `[code= =html]` -> inert ```html block.
-            fn ($m) => "\n\n```" . ltrim(ltrim(strtolower(trim($m[1])), '=')) . "\n" . trim($m[2]) . "\n```\n\n",
+            fn ($m) => "\n\n```" . ltrim(ltrim(strtolower(trim($m[1])), '=')) . "\n" . $m[2] . "\n```\n\n",
             $text,
         ) ?? $text;
 
         // [code]...[/code] -> ```\n...\n```
         $text = preg_replace_callback(
             '/\[code\](.*?)\[\/code\]/is',
-            fn ($m) => "\n\n```\n" . trim($m[1]) . "\n```\n\n",
+            fn ($m) => "\n\n```\n" . $m[1] . "\n```\n\n",
             $text,
         ) ?? $text;
 
