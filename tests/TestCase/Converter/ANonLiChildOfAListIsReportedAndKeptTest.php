@@ -161,6 +161,37 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
     }
 
     /**
+     * A NESTED list's stray blocks stay inside the item that holds the list.
+     * Rendered at the outer depth they came out at column zero, which reparses
+     * as a top-level block: it closed the parent item and split the sublist off
+     * into a list of its own, so keeping the content cost the structure around
+     * it.
+     */
+    public function testANestedListsStrayBlockStaysInsideTheItemHoldingTheList(): void
+    {
+        $html = '<ul><li>a<ul><p>x</p><li>b</li></ul></li></ul>';
+
+        $this->assertSame("- a\n\n  x\n\n  - b\n", $this->carve($html));
+
+        $reparsed = (new CarveConverter())->convert($this->carve($html));
+        $this->assertSame(2, substr_count($reparsed, '<ul>'));
+        $this->assertStringContainsString('<p>x</p>', $reparsed);
+
+        $this->assertSame(
+            [
+                [
+                    'code' => 'element-unwrapped',
+                    'message' => 'A <p> inside <ul> kept its content but not its place among the items:'
+                        . ' it is emitted as blocks ahead of the list',
+                    'severity' => 'warning',
+                    'path' => '/ul[1]/li[1]/ul[2]/p[1]',
+                ],
+            ],
+            $this->rows($html),
+        );
+    }
+
+    /**
      * The kept blocks reparse to what they were: the div is a div and the id
      * rides on it, which is the whole reason the walk is delegated to rather
      * than the content unwrapped by hand.
