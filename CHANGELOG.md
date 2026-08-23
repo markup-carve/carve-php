@@ -48,6 +48,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A non-`li` child of a list keeps its content and says so** (#1589, ruling markup-carve/carve-rs#1266). The HTML importer dropped it whole and in silence; it now goes through the ordinary block walk, is emitted ahead of the list, and reports `element-unwrapped`.
 - **An endnotes section nothing references keeps its text** (#1582, markup-carve/carve#1558). The importer rebuilt a footnote definition from an unreferenced `<section role="doc-endnotes">`, which renders to nothing; it now imports as the `<hr>` and `<ol>` it is built from.
 - **The HTML import report no longer calls a derived accessible name a dropped attribute** (#1579, markup-carve/carve#1502). An attribute genuinely lost still reports.
 - **A marker on a block quote's lazy continuation is text** (#1575, markup-carve/carve-js#1200, PART 9 §10 I6), not a sub-list: the quote's open paragraph claims the line. A quote holding no open paragraph still lets the marker open one.
