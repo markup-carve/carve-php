@@ -477,6 +477,43 @@ class CliTest extends TestCase
     }
 
     /**
+     * The help's HTML import vocabulary and the one the CLI accepts are the
+     * same set.
+     *
+     * Both halves are measured rather than written down: the advertised names
+     * come out of `--help`, the accepted ones out of running each candidate.
+     * So the assertion compares two readings of the running CLI and cannot
+     * pass on a mode name that only exists in the help text.
+     */
+    public function testHelpAdvertisesExactlyTheHtmlImportModesTheCliAccepts(): void
+    {
+        $help = $this->runCli(['--help']);
+        $this->assertSame(
+            1,
+            preg_match('/^  migrate --mode MODE\s+(.*)$/m', $help, $matches),
+            'the help documents migrate --mode',
+        );
+
+        $advertised = [];
+        $accepted = [];
+        foreach (['safe', 'semantic', 'roundtrip', 'raw'] as $mode) {
+            if (preg_match('/\b' . $mode . '\b/', $matches[1]) === 1) {
+                $advertised[] = $mode;
+            }
+            $result = $this->runCliInput(
+                ['migrate', '--from', 'html', '--mode', $mode],
+                "<p>hi</p>\n",
+            );
+            if ($result['exit'] === 0) {
+                $accepted[] = $mode;
+            }
+        }
+
+        $this->assertSame(['safe', 'semantic', 'roundtrip'], $accepted);
+        $this->assertSame($accepted, $advertised);
+    }
+
+    /**
      * The loss report is the HTML importer's alone - the other three parse
      * their source whole - so a non-HTML migration ignores it rather than
      * failing on it.
