@@ -2379,7 +2379,42 @@ class CarveRenderer implements RendererInterface
                     continue;
                 }
                 $body = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($child->getChildren()));
-                $lines = explode("\n", $this->trimNonNbsp($body));
+                $body = $this->trimNonNbsp($body);
+                if ($body === '') {
+                    // A DESCRIPTION THAT WRITES NOTHING IS DROPPED, not spelled.
+                    //
+                    // Carve has no spelling for it, and the bare `:` line this
+                    // wrote is read as a continuation of the line above, so
+                    // the description was lost AND the term damaged:
+                    // `:: term` came back as a `<dt>` reading `term` and a
+                    // colon. `docs/html-import.md`, "A declared loss is a
+                    // ceiling, not a licence" - the loss may be no wider than
+                    // what declares it (markup-carve/carve#1608).
+                    //
+                    // THE CEILING IS SPENT HERE, which is why the check is
+                    // here and not at each producer. Every shape whose
+                    // description renders to nothing is covered by this one
+                    // line: an ingested AST with no children, a description
+                    // holding only an empty paragraph, one holding a list with
+                    // no items. The HTML importer writes its own source and
+                    // drops the entry there too (markup-carve/carve-php#1629);
+                    // this is the same rule on the path that ingests an AST or
+                    // reformats one.
+                    //
+                    // The collected-definition branch above runs FIRST, so a
+                    // description emptied by collecting its own definition
+                    // still writes that definition back rather than vanishing
+                    // (markup-carve/carve#805). It is the only empty
+                    // description an ordinary parse produces.
+                    //
+                    // EMPTY IS WHAT WRITES NOTHING, not what holds nothing:
+                    // `trimNonNbsp()` keeps a non-breaking space, so a
+                    // description holding one still writes its line and still
+                    // round-trips.
+                    continue;
+                }
+
+                $lines = explode("\n", $body);
                 $out[] = ':  ' . array_shift($lines);
                 foreach ($lines as $line) {
                     $out[] = $this->indentContinuationLine($line, '   ');
