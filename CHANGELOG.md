@@ -144,6 +144,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   no longer emits `attribute-dropped`. An attribute genuinely lost still
   reports.
 
+- **A marker on a block quote's lazy continuation is text** (#1575,
+  markup-carve/carve-js#1200, PART 9 §10 I6). Inside a list item it opened a
+  sub-list, where carve-js, carve-rs and the executable spec keep one quoted
+  paragraph: the quote's OPEN paragraph claims the line before the item's content
+  column does. A quote that ended on a heading, a table, a blank quote line or a
+  thematic break holds no paragraph, and the marker still opens the sub-list
+  there.
+
 - **A marker at an item's content column opens a sublist, first in the item or
   not** (markup-carve/carve#1517, PART 9 §24 C3). Only the item's first marker
   did; a later one folded into the paragraph above it, so the answer depended on
