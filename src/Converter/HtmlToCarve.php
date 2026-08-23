@@ -2431,21 +2431,47 @@ class HtmlToCarve
     }
 
     /**
-     * Choose a colon-fence string at least one longer than any colon-only line
-     * in `$content`, so a NESTED div/admonition (whose closer is a `:::` line)
-     * does not prematurely close this fence. A same-length inner fence would
-     * close the outer one, so the outer must be longer (grammar §12).
+     * The colon fence for a container opening at the CURRENT nesting depth.
+     *
+     * INWARD-WIDENING, which is the form `carve fmt` emits (grammar PART 9
+     * §12, PART 11). A colon fence closes on an EXACT length match, so both
+     * directions parse and the direction is a WRITER's choice - and
+     * `docs/html-import.md` gives the importer no choice at all: "an importer
+     * emits the source `carve fmt` emits", so that every `expected.crv` in
+     * `tests/html-import` is a fixed point of the formatter too.
+     *
+     * This used to scan the ALREADY-WRITTEN body for colon-only lines and take
+     * one more than the longest, on the superseded `len(close) >= len(open)`
+     * reading where a container's fence was a quoting relation. That is a
+     * bottom-up rule, so it can only widen OUTWARD - and it inverted every
+     * nesting depth against the formatter, which widens by depth on the way
+     * down: `<div class="tabs"><div class="tabs-panel">` imported as
+     * `:::: tabs` / `::: tabs-panel` and formatted back as `::: tabs` /
+     * `:::: tabs-panel` (markup-carve/carve-php#1583). Code fences keep the
+     * `>=` relation (§2), where the length axis really is quoting.
      */
-    protected function colonFenceFor(string $content): string
+    protected function colonFenceFor(): string
     {
-        $fenceLength = 3;
-        foreach (explode("\n", $content) as $line) {
-            if (preg_match('/^(:{3,})\s*$/', trim($line), $m) === 1) {
-                $fenceLength = max($fenceLength, strlen($m[1]) + 1);
-            }
-        }
+        return str_repeat(':', 3 + $this->colonFenceDepth);
+    }
 
-        return str_repeat(':', $fenceLength);
+    /**
+     * Serialize a colon-fenced container's BODY, one nesting level deeper.
+     *
+     * The depth has to be raised before the body is written, because the
+     * inward-widening discipline is top-down: the child's width is a fact
+     * about where it sits, not about what it contains.
+     *
+     * @param \Closure(): string $produce
+     */
+    protected function insideColonFence(Closure $produce): string
+    {
+        $this->colonFenceDepth++;
+        try {
+            return $produce();
+        } finally {
+            $this->colonFenceDepth--;
+        }
     }
 
     protected function processDiv(DOMElement $node): string
@@ -2526,8 +2552,8 @@ class HtmlToCarve
                 return $this->degradeToContent($node);
             }
 
-            $content = trim($this->processBlock($node));
-            $fence = $this->colonFenceFor($content);
+            $content = $this->insideColonFence(fn (): string => trim($this->processBlock($node)));
+            $fence = $this->colonFenceFor();
             $output = $attrs . $fence . "\n";
             if ($content !== '') {
                 $output .= $content . "\n";
@@ -2551,9 +2577,9 @@ class HtmlToCarve
         }
 
         $header = $this->extractAdmonitionTitle($node);
-        $content = $header === null
+        $content = $this->insideColonFence(fn (): string => $header === null
             ? trim($this->processBlock($node))
-            : $this->processAdmonitionContent($node);
+            : $this->processAdmonitionContent($node));
         // The fence class is what NAMES this container - `tabs` is why the
         // wrapper is called "Tabs" - and it is written as the fence word rather
         // than kept in `$classes`, so the derived-name test is told about it.
@@ -2583,7 +2609,7 @@ class HtmlToCarve
         }
         $this->structuralClassInProgress = null;
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $fence = $this->colonFenceFor($content);
+        $fence = $this->colonFenceFor();
         $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
         $output = $attrs . $fence . ' ' . $fenceClass . $headerPart . "\n";
         if ($content !== '') {
@@ -2642,9 +2668,9 @@ class HtmlToCarve
         }
 
         $header = $this->extractAdmonitionTitle($node);
-        $content = $this->processAdmonitionContent($node);
+        $content = $this->insideColonFence(fn (): string => $this->processAdmonitionContent($node));
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $fence = $this->colonFenceFor($content);
+        $fence = $this->colonFenceFor();
         $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
         $output = $attrs . $fence . ' ' . $type . $headerPart . "\n";
         if ($content !== '') {
@@ -2697,10 +2723,10 @@ class HtmlToCarve
         }
 
         // Process content, excluding the title element
-        $content = $this->processAdmonitionContent($node);
+        $content = $this->insideColonFence(fn (): string => $this->processAdmonitionContent($node));
 
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $fence = $this->colonFenceFor($content);
+        $fence = $this->colonFenceFor();
         $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
         $output = $attrs . $fence . ' ' . $type . $headerPart . "\n";
         if ($content !== '') {
@@ -3061,8 +3087,8 @@ class HtmlToCarve
 
         $summary->parentNode?->removeChild($summary);
         $attrs = $this->formatBlockAttributes($node);
-        $content = trim($this->processBlock($node));
-        $fence = $this->colonFenceFor($content);
+        $content = $this->insideColonFence(fn (): string => trim($this->processBlock($node)));
+        $fence = $this->colonFenceFor();
         $output = $attrs . $fence . ' details "' . $title . '"' . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
@@ -3132,8 +3158,8 @@ class HtmlToCarve
             return $this->degradeToContent($node);
         }
 
-        $content = trim($this->processBlock($node));
-        $fence = $this->colonFenceFor($content);
+        $content = $this->insideColonFence(fn (): string => trim($this->processBlock($node)));
+        $fence = $this->colonFenceFor();
         $output = $attrs . $fence . ' ' . $tagName . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
@@ -3181,17 +3207,23 @@ class HtmlToCarve
         }
 
         // Extract lines from the content - handle <br> as line separators
-        $lines = $this->extractLineBlockLines($node);
+        $lines = $this->insideColonFence(fn (): string => implode("\n", $this->extractLineBlockLines($node)));
+        $lines = $lines === '' ? [] : explode("\n", $lines);
 
-        // Choose a fence longer than any colon-only content line, so a verse
-        // line that is itself `:::` (or longer) cannot be read as the closer.
-        $fenceLength = 3;
-        foreach ($lines as $line) {
-            if (preg_match('/^(:{3,})\s*$/', $line, $m) === 1) {
-                $fenceLength = max($fenceLength, strlen($m[1]) + 1);
+        // A CLOSER-SHAPED VERSE LINE IS ESCAPED, NOT WIDENED AROUND. The fence
+        // width is the container's own (`carve fmt`'s inward-widening form, see
+        // {@see colonFenceFor()}), so it cannot also carry the answer to "does
+        // a verse line read as this block's closer" - and the formatter answers
+        // that one with a backslash, which is the spelling that survives at any
+        // width. Widening instead made the whole block one column wider for a
+        // reason that is not about nesting, and left the source outside
+        // `carve fmt`'s image either way (markup-carve/carve-php#1583).
+        $fence = $this->colonFenceFor();
+        foreach ($lines as $index => $line) {
+            if (preg_match('/^:{3,}\s*$/', $line) === 1) {
+                $lines[$index] = '\\' . $line;
             }
         }
-        $fence = str_repeat(':', $fenceLength);
 
         // STRICT (djot): the `:::` fence takes no inline attributes, so any
         // extra id/classes go on a PRECEDING block-attribute line.
@@ -4851,7 +4883,12 @@ class HtmlToCarve
                 }
 
                 $cells[] = [
-                    'content' => $this->listTableCellContent($cell),
+                    // ONE LEVEL DEEPER, because the cell's content sits inside
+                    // the `::: list-table` fence this method is about to open
+                    // (see {@see colonFenceFor()}): a container written in a
+                    // cell needs the inward-widening width of its own depth,
+                    // not of the document's (raised by codex review).
+                    'content' => $this->insideColonFence(fn (): string => $this->listTableCellContent($cell)),
                     'attributes' => $this->getElementAttributes($cell, $this->tableCellSkipAttributes($cell)),
                     'colspan' => max(1, (int)$cell->getAttribute('colspan')),
                     'rowspan' => max(1, (int)$cell->getAttribute('rowspan')),
@@ -4899,11 +4936,12 @@ class HtmlToCarve
             $attributes[] = 'header-cols=' . $headerCols;
         }
 
+        $fence = $this->colonFenceFor();
         $output = $attributes === [] ? '' : '{' . implode(' ', $attributes) . "}\n";
-        $output .= '::: list-table' . ($caption === '' ? '' : ' "' . str_replace('"', '\\"', $caption) . '"') . "\n";
+        $output .= $fence . ' list-table' . ($caption === '' ? '' : ' "' . str_replace('"', '\\"', $caption) . '"') . "\n";
         $output .= $this->listTableRows($rows);
 
-        return $output . ":::\n\n";
+        return $output . $fence . "\n\n";
     }
 
     /**
@@ -5089,6 +5127,17 @@ class HtmlToCarve
      * @var int
      */
     protected int $tableCellDepth = 0;
+
+    /**
+     * How many colon-fenced containers enclose the node being serialized.
+     *
+     * The width of a container's fence is `3 + this`, which is the
+     * inward-widening form `carve fmt` writes - see {@see colonFenceFor()} for
+     * why the direction is not free for an importer even though both parse.
+     *
+     * @var int
+     */
+    protected int $colonFenceDepth = 0;
 
     /**
      * The Carve this conversion emitted, for the inspection walk to observe.
@@ -5680,24 +5729,27 @@ class HtmlToCarve
         // of the group figure - no wrapper element - and the group's own
         // `<figcaption>` is the direct child handled below (a panel's caption
         // sits inside the panel figure, so it never matches here).
-        $content = '';
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
-                continue;
+        $content = $this->insideColonFence(function () use ($node): string {
+            $body = '';
+            foreach ($node->childNodes as $child) {
+                if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
+                    continue;
+                }
+                if (
+                    $child instanceof DOMElement
+                    && strtolower($child->tagName) === 'figure'
+                    && $this->hasClass($child, 'carve-figure-panel')
+                ) {
+                    $body .= $this->processFigurePanel($child);
+                } else {
+                    $body .= $this->processNode($child);
+                }
             }
-            if (
-                $child instanceof DOMElement
-                && strtolower($child->tagName) === 'figure'
-                && $this->hasClass($child, 'carve-figure-panel')
-            ) {
-                $content .= $this->processFigurePanel($child);
-            } else {
-                $content .= $this->processNode($child);
-            }
-        }
-        $content = trim($content);
 
-        $fence = $this->colonFenceFor($content);
+            return trim($body);
+        });
+
+        $fence = $this->colonFenceFor();
         $output = "\n" . $attrs . $fence . " figure\n";
         if ($content !== '') {
             $output .= $content . "\n";
