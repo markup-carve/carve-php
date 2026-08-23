@@ -94,6 +94,33 @@ class AnImportTakesTheLabelsMapItWasRenderedWithTest extends TestCase
         $this->assertStringContainsString('aria-label="Wichtiger Hinweis"', $carve);
     }
 
+    /**
+     * THE OVERRIDDEN KEY SHADOWS ITS DEFAULT, and that is the intended reading
+     * rather than an accident of `+`.
+     *
+     * A host that supplies `admonitionNote => 'Hinweis'` is stating what its
+     * renderer writes. `Note` is then a string that renderer never generates,
+     * so the importer cannot treat it as a generated name - it may well be one
+     * the author wrote - and it is kept. The same HTML imported with NO map is
+     * matched against the defaults and the name is dropped.
+     *
+     * So the map narrows what counts as generated for the keys it names. It is
+     * layered for every OTHER key (see the partial-map case above), not for the
+     * one it overrides.
+     */
+    public function testAMappedKeyNoLongerMatchesTheDefaultItReplaces(): void
+    {
+        $renderedInEnglish = (new CarveConverter())->convert("::: note\nbody\n:::\n");
+        $this->assertStringContainsString('aria-label="Note"', $renderedInEnglish);
+
+        // The imported CARVE spells the attribute `{aria-label=Note}`, not as HTML.
+        $withGermanMap = (new HtmlToCarve(labels: $this->de))->convert($renderedInEnglish);
+        $this->assertStringContainsString('{aria-label=Note}', $withGermanMap);
+
+        $withNoMap = (new HtmlToCarve())->convert($renderedInEnglish);
+        $this->assertStringNotContainsString('aria-label', $withNoMap);
+    }
+
     public function testTheImportedSourceStaysLocalizable(): void
     {
         $html = (new CarveConverter(labels: $this->de))->convert("::: note\nbody\n:::\n");
