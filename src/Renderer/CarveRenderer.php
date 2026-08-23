@@ -3691,30 +3691,24 @@ class CarveRenderer implements RendererInterface
             return !$first instanceof ListBlock || $first->isTight();
         }
 
-        if (!$node->isLoose()) {
-            return false;
-        }
-
-        // A description already holding a second block takes the wrapper without
-        // the key, so it spells its own looseness; one that renders as a single
-        // paragraph has no blank-line spelling at all - a blank line between two
-        // ENTRIES does not loosen a `<dl>`. The key is needed as soon as ONE
-        // description is in that second state, because a sibling's second block
-        // says nothing about it.
-        foreach ($node->getChildren() as $child) {
-            if (!$child instanceof DefinitionDescription) {
-                continue;
-            }
-            $visible = array_values(array_filter(
-                $child->getChildren(),
-                static fn (Node $block): bool => !$block instanceof Comment,
-            ));
-            if (count($visible) === 1 && $visible[0] instanceof Paragraph) {
-                return true;
-            }
-        }
-
-        return false;
+        // ON A DEFINITION LIST THE ANSWER IS UNCONDITIONAL
+        // (markup-carve/carve-rs#1305, markup-carve/carve#1639). The looseness
+        // field is set ONLY where the key was spelled - a `<dl>`'s own
+        // derivation gets it from nowhere else, because a blank line between two
+        // ENTRIES does not loosen a `<dl>` at any count - so a body written
+        // without the key can never read back with the field set, and the
+        // re-parse test says "emit" every time.
+        //
+        // A DESCRIPTION THAT ALREADY HOLDS TWO BLOCKS DOES NOT CHANGE IT. There
+        // the key is redundant in the RENDER, which is why redundant use is a
+        // no-op, and it is not redundant in the TREE - and the tree is what the
+        // equality is taken over.
+        //
+        // That is the same asymmetry the two fields have: `tight` is total and
+        // derived from the source, so the list arm above has a real question to
+        // answer, while a definition list's field records only what its own
+        // derivation misses.
+        return $node->isLoose();
     }
 
     protected function renderAttrs(?Node $node): string
