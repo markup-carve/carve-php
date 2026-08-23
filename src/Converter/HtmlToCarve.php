@@ -6022,7 +6022,32 @@ class HtmlToCarve
             if ($tag === 'dt') {
                 $output .= ':: ' . trim($this->processChildren($child)) . "\n";
             } elseif ($tag === 'dd') {
-                $lines = explode("\n", trim($this->processChildren($child)));
+                $description = trim($this->processChildren($child));
+                if ($description === '') {
+                    // A DESCRIPTION THAT WRITES NOTHING IS DROPPED, not spelled.
+                    //
+                    // Carve has no spelling for an empty `<dd>`: the bare colon
+                    // line this used to write is read as a continuation of the
+                    // line above it, so `<dl><dt>term</dt><dd></dd></dl>` came
+                    // back as a `<dt>` reading `term\n:` - the description lost
+                    // AND the term damaged - and an empty description with
+                    // entries after it split the list in two around a stray
+                    // `<p>:</p>`. Six spellings were probed on
+                    // markup-carve/carve#1608 and every one leaks a colon into
+                    // the text, folds into the term, or renders `&nbsp;`.
+                    //
+                    // `docs/html-import.md`, "A declared loss is a ceiling, not
+                    // a licence": an import may lose what it declares and no
+                    // more, so the description goes and the term stays.
+                    //
+                    // EMPTY IS WHAT WRITES NOTHING, not what holds nothing. A
+                    // `<dd>` whose only child renders to a non-breaking space
+                    // writes `:` and three spaces, which round-trips exactly,
+                    // so it is not this case and keeps its line.
+                    continue;
+                }
+
+                $lines = explode("\n", $description);
                 $output .= ':  ' . array_shift($lines) . "\n";
                 foreach ($lines as $line) {
                     $output .= '   ' . $line . "\n";
@@ -6915,10 +6940,85 @@ class HtmlToCarve
         if (count($rebuilt) === count($listItems)) {
             // Every note left; the definitions are appended at the end and the
             // separator went with them.
+            //
+            // THE POSITION IS MEANING, so it is kept. Definitions collect to
+            // document level whatever the source said, so a section with
+            // content after it would otherwise re-render past that content -
+            // the same characters in the wrong order, with nothing to say so.
+            // Carve spells the position, and `docs/html-import.md` - "An
+            // endnotes section keeps the position it was written at" - has the
+            // import write the placement directive where the section sat.
+            //
+            // Nothing is reported: this is not `structure-unspellable`, since
+            // the language HAS the spelling, which is the whole argument.
+            //
+            // A SECTION THAT IS LAST WRITES NO DIRECTIVE. The definitions
+            // already render there, so the directive would put a construct in
+            // the source that the input did not distinguish.
+            if ($this->hasContentAfterEndnotesSection($node)) {
+                return "::: footnotes\n\n:::\n\n";
+            }
+
             return '';
         }
 
         return $this->processNode($this->endnotesRemainder($ol, $rebuilt));
+    }
+
+    /**
+     * Does anything a reader would see follow this endnotes section?
+     *
+     * The question the placement directive turns on. A section with nothing
+     * after it already renders where the definitions land, so the import writes
+     * no directive; a section with content after it needs one, or the re-render
+     * puts the notes past that content.
+     *
+     * WALKED UP THE ANCESTORS, not only across the section's own siblings: a
+     * section wrapped in a `<div>` that has a paragraph after the wrapper is
+     * still not last, and reading one level would have called it last and moved
+     * the notes past that paragraph.
+     *
+     * WHAT IS WRITTEN, not what is present. Whitespace-only text, comments and
+     * an element `writesNothing()` recognizes - a `<script>`, an empty `<p>` -
+     * all put nothing in the source, so a section they follow is still last and
+     * still writes no directive. This is the same question
+     * `precedingSiblingThatWritesSomething()` asks in the other direction, and
+     * it is asked through the same helper so the two cannot drift.
+     *
+     * `writesNothing()` is conservative the way this caller needs: it treats
+     * what it does not recognize as writing something. Reading a written
+     * element as silent would move the notes past content a reader can see,
+     * where the other error only writes a directive the input did not need.
+     */
+    protected function hasContentAfterEndnotesSection(DOMElement $node): bool
+    {
+        $current = $node;
+        while ($current instanceof DOMElement) {
+            for ($sibling = $current->nextSibling; $sibling !== null; $sibling = $sibling->nextSibling) {
+                if ($sibling instanceof DOMComment) {
+                    continue;
+                }
+
+                if ($sibling instanceof DOMText) {
+                    if (trim($sibling->textContent) === '') {
+                        continue;
+                    }
+
+                    return true;
+                }
+
+                if ($sibling instanceof DOMElement && $this->writesNothing($sibling)) {
+                    continue;
+                }
+
+                return true;
+            }
+
+            $parent = $current->parentNode;
+            $current = $parent instanceof DOMElement ? $parent : null;
+        }
+
+        return false;
     }
 
     /**
