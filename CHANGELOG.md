@@ -58,11 +58,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   alternate renderers, source positions, warnings, strict/safe/profile modes,
   output transformers, explicit parser access, active unsupported extensions,
   third-party extensions, non-ASCII input and documents over 64 KiB keep the
-  owned AST. Nothing is published until the whole borrowed document is accepted,
-  and the pinned corpus is shadow-rendered through both paths and must stay
-  byte-identical. On the 49 KiB comparison document the Tier-2 and Tier-3
-  profiles measured about 20x faster locally.
-- **The default parse and extension dispatch paths do much less work** (#1489, #1490, #1491, #1498). Reference, footnote and abbreviation collectors share one authoritative structural walk instead of three document-wide scans; collectors skip documents with no possible opening bytes; inline plain text skips to the next significant delimiter instead of advancing a byte at a time; an inline regex matcher can declare a literal its input must contain; Citations and Index skip their deep AST clones when the document has none; and the pipe-table header separator is split once. The measured comparison workload went from about 121 ms/op to about 38 ms/op locally.
+  owned AST. Nothing is published until the whole borrowed document is
+  accepted, and every corpus document the facade admits is rendered again
+  through the authoritative pipeline and must come back byte-identical.
+- **The default parse and extension dispatch paths do much less work** (#1489, #1490, #1491, #1498). Reference, footnote and abbreviation collectors share one authoritative structural walk instead of three document-wide scans; collectors skip documents with no possible opening bytes; inline plain text skips to the next significant delimiter instead of advancing a byte at a time; an inline regex matcher can declare a literal its input must contain; Citations and Index skip their deep AST clones when the document has none; and the pipe-table header separator is validated, aligned and measured in one cell split instead of three. The quoted-comment closer search the removed prepasses had been hiding is linear in the input where it used to grow quadratically.
 - **The doubled run is the canonical arrow, in both families** (#1496, markup-carve/carve#1442). `<--` `-->` `<-->` and `<==` `==>` `<=>` convert. **BREAKING: `=>` no longer converts** - `key => value` and `x => x + 1` were silently becoming an arrow in rendered output only. `<=` keeps `≤`.
 - **An empty brace pair is text, and `{--}` is an en dash** (#1497, markup-carve/carve#1447, markup-carve/carve#1450, §6c). `{//}`, `{**}`, `{^^}` and the rest render literally; a pair holding content is still the construct.
 - **Admonitions, task checkboxes and the footnote section carry accessible names** (#1512). A canonical admonition takes `aria-labelledby` on its title or an `aria-label` for its kind, a task checkbox is named by its item text, and the endnotes section is labeled. An authored `aria-label` or `aria-labelledby` wins.
