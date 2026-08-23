@@ -13,16 +13,26 @@ use MarkupCarve\Carve\Extension\TabsExtension;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Comprehensive round-trip tests for Djot -> HTML -> Djot conversion
+ * Carve -> HTML -> Carve, WITH the round-trip sidecar switched on.
  *
- * These tests verify that content survives the round-trip through HTML
- * using the data-djot-src attribute for lossless conversion.
+ * The converter here runs in `roundTripMode`, so the rendered HTML carries the
+ * original Carve in a `data-djot-src` attribute, and the importer runs in
+ * `trustedRoundTrip`, so it reads that attribute back verbatim. For every
+ * construct that emits the attribute this class therefore proves the SIDECAR
+ * SURVIVES A RENDER - a real property, and a much narrower one than "the
+ * document round-trips" (markup-carve/carve-php#1603).
+ *
+ * The reconstruction claim - the same source coming back out of the rendered
+ * HTML with no sidecar to read - is a different question, and it lives in
+ * `Converter\TheHtmlRoundTripWithoutTheSidecarTest`, which measures how much of
+ * this population actually holds it: 22 of these 80 round trips, because HTML
+ * import is lossy by design.
  */
-class RoundTripTest extends TestCase
+class RoundTripThroughTheSidecarTest extends TestCase
 {
     private CarveConverter $converter;
 
-    private HtmlToCarve $htmlToDjot;
+    private HtmlToCarve $htmlToCarve;
 
     protected function setUp(): void
     {
@@ -34,17 +44,30 @@ class RoundTripTest extends TestCase
         // Round-trip tests feed carve's OWN (trusted) HTML back through the
         // converter, so they must honor the `data-djot-src` round-trip attribute.
         // The default converter ignores it (untrusted-input safe default).
-        $this->htmlToDjot = new HtmlToCarve(trustedRoundTrip: true);
+        $this->htmlToCarve = new HtmlToCarve(trustedRoundTrip: true);
     }
 
     /**
-     * Helper to test round-trip conversion
+     * Assert the source comes back out of its own rendered HTML.
+     *
+     * ONLY THE DOCUMENT-FINAL NEWLINE IS NORMALIZED, and only on the expected
+     * side. The sources below are heredocs, which do not end in one, while a
+     * Carve document does - so that single character is an artifact of how the
+     * case is written rather than anything the converters did.
+     *
+     * Everything else is compared byte for byte. The helper used to `trim()`
+     * BOTH sides, which made the assertion blind to exactly what a SOURCE
+     * comparison is for: a leading blank line, a trailing blank RUN and any
+     * indentation at either end could appear or vanish and it still passed
+     * (markup-carve/carve-php#1603).
      */
-    private function assertRoundTrip(string $djot, string $message = ''): void
+    private function assertRoundTrip(string $carve, string $message = ''): void
     {
-        $html = $this->converter->convert($djot);
-        $back = trim($this->htmlToDjot->convert($html));
-        $this->assertSame(trim($djot), $back, $message ?: 'Round-trip failed');
+        $html = $this->converter->convert($carve);
+        $back = $this->htmlToCarve->convert($html);
+        $expected = $carve === '' || str_ends_with($carve, "\n") ? $carve : $carve . "\n";
+
+        $this->assertSame($expected, $back, $message ?: 'Round-trip failed');
     }
 
     /**
@@ -61,17 +84,17 @@ class RoundTripTest extends TestCase
 
     public function testSimpleCodeBlock(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ``` php
 echo "Hello";
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCodeBlockWithBackticks(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ```` markdown
 Here is a code block:
 
@@ -81,43 +104,43 @@ console.log("Hello");
 
 End of example.
 ````
-DJOT;
-        $html = $this->converter->convert($djot);
+CARVE;
+        $html = $this->converter->convert($carve);
         $this->assertHasDjotSrc($html);
         $this->assertStringContainsString('````', $html, 'Should preserve 4-backtick fence in data-djot-src');
-        $this->assertRoundTrip($djot);
+        $this->assertRoundTrip($carve);
     }
 
     public function testCodeBlockWithManyBackticks(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 `````` text
 Here are some backticks: ``` and ```` and `````
 ``````
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCodeBlockWithAttributes(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {#my-code .highlight}
 ``` python
 def hello():
     print("world")
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCodeBlockNoLanguage(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ```
 plain text here
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -126,39 +149,39 @@ DJOT;
 
     public function testMermaidFlowchart(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ``` mermaid
 graph TD;
     A[Start] --> B{Decision};
     B -->|Yes| C[OK];
     B -->|No| D[End];
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testMermaidWithSpecialChars(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ``` mermaid
 graph LR
     A["Input: <data>"] --> B["Process & Transform"]
     B --> C["Output"]
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testMermaidSequenceDiagram(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ``` mermaid
 sequenceDiagram
     Alice->>Bob: Hello
     Bob-->>Alice: Hi
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -167,7 +190,7 @@ DJOT;
 
     public function testCodeGroupBasic(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::: code-group
 ``` php
 echo "PHP";
@@ -177,13 +200,13 @@ echo "PHP";
 console.log("JS");
 ```
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCodeGroupWithLabels(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::: code-group
 ``` php [Composer]
 composer require package
@@ -193,13 +216,13 @@ composer require package
 npm install package
 ```
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCodeGroupWithBackticksInCode(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::: code-group
 ```` markdown [Example]
 Here is code:
@@ -209,21 +232,21 @@ test();
 ```
 ````
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCodeGroupWithAttributes(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {#install-options .wide}
 ::: code-group
 ``` bash
 echo "test"
 ```
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -233,7 +256,7 @@ DJOT;
     public function testTabsWithHeadings(): void
     {
         // Note: blank line between tabs is normalized during round-trip
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 :::: tabs
 
 ::: tab
@@ -247,14 +270,14 @@ Content here.
 More content.
 :::
 ::::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testTabsWithLabelAttribute(): void
     {
         // Note: blank line between tabs is normalized during round-trip
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 :::: tabs
 
 {label=First}
@@ -266,14 +289,14 @@ Content for first tab.
 Content for second tab.
 :::
 ::::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testTabsWithCodeBlocks(): void
     {
         // Note: blank line between tabs is normalized during round-trip
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 :::: tabs
 
 ::: tab
@@ -291,13 +314,13 @@ $promise = fetchAsync();
 ```
 :::
 ::::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testTabsWithNestedCodeGroup(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::::: tabs
 
 {label=Install}
@@ -313,15 +336,15 @@ npm install pkg
 :::
 ::::
 :::::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testTabsWithRichContent(): void
     {
         $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
 
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {#wrapper .outer}
 :::: tabs
 
@@ -335,14 +358,14 @@ Text with *bold*, _em_, `code`, ![alt](img.png), and [link](https://example.com)
 2. two
 :::
 ::::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testTabsWithTable(): void
     {
         // Note: table column widths may be normalized during round-trip
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 :::: tabs
 
 ::: tab
@@ -353,8 +376,8 @@ DJOT;
 | debug | true |
 :::
 ::::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -365,7 +388,7 @@ DJOT;
     {
         $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
 
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 # Heading
 
 Paragraph with *bold* and _italic_.
@@ -384,15 +407,15 @@ console.log(1);
 graph TD;
     A --> B;
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testNestedStructures(): void
     {
         // Nested divs use DECREASING fence lengths (outer longest), so each
         // inner `:::`-fence is shorter than its parent and does not close it.
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::::: tabs
 
 {label=Install}
@@ -410,14 +433,14 @@ let x = 1;
 :::
 ::::
 :::::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testMultipleTabsWithMermaid(): void
     {
         // Test multiple tabs where one has mermaid (no nested code-group)
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 :::: tabs
 
 ::: tab
@@ -436,8 +459,8 @@ graph LR
 ```
 :::
 ::::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -446,37 +469,37 @@ DJOT;
 
     public function testEmptyCodeBlock(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ```
 
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCodeBlockWithOnlyWhitespace(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ```
 
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCodeBlockWithTrailingSpaces(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ``` php
 echo "test";
 ```
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testMultipleCodeBlocksWithBackticks(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 First block:
 
 ```` md
@@ -492,8 +515,8 @@ Second block:
 more nested
 ````
 `````
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -502,29 +525,29 @@ DJOT;
 
     public function testCodeBlockHasDjotSrc(): void
     {
-        $djot = "``` php\necho 1;\n```";
-        $html = $this->converter->convert($djot);
+        $carve = "``` php\necho 1;\n```";
+        $html = $this->converter->convert($carve);
         $this->assertHasDjotSrc($html, 'Code block should have data-djot-src');
     }
 
     public function testMermaidHasDjotSrc(): void
     {
-        $djot = "``` mermaid\ngraph TD;\n```";
-        $html = $this->converter->convert($djot);
+        $carve = "``` mermaid\ngraph TD;\n```";
+        $html = $this->converter->convert($carve);
         $this->assertHasDjotSrc($html, 'Mermaid should have data-djot-src');
     }
 
     public function testCodeGroupHasDjotSrc(): void
     {
-        $djot = "::: code-group\n``` php\ntest\n```\n:::";
-        $html = $this->converter->convert($djot);
+        $carve = "::: code-group\n``` php\ntest\n```\n:::";
+        $html = $this->converter->convert($carve);
         $this->assertHasDjotSrc($html, 'Code group should have data-djot-src');
     }
 
     public function testTabsHasDjotSrc(): void
     {
-        $djot = ":::: tabs\n::: tab\n### Tab\nContent\n:::\n::::";
-        $html = $this->converter->convert($djot);
+        $carve = ":::: tabs\n::: tab\n### Tab\nContent\n:::\n::::";
+        $html = $this->converter->convert($carve);
         $this->assertHasDjotSrc($html, 'Tabs should have data-djot-src');
     }
 
@@ -534,25 +557,25 @@ DJOT;
 
     public function testHeadingWithCustomId(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {#my-custom-id}
 # Heading
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testHeadingWithCustomIdAndClass(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {#special .fancy}
 ## Styled Heading
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testMultipleHeadingsWithCustomIds(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {#intro}
 # Introduction
 
@@ -560,8 +583,8 @@ Some text.
 
 {#methods}
 ## Methods
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testHeadingWithoutCustomId(): void
@@ -569,11 +592,11 @@ DJOT;
         $this->markTestSkipped('Round-trip (HtmlToCarve) materializes auto-generated heading ids/refs back into source; should only re-emit explicitly authored ids. Tracked separately, unrelated to the flat-heading / auto-id / </#id> rendering this change delivers.');
 
         // Auto-generated IDs should not be preserved
-        $djot = '# Simple Heading';
-        $html = $this->converter->convert($djot);
-        $back = trim($this->htmlToDjot->convert($html));
+        $carve = '# Simple Heading';
+        $html = $this->converter->convert($carve);
+        $back = trim($this->htmlToCarve->convert($html));
         // Should NOT have ID attribute in round-trip
-        $this->assertSame($djot, $back);
+        $this->assertSame($carve, $back);
     }
 
     // =========================================================================
@@ -582,26 +605,26 @@ DJOT;
 
     public function testInlineCodeWithBackticks(): void
     {
-        $djot = 'Use `` `backtick` `` in code.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Use `` `backtick` `` in code.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testInlineCodeWithMultipleBackticks(): void
     {
-        $djot = 'Show ``` ``double`` ``` ticks.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Show ``` ``double`` ``` ticks.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testInlineCodeStartingWithBacktick(): void
     {
-        $djot = 'Use `` `start`` end.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Use `` `start`` end.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testInlineCodeEndingWithBacktick(): void
     {
-        $djot = 'Use ``end` `` done.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Use ``end` `` done.';
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -610,42 +633,42 @@ DJOT;
 
     public function testTableWithMinimalSeparator(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 | A | B |
 |--|--|
 | 1 | 2 |
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testTableWithAlignment(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 | Left | Center | Right |
 |:--|:--:|--:|
 | L | C | R |
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testTableWithWiderSeparators(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 | Header 1 | Header 2 |
 |----------|----------|
 | Data 1 | Data 2 |
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testTableWithMixedWidths(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 | A | Longer |
 |--|-------|
 | 1 | Data |
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -654,14 +677,14 @@ DJOT;
 
     public function testNestedListsWithBlankLines(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 - Parent
 
   - Child
 
     - Grandchild
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testNestedOrderedLists(): void
@@ -671,14 +694,14 @@ DJOT;
         // spaces; a two-space indent would be below the content column and
         // detach to document level (content-column model, carve#295).
         // Blank lines between items may not be preserved (tight vs loose list).
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 1. First
 
    1. Nested first
    2. Nested second
 2. Second
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -687,21 +710,21 @@ DJOT;
 
     public function testDefinitionList(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 :: Term
 :  Definition text here
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testDefinitionListMultipleTerms(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 :: First Term
 :: Second Term
 :  Shared definition
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -710,62 +733,62 @@ DJOT;
 
     public function testReferenceLinkExplicit(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 See [the documentation][docs] for more info.
 
 [docs]: https://example.com/docs
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testReferenceLinkCollapsed(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 Check [Example][] for details.
 
 [Example]: https://example.com
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testReferenceImageExplicit(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ![Alt text][logo]
 
 [logo]: https://example.com/logo.png
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testReferenceImageCollapsed(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ![My Logo][]
 
 [My Logo]: https://example.com/my-logo.png
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testMultipleReferencesSharedDefinition(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 See [here][site] and [there][site] for more.
 
 [site]: https://example.com
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testMixedReferencesAndInlineLinks(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 Check [Ref Link][ref] and [inline](https://inline.com).
 
 [ref]: https://ref.com
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -774,32 +797,32 @@ DJOT;
 
     public function testAutolinkUrl(): void
     {
-        $djot = 'Visit <https://example.com> for more info.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Visit <https://example.com> for more info.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testAutolinkEmail(): void
     {
-        $djot = 'Contact <user@example.com> for help.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Contact <user@example.com> for help.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testAutolinkWithAttributes(): void
     {
-        $djot = 'See <https://example.com>{.external} for details.';
-        $this->assertRoundTrip($djot);
+        $carve = 'See <https://example.com>{.external} for details.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testMixedAutolinksAndRegularLinks(): void
     {
-        $djot = 'Visit <https://auto.com> or [click here](https://regular.com).';
-        $this->assertRoundTrip($djot);
+        $carve = 'Visit <https://auto.com> or [click here](https://regular.com).';
+        $this->assertRoundTrip($carve);
     }
 
     public function testAutolinkWithScheme(): void
     {
-        $djot = 'Use <ftp://files.example.com> to download.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Use <ftp://files.example.com> to download.';
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -808,53 +831,53 @@ DJOT;
 
     public function testSimpleFootnote(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 Text[^1].
 
 [^1]: Footnote content.
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testNamedFootnote(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 Text[^note].
 
 [^note]: Named footnote.
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testMultipleFootnotes(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 First[^1] and second[^2].
 
 [^1]: First note.
 [^2]: Second note.
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testFootnoteWithFormatting(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 Text[^1].
 
 [^1]: Footnote with *emphasis* and `code`.
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testFootnoteWithLink(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 Text[^1].
 
 [^1]: Footnote with [link](http://example.com).
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -863,55 +886,55 @@ DJOT;
 
     public function testSimpleAdmonitionNote(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::: note
 Content here.
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testAdmonitionWarning(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::: warning
 Warning content.
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testAdmonitionWithMultipleParagraphs(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::: note
 First paragraph.
 
 Second paragraph.
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testAdmonitionWithFormatting(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::: note
 This is *important* text.
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testAdmonitionWithCustomTitle(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {title="My Custom Title"}
 ::: note
 Content with custom title.
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCollapsibleAdmonitionRoundTripsAsStaticDiv(): void
@@ -919,37 +942,37 @@ DJOT;
         // {collapsible} is no longer a disclosure widget here (that lives in
         // DetailsExtension). It is an ordinary pass-through attribute, so it
         // round-trips through the static admonition div path.
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {collapsible}
 ::: tip
 Collapsible content.
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCollapsibleOpenAdmonitionRoundTripsAsStaticDiv(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {collapsible=open}
 ::: danger
 Expanded by default.
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testCollapsibleAdmonitionWithTitleRoundTrips(): void
     {
         // The custom title is restored via the round-trip data attribute; the
         // pass-through collapsible attribute is re-emitted after the title.
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {title="Click me" collapsible}
 ::: note
 Hidden content.
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -958,41 +981,41 @@ DJOT;
 
     public function testSimpleLineBlock(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::: |
 Line one
 Line two
 Line three
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testLineBlockWithFormatting(): void
     {
         $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
 
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 ::: |
 This is *strong*
 And _emphasis_
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testLineBlockWithAttributes(): void
     {
         // STRICT (djot): attributes attach via a preceding block-attribute
         // line, not inline on the `::: |` fence.
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 {.poem}
 ::: |
 Roses are red
 Violets are blue
 :::
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -1001,27 +1024,27 @@ DJOT;
 
     public function testRawInlineHtml(): void
     {
-        $djot = 'Text `<br>`{=html} more.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Text `<br>`{=html} more.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testRawInlineHtmlComplex(): void
     {
-        $djot = 'Insert `<span class="red">colored</span>`{=html} text.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Insert `<span class="red">colored</span>`{=html} text.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testRawInlineHtmlEmphasis(): void
     {
-        $djot = 'abc `<em>xy</em>`{=html}';
-        $this->assertRoundTrip($djot);
+        $carve = 'abc `<em>xy</em>`{=html}';
+        $this->assertRoundTrip($carve);
     }
 
     public function testRawInlineNonHtml(): void
     {
         // Non-HTML formats are preserved in round-trip mode
-        $djot = 'LaTeX: `\alpha`{=tex} formula.';
-        $this->assertRoundTrip($djot);
+        $carve = 'LaTeX: `\alpha`{=tex} formula.';
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -1030,33 +1053,33 @@ DJOT;
 
     public function testSingleAbbreviation(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 *[HTML]: Hypertext Markup Language
 
 The HTML spec defines the standard.
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testMultipleAbbreviations(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 *[HTML]: Hypertext Markup Language
 *[CSS]: Cascading Style Sheets
 
 HTML and CSS are web standards.
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testAbbreviationWithMultipleOccurrences(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 *[API]: Application Programming Interface
 
 The API is well documented. Use the API wisely.
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     // =========================================================================
@@ -1065,63 +1088,63 @@ DJOT;
 
     public function testEscapedAsterisks(): void
     {
-        $djot = 'This is \*not bold\* text.';
-        $this->assertRoundTrip($djot);
+        $carve = 'This is \*not bold\* text.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testEscapedUnderscore(): void
     {
-        $djot = 'This is \_not italic\_ text.';
-        $this->assertRoundTrip($djot);
+        $carve = 'This is \_not italic\_ text.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testEscapedBrackets(): void
     {
-        $djot = 'Use \[square brackets\] literally.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Use \[square brackets\] literally.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testEscapedBackslash(): void
     {
-        $djot = 'A backslash: \\\\ here.';
-        $this->assertRoundTrip($djot);
+        $carve = 'A backslash: \\\\ here.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testMixedEscapedCharacters(): void
     {
-        $djot = 'Mix of \* and \_ and \[ escapes.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Mix of \* and \_ and \[ escapes.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testEscapedAtBoundaries(): void
     {
-        $djot = '\*starts and ends\*';
-        $this->assertRoundTrip($djot);
+        $carve = '\*starts and ends\*';
+        $this->assertRoundTrip($carve);
     }
 
     public function testConsecutiveEscapedCharacters(): void
     {
-        $djot = 'Multiple \*\*\* consecutive escapes.';
-        $this->assertRoundTrip($djot);
+        $carve = 'Multiple \*\*\* consecutive escapes.';
+        $this->assertRoundTrip($carve);
     }
 
     public function testAbbreviationWithSpecialChars(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 *[C++]: C Plus Plus
 
 The C++ language is powerful.
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 
     public function testAbbreviationWithDots(): void
     {
-        $djot = <<<'DJOT'
+        $carve = <<<'CARVE'
 *[e.g.]: for example
 
 Use it e.g. in sentences.
-DJOT;
-        $this->assertRoundTrip($djot);
+CARVE;
+        $this->assertRoundTrip($carve);
     }
 }
