@@ -222,8 +222,17 @@ class BbcodeToCarve
         // again here doubled the backslash - `a *b* c` became `a \\*b* c`,
         // which renders a literal backslash AND the bold it was meant to
         // prevent. So the content is stashed as it stands and only the tags go.
+        // ITS BLOCK OPENERS ARE ESCAPED HERE, because this is the last point
+        // at which the body is known to be literal. escapePlainBbcodeText()
+        // escaped what the body HOLDS and nothing it STARTS a line with, so
+        // `[noparse]` was the one place in this converter where a `- ` marker
+        // reached the document live: the text the author declared literal came
+        // back as a list, and the blank run inside it as the hard boundary
+        // between two of them (markup-carve/carve-php#1622). The code family
+        // above needs no such escape because its body lands inside a fence,
+        // which neutralizes everything; this one lands bare.
         $dropTags = function (array $match) use (&$stash, $open, $close): string {
-            $stash[] = $match[1];
+            $stash[] = $this->escapeLineInitialBlockSyntax($match[1]);
 
             return $open . (count($stash) - 1) . $close;
         };

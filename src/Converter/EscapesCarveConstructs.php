@@ -192,6 +192,77 @@ trait EscapesCarveConstructs
     }
 
     /**
+     * Escape the BLOCK OPENERS a line begins with, for text declared literal.
+     *
+     * escapePlainCarveInlineSyntax() covers what a line holds; this covers what
+     * a line STARTS with, which is the other half of "this text is not markup"
+     * and had no rule at all. A `[noparse]` body reached the document with its
+     * line-initial `- ` markers intact, so text the source declared literal came
+     * back as lists - and the blank run between them was then read as the hard
+     * list boundary of PART 9 §11 N1a, making two of them
+     * (markup-carve/carve-php#1622). PART 11 §2: escape a character if and only
+     * if omitting the escape would change the re-parsed AST.
+     *
+     * ONLY FOR TEXT THE SOURCE DECLARES LITERAL. Ordinary prose is not passed
+     * through here: a source language may spell its own list with `- `, and
+     * escaping every line-initial marker in a document would put a backslash in
+     * front of every bullet the author wrote.
+     *
+     * A RUN IS ESCAPED CHARACTER BY CHARACTER where a single escape would leave
+     * the construct standing. A fence is the clear case - what is left of a
+     * partly escaped run of backticks is a shorter run, and it still opens
+     * something - and a thematic break is the quiet one: `\---` escapes the
+     * first hyphen and smart typography then reads the remaining `--` as an en
+     * dash. An ordered marker is the opposite case: a backslash before a DIGIT
+     * is a literal backslash rather than an escape, so the DELIMITER is what
+     * gets escaped (`1\. `).
+     *
+     * TWO OPENERS THAT LOOK LIKE MEMBERS ARE NOT. Carve reads neither `+ ` as
+     * a bullet nor a `: ` line as a definition item - both render as the text
+     * they are - so escaping them would put a backslash in front of a character
+     * that needed none, which is the failure this rule stands one step away
+     * from at every point. Measured against the parser rather than carried over
+     * from the Markdown and Djot habit of spelling both.
+     *
+     * @param string $text
+     */
+    protected function escapeLineInitialBlockSyntax(string $text): string
+    {
+        $lines = explode("\n", $text);
+        foreach ($lines as $index => $line) {
+            if (preg_match('/^([ \t]*)(\S.*)$/', $line, $match) !== 1) {
+                continue;
+            }
+            [, $indent, $rest] = $match;
+
+            if (preg_match('/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $rest) === 1) {
+                $lines[$index] = $indent . (preg_replace('/([-*_])/', '\\\\$1', $rest) ?? $rest);
+
+                continue;
+            }
+            if (preg_match('/^(`{3,}|~{3,}|:{3,})/', $rest, $fence) === 1) {
+                $run = (string)preg_replace('/./', '\\\\$0', $fence[1]);
+                $lines[$index] = $indent . $run . substr($rest, strlen($fence[1]));
+
+                continue;
+            }
+            if (preg_match('/^([0-9]{1,9}|[A-Za-z])([.)])([ \t]|$)/', $rest, $ordered) === 1) {
+                $lines[$index] = $indent . $ordered[1] . '\\' . substr($rest, strlen($ordered[1]));
+
+                continue;
+            }
+            // `::` IS THE DEFINITION-LIST TERM, and it is the one opener here
+            // that a shorter run of the fence character spells: `:::` and up is
+            // a fence and was caught above, exactly two colons is a term.
+            if (preg_match('/^(?:[-*](?:[ \t]|$)|#{1,6}[ \t]|>|\||::|%%)/', $rest) === 1) {
+                $lines[$index] = $indent . '\\' . $rest;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
      * Escape Carve inline constructs that are literal text in the source.
      *
      * @param string $line
