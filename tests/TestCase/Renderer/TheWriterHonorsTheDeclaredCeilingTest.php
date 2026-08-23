@@ -131,39 +131,47 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
     }
 
     /**
-     * A list with entries either side of the dropped one keeps its shape: the
-     * drop takes the entry, not the list.
+     * A list with an entry after the dropped one BREAKS at the drop
+     * (markup-carve/carve#1636, ruled after this test was written).
+     *
+     * It used to assert one `<dl>`, which was the open half of carve#1627 and
+     * is the half the ruling moved: keeping one list hands `t1` the description
+     * `d2`, an ADDITION no row can declare. What the drop still does not do is
+     * leave a bare colon line or a stray `<p>:</p>`, and those assertions stand
+     * unchanged.
      */
-    public function testTheListSurvivesADroppedDescription(): void
+    public function testTheListBreaksAtADroppedDescription(): void
     {
         $written = $this->writeWithEmptiedDescription(":: t1\n:  d1\n:: t2\n:  d2\n");
         $rendered = (new CarveConverter())->convert($written);
 
-        $this->assertSame(":: t1\n:: t2\n", $written);
-        $this->assertSame(1, substr_count($rendered, '<dl>'), $rendered);
+        // The helper empties EVERY description, so both entries are dropped and
+        // the break sits between them. `t1` still has none and `t2` still has
+        // none - which is the point: the break costs the grouping and adds
+        // nothing, where one list would have to lend a description across it as
+        // soon as one survived.
+        $this->assertSame(":: t1\n\n%%\n\n:: t2\n", $written);
+        $this->assertSame(2, substr_count($rendered, '<dl>'), $rendered);
         $this->assertStringNotContainsString('<p>:</p>', $rendered);
+        // The point of the break: nothing gains meaning it did not have.
+        $this->assertStringNotContainsString("<dt>t1</dt>\n  <dt>t2</dt>", $rendered);
     }
 
     /**
-     * NOT SETTLED, and deliberately not pinned as correct.
+     * NOW SETTLED (markup-carve/carve#1636).
      *
-     * Where a KEPT description follows a dropped one, consecutive `::` lines
-     * share the description below them - the `<dl>` model the syntax mirrors -
-     * so the surviving term acquires a description it never had. That breaks
-     * the same ceiling in the other direction, and no Carve source says "t1
-     * with no description, then t2 with d2, in one list", so it is a second
-     * unspellable shape rather than something this engine can answer alone.
-     * carve-js's fix has it identically, by construction: both are an early
-     * return on a description that writes nothing.
+     * This said "not settled, and deliberately not pinned as correct": where a
+     * KEPT description follows a dropped one, consecutive `::` lines share the
+     * description below them, so the surviving term acquired a description it
+     * never had. The ruling breaks the list at the dropped entry instead - an
+     * ADDITION is not a loss and no row can declare it, so the ceiling binds in
+     * both directions.
      *
-     * Filed as markup-carve/carve#1636 with the three candidate answers. What
-     * IS ruled is asserted here - the entry goes, the list does not split, and
-     * no stray paragraph appears where the colon line used to be, which is
-     * strictly better than the shape this replaced. What is open is left
-     * unasserted, so a ruling can move it without a test claiming the current
-     * reading was the contract.
+     * The assertion that moved is the `<dl>` count, which was the open half.
+     * The rest stands: no bare colon line, no stray `<p>:</p>`, and `d2` still
+     * on `t2`.
      */
-    public function testAKeptDescriptionAfterADroppedOneStillGetsTheRuledPart(): void
+    public function testAKeptDescriptionAfterADroppedOneBreaksTheList(): void
     {
         $source = ":: t1\n:  d1\n:: t2\n:  d2\n";
         $json = (new AstCodec())->encode((new CarveConverter())->parse($source));
@@ -188,9 +196,11 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
         $written = CarveConverter::carve()->render((new AstCodec())->decode($json));
         $rendered = (new CarveConverter())->convert($written);
 
-        $this->assertStringNotContainsString(":\n", $written, 'no bare colon line survives');
-        $this->assertSame(1, substr_count($rendered, '<dl>'), $rendered);
+        $this->assertStringNotContainsString(":\n\n", $written, 'no bare colon line survives');
+        $this->assertSame(2, substr_count($rendered, '<dl>'), $rendered);
         $this->assertStringNotContainsString('<p>:</p>', $rendered);
         $this->assertStringContainsString('<dd>d2</dd>', $rendered);
+        // `t1` keeps having no description: that is what the break is for.
+        $this->assertStringNotContainsString("<dt>t1</dt>\n  <dt>t2</dt>", $rendered);
     }
 }

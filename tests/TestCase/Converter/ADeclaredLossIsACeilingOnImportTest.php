@@ -81,17 +81,26 @@ class ADeclaredLossIsACeilingOnImportTest extends TestCase
 
     /**
      * WORSE THAN THE FIXTURE, and the reason the drop is at the entry rather
-     * than at the document's last entry: an empty description with entries
-     * after it split the list in two around a stray `<p>:</p>`.
+     * than at the document's last entry: an empty description with entries after
+     * it split the list in two around a stray `<p>:</p>`.
+     *
+     * THE LIST IS STILL SPLIT, DELIBERATELY NOW (markup-carve/carve#1636). This
+     * asserted ONE `<dl>`, and keeping one is what hands `t1` the description
+     * `d2` - an ADDITION, which no row can declare and which the ceiling forbids
+     * outright. The break is written with a COMMENT LINE, so what goes is the
+     * grouping and nothing else: no stray paragraph, no colon in the output, and
+     * `t1` still has no description.
      */
-    public function testAnEmptyDescriptionDoesNotSplitTheListItSitsIn(): void
+    public function testAnEmptyDescriptionSplitsTheListDeliberatelyAndCleanly(): void
     {
         $rendered = $this->html($this->import('<dl><dt>t1</dt><dd></dd><dt>t2</dt><dd>d2</dd></dl>'));
 
-        $this->assertSame(1, substr_count($rendered, '<dl>'), $rendered);
+        $this->assertSame(2, substr_count($rendered, '<dl>'), $rendered);
         $this->assertStringNotContainsString('<p>:</p>', $rendered);
         $this->assertStringContainsString('<dt>t1</dt>', $rendered);
         $this->assertStringContainsString('<dd>d2</dd>', $rendered);
+        // The whole point of the break: `t1` gains nothing it never had.
+        $this->assertStringNotContainsString("<dt>t1</dt>\n  <dt>t2</dt>", $rendered);
     }
 
     /**
