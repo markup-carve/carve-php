@@ -327,16 +327,17 @@ class BbcodeToCarveTest extends TestCase
         $this->assertStringContainsString('- Item 2', $result);
     }
 
-    public function testAdjacentUnorderedListsAlternateMarkers(): void
+    public function testAdjacentListsTakeTheHardBoundary(): void
     {
         $bbcode = '[list][*]a[*]b[/list][list][*]c[*]d[/list]';
         $result = $this->converter->convert($bbcode);
 
-        // The second adjacent list switches marker so the two stay distinct.
-        $this->assertStringContainsString('- a', $result);
-        $this->assertStringContainsString('- b', $result);
-        $this->assertStringContainsString('* c', $result);
-        $this->assertStringContainsString('* d', $result);
+        // The two lists used to be kept distinct by ALTERNATING the bullet
+        // marker, which invents a marker the source never carried and has
+        // nothing left to say about a third list. PART 9 §11 N1a's hard
+        // boundary says it in the language's own words, so both lists keep the
+        // marker they were written with (carve-php#1621).
+        $this->assertSame("- a\n- b\n\n\n\n- c\n- d\n", $result);
     }
 
     public function testOrderedList(): void
