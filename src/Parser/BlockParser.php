@@ -8301,35 +8301,32 @@ class BlockParser
             $first = $entries[0]->getPos();
             $last = $entries[count($entries) - 1]->getPos();
             if ($first !== null && $last !== null) {
-                // THE LIST OWNS EVERY LINE IT CONSUMED, and its children do
-                // not all show. A floating attribute is scoped to the
-                // container that holds it (markup-carve/carve#1298), so the
-                // attribute line is INSIDE the list - and no child covers it,
-                // because it became attributes on the list itself rather than
-                // a block. An extent derived from the children alone therefore
-                // stopped one line short of the line it now scopes
-                // (carve-php#1362); under §4 a span covers the markup its node
-                // owns, and this list owns that line.
+                // THE LIST ENDS AT ITS LAST PLACED CHILD, like every other
+                // closerless container (PART 12 §4, markup-carve/carve#1530).
                 //
-                // The lines are the answer, but only the ones the list OWNS.
-                // Every line it consumed was too many: the parse walks past a
-                // reference definition written under the description, and that
-                // line belongs to the definition node it becomes, not to the
-                // list - so the extent covered markup the node does not own,
-                // which is the mirror of the gap it was fixing
-                // (carve-php#1362 ended one line short, carve-php#1371 ran one
-                // line long).
+                // It used to end on the last line it CONSUMED. A floating
+                // attribute is scoped to the container that holds it
+                // (markup-carve/carve#1298), so the attribute line really is
+                // one the list read - and reading it was taken for owning it,
+                // which put the extent a line past the last description
+                // (carve-php#1362). Scope and extent are different questions:
+                // scope decides which blocks an attribute may reach, extent
+                // decides which source a node claims. The attribute attaches
+                // to nothing, leaves no attributes on this node either, and is
+                // the unattached attribute block §4 excludes by name - exactly
+                // as it is under a bullet item.
                 //
-                // The START still comes from the children, because a list
-                // inside an item does not begin at column 1 of its line.
-                $end = $this->wholeLinesSpan($start, $this->lastDefinitionListLine($lines, $start, $i - 1)) ?? $last;
+                // The consumed-lines reading also needed its own walk back off
+                // lines the list did not own: a column-0 reference definition
+                // becomes a node of its own and the extent covered it anyway
+                // (carve-php#1371). The children answer both without one.
                 $dl->setPos(new SourceSpan(
                     startLine: $first->startLine,
-                    endLine: $end->endLine,
+                    endLine: $last->endLine,
                     startColumn: $first->startColumn,
-                    endColumn: $end->endColumn,
+                    endColumn: $last->endColumn,
                     startOffset: $first->startOffset,
-                    endOffset: $end->endOffset,
+                    endOffset: $last->endOffset,
                 ));
             }
         }
@@ -8478,56 +8475,6 @@ class BlockParser
         $parent->appendChild($lineBlock);
 
         return $i - $start;
-    }
-
-    /**
-     * The last line of `$start .. $lastIndex` a definition list OWNS.
-     *
-     * The parse walks past lines the list does not hold. A floating attribute
-     * written at the description's column IS the list's - it is scoped to the
-     * container that holds it (markup-carve/carve#1298) and becomes attributes
-     * on the list, so no child covers it and the extent has to reach it
-     * (carve-php#1362). A reference definition written at COLUMN 0 under the
-     * same description is not: it becomes a definition node of its own, with
-     * its own span, and an extent covering it claims markup the list does not
-     * own (carve-php#1371).
-     *
-     * The column is what separates them. A line the list owns either carries a
-     * marker of its own - a `::` term, a `:` description, or the §17 L3
-     * continuation marker - or is indented into the description it continues.
-     * A flush-left line that is none of those has left the list, whatever the
-     * parse did with it afterwards.
-     *
-     * The continuation marker is FLUSH-LEFT and still the list's. A list
-     * written as a term, a description and then a lone `+` ends on a marker it
-     * consumed, so reading that as an unrelated column-0 line walked back past
-     * a line the list owns and shortened the extent by it. Asked through the one predicate that spells
-     * the marker {@see self::isContinuationMarker()} rather than a second copy
-     * of `/^\+[ \t]*$/`, which is the spelling carve-php#929 unified across
-     * seven sites.
-     *
-     * @param array<string> $lines
-     * @param int $start
-     * @param int $lastIndex
-     */
-    private function lastDefinitionListLine(array $lines, int $start, int $lastIndex): int
-    {
-        while ($lastIndex > $start) {
-            $line = $lines[$lastIndex] ?? '';
-            if (
-                IndentationHelper::isBlankLine($line)
-                || ($line[0] ?? '') === ' '
-                || ($line[0] ?? '') === "\t"
-                || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $line) === 1
-                || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $line) === 1
-                || $this->isContinuationMarker($line)
-            ) {
-                break;
-            }
-            $lastIndex--;
-        }
-
-        return $lastIndex;
     }
 
     /**
@@ -10794,13 +10741,15 @@ class BlockParser
         // definition written at an item's content column is collected and
         // hoisted to the document, so it becomes the list's SIBLING and the two
         // spans overlapped; an attribute block that attaches to nothing yields
-        // no child at all, which §4 excludes by name. `DefinitionList` is
-        // deliberately absent: it answers the floating-attribute question the
-        // other way, settled at markup-carve/carve#1281 and #1362.
+        // no child at all, which §4 excludes by name. `DefinitionList` is here
+        // too since markup-carve/carve#1530: it was the one container that
+        // answered the floating-attribute question the other way, and its own
+        // extent is derived from its children where it is built.
         if (
             (
                 $node instanceof ListItem
                 || $node instanceof DefinitionDescription
+                || $node instanceof DefinitionList
                 || $node instanceof ListBlock
                 || $node instanceof BlockQuote
             )

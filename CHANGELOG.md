@@ -26,6 +26,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of it, an unattached attribute block, or the blank run that follows it. A
   container a collected definition emptied spans the markup that opened it.
   Published `pos` values move on those documents.
+- **A `definition_list`'s span ends at its last placed child too**
+  (markup-carve/carve#1530, PART 12 §4). It no longer reaches an attribute line
+  no child covers, and no longer needs its own walk back off a column-0
+  definition. Published `pos` values move on those documents.
 - **A css-mode panel is named, and `code-group` grows the same `mode`** (#1528,
   markup-carve/carve#1489, Extensions §13). Under the `css` default each tabs
   and code-group panel now carries `role="group"` named by its own tab's label,
