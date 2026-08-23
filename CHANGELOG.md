@@ -108,6 +108,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The HTML import report no longer calls a derived accessible name a dropped
+  attribute** (#1579, markup-carve/carve#1502). A `role` or accessible name the
+  renderer writes back - on a claimed fence, a tab set, a code group, their
+  panels, an admonition, the endnotes section, an index back-link - is dropped
+  from the imported source on purpose and reproduced on the next render, so it
+  no longer emits `attribute-dropped`. An attribute genuinely lost still
+  reports.
+
 - **A marker at an item's content column opens a sublist, first in the item or
   not** (markup-carve/carve#1517, PART 9 §24 C3). Only the item's first marker
   did; a later one folded into the paragraph above it, so the answer depended on
