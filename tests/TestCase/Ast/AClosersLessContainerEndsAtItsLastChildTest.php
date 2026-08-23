@@ -129,7 +129,9 @@ class AClosersLessContainerEndsAtItsLastChildTest extends TestCase
 
     /**
      * @param array<string, mixed> $node
+     * @param string $source
      * @param list<string> $findings
+     * @param string $path
      */
     private function walk(array $node, string $source, array &$findings, string $path = '$'): void
     {

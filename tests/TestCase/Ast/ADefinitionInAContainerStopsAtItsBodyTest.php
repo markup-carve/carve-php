@@ -13,23 +13,27 @@ use PHPUnit\Framework\TestCase;
 /**
  * A footnote definition's span stops where its body does.
  *
- * A definition written at COLUMN 0 owns the blank line below it: its body may
- * resume under that blank, so nothing else can claim the line, and all three
- * engines reach to the start of it. A definition written behind a CONTAINER
- * PREFIX - inside a quote, a list item, a definition-list `dd` - does not. The
- * container ends at its last prefixed line and the blank below belongs to the
- * document underneath, so reaching there put the definition's span one
- * codepoint past the block that holds it, which is past the last source
- * codepoint the construct owns (PART 12 §4).
+ * A definition written behind a CONTAINER PREFIX - inside a quote, a list item,
+ * a definition-list `dd` - ends with its body. The container ends at its last
+ * prefixed line and the blank below belongs to the document underneath, so
+ * reaching there put the definition's span one codepoint past the block that
+ * holds it, which is past the last source codepoint the construct owns
+ * (PART 12 §4, markup-carve/carve#1451).
  *
- * It was one predicate, applied to both: the reach fired wherever a blank line
- * followed the body, without asking whether that blank was inside the same
- * container. carve-js and carve-rs stop at the body for the prefixed shapes and
- * reach for the column-0 one, which is what this now does; the three disagreed
- * on three corpus documents until they did (markup-carve/carve#1451).
+ * THE COLUMN-0 REACH THIS ALSO USED TO PIN HAS BEEN WITHDRAWN. carve#1451 let a
+ * definition written at column 0 reach the start of the blank line below it, on
+ * the reasoning that its body may resume under that blank so nothing else can
+ * claim the line, and recorded that all three engines did so. That is no longer
+ * true of any of them: carve#1522 and carve#1524 ruled that a container with no
+ * closer ends at its LAST PLACED CHILD, which a footnote definition has no
+ * exemption from, and carve-js#1354 moved 27 documents to it. Measured against
+ * carve-js `main` while making this change, `[^f]: note` followed by a blank
+ * publishes `[0, 10]` and not `[0, 11]`, and the resuming-body shape publishes
+ * `[0, 18]` and not `[0, 19]`.
  *
- * Both directions are pinned, because a fix that dropped the reach altogether
- * would move the column-0 documents instead.
+ * So the two directions this pins today are: a prefixed definition ends with its
+ * body, and a column-0 definition ends there too. The blank line below is owned
+ * by neither - it is the separator, and it reaches no child.
  */
 class ADefinitionInAContainerStopsAtItsBodyTest extends TestCase
 {
@@ -92,17 +96,18 @@ class ADefinitionInAContainerStopsAtItsBodyTest extends TestCase
     public static function columnZeroProvider(): array
     {
         return [
-            // The reach that must survive: offset 10 ends `note`, and 11 is the
-            // start of the blank line the definition owns.
-            'a definition at column 0' => ["[^f]: note\n\nx [^f]\n", 11],
-            // A body that actually resumes under the blank, which is why the
-            // column-0 reach exists at all.
-            'a body resuming under the blank' => ["[^f]: note\n\n  more\n\nx [^f]\n", 19],
+            // Offset 10 ends `note`, and the blank line below reaches no child,
+            // so the definition stops there rather than at 11.
+            'a definition at column 0' => ["[^f]: note\n\nx [^f]\n", 10],
+            // A body that actually resumes under the blank. The second block is
+            // a child, so the definition reaches IT - and stops at its end, 18,
+            // rather than taking the newline that ended it as well.
+            'a body resuming under the blank' => ["[^f]: note\n\n  more\n\nx [^f]\n", 18],
         ];
     }
 
     #[DataProvider('columnZeroProvider')]
-    public function testAColumnZeroDefinitionStillReachesTheBlankBelowIt(string $source, int $end): void
+    public function testAColumnZeroDefinitionAlsoEndsWithItsBody(string $source, int $end): void
     {
         $node = $this->footnote($source);
 
