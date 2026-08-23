@@ -186,6 +186,17 @@ class BbcodeToCarve
     /**
      * Put the code content back, after every pass that could rewrite it.
      *
+     * ONE PASS IS NOT ENOUGH WHEN THE RUNS NEST. stashCodeContent() hides the
+     * two families in turn - the code runs first, [noparse] second - so a
+     * [noparse] body can hold a key that was spliced in moments earlier, and a
+     * single preg_replace_callback continues scanning AFTER each replacement
+     * and never looks at what it just wrote. The raw private-use pair reached
+     * the output for `[noparse][code]x[/code][/noparse]`, which is a sentinel
+     * escaping into user-visible text (markup-carve/carve-php#1611).
+     *
+     * Restoring in a bounded loop closes it. carve-js does the same in
+     * `stashLiteralRuns` (markup-carve/carve-js#1375).
+     *
      * @param string $text
      * @param array<int, string> $stash
      */
@@ -196,12 +207,25 @@ class BbcodeToCarve
         }
 
         [$open, $close] = $this->codeSentinels;
+        $pattern = '/' . preg_quote($open, '/') . '(\d+)' . preg_quote($close, '/') . '/u';
+        $put = fn (array $match): string => $stash[(int)$match[1]] ?? '';
 
-        return preg_replace_callback(
-            '/' . preg_quote($open, '/') . '(\d+)' . preg_quote($close, '/') . '/u',
-            fn (array $match): string => $stash[(int)$match[1]],
-            $text,
-        ) ?? $text;
+        // The bound is the number of stashed spans, hoisted out of the loop
+        // condition: every pass that changes the text consumes at least one
+        // span, so no input can spin, and a pass that changes nothing breaks.
+        $bound = count($stash);
+
+        $restored = $text;
+        for ($pass = 0; $pass <= $bound; $pass++) {
+            $next = preg_replace_callback($pattern, $put, $restored) ?? $restored;
+            if ($next === $restored) {
+                break;
+            }
+
+            $restored = $next;
+        }
+
+        return $restored;
     }
 
     protected function escapePlainBbcodeText(string $bbcode): string
