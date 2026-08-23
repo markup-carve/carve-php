@@ -1138,6 +1138,24 @@ class MarkdownToCarve
         // tildes, so `~b~` is struck and the pass below carries it into Carve,
         // which spells strikethrough the same way. Escaping it here froze it as
         // literal text, and the double form's rule could then never see it.
+        // `{#id}` IS ORDINARY TEXT IN MARKDOWN. Carve reads it as an ATTRIBUTE
+        // BLOCK, and the `#` rule inside escapePlainCarveInlineSyntax() declines
+        // to escape a `#` behind an unescaped brace, on the premise that the
+        // brace rules already handled the pair. They do not handle this one:
+        // `{#id}` is not a delimiter pair, and escapeAttributeListsThatAttach()
+        // below only reaches the ATTACHING and standalone forms. So `a {#id} b`
+        // came back carrying a tag span inside literal braces
+        // (markup-carve/carve-php#1624). Escaping the brace here is what makes
+        // that premise true again, and the `#` rule then escapes the sigil too.
+        //
+        // The HTML and BBCode paths call this for the same reason. Djot does
+        // not, and must not: an attribute block in Djot source is one the author
+        // deliberately wrote. Gated on the same flag as the attaching form, so a
+        // caller that asked for Markdown attribute extensions still means them.
+        if (!$this->convertAttributes) {
+            $line = $this->escapeAttributeBlockOpener($line);
+        }
+
         $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
 
         $stash = [];
@@ -1362,7 +1380,24 @@ class MarkdownToCarve
             }
 
             if ($closed === -1) {
-                $out .= substr($line, $i, $runLength);
+                // AN UNCLOSED RUN IS NOT A DELIMITER, so it is escaped here -
+                // the one place in this converter that knows which of the two a
+                // backtick is. HANDLED_MARKDOWN declares the delimiters this
+                // converter owns per CHARACTER, and whether a backtick is one is
+                // a property of the OCCURRENCE: a closed run is a code span this
+                // pass carries over, an unclosed one is ordinary text in
+                // CommonMark and GFM alike. Carried over bare it opened a Carve
+                // code span, and the UNCLOSED RUN clause runs that span to the
+                // end of the block, so everything after the character became
+                // verbatim content (markup-carve/carve-php#1624). PART 11 §2:
+                // escape a character if and only if omitting the escape would
+                // change the re-parsed AST.
+                //
+                // EVERY BACKTICK OF THE RUN, not only the first: what is left of
+                // a partly escaped run is a shorter run, and it opens a span
+                // just the same. Stashed rather than written, so the passes
+                // below see a placeholder and cannot escape the backslash again.
+                $out .= $replace(str_repeat('\\`', $runLength));
                 $i += $runLength;
 
                 continue;
