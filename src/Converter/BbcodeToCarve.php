@@ -44,6 +44,27 @@ class BbcodeToCarve
     protected array $codeSentinels = ['', ''];
 
     /**
+     * The preferred first code point of the run picked for the list boundary.
+     *
+     * @var int
+     */
+    protected const BOUNDARY_KEY = 0xE020;
+
+    /**
+     * Stands in for the HARD LIST BOUNDARY (PART 9 §11 N1a) until cleanup() is
+     * over, since cleanup() is what would collapse the three blank lines the
+     * boundary is spelled with.
+     *
+     * PICKED FROM WHAT THE INPUT DOES NOT CONTAIN, like this converter's stash
+     * keys and for the same reason: BBCode is untrusted forum text, so a fixed
+     * marker is a string an author may write, and the expansion would then turn
+     * their text into blank lines.
+     *
+     * @var string
+     */
+    protected string $listBoundary = '';
+
+    /**
      * Convert BBCode to Djot markup
      *
      * @throws \InvalidArgumentException when the input exceeds MAX_INPUT_LENGTH bytes
@@ -90,6 +111,8 @@ class BbcodeToCarve
         $codeStash = [];
         $djot = $this->stashCodeContent($djot, $codeStash);
 
+        [$this->listBoundary] = DocumentSentinels::pick($djot, 1, self::BOUNDARY_KEY);
+
         // Links and images first (before basic formatting escapes brackets)
         $djot = $this->convertLinks($djot);
         $djot = $this->convertImages($djot);
@@ -100,17 +123,27 @@ class BbcodeToCarve
         // Code blocks and inline code
         $djot = $this->convertCode($djot);
 
+        // LISTS BEFORE QUOTES. convertQuotes() is the one pass that PREFIXES
+        // lines, and a pass that runs after it rewrites text whose block
+        // context it cannot see: convertLists() matched straight across the
+        // `> ` prefixes and returned a separator and item lines with none of
+        // them, so a `[list]` inside a `[quote]` wrote an unquoted blank line
+        // into the middle of the quote and one source quote came back as two
+        // - four, with an empty one among them, for two adjacent lists
+        // (markup-carve/carve-php#1619). Converting the list first means the
+        // quote formatter below prefixes FINISHED Carve source, which is the
+        // only text it can prefix correctly.
+        $djot = $this->convertLists($djot);
+
         // Quotes
         $djot = $this->convertQuotes($djot);
-
-        // Lists
-        $djot = $this->convertLists($djot);
 
         // Other elements
         $djot = $this->convertOther($djot);
 
         // Clean up
         $djot = $this->cleanup($djot);
+        $djot = $this->expandListBoundaries($djot);
 
         $djot = $this->restoreCodeContent($djot, $codeStash);
 
@@ -223,7 +256,6 @@ class BbcodeToCarve
 
         [$open, $close] = $this->codeSentinels;
         $pattern = '/' . preg_quote($open, '/') . '(\d+)' . preg_quote($close, '/') . '/u';
-        $put = fn (array $match): string => $stash[(int)$match[1]] ?? '';
 
         // The bound is the number of stashed spans, hoisted out of the loop
         // condition: every pass that changes the text consumes at least one
@@ -232,7 +264,22 @@ class BbcodeToCarve
 
         $restored = $text;
         for ($pass = 0; $pass <= $bound; $pass++) {
-            $next = preg_replace_callback($pattern, $put, $restored) ?? $restored;
+            $subject = $restored;
+            // MATCHED WITH OFFSETS, so each restored body can be given the
+            // BLOCK CONTEXT of the line its key sits on. A stashed body is many
+            // lines and the key standing for it is one, so convertQuotes()
+            // prefixed the key's LINE and lines 2..n of the body arrived
+            // afterwards at column 0 - outside the quote, and outside the fence
+            // convertCode() built around it. One quoted code run came back as
+            // two empty quoted fences with the body's own text parsed as markup
+            // between them (markup-carve/carve-php#1620).
+            $put = function (array $match) use ($stash, $subject): string {
+                $body = $stash[(int)$match[1][0]] ?? '';
+
+                return $this->indentToBlockContext($body, $this->blockPrefixAt($subject, (int)$match[0][1]));
+            };
+
+            $next = preg_replace_callback($pattern, $put, $restored, -1, $count, PREG_OFFSET_CAPTURE) ?? $restored;
             if ($next === $restored) {
                 break;
             }
@@ -241,6 +288,68 @@ class BbcodeToCarve
         }
 
         return $restored;
+    }
+
+    /**
+     * The BLOCK PREFIX the line at that offset carries.
+     *
+     * The leading run of block-quote markers and indentation, and nothing else:
+     * what a container puts in front of EVERY line it holds, so a payload that
+     * gains lines can be given the same. Text further along the line is that
+     * line's content and is not repeated - an inline code span sits mid-line
+     * and its continuation belongs under the block, not under the words in
+     * front of it.
+     *
+     * A payload landing at column 0 gets an empty prefix, which is what it had.
+     *
+     * @param string $subject
+     * @param int $offset
+     */
+    protected function blockPrefixAt(string $subject, int $offset): string
+    {
+        $lineStart = strrpos(substr($subject, 0, $offset), "\n");
+        $lineStart = $lineStart === false ? 0 : $lineStart + 1;
+        // SCANNED RATHER THAN MATCHED. The equivalent pattern can match the
+        // empty string, so it matches at every offset and a guard on its return
+        // value would be a check that cannot fail. A scan bounded by the key's
+        // own offset states the same rule and has no branch that cannot be
+        // reached.
+        $prefix = '';
+        for ($at = $lineStart; $at < $offset; $at++) {
+            $char = $subject[$at];
+            if ($char !== ' ' && $char !== "\t" && $char !== '>') {
+                break;
+            }
+            $prefix .= $char;
+        }
+
+        return $prefix;
+    }
+
+    /**
+     * Give every line after the first the prefix its block context carries.
+     *
+     * A BLANK LINE TAKES THE PREFIX WITHOUT ITS TRAILING SPACE. Inside a fence
+     * the prefix's own trailing space would be content - a blank line of code
+     * would come back holding one - and `>` alone quotes an empty line just as
+     * `> ` does.
+     *
+     * @param string $body
+     * @param string $prefix
+     */
+    protected function indentToBlockContext(string $body, string $prefix): string
+    {
+        if ($prefix === '' || !str_contains($body, "\n")) {
+            return $body;
+        }
+
+        $lines = explode("\n", $body);
+        $out = (string)array_shift($lines);
+        foreach ($lines as $line) {
+            $out .= "\n" . ($line === '' ? rtrim($prefix) : $prefix . $line);
+        }
+
+        return $out;
     }
 
     protected function escapePlainBbcodeText(string $bbcode): string
@@ -463,7 +572,11 @@ class BbcodeToCarve
     {
         $content = trim($content);
         $lines = explode("\n", $content);
-        $quoted = array_map(fn ($line) => '> ' . $line, $lines);
+        // A BLANK LINE IN THE QUOTE IS PREFIXED WITH THE BARE MARKER. `> ` is
+        // the same block to the parser, but the trailing space is whitespace
+        // the author did not write, and inside a fence in the quote it would be
+        // content rather than layout.
+        $quoted = array_map(fn ($line) => $line === '' ? '>' : '> ' . $line, $lines);
 
         // Ensure blank line before blockquote for proper Djot block separation
         $output = "\n\n" . implode("\n", $quoted) . "\n";
@@ -540,57 +653,227 @@ class BbcodeToCarve
         return trim($output);
     }
 
+    /**
+     * Convert every BBCode list, at any depth, into Carve list source.
+     *
+     * DEPTH-TRACKED, NOT MATCHED BY A REGEX, for the reason
+     * parseQuotesWithDepth() is: `/\[list\](.*?)\[\/list\]/is` is non-greedy,
+     * so an outer `[list]` CLOSES ON THE INNER `[/list]`. The leftover opener
+     * survived the passes below too - cleanup() strips `[/tag]` and
+     * `[tag=value]`, never a bare `[tag]` - so a nested list leaked a literal
+     * `[list]` into its first item, flattened the inner item to a sibling of
+     * the outer ones and left the second outer item as a paragraph carrying a
+     * literal `[*]` (markup-carve/carve-php#1623).
+     *
+     * The same single left-to-right pass with a stack of open-list buffers, and
+     * the same O(n) bound: each opener pushes a level, each `[/list]` pops one,
+     * formats it and folds it into the buffer that holds it. An unclosed list
+     * runs to the end of the input, which is what an unclosed quote does.
+     *
+     * `[list=X]` IS THE ORDERED FORM WHATEVER X IS. Only `[list=1]` was read as
+     * one, so `[list=a]` matched no branch at all: cleanup() ate its tags and
+     * the bare `[*]` markers were left as text - a pair of them on one line
+     * then read as an emphasis span, so `[*]one` came back as `[<strong>]one`.
+     * Carve has one ordered spelling, so the style X names is not carried, but
+     * the list is.
+     */
     protected function convertLists(string $text): string
     {
-        // Ordered list [list=1]...[/list]
-        $text = preg_replace_callback(
-            '/\[list=1\](.*?)\[\/list\]/is',
-            function ($m) {
-                $content = $m[1];
-                $counter = 1;
-                $content = preg_replace_callback(
-                    '/\[\*\](.*?)(?=\[\*\]|\z)/is',
-                    function ($item) use (&$counter) {
-                        $text = trim($item[1]);
+        $length = strlen($text);
+        $i = 0;
+        /** @var array<int, string> $contents */
+        $contents = [''];
+        /** @var array<int, bool> $ordered */
+        $ordered = [false];
+        // Where each level's last folded list block ENDED, so an adjacent
+        // sibling can be recognized by there being nothing but whitespace since.
+        /** @var array<int, int|null> $listEnded */
+        $listEnded = [null];
+        $top = 0;
 
-                        return $counter++ . '. ' . $text . "\n";
-                    },
-                    $content,
-                );
+        while ($i < $length) {
+            if (preg_match('/\G\[list(?:=([^\]]*))?\]/i', $text, $m, 0, $i) === 1) {
+                $contents[] = '';
+                $ordered[] = ($m[1] ?? '') !== '';
+                $listEnded[] = null;
+                $top++;
+                $i += strlen($m[0]);
 
-                // Ensure blank line before list for proper Djot block separation
-                return "\n\n" . $content . "\n";
-            },
-            $text,
-        ) ?? $text;
+                continue;
+            }
 
-        // Unordered list [list]...[/list]. Alternate the bullet marker per
-        // list so that two adjacent lists stay distinct in Carve (same-marker
-        // lists separated only by a blank line merge into one).
-        $bulletIndex = 0;
-        $text = preg_replace_callback(
-            '/\[list\](.*?)\[\/list\]/is',
-            function ($m) use (&$bulletIndex) {
-                $marker = $bulletIndex % 2 === 0 ? '-' : '*';
-                $bulletIndex++;
-                $content = $m[1];
-                $content = preg_replace_callback(
-                    '/\[\*\](.*?)(?=\[\*\]|\z)/is',
-                    function ($item) use ($marker) {
-                        $text = trim($item[1]);
+            if (preg_match('/\G\[\/list\]/i', $text, $m, 0, $i) === 1) {
+                $i += strlen($m[0]);
+                if ($top > 0) {
+                    $block = $this->formatAsList($contents[$top], $ordered[$top]);
+                    array_pop($contents);
+                    array_pop($ordered);
+                    array_pop($listEnded);
+                    $top--;
+                    $contents[$top] = $this->appendListBlock($contents[$top], $block, $top === 0, $listEnded[$top]);
+                    $listEnded[$top] = strlen($contents[$top]);
+                }
+                // A stray `[/list]` with no open list is dropped.
 
-                        return $marker . ' ' . $text . "\n";
-                    },
-                    $content,
-                );
+                continue;
+            }
 
-                // Ensure blank line before list for proper Carve block separation
-                return "\n\n" . $content . "\n";
-            },
-            $text,
-        ) ?? $text;
+            $contents[$top] .= $text[$i];
+            $i++;
+        }
 
-        return $text;
+        while ($top > 0) {
+            $block = $this->formatAsList($contents[$top], $ordered[$top]);
+            array_pop($contents);
+            array_pop($ordered);
+            array_pop($listEnded);
+            $top--;
+            $contents[$top] = $this->appendListBlock($contents[$top], $block, $top === 0, $listEnded[$top]);
+            $listEnded[$top] = strlen($contents[$top]);
+        }
+
+        return $contents[0];
+    }
+
+    /**
+     * Append a formatted list block to the buffer that holds it, parted from an
+     * ADJACENT SIBLING list by the hard list boundary.
+     *
+     * Two lists with only a blank line between them are ONE list to the parser,
+     * so `[list=1][*]one[/list][list=1][*]two[/list]` came back as a single
+     * `<ol>` of two items and the second list's restart at 1 went with it
+     * (markup-carve/carve-php#1621). The unordered path dodged that by
+     * ALTERNATING the bullet marker per list, which invents a marker the source
+     * never carried and has nothing left to say about a third list. The HTML
+     * importer gave the same trick up for the boundary in
+     * markup-carve/carve-php#1598; this is that rule, spelled the same way, and
+     * it now covers both axes instead of one.
+     *
+     * PART 9 §11 N1a: the boundary is a run of three blank lines. It cannot be
+     * written as three blank lines HERE, because cleanup() collapses every such
+     * run to one - it has to, the passes above leave runs everywhere - so a
+     * sentinel line stands in for it and expandListBoundaries() writes it out
+     * once cleanup is over.
+     *
+     * @param string $buffer
+     * @param string $block
+     * @param bool $topLevel
+     * @param int|null $previousListEnd Where this buffer's last list block ended, if it has one.
+     */
+    protected function appendListBlock(string $buffer, string $block, bool $topLevel, ?int $previousListEnd): string
+    {
+        if ($previousListEnd !== null && trim(substr($buffer, $previousListEnd)) === '') {
+            return substr($buffer, 0, $previousListEnd) . "\n" . $this->listBoundary . "\n" . $block . "\n";
+        }
+
+        // The trailing whitespace the tags left behind is dropped first, so the
+        // separator is the one this decides rather than that plus whatever the
+        // source laid out: a blank line at the top level, and a SINGLE newline
+        // for a list nested in an item, where a blank line would make the
+        // holding list loose and wrap every item in a paragraph.
+        return rtrim($buffer, " \t\n") . ($topLevel ? "\n\n" : "\n") . $block . "\n";
+    }
+
+    /**
+     * Format one list's content as Carve list source.
+     *
+     * @param string $content The text between this list's own tags, with every nested list already formatted.
+     * @param bool $ordered
+     */
+    protected function formatAsList(string $content, bool $ordered): string
+    {
+        if (preg_match_all('/\[\*\](.*?)(?=\[\*\]|\z)/is', $content, $matches) === 0) {
+            // A list holding no item is not a list. Its text is kept, so
+            // nothing the author wrote leaves with the tags.
+            return trim($content);
+        }
+
+        $items = [];
+        $loose = false;
+        $counter = 1;
+        foreach ($matches[1] as $raw) {
+            $body = trim($raw);
+            // A BLANK LINE INSIDE AN ITEM MAKES THE LIST LOOSE, and a loose
+            // list parts its items with one too - otherwise the second item
+            // abuts the first item's second paragraph and reads as part of it.
+            if (preg_match('/\n[ \t]*\n/', $body) === 1) {
+                $loose = true;
+            }
+            $items[] = $this->indentItemBody($ordered ? $counter++ . '. ' : '- ', $body);
+        }
+
+        return implode($loose ? "\n\n" : "\n", $items);
+    }
+
+    /**
+     * Write one item, with its continuation lines at the item's CONTENT COLUMN.
+     *
+     * The item callback used to write the body as it stood, so every line after
+     * the first landed at column 0. There a blank line ENDS THE LIST and the
+     * `[*]` after it is just a line of the paragraph that follows, so a
+     * two-item list came back as one item plus a paragraph that had swallowed
+     * the second (markup-carve/carve-php#1623). PART 9 §11: a continuation line
+     * belongs to the item when it reaches the item's content column, which is
+     * where the marker ends.
+     *
+     * A blank line is written EMPTY rather than as the indent, because inside a
+     * fence in that item the indent would be content rather than layout.
+     *
+     * @param string $marker
+     * @param string $body
+     */
+    protected function indentItemBody(string $marker, string $body): string
+    {
+        $indent = str_repeat(' ', strlen($marker));
+        $lines = explode("\n", $body);
+        $out = rtrim($marker . (string)array_shift($lines));
+        foreach ($lines as $line) {
+            $out .= "\n" . (trim($line) === '' ? '' : $indent . $line);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Write every boundary sentinel out as the three blank lines it stands for.
+     *
+     * Runs after cleanup(), which is the pass the sentinel exists to survive.
+     * The blank line the layout above left on either side is absorbed, so the
+     * run is exactly three however the two lists were laid out.
+     *
+     * WHATEVER PREFIX ENDED UP TO THE SENTINEL'S LEFT is what the three lines
+     * carry, rather than their being written as bare blank lines: inside a
+     * block quote three EMPTY lines end the quote and drop the second list out
+     * of it. The HTML importer's expansion answers the same question the same
+     * way (markup-carve/carve-php#1598).
+     *
+     * @param string $text
+     */
+    protected function expandListBoundaries(string $text): string
+    {
+        if ($this->listBoundary === '' || !str_contains($text, $this->listBoundary)) {
+            return $text;
+        }
+
+        $expanded = [];
+        foreach (explode("\n", $text) as $line) {
+            $at = strpos($line, $this->listBoundary);
+            if ($at === false) {
+                $expanded[] = $line;
+
+                continue;
+            }
+
+            $prefix = rtrim(substr($line, 0, $at));
+            if ($expanded !== [] && rtrim((string)end($expanded)) === $prefix) {
+                array_pop($expanded);
+            }
+            $expanded[] = $prefix;
+            $expanded[] = $prefix;
+            $expanded[] = $prefix;
+        }
+
+        return implode("\n", $expanded);
     }
 
     protected function convertOther(string $text): string
