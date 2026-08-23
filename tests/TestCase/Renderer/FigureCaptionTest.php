@@ -70,4 +70,12 @@ class FigureCaptionTest extends TestCase
     {
         $this->assertSame("a\ncap\n\ntext\n", $this->plain("![a](/u)\n^ cap\n\ntext"));
     }
+
+    public function testCaptionKeepsATabAfterItsSpaceSeparator(): void
+    {
+        $source = "![a](/u)\n^ \tsecond";
+
+        $this->assertSame("![a](/u)\n\tsecond\n", $this->md($source));
+        $this->assertSame("a\n\tsecond\n", $this->plain($source));
+    }
 }
