@@ -94,7 +94,10 @@ class AnUnreferencedEndnotesSectionKeepsItsTextTest extends TestCase
         );
 
         $this->assertStringStartsWith("---\n", $imported);
-        $this->assertStringContainsString('1. n', $imported);
+        // The item's `id` rides ON the marker. It used to be written on an
+        // indented line below it, where a block attribute floats forward, so a
+        // one-block note lost it entirely (carve-php#1587).
+        $this->assertStringContainsString('1.{#fn1} n', $imported);
     }
 
     /**

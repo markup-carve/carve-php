@@ -280,7 +280,14 @@ class ListParser
             return $this->attributedOffsetPatterns;
         }
 
-        $block = '(?P<attrs>\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})';
+        // A QUOTED VALUE MAY HOLD AN ESCAPED QUOTE, and the two spellings of
+        // this pattern must say so alike (carve-php#1587). `"[^"]*"` stopped at
+        // the backslash's own quote, so `-{title="a\\"b"} x` matched nothing and
+        // the line came back a paragraph - while the same value in a BLOCK
+        // attribute parsed, and carve-js reads the marker form too. The HTML
+        // importer writes an item's attributes on the marker, so any title an
+        // editor export carries a quote in reaches this pattern.
+        $block = '(?P<attrs>\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})';
         // THE STRIP'S OWN TAIL, asserted where it sits. `parseListItemMarker()`
         // only strips a block that is followed by ` +NON_WHITESPACE`, and then
         // hands the base parser the marker spliced onto that tail - so a TAB
@@ -443,7 +450,7 @@ class ListParser
         $bullet = '[' . $this->bulletMarkerClass . ']';
         if (
             preg_match(
-                '/^(' . $bullet . '|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"[^"]*"|\'[^\']*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
+                '/^(' . $bullet . '|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
                 $line,
                 $am,
             )

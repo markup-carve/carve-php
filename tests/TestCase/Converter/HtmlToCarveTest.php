@@ -1091,12 +1091,21 @@ HTML;
         $this->assertStringContainsString("<li>\n<pre><code>code", $htmlBack);
     }
 
-    public function testEmptyListItemWithAttributesKeepsIndentedAttributeBlock(): void
+    /**
+     * The attributes ABUT the marker. Written on an indented line below it they
+     * were a block attribute, which floats FORWARD - so on an empty item the id
+     * left the document instead of landing on it (carve-php#1587). `+` is the
+     * continuation marker, and it is what carve-js spells an empty attributed
+     * item with: a line ending in `-{#empty}` is not a marker at all and comes
+     * back as a paragraph reading the braces as a tag span.
+     */
+    public function testEmptyListItemWithAttributesAbutsThemToTheMarker(): void
     {
         $html = '<ul><li id="empty"></li></ul>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("- \n  {#empty}\n", $result);
+        $this->assertSame("-{#empty} +\n", $result);
+        $this->assertStringContainsString('<li id="empty">', (new CarveConverter())->convert($result));
     }
 
     public function testListItemWithDetailsKeepsTheContainerInTheItem(): void
