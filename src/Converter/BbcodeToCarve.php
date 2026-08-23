@@ -309,11 +309,21 @@ class BbcodeToCarve
     {
         $lineStart = strrpos(substr($subject, 0, $offset), "\n");
         $lineStart = $lineStart === false ? 0 : $lineStart + 1;
-        if (preg_match('/\G[ \t]*(?:>[ \t]*)*/', $subject, $match, 0, $lineStart) !== 1) {
-            return '';
+        // SCANNED RATHER THAN MATCHED. The equivalent pattern can match the
+        // empty string, so it matches at every offset and a guard on its return
+        // value would be a check that cannot fail. A scan bounded by the key's
+        // own offset states the same rule and has no branch that cannot be
+        // reached.
+        $prefix = '';
+        for ($at = $lineStart; $at < $offset; $at++) {
+            $char = $subject[$at];
+            if ($char !== ' ' && $char !== "\t" && $char !== '>') {
+                break;
+            }
+            $prefix .= $char;
         }
 
-        return $match[0];
+        return $prefix;
     }
 
     /**

@@ -144,6 +144,35 @@ class BbcodeListsNestAndStaySeparateTest extends TestCase
         $this->assertSame("- one\n\nbetween\n\n- two\n", $this->converter->convert($bbcode));
     }
 
+    /**
+     * AN UNCLOSED LIST RUNS TO THE END OF THE INPUT, which is what an unclosed
+     * quote does. It used to reach no branch at all, so its `[list]` opener was
+     * left in the text - cleanup() strips `[/tag]` and `[tag=value]`, never a
+     * bare `[tag]` - and the items stayed as literal `[*]` markers.
+     */
+    public function testAnUnclosedListIsStillAList(): void
+    {
+        $this->assertSame("- one\n- two\n", $this->converter->convert("[list]\n[*]one\n[*]two\n"));
+    }
+
+    /**
+     * A LIST HOLDING NO ITEM IS NOT A LIST, and its text is kept: nothing the
+     * author wrote leaves with the tags.
+     */
+    public function testAListWithNoItemKeepsItsText(): void
+    {
+        $this->assertSame("plain text\n", $this->converter->convert("[list]\nplain text\n[/list]\n"));
+    }
+
+    /**
+     * A STRAY `[/list]` WITH NO OPEN LIST IS DROPPED, the way a stray
+     * `[/quote]` is.
+     */
+    public function testAStrayCloserIsDropped(): void
+    {
+        $this->assertSame("text\n", $this->converter->convert('text[/list]'));
+    }
+
     public function testAListStillGetsItsBlankLineAfterProse(): void
     {
         $this->assertStringContainsString(
