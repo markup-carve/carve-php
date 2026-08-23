@@ -108,6 +108,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A blank verbatim line inside a block quote drops the prefix's trailing
+  space** (markup-carve/carve#1544, PART 11 §7). The canonical writer emitted
+  `> ` for a blank line inside a fenced block inside a quote, where an authored
+  blank quote line has always been written `>`; carve-rs disagreed on three core
+  corpus documents.
+
 - **The AST-JSON ingest replaces U+0000, as the parse boundary already does**
   (#1562, markup-carve/carve#1528, PART 12 §21). Every string value
   `AstCodec::decode()` reads has its NULs replaced by U+FFFD before anything

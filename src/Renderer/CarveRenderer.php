@@ -3448,6 +3448,35 @@ class CarveRenderer implements RendererInterface
 
     protected function restoreVerbatim(string $text): string
     {
+        // A LINE THAT IS NOTHING BUT CONTAINER PREFIX AND THE BLANK MARKER is
+        // the blank line the marker stands for, and it is spelled the way its
+        // host spells a blank line: a list item writes nothing, a block quote
+        // writes `>` (PART 11 §7, §7a).
+        //
+        // Everything to the left of the marker was written by a host before
+        // this runs - two columns from an item, `> ` from a quote, both together
+        // when a list sits in a quote. §7 emits the STRUCTURAL INDENT of an
+        // empty verbatim line as nothing, "when the verbatim content on that
+        // line is EMPTY the indent alone is what remains -- that is layout, and
+        // it is omitted", so a purely whitespace prefix trims away entirely.
+        //
+        // THE QUOTE MARKER IS NOT LAYOUT AND STAYS: an empty line would close
+        // the quote and take the open fence with it. What goes with the marker
+        // is the prefix's TRAILING whitespace. Leaving it wrote `> ` for a blank
+        // line inside a fenced block inside a quote - a line with a trailing
+        // run, which every tool that strips trailing whitespace rewrites behind
+        // the formatter, and which no other path here emits: an authored blank
+        // quote line is already written `>`. The list writer answers the same
+        // question one host at a time (isBlankContinuationLine); this answers it
+        // for every host at once, which is where the quote was missing
+        // (markup-carve/carve#1544).
+        $marker = preg_quote($this->verbatimSentinels[2], '/');
+        $text = (string)preg_replace_callback(
+            '/^([ \t>]*)' . $marker . '$/m',
+            static fn (array $m): string => rtrim($m[1], " \t"),
+            $text,
+        );
+
         $result = strtr($text, [
             $this->verbatimSentinels[0] => ' ',
             $this->verbatimSentinels[1] => "\t",
