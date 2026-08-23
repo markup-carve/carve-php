@@ -1828,6 +1828,15 @@ class HtmlToCarve
     protected array $footnoteDefinitions = [];
 
     /**
+     * The fragments every `role="doc-noteref"` anchor in this document points
+     * at, or null before the walk that collects them. See
+     * {@see noteReferenceTargets()}.
+     *
+     * @var array<string, true>|null
+     */
+    protected ?array $noteReferenceTargets = null;
+
+    /**
      * Collected abbreviation definitions for round-trip support
      *
      * Stores complete definition lines in Djot format: "*[ABBR]: Definition"
@@ -1913,6 +1922,7 @@ class HtmlToCarve
         $this->preserveTextWhitespace = false;
         $this->referenceDefinitions = [];
         $this->footnoteDefinitions = [];
+        $this->noteReferenceTargets = null;
         $this->abbreviationDefinitions = [];
         $this->abbreviationMap = [];
         $this->captionFlattenDiagnostics = [];
@@ -2352,7 +2362,14 @@ class HtmlToCarve
     {
         // Check if this is a footnotes section (doc-endnotes)
         if ($node->getAttribute('role') === 'doc-endnotes') {
-            return $this->processEndnotesSection($node);
+            $rebuilt = $this->processEndnotesSection($node);
+            if ($rebuilt !== null) {
+                return $rebuilt;
+            }
+            // NOTHING WAS REBUILT, so this is not a footnote section as far as
+            // the import goes: it falls through to the ordinary section policy
+            // below, which keeps the `<hr>` and the `<ol>` it is built from.
+            // See processEndnotesSection() for why.
         }
 
         // Check if section has an explicit ID from round-trip mode
@@ -6049,21 +6066,60 @@ class HtmlToCarve
     }
 
     /**
-     * Process the footnotes endnotes section and extract definitions
+     * Rebuild the footnote definitions an endnotes section holds, or refuse the
+     * section entirely.
+     *
+     * A DEFINITION IS REBUILT ONLY WHERE ITS REFERENCE IS PRESENT. That is the
+     * shape a rendered document has - `docs/html-import.md`: "A footnote whose
+     * `role="doc-noteref"` reference IS present rebuilds as a footnote, which
+     * is the shape a rendered document has" - and for that shape the round trip
+     * is exact.
+     *
+     * A REFERENCE-LESS SECTION IS NOT ONE, and rebuilding it deleted the note:
+     * an unreferenced definition renders to the EMPTY STRING, so
+     *
+     *     <section role="doc-endnotes"><hr><ol><li id="fn1"><p>n</p></li></ol></section>
+     *
+     * imported as `[^1]: n` and re-rendered through this engine's own converter
+     * as `""` - the note's text gone from the document, with the only
+     * diagnostic being about the `id` (markup-carve/carve-php#1582). A `<li>`
+     * with no `fn`-shaped id was worse: it matched no label, the section
+     * returned empty, and the note left with no diagnostic at all.
+     *
+     * So a section that rebuilt NOTHING returns null and takes the ordinary
+     * section policy, which keeps the `<hr>` and the `<ol>` the section is built
+     * from - `docs/html-import.md` again: "a loss where the degraded form keeps
+     * every byte a reader could see". markup-carve/carve#1558 records the
+     * degraded form as the contract and pins it in carve-js and carve-rs, which
+     * have always read it that way.
+     *
+     * A PARTIALLY referenced section rebuilds what it can and emits the rest as
+     * the list it is, which is what carve-js does: the notes that left are gone
+     * from the `<ol>`, the separator goes with the first of them, and every
+     * remaining item is still on the page.
+     *
+     * @return string|null The source for this section, or null when no note was
+     *   rebuilt and the ordinary section policy should have it.
      */
-    protected function processEndnotesSection(DOMElement $node): string
+    protected function processEndnotesSection(DOMElement $node): ?string
     {
         // Find the <ol> containing footnote definitions
         $ol = $this->findFirstDirectChildByTagName($node, 'ol');
         if (!$ol instanceof DOMElement) {
-            return '';
+            return null;
         }
 
         // Process each <li> footnote definition
         $listItems = $this->getDirectChildElementsByTagName($ol, 'li');
-        foreach ($listItems as $li) {
-            // Skip inline footnotes (handled separately)
+        $rebuilt = [];
+        foreach ($listItems as $index => $li) {
+            // Skip inline footnotes (handled separately). They are CONSUMED, not
+            // refused: the reference site carries the note's whole content, so
+            // the item here is a copy of something already in the document and
+            // leaving it behind would print it twice.
             if ($li->hasAttribute('data-djot-inline-footnote')) {
+                $rebuilt[$index] = true;
+
                 continue;
             }
 
@@ -6079,15 +6135,114 @@ class HtmlToCarve
                 }
             }
 
+            if (!$this->endnoteHasReference($li, $label)) {
+                continue;
+            }
+
             // Extract content, removing the backlink
             $content = $this->processFootnoteContent($li);
             if ($content !== '') {
                 $this->footnoteDefinitions[$label] = $content;
+                $rebuilt[$index] = true;
             }
         }
 
-        // Return empty - footnote definitions are appended at the end
-        return '';
+        if ($rebuilt === []) {
+            return null;
+        }
+
+        if (count($rebuilt) === count($listItems)) {
+            // Every note left; the definitions are appended at the end and the
+            // separator went with them.
+            return '';
+        }
+
+        return $this->processNode($this->endnotesRemainder($ol, $rebuilt));
+    }
+
+    /**
+     * The endnotes `<ol>` with the items that became footnote definitions taken
+     * out of it, so what is left is emitted as the list it is.
+     *
+     * A CLONE, because the items are only gone from THIS reading: the loss
+     * report walks the original tree to ask what each element's attributes did,
+     * and an element removed from under it would be an element it could not
+     * find.
+     *
+     * @param \DOMElement $ol
+     * @param array<int, true> $rebuilt Indexes of the direct `<li>` children
+     *   that became footnote definitions.
+     */
+    protected function endnotesRemainder(DOMElement $ol, array $rebuilt): DOMElement
+    {
+        $clone = $ol->cloneNode(true);
+        if (!$clone instanceof DOMElement) {
+            return $ol;
+        }
+
+        foreach ($this->getDirectChildElementsByTagName($clone, 'li') as $index => $li) {
+            if (isset($rebuilt[$index])) {
+                $li->parentNode?->removeChild($li);
+            }
+        }
+
+        return $clone;
+    }
+
+    /**
+     * Is there a `role="doc-noteref"` reference in this document for the note
+     * this `<li>` holds?
+     *
+     * THE ROLE, not the shape of the anchor. A reference is authored semantics
+     * (PART 9 §16a writes it, and every producer whose HTML imports as
+     * footnotes without an adapter writes it), where an anchor pointing at the
+     * item is only a link - so the same signal the rest of this converter reads
+     * decides whether the definition has a reader.
+     *
+     * The `#fn{label}` spelling is checked beside the item's own `id` for the
+     * round-trip case, where `data-djot-footnote-label` carries an authored
+     * label and the rendered `id` is derived from it.
+     */
+    protected function endnoteHasReference(DOMElement $li, string $label): bool
+    {
+        $targets = $this->noteReferenceTargets($li->ownerDocument);
+        $id = $li->getAttribute('id');
+
+        return ($id !== '' && isset($targets['#' . $id])) || isset($targets['#fn' . $label]);
+    }
+
+    /**
+     * Every fragment a `role="doc-noteref"` anchor in this document points at,
+     * as a set.
+     *
+     * Collected ONCE per document rather than per note: a section of N notes
+     * asked about M references is N*M anchor reads, and an endnotes section is
+     * exactly the document that has many of both.
+     *
+     * @return array<string, true>
+     */
+    protected function noteReferenceTargets(?DOMDocument $document): array
+    {
+        if ($this->noteReferenceTargets !== null) {
+            return $this->noteReferenceTargets;
+        }
+        if ($document === null) {
+            return [];
+        }
+
+        $targets = [];
+        $xpath = new DOMXPath($document);
+        /** @var \DOMNodeList<\DOMElement> $anchors */
+        $anchors = $xpath->query('//a[@role="doc-noteref"]');
+        foreach ($anchors as $anchor) {
+            $href = $anchor->getAttribute('href');
+            if (str_starts_with($href, '#')) {
+                $targets[$href] = true;
+            }
+        }
+        $this->noteReferenceTargets = $targets;
+
+        return $targets;
     }
 
     /**

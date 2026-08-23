@@ -831,9 +831,21 @@ HTML;
         $this->assertStringContainsString('<figcaption>A photo</figcaption>', $htmlBack);
     }
 
+    /**
+     * THE REFERENCE IS PART OF THE FIXTURE NOW. This document used to carry the
+     * section alone, and the assertions below passed because the importer
+     * rebuilt a definition nothing referenced - which renders to the empty
+     * string, so the note's whole text left the document
+     * (markup-carve/carve-php#1582). The nested-list question this test asks is
+     * about a note that IS a note, so the reference site the renderer writes
+     * beside every endnotes section is written here too, and the assertions are
+     * unchanged.
+     */
     public function testEndnotesSectionDoesNotTreatNestedListItemsAsFootnotes(): void
     {
-        $html = '<section role="doc-endnotes"><ol><li id="fn1"><p>top</p><ol><li>nested</li></ol><p><a role="doc-backlink" href="#fnref1">↩︎</a></p></li></ol></section>';
+        $html = '<p>ref<a id="fnref1" href="#fn1" role="doc-noteref">1</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="fn1"><p>top</p><ol><li>nested</li></ol>'
+            . '<p><a role="doc-backlink" href="#fnref1">↩︎</a></p></li></ol></section>';
         $result = $this->converter->convert($html);
 
         $this->assertStringContainsString("[^1]: top\n", $result);
@@ -842,14 +854,25 @@ HTML;
         $this->assertStringNotContainsString("\n1. nested", $result);
     }
 
+    /**
+     * THE REFERENCE IS PART OF THE FIXTURE NOW, for the reason the test above
+     * carries: the section alone rebuilt a definition nothing referenced, and
+     * that renders to nothing (markup-carve/carve-php#1582). The multi-block
+     * body this test is about is a property of a real note, and the assertion
+     * on the emitted definition is unchanged - the last line of it already
+     * supplied the missing reference by hand, one step too late to keep the
+     * import honest.
+     */
     public function testEndnotesSectionKeepsMultilineFootnoteInsideDefinition(): void
     {
-        $html = '<section role="doc-endnotes"><ol><li id="fn1" data-djot-footnote-label="1"><p>One</p><p>Two</p><p><a role="doc-backlink" href="#fnref1">↩︎</a></p></li></ol></section>';
+        $html = '<p>ref<a id="fnref1" href="#fn1" role="doc-noteref">1</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="fn1" data-djot-footnote-label="1">'
+            . '<p>One</p><p>Two</p><p><a role="doc-backlink" href="#fnref1">↩︎</a></p></li></ol></section>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("[^1]: One\n  \n  Two\n", $result);
+        $this->assertSame("ref[^1]\n\n[^1]: One\n  \n  Two\n", $result);
 
-        $htmlBack = (new CarveConverter())->convert("ref[^1]\n\n" . $result);
+        $htmlBack = (new CarveConverter())->convert($result);
         $this->assertStringContainsString('<p>One</p>', $htmlBack);
         $this->assertStringContainsString('<p>Two<a href="#fnref1"', $htmlBack);
     }

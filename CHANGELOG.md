@@ -128,6 +128,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An endnotes section nothing references keeps its text** (#1582,
+  markup-carve/carve#1558, `docs/html-import.md`). The HTML importer rebuilt a
+  footnote definition out of a `<section role="doc-endnotes">` with no
+  `doc-noteref` reference, and an unreferenced definition renders to the empty
+  string - so the note's text left the document. Such a section now imports as
+  the `<hr>` and `<ol>` it is built from, as carve-js and carve-rs do. A
+  referenced note is unchanged.
+
 - **The HTML import report no longer calls a derived accessible name a dropped
   attribute** (#1579, markup-carve/carve#1502). A `role` or accessible name the
   renderer writes back - on a claimed fence, a tab set, a code group, their
