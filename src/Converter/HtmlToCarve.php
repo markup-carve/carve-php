@@ -4299,6 +4299,19 @@ class HtmlToCarve
         $strayBlocks = $this->processStrayListChildren($node);
 
         $this->listDepth++;
+
+        // A NESTED list's stray blocks stay inside the item that holds the
+        // list. Rendered at the outer depth they came out at column zero, which
+        // reparses as a top-level block: it closed the parent item and split
+        // the sublist off into a list of its own. They belong at the same
+        // column the nested list's own markers reach.
+        if ($strayBlocks !== '' && $this->listDepth > 1) {
+            $strayBlocks = (string)preg_replace(
+                '/^(?=.)/m',
+                str_repeat('  ', $this->listDepth - 1),
+                $strayBlocks,
+            );
+        }
         $isOrdered = strtolower($node->tagName) === 'ol';
         // Recognize both the rendered form (class="task-list") and the TipTap
         // editor form (data-type="taskList").
