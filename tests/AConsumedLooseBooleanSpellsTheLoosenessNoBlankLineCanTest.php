@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -222,9 +223,52 @@ class AConsumedLooseBooleanSpellsTheLoosenessNoBlankLineCanTest extends TestCase
         $this->assertSame("- alpha\n\n- beta\n", $this->fmt("{loose}\n- alpha\n\n- beta\n"));
     }
 
-    public function testTheWriterDoesNotDecorateADescriptionThatAlreadyHoldsTwoBlocks(): void
+    /**
+     * ON A DEFINITION LIST THE ANSWER IS UNCONDITIONAL (§17 L7, ruled in
+     * markup-carve/carve-rs#1305 / markup-carve/carve#1639). The looseness field
+     * is set ONLY where the key was spelled, because a blank line between two
+     * ENTRIES does not loosen a `<dl>` at any count - so a body written without
+     * the key can never read back with the field set, and the re-parse test says
+     * "emit" every time.
+     *
+     * A description already holding two blocks does not change it. The key is
+     * redundant in the RENDER there - both spellings wrap the `<dd>` - and it is
+     * NOT redundant in the tree, and the tree is what PART 11 §1's equality is
+     * taken over. This engine read the redundancy off the render and dropped the
+     * key, so `fmt` deleted a fact the document stated.
+     */
+    public function testTheWriterDecoratesADefinitionListUnconditionally(): void
     {
-        $this->assertSame(":: T\n:  a\n\n   b\n", $this->fmt("{loose}\n:: T\n:  a\n\n   b\n"));
+        $this->assertSame("{loose}\n:: T\n:  a\n\n   b\n", $this->fmt("{loose}\n:: T\n:  a\n\n   b\n"));
+        $this->assertSame("{loose}\n:: T\n:  a\n:: U\n:  b\n", $this->fmt("{loose}\n:: T\n:  a\n:: U\n:  b\n"));
+    }
+
+    /**
+     * And a `<dl>` that never carried the key still never gains one.
+     */
+    public function testTheWriterDoesNotDeriveTheKeyOntoADefinitionListThatDidNotSpellIt(): void
+    {
+        $this->assertSame(":: T\n:  a\n\n   b\n", $this->fmt(":: T\n:  a\n\n   b\n"));
+        $this->assertSame(":: T\n:  a\n", $this->fmt(":: T\n:  a\n"));
+    }
+
+    /**
+     * THE TEST IS A RE-PARSE OVER THE DOCUMENT, not over the render. Written
+     * without the key this `<dl>` reads back with no looseness at all - which is
+     * exactly what the render cannot see, since both spellings wrap the `<dd>`.
+     */
+    public function testTheLoosenessSurvivesAFormatPassWhereTheRenderCannotSeeIt(): void
+    {
+        $source = "{loose}\n:: T\n:  a\n\n   b\n";
+        $this->assertSame($this->html($source), $this->html($this->fmt($source)));
+
+        $written = $this->converter->parse($this->fmt($source))->getChildren()[0] ?? null;
+        $this->assertInstanceOf(DefinitionList::class, $written);
+        $this->assertTrue($written->isLoose());
+
+        $bare = $this->converter->parse(":: T\n:  a\n\n   b\n")->getChildren()[0] ?? null;
+        $this->assertInstanceOf(DefinitionList::class, $bare);
+        $this->assertFalse($bare->isLoose());
     }
 
     /**
