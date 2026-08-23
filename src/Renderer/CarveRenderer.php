@@ -139,6 +139,29 @@ class CarveRenderer implements RendererInterface
     protected ?array $escalatedUnits = null;
 
     /**
+     * Where the writer records the unit a character it is escaping belongs to.
+     *
+     * Non-null only for narrowEscalation()'s control render, which uses it to
+     * learn which units the escape arms actually ask about - see the comment
+     * there. Null everywhere else, so no other render pays for the bookkeeping.
+     *
+     * @var array<int, true>|null
+     */
+    protected ?array $askedUnits = null;
+
+    /**
+     * The source canonicalTree() last parsed, and the tree it gave.
+     *
+     * @var string|null
+     */
+    protected ?string $treeCacheSource = null;
+
+    /**
+     * @var array{tree: mixed}|null
+     */
+    protected ?array $treeCache = null;
+
+    /**
      * How many more narrowing renders the current document may pay for.
      *
      * THE SEARCH IS BOUNDED, because its cost is proportional to how many units
@@ -153,9 +176,9 @@ class CarveRenderer implements RendererInterface
      * is verified like every other - the escalation is wider than §2b's minimum
      * there, never narrower, and no document's output can be wrong for it.
      *
-     * MEASURED before it was chosen: over the 1341 pinned corpus documents 50
-     * reach the search at all, the most expensive spends 22 renders on 209
-     * units, and the budget below gives that document 72.
+     * MEASURED over the 1341 pinned corpus documents: 50 reach the search at
+     * all, and once the control render has narrowed the candidates to the units
+     * the writer asks about, the widest holds five and none holds more.
      */
     protected int $narrowingBudget = 0;
 
@@ -169,8 +192,24 @@ class CarveRenderer implements RendererInterface
      */
     protected ?Node $escapeUnit = null;
 
+    /**
+     * The units the logged render asked about, and the end of the log.
+     *
+     * @return array<int, true>
+     */
+    protected function takeAskedUnits(): array
+    {
+        $asked = $this->askedUnits ?? [];
+        $this->askedUnits = null;
+
+        return $asked;
+    }
+
     protected function escapeModeHere(): string
     {
+        if ($this->askedUnits !== null && $this->escapeUnit !== null) {
+            $this->askedUnits[spl_object_id($this->escapeUnit)] = true;
+        }
         if ($this->escalatedUnits === null) {
             return $this->escapeMode;
         }
@@ -294,6 +333,8 @@ class CarveRenderer implements RendererInterface
         // Choose the sentinels before anything is rendered, so both escape passes
         // below agree on them.
         $this->verbatimSentinels = $this->pickVerbatimSentinels($this->collectStrings($document));
+        $this->treeCacheSource = null;
+        $this->treeCache = null;
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
         if ($minimal === $conservative) {
@@ -346,25 +387,64 @@ class CarveRenderer implements RendererInterface
             return $conservative;
         }
 
-        $units = $this->collectEscapeUnits($document);
-        if ($units === []) {
+        $all = $this->collectEscapeUnits($document);
+        if ($all === []) {
             return $conservative;
         }
 
         $escalated = [];
-        foreach ($units as $unit) {
+        foreach ($all as $unit) {
             $escalated[spl_object_id($unit)] = true;
         }
         $this->escalatedUnits = $escalated;
-        // Eight times the depth of the halving, which is what narrowing four
-        // independent failing units costs.
-        $this->narrowingBudget = 8 * (int)ceil(log(count($units) + 1, 2)) + 8;
 
         try {
-            $best = $this->renderSelectively($document);
+            // THE CONTROL RENDER LOGS WHICH UNITS THE WRITER ACTUALLY ASKS
+            // ABOUT, so the search below can skip the ones it cannot move.
+            // collectEscapeUnits() is a generic walk over every node that COULD
+            // carry an escaped character; the units that DO are whatever the
+            // writer's own escape arms charge a character to, and only those
+            // read $escalatedUnits. A unit the writer never asks about renders
+            // the same bytes in or out of the set, so offering it its minimal
+            // form is a render and a parse spent to learn nothing.
+            //
+            // The gap is not small on nested documents. On the deepest corpus
+            // document - 203 nested colon fences, whose overflow past the
+            // nesting cap is the text the writer must keep from re-opening a
+            // div - the walk yields 209 units and the writer asks about FOUR.
+            // The other 205 were halved over at a render and a parse each, and
+            // that document's own output is 21x its source (a colon fence
+            // widens by one per level, PART 9 section 12), so each of those
+            // cost about what parsing 42 KB costs.
+            //
+            // Logging it rather than predicting it is the same choice
+            // collectEscapeUnits() makes and for the same reason: the set is
+            // whatever the arms visit, so an arm that grows a new escape cannot
+            // fall out of the search. And a unit wrongly left out cannot
+            // produce wrong output - every state the search returns is
+            // re-parsed against $conservativeTree, exactly as before.
+            $this->askedUnits = [];
+            try {
+                $best = $this->renderSelectively($document);
+            } finally {
+                $asked = $this->takeAskedUnits();
+            }
             if ($best !== $conservative) {
                 return $conservative;
             }
+            $units = [];
+            foreach ($all as $unit) {
+                if (isset($asked[spl_object_id($unit)])) {
+                    $units[] = $unit;
+                }
+            }
+            // No guard for an EMPTY $units: relaxUnits() returns on an empty
+            // group, and a check here would be one no corpus document can
+            // reach - the control render asks about a unit for every byte the
+            // two forms differ in, and they differ or this is not running.
+            // Eight times the depth of the halving, which is what narrowing four
+            // independent failing units costs.
+            $this->narrowingBudget = 8 * (int)ceil(log(count($units) + 1, 2)) + 8;
             $this->relaxUnits($document, $units, $conservativeTree, $best);
 
             return $best;
@@ -434,13 +514,27 @@ class CarveRenderer implements RendererInterface
      */
     protected function canonicalTree(string $source): ?array
     {
+        // ONE SLOT, keyed by the source, because the conservative form is asked
+        // for twice in a row - once by escapingIsRedundant() and once by the
+        // narrowing it hands off to - and a full re-parse of the writer's own
+        // output for an answer just computed is the most expensive kind of
+        // nothing. Parsing is pure, so a hit on the same bytes cannot be stale,
+        // and the search below overwrites the slot on its first probe, which is
+        // why one slot is enough to catch the pair and never grows.
+        if ($this->treeCacheSource === $source) {
+            return $this->treeCache;
+        }
+        $this->treeCacheSource = $source;
+
         try {
             // Wrapped, so "did not parse" is null and cannot compare equal to
             // another document that did not parse either.
-            return ['tree' => $this->canonicalizeAst((new CarveConverter())->parse($source))];
+            $this->treeCache = ['tree' => $this->canonicalizeAst((new CarveConverter())->parse($source))];
         } catch (Throwable) {
-            return null;
+            $this->treeCache = null;
         }
+
+        return $this->treeCache;
     }
 
     /**
@@ -703,16 +797,18 @@ class CarveRenderer implements RendererInterface
      * PART 11 section 4: compare the parsed minimal and conservative renders,
      * not either render against the source AST. If parsing fails, keep the old
      * conservative behavior.
+     *
+     * Both trees come from canonicalTree(), which is where the docblock there
+     * already says they must: the narrowing compares through that same
+     * normalization, and it is also what lets its own parse of the conservative
+     * form be the one this call just took.
      */
     protected function escapingIsRedundant(string $minimal, string $conservative): bool
     {
-        try {
-            $parser = new CarveConverter();
+        $minimalTree = $this->canonicalTree($minimal);
+        $conservativeTree = $this->canonicalTree($conservative);
 
-            return $this->canonicalizeAst($parser->parse($minimal)) == $this->canonicalizeAst($parser->parse($conservative));
-        } catch (Throwable) {
-            return false;
-        }
+        return $minimalTree !== null && $conservativeTree !== null && $minimalTree == $conservativeTree;
     }
 
     /**
