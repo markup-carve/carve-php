@@ -55,11 +55,12 @@ class DefinitionPrepassGateTest extends TestCase
                 int $indent,
                 ?array $lineMap = null,
                 bool $topLevel = false,
+                bool $itemBody = false,
             ): void {
                 if ($topLevel) {
                     $this->topLevelWalks++;
                 }
-                parent::parseBlocks($parent, $lines, $indent, $lineMap, $topLevel);
+                parent::parseBlocks($parent, $lines, $indent, $lineMap, $topLevel, $itemBody);
             }
         };
     }
