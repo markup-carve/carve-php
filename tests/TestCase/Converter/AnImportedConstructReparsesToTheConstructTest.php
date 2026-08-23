@@ -344,6 +344,118 @@ class AnImportedConstructReparsesToTheConstructTest extends TestCase
     }
 
     /**
+     * The same payload, in a LIST ITEM (carve-php#1618).
+     *
+     * An item's first block goes on the marker line, so the fence opener
+     * arrives as ``- ```` rather than at the start of the line. The collapse's
+     * fence exemption was armed by reading the trimmed line, which recognizes
+     * a delimiter only where it opens the line, so the exemption never fired
+     * and the payload was rewritten - silently, since a fence's content is
+     * literal and nothing else was watching it.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function fenceInAnItemProvider(): array
+    {
+        return [
+            'a bullet item' => [
+                "<ul><li><pre><code>x\n\n\ny</code></pre></li></ul>",
+                "- ```\n  x\n\n\n  y\n  ```\n",
+            ],
+            'an ordered item' => [
+                "<ol><li><pre><code>x\n\n\ny</code></pre></li></ol>",
+                "1. ```\n   x\n\n\n   y\n   ```\n",
+            ],
+            // The marker repeats per level, and so must the stripping.
+            'an item two deep' => [
+                "<ul><li><ul><li><pre><code>x\n\n\ny</code></pre></li></ul></li></ul>",
+                "- - ```\n    x\n\n\n    y\n    ```\n",
+            ],
+            // A longer run is not clamped to two either - the payload is kept,
+            // not normalized to whatever the fix's example happened to hold.
+            'a run of three blank lines' => [
+                "<ul><li><pre><code>x\n\n\n\ny</code></pre></li></ul>",
+                "- ```\n  x\n\n\n\n  y\n  ```\n",
+            ],
+        ];
+    }
+
+    /**
+     * @param string $html
+     * @param string $expected
+     */
+    #[DataProvider('fenceInAnItemProvider')]
+    public function testAFencedPayloadInAnItemKeepsItsBlankLines(string $html, string $expected): void
+    {
+        $this->assertSame($expected, (new HtmlToCarve())->convert($html));
+    }
+
+    /**
+     * The unrecognized opener left the flag INVERTED for the rest of the
+     * document (carve-php#1618).
+     *
+     * The opener ``- ```` was not recognized, but the item's CLOSER is indented
+     * rather than prefixed, so it was - and it toggled a flag that had never
+     * been set. Everything after the item then counted as fence payload, and
+     * the next ordinary top-level fence's own opener toggled it back OFF, so
+     * that fence lost its blank lines too. A document could be damaged by a
+     * construct it did not contain.
+     */
+    public function testAFenceAfterAnItemFenceStillKeepsItsBlankLines(): void
+    {
+        $imported = (new HtmlToCarve())->convert(
+            "<ul><li><pre><code>x\n\n\ny</code></pre></li></ul><p>t</p><pre><code>a\n\n\nb</code></pre>",
+        );
+
+        $this->assertSame("- ```\n  x\n\n\n  y\n  ```\n\nt\n\n```\na\n\n\nb\n```\n", $imported);
+    }
+
+    /**
+     * The contexts that were already right stay right (carve-php#1618).
+     *
+     * Each writes a NON-EMPTY blank line - a quote writes `>`, a definition
+     * body writes its indent - so the collapse never matched them and the
+     * payload survived for a reason unrelated to the fence exemption. They are
+     * here because a fix aimed at the item path must not disturb them, and
+     * because the quote-inside-an-item row is the contrast that located the
+     * defect: it is indented under the item too, and it was correct.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function fenceContextsAlreadyCorrectProvider(): array
+    {
+        return [
+            'top level' => ["<pre><code>x\n\n\ny</code></pre>", "```\nx\n\n\ny\n```\n"],
+            'a block quote' => [
+                "<blockquote><pre><code>x\n\n\ny</code></pre></blockquote>",
+                "> ```\n> x\n>\n>\n> y\n> ```\n",
+            ],
+            'a block quote inside an item' => [
+                "<ul><li><blockquote><pre><code>x\n\n\ny</code></pre></blockquote></li></ul>",
+                "- > ```\n  > x\n  >\n  >\n  > y\n  > ```\n",
+            ],
+            'a disclosure' => [
+                "<details><summary>s</summary><pre><code>x\n\n\ny</code></pre></details>",
+                "::: details \"s\"\n```\nx\n\n\ny\n```\n:::\n",
+            ],
+            'a named container' => [
+                "<div class=\"note\"><pre><code>x\n\n\ny</code></pre></div>",
+                "::: note\n```\nx\n\n\ny\n```\n:::\n",
+            ],
+        ];
+    }
+
+    /**
+     * @param string $html
+     * @param string $expected
+     */
+    #[DataProvider('fenceContextsAlreadyCorrectProvider')]
+    public function testTheContextsThatWereAlreadyCorrectAreUnchanged(string $html, string $expected): void
+    {
+        $this->assertSame($expected, (new HtmlToCarve())->convert($html));
+    }
+
+    /**
      * Outside a fence the collapse still applies - blank lines there are a
      * separator, and one is as good as three.
      */

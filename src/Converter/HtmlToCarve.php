@@ -5099,6 +5099,50 @@ class HtmlToCarve
     }
 
     /**
+     * The code fence this line opens or closes, behind whatever a container
+     * wrote to its left - or null when the line is not a fence delimiter.
+     *
+     * The blank-run collapse in `cleanup()` exempts a fence payload, because a
+     * blank line there is CONTENT and collapsing it rewrites what the author
+     * wrote. Recognizing the fence by `trim($line)` alone found the exemption
+     * only when the delimiter began the line, and a list item does not write it
+     * that way: an item's first block goes on the MARKER line, so the opener
+     * arrived as ``- ```` and was not recognized at all (carve-php#1618).
+     *
+     * That cost the payload twice over. The opener did not arm the exemption,
+     * so the item's own fence lost its blank runs; and the CLOSER, which is
+     * indented rather than prefixed, WAS recognized and toggled - leaving the
+     * flag inverted for the rest of the document, so the next ordinary
+     * top-level fence lost its blank runs too.
+     *
+     * So the prefixes are stripped before the test rather than trimmed away:
+     * any run of indentation, quote markers, list markers and definition
+     * markers, which is what nesting writes to the left of a block at any
+     * depth. A prose line that would collide is not reachable here - the
+     * importer escapes a verbatim delimiter that opens a line.
+     *
+     * @param string $line The emitted line.
+     *
+     * @return string|null The fence delimiter run, or null when there is none.
+     */
+    protected function codeFenceDelimiter(string $line): ?string
+    {
+        $rest = $line;
+        // One marker per nesting level: ``- - ```` is a fence two items deep.
+        while (
+            preg_match(
+                '/^(?:[ \t]+|>[ \t]?|(?:[-*+]|\d{1,9}[.)]|[a-zA-Z][.)])[ \t]+|:[ \t]{1,2})/',
+                $rest,
+                $prefix,
+            ) === 1
+        ) {
+            $rest = substr($rest, strlen($prefix[0]));
+        }
+
+        return preg_match('/^(`{3,}|~{3,})/', $rest, $fence) === 1 ? $fence[1] : null;
+    }
+
+    /**
      * Would this list MERGE with the sibling list written immediately before
      * it, if the two were only parted by the usual blank line?
      *
@@ -7897,7 +7941,7 @@ class HtmlToCarve
             }
 
             // Track code blocks
-            if (str_starts_with(trim($line), '```')) {
+            if ($this->codeFenceDelimiter($line) !== null) {
                 $inCodeBlock = !$inCodeBlock;
                 $result[] = $line;
 
