@@ -15,6 +15,7 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Parser\Block\TableParser;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -4911,6 +4912,8 @@ class HtmlToCarve
         $isTaskList = $this->isTaskList($node);
         $output = '';
         $counter = 1;
+        $attributeLine = '';
+        $hasAttributeLine = false;
 
         // Get start attribute for ordered lists
         if ($isOrdered && $node->hasAttribute('start')) {
@@ -4950,7 +4953,12 @@ class HtmlToCarve
                 $skipAttrs[] = 'data-type';
             }
             $listAttrs = $this->formatBlockAttributes($node, $skipAttrs);
-            $output .= $listAttrs . "\n";
+            // HELD BACK, not emitted. PART 9 §17 L7 decides from the BODY
+            // whether this list needs `{loose}` spelled, and the body is not
+            // written yet - so the attribute line is assembled after the items
+            // and spliced in at the end. See the L7 block below the loop.
+            $attributeLine = $listAttrs;
+            $hasAttributeLine = true;
         }
 
         // A LOOSE source list - an item holding an explicit <p> - stays loose:
@@ -4975,11 +4983,16 @@ class HtmlToCarve
         }
 
         $firstItem = true;
+        // COUNTED AS WRITTEN, not as present in the DOM. The loop below skips an
+        // inline-footnote item, so a DOM count would say two where the body
+        // holds one - and L7's whole question is what the BODY spells.
+        $itemsWritten = 0;
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'li') {
                 if ($child->hasAttribute('data-djot-inline-footnote')) {
                     continue;
                 }
+                $itemsWritten++;
 
                 // The blank line between loose items, unless the previous
                 // item's own trailing content (a nested list, a multi-block
@@ -5171,6 +5184,35 @@ class HtmlToCarve
 
                 $counter++;
             }
+        }
+
+        // PART 9 §17 L7: SPELL THE LOOSENESS THE LAYOUT CANNOT SAY.
+        //
+        // A blank line between items is Carve's spelling of looseness, and this
+        // writer emits one between every pair - so a multi-item loose list
+        // already says it. A ONE-ITEM list has no "between items" for that
+        // blank line to stand in, and that is exactly the shape L7 exists for.
+        // A document with a single footnote imports as exactly one item, so it
+        // is the common case rather than a corner: the derived endnotes section
+        // was written tight and the `<p>` the imported tree recorded was lost on
+        // the way back in.
+        //
+        // The DECISION PROCEDURE is shared with `CarveRenderer`, which has
+        // spelled this since the key landed - write the body without the key,
+        // read it back, and emit the key exactly where the looseness did not
+        // survive. Asking it there rather than re-deriving it here is what keeps
+        // the two writers from answering differently.
+        if ($hasAttributeLine) {
+            $needsLoose = CarveRenderer::looseKeyIsNeededForBody($isLoose, $itemsWritten, $output);
+            if ($needsLoose) {
+                // `loose` goes FIRST in the slot order, which is where the
+                // canonical writer puts it, so a document that round-trips
+                // through both writers is stable.
+                $attributeLine = $attributeLine === ''
+                    ? '{loose}'
+                    : '{loose ' . mb_substr($attributeLine, 1, null, 'UTF-8');
+            }
+            $output = $attributeLine . "\n" . $output;
         }
 
         $this->listDepth--;
