@@ -130,28 +130,28 @@ class AnAuthoredParagraphAroundALoneImageBoundsTest extends TestCase
     }
 
     /**
-     * WHERE THIS ENGINE DIVERGES FROM carve-js, AND WHY THE ROW IS STILL RIGHT.
+     * A WRAPPER AN UNWRAPPER ALREADY REMOVED IS NOT A LOSS, and this engine now
+     * agrees with carve-js on the shape rather than diverging from it.
      *
-     * carve-js takes the paragraph back off a `<figure>` body, so its figure
-     * target is the image on both exits and there is nothing left to lose - it
-     * reports nothing here and writes `![a](i.png)\n^ cap\n`.
-     *
-     * carve-php does not: `processFigure()` looks for a DIRECT `<img>` child, so
-     * a `<p>`-wrapped one falls through to the generic content path and the
-     * figure is lost along with the paragraph. The image really is written as a
-     * bare block here, so the row is a true statement about what this engine
-     * wrote, and suppressing it to match a sibling would leave BOTH losses
+     * This expectation used to be the other way. While carve-php#1672 was open,
+     * `processFigure()` looked for a DIRECT `<img>` child, so a `<p>`-wrapped
+     * one fell through to the generic content path: the figure was lost, the
+     * caption came back as an ordinary paragraph, and the image really was
+     * written as a bare block - so the row was a true statement about what this
+     * engine wrote, and suppressing it then would have left BOTH losses
      * undeclared instead of one.
      *
-     * The figure half is its own defect and is filed as its own ticket. When it
-     * is fixed the `<p>` will be unwrapped before it is ever written, so this
-     * row will stop firing on its own and this expectation moves with it.
+     * The figure keeps its image now, so the `<p>` is taken off the body before
+     * anything is written and there is no bare block to declare. A row that
+     * outlived the loss it describes is a stale declaration, and
+     * `docs/html-import.md` reads one as licence to stop comparing the exits -
+     * which makes it worse than no row at all.
      */
-    public function testAParagraphInsideAFigureBodyIsStillWrittenAsABlockHere(): void
+    public function testAParagraphInsideAFigureBodyIsUnwrappedRatherThanLost(): void
     {
         $html = '<figure><p><img src="i.png" alt="a"></p><figcaption>cap</figcaption></figure>';
-        $this->assertSame("![a](i.png)\n\ncap\n", $this->carve($html));
-        $this->assertSame(['structure-unspellable'], $this->rows($html));
+        $this->assertSame("![a](i.png)\n^ cap\n", $this->carve($html));
+        $this->assertSame([], $this->rows($html));
     }
 
     /**
