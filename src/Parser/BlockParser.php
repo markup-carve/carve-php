@@ -14075,10 +14075,17 @@ class BlockParser
      * offset walk in {@see self::headingReferenceScanLine()} and the copying
      * one above cannot drift (markup-carve/carve-php#1463).
      *
-     * The attribute block is added back because it is part of the MARKER, not
-     * of the content: `-{#k} [x] a` is the marker `-{#k} ` and then the
-     * checkbox, so its content column is 6. Pinning the whole head at 2 put the
-     * column INSIDE the attribute block, where no content can begin, and a
+     * The attribute block is added back because it binds to the MARKER rather
+     * than to the content. PART 9 §15 A8 says so: "a `-{…} text` with no space
+     * after the marker attributes the LIST ITEM", and
+     * `docs/divergence-from-djot.md` §17 states it in as many words - "the
+     * attribute block binds to the MARKER". Part of the marker counts toward
+     * the marker's width, so `-{#k} [x] a` is the marker `-{#k} ` and then the
+     * checkbox, and its content column is 6.
+     *
+     * Pinning the whole head at 2 treated the block as though it were not
+     * there, which puts the column INSIDE it - where no content can begin,
+     * since A8 also notes the marker still needs content of its own - and a
      * heading written at the real column came back as paragraph text
      * (markup-carve/carve#1692). `$span` cannot answer this on its own: it has
      * already counted the checkbox and any extra spaces in front of it, and
