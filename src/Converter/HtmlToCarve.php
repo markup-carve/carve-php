@@ -7464,17 +7464,18 @@ class HtmlToCarve
     {
         $direct = $this->findFirstDirectChildByTagName($node, 'img');
         if ($this->hasOnlySupportedFigureContent($node) && $direct instanceof DOMElement) {
-            // NOT guarded on `importImageSpelling()`. The direct spelling has
-            // written a `^` line under a target that writes no image since long
-            // before this fix, and sending it down the generic path instead
-            // makes it worse rather than better: that path writes an inline body
-            // and the caption with no separator between them, so
-            // `<figure><img src=""><figcaption>cap</figcaption></figure>` would
-            // write `acap` - one invented word - where it currently writes `a`
-            // and a stray `^ cap`. Both are additions and neither is this
-            // ticket's; the pre-existing one is left exactly as it was and filed
-            // on its own.
-            return $direct;
+            // GUARDED, and it could not be until the generic path stopped
+            // running an inline body into the caption (carve-php#1676). A
+            // caption binds to the BLOCK above it, so a target that wrote no
+            // image swallowed the marker as ordinary text:
+            // `<figure><img src=""><figcaption>cap</figcaption></figure>` wrote
+            // `a` and then `^ cap`, and re-read as ONE paragraph holding the
+            // literal characters `^ cap`. While carve-php#1672 was in flight
+            // this branch was left alone, because the generic path would have
+            // written `acap` - one invented word - which is a worse addition,
+            // not a fix. Both ends are closed now, so the guard applies to the
+            // direct spelling and the wrapped one alike.
+            return $this->importImageSpelling($direct) === null ? null : $direct;
         }
 
         $body = $this->soleFigureBodyElement($node);
@@ -7678,7 +7679,17 @@ class HtmlToCarve
                 // would destroy structure the output can hold.
                 $captionText = trim($this->processChildren($child));
                 if ($captionText !== '') {
-                    $output .= $captionText . "\n\n";
+                    // AND IT IS A BLOCK OF ITS OWN, which is what was missing
+                    // (carve-php#1676). A figure body that writes INLINE content
+                    // leaves no block boundary behind it, so appending the
+                    // caption ran the two together: `<figure><span>b</span>` and
+                    // a caption of `cap` wrote `bcap`, one invented word, and a
+                    // link-wrapped image wrote `[![a](i.png)](u)cap`. A loss
+                    // inside a declared ceiling is permitted; text the input
+                    // never held is not (markup-carve/carve#1636). A BLOCK body
+                    // already ended in a blank line, so this changes nothing
+                    // there.
+                    $output = $this->appendImportBlock($output, $captionText);
                 }
 
                 continue;
@@ -7688,6 +7699,24 @@ class HtmlToCarve
         }
 
         return $output;
+    }
+
+    /**
+     * Put one block after whatever has been written, with a boundary between.
+     *
+     * SEPARATE ONLY AT THE JOIN, never between everything. Consecutive INLINE
+     * children of a figure body are ONE run - `<span>b</span><em>c</em>` writes
+     * `b{/c/}` and must keep writing it - so a helper that blank-lined every
+     * contribution would break the body apart while fixing the caption. This
+     * inserts a boundary at the one place a block genuinely starts.
+     */
+    protected function appendImportBlock(string $output, string $block): string
+    {
+        if ($output !== '' && !str_ends_with($output, "\n\n")) {
+            $output = rtrim($output, "\n") . "\n\n";
+        }
+
+        return $output . $block . "\n\n";
     }
 
     /**
