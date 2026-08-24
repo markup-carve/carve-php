@@ -611,6 +611,40 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'p' && isset($this->loneImageParagraphs[$path])) {
+            // A DECLARED LOSS IS A CEILING, NOT A LICENCE
+            // (`docs/html-import.md`). Carve source has no spelling for a
+            // paragraph whose whole content is one image - `![G](g.jpg)`
+            // re-reads as a BLOCK image, and the indented reading a writer
+            // might reach for does not exist inside a list item or a
+            // definition description, where the marker absorbs the padding at
+            // every width. So there is no other output to write, and what was
+            // missing is the row: the writer already dropped the `<p>` and said
+            // nothing, which is exactly the half the ceiling does not cover
+            // (carve-php#1667, ported from markup-carve/carve-js#1422).
+            $lost = $this->loneImageParagraphs[$path];
+            $head = 'A paragraph holding nothing but an image has no Carve spelling; '
+                . 'the image is written as a block';
+            // THREE OUTCOMES, AND THE MESSAGE SAYS WHICH ONE HAPPENED. The
+            // plain one loses the `<p>` and nothing else. An attributed one
+            // re-attaches what the paragraph carried to the image, which is a
+            // different element to carry it. And where the image sets the SAME
+            // name its own value wins, so the paragraph's is gone too - a
+            // message that stopped at "written on the image instead" would
+            // leave that loss undeclared.
+            if (!$lost['attributed']) {
+                $message = $head . ', which renders without the <p> around it';
+            } elseif ($lost['overwritten'] === []) {
+                $message = $head . ', so the <p> is lost and the attributes it carried '
+                    . 'are written on the image instead';
+            } else {
+                $message = $head . ', so the <p> is lost and the attributes it carried '
+                    . 'are written on the image - except ' . implode(', ', $lost['overwritten'])
+                    . ', which the image\'s own value overwrites';
+            }
+            $this->addImportDiagnostic($diagnostics, 'structure-unspellable', $message, 'warning', $path);
+        }
+
         if ($tag === 'p' && $this->holdsOnlyLayoutCharacters($node)) {
             // PART 11 §7 DECIDES WHAT AN IMPORT KEEPS, and it draws the line
             // at the two-character `whitespace` terminal. A block whose
@@ -2155,6 +2189,7 @@ class HtmlToCarve
         $this->captionFlattenDiagnostics = [];
         $this->splitDefinitionLists = [];
         $this->droppedDefinitionDescriptions = [];
+        $this->loneImageParagraphs = [];
 
         // Wrap in a single root element unless the input is already a full
         // document. Only a leading <!doctype>/<html>/<body> counts as a root:
@@ -2529,6 +2564,50 @@ class HtmlToCarve
      */
     protected array $droppedDefinitionDescriptions = [];
 
+    /**
+     * The `<p>` elements this conversion wrote as a bare block image.
+     *
+     * A paragraph holding nothing but an image has no Carve spelling, so the
+     * writer emits the image at a block position and the `<p>` the author wrote
+     * is not in the source it produced (carve-php#1667). The value carries what
+     * the row has to SAY about it: whether the paragraph had attributes to
+     * re-attach, and which of them the image's own attribute block overwrites.
+     *
+     * KEYED BY PATH for the reason {@see self::$splitDefinitionLists} is:
+     * `convertWithReport()` inspects a SECOND parse of the same HTML, so no node
+     * object is shared between the two passes.
+     *
+     * @var array<string, array{attributed: bool, overwritten: list<string>}>
+     */
+    protected array $loneImageParagraphs = [];
+
+    /**
+     * How many flattened top-level nodes stand before this `<head>`/`<body>`.
+     *
+     * {@see self::importTopLevelNodes()} splices the children of each into one
+     * run, so a `<body>` child's number continues where the `<head>`'s children
+     * stopped. Any other child of `<html>` counts as itself, since it is not
+     * flattened.
+     */
+    private function flattenedTopLevelOffset(DOMElement $section): int
+    {
+        $parent = $section->parentNode;
+        if (!$parent instanceof DOMElement) {
+            return 0;
+        }
+
+        $offset = 0;
+        foreach ($parent->childNodes as $sibling) {
+            if ($sibling === $section) {
+                break;
+            }
+            $tag = $sibling instanceof DOMElement ? strtolower($sibling->tagName) : '';
+            $offset += $tag === 'head' || $tag === 'body' ? $sibling->childNodes->length : 1;
+        }
+
+        return $offset;
+    }
+
     private function conversionNodePath(DOMElement $node): string
     {
         $parts = [];
@@ -2544,6 +2623,25 @@ class HtmlToCarve
                     break;
                 }
             }
+            // A FULL DOCUMENT NUMBERS HEAD AND BODY AS ONE RUN, because
+            // `importTopLevelNodes()` flattens them into one before the
+            // inspection walk numbers anything - so a `<body>`'s first child is
+            // not child 1 when the `<head>` contributed nodes ahead of it. The
+            // two passes have to agree: the record this path keys is written by
+            // the CONVERSION and read by the INSPECTION, and a path that
+            // disagrees drops the row silently, which is the exact failure the
+            // rows keyed this way exist to prevent. Every row on the record -
+            // `structure-split`, the dropped `<dd>` and the lone-image
+            // paragraph - was missing on a document with a non-empty `<head>`.
+            $parentTag = strtolower($parent->tagName);
+            if (
+                in_array($parentTag, ['head', 'body'], true)
+                && $parent->parentNode instanceof DOMElement
+                && strtolower($parent->parentNode->tagName) === 'html'
+            ) {
+                $index += $this->flattenedTopLevelOffset($parent);
+            }
+
             $tag = strtolower($current->tagName);
             if (!in_array($tag, ['html', 'head', 'body'], true)) {
                 $parts[] = $tag . '[' . $index . ']';
@@ -3867,7 +3965,170 @@ class HtmlToCarve
 
         $attrs = $this->formatBlockAttributes($node);
 
+        /*
+         * CARVE SOURCE CANNOT SPELL A PARAGRAPH HOLDING ONLY AN IMAGE, so this
+         * line writes a BLOCK image and the author's `<p>` leaves the document
+         * (carve-php#1667). `resources/examples/edge-cases.md` rules the shape -
+         * "a paragraph whose whole content is one image is still the standalone
+         * image shape, not a wrapped one" - so there is no other output to
+         * write, and `docs/html-import.md` says what is owed instead: the exit
+         * that writes source reports `structure-unspellable`.
+         *
+         * RECORDED HERE, WHERE THE WRITER IS. The inspection walk cannot ask a
+         * DOM-shaped predicate for this and get the same answer, for the reason
+         * {@see self::definitionListSplits()} carries: what a `<p>` HOLDS and
+         * what it WRITES are different questions. This one is the writer's.
+         */
+        $image = $this->loneImportImage($node);
+        if ($image !== null && $this->importParagraphIsWrittenAsABlock($node)) {
+            $this->loneImageParagraphs[$this->conversionNodePath($node)] = [
+                'attributed' => $attrs !== '',
+                'overwritten' => $this->overwrittenImportImageAttributes($node, $image),
+            ];
+        }
+
         return $attrs . $content . "\n\n";
+    }
+
+    /**
+     * The one `<img>` a paragraph holds, when it holds nothing else.
+     *
+     * Whitespace between the tags is layout, not content (PART 11 section 7), so
+     * `<p>\n <img>\n</p>` is the same paragraph as `<p><img></p>` and both
+     * write the same block image. Anything else in the run - a second image, a
+     * word, a link - makes a paragraph the source CAN spell, because
+     * `![G](g.jpg) text` re-reads as the paragraph it was.
+     */
+    protected function loneImportImage(DOMElement $node): ?DOMElement
+    {
+        $image = null;
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                if ($image !== null || strtolower($child->tagName) !== 'img') {
+                    return null;
+                }
+                $image = $child;
+
+                continue;
+            }
+            if ($child instanceof DOMText && trim($child->wholeText) !== '') {
+                return null;
+            }
+        }
+
+        return $image;
+    }
+
+    /**
+     * The slots that hold INLINE content, so a `<p>` inside one is dissolved
+     * into its run rather than written as a paragraph.
+     *
+     * NOT A LIST OF THE CONTAINERS THAT KEEP A PARAGRAPH - that list is the one
+     * that goes stale silently, because a container added later would be missed
+     * and the miss reads as "the paragraph was dissolved", dropping a row that
+     * was owed. This is the complement: the slots Carve gives no paragraph at
+     * all, whatever the HTML puts in them. A pipe cell is one line of inline
+     * content, a caption line and a definition TERM are inline runs, and a
+     * details opener is a quoted title - so none of them loses a paragraph,
+     * because none of them ever had one to lose.
+     *
+     * Measured, each one: `<td>`, `<th>`, `<caption>`, `<figcaption>`, `<dt>`
+     * and `<summary>` all write `<p><img></p>` as inline content. `<dd>` does
+     * NOT - it writes a block, so it is not here.
+     *
+     * @var array<int, string>
+     */
+    protected const IMPORT_INLINE_ONLY_SLOTS = ['caption', 'dt', 'figcaption', 'summary', 'td', 'th'];
+
+    /**
+     * Is this paragraph written as a block, rather than dissolved into a run?
+     *
+     * ANY ancestor decides, not the nearest: a `<td><div><p><img></p></div></td>`
+     * still writes one line of inline content, so stopping at the `<div>` would
+     * declare a loss the cell never took.
+     */
+    protected function importParagraphIsWrittenAsABlock(DOMElement $node): bool
+    {
+        for ($current = $node->parentNode; $current instanceof DOMElement; $current = $current->parentNode) {
+            if (in_array(strtolower($current->tagName), self::IMPORT_INLINE_ONLY_SLOTS, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The paragraph attribute names the image's own attribute block overwrites.
+     *
+     * The paragraph's attributes are written as a block ABOVE the image and the
+     * image's own `{...}` after it, and BOTH are read onto one node - so a name
+     * the image also sets is the one that survives. `<p id="p"><img id="i">`
+     * writes `{#p}` above `![a](a){#i}` and reads back with `id="i"` alone, so a
+     * message claiming the paragraph's attributes were written on the image
+     * would leave that loss undeclared, which is the same defect one level down.
+     *
+     * CLASSES ARE NOT IN THIS SET: the class slot merges rather than replacing,
+     * so `{.p}` and `{.i}` both reach the rendered element and nothing is lost.
+     * An image's `src`, `alt` and `title` are not either - they go into the
+     * destination, the label and the destination's title slot, none of which is
+     * the attribute block, so they never collide with a paragraph's.
+     *
+     * @return list<string>
+     */
+    protected function overwrittenImportImageAttributes(DOMElement $paragraph, DOMElement $image): array
+    {
+        $imageNames = $this->writtenImportAttributeNames($image, ['src', 'alt', 'title', 'data-djot-ref']);
+        if ($imageNames === []) {
+            return [];
+        }
+
+        $lost = [];
+        foreach ($this->writtenImportAttributeNames($paragraph) as $name) {
+            if (in_array($name, $imageNames, true)) {
+                $lost[] = $name;
+            }
+        }
+        sort($lost);
+
+        return $lost;
+    }
+
+    /**
+     * The attribute NAMES an element writes into a Carve attribute block.
+     *
+     * The same policy {@see self::getElementAttributes()} writes by, asked for
+     * the names alone: `class` is left out because the slot merges, and a name
+     * the writer strips or derives never reaches the block to collide with
+     * anything.
+     *
+     * @param \DOMElement $node
+     * @param array<int, string> $skipAttrs
+     *
+     * @return list<string>
+     */
+    protected function writtenImportAttributeNames(DOMElement $node, array $skipAttrs = []): array
+    {
+        $names = [];
+        if ($node->getAttribute('id') !== '') {
+            $names[] = 'id';
+        }
+        /** @var \DOMAttr $attr */
+        foreach ($node->attributes as $attr) {
+            $name = $attr->name;
+            if ($name === 'id' || $name === 'class') {
+                continue;
+            }
+            if (in_array($name, $skipAttrs, true) || $this->isStrippedImportAttribute($name)) {
+                continue;
+            }
+            if ($this->isDerivedAccessibleName($node, $name, $attr->value)) {
+                continue;
+            }
+            $names[] = $name;
+        }
+
+        return $names;
     }
 
     protected function processHeading(DOMElement $node): string
