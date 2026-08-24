@@ -133,9 +133,9 @@ class AnImportSpellsTheLoosenessTheLayoutCannotSayTest extends TestCase
      * LINE after a non-empty attribute line - `{#x}` then a blank then the
      * marker - which the canonical writer does not, so its output for an
      * attributed list has never been what `fmt` would write. That predates this
-     * change and is preserved by it byte for byte; it is filed separately rather
-     * than folded in, because it moves every attributed top-level list and this
-     * change moves only the key.
+     * change and is preserved by it byte for byte; it is filed as
+     * markup-carve/carve-php#1653 rather than folded in, because it moves every
+     * attributed top-level list and this change moves only the key.
      */
     public function testTheKeyLeadsTheAttributeList(): void
     {
