@@ -5469,7 +5469,22 @@ class HtmlToCarve
 
                 // The attributes widen the marker, so the item's content column
                 // moves with it and every continuation line follows.
-                $continuation = $indent . str_repeat(' ', strlen($prefix));
+                //
+                // A TASK ITEM'S `[x] ` DOES NOT. The checkbox is CONTENT, which
+                // the reader consumes as the item's task state, so it leaves the
+                // content column where the bullet put it: `- [x] ` is six wide
+                // and its content column is 2, `-{#k} [x] ` is ten and its is 6.
+                // Indenting a continuation to the full width put a block opener
+                // four columns too far in, where it opens nothing - the heading
+                // in `<li><input type="checkbox" checked> <h1 id="h">h</h1></li>`
+                // came back as text of the marker line's paragraph, so the
+                // visible text moved from `h` to `# h` (carve-js#1450).
+                //
+                // This is the SECOND spelling of the rule in this engine. The
+                // AST writer holds the first, in CarveRenderer::renderList();
+                // the importer writes source directly and so has to say it
+                // again. Both were wrong the same way (carve-php#1693).
+                $continuation = $indent . str_repeat(' ', strlen($prefix) - strlen($checkbox));
 
                 // An item whose ONLY content is a nested list puts that list
                 // on the marker line, and the nested block below skips its
