@@ -452,6 +452,23 @@ class BlockParser
     protected array $unplaceableNodeIds = [];
 
     /**
+     * Paragraphs whose FIRST LINE sat above their container's content column.
+     *
+     * A block image is a top-level block construct, so PART 9 section 15's
+     * strict column-0 rule reaches it: an INDENTED lone image is a paragraph
+     * holding an inline image, never a block image (markup-carve/carve#1660).
+     * {@see promoteBlockImageAttributes()} is the only reader.
+     *
+     * PARSER-LOCAL, keyed by object id like `$unplaceableNodeIds` above, rather
+     * than a property on `Paragraph`: {@see \MarkupCarve\Carve\Ast\AstCodec}
+     * publishes every non-static property a node declares, so a flag on the node
+     * would put a parse internal on the wire that no other engine emits.
+     *
+     * @var array<int, true>
+     */
+    protected array $paragraphsAboveContentColumn = [];
+
+    /**
      * Abbreviation definitions: maps abbreviation text to its definition
      *
      * @var array<string, string>
@@ -1208,10 +1225,19 @@ class BlockParser
                 // position: it renders as its literal source (PART 12 §3a), so
                 // `![a][]` with nothing defining `[a]` stays a paragraph, as it
                 // does in carve-js. Promoting it dropped the `<p>` wrapper.
+                // STRICT COLUMN-0 (PART 9 section 15, markup-carve/carve#1660): a
+                // block image is a top-level block construct, so an INDENTED lone
+                // image is a paragraph holding an inline image. The HTML is the
+                // same either way - `HtmlRenderer::isBlockImageParagraph()` emits
+                // a bare `<img>` for the surviving paragraph, at every column -
+                // so the difference is visible only in the published tree, which
+                // is why every corpus document passed while three engines held
+                // two readings.
                 if (
                     count($kids) === 1
                     && $kids[0] instanceof Image
                     && ($kids[0]->getRawReferenceLabel() === null || $kids[0]->getSource() !== '')
+                    && !isset($this->paragraphsAboveContentColumn[spl_object_id($child)])
                 ) {
                     if ($child->getAttributes() !== []) {
                         $kids[0]->mergeLeadingAttributes($child->getAttributes(), $child->getAttributeOrder());
@@ -2683,6 +2709,7 @@ class BlockParser
         $this->footnoteDefinitionSpans = [];
         $this->footnoteDefinitionPrefixed = [];
         $this->unplaceableNodeIds = [];
+        $this->paragraphsAboveContentColumn = [];
         $this->abbreviations = [];
         $this->abbreviationDefinitions = [];
         $this->abbreviationsBeforeBody = false;
@@ -10480,6 +10507,13 @@ class BlockParser
         $line = $lines[$start];
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line, " \t");
+        // WHERE THE PARAGRAPH BEGAN, relative to its container's content column,
+        // captured HERE because both variables above are reassigned by the fold
+        // loop below - reading them at the construction site answered a question
+        // about whichever line the paragraph stopped on. `$lines` is already
+        // dedented to the container's content column, so a leading space here is
+        // one the author put ABOVE it.
+        $firstLineIsAboveContentColumn = $line !== $content;
         /** @var list<string> $contentParts */
         $contentParts = [$content];
         $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
@@ -10600,6 +10634,25 @@ class BlockParser
         }
 
         $paragraph = new Paragraph();
+        // WHERE THE PARAGRAPH BEGAN, relative to its container's content column.
+        // `$lines` is already dedented to that column, so a leading space here is
+        // a space the author put ABOVE it - and a block image is a top-level
+        // block construct, so section 15's strict column-0 rule reaches it. The
+        // reader is `promoteBlockImageAttributes()`, which without this could not
+        // tell ` ![a](u)` from `![a](u)`: the two build the same paragraph and
+        // render the same bytes, and only the published TREE differs
+        // (markup-carve/carve#1660).
+        //
+        // `$indent` above is not this number - it has the content column added
+        // back for position reporting - so it is measured separately, at the top
+        // of this method rather than here: `$line` and `$content` are both
+        // reassigned while the paragraph folds, so asking them at this point
+        // answered for the LAST line. `![a` / `b](/i)` - one image whose alt text
+        // crosses a line boundary, corpus 351-4 - was read as indented and
+        // stopped promoting.
+        if ($firstLineIsAboveContentColumn) {
+            $this->paragraphsAboveContentColumn[spl_object_id($paragraph)] = true;
+        }
         // Set here rather than leaving it to the block-loop stamp, which spans
         // whole lines: a folded paragraph knows exactly which lines it took and
         // where its content starts and ends within them.
