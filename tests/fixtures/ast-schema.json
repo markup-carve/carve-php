@@ -92,7 +92,9 @@
     "required": []
   },
   "definition_list": {
-    "fields": [],
+    "fields": [
+      "loose"
+    ],
     "required": []
   },
   "definition_term": {

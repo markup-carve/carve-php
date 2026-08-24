@@ -729,6 +729,19 @@ class CarveCorpusTest extends TestCase
         // the leading tab of `406-3`, which is fixed in this change rather
         // than deferred.
         'a-heading-s-marker-separator-is-a-run-and-none-of-it-is-content',
+        // markup-carve/carve#1623: one consumed boolean spells the looseness no
+        // blank line can, and markup-carve/carve#1624 gives PART 12 §8 the
+        // field that carries it. The reader and the writer both already
+        // agreed; this change is the half that publishes it, so all four
+        // documents render and round-trip byte-identically.
+        'one-consumed-boolean-spells-the-looseness-no-blank-line-can',
+        'the-writer-spells-looseness-only-where-a-blank-line-cannot',
+        // markup-carve/carve#1633: a blank line loosens an item only when a
+        // paragraph follows it, landed as carve-php#1662.
+        'a-blank-line-loosens-an-item-only-when-a-paragraph-follows-it',
+        // markup-carve/carve#1631: a footnote continuation survives a blank
+        // run, landed as carve-php#1651. The bump found no reader defect here.
+        'a-footnote-continuation-survives-a-blank-run',
     ];
 
     /**

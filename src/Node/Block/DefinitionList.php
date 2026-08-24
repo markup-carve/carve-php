@@ -18,15 +18,17 @@ class DefinitionList extends BlockNode
      * the description wraps it - so `<dd><p>x</p></dd>` has no blank-line
      * spelling at any entry count.
      *
-     * INTERNAL, AND NOT PUBLISHED. PART 12 §8's `definition_list` has no such
-     * field, and the `<dd>` wrapper is derived from the description's block
-     * count, so a serialized tree cannot say which of the two spellings it came
-     * from. markup-carve/carve#1624 is the half that gives §8 the field; until
-     * it lands the looseness survives in SOURCE and not through an AST round
-     * trip, which is what the grammar states rather than leaves to be
-     * discovered. `ReferenceShape::INTERNAL_ONLY` is where that is enforced -
-     * without an entry there the reflection encoder would publish a property the
-     * schema does not name.
+     * PUBLISHED, AND ONLY WHERE IT WAS SPELLED. markup-carve/carve#1624 gave
+     * PART 12 §8's `definition_list` a `loose` field with a `const: true`
+     * shape, so present means the key was written and absent means each
+     * description derived its own wrapper from its block count. It is not a
+     * `tight` field on purpose: an absent boolean read as false would say
+     * LOOSE, the opposite of the default.
+     *
+     * The `false` default is what keeps it off the wire, so the reflection
+     * encoder needs no entry for it either way - which is why the
+     * `ReferenceShape::INTERNAL_ONLY` exemption that used to hide it is gone
+     * rather than inverted.
      */
     protected bool $loose = false;
 

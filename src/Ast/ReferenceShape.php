@@ -176,17 +176,14 @@ final class ReferenceShape
         'list' => ['listType'],
         // `checked` carries this; a non-task item simply has no `checked`.
         'list_item' => ['taskMarker'],
-        // PART 9 §17 L7's consumed `loose` boolean. A LOOSENED LIST is
-        // representable - `list` carries `tight` and the key sets it false - but
-        // PART 12 §8's `definition_list` has no such field, and the `<dd>`
-        // wrapper is derived from the description's block count, so a serialized
-        // tree cannot say which of the two spellings it came from. Publishing
-        // the internal flag would put a property on the wire that
-        // `additionalProperties: false` rejects outright. Until §8 grows the
-        // field (markup-carve/carve#1624) the definition-list looseness survives
-        // in SOURCE and not through an AST round trip, exactly as the grammar
-        // states.
-        'definition_list' => ['loose'],
+        // `definition_list` hides NOTHING. PART 9 §17 L7's consumed `loose`
+        // boolean was listed here while PART 12 §8 had no field for it, and §8
+        // grew one in markup-carve/carve#1624 - so the exemption's premise
+        // expired and it goes with it. The reflection walk publishes the
+        // property under its own name, the property's `false` default keeps it
+        // off the wire wherever the key was not spelled, and that is exactly
+        // §8's `const: true` shape: present means SPELLED, absent means each
+        // description derived its own wrapper from its block count.
         // `header` carries this; the row flag is recomputed from its cells.
         // `rowspan`/`colspan` are internal bookkeeping this engine still keeps
         // for its own writer, the ProseMirror bridge, and layout renderers

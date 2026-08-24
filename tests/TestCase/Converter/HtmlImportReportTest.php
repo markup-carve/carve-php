@@ -31,16 +31,12 @@ class HtmlImportReportTest extends TestCase
      * @var array<string, array{reason: string, carve: string}>
      */
     private const AHEAD_OF_PIN = [
-        'derived-endnotes-section' => [
-            // PART 9 §17 L7. A document with a single footnote imports as
-            // exactly ONE list item, and a blank line needs two items to stand
-            // between - so before the consumed `loose` boolean this fixture's
-            // source parsed TIGHT while the tree recorded beside it said loose.
-            // The writer now spells the key, which is what markup-carve/carve
-            // commit d2bd801b rewrote the fixture to.
-            'reason' => 'the one-item loose list now has a spelling: the consumed `loose` boolean',
-            'carve' => "---\n\n{loose}\n1. Note text.\n",
-        ],
+        // EMPTY, and that is the state to expect between windows. The only
+        // entry here was PART 9 §17 L7's `derived-endnotes-section`, and the
+        // pin move in this change is the one its own staleness half was
+        // waiting for: the fixture on disk now IS the value the entry
+        // recorded, so the entry stops asserting anything and goes in the same
+        // commit that moved the pin.
     ];
 
     /**

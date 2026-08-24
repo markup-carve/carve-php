@@ -1450,6 +1450,12 @@ class ProseMirrorToCarve
                     && !array_key_exists('carveFenceTitle', $attrs) => $this->setState($node, 'header', self::asString($value)),
                 $node instanceof ListBlock && $key === 'start' => $this->setState($node, 'start', self::asInt($value)),
                 $node instanceof ListBlock && in_array($key, ['carveTight', 'tight'], true) => $this->setState($node, 'tight', self::asBool($value)),
+                // PART 9 §17 L7's consumed `loose` boolean. `loose` is accepted
+                // beside the prefixed spelling because that is the name PART 12
+                // §8 gives the field, so a payload built from an AST tree reads
+                // back without a rename.
+                $node instanceof DefinitionList && in_array($key, ['carveLoose', 'loose'], true)
+                    => $this->setState($node, 'loose', self::asBool($value)),
                 $node instanceof ListBlock && $key === 'carveBareMarker' => $this->setState($node, 'bareMarker', self::asBool($value)),
                 $node instanceof ListBlock && in_array($key, ['carveOlType', 'carveListStyle'], true) => $this->setState($node, 'style', self::asString($value)),
                 $node instanceof ListBlock && in_array($key, ['carveDelim', 'carveListMarker'], true) => $this->setState($node, 'marker', self::asString($value)),

@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
@@ -724,6 +725,21 @@ class ProseMirrorRenderer
             // Looseness decides whether items render their paragraphs, so it is
             // content, not styling: without it a loose list comes back tight.
             $attrs['carveTight'] = $node->isTight();
+        } elseif ($node instanceof DefinitionList) {
+            // PART 9 §17 L7's consumed `loose` boolean, for the same reason as
+            // `carveTight` above and with one difference: it is UNDERIVABLE
+            // rather than merely lossy. A `<dl>` has no blank-line spelling for
+            // a one-block description at any entry count, so a description that
+            // came back without this key renders its content inline and the
+            // `<p>` the author asked for is gone.
+            //
+            // Set only when SPELLED, matching PART 12 §8's `const: true` shape:
+            // an ordinary definition list derives each wrapper from its
+            // description's block count and gains no key that means nothing to
+            // it.
+            if ($node->isLoose()) {
+                $attrs['carveLoose'] = true;
+            }
         } elseif ($node instanceof ListItem) {
             if ($node->isTask()) {
                 $attrs['checked'] = $node->isCompleted();
