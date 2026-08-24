@@ -406,8 +406,23 @@ class CarveFmtCorpusTest extends TestCase
     /**
      * The tree with every bare single-child wrapper dissolved into its child.
      *
+     * EVERY list-valued slot is walked, not just `children`. A block does not
+     * always reach its children through that key: a list holds `items`, a table
+     * holds `rows` and `cells`, and `caption`, `inline`, `content`, `title`,
+     * `columns` and `bodies` each carry nodes somewhere in the corpus. Walking
+     * `children` alone made this blind to a wrapper loss anywhere inside a list
+     * or a table - so a canonical form that dissolved a paragraph in a list item
+     * compared unequal here and was rejected as "more than a wrapper loss" when
+     * it was exactly a wrapper loss (corpus 411-5).
+     *
+     * Keyed on the SHAPE of the value rather than on a list of key names, so a
+     * new child-bearing slot is covered the day it appears instead of the day
+     * someone remembers to add it here.
+     *
      * Not applied to the root, which has no parent to dissolve it into. Attrs
-     * are not descended into, for the reason `canonical()` gives above.
+     * are not descended into, for the reason `canonical()` gives above - they
+     * are an associative map rather than a list, so `array_is_list()` skips
+     * them, which is also what keeps this from walking scalar-keyed data.
      *
      * @param array<string, mixed> $node
      *
@@ -415,21 +430,23 @@ class CarveFmtCorpusTest extends TestCase
      */
     private static function withoutBareWrappers(array $node): array
     {
-        if (!isset($node['children']) || !is_array($node['children'])) {
-            return $node;
-        }
-
-        $out = [];
-        foreach ($node['children'] as $child) {
-            if (!is_array($child)) {
-                $out[] = $child;
-
+        foreach ($node as $key => $value) {
+            if (!is_array($value) || !array_is_list($value)) {
                 continue;
             }
-            $child = self::withoutBareWrappers($child);
-            $out[] = self::isBareWrapper($child) ? $child['children'][0] : $child;
+
+            $out = [];
+            foreach ($value as $child) {
+                if (!is_array($child)) {
+                    $out[] = $child;
+
+                    continue;
+                }
+                $child = self::withoutBareWrappers($child);
+                $out[] = self::isBareWrapper($child) ? $child['children'][0] : $child;
+            }
+            $node[$key] = $out;
         }
-        $node['children'] = $out;
 
         return $node;
     }
