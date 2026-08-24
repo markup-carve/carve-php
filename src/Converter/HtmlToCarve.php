@@ -2952,12 +2952,31 @@ class HtmlToCarve
                 . "\n\n";
         }
 
+        // BEFORE the class list, because the label decides two things below it:
+        // whether a bare div keeps its fence at all, and what its opener says.
+        // See {@see self::liftContainerLabel()}.
+        //
+        // NOT ON A BARE `djot-content` WRAPPER. That one is a TRANSPORT
+        // wrapper rather than a container - it unwraps unconditionally a few
+        // lines down, and a label lifted here would have no opener to land on
+        // and would be dropped SILENTLY, which is the same undeclared loss this
+        // whole change exists to close, arriving from the other direction.
+        // Refusing keeps the paragraph the HTML actually has (raised by codex
+        // review).
+        $label = $this->isBareDjotContentWrapper($node) ? null : $this->liftContainerLabel($node);
+        $labelPart = $label === null ? '' : ' [' . $label . ']';
+
         $classes = $this->getElementClassList($node);
         $fenceClass = array_shift($classes);
 
         // Check for wrapper div unwrapping: if div has NO class but has attrs
         // and single block child, apply attrs to the child instead of fenced div
-        if ($fenceClass === null || $fenceClass === '') {
+        //
+        // NOT WITH A LABEL. Moving the attributes onto the child dissolves the
+        // container, and the label has nowhere but a container's opener to go -
+        // so a labelled div keeps its fence even where an unlabelled one would
+        // hand its attributes down.
+        if ($label === null && ($fenceClass === null || $fenceClass === '')) {
             $singleChild = $this->getSingleBlockChild($node);
             if ($singleChild !== null) {
                 $attrs = $this->formatBlockAttributes($node);
@@ -2971,32 +2990,41 @@ class HtmlToCarve
 
         if ($fenceClass === null || $fenceClass === '') {
             $attrs = $this->formatBlockAttributes($node);
-            if ($attrs === '') {
+            // THE BOUNDARY IS WHAT ONLY A CONTAINER CAN HOLD, not the tag. A
+            // div carrying none of it is not a container worth spelling, so it
+            // unwraps and the `:::` fence is not written
+            // (markup-carve/carve#1578) - the fence would buy the reader
+            // nothing and cost two lines of markup nobody asked for.
+            //
+            // Today that means an attribute the language can hold OR a grouping
+            // label. #1578 wrote the test as the attribute alone, as a proxy for
+            // its own stated rationale - "then there IS something only the
+            // container can hold" - and the proxy turned out narrower than the
+            // principle it stood in for. When a proxy and its rationale
+            // disagree the rationale governs (markup-carve/carve-rs#1315).
+            //
+            // What settles it is that the narrow test was not a declarable loss:
+            // `::: [g]` came back as a `{.div-label}` PARAGRAPH, so the
+            // container was gone and the label had become body content. That is
+            // an ADDITION, and an addition cannot be declared away.
+            if ($attrs === '' && $label === null) {
                 return $this->degradeToContent($node);
             }
 
             $content = $this->insideColonFence(fn (): string => trim($this->processBlock($node)));
             $fence = $this->colonFenceFor();
-            $output = $attrs . $fence . "\n";
+            $output = $attrs . $fence . $labelPart . "\n";
             if ($content !== '') {
                 $output .= $content . "\n";
             }
 
             return $output . $fence . "\n\n";
         }
-        if ($fenceClass === 'djot-content' && $classes === [] && $node->getAttribute('id') === '') {
-            $hasExtraAttrs = false;
-            /** @var \DOMAttr $attr */
-            foreach ($node->attributes as $attr) {
-                if ($attr->name !== 'class' && !$this->isStrippedImportAttribute($attr->name)) {
-                    $hasExtraAttrs = true;
-
-                    break;
-                }
-            }
-            if (!$hasExtraAttrs) {
-                return $this->degradeToContent($node);
-            }
+        // ONE SPELLING, shared with the reason the label lift declined above
+        // {@see self::isBareDjotContentWrapper()} - the two must agree, or a
+        // label is lifted off a wrapper that then throws it away.
+        if ($this->isBareDjotContentWrapper($node)) {
+            return $this->degradeToContent($node);
         }
 
         $header = $this->extractAdmonitionTitle($node);
@@ -3034,12 +3062,36 @@ class HtmlToCarve
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
         $fence = $this->colonFenceFor();
         $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
-        $output = $attrs . $fence . ' ' . $fenceClass . $headerPart . "\n";
+        $output = $attrs . $fence . ' ' . $fenceClass . $headerPart . $labelPart . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
 
         return $output . $fence . "\n\n";
+    }
+
+    /**
+     * Is this the bare `djot-content` transport wrapper the importer unwraps
+     * unconditionally?
+     *
+     * Read TWICE on purpose - once to decline the label lift and once to do the
+     * unwrapping - because a lift that ran here would remove a paragraph the
+     * unwrap then throws away.
+     */
+    protected function isBareDjotContentWrapper(DOMElement $node): bool
+    {
+        $classes = $this->getElementClassList($node);
+        if ($classes !== ['djot-content'] || $node->getAttribute('id') !== '') {
+            return false;
+        }
+        /** @var \DOMAttr $attr */
+        foreach ($node->attributes as $attr) {
+            if ($attr->name !== 'class' && !$this->isStrippedImportAttribute($attr->name)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected function processAside(DOMElement $node): string
@@ -3091,11 +3143,15 @@ class HtmlToCarve
         }
 
         $header = $this->extractAdmonitionTitle($node);
+        // BEFORE the content walk, so the paragraph the label was degraded to
+        // is not also written into the body {@see self::liftContainerLabel()}.
+        $label = $this->liftContainerLabel($node);
         $content = $this->insideColonFence(fn (): string => $this->processAdmonitionContent($node));
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
         $fence = $this->colonFenceFor();
         $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
-        $output = $attrs . $fence . ' ' . $type . $headerPart . "\n";
+        $labelPart = $label === null ? '' : ' [' . $label . ']';
+        $output = $attrs . $fence . ' ' . $type . $headerPart . $labelPart . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
@@ -3145,13 +3201,17 @@ class HtmlToCarve
             $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
         }
 
+        // BEFORE the content walk, for the same reason
+        // {@see self::liftContainerLabel()}.
+        $label = $this->liftContainerLabel($node);
         // Process content, excluding the title element
         $content = $this->insideColonFence(fn (): string => $this->processAdmonitionContent($node));
 
         $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
         $fence = $this->colonFenceFor();
         $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
-        $output = $attrs . $fence . ' ' . $type . $headerPart . "\n";
+        $labelPart = $label === null ? '' : ' [' . $label . ']';
+        $output = $attrs . $fence . ' ' . $type . $headerPart . $labelPart . "\n";
         if ($content !== '') {
             $output .= $content . "\n";
         }
@@ -3472,15 +3532,28 @@ class HtmlToCarve
      */
     protected function processAdmonitionContent(DOMElement $node): string
     {
-        return $this->processBlock($node, function (DOMNode $child): bool {
-            if (!$child instanceof DOMElement) {
-                return false;
-            }
-            $tag = strtolower($child->tagName);
+        return $this->processBlock($node, fn (DOMNode $child): bool => $this->isDegradedContainerTitle($child));
+    }
 
-            // Skip the title element (p.admonition-title or summary)
-            return ($tag === 'p' && $this->hasClass($child, 'admonition-title')) || $tag === 'summary';
-        });
+    /**
+     * Is this child the container's own TITLE, degraded to markup by the
+     * renderer rather than written as body content?
+     *
+     * ONE SPELLING, because two readers ask it: the content walk skips it, and
+     * {@see self::liftContainerLabel()} scans past it. A quoted title and a
+     * grouping label are written on the same opener - `::: note "T" [g]` - so
+     * the title's own degraded paragraph sits ahead of the label's, and a lift
+     * that stopped at the first element it did not recognize refused every
+     * container carrying both.
+     */
+    protected function isDegradedContainerTitle(DOMNode $child): bool
+    {
+        if (!$child instanceof DOMElement) {
+            return false;
+        }
+        $tag = strtolower($child->tagName);
+
+        return ($tag === 'p' && $this->hasClass($child, 'admonition-title')) || $tag === 'summary';
     }
 
     /**
@@ -6240,6 +6313,94 @@ class HtmlToCarve
         $content = preg_replace('/\s+/', ' ', $content) ?? $content;
 
         return str_replace('|', '\|', $content);
+    }
+
+    /**
+     * Take PART 9 §10's grouping `[label]` back off the `<p class="div-label">`
+     * the renderer degraded it to, removing that paragraph from the container.
+     *
+     * A LABEL HAS NO SPELLING ANYWHERE BUT ON AN OPENER, so a container that
+     * keeps its fence and leaves the label in its body has not round-tripped -
+     * `::: note [g]` came back as `::: note` wrapping a `{.div-label}`
+     * paragraph, and the document said something it never said
+     * (markup-carve/carve-php#1661, ruled at markup-carve/carve-rs#1315).
+     *
+     * The same fact is half of the UNWRAP BOUNDARY on a bare `<div>`: a div
+     * unwraps when it carries nothing only a container can hold, and a label is
+     * exactly as much "only a container can hold it" as an attribute is. Which
+     * is why the lift runs BEFORE that test rather than after it.
+     *
+     * FOUR REFUSALS, and each one is also a control on the boundary: when the
+     * lift refuses, a bare div kept nothing and must still unwrap.
+     *
+     *  - NOT THE FIRST THING. The paragraph is found by scanning for the first
+     *    ELEMENT, which is not the first thing in the container: text ahead of
+     *    it would be REORDERED behind the label on the opener, which is the one
+     *    thing a lift must never do. Whitespace between tags is not text an
+     *    author wrote, so a pretty-printed container still lifts.
+     *  - MARKUP INSIDE IT. The field is a raw string and the writer emits it
+     *    raw, so lifting `<p class="div-label"><em>g</em></p>` would flatten the
+     *    emphasis and lose it without a word.
+     *  - A `]` OR A NEWLINE IN IT. Neither has a spelling inside a bracket run
+     *    on an opener line.
+     *  - AN ATTRIBUTE RIDING IT. carve-rs lifts and declares the loss; this
+     *    importer writes source text in a pass with no diagnostics channel, so
+     *    the same lift here would be an UNDECLARED loss. Refusing keeps the
+     *    attribute on the paragraph the HTML actually has, which is the
+     *    conservative direction: a refusal never invents.
+     */
+    protected function liftContainerLabel(DOMElement $node): ?string
+    {
+        $paragraph = null;
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMText) {
+                if (trim($child->textContent) === '') {
+                    continue;
+                }
+
+                return null;
+            }
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            // The container's own TITLE was degraded the same way, and it is
+            // written ahead of the label on the same opener, so it is scanned
+            // past rather than treated as content in front of the label.
+            if ($this->isDegradedContainerTitle($child)) {
+                continue;
+            }
+            $paragraph = $child;
+
+            break;
+        }
+        if ($paragraph === null || strtolower($paragraph->tagName) !== 'p') {
+            return null;
+        }
+        if (!$this->hasClass($paragraph, 'div-label')) {
+            return null;
+        }
+        foreach ($paragraph->childNodes as $child) {
+            if (!$child instanceof DOMText) {
+                return null;
+            }
+        }
+        /** @var \DOMAttr $attr */
+        foreach ($paragraph->attributes as $attr) {
+            if ($attr->name !== 'class') {
+                return null;
+            }
+        }
+        if ($this->getElementClassList($paragraph) !== ['div-label']) {
+            return null;
+        }
+        $label = $paragraph->textContent;
+        if (str_contains($label, ']') || str_contains($label, "\n")) {
+            return null;
+        }
+
+        $paragraph->parentNode?->removeChild($paragraph);
+
+        return $label;
     }
 
     protected function findFirstDirectChildByTagName(DOMElement $node, string $tagName): ?DOMElement
