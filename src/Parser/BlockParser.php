@@ -8170,6 +8170,31 @@ class BlockParser
                         && $lastBodyOpener !== false
                         && !$this->startsNewBlock($lastBodyOpener)
                         && $this->listParser->parseListItemMarker($lastBodyOpener) === null
+                        // A LINE THAT RENDERS NOTHING LEAVES NO PARAGRAPH OPEN,
+                        // so there is nothing here for a past-the-column line to
+                        // continue. `startsNewBlock()` cannot answer this: it is
+                        // the paragraph-INTERRUPTION predicate, and a definition
+                        // correctly does not interrupt one - `a` / `[^1]: b`
+                        // folds. The question here is the other one.
+                        //
+                        // Joining onto a definition destroyed it. `:  [^1]: a`
+                        // with a line below at column 4 arrived at the block
+                        // walk as the single entry `[^1]: a\nb`, which matches
+                        // no definition pattern, so the note was registered by
+                        // nobody while the `dd` rendered the author's own source
+                        // text and the `[^1]` reference stayed literal - the
+                        // define-nothing family markup-carve/carve#624 forbids
+                        // (markup-carve/carve-php#1650). The link-reference
+                        // spelling was worse: it registered AND leaked, so the
+                        // definition line reached the reader as prose beside a
+                        // working link.
+                        //
+                        // `abbreviationCounts: false`, because PART 12 §7 makes
+                        // an abbreviation definition one only as a direct child
+                        // of the document. Inside a `dd` the same shape is
+                        // ordinary paragraph text that RENDERS, so it does leave
+                        // a paragraph open - and carve-js folds it exactly so.
+                        && !$this->isInvisibleOrAttributeLine($lastBodyOpener, false)
                     ) {
                         $body[$lastBodyKey] .= "\n" . ltrim($contLine, " \t");
                         $i++;
@@ -8177,9 +8202,36 @@ class BlockParser
                         continue;
                     }
                     // Form A: an indented continuation line (no intervening blank).
+                    //
+                    // EXACTLY THE CONTENT COLUMN COMES OFF, never all of it.
+                    // This was an `ltrim`, so every line in the body arrived at
+                    // column 0 however deep the author wrote it, and the `dd`
+                    // was the one container in this parser whose body could not
+                    // say how far past its column a line sat. Two things need
+                    // that number, and both were unreachable:
+                    //
+                    //  - a footnote definition's body column, which PART 9 §16
+                    //    states RELATIVE to the definition and §10 I5 binds to
+                    //    the container's content column - so
+                    //    markup-carve/carve-php#1650's `:  [^1]: a` could never
+                    //    reach `content column + 2` and dropped its
+                    //    continuation;
+                    //  - a nested list's own column, so `- x` / `  - y` written
+                    //    in a `dd` came back as two SIBLINGS where carve-js
+                    //    nests them.
+                    //
+                    // carve#918 is not touched: "past the column is lazy text"
+                    // governs a line CONTINUING AN OPEN PARAGRAPH, which is the
+                    // branch above this one and still folds with its indent
+                    // trimmed. A line that opens a block here is not continuing
+                    // anything, and inside every other container its indent is
+                    // measured from the content column.
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= self::DEFINITION_CONTINUATION_COLUMN) {
                         $formABlockOpen = true;
-                        $body[] = ltrim($contLine, " \t");
+                        $body[] = IndentationHelper::stripLeadingColumns(
+                            $contLine,
+                            self::DEFINITION_CONTINUATION_COLUMN,
+                        );
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
 

@@ -111,11 +111,28 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
         );
     }
 
+    /**
+     * AT the column the fence is a fence. ONE COLUMN PAST it, it is not: the
+     * body is dedented by the description's content column and by nothing
+     * more, so the opener arrives with a residual column and never opens a
+     * block at all. Both rows are byte-identical to carve-js `ba42673`, which
+     * has always read them this way (markup-carve/carve-php#1650); the second
+     * used to expect the first's answer, and only an `ltrim` of the body could
+     * give it.
+     */
     public function testFormAKeepsAFencedBlockWhole(): void
     {
         $this->assertStringContainsString(
             '<pre><code>c',
-            $this->html(":: t\n:  a\n\n    ```\n    c\n    ```\n"),
+            $this->html(":: t\n:  a\n\n   ```\n   c\n   ```\n"),
+        );
+    }
+
+    public function testAFenceOneColumnPastTheColumnOpensNoBlock(): void
+    {
+        $this->assertSame(
+            '<dl> <dt>t</dt> <dd> <p>a</p> <p><code> c </code></p> </dd> </dl>',
+            $this->squash($this->html(":: t\n:  a\n\n    ```\n    c\n    ```\n")),
         );
     }
 
@@ -141,13 +158,26 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
      * bullet never interrupts a paragraph - so it reports false for a line that
      * does open a block here.
      *
+     * WHAT THE BLOCK MAKES OF THE LINE IS ITS OWN BUSINESS, and it reads the
+     * columns the line wrote past the description's content column - which is
+     * why these rows are written at the column and one past it. The
+     * past-the-column pair used to expect the at-the-column answer; that needed
+     * the body `ltrim`ed, which is what made a nested list in a `dd` come back
+     * as two siblings. All four are byte-identical to carve-js `ba42673`
+     * (markup-carve/carve-php#1650).
+     *
      * @return array<string, array{0: string, 1: string}>
      */
     public static function bodyOpensABlockProvider(): array
     {
         return [
-            'a list' => [":: t\n:  - x\n    - y\n", '<ul> <li>x</li> <li>y</li> </ul>'],
-            'a fenced code block' => [":: t\n:  ```\n    c\n    ```\n", '<pre><code>c </code></pre>'],
+            'a list, at the column' => [":: t\n:  - x\n   - y\n", '<ul> <li>x</li> <li>y</li> </ul>'],
+            'a list, one past it' => [":: t\n:  - x\n    - y\n", '<ul> <li>x - y</li> </ul>'],
+            'a fenced code block, at the column' => [":: t\n:  ```\n   c\n   ```\n", '<pre><code>c </code></pre>'],
+            'a fenced code block, one past it' => [
+                ":: t\n:  ```\n    c\n    ```\n",
+                '<pre><code> c ``` </code></pre>',
+            ],
         ];
     }
 
@@ -160,6 +190,6 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     public function testEveryOpenerIsStillCovered(): void
     {
         $this->assertCount(5, self::blockOpenerProvider());
-        $this->assertCount(2, self::bodyOpensABlockProvider());
+        $this->assertCount(4, self::bodyOpensABlockProvider());
     }
 }
