@@ -40,6 +40,22 @@ class HtmlImportReportTest extends TestCase
     ];
 
     /**
+     * Shared fixtures whose direct-import tree and canonical-source exit do not
+     * yet agree in this engine. Every entry is checked in both directions: the
+     * named mismatch must still exist, and an unnamed mismatch fails.
+     *
+     * @var array<string, string>
+     */
+    private const AST_DIVERGENCES = [
+        'detached-caption-caret' => 'The source exit degrades a detached caption caret to text.',
+        'empty-definition-description' => 'The source exit cannot yet preserve the empty first description.',
+        'empty-definition-description-not-last' => 'The source exit cannot yet preserve an empty middle description.',
+        'marker-shaped-cell' => 'The source exit reparses the marker-shaped table cell differently.',
+        'note-reference-in-a-span' => 'The source exit reparses the note reference outside its authored span shape.',
+        'symbol-sigil-escape' => 'The source exit retains the symbol escape as an escaped-text node.',
+    ];
+
+    /**
      * An entry naming a fixture that is not there asserts nothing - it was
      * renamed upstream, or already retired.
      */
@@ -49,6 +65,7 @@ class HtmlImportReportTest extends TestCase
         $present = array_map('basename', (array)glob($root . '/*', GLOB_ONLYDIR));
 
         $this->assertSame([], array_values(array_diff(array_keys(self::AHEAD_OF_PIN), $present)));
+        $this->assertSame([], array_values(array_diff(array_keys(self::AST_DIVERGENCES), $present)));
     }
 
     public function testReportMakesLossVisible(): void
@@ -71,6 +88,14 @@ class HtmlImportReportTest extends TestCase
         $this->assertSame('roundtrip', $result->mode);
     }
 
+    public function testAstConvenienceReturnsTheReportedValue(): void
+    {
+        $importer = new HtmlToCarve();
+        $html = '<h1>Hello</h1>';
+
+        $this->assertSame($importer->convertToAstWithReport($html)->value, $importer->convertToAst($html));
+    }
+
     public function testUnknownModeIsRejected(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -86,12 +111,16 @@ class HtmlImportReportTest extends TestCase
             $html = file_get_contents($fixture . '/input.html');
             $expected = file_get_contents($fixture . '/expected.crv');
             $reportJson = file_get_contents($fixture . '/expected.report.json');
+            $astJson = file_get_contents($fixture . '/expected.ast.json');
             $this->assertNotFalse($html);
             $this->assertNotFalse($expected);
             $this->assertNotFalse($reportJson);
+            $this->assertNotFalse($astJson);
             $expectedReport = json_decode($reportJson, true, flags: JSON_THROW_ON_ERROR);
+            $expectedAst = json_decode($astJson, true, flags: JSON_THROW_ON_ERROR);
 
             $result = (new HtmlToCarve())->convertWithReport($html);
+            $astResult = (new HtmlToCarve())->convertToAstWithReport($html);
             $actual = $result->report()['diagnostics'];
             $ahead = self::AHEAD_OF_PIN[basename($fixture)] ?? null;
             if ($ahead !== null) {
@@ -135,7 +164,65 @@ class HtmlImportReportTest extends TestCase
                     $this->assertSame($diagnostic[$field], $actual[$index][$field] ?? null, $where . ' ' . $field);
                 }
             }
+
+            $astDifference = self::astDifference($expectedAst, $astResult->value);
+            $declaredAstDifference = self::AST_DIVERGENCES[basename($fixture)] ?? null;
+            if ($declaredAstDifference === null) {
+                $this->assertNull($astDifference, basename($fixture) . ': ' . $astDifference);
+            } else {
+                $this->assertNotNull(
+                    $astDifference,
+                    basename($fixture) . ' now agrees: delete its AST_DIVERGENCES entry',
+                );
+            }
+            $this->assertSame($result->report(), $astResult->report(), basename($fixture) . ' report');
         }
+    }
+
+    /**
+     * Compare the fixture's required tree against the engine tree. Location
+     * fields and optional fields absent from the fixture are ignored, exactly
+     * as docs/html-import.md specifies; arrays remain exact and ordered.
+     *
+     * @param mixed $expected
+     * @param mixed $actual
+     * @param string $path
+     */
+    private static function astDifference(mixed $expected, mixed $actual, string $path = '$'): ?string
+    {
+        if (!is_array($expected)) {
+            return $expected === $actual ? null : $path . ' differs';
+        }
+        if (!is_array($actual)) {
+            return $path . ' is not an array';
+        }
+        if (array_is_list($expected)) {
+            if (!array_is_list($actual) || count($expected) !== count($actual)) {
+                return $path . ' has a different list shape';
+            }
+            foreach ($expected as $index => $value) {
+                $difference = self::astDifference($value, $actual[$index], $path . '[' . $index . ']');
+                if ($difference !== null) {
+                    return $difference;
+                }
+            }
+
+            return null;
+        }
+        foreach ($expected as $key => $value) {
+            if ($key === 'pos' || $key === 'srcByteLength') {
+                continue;
+            }
+            if (!array_key_exists($key, $actual)) {
+                return $path . '.' . $key . ' is missing';
+            }
+            $difference = self::astDifference($value, $actual[$key], $path . '.' . $key);
+            if ($difference !== null) {
+                return $difference;
+            }
+        }
+
+        return null;
     }
 
     /**
