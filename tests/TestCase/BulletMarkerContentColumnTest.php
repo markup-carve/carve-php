@@ -21,14 +21,25 @@ use PHPUnit\Framework\TestCase;
  * against those two engines before being pinned here.
  *
  * THE ONE PART OF A TASK'S HEAD THAT DOES MOVE THE COLUMN is an abutting
- * attribute block (markup-carve/carve#1692). It is part of the MARKER that
- * introduces the item rather than part of its content, so `-{#k} [x] a` has its
- * content column at 6 - the width of `-{#k} ` - and not at 2. Pinning the whole
- * head at 2 put the column INSIDE the attribute block, which is a place no
- * content can begin, and this file stated that constant: the expectations below
- * moved with the parser rather than being edited to agree with it. Each engine
- * used to read exactly one of the two spellings as a continuation and they
- * disagreed about which, so both are pinned here and in corpus category 413.
+ * attribute block (markup-carve/carve#1692), and the grammar says why. PART 9
+ * §15 A8: "a `-{…} text` with no space after the marker attributes the LIST
+ * ITEM"; `docs/divergence-from-djot.md` §17 puts it in as many words - "the
+ * attribute block binds to the MARKER". Part of the marker counts toward the
+ * marker's width, so `-{#k} [x] a` has its content column at 6 - the width of
+ * `-{#k} ` - and not at 2.
+ *
+ * Djot settles nothing here, which is the first thing a reader asks. It has no
+ * such construct: `-{#k} [x] item` is a PARAGRAPH there, the `{#k}` an inline
+ * attribute on a literal `-`, and a djot list is attributed through a preceding
+ * attribute line that attaches to the LIST rather than to an item. §17 records
+ * Carve's marker-glued form as a deliberate extension and a source break.
+ *
+ * Pinning the whole head at 2 treated the block as though it were not there,
+ * which puts the column INSIDE it - a place no content can begin. This file
+ * stated that constant, so the expectations below moved with the parser rather
+ * than being edited to agree with it. Each engine used to read exactly one of
+ * the two spellings as a continuation and they disagreed about which, so both
+ * are pinned here and in corpus category 413.
  */
 class BulletMarkerContentColumnTest extends TestCase
 {

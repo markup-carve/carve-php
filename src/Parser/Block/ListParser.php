@@ -377,9 +377,10 @@ class ListParser
      *
      * `attrs` is the BYTE WIDTH of the abutting `{...}` block, zero when there
      * is none. A task's column is its bullet's PLUS that block, because the
-     * block is part of the marker rather than content
-     * (markup-carve/carve#1692), and the width cannot be recovered from
-     * `content` alone once the checkbox has been counted into it.
+     * block binds to the MARKER rather than to the content (PART 9 §15 A8,
+     * `docs/divergence-from-djot.md` §17; markup-carve/carve#1692), and the
+     * width cannot be recovered from `content` alone once the checkbox has been
+     * counted into it.
      *
      * @param string $line A single line, read under the same interior-newline
      *   condition {@see self::markerContentOffset()} states.
@@ -459,8 +460,9 @@ class ListParser
         $itemAttributes = [];
         // The block's BYTE WIDTH, kept separately from the attributes it
         // yields: `{}` is a valid block that yields none, and a task item's
-        // content column has to count the block either way
-        // (markup-carve/carve#1692).
+        // content column has to count the block either way, because what moves
+        // the column is the block BINDING to the marker (PART 9 §15 A8) rather
+        // than the attributes it happens to carry (markup-carve/carve#1692).
         $attributesWidth = 0;
         $bullet = '[' . $this->bulletMarkerClass . ']';
         if (
