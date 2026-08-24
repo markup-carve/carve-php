@@ -12,6 +12,7 @@ use DOMNode;
 use DOMText;
 use DOMXPath;
 use InvalidArgumentException;
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Parser\Block\TableParser;
@@ -330,6 +331,37 @@ class HtmlToCarve
             $this->importAdapter,
             $diagnostics,
         );
+    }
+
+    /**
+     * Convert HTML to the public PART 12 AST and retain the import report.
+     *
+     * The AST is deliberately read from the canonical-source exit. This makes
+     * the two public exits one invariant: if the writer loses structure, the
+     * shared expected.ast.json fixture exposes it instead of letting an
+     * independently-built tree and source each pass against separate goldens.
+     */
+    public function convertToAstWithReport(string $html): HtmlImportAstResult
+    {
+        $source = $this->convertWithReport($html);
+        $document = CarveConverter::create()->parse($source->value);
+
+        return new HtmlImportAstResult(
+            (new AstCodec())->encode($document),
+            $source->mode,
+            $source->adapter,
+            $source->diagnostics,
+        );
+    }
+
+    /**
+     * Convert HTML to the public PART 12 AST.
+     *
+     * @return array<string, mixed>
+     */
+    public function convertToAst(string $html): array
+    {
+        return $this->convertToAstWithReport($html)->value;
     }
 
     /**
