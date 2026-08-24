@@ -4011,7 +4011,7 @@ class HtmlToCarve
          * {@see self::definitionListSplits()} carries: what a `<p>` HOLDS and
          * what it WRITES are different questions. This one is the writer's.
          */
-        $image = $this->loneImportImage($node);
+        $image = $this->loneImportImage($node, $content);
         if ($image !== null && $this->importParagraphIsWrittenAsABlock($node)) {
             $this->loneImageParagraphs[$this->conversionNodePath($node)] = [
                 'attributed' => $attrs !== '',
@@ -4023,32 +4023,50 @@ class HtmlToCarve
     }
 
     /**
-     * The one `<img>` a paragraph holds, when it holds nothing else.
+     * The one `<img>` a paragraph WRITES, when it writes nothing else.
+     *
+     * READING THE `<p>`'S DIRECT CHILDREN WAS THE DEFECT (carve-php#1673). The
+     * question is what the paragraph writes, and a wrapper that contributes no
+     * characters of its own does not change that answer: `<picture>`, a bare
+     * `<span>`, a `<source>` beside the image - each writes the image and
+     * nothing else, so `<p><picture><img></picture></p>` writes the same bare
+     * block image that `<p><img></p>` does, loses the same `<p>`, and owes the
+     * same row. A shape-shaped predicate could not see any of them, and every
+     * one of those losses went undeclared. carve-rs reports them, because its
+     * predicate reads the built inline run rather than the DOM.
+     *
+     * THE OVER-BROAD FIX IS THE WORSE ONE, so the comparison is against what was
+     * actually written rather than a descent through any single-element wrapper.
+     * A wrapper that DOES contribute makes a paragraph the source can spell and
+     * must keep reporting nothing: `<span class="x">` writes `[..]{.x}`,
+     * `<a href="u">` writes a link, an `<em>` writes its own delimiters - and a
+     * row on any of those would declare a loss that did not happen, which
+     * `docs/html-import.md` reads as licence to stop comparing the exits.
+     *
+     * AN IMAGE THAT WRITES NO IMAGE IS NOT THE SHAPE EITHER, and that half was
+     * wrong before this change rather than merely missing. `<p><img src=""></p>`
+     * unwraps to its alt text and re-reads as the PARAGRAPH it was - nothing is
+     * lost - and the old predicate reported it anyway. {@see
+     * self::importImageSpelling()} carries which of `processImage()`'s four
+     * returns are an image.
      *
      * Whitespace between the tags is layout, not content (PART 11 section 7), so
-     * `<p>\n <img>\n</p>` is the same paragraph as `<p><img></p>` and both
-     * write the same block image. Anything else in the run - a second image, a
-     * word, a link - makes a paragraph the source CAN spell, because
-     * `![G](g.jpg) text` re-reads as the paragraph it was.
+     * `<p>\n <img>\n</p>` is the same paragraph as `<p><img></p>`; it needs no
+     * clause of its own here, because layout writes no characters either.
+     *
+     * `$written` is what the paragraph's own run wrote, trimmed. It is the
+     * answer this predicate reads, and it is passed in rather than recomputed
+     * because the caller is about to emit that exact string - asking a second
+     * time would be a second opinion about the run rather than a reading of it.
      */
-    protected function loneImportImage(DOMElement $node): ?DOMElement
+    protected function loneImportImage(DOMElement $node, string $written): ?DOMElement
     {
-        $image = null;
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                if ($image !== null || strtolower($child->tagName) !== 'img') {
-                    return null;
-                }
-                $image = $child;
-
-                continue;
-            }
-            if ($child instanceof DOMText && trim($child->wholeText) !== '') {
-                return null;
-            }
+        $image = $this->soleImportImageDescendant($node);
+        if ($image === null) {
+            return null;
         }
 
-        return $image;
+        return $this->importImageSpelling($image) === $written ? $image : null;
     }
 
     /**

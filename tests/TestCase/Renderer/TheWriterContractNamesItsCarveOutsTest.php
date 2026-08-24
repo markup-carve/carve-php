@@ -152,15 +152,16 @@ class TheWriterContractNamesItsCarveOutsTest extends TestCase
             // Declared: the importer records a lone-image `<p>` and reports it
             // (carve-php#1667).
             'a lone image' => ['<p><img src="g.jpg" alt="G"></p>', true],
-            // NOT declared yet, and pinned so the gap is visible rather than
-            // silent. The importer's predicate reads the `<p>`'s DIRECT children,
-            // so an `<img>` behind a wrapper is not recognized even though the
-            // writer normalizes it identically. carve-rs reports this one,
-            // because its predicate reads the built inline run instead. Filed as
-            // its own ticket; when it is fixed this expectation flips to true.
+            // DECLARED TOO, and this expectation used to be `false`. The
+            // importer's predicate read the `<p>`'s DIRECT children, so an
+            // `<img>` behind a wrapper was not recognized even though the writer
+            // normalizes it identically - the gap was pinned here so it was
+            // visible rather than silent. It now reads what the paragraph WROTE,
+            // which is the same question carve-rs asks of its built inline run
+            // (carve-php#1673).
             'a lone image inside a picture' => [
                 '<p><picture><img src="g.jpg" alt="G"></picture></p>',
-                false,
+                true,
             ],
         ];
     }
