@@ -759,12 +759,24 @@ class AnsiRenderer implements RendererInterface
     protected function renderParagraph(Paragraph $node): string
     {
         $content = $this->renderChildren($node);
-        // A paragraph whose only content is a single image renders as a bare
-        // block-level image, so - like a heading or code block - it does NOT
-        // take the blockquote `│` prefix (matching carve-js / carve-rs).
-        $children = $node->getChildren();
-        $isBlockImage = count($children) === 1 && $children[0] instanceof Image;
-        $prefix = $isBlockImage ? '' : $this->getBlockQuotePrefix();
+        // NO SPECIAL CASE FOR A LONE IMAGE. This used to strip the blockquote
+        // `│` prefix from a paragraph whose only content is one image, on the
+        // stated grounds that PART 11 §1c promotes it to a bare block image and
+        // that carve-js and carve-rs do the same. The first half is true and the
+        // second was not: the promotion is a decision the PARSER already made,
+        // and a promoted image is an Image child of the quote that never reaches
+        // this method at all.
+        //
+        // So the two spellings corpus 411 exists to separate were being folded
+        // back together here. `>   ![A](a.jpg)` parses to
+        // `block_quote > paragraph > image` and keeps the bar in carve-js and
+        // carve-rs; `> ![A](a.jpg)` parses to `block_quote > image` and takes
+        // none. Stripping it in this method removed the bar from the first one
+        // too, so an indented image inside a quote lost the quote
+        // (markup-carve/carve-php#1691). The HTML cannot show that difference - both
+        // spellings emit `<blockquote><img ...></blockquote>` - which is why no
+        // corpus document caught it until 411 grew its container pairs.
+        $prefix = $this->getBlockQuotePrefix();
 
         if ($prefix !== '') {
             $content = $this->prefixLines($content, $prefix);
