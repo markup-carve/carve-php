@@ -43,6 +43,26 @@ class AnsiRendererTest extends TestCase
         $this->assertStringNotContainsString('│', (string)$output);
     }
 
+    public function testBlockquoteIndentedImageParagraphKeepsQuoteBar(): void
+    {
+        // ONE COLUMN FURTHER IN, and it is a different tree. PART 9 section 15's
+        // strict column-0 rule means an indented image is not a block opener, so
+        // this parses to `block_quote > paragraph > image` where the case above
+        // parses to `block_quote > image`. carve-js and carve-rs keep the bar
+        // here and drop it there; this renderer dropped it in both, because it
+        // decided by the paragraph's CONTENT rather than by whether the parser
+        // had already promoted the image (markup-carve/carve-php#1691).
+        //
+        // The HTML cannot separate the two - both emit
+        // `<blockquote><img src="/u" alt="a"></blockquote>` - which is why spec
+        // corpus 411 exists and why nothing caught this until that category grew
+        // its container pairs (markup-carve/carve#1682).
+        $doc = $this->converter->parse('>   ![a](/u)');
+        $output = preg_replace('/\033\[[0-9;]*m/', '', $this->renderer->render($doc));
+
+        $this->assertSame('│ [img: a]', trim((string)$output));
+    }
+
     public function testBlockquoteTextKeepsQuoteBar(): void
     {
         // A real (non-image) paragraph still gets the `│` prefix.
