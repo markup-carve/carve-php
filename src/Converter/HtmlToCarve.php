@@ -5209,10 +5209,19 @@ class HtmlToCarve
                 // canonical writer puts it, so a document that round-trips
                 // through both writers is stable.
                 $attributeLine = $attributeLine === ''
-                    ? '{loose}'
+                    ? "{loose}\n"
                     : '{loose ' . mb_substr($attributeLine, 1, null, 'UTF-8');
             }
-            $output = $attributeLine . "\n" . $output;
+            // THE ATTRIBUTE LINE ENDS ITS OWN LINE, so adding one here wrote a
+            // BLANK line between the attribute and the list it attaches to
+            // (carve-php#1653). `formatBlockAttributes()` returns `"{...}\n"`
+            // and says so in its own docblock; seven of its callers use that
+            // directly and three added a second newline.
+            //
+            // The empty case keeps its newline, which is a DIFFERENT role: a
+            // top-level list with no attribute line opens with one, and the two
+            // roles were conflated in the single statement this replaces.
+            $output = ($attributeLine !== '' ? $attributeLine : "\n") . $output;
         }
 
         $this->listDepth--;
@@ -5721,7 +5730,9 @@ class HtmlToCarve
 
         // Table-level attributes (excluding data-djot-col-widths which is for round-trip)
         $tableAttrs = $this->formatBlockAttributes($node, ['data-djot-col-widths']);
-        $output = $tableAttrs . "\n";
+        // Ends its own line - see the note in `processList()` (carve-php#1653).
+        // The empty case keeps the newline it has always opened with.
+        $output = $tableAttrs !== '' ? $tableAttrs : "\n";
 
         if ($headerRow !== null) {
             $colWidthsAttr = $node->getAttribute('data-djot-col-widths');
@@ -6292,7 +6303,10 @@ class HtmlToCarve
         // lines. dl-level attributes attach on a preceding block-attribute line.
         // (dt/dd-level attributes have no `::` representation and are dropped.)
         $dlAttrs = $this->formatBlockAttributes($node);
-        $output = $dlAttrs !== '' ? $dlAttrs . "\n" : '';
+        // Ends its own line - see the note in `processList()` (carve-php#1653).
+        // No empty-case newline here: this caller was already conditional, so
+        // the only thing the extra one ever added was the blank line.
+        $output = $dlAttrs;
 
         // A DROPPED ENTRY BREAKS THE LIST (markup-carve/carve#1636). Consecutive
         // `::` lines SHARE the description written below them, so dropping an

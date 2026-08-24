@@ -169,12 +169,18 @@ class HtmlImportOrderedListTypeTest extends TestCase
     /**
      * CONTROL. Other list-level attributes still reach the attribute block;
      * only `type` moved to the markers.
+     *
+     * The blank line this used to expect between the attribute block and the
+     * first marker was incidental to that claim - it captured what the writer
+     * happened to emit rather than anything about where `class` lands - and it
+     * is gone since carve-php#1653. The claim itself is unchanged: `{.steps}`
+     * still reaches the block, and the markers still carry the `type`.
      */
     public function testOtherListAttributesStillReachTheBlock(): void
     {
         $carve = $this->converter->convert('<ol type="a" class="steps"><li>one</li><li>two</li></ol>');
 
-        $this->assertSame("{.steps}\n\na. one\nb. two\n", $carve);
+        $this->assertSame("{.steps}\na. one\nb. two\n", $carve);
     }
 
     /**
