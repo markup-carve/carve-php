@@ -59,7 +59,7 @@ class AdjacentSiblingListsGetTheHardBoundaryTest extends TestCase
             // was the only thing keeping them apart.
             'adjacent lists nested in an item' => [
                 '<ul><li>x<ul><li>a</li></ul><ul><li>b</li></ul></li></ul>',
-                "- x\n\n  - a\n\n\n\n  - b\n",
+                "- x\n  - a\n\n\n\n  - b\n",
             ],
             // An explicit marker is round-trip fidelity and survives: the
             // boundary is what separates the two, so the marker does not have

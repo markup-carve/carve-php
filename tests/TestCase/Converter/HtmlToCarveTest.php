@@ -1037,7 +1037,11 @@ HTML;
 
     public function testNestedListWithBlankLine(): void
     {
-        // Djot requires blank line before nested list content
+        // NO blank line before the sublist: no item holds a direct `<p>`, so
+        // the list is tight and a tight item's sublist abuts its lead
+        // (carve-php#1708). The blank line this case was named for was never a
+        // Carve requirement - a sublist reaches its parent by the CONTENT
+        // COLUMN, which is what the indentation assertions below pin.
         $html = '<ul><li>Item 1</li><li>Item 2<ul><li>Nested 1</li><li>Nested 2</li></ul></li><li>Item 3</li></ul>';
         $result = $this->converter->convert($html);
 
@@ -1048,8 +1052,8 @@ HTML;
         $this->assertStringContainsString('  - Nested 2', $result);
         $this->assertStringContainsString('- Item 3', $result);
 
-        // Verify blank line before nested list (required by Djot)
-        $this->assertMatchesRegularExpression('/- Item 2\n\n\s+- Nested 1/', $result);
+        // The sublist abuts its lead, at the parent item's content column.
+        $this->assertMatchesRegularExpression('/- Item 2\n {2}- Nested 1/', $result);
     }
 
     public function testListItemWithMultipleParagraphsKeepsParagraphBreaks(): void

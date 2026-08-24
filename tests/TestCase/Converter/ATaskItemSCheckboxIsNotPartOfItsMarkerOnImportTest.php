@@ -68,7 +68,7 @@ class ATaskItemSCheckboxIsNotPartOfItsMarkerOnImportTest extends TestCase
             "<ul>\n  <li><input type=\"checkbox\" checked disabled> a\n    <h2 id=\"t\">t</h2>\n  </li>\n</ul>",
         );
 
-        $this->assertSame("- [x] a\n\n  {#t}\n  ## t\n", $imported);
+        $this->assertSame("- [x] a\n  {#t}\n  ## t\n", $imported);
         $this->assertStringContainsString('<h2 id="t">t</h2>', $this->converter->convert($imported));
     }
 
@@ -78,7 +78,7 @@ class ATaskItemSCheckboxIsNotPartOfItsMarkerOnImportTest extends TestCase
             "<ul>\n  <li><input type=\"checkbox\" disabled> a\n    <blockquote>\n      <p>q</p>\n    </blockquote>\n  </li>\n</ul>",
         );
 
-        $this->assertSame("- [ ] a\n\n  > q\n", $imported);
+        $this->assertSame("- [ ] a\n  > q\n", $imported);
         $this->assertStringContainsString('<blockquote>', $this->converter->convert($imported));
     }
 
@@ -88,7 +88,7 @@ class ATaskItemSCheckboxIsNotPartOfItsMarkerOnImportTest extends TestCase
             "<ul>\n  <li><input type=\"checkbox\" checked disabled> a\n    <pre><code class=\"language-php\">1;\n</code></pre>\n  </li>\n</ul>",
         );
 
-        $this->assertSame("- [x] a\n\n  ```php\n  1;\n  ```\n", $imported);
+        $this->assertSame("- [x] a\n  ```php\n  1;\n  ```\n", $imported);
         $this->assertStringContainsString('<code class="language-php">', $this->converter->convert($imported));
     }
 

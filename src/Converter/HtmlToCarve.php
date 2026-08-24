@@ -2717,6 +2717,48 @@ class HtmlToCarve
     ];
 
     /**
+     * Which block, written below a tight item's lead, still opens a block there.
+     *
+     * A TIGHT ITEM WRITES NO BLANK LINE between its blocks (carve-php#1708), and
+     * that is only safe for a block that OPENS at the item's content column. A
+     * block that does not open one there is read as the lead paragraph's lazy
+     * continuation (PART 9 §10 I2) and the item comes back holding ONE block
+     * where the source held two - so those keep the blank line they have today.
+     *
+     * AN ALLOWLIST, AND THE DEFAULT IS THE BLANK LINE, because the two errors
+     * are not the same size. A tag missing from this list costs a source
+     * spelling that differs from carve-js, which is where this engine already
+     * was; a tag wrongly ON it costs a lost block. So an unlisted tag keeps the
+     * separator.
+     *
+     * WHAT IS LEFT OUT, and why each one folds - measured, not assumed:
+     *
+     *   - `figure`, and a lone `img`: both are written as a bare inline run on
+     *     their own line (`![](i.png)`, plus a `^ cap` line), which at the
+     *     content column is lazy continuation exactly as a paragraph is. This
+     *     is the same pair `CarveRenderer::foldsIntoAnOpenParagraph()` had to
+     *     carve out after measuring twenty-two constructs (carve-php#1069).
+     *   - `div` and the other bare containers: the tag alone does not decide.
+     *     An ATTRIBUTED `<div>` is written as a colon fence and does open a
+     *     block; a bare one is DEGRADED to its content, so the part is plain
+     *     text with no opener at all. One tag, two outcomes, and only the
+     *     second is safe to abut - so the tag stays off this list and the
+     *     attributed div keeps a blank line carve-js does not write. That is
+     *     the spelling divergence this list's default direction accepts; the
+     *     alternative reads the emitted text back to tell the two apart, which
+     *     is a second spelling of the grammar this file already refuses
+     *     elsewhere.
+     *   - `p`: it never reaches the question. A direct `<p>` makes the list
+     *     loose, and a loose list writes the blank line everywhere.
+     *
+     * @var list<string>
+     */
+    protected const TIGHT_ITEM_BLOCK_OPENERS = [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'blockquote', 'pre', 'table', 'dl', 'hr', 'details',
+    ];
+
+    /**
      * A container's children, with a BLANK LINE at every inline-to-block seam.
      *
      * The seam is the whole point. Loose text beside a block sibling has no
@@ -5542,15 +5584,36 @@ class HtmlToCarve
 
                 // Process list item content, separating nested lists from other content
                 $contentParts = [];
+                // Aligned with `$contentParts`: whether that part still OPENS a
+                // block when written at the item's content column with no blank
+                // line above it. Only such a part may be written tight - see
+                // `TIGHT_ITEM_BLOCK_OPENERS`.
+                $partOpensBlock = [];
                 $inlineBuffer = '';
                 $nestedContent = '';
+                // Whether the nested content BEGINS with the sublist itself. A
+                // stray non-`<li>` child is hoisted in FRONT of the list, so the
+                // nested run can start with a paragraph, which folds into the
+                // lead if nothing separates it.
+                $nestedOpensWithItsList = null;
 
                 foreach ($child->childNodes as $liChild) {
                     if ($liChild instanceof DOMElement) {
                         $childTag = strtolower($liChild->tagName);
                         if ($childTag === 'ul' || $childTag === 'ol') {
                             // Process nested list separately
-                            $nestedContent .= $this->processNode($liChild);
+                            $nestedRendered = $this->processNode($liChild);
+                            // ANSWERED BY THE FIRST LIST THAT WRITES SOMETHING,
+                            // not by the first one present. An EMPTY `<ul>` ahead
+                            // of the real one contributes nothing to the run, so
+                            // letting it answer described a run it is not the
+                            // start of: `<li>a<ul></ul><ul><p>x</p><li>b</li></ul></li>`
+                            // would then abut the stray paragraph and fold `x`
+                            // into the lead.
+                            if ($nestedRendered !== '') {
+                                $nestedOpensWithItsList ??= !$this->listHoistsStrayBlocks($liChild);
+                            }
+                            $nestedContent .= $nestedRendered;
                         } elseif ($childTag === 'input' && $this->isCheckboxInput($liChild)) {
                             // Skip checkbox inputs (handled via $checkbox prefix)
                             continue;
@@ -5562,9 +5625,13 @@ class HtmlToCarve
                             continue;
                         } elseif (in_array($childTag, $this->blockElements, true)) {
                             $this->flushListItemInlineBuffer($contentParts, $inlineBuffer);
+                            // A flushed inline run is plain text, so it opens
+                            // nothing at the content column.
+                            $partOpensBlock = array_pad($partOpensBlock, count($contentParts), false);
                             $content = trim($this->processNode($liChild));
                             if ($content !== '') {
                                 $contentParts[] = $content;
+                                $partOpensBlock[] = in_array($childTag, self::TIGHT_ITEM_BLOCK_OPENERS, true);
                             }
                         } else {
                             $inlineBuffer .= $this->processNode($liChild);
@@ -5575,6 +5642,7 @@ class HtmlToCarve
                 }
 
                 $this->flushListItemInlineBuffer($contentParts, $inlineBuffer);
+                $partOpensBlock = array_pad($partOpensBlock, count($contentParts), false);
 
                 // Attributes are metadata and do not widen the bare marker's
                 // content column (markup-carve/carve#1701).
@@ -5614,6 +5682,7 @@ class HtmlToCarve
                     $output .= $indent . $prefix . ($liAttrs !== '' ? '+' : '') . "\n";
                 } elseif ($contentParts !== []) {
                     $firstPart = array_shift($contentParts);
+                    array_shift($partOpensBlock);
                     $firstPartLines = preg_split('/\R/', $firstPart) ?: [''];
                     $firstLine = array_shift($firstPartLines);
 
@@ -5632,13 +5701,40 @@ class HtmlToCarve
                         $output .= trim($line) === '' ? "\n" : $continuation . $line . "\n";
                     }
 
-                    foreach ($contentParts as $part) {
-                        $output .= "\n" . $this->indentListItemPart($part, $continuation) . "\n";
+                    foreach ($contentParts as $partIndex => $part) {
+                        // THE SEPARATOR INSIDE AN ITEM IS THE LIST'S TIGHTNESS,
+                        // not a fixed part of the shape. A blank line here was
+                        // written between every pair of parts whatever the list
+                        // spelled, so an item whose lead is BARE TEXT came back
+                        // with a gap the source never had: `<li>a<h1>H</h1></li>`
+                        // was written `- a`, blank, `  # H` where carve-js and
+                        // carve-rs write it tight (carve-php#1708).
+                        //
+                        // `$isLoose` is already the vote this needs, and it is
+                        // the vote markup-carve/carve-js#1110 settled: only a
+                        // DIRECT `<p>` loosens, decided per LIST rather than per
+                        // item. So a sibling item's paragraph loosens this item's
+                        // interior too, which is what the other two engines do -
+                        // a heading, a quote, a code block or a sublist votes for
+                        // nothing on its own.
+                        //
+                        // NO RENDERED BYTE MOVES. A blank line loosens an item
+                        // only when a PARAGRAPH follows it, and a part written
+                        // tight here OPENS ITS OWN BLOCK at the content column,
+                        // so both spellings render the same HTML. This is the
+                        // SOURCE agreeing with the other engines, not a
+                        // rendering fix - which is also why a part that does NOT
+                        // open a block keeps its blank line: written tight it
+                        // would fold into the lead and the item would come back
+                        // holding one block where the source held two.
+                        $tight = !$isLoose && ($partOpensBlock[$partIndex] ?? false);
+                        $output .= ($tight ? '' : "\n") . $this->indentListItemPart($part, $continuation) . "\n";
                     }
                 }
 
-                // Add nested list content with blank line before it (required by
-                // Djot). The recursive render indents nested content by a fixed
+                // Add nested list content, with a blank line before it only
+                // where the list is loose (see the separator note below). The
+                // recursive render indents nested content by a fixed
                 // two columns per depth; a nested list must instead reach the
                 // PARENT item's content column (content-column model, carve#295),
                 // which for an ordered marker (`1. ` -> 3, `10. ` -> 4) is wider
@@ -5671,7 +5767,19 @@ class HtmlToCarve
                             $output .= $line === '' ? "\n" : $line . "\n";
                         }
                     } else {
-                        $output .= "\n" . $nestedContent;
+                        // A SUBLIST BELOW A LEAD IS THE SAME SEPARATOR, and it
+                        // takes the same vote. A nested list is structure rather
+                        // than a paragraph wrapper, so it never loosens on its
+                        // own - `<li>a<ul><li>b</li></ul></li>` is a tight item
+                        // with a tight child, and the blank line written here
+                        // unconditionally spelled a looseness neither list had.
+                        //
+                        // UNLESS A STRAY BLOCK STANDS IN FRONT OF IT. A non-`<li>`
+                        // child is hoisted above the list it was found in, so the
+                        // run starts with a paragraph rather than with a marker,
+                        // and a paragraph written tight folds into the lead.
+                        $tight = !$isLoose && ($nestedOpensWithItsList ?? false);
+                        $output .= ($tight ? '' : "\n") . $nestedContent;
                     }
                 }
 
@@ -5764,6 +5872,55 @@ class HtmlToCarve
         }
 
         return $blocks === [] ? '' : implode("\n\n", $blocks) . "\n\n";
+    }
+
+    /**
+     * Might this list write anything ABOVE its own first marker?
+     *
+     * {@see self::processStrayListChildren()} hoists every non-`<li>` child out
+     * in front of the list, so the run this list renders to does not always
+     * begin with a marker line. A tight item may only abut a nested run that
+     * does begin with one (carve-php#1708).
+     *
+     * ASKED OF THE TREE, NOT OF A SECOND RENDER. Rendering the children again to
+     * find out whether they write anything is the exact answer the writer gives,
+     * and it is the wrong way to get it: `processNode()` carries state, and one
+     * of the things it carries APPENDS - a flattened caption pushes onto
+     * `$captionFlattenDiagnostics` every time it runs, so the report would grow
+     * a duplicate row and spend the diagnostic budget twice for a question that
+     * writes nothing.
+     *
+     * SO IT OVER-ANSWERS, deliberately, and only in the safe direction. An
+     * element that renders to nothing is still counted here, which costs a blank
+     * line this writer did not need - a source spelling, which is where the
+     * engine already was. The opposite error abuts a block that IS written and
+     * folds it into the lead, which costs the block. Whitespace between
+     * pretty-printed items is not content and a comment writes nothing, so
+     * neither counts.
+     *
+     * @param \DOMElement $node The nested `<ul>` or `<ol>`.
+     *
+     * @return bool Whether a stray block may be written above the list's markers.
+     */
+    protected function listHoistsStrayBlocks(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMComment) {
+                continue;
+            }
+            if ($child instanceof DOMElement) {
+                if (strtolower($child->tagName) !== 'li') {
+                    return true;
+                }
+
+                continue;
+            }
+            if (trim($child->textContent) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
