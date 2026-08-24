@@ -88,8 +88,12 @@ use Throwable;
  * The list is the point. A contract stated as an absolute while carrying an
  * exception nothing declares is worse than a narrower one that is true as
  * written, because every reader of the first is entitled to rely on it
- * (markup-carve/carve#1658). So the invariant holds AS WRITTEN, and these sit
- * outside it rather than being places where it quietly fails:
+ * (markup-carve/carve#1658). PART 11 section 1c is the normative form of this,
+ * and it is written over the PROPERTY rather than the node type: where a block's
+ * whole content is a single node whose own spelling, at the block's column, is
+ * read back as a block opener of that node's kind, the writer emits that
+ * spelling and the wrapper is LOST. So the invariant holds AS WRITTEN, and these
+ * sit outside it rather than being places where it quietly fails:
  *
  * - A PARAGRAPH WHOSE WHOLE CONTENT IS ONE IMAGE. It is written as a bare block
  *   image at column 0, which re-reads as a block image and not as the paragraph
@@ -101,16 +105,28 @@ use Throwable;
  *   absorbs the padding at every width, so `list_item > paragraph > image` has
  *   no spelling at all.
  *
- *   MEASURED, AND IT IS THE ONLY ONE. Every other single-child paragraph the
- *   importer can build - a link, a code span, an emphasis of each sort, a span,
- *   a hard break, a quote, a critic mark, plain text - comes back as the
- *   paragraph it was.
+ *   MEASURED, AND IT IS THE ONLY ONE THE IMPORTER CAN BUILD. Twenty single-child
+ *   paragraph shapes were imported and re-read; every other kind - a link, a
+ *   code span, an emphasis of each sort, a span, a hard break, a quote, a critic
+ *   mark, plain text - comes back as the paragraph it was. The comment shape
+ *   below has the same property and is NOT in that sweep, because no HTML builds
+ *   `paragraph[comment]`: it reaches this writer from a hand-built or ingested
+ *   tree, which is exactly why the list is STATED rather than derived from what
+ *   an import happens to produce.
  *
  *   NOT SILENT WHERE IT MATTERS. This class has no diagnostic channel and can
  *   only throw, and refusing would break every import of a `<p><img></p>`, so
  *   the caller that WRITES source declares the loss instead:
  *   {@see \MarkupCarve\Carve\Converter\HtmlToCarve::convertWithReport()} reports a
  *   `structure-unspellable` row for it (`docs/html-import.md`, carve-php#1667).
+ *
+ * - A BLOCK WHOSE WHOLE CONTENT IS ONE COMMENT. `%% c` reads back as the block
+ *   comment, so the wrapper is lost the same way. This one has no top-level
+ *   escape at all - `%%` opens a block comment at every column, where an
+ *   indented image at least parses as a paragraph on some engines - which is why
+ *   PART 11 section 1c is written over the PROPERTY (a wrapper whose own
+ *   content, written at the block's column, reads back as a block opener of that
+ *   node's kind) rather than over the image.
  *
  * - A PARAGRAPH WITH NO CONTENT AT ALL. It writes nothing, so it is simply not
  *   in the source and the re-read document is one block shorter. No source
