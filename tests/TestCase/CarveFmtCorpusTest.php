@@ -373,19 +373,195 @@ class CarveFmtCorpusTest extends TestCase
     }
 
     /**
+     * The canonical form the spec pins for a document, or null where it pins none.
+     */
+    private static function pinnedCanonicalForm(string $slug): ?string
+    {
+        $path = dirname(__DIR__) . '/spec/tests/corpus/' . $slug . '.fmt';
+
+        return file_exists($path) ? (string)file_get_contents($path) : null;
+    }
+
+    /**
+     * True where a node is a bare WRAPPER: one child and nothing of its own.
+     *
+     * `type` and `children` and no third key, so the node carries no attributes,
+     * no label and no value that dissolving it would take with it. That is
+     * exactly the bound PART 11 §1c states for the loss it permits - "the
+     * content, its attributes and its neighbours all survive as themselves".
+     *
+     * @param array<string, mixed> $node
+     */
+    private static function isBareWrapper(array $node): bool
+    {
+        $keys = array_keys($node);
+        sort($keys);
+        if ($keys !== ['children', 'type']) {
+            return false;
+        }
+
+        return is_array($node['children']) && count($node['children']) === 1 && is_array($node['children'][0]);
+    }
+
+    /**
+     * The tree with every bare single-child wrapper dissolved into its child.
+     *
+     * Not applied to the root, which has no parent to dissolve it into. Attrs
+     * are not descended into, for the reason `canonical()` gives above.
+     *
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    private static function withoutBareWrappers(array $node): array
+    {
+        if (!isset($node['children']) || !is_array($node['children'])) {
+            return $node;
+        }
+
+        $out = [];
+        foreach ($node['children'] as $child) {
+            if (!is_array($child)) {
+                $out[] = $child;
+
+                continue;
+            }
+            $child = self::withoutBareWrappers($child);
+            $out[] = self::isBareWrapper($child) ? $child['children'][0] : $child;
+        }
+        $node['children'] = $out;
+
+        return $node;
+    }
+
+    /**
+     * A document's tree with the wrappers PART 11 §1c may dissolve taken out.
+     *
+     * Two documents that agree here differ by NOTHING BUT wrapper loss. That is
+     * what qualifies a pinned canonical form as a §1c ceiling rather than a
+     * disagreement: dropped content, a reordering, a changed attribute or a
+     * changed node type all survive this normalization and still compare
+     * unequal.
+     */
+    private static function shapeWithoutWrappers(string $source): string
+    {
+        /** @var array<string, mixed> $encoded */
+        $encoded = self::canonical((new AstCodec())->encode((new CarveConverter())->parse($source)));
+
+        return (string)json_encode(self::withoutBareWrappers($encoded));
+    }
+
+    /**
      * parse(fmt(src)) == parse(src) - PART 11 §1's first invariant.
      *
-     * Green over the whole pinned corpus, so there is no allowlist. An entry
-     * here would silence the comparison whether or not the engine passed it,
-     * and nothing needs silencing.
+     * There is no allowlist, and the one exemption below is NOT one: it is the
+     * spec's own ceiling, and it is DERIVED from the corpus rather than listed,
+     * so it cannot go stale by being forgotten.
+     *
+     * PART 11 §1c (markup-carve/carve#1658) states where the invariant is
+     * UNATTAINABLE rather than unmet: where a block's whole content is a single
+     * node whose own spelling at the block's column reads back as a block opener
+     * of that node's kind, the writer emits that spelling and the wrapper is
+     * LOST. Corpus 411 is that shape - a lone image indented by one space, which
+     * this engine reads as a paragraph since carve-php#1683, whose canonical form
+     * (markup-carve/carve#1673) dedents it to column 0, where the same image is
+     * the standalone block image. §1c is explicit that the ceiling is UNIFORM AND
+     * NOT POSITIONAL: the indented spelling exists at top level and the writer
+     * still does not use it. So the sidecar and the invariant cannot both hold,
+     * and §1c says the sidecar is the one that does.
+     *
+     * {@see \MarkupCarve\Carve\Renderer\CarveRenderer} carries the other half
+     * of what §1c asks: a producer with no diagnostic channel STATES the ceiling
+     * in its contract, and that carve-out list already names this shape.
+     *
+     * THE EXEMPTION STILL ASSERTS, which is what separates it from a silencing.
+     * The formatted tree must equal the SIDECAR's tree EXACTLY, so every writer
+     * regression the invariant would have caught is caught here instead - and
+     * that includes the one worth naming: a writer that started preserving the
+     * wrapper would emit the source's tree, which is not the sidecar's, so this
+     * assertion goes red and the exemption has to be re-argued rather than
+     * quietly covering it.
+     *
+     * A SECOND `assertNotSame` AGAINST THE SOURCE TREE WOULD BE DEAD, and it is
+     * deliberately not written. Reaching it requires the first assertion to have
+     * passed, so `$written === tree($canonical)`, and the branch is only entered
+     * when `tree($canonical) !== tree($crv)` - so `$written !== tree($crv)`
+     * holds by construction and no input can fail it. carve#755 catalogs eleven
+     * checks that could not detect what they claimed; this would have been the
+     * twelfth. What that assertion was reaching for is real, and it is a
+     * question about the CORPUS rather than about one document, so it is asked
+     * once where it can actually fail: see
+     * `testThePartElevenOneCCeilingIsReached()` below.
      */
     #[DataProvider('corpusProvider')]
     public function testTheFormattedDocumentParsesToTheSameTree(string $slug, string $crv): void
     {
+        $canonical = self::pinnedCanonicalForm($slug);
+        $written = self::tree(CarveConverter::toCarve($crv));
+
+        if ($canonical !== null && self::tree($canonical) !== self::tree($crv)) {
+            // THE DIFFERENCE MUST BE A WRAPPER LOSS AND NOTHING ELSE. Without
+            // this, the exemption would key on "the sidecar re-parses
+            // differently" and would accept ANY tree change a future pinned
+            // fixture carried - a dropped node, a reordering, a changed
+            // attribute - as canonical. §1c licenses losing a WRAPPER, so that
+            // is what is checked, as a property of the shapes rather than as a
+            // list of slugs that would go stale on the next renumbering.
+            $this->assertSame(
+                self::shapeWithoutWrappers($crv),
+                self::shapeWithoutWrappers($canonical),
+                'the pinned canonical form for ' . $slug . ' differs from its source by more than '
+                . 'a PART 11 §1c wrapper loss, so it is not a ceiling this exemption covers',
+            );
+            $this->assertSame(
+                self::tree($canonical),
+                $written,
+                'fmt(x) does not parse to the spec canonical form\'s tree for ' . $slug,
+            );
+
+            return;
+        }
+
         $this->assertSame(
             self::tree($crv),
-            self::tree(CarveConverter::toCarve($crv)),
+            $written,
             'parse(fmt(x)) != parse(x) for ' . $slug,
+        );
+    }
+
+    /**
+     * THE PART 11 §1c EXEMPTION IS REACHED, so it cannot rot unnoticed.
+     *
+     * The per-document test above takes the exemption branch silently: if the
+     * corpus or this engine changed so that no document's pinned canonical form
+     * re-parsed differently from its source, every document would fall through
+     * to the plain invariant, the whole branch would stop executing, and nothing
+     * would say so. The carve-out would then sit in the file describing a
+     * ceiling that no longer exists - which is how a guard stops guarding.
+     *
+     * Asked once, over the corpus, because it is a question about the corpus.
+     * It fails in the direction the per-document `assertNotSame` could not: the
+     * day a lone indented image round-trips cleanly, this goes red and both the
+     * branch and this test are deleted together.
+     *
+     * The message names the documents rather than only counting them, so a
+     * corpus renumbering reads as the rename it is.
+     */
+    public function testThePartElevenOneCCeilingIsReached(): void
+    {
+        $reached = [];
+        foreach (self::pinnedProvider() as $slug => $case) {
+            $canonical = self::pinnedCanonicalForm($slug);
+            if ($canonical !== null && self::tree($canonical) !== self::tree($case['crv'])) {
+                $reached[] = $slug;
+            }
+        }
+
+        $this->assertNotSame(
+            [],
+            $reached,
+            'no pinned canonical form re-parses differently from its source: the PART 11 §1c '
+            . 'exemption in testTheFormattedDocumentParsesToTheSameTree is dead and should be deleted',
         );
     }
 

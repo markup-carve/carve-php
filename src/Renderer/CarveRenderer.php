@@ -100,10 +100,19 @@ use Throwable;
  *   it was. `resources/examples/edge-cases.md` rules the shape - "a paragraph
  *   whose whole content is one image is still the standalone image shape, not a
  *   wrapped one" - so there is no source to write instead. An indented spelling
- *   is not one either: this engine reads an indented image as a block image at
- *   every indent, and inside a list item or a definition description the marker
- *   absorbs the padding at every width, so `list_item > paragraph > image` has
- *   no spelling at all.
+ *   is not the answer either, and the reason CHANGED with carve-php#1683: this
+ *   engine now reads a lone INDENTED image as a paragraph, which corpus 411
+ *   pins, so at top level the shape does have a spelling. One level down it has
+ *   none at any width - a list item's or a definition description's marker
+ *   absorbs the padding, so `- ![a](u)` and the same line with the image pushed
+ *   any distance further right are one tree, and `list_item > paragraph > image`
+ *   cannot be spelled at all. PART 11 §1c
+ *   settles which way that asymmetry resolves: THE CEILING IS UNIFORM AND NOT
+ *   POSITIONAL. A writer preserving the wrapper at the one depth that can spell
+ *   it and losing it at the next describes nothing, and the indented form emits
+ *   meaning-bearing leading whitespace that editors and pipelines strip. So the
+ *   wrapper is lost everywhere, and one sentence describes this writer at every
+ *   depth.
  *
  *   MEASURED, AND IT IS THE ONLY ONE THE IMPORTER CAN BUILD. Twenty single-child
  *   paragraph shapes were imported and re-read; every other kind - a link, a
