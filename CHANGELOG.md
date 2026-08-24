@@ -9,6 +9,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A definition list's spelled looseness is a field on the wire** (#1658, #1660, markup-carve/carve#1624, PART 12 §8). `definition_list` publishes `loose` where the source spelled it, so a tree that goes out over the wire no longer has to derive each description's wrapper from its block count.
+- **The HTML importer has an AST exit** (#1666). `HtmlToCarve::convertToAst()` and `convertToAstWithReport()` return the PART 12 AST, the latter as an `HtmlImportAstResult` carrying the same mode, adapter and diagnostics as the source exit.
 - **A container takes PART 9 §17 L7's consumed `loose` boolean** (#1642, #1644, #1654, markup-carve/carve#1612, markup-carve/carve#1623). `{loose}` above a list or definition list renders the children as blocks and never reaches the HTML.
 - **The table-of-contents nav carries an accessible name** (#1574, markup-carve/carve#1547, ruling markup-carve/carve#1509). Both TOC extensions write `aria-label` on the `<nav>` from a new `labels` key `tocNav`; an authored name wins.
 - **Table column metadata** (#1451, #1480, markup-carve/carve#1391). Alignment, vertical alignment and widths reach the AST as `table.columns` and `table_cell.valign`.
@@ -20,6 +22,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The canonical writer's round-trip contract names its carve-outs** (#1678, markup-carve/carve#1658, PART 11 §1c). A block whose whole content is one image, one comment, or nothing writes that inner spelling and loses the wrapper; everything else re-reads as what it was given.
 - **A Djot blank-line run does not split a list on import** (markup-carve/carve#1430, PART 9 §11 N1a). `carve migrate --from djot` keeps an imported list as one list, with its numbering.
 - **The HTML importer spells adjacent sibling lists with the hard boundary** (#1290, PART 9 §11 N1a): the same marker separated by three blank lines. Lists that already differ, or carry an explicit `data-marker`, keep the single blank line.
 - **An imported nested container widens inward, as `carve fmt` writes it** (#1583, PART 9 §12).
@@ -51,6 +54,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An indented lone image is a paragraph, not a block image** (#1681, markup-carve/carve#1660, PART 9 §15), so a leading space is decisive for an image as it already is for a heading marker.
+- **A figure caption never runs into its body, and never lands on a non-block** (#1676), so an inline figure body no longer concatenates with its caption.
+- **The lone-image paragraph row reads what the paragraph writes** (#1673), so a `<p>` holding an image behind a transparent wrapper declares the same `structure-unspellable` loss a bare one does.
+- **A figure finds its image behind a wrapper that writes nothing** (#1672). A `<figure>` whose `<img>` sits inside a `<p>` keeps the figure and its caption binding, instead of writing a block image and an unrelated paragraph.
+- **An authored paragraph around a lone image is a declared loss** (#1667). The importer reports `structure-unspellable` and names each attribute the image's own block overwrites; nothing it writes moves.
+- **A grouping label keeps a div's fence, and comes back on its opener** (#1661), so `::: [g]` survives a render and an import instead of unwrapping and leaving the label as a `{.div-label}` paragraph.
+- **A definition description dedents by its own content column** (#1650, PART 9 §16 with §10 I5). A footnote definition inside a `<dd>` keeps its indented continuation, and its body column is the container's content column plus two.
+- **An authored heading id that differs from its slug only in case survives HTML import** (#1608, follow-on to #1289): the generated-id check compares exactly, so `{#methods}` on `## Methods` is no longer dropped and regenerated as `Methods`.
 - **An imported block-attribute line ends its own line** (#1653), so the attribute no longer floats forward past a blank line to another block.
 - **The HTML importer spells the looseness the layout cannot say** (#1648, PART 9 §17 L7).
 - **A dropped definition description is declared by what it writes, not what it holds** (#1649), so `<dd><p> </p></dd>` and `<dd><ul></ul></dd>` report `structure-unspellable`.
