@@ -80,6 +80,54 @@ use Throwable;
 
 /**
  * Renders AST back to canonical Carve source.
+ *
+ * THE CONTRACT, AND WHAT IT DOES NOT COVER. What this writer returns re-reads as
+ * what it was given - EXCEPT for the shapes named below, which it writes as the
+ * nearest source Carve has and which therefore re-read as something else.
+ *
+ * The list is the point. A contract stated as an absolute while carrying an
+ * exception nothing declares is worse than a narrower one that is true as
+ * written, because every reader of the first is entitled to rely on it
+ * (markup-carve/carve#1658). So the invariant holds AS WRITTEN, and these sit
+ * outside it rather than being places where it quietly fails:
+ *
+ * - A PARAGRAPH WHOSE WHOLE CONTENT IS ONE IMAGE. It is written as a bare block
+ *   image at column 0, which re-reads as a block image and not as the paragraph
+ *   it was. `resources/examples/edge-cases.md` rules the shape - "a paragraph
+ *   whose whole content is one image is still the standalone image shape, not a
+ *   wrapped one" - so there is no source to write instead. An indented spelling
+ *   is not one either: this engine reads an indented image as a block image at
+ *   every indent, and inside a list item or a definition description the marker
+ *   absorbs the padding at every width, so `list_item > paragraph > image` has
+ *   no spelling at all.
+ *
+ *   MEASURED, AND IT IS THE ONLY ONE. Every other single-child paragraph the
+ *   importer can build - a link, a code span, an emphasis of each sort, a span,
+ *   a hard break, a quote, a critic mark, plain text - comes back as the
+ *   paragraph it was.
+ *
+ *   NOT SILENT WHERE IT MATTERS. This class has no diagnostic channel and can
+ *   only throw, and refusing would break every import of a `<p><img></p>`, so
+ *   the caller that WRITES source declares the loss instead:
+ *   {@see \MarkupCarve\Carve\Converter\HtmlToCarve::convertWithReport()} reports a
+ *   `structure-unspellable` row for it (`docs/html-import.md`, carve-php#1667).
+ *
+ * - A PARAGRAPH WITH NO CONTENT AT ALL. It writes nothing, so it is simply not
+ *   in the source and the re-read document is one block shorter. No source
+ *   spells an empty paragraph - a blank line is a separator, not a block - so
+ *   there is nothing to write instead, and this class has no channel to say so.
+ *
+ *   The parser cannot build one, so this shape reaches the writer only from a
+ *   HAND-BUILT or INGESTED tree. It is named here anyway: the whole point of the
+ *   ruling is that the carve-outs a caller may rely on are listed rather than
+ *   discovered.
+ *
+ * Where it CAN see that emitting source would change the tree, and no carve-out
+ * above covers the shape, it refuses with
+ * {@see \MarkupCarve\Carve\Exception\SourceUnspellableException} rather than
+ * emitting the nearest form - an empty raw inline is the standing example. That
+ * is a statement about the shapes it detects, not a second absolute: the list
+ * above is what a caller may rely on.
  */
 class CarveRenderer implements RendererInterface
 {
