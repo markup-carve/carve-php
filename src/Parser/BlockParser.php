@@ -2970,7 +2970,11 @@ class BlockParser
             // scan deliberately hardcoded 2 as well so it could not index a
             // heading the renderer never emitted; both sides measure now, so
             // the pre-scan and the parse agree by construction.
-            $markerWidth = $this->listMarkerWidthFor($head['name'], $head['content'] - $strippedAt);
+            $markerWidth = $this->listMarkerWidthFor(
+                $head['name'],
+                $head['content'] - $strippedAt,
+                $head['attrs'],
+            );
             $baseColumn += $leadingColumns + $markerWidth;
             $listContentColumns[] = $baseColumn;
             $at = $head['content'];
@@ -14035,11 +14039,13 @@ class BlockParser
      * relative to the marker's own indent.
      *
      * ORDERED and BULLET markers are MEASURED, so `- item` puts its content
-     * at 4 and `10. item` at 4. TASK items are pinned at 2: the checkbox is
-     * content, not marker, and extra spaces before it do not move the column
-     * either -- `- [ ] item` still has its content column at 2. That is not
-     * an accident of this parser, it is what carve-js and carve-rs both do, and
-     * the three engines are pinned together by the corpus.
+     * at 4 and `10. item` at 4. A TASK item is its BULLET plus any abutting
+     * attribute block: the checkbox is content, not marker, and extra spaces
+     * before it do not move the column either, so a bullet padded out in front
+     * of its checkbox still has its content column at 2 - while
+     * `-{#k} [ ] item` has it at 6. That is not an accident of this parser, it
+     * is what carve-js and carve-rs both do, and the three engines are pinned
+     * together by the corpus.
      *
      * One helper rather than a copy per call site: the width is consulted by
      * the list parser, by the implicit-heading pre-scan and by the looseness
@@ -14047,39 +14053,51 @@ class BlockParser
      * renderer never emitted (carve-php#580).
      *
      * @param string $stripped The marker line with its leading indent removed.
-     * @param array{type: string, content: string} $info Parsed marker info.
+     * @param array{type: string, content: string, attributesWidth?: int} $info
+     *   Parsed marker info.
      */
     protected function listMarkerWidth(string $stripped, array $info): int
     {
         return $this->listMarkerWidthFor(
             $info['type'],
             strlen($stripped) - strlen($info['content']),
+            $info['attributesWidth'] ?? 0,
         );
     }
 
     /**
      * The content-column width of a marker whose head spans `$span` bytes.
      *
-     * A TASK'S COLUMN IS ITS BULLET'S. Its head runs past the checkbox, because
-     * that is where its CONTENT starts, but the column a continuation line has
-     * to reach is the bullet's - which is why the two numbers are different
-     * here and only here. Spelled once so the offset walk in
-     * {@see self::headingReferenceScanLine()} and the copying one above cannot
-     * drift (markup-carve/carve-php#1463).
+     * A TASK'S COLUMN IS ITS BULLET'S, PLUS ITS ATTRIBUTE BLOCK. Its head runs
+     * past the checkbox, because that is where its CONTENT starts, but the
+     * column a continuation line has to reach is the bullet's - which is why
+     * the two numbers are different here and only here. Spelled once so the
+     * offset walk in {@see self::headingReferenceScanLine()} and the copying
+     * one above cannot drift (markup-carve/carve-php#1463).
+     *
+     * The attribute block is added back because it is part of the MARKER, not
+     * of the content: `-{#k} [x] a` is the marker `-{#k} ` and then the
+     * checkbox, so its content column is 6. Pinning the whole head at 2 put the
+     * column INSIDE the attribute block, where no content can begin, and a
+     * heading written at the real column came back as paragraph text
+     * (markup-carve/carve#1692). `$span` cannot answer this on its own: it has
+     * already counted the checkbox and any extra spaces in front of it, and
+     * neither of those moves the column.
      *
      * @param string $type The marker head that matched.
      * @param int $span Bytes from the marker's first byte to its content.
+     * @param int $attrsWidth Bytes of the abutting `{...}` block, 0 if none.
      */
-    protected function listMarkerWidthFor(string $type, int $span): int
+    protected function listMarkerWidthFor(string $type, int $span, int $attrsWidth = 0): int
     {
-        return $type === ListBlock::TYPE_TASK ? 2 : $span;
+        return $type === ListBlock::TYPE_TASK ? 2 + $attrsWidth : $span;
     }
 
     /**
      * {@see \MarkupCarve\Carve\Parser\Block\ListParser::markerHeadAt()} asked
      * of a copy, for a subject the offset form is not exact on.
      *
-     * @return array{name: string, content: int}|null
+     * @return array{name: string, content: int, attrs: int}|null
      */
     protected function markerHeadFromCopy(string $line, int $at, int $length): ?array
     {
@@ -14095,6 +14113,7 @@ class BlockParser
         return [
             'name' => $info['type'],
             'content' => $at + strlen($stripped) - strlen($info['content']),
+            'attrs' => $info['attributesWidth'] ?? 0,
         ];
     }
 

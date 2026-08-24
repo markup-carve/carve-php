@@ -19,6 +19,16 @@ use PHPUnit\Framework\TestCase;
  * marker, and extra spaces before it do not move the column either. Both rules
  * are what carve-js and carve-rs do - every expectation below was measured
  * against those two engines before being pinned here.
+ *
+ * THE ONE PART OF A TASK'S HEAD THAT DOES MOVE THE COLUMN is an abutting
+ * attribute block (markup-carve/carve#1692). It is part of the MARKER that
+ * introduces the item rather than part of its content, so `-{#k} [x] a` has its
+ * content column at 6 - the width of `-{#k} ` - and not at 2. Pinning the whole
+ * head at 2 put the column INSIDE the attribute block, which is a place no
+ * content can begin, and this file stated that constant: the expectations below
+ * moved with the parser rather than being edited to agree with it. Each engine
+ * used to read exactly one of the two spellings as a continuation and they
+ * disagreed about which, so both are pinned here and in corpus category 413.
  */
 class BulletMarkerContentColumnTest extends TestCase
 {
@@ -89,6 +99,44 @@ class BulletMarkerContentColumnTest extends TestCase
         $this->assertHtml($expected, "- [ ] item\n      # H\n");
         $this->assertHtml($expected, "-   [ ] item\n    # H\n");
         $this->assertHtml($expected, "-   [ ] item\n        # H\n");
+    }
+
+    /**
+     * An abutting attribute block is marker, not content, so it DOES move the
+     * column: `-{#k} ` is six wide and the checkbox begins there.
+     */
+    public function testAttributeBlockMovesATaskItemsContentColumn(): void
+    {
+        $this->assertHtml(
+            "<ul>\n  <li id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
+            "-{#k} [x] a\n      # h\n",
+        );
+    }
+
+    /**
+     * The other spelling, pinned beside the first rather than instead of it.
+     * Column 2 is where the bare-bullet reading put the column, which is inside
+     * the attribute block; below the real content column the line is lazy
+     * paragraph text, so the `#` survives literally.
+     */
+    public function testBelowThatColumnATaskItemsContinuationStaysLiteral(): void
+    {
+        $this->assertHtml(
+            "<ul>\n  <li id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"a # h\"> a\n# h</li>\n</ul>",
+            "-{#k} [x] a\n  # h\n",
+        );
+    }
+
+    /**
+     * The block moves the column for a plain item too, exactly as it always
+     * has - the neighbour a task-only fix must not disturb.
+     */
+    public function testAttributeBlockMovesAPlainItemsContentColumn(): void
+    {
+        $this->assertHtml(
+            "<ul>\n  <li id=\"k\">a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
+            "-{#k} a\n      # h\n",
+        );
     }
 
     public function testWideBulletAlsoGovernsANestedList(): void
