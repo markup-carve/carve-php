@@ -3689,6 +3689,58 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
+     * PART 9 §17 L7 for a LIST, decided from the written body alone.
+     *
+     * TAKEN OFF THE NODE so the other writer can ask it. `HtmlToCarve` writes
+     * Carve source straight from the DOM and never builds a tree, so it cannot
+     * call {@see self::needsLooseKey()} - and having missed L7 entirely when it
+     * landed, it wrote a one-item loose list with no key and lost the `<p>` the
+     * imported tree recorded (carve-php#1648). A second copy of the rule there
+     * would be the shape this codebase keeps paying for, so there is one copy
+     * and two callers.
+     *
+     * The clause is a DECISION PROCEDURE, not a shape test: write the body
+     * without the key, read it back, and emit the key exactly where the
+     * looseness did not survive. That is why this takes the body rather than
+     * anything structural - §17's looseness rules decide it together, and a
+     * second reading of them here would answer differently the day any of them
+     * moves.
+     *
+     * @param bool $isLoose whether the list is loose at all
+     * @param int $itemCount how many items the written body holds
+     * @param string $body the body as written, without any key
+     */
+    public static function looseKeyIsNeededForBody(bool $isLoose, int $itemCount, string $body): bool
+    {
+        if (!$isLoose || $itemCount === 0) {
+            return false;
+        }
+        // A BLANK LINE BETWEEN ITEMS ALWAYS LOOSENS (§17 L2), and both writers
+        // emit one between every pair of a loose list's items, so two or more
+        // items already spell it. A FAST PATH, not a rule: the re-parse below
+        // reaches the same answer.
+        if ($itemCount > 1) {
+            return false;
+        }
+        // A body with NO blank line in it cannot re-read loose either way, so
+        // the common shape - a one-item list holding one paragraph - is
+        // answered without a parse.
+        if (preg_match('/\n[ \t]*\n/', $body) !== 1) {
+            return true;
+        }
+
+        try {
+            $first = (new CarveConverter())->parse($body)->getChildren()[0] ?? null;
+        } catch (Throwable) {
+            // A writer bug that produces unparseable source must not throw out
+            // of the writer, and the conservative answer is the mark.
+            return true;
+        }
+
+        return !$first instanceof ListBlock || $first->isTight();
+    }
+
+    /**
      * Does this container's looseness need the `{loose}` key spelled?
      *
      * Only where the blank-line spelling cannot say it (PART 9 §17 L7), because
@@ -3701,16 +3753,7 @@ class CarveRenderer implements RendererInterface
             if ($node->isTight() || $items === []) {
                 return false;
             }
-            // A BLANK LINE BETWEEN ITEMS ALWAYS LOOSENS (§17 L2), and this
-            // writer emits one between every pair of a loose list's items, so
-            // two or more items already spell it. A FAST PATH, not a rule: the
-            // re-parse below reaches the same answer, which is why reverting
-            // this branch breaks nothing. It is here so the common shape - every
-            // multi-item loose list in every document - does not pay for a parse
-            // to be told what the layout already says.
-            if (count($items) > 1) {
-                return false;
-            }
+
             // ONE ITEM has no "between items" for a blank line to stand in, so
             // the only spelling left is one the item's own content produces -
             // and whether it does is the PARSER's question, not a shape this
@@ -3720,22 +3763,9 @@ class CarveRenderer implements RendererInterface
             // blank line re-reads LOOSE, while the same blank line before a
             // fence does not.
             //
-            // A body with NO blank line in it cannot re-read loose either way,
-            // so the common shape - a one-item list holding one paragraph - is
-            // answered without a parse.
-            if (preg_match('/\n[ \t]*\n/', $body) !== 1) {
-                return true;
-            }
-
-            try {
-                $first = (new CarveConverter())->parse($body)->getChildren()[0] ?? null;
-            } catch (Throwable) {
-                // A writer bug that produces unparseable source must not throw
-                // out of the renderer, and the conservative answer is the mark.
-                return true;
-            }
-
-            return !$first instanceof ListBlock || $first->isTight();
+            // The procedure itself is {@see self::looseKeyIsNeededForBody()},
+            // which the HTML importer's writer calls too.
+            return self::looseKeyIsNeededForBody(true, count($items), $body);
         }
 
         // ON A DEFINITION LIST THE ANSWER IS UNCONDITIONAL

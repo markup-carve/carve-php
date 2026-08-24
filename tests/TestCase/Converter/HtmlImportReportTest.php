@@ -11,6 +11,50 @@ use PHPUnit\Framework\TestCase;
 
 class HtmlImportReportTest extends TestCase
 {
+    /**
+     * Fixtures this engine has DELIBERATELY moved PAST the pinned spec on.
+     *
+     * The mirror of carve-js's `AHEAD_OF_PIN` in
+     * `test/html-import-conformance.test.ts`, for the same reason: an engine
+     * ahead of a pinned fixture is a normal state BETWEEN two pin bumps, and
+     * what is not normal is not knowing which window you are in. The spec repo
+     * declares the other side of the same window itself, with a `PIN_LAG` entry
+     * written in the commit that ruled the clause.
+     *
+     * Each entry FAILS IN BOTH DIRECTIONS:
+     *
+     *  - the written source must equal what the CURRENT spec states, so a
+     *    regression is caught exactly as the fixture would have caught it;
+     *  - and it must still DIFFER from the pinned golden, so the entry fails and
+     *    has to be deleted in the same commit that moves the pin.
+     *
+     * @var array<string, array{reason: string, carve: string}>
+     */
+    private const AHEAD_OF_PIN = [
+        'derived-endnotes-section' => [
+            // PART 9 §17 L7. A document with a single footnote imports as
+            // exactly ONE list item, and a blank line needs two items to stand
+            // between - so before the consumed `loose` boolean this fixture's
+            // source parsed TIGHT while the tree recorded beside it said loose.
+            // The writer now spells the key, which is what markup-carve/carve
+            // commit d2bd801b rewrote the fixture to.
+            'reason' => 'the one-item loose list now has a spelling: the consumed `loose` boolean',
+            'carve' => "---\n\n{loose}\n1. Note text.\n",
+        ],
+    ];
+
+    /**
+     * An entry naming a fixture that is not there asserts nothing - it was
+     * renamed upstream, or already retired.
+     */
+    public function testAheadOfPinNamesOnlyFixturesThatExist(): void
+    {
+        $root = dirname(__DIR__, 2) . '/spec/tests/html-import';
+        $present = array_map('basename', (array)glob($root . '/*', GLOB_ONLYDIR));
+
+        $this->assertSame([], array_values(array_diff(array_keys(self::AHEAD_OF_PIN), $present)));
+    }
+
     public function testReportMakesLossVisible(): void
     {
         $result = (new HtmlToCarve())->convertWithReport(
@@ -53,7 +97,22 @@ class HtmlImportReportTest extends TestCase
 
             $result = (new HtmlToCarve())->convertWithReport($html);
             $actual = $result->report()['diagnostics'];
-            $this->assertSame($expected, $result->value, basename($fixture));
+            $ahead = self::AHEAD_OF_PIN[basename($fixture)] ?? null;
+            if ($ahead !== null) {
+                $this->assertSame($ahead['carve'], $result->value, $ahead['reason']);
+                // THE STALENESS HALF. When the pin moves past the clause the
+                // fixture is rewritten to exactly this value, and the entry has
+                // to go in the same commit that moves the pin. Without this the
+                // carve-out would outlive the window it describes and silently
+                // stop asserting anything.
+                $this->assertNotSame(
+                    $ahead['carve'],
+                    $expected,
+                    basename($fixture) . ' now matches the pin: delete its AHEAD_OF_PIN entry',
+                );
+            } else {
+                $this->assertSame($expected, $result->value, basename($fixture));
+            }
             $this->assertSame(
                 array_column($expectedReport['diagnostics'], 'code'),
                 array_column($actual, 'code'),
