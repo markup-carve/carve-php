@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test;
 
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\AstSchema;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -162,15 +166,94 @@ class AConsumedLooseBooleanSpellsTheLoosenessNoBlankLineCanTest extends TestCase
     }
 
     /**
-     * The definition-list half has no AST field yet (PART 12 §8;
-     * markup-carve/carve#1624 is that half), so the looseness survives in SOURCE
-     * and not through an AST round trip. What must NOT happen is the internal
-     * flag reaching the wire as a property the schema does not name.
+     * PART 12 §8 GREW THE FIELD (markup-carve/carve#1624), so the answer this
+     * file used to pin is reversed rather than deleted: the flag no longer
+     * survives in SOURCE only. It is published, and only where it was SPELLED.
+     *
+     * NO HTML CHECK REACHES THIS. The direct render is right either way - the
+     * `<p>` wrapper comes off the live node - so a green HTML corpus says
+     * nothing about it. The wire is the only place the answer appears.
      */
-    public function testNoLoosenessPropertyIsPublishedForADefinitionList(): void
+    public function testTheSpelledLoosenessIsPublished(): void
     {
-        $json = (new AstCodec())->encodeJson($this->converter->parse("{loose}\n:: T\n:  a\n"));
-        $this->assertStringNotContainsString('loose', $json);
+        $payload = (new AstCodec())->encode($this->converter->parse("{loose}\n:: T\n:  a\n"));
+        $list = $payload['children'][0];
+
+        $this->assertSame('definition_list', $list['type']);
+        $this->assertTrue($list['loose'] ?? null, 'the spelled looseness did not reach the wire');
+        $this->assertNull(AstSchema::firstViolation($payload), 'the published tree left the schema');
+    }
+
+    /**
+     * `const: true`, so ABSENT rather than `false`. It is deliberately not a
+     * `tight` field: an absent boolean read as false would say LOOSE, the
+     * opposite of the default - which is why asserting the KEY is missing is
+     * the assertion, and asserting a false value would pin the wrong shape.
+     */
+    public function testADerivedDefinitionListPublishesNoLooseKey(): void
+    {
+        $payload = (new AstCodec())->encode($this->converter->parse(":: T\n:  a\n"));
+        $list = $payload['children'][0];
+
+        $this->assertSame('definition_list', $list['type']);
+        $this->assertArrayNotHasKey('loose', $list);
+        $this->assertNull(AstSchema::firstViolation($payload));
+    }
+
+    /**
+     * THE FACT THE FIELD EXISTS FOR. A `<dl>` has no blank-line spelling for a
+     * one-block description at any entry count, so with nothing on the wire
+     * saying the key was written, the tree comes back deriving each wrapper
+     * from its block count and the `<p>` the author asked for is gone. Corpus
+     * `407-one-consumed-boolean-spells-the-looseness-no-blank-line-can-2` is
+     * this document.
+     */
+    public function testTheLoosenessSurvivesAnAstRoundTrip(): void
+    {
+        $source = "{loose}\n:: Term\n:  Definition.\n";
+        $codec = new AstCodec();
+        $back = $codec->decode($codec->encode($this->converter->parse($source)));
+
+        $this->assertSame(
+            "<dl>\n  <dt>Term</dt>\n  <dd><p>Definition.</p></dd>\n</dl>",
+            trim((new HtmlRenderer())->render($back)),
+        );
+    }
+
+    /**
+     * The same fact over the editor bridge, which carries it under its own
+     * prefixed name beside PART 12 §8's.
+     */
+    public function testTheLoosenessSurvivesTheProseMirrorBridge(): void
+    {
+        $source = "{loose}\n:: Term\n:  Definition.\n";
+        $payload = (new ProseMirrorRenderer())->render($this->converter->parse($source));
+        $back = (new ProseMirrorToCarve())->convert($payload);
+
+        $this->assertSame(
+            "<dl>\n  <dt>Term</dt>\n  <dd><p>Definition.</p></dd>\n</dl>",
+            trim((new HtmlRenderer())->render($back)),
+        );
+    }
+
+    /**
+     * THE BOUND, on the ingest side: a payload that does not spell the key
+     * decodes to a list that derives its wrappers, so a decoder that read the
+     * absence as anything but the default would show up here.
+     */
+    public function testAPayloadWithNoLooseKeyDecodesToADerivedList(): void
+    {
+        $codec = new AstCodec();
+        $payload = $codec->encode($this->converter->parse("{loose}\n:: Term\n:  Definition.\n"));
+        unset($payload['children'][0]['loose']);
+        $list = $codec->decode($payload)->getChildren()[0];
+
+        $this->assertInstanceOf(DefinitionList::class, $list);
+        $this->assertFalse($list->isLoose());
+        $this->assertSame(
+            "<dl>\n  <dt>Term</dt>\n  <dd>Definition.</dd>\n</dl>",
+            trim((new HtmlRenderer())->render($codec->decode($payload))),
+        );
     }
 
     public function testTheListSetsItsExistingTightFieldAndKeepsNoAttributes(): void
