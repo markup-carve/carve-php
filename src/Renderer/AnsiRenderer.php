@@ -756,33 +756,26 @@ class AnsiRenderer implements RendererInterface
         return $output;
     }
 
+    /**
+     * NO BLOCKQUOTE PREFIXING HERE, and no special case for a lone image.
+     *
+     * This method used to do both: it drew the quote bar, and it STRIPPED that
+     * bar again from a paragraph whose only content was one image. Neither
+     * belongs here. The strip was removed first, as a one-engine defect
+     * (markup-carve/carve-php#1691), because a promoted image is an Image child
+     * of the quote that never reaches this method at all, so the special case
+     * only ever fired on the spelling that should keep the bar.
+     *
+     * The drawing went with markup-carve/carve#1689: the bar reports
+     * CONTAINMENT, not node kind, so renderBlockQuote() carries it for
+     * everything the quote contains and a paragraph is not a special case.
+     * Asking each block's own method to opt in is what left a heading, a code
+     * block, a table and a promoted image with no bar at all, and what put a
+     * quoted list's bar to the RIGHT of its bullet.
+     */
     protected function renderParagraph(Paragraph $node): string
     {
-        $content = $this->renderChildren($node);
-        // NO SPECIAL CASE FOR A LONE IMAGE. This used to strip the blockquote
-        // `│` prefix from a paragraph whose only content is one image, on the
-        // stated grounds that PART 11 §1c promotes it to a bare block image and
-        // that carve-js and carve-rs do the same. The first half is true and the
-        // second was not: the promotion is a decision the PARSER already made,
-        // and a promoted image is an Image child of the quote that never reaches
-        // this method at all.
-        //
-        // So the two spellings corpus 411 exists to separate were being folded
-        // back together here. `>   ![A](a.jpg)` parses to
-        // `block_quote > paragraph > image` and keeps the bar in carve-js and
-        // carve-rs; `> ![A](a.jpg)` parses to `block_quote > image` and takes
-        // none. Stripping it in this method removed the bar from the first one
-        // too, so an indented image inside a quote lost the quote
-        // (markup-carve/carve-php#1691). The HTML cannot show that difference - both
-        // spellings emit `<blockquote><img ...></blockquote>` - which is why no
-        // corpus document caught it until 411 grew its container pairs.
-        $prefix = $this->getBlockQuotePrefix();
-
-        if ($prefix !== '') {
-            $content = $this->prefixLines($content, $prefix);
-        }
-
-        return $content . "\n\n";
+        return $this->renderChildren($node) . "\n\n";
     }
 
     /**
@@ -902,31 +895,41 @@ class AnsiRenderer implements RendererInterface
 
     protected function renderBlockQuote(BlockQuote $node): string
     {
+        // The bar reports CONTAINMENT, not node kind (markup-carve/carve#1689):
+        // everything the quote contains carries it, so the ANSI reader is never
+        // told a block was unquoted where the HTML says it was. Prefixing here,
+        // once, rather than in each child's own method is what makes that true
+        // for every block kind - including the ones no method ever opted in for.
         $this->blockQuoteDepth++;
         $content = $this->renderChildren($node);
         $this->blockQuoteDepth--;
 
-        return $content;
+        return $this->prefixLines($content, $this->getBlockQuoteBar());
     }
 
-    protected function getBlockQuotePrefix(): string
+    protected function getBlockQuoteBar(): string
     {
-        if ($this->blockQuoteDepth === 0) {
-            return '';
-        }
-
         $bar = $this->useUnicode ? '│' : '|';
-        $prefix = str_repeat($this->style($bar, self::FG_CYAN . self::DIM) . ' ', $this->blockQuoteDepth);
 
-        return $prefix;
+        return $this->style($bar, self::FG_CYAN . self::DIM) . ' ';
     }
 
+    /**
+     * Prefix every NON-EMPTY line. A quote's rendered body carries the block
+     * separator ("\n\n") between its children and after the last one, and
+     * those blank lines stay bare - a bar on a blank line would draw a gutter
+     * through the space BETWEEN blocks and past the end of the quote. Skipping
+     * them reproduces exactly what prefixing inside renderParagraph() got by
+     * running before the separator was appended, and it composes for nesting:
+     * an inner quote has already prefixed its own lines, so the outer pass adds
+     * a second bar to the same lines and leaves the same blanks alone.
+     */
     protected function prefixLines(string $content, string $prefix): string
     {
         $lines = explode("\n", $content);
         $prefixed = [];
         foreach ($lines as $line) {
-            $prefixed[] = $prefix . $line;
+            $prefixed[] = $line === '' ? $line : $prefix . $line;
         }
 
         return implode("\n", $prefixed);
