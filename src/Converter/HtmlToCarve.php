@@ -7289,12 +7289,12 @@ class HtmlToCarve
         $output = "\n";
 
         // Find img, blockquote, pre, and figcaption
-        $img = $this->findFirstDirectChildByTagName($node, 'img');
+        $img = $this->figureImageTarget($node);
         $blockquote = $this->findFirstDirectChildByTagName($node, 'blockquote');
         $pre = $this->findFirstDirectChildByTagName($node, 'pre');
         $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
 
-        if ($this->hasOnlySupportedFigureContent($node) && $img instanceof DOMElement) {
+        if ($img instanceof DOMElement) {
             $output .= $this->processImage($img) . "\n";
         } elseif ($this->hasOnlySupportedFigureContent($node) && $blockquote instanceof DOMElement) {
             $output .= $this->processBlockquote($blockquote);
@@ -7418,6 +7418,207 @@ class HtmlToCarve
         } finally {
             $node->setAttribute('class', $originalClass);
             $this->structuralClassInProgress = null;
+        }
+    }
+
+    /**
+     * The `<img>` a figure captions, found by what its body WRITES.
+     *
+     * THE DIRECT-CHILD SEARCH WAS THE DEFECT (carve-php#1672). A `<figure>`
+     * whose image sits inside a `<p>` - which is what every WYSIWYG editor
+     * produces - had no direct `<img>` child, so the whole figure fell through
+     * to {@see self::processGenericFigureContent()} and the `<figcaption>` came
+     * back as an ORDINARY PARAGRAPH beside the image. That is not a loss inside
+     * a declared ceiling: `![a](i.png)` then a blank line then `cap` re-reads as
+     * a block image and an unrelated paragraph, so the caption is bound to
+     * nothing and the document says something the HTML never said.
+     *
+     * ASK WHAT THE BODY WRITES, NOT WHAT SHAPE IT IS. A wrapper is transparent
+     * exactly when it contributes no characters of its own, and the only
+     * authority on that is the writer: `<p>`, `<picture>` and `<div>` all write
+     * their image and nothing else, so the figure's target is the image behind
+     * them. A wrapper that DOES contribute is not the shape and keeps the
+     * generic path - `<a href="u">` writes a link, `<p class="x">` writes an
+     * attribute line above the image, and unwrapping either would drop
+     * something the HTML held.
+     */
+    protected function figureImageTarget(DOMElement $node): ?DOMElement
+    {
+        $direct = $this->findFirstDirectChildByTagName($node, 'img');
+        if ($this->hasOnlySupportedFigureContent($node) && $direct instanceof DOMElement) {
+            // NOT guarded on `importImageSpelling()`. The direct spelling has
+            // written a `^` line under a target that writes no image since long
+            // before this fix, and sending it down the generic path instead
+            // makes it worse rather than better: that path writes an inline body
+            // and the caption with no separator between them, so
+            // `<figure><img src=""><figcaption>cap</figcaption></figure>` would
+            // write `acap` - one invented word - where it currently writes `a`
+            // and a stray `^ cap`. Both are additions and neither is this
+            // ticket's; the pre-existing one is left exactly as it was and filed
+            // on its own.
+            return $direct;
+        }
+
+        $body = $this->soleFigureBodyElement($node);
+        if ($body === null || strtolower($body->tagName) === 'img') {
+            return null;
+        }
+
+        $image = $this->soleImportImageDescendant($body);
+        if ($image === null) {
+            return null;
+        }
+
+        // THE WHOLE PROBE IS THE TRIAL, not just the body write. Asking an
+        // `<img>` what it writes registers a reference definition when it
+        // carries one, so the spelling question has to sit inside the trial too
+        // - see the note on `importTrialWrite()` for the dangling definition
+        // that escaped when it did not.
+        return $this->importTrialWrite(function () use ($body, $image): ?DOMElement {
+            $spelling = $this->importImageSpelling($image);
+
+            return $spelling !== null && trim($this->processNode($body)) === $spelling ? $image : null;
+        });
+    }
+
+    /**
+     * What an `<img>` writes, and `null` when what it writes is not an IMAGE.
+     *
+     * A CAPTION NEEDS SOMETHING TO BIND TO. `^ cap` attaches to the block above
+     * it, so a target that wrote no block swallows the marker as ordinary text:
+     * `<figure><img src=""><figcaption>cap</figcaption></figure>` wrote
+     * `a` then `^ cap` and re-read as ONE PARAGRAPH holding the literal
+     * characters `^ cap`. That is an ADDITION, which markup-carve/carve#1636 forbids
+     * outright - a declared ceiling covers what an import LOSES, never text it
+     * invents - so a figure whose body writes no image takes the generic path
+     * and loses the binding instead.
+     *
+     * {@see self::processImage()} has four returns and only two of them are an
+     * image: the inline `![alt](src)` and the reference `![alt][label]`. The
+     * other two write no image at all - a `src` naming no destination unwraps to
+     * the alt text, and an alt the source cannot carry falls back to raw HTML -
+     * so the prefix is the test rather than a copy of those two conditions,
+     * which would go stale the moment a third return was added.
+     */
+    protected function importImageSpelling(DOMElement $image): ?string
+    {
+        $written = trim($this->processImage($image));
+
+        return str_starts_with($written, '![') ? $written : null;
+    }
+
+    /**
+     * The figure's one content child, when it has exactly one.
+     *
+     * Whitespace between the tags is layout rather than content (PART 11 §7),
+     * and the `<figcaption>` is the caption slot rather than the body, so
+     * neither disqualifies a figure from having a single body element.
+     */
+    protected function soleFigureBodyElement(DOMElement $node): ?DOMElement
+    {
+        $body = null;
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                if (strtolower($child->tagName) === 'figcaption') {
+                    continue;
+                }
+                if ($body !== null) {
+                    return null;
+                }
+                $body = $child;
+
+                continue;
+            }
+            if ($child instanceof DOMText && trim($child->wholeText) !== '') {
+                return null;
+            }
+        }
+
+        return $body;
+    }
+
+    /**
+     * The one `<img>` in a subtree, when the subtree holds exactly one.
+     *
+     * AN EARLY EXIT, NOT A BOUND, and the distinction was measured rather than
+     * assumed: relaxing this to "the first image" changes nothing any test can
+     * see, because a body holding two images does not write one image's
+     * spelling and the comparison in {@see self::figureImageTarget()} rejects
+     * it anyway. What this saves is the trial write on a subtree that obviously
+     * cannot be the shape. The bound itself is the comparison.
+     */
+    protected function soleImportImageDescendant(DOMElement $node): ?DOMElement
+    {
+        $images = $node->getElementsByTagName('img');
+        if ($images->length !== 1) {
+            return null;
+        }
+        $image = $images->item(0);
+
+        return $image instanceof DOMElement ? $image : null;
+    }
+
+    /**
+     * Ask what a node WRITES, and leave nothing behind for having asked.
+     *
+     * A trial write is a QUESTION, not an exit, and a conversion accumulates two
+     * kinds of answer as it runs. It RECORDS the losses it takes - a lone-image
+     * paragraph, a split definition list, a dropped description, a flattened
+     * caption - which the inspection walk turns into report rows. And it
+     * COLLECTS the trailing definitions its output needs - a reference, a
+     * footnote, an abbreviation - which are written out at the end of the
+     * document. A trial that kept either would answer a question by changing the
+     * document.
+     *
+     * BOTH KINDS BIT, and the second is the worse one. Leaving a loss record
+     * behind declares a loss for a node the figure went on to unwrap, and
+     * doubles the list-shaped records when the real write follows. Leaving a
+     * definition behind is an ADDITION, which markup-carve/carve#1636 forbids outright:
+     * probing `<figure><noscript><img data-djot-ref="r"></noscript>` asked the
+     * image what it wrote, the generic path then wrote no image at all, and the
+     * conversion still emitted a dangling `[r]: g.jpg` the input never held.
+     *
+     * SO THE RULE IS MECHANICAL RATHER THAN JUDGED: everything
+     * {@see self::convert()} resets at the top of a conversion is restored here,
+     * in the same order. A state added there belongs here too, and a reader can
+     * check that by putting the two lists side by side.
+     *
+     * @template TResult
+     *
+     * @param \Closure(): TResult $ask
+     *
+     * @return TResult
+     */
+    protected function importTrialWrite(Closure $ask): mixed
+    {
+        $listDepth = $this->listDepth;
+        $inPre = $this->inPre;
+        $preserveTextWhitespace = $this->preserveTextWhitespace;
+        $referenceDefinitions = $this->referenceDefinitions;
+        $footnoteDefinitions = $this->footnoteDefinitions;
+        $noteReferenceTargets = $this->noteReferenceTargets;
+        $abbreviationDefinitions = $this->abbreviationDefinitions;
+        $abbreviationMap = $this->abbreviationMap;
+        $captionFlattenDiagnostics = $this->captionFlattenDiagnostics;
+        $splitDefinitionLists = $this->splitDefinitionLists;
+        $droppedDefinitionDescriptions = $this->droppedDefinitionDescriptions;
+        $loneImageParagraphs = $this->loneImageParagraphs;
+
+        try {
+            return $ask();
+        } finally {
+            $this->listDepth = $listDepth;
+            $this->inPre = $inPre;
+            $this->preserveTextWhitespace = $preserveTextWhitespace;
+            $this->referenceDefinitions = $referenceDefinitions;
+            $this->footnoteDefinitions = $footnoteDefinitions;
+            $this->noteReferenceTargets = $noteReferenceTargets;
+            $this->abbreviationDefinitions = $abbreviationDefinitions;
+            $this->abbreviationMap = $abbreviationMap;
+            $this->captionFlattenDiagnostics = $captionFlattenDiagnostics;
+            $this->splitDefinitionLists = $splitDefinitionLists;
+            $this->droppedDefinitionDescriptions = $droppedDefinitionDescriptions;
+            $this->loneImageParagraphs = $loneImageParagraphs;
         }
     }
 
