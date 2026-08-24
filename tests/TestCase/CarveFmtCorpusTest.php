@@ -469,11 +469,111 @@ class CarveFmtCorpusTest extends TestCase
     }
 
     /**
+     * THE §1c WRAPPER BOUND IS NARROW, pinned shape by shape.
+     *
+     * The corpus sweep below cannot show this, and that is the whole reason
+     * this test exists. `withoutBareWrappers()` is applied to BOTH sides of the
+     * comparison, so WIDENING it can only ever hide a difference, never create
+     * one: whatever extra shape it swallows, it swallows identically in the
+     * source tree and in the pinned canonical form, and the two still agree.
+     *
+     * MEASURED, not assumed. `isBareWrapper()` was mutated to ignore every key
+     * beyond `children` - so a node carrying attributes, a label or an href
+     * would dissolve and lose them - and the full 7111-test sweep stayed GREEN.
+     * That mutation is not a no-op: walking the pinned corpus with both
+     * predicates, they disagree on 1107 nodes across the 1404 documents, among
+     * them a `heading` with `attrs`, a `link` with an `href` and a `footnote`
+     * with a `label`. So the sweep says nothing whatsoever about how wide this
+     * bound is, and the near misses have to be asserted directly.
+     *
+     * Each shape below is one PART 11 §1c does not reach. The clause permits
+     * losing a WRAPPER - a node with one child and nothing of its own - because
+     * "the content, its attributes and its neighbours all survive as
+     * themselves". A node with a second key of its own has something to lose,
+     * so it is not a wrapper and its loss is a disagreement, not a ceiling.
+     *
+     * carve-rs states the same bound as a predicate over what the shape spells
+     * and pins its width the same way (markup-carve/carve-rs#1353). Both
+     * sourcings are conforming; what has to hold in either is the bound, which
+     * is what this pins.
+     */
+    public function testThePartElevenOneCWrapperBoundReachesBareWrappersAndNoOthers(): void
+    {
+        $image = ['type' => 'image', 'src' => 'a.jpg', 'alt' => 'Apollo'];
+        $dissolves = static function (array $candidate) use ($image): bool {
+            $out = self::withoutBareWrappers(['type' => 'document', 'children' => [$candidate]]);
+
+            return $out['children'][0] === $image;
+        };
+
+        // THE SHAPE THE CLAUSE REACHES: one child, and nothing of its own.
+        $this->assertTrue(
+            $dissolves(['type' => 'paragraph', 'children' => [$image]]),
+            'a bare single-child wrapper is the one loss PART 11 §1c permits',
+        );
+
+        // ATTRIBUTES ARE CONTENT. Dissolving this wrapper would take them with
+        // it, which is the opposite of "its attributes survive as themselves".
+        $this->assertFalse(
+            $dissolves(['type' => 'paragraph', 'attrs' => ['classes' => ['k']], 'children' => [$image]]),
+            'a wrapper carrying attributes is not bare: dissolving it would drop them',
+        );
+
+        // A LABEL, AN HREF, A LEVEL, A KIND, A HEADER FLAG - every one of these
+        // is a key the node owns, and every one of them is a real corpus shape
+        // the widened predicate swallowed.
+        foreach (
+            [
+                'footnote' => ['type' => 'footnote', 'label' => '1', 'children' => [$image]],
+                'link' => ['type' => 'link', 'href' => 'u', 'children' => [$image]],
+                'heading' => ['type' => 'heading', 'level' => 1, 'children' => [$image]],
+                'admonition' => ['type' => 'admonition', 'kind' => 'note', 'children' => [$image]],
+                'table_cell' => ['type' => 'table_cell', 'header' => true, 'children' => [$image]],
+            ] as $kind => $node
+        ) {
+            $this->assertFalse(
+                $dissolves($node),
+                'a ' . $kind . ' owns a key beyond its child, so it is not a wrapper §1c may dissolve',
+            );
+        }
+
+        // A SECOND NODE BESIDE IT. The clause is about a block whose WHOLE
+        // content is a single node.
+        $this->assertFalse(
+            $dissolves(['type' => 'paragraph', 'children' => [$image, ['type' => 'text', 'value' => 'x']]]),
+            'a wrapper holding a neighbour beside its child is not a lone-content block',
+        );
+
+        // NO CHILDREN AT ALL, which has no child to dissolve into.
+        $this->assertFalse(
+            $dissolves(['type' => 'paragraph', 'children' => []]),
+            'an empty block dissolves into nothing',
+        );
+
+        // THE ROOT IS NEVER DISSOLVED - it has no parent to dissolve into, and
+        // `withoutBareWrappers()` only ever rewrites a node's children.
+        $root = ['type' => 'document', 'children' => [$image]];
+        $this->assertSame($root, self::withoutBareWrappers($root), 'the root keeps its wrapper');
+    }
+
+    /**
      * parse(fmt(src)) == parse(src) - PART 11 §1's first invariant.
      *
      * There is no allowlist, and the one exemption below is NOT one: it is the
      * spec's own ceiling, and it is DERIVED from the corpus rather than listed,
      * so it cannot go stale by being forgotten.
+     *
+     * WHICH RULE THIS ENGINE FOLLOWS, so the next reader need not find the
+     * ticket. markup-carve/carve#1679 ruled on the shape of this exemption
+     * across the three engines. What is canonical is THE BOUND: only the
+     * dissolution of a bare single-child wrapper is forgiven, and every other
+     * difference between the two trees still fails the invariant. Where the
+     * exemption is SOURCED from is secondary and both sourcings conform - carve-rs
+     * states a predicate over what the shape spells, this engine derives the set
+     * from the corpus and applies the bound explicitly below. So do not
+     * "converge" this on carve-rs's spelling: the bound is the rule, and
+     * `testThePartElevenOneCWrapperBoundReachesBareWrappersAndNoOthers()` is
+     * where its width is pinned.
      *
      * PART 11 §1c (markup-carve/carve#1658) states where the invariant is
      * UNATTAINABLE rather than unmet: where a block's whole content is a single
