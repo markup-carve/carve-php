@@ -113,28 +113,66 @@ class ADefinitionContinuationIsMeasuredInColumnsTest extends TestCase
     }
 
     /**
-     * A block nests in the description whenever the run reaches column 3, and
-     * nests identically however the run is spelled.
+     * THE CLAIM IS ABOUT COLUMNS, and it is that two runs of the SAME COLUMN
+     * COUNT render identically however they are spelled - which is what
+     * markup-carve/carve#888 ruled and all this file's other assertions ask
+     * for. A tab is four columns, so it renders like four spaces and not like
+     * three.
+     *
+     * This asked for something wider: that every run reaching column 3 render
+     * identically, tab and three spaces alike. That held only while the body
+     * arrived `ltrim`ed, which threw away how far past the column a line sat -
+     * and threw away with it the number PART 9 §16's footnote body column and
+     * a nested list's own column are both measured against
+     * (markup-carve/carve-php#1650). carve-js `ba42673` renders a tab like four
+     * spaces in every row here; measured against it, the two engines now agree
+     * on all 48 combinations of these six bodies and eight runs.
      *
      * The SECOND spelling in isolation is invisible in the paragraph shape,
      * because a paragraph line that Form A rejects still folds by LAZY
      * continuation and renders the same text. A block opener does not: folded
      * lazily it keeps its indentation and comes back as paragraph text, so this
-     * is where the two spellings separate. carve-rs renders every row here the
-     * same for a tab and for three spaces.
+     * is where the two spellings separate.
+     *
+     * @return array<string, array{0: int, 1: array<string>}>
      */
-    #[DataProvider('blockBodyProvider')]
-    public function testAnIndentedBlockNestsInTheDescriptionAtColumnThree(string $body): void
+    public static function columnGroupProvider(): array
     {
-        $reference = $this->html(":: t\n:  a\n\n" . str_replace('%s', '   ', $body));
+        return [
+            'column 3' => [3, ['   ']],
+            'column 4' => [4, ['    ', "\t", " \t", "  \t", "   \t"]],
+            'column 5' => [5, ["\t "]],
+            'column 8' => [8, ["\t\t"]],
+        ];
+    }
 
-        foreach (self::reachingRunProvider() as $label => [$run]) {
-            $this->assertSame(
-                $reference,
-                $this->html(":: t\n:  a\n\n" . str_replace('%s', $run, $body)),
-                $label,
-            );
+    #[DataProvider('blockBodyProvider')]
+    public function testRunsOfTheSameColumnCountRenderIdentically(string $body): void
+    {
+        foreach (self::columnGroupProvider() as $group => [$columns, $runs]) {
+            $reference = $this->html(":: t\n:  a\n\n" . str_replace('%s', $runs[0], $body));
+            foreach ($runs as $run) {
+                $this->assertSame(
+                    $reference,
+                    $this->html(":: t\n:  a\n\n" . str_replace('%s', $run, $body)),
+                    $group . ': ' . json_encode($run),
+                );
+            }
         }
+    }
+
+    /**
+     * THE BOUND, and the row the wider claim above used to swallow: a run of
+     * exactly the content column nests the block, and one column more does not,
+     * because the extra column stays on the line and no opener is recognized
+     * behind it. Without this the change back to an `ltrim` body would pass
+     * everything else in this file.
+     */
+    public function testTheColumnItselfNestsAndOneColumnMoreDoesNot(): void
+    {
+        $this->assertStringContainsString('<h1', $this->html(":: t\n:  a\n\n   # h\n"));
+        $this->assertStringNotContainsString('<h1', $this->html(":: t\n:  a\n\n    # h\n"));
+        $this->assertStringNotContainsString('<h1', $this->html(":: t\n:  a\n\n\t# h\n"));
     }
 
     /**

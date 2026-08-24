@@ -63,27 +63,39 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: string}>
+     * AT OR PAST the column the line is the fence's content - and PAST the
+     * column it keeps the columns it wrote past it, because the body is
+     * dedented by the description's content column and by nothing more.
+     *
+     * The `past the column` row used to expect the at-the-column rendering,
+     * which needed the body to arrive `ltrim`ed. carve-js writes the residual
+     * column into the payload and never closes the fence on an indented closer,
+     * so the two rows differ there; both were compared against carve-js
+     * `ba42673` and are byte-identical to it
+     * (markup-carve/carve-php#1650).
+     *
+     * @return array<string, array{0: string, 1: string}>
      */
     public static function atOrPastTheColumnProvider(): array
     {
         return [
             'at the column' => [
                 ":: t\n:  ```\n   body\n   ```\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code>body\n</code></pre>\n  </dd>\n</dl>\n",
             ],
-            'past the column' => [
+            'past the column, keeping the column it wrote past it' => [
                 ":: t\n:  ```\n    body\n    ```\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code> body\n ```\n</code></pre>\n  </dd>\n</dl>\n",
             ],
         ];
     }
 
     #[DataProvider('atOrPastTheColumnProvider')]
-    public function testAtOrPastTheColumnTheLineIsStillTheFencesContent(string $source): void
-    {
-        $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code>body\n</code></pre>\n  </dd>\n</dl>\n",
-            $this->html($source),
-        );
+    public function testAtOrPastTheColumnTheLineIsStillTheFencesContent(
+        string $source,
+        string $expected,
+    ): void {
+        $this->assertSame($expected, $this->html($source));
     }
 
     public function testTheGuardIsOnTheOpenFenceNotOnTheMarkerLine(): void
