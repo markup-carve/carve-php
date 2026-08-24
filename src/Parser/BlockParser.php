@@ -6079,7 +6079,7 @@ class BlockParser
                     // parse, so it must not propagate up (nested-item looseness
                     // does not propagate, corpus 142). Only the outer item, which
                     // owns the blank before its own attached block, goes loose.
-                    if ($this->subContentHasLooseningBlank($subLines)) {
+                    if ($this->subContentHasLooseningBlank($subLines, false)) {
                         $list->setTight(false);
                     }
                     // Parse nested content
@@ -6364,7 +6364,7 @@ class BlockParser
                 // `- x` / blank / `  b` went loose (carve-php#681). Content at or
                 // past the sub-list's own content column still belongs to the
                 // sub-list and does not propagate its looseness outwards.
-                if ($this->subContentHasLooseningBlank($itemLines)) {
+                if ($this->subContentHasLooseningBlank($itemLines, true)) {
                     $list->setTight(false);
                 }
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
@@ -6407,7 +6407,7 @@ class BlockParser
                 // a blank inside an open CODE fence is verbatim payload and
                 // does not loosen, while a blank inside a `:::` container
                 // separates two of the container's blocks and does.
-                if ($this->subContentHasLooseningBlank($itemLines)) {
+                if ($this->subContentHasLooseningBlank($itemLines, true)) {
                     $list->setTight(false);
                 }
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
@@ -13750,9 +13750,28 @@ class BlockParser
      * opener after the blank keeps the item tight too, but a plain paragraph
      * after the blank loosens it (carve#322).
      *
+     * A CLOSED SPAN IS JUMPED OVER WHOLE, because a blank inside one is that
+     * block's own content and never a separator between the ITEM's blocks. The
+     * code fence was already skipped this way; the colon family was not, so
+     * the scan walked INTO a `:::` container and read the paragraph after its
+     * interior blank as the item's second block (markup-carve/carve#1633,
+     * markup-carve/carve-php#1657). One misattribution, and the item it
+     * loosened took its siblings loose with it.
+     *
+     * AN OPENER WITH NO CLOSER RUNS TO THE END OF THE CHUNK. An explicit
+     * closer is a spelling change tightness may not move across
+     * (markup-carve/carve#1632), so an unterminated opener gets the same span
+     * a closer on the last line would have given it.
+     *
      * @param array<string> $subLines The item's dedented sub-content lines.
+     * @param bool $sourceIsTheItemBody Whether these lines are the item's WHOLE
+     *   body rather than a chunk collected after a preceding block. A container
+     *   that is the whole body is not one block among several, so its interior
+     *   blank does separate two of the item's rendered blocks and loosens it
+     *   (markup-carve/carve#1602); the identical five lines reach this scan in
+     *   both shapes, so only the caller can tell them apart.
      */
-    protected function subContentHasLooseningBlank(array $subLines): bool
+    protected function subContentHasLooseningBlank(array $subLines, bool $sourceIsTheItemBody): bool
     {
         // The first collected sub-list marker fixes the sub-list content column;
         // content at or past it belongs to the sub-list, not this item.
@@ -13770,17 +13789,34 @@ class BlockParser
         $subCol = $firstBlockIdx === -1 ? -1 : $this->markerContentColumn($subLines[$firstBlockIdx]);
 
         $n = count($subLines);
+        // The last line that renders anything. A colon span reaching past it
+        // and starting at line 0 IS the body, rather than one block in it.
+        $lastContentIdx = -1;
+        for ($k = $n - 1; $k >= 0; $k--) {
+            if ($subLines[$k] !== '') {
+                $lastContentIdx = $k;
+
+                break;
+            }
+        }
+
         // Track fenced-code regions: a blank line INSIDE an open fence is
         // verbatim content, not an interior block separator, so it must not
         // loosen the item (carve#326 case C; matches carve-rs / carve-js).
+        //
+        // ONE STATEFUL LEFT-TO-RIGHT PASS, not one scan per line: each closed
+        // span is jumped over whole and spans never overlap, so the walk stays
+        // linear in the number of lines.
         $fenceChar = null;
         $fenceLength = 0;
-        for ($k = 0; $k < $n; $k++) {
+        $k = 0;
+        while ($k < $n) {
             $sl = $subLines[$k];
             if ($fenceChar !== null) {
                 if ($this->fencedBlockParser->isCodeFenceCloser($sl, $fenceChar, $fenceLength)) {
                     $fenceChar = null;
                 }
+                $k++;
 
                 continue;
             }
@@ -13790,10 +13826,26 @@ class BlockParser
                 $fenceChar = $opener['char'];
                 /** @var int $fenceLength */
                 $fenceLength = $opener['length'];
+                $k++;
 
                 continue;
             }
+            // THE COLON FAMILY IS ONE OPENER HERE. `parseDivFenceOpener()`
+            // answers for the bare div, the admonition and the line block
+            // alike, so the three spellings of the rule are one branch rather
+            // than three (carve-rs#1307 needed three).
+            $colon = $this->fencedBlockParser->parseDivFenceOpener($sl);
+            if ($colon !== null) {
+                $end = $this->colonSpanEndForLooseness($subLines, $k, $colon['length']);
+                if (!($sourceIsTheItemBody && $k === 0 && $end > $lastContentIdx)) {
+                    $k = $end;
+
+                    continue;
+                }
+            }
             if ($sl !== '') {
+                $k++;
+
                 continue;
             }
             $j = $k + 1;
@@ -13801,18 +13853,76 @@ class BlockParser
                 $j++;
             }
             if ($j >= $n) {
+                $k++;
+
                 continue;
             }
             if ($subCol >= 0 && IndentationHelper::getLeadingColumns($subLines[$j], $subCol) >= $subCol) {
                 // Belongs to the sub-list; its looseness is its own business.
+                $k++;
+
                 continue;
             }
             if (!$this->lineOpensBlockForLooseness($subLines[$j])) {
                 return true;
             }
+            $k++;
         }
 
         return false;
+    }
+
+    /**
+     * The line index just past a colon fence opened at `$openIdx`, for the
+     * looseness scan.
+     *
+     * The closer is an EXACT-length colon run ({@see
+     * \MarkupCarve\Carve\Parser\Block\FencedBlockParser::isDivFenceCloser()}),
+     * which is what makes the span skippable at all: a longer run below is a
+     * nested opener, not this one's end. With no closer at all everything
+     * below the opener IS its content, so the span runs to the end of the
+     * chunk - the same answer a closer written on the last line would give.
+     *
+     * A COLON RUN INSIDE VERBATIM PAYLOAD CLOSES NOTHING. This walk tracks the
+     * code fence for the same reason the caller does: a `:::` line inside a
+     * code block is that block's text, and reading it as the container's end
+     * put the span's end ABOVE the real closer - so the caller resumed on the
+     * code fence's own closing line, opened a fence there, and swallowed the
+     * item-level blank and the paragraph below the container with it.
+     *
+     * @param array<string> $subLines The item's dedented sub-content lines.
+     * @param int $openIdx The index of the opener line.
+     * @param int $fenceLength The opener's colon-run length.
+     */
+    protected function colonSpanEndForLooseness(array $subLines, int $openIdx, int $fenceLength): int
+    {
+        $n = count($subLines);
+        $fenceChar = null;
+        $fenceLen = 0;
+        for ($j = $openIdx + 1; $j < $n; $j++) {
+            $line = $subLines[$j];
+            if ($fenceChar !== null) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($line, $fenceChar, $fenceLen)) {
+                    $fenceChar = null;
+                }
+
+                continue;
+            }
+            $opener = $this->fencedBlockParser->parseCodeFenceOpener($line);
+            if ($opener !== null) {
+                /** @var string $fenceChar */
+                $fenceChar = $opener['char'];
+                /** @var int $fenceLen */
+                $fenceLen = $opener['length'];
+
+                continue;
+            }
+            if ($this->fencedBlockParser->isDivFenceCloser($line, $fenceLength)) {
+                return $j + 1;
+            }
+        }
+
+        return $n;
     }
 
     /**
