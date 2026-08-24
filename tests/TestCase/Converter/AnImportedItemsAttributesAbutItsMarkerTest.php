@@ -55,7 +55,7 @@ class AnImportedItemsAttributesAbutItsMarkerTest extends TestCase
     {
         $carve = $this->import('<ol><li id="fn1"><p>a</p><p>b</p></li></ol>');
 
-        $this->assertSame("1.{#fn1} a\n\n         b\n", $carve);
+        $this->assertSame("1.{#fn1} a\n\n   b\n", $carve);
 
         $html = $this->html($carve);
         $this->assertStringContainsString('<li id="fn1">', $html);
@@ -63,16 +63,15 @@ class AnImportedItemsAttributesAbutItsMarkerTest extends TestCase
     }
 
     /**
-     * The attributes widen the marker, so the item's CONTENT COLUMN moves with
-     * it. Writing the abutted marker without moving the continuation lines to
-     * match dedents the item's later blocks straight out of the list.
+     * Attributes are metadata, so the ordered marker alone fixes the content
+     * column regardless of the attribute spelling.
      */
-    public function testTheContentColumnMovesWithTheWidenedMarker(): void
+    public function testTheContentColumnUsesTheBareMarker(): void
     {
         $carve = $this->import('<ol><li id="fn1"><p>a</p><p>b</p></li></ol>');
         $lines = explode("\n", $carve);
 
-        $this->assertSame(strlen('1.{#fn1} '), strlen($lines[2]) - strlen(ltrim($lines[2])));
+        $this->assertSame(strlen('1. '), strlen($lines[2]) - strlen(ltrim($lines[2])));
     }
 
     /**
@@ -115,7 +114,7 @@ class AnImportedItemsAttributesAbutItsMarkerTest extends TestCase
     {
         $carve = $this->import('<ul><li id="o"><ul><li>a</li><li>b</li></ul></li></ul>');
 
-        $this->assertSame("-{#o} - a\n      - b\n", $carve);
+        $this->assertSame("-{#o} - a\n  - b\n", $carve);
 
         $html = $this->html($carve);
         $this->assertStringContainsString('<li id="o">', $html);
@@ -126,17 +125,14 @@ class AnImportedItemsAttributesAbutItsMarkerTest extends TestCase
     }
 
     /**
-     * A SUBLIST BELOW THE ITEM'S OWN TEXT reaches the widened content column
-     * too. A bullet's content column is two - the checkbox is content, not
-     * marker - plus whatever the attributes added to the marker itself; left at
-     * two, the sublist sits at column two and dedents out of the attributed
-     * item into a list of its own.
+     * A sublist below the item's own text reaches the bare bullet's column 2;
+     * the item attributes do not alter its containment.
      */
-    public function testASublistBelowTheItemsTextReachesTheWidenedColumn(): void
+    public function testASublistBelowTheItemsTextReachesTheBareMarkerColumn(): void
     {
         $carve = $this->import('<ul><li id="o">a<ul><li>b</li></ul></li></ul>');
 
-        $this->assertSame("-{#o} a\n\n      - b\n", $carve);
+        $this->assertSame("-{#o} a\n\n  - b\n", $carve);
         $this->assertStringContainsString('<li id="o">a', $this->html($carve));
         $this->assertSame(2, substr_count($this->html($carve), '<ul>'));
     }
@@ -167,7 +163,7 @@ class AnImportedItemsAttributesAbutItsMarkerTest extends TestCase
     {
         $carve = $this->import('<ol><li title="a}b"><p>x</p><p>y</p></li></ol>');
 
-        $this->assertSame("1.{title=\"a}b\"} x\n\n" . str_repeat(' ', 16) . "y\n", $carve);
+        $this->assertSame("1.{title=\"a}b\"} x\n\n   y\n", $carve);
 
         $html = $this->html($carve);
         $this->assertStringContainsString('<li title="a}b">', $html);

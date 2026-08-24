@@ -79,19 +79,20 @@ class ListContentColumns
         while (true) {
             if (
                 preg_match(
-                    '/^([ \t]*)(?:[-*]|\.|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)])(?:\{[^}]*\})? +/',
+                    '/^([ \t]*)((?:[-*]|\.|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)]))(?:\{[^}]*\})? +/',
                     $rest,
                     $markerMatch,
                 ) === 1
             ) {
-                $markerWidth = strlen($markerMatch[0]);
-                if (preg_match('/' . StringUtil::NON_WHITESPACE_CLASS . '/', substr($rest, $markerWidth)) !== 1) {
+                $headBytes = strlen($markerMatch[0]);
+                if (preg_match('/' . StringUtil::NON_WHITESPACE_CLASS . '/', substr($rest, $headBytes)) !== 1) {
                     break;
                 }
                 $this->popDeeperThan($consumed + strlen($markerMatch[1]));
-                $consumed += $markerWidth;
+                // Attribute text is metadata and moves no semantic column.
+                $consumed += strlen($markerMatch[1]) + strlen($markerMatch[2]) + 1;
                 $this->columns[] = ['column' => $consumed, 'quoteDepth' => $quoteDepth];
-                $rest = substr($rest, $markerWidth);
+                $rest = substr($rest, $headBytes);
                 $sawMarker = true;
 
                 continue;

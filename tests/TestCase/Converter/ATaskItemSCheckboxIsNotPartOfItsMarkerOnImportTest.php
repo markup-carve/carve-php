@@ -93,23 +93,12 @@ class ATaskItemSCheckboxIsNotPartOfItsMarkerOnImportTest extends TestCase
     }
 
     /**
-     * Item attributes DO widen the marker, so they DO move the column: `-{#k} `
-     * is six wide and the ten of `-{#k} [x] ` is not the column. A fix that
-     * pinned every task item at 2 would move this one.
-     *
-     * ONLY THE WRITTEN COLUMN IS ASSERTED HERE, deliberately. The three engines'
-     * READERS do not agree what `-{#k} [x] `'s content column is - carve-js
-     * reads 6, this engine and carve-rs read 2 - so this shape does not
-     * round-trip here whichever column is written, and it did not before this
-     * fix either (it was written at 10 and lost the same way). That divergence
-     * is a parser question, filed separately; it is not what this fix decides,
-     * and asserting a round-trip here would pin a reading this engine does not
-     * have.
+     * Item metadata and checkbox content leave the bare bullet at column 2.
      */
-    public function testItemAttributesStillWidenTheColumn(): void
+    public function testItemAttributesDoNotWidenTheColumn(): void
     {
         $this->assertSame(
-            "-{#k} [x] {#h}\n      # h\n",
+            "-{#k} [x] {#h}\n  # h\n",
             $this->importer->convert(
                 "<ul>\n  <li id=\"k\"><input type=\"checkbox\" checked disabled> \n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
             ),

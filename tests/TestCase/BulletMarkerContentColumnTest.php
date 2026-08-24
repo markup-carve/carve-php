@@ -20,26 +20,9 @@ use PHPUnit\Framework\TestCase;
  * are what carve-js and carve-rs do - every expectation below was measured
  * against those two engines before being pinned here.
  *
- * THE ONE PART OF A TASK'S HEAD THAT DOES MOVE THE COLUMN is an abutting
- * attribute block (markup-carve/carve#1692), and the grammar says why. PART 9
- * §15 A8: "a `-{…} text` with no space after the marker attributes the LIST
- * ITEM"; `docs/divergence-from-djot.md` §17 puts it in as many words - "the
- * attribute block binds to the MARKER". Part of the marker counts toward the
- * marker's width, so `-{#k} [x] a` has its content column at 6 - the width of
- * `-{#k} ` - and not at 2.
- *
- * Djot settles nothing here, which is the first thing a reader asks. It has no
- * such construct: `-{#k} [x] item` is a PARAGRAPH there, the `{#k}` an inline
- * attribute on a literal `-`, and a djot list is attributed through a preceding
- * attribute line that attaches to the LIST rather than to an item. §17 records
- * Carve's marker-glued form as a deliberate extension and a source break.
- *
- * Pinning the whole head at 2 treated the block as though it were not there,
- * which puts the column INSIDE it - a place no content can begin. This file
- * stated that constant, so the expectations below moved with the parser rather
- * than being edited to agree with it. Each engine used to read exactly one of
- * the two spellings as a continuation and they disagreed about which, so both
- * are pinned here and in corpus category 413.
+ * An abutting attribute block is item metadata and moves no column
+ * (markup-carve/carve#1701). Its spelling and Unicode encoding cannot turn a
+ * presentational edit into a structural one (markup-carve/carve#1698).
  */
 class BulletMarkerContentColumnTest extends TestCase
 {
@@ -113,40 +96,45 @@ class BulletMarkerContentColumnTest extends TestCase
     }
 
     /**
-     * An abutting attribute block is marker, not content, so it DOES move the
-     * column: `-{#k} ` is six wide and the checkbox begins there.
+     * An abutting attribute block is item metadata, so the bare bullet keeps
+     * the content at column 2.
      */
-    public function testAttributeBlockMovesATaskItemsContentColumn(): void
+    public function testAttributeBlockDoesNotMoveATaskItemsContentColumn(): void
     {
         $this->assertHtml(
             "<ul>\n  <li id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
-            "-{#k} [x] a\n      # h\n",
-        );
-    }
-
-    /**
-     * The other spelling, pinned beside the first rather than instead of it.
-     * Column 2 is where the bare-bullet reading put the column, which is inside
-     * the attribute block; below the real content column the line is lazy
-     * paragraph text, so the `#` survives literally.
-     */
-    public function testBelowThatColumnATaskItemsContinuationStaysLiteral(): void
-    {
-        $this->assertHtml(
-            "<ul>\n  <li id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"a # h\"> a\n# h</li>\n</ul>",
             "-{#k} [x] a\n  # h\n",
         );
     }
 
     /**
-     * The block moves the column for a plain item too, exactly as it always
-     * has - the neighbour a task-only fix must not disturb.
+     * The former full-prefix spelling is now past the content column. The line
+     * is lazy paragraph text, so the `#` survives literally.
      */
-    public function testAttributeBlockMovesAPlainItemsContentColumn(): void
+    public function testTheFormerFullPrefixColumnStaysLiteral(): void
+    {
+        $this->assertHtml(
+            "<ul>\n  <li id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"a # h\"> a\n# h</li>\n</ul>",
+            "-{#k} [x] a\n      # h\n",
+        );
+    }
+
+    /**
+     * Plain items use the same metadata-transparent rule.
+     */
+    public function testAttributeBlockDoesNotMoveAPlainItemsContentColumn(): void
     {
         $this->assertHtml(
             "<ul>\n  <li id=\"k\">a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
-            "-{#k} a\n      # h\n",
+            "-{#k} a\n  # h\n",
+        );
+    }
+
+    public function testUnicodeAttributeValueMovesNoColumn(): void
+    {
+        $this->assertHtml(
+            "<ul>\n  <li title=\"😀\">a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
+            "-{title=\"😀\"} a\n  # h\n",
         );
     }
 

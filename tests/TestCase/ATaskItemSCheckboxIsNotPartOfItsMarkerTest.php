@@ -80,20 +80,11 @@ class ATaskItemSCheckboxIsNotPartOfItsMarkerTest extends TestCase
     }
 
     /**
-     * Item attributes DO move the column, because they are marker. `-{#k} ` is
-     * six wide, so the content column is 6 - not the ten `-{#k} [x] ` occupies.
-     *
-     * ONLY THE WRITTEN COLUMN IS ASSERTED, deliberately. The engines' READERS
-     * do not agree what `-{#k} [x] `'s content column is - carve-js reads 6,
-     * this engine and carve-rs read 2 - so the heading below is paragraph text
-     * here whichever column is written, and it was before this fix too (it was
-     * written at 10 and read the same way). That divergence is a parser
-     * question, filed separately; asserting a round-trip here would pin a
-     * reading this engine does not have.
+     * Attributes are metadata and the checkbox is content; neither moves column 2.
      */
-    public function testCountsItemAttributesIntoTheColumnAndTheCheckboxOutOfIt(): void
+    public function testCountsNeitherItemAttributesNorTheCheckboxIntoTheColumn(): void
     {
-        $this->assertHolds("-{#k} [x] {#h}\n      # h\n");
+        $this->assertHolds("-{#k} [x] {#h}\n  # h\n");
     }
 
     /**

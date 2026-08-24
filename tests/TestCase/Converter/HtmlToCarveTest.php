@@ -65,15 +65,15 @@ class HtmlToCarveTest extends TestCase
     /**
      * Attributes go ON the marker (`-{.x} - a`), because the line below is now
      * the nested list's own second item - an attribute line there would attach
-     * to that item instead. The marker gets wider, so the content column moves
-     * with it or the rest of the list dedents into a list of its own.
+     * to that item instead. The metadata does not widen the bare bullet's
+     * content column.
      */
     public function testAnAttributedItemHoldingOnlyANestedListKeepsBoth(): void
     {
         $html = '<ul><li class="x"><ul><li>a</li><li>b</li></ul></li></ul>';
         $carve = $this->converter->convert($html);
 
-        $this->assertSame("-{.x} - a\n      - b\n", $carve);
+        $this->assertSame("-{.x} - a\n  - b\n", $carve);
         // The attribute survives AND the nesting does - the failure this
         // guards against kept one and lost the other.
         $this->assertSame(
