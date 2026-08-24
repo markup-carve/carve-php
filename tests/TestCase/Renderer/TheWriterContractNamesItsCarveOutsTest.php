@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Image;
@@ -164,6 +165,217 @@ class TheWriterContractNamesItsCarveOutsTest extends TestCase
                 true,
             ],
         ];
+    }
+
+    /**
+     * THE THIRD CARVE-OUT, and it is the one that shows why PART 11 section 1c
+     * is written over the PROPERTY rather than over the image (carve-php#1678).
+     *
+     * A block whose whole content is one COMMENT writes the comment's own
+     * spelling, which reads back as the block comment - the wrapper is lost
+     * exactly as it is for the image, and the writer neither throws nor
+     * reports. carve-rs took the same
+     * correction in markup-carve/carve-rs#1338 and carve-js in
+     * markup-carve/carve-js#1433.
+     *
+     * WHY THE SWEEP ABOVE COULD NOT HAVE FOUND IT. That sweep imports twenty
+     * single-child paragraphs through `HtmlToCarve`, and no HTML builds
+     * `paragraph[comment]` - so the shape was never in it. A carve-out list
+     * derived from what an import happens to produce is derived from the wrong
+     * thing, which is why the clause is normative: the list can then be STATED
+     * instead of discovered.
+     *
+     * THE SHAPE IS LIFTED FROM SOURCE RATHER THAN HAND-ASSEMBLED, so a parser
+     * change that stopped producing an inline comment fails here loudly instead
+     * of leaving a fixture that silently tests a different tree.
+     */
+    public function testABlockHoldingOneCommentIsTheThirdCarveOut(): void
+    {
+        $paragraph = (new CarveConverter())->parse('zz %% c')->getChildren()[0];
+        $this->assertInstanceOf(Paragraph::class, $paragraph);
+        $lifted = array_values(array_filter(
+            $paragraph->getChildren(),
+            static fn (object $node): bool => $node instanceof Comment,
+        ));
+        $this->assertCount(
+            1,
+            $lifted,
+            'no inline comment to lift - the fixture no longer builds the shape it is about',
+        );
+
+        $document = new Document();
+        $only = new Paragraph();
+        $only->appendChild($lifted[0]);
+        $document->appendChild($only);
+
+        // Refusing would break an editor's round trip on a tree this engine's
+        // other renderers accept, which is the reason the ruling declined it.
+        $written = (new CarveRenderer())->render($document);
+
+        $this->assertSame("%% c\n", $written);
+        $this->assertSame(
+            [Comment::class],
+            array_map(
+                static fn (object $node): string => $node::class,
+                (new CarveConverter())->parse($written)->getChildren(),
+            ),
+            'the wrapper is lost and the content spells the block',
+        );
+
+        // THE TICKET'S OWN MEASUREMENT, which writes two spaces after the marker
+        // because the payload it hands the node carries a leading space of its
+        // own. Pinned beside the lifted shape so that second space is visibly
+        // the content's rather than something the writer added - a reader
+        // comparing the two otherwise has to guess which.
+        $handBuilt = new Document();
+        $wrapper = new Paragraph();
+        $wrapper->appendChild(new Comment(' c'));
+        $handBuilt->appendChild($wrapper);
+
+        $this->assertSame("%%  c\n", (new CarveRenderer())->render($handBuilt));
+        $this->assertSame(
+            [Comment::class],
+            array_map(
+                static fn (object $node): string => $node::class,
+                (new CarveConverter())->parse((new CarveRenderer())->render($handBuilt))->getChildren(),
+            ),
+        );
+    }
+
+    /**
+     * THE EVERY-INDENT HALF, and it is what shows the clause is not a rule about
+     * indentation. `%%` opens a block comment at EVERY column, so unlike the
+     * image there is no top-level escape to reach for at all - a writer could
+     * not preserve this wrapper by indenting even if the ruling had allowed it.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function commentIndentProvider(): array
+    {
+        return [
+            'at column 0' => ['%% c'],
+            'indented one space' => [' %% c'],
+            'indented three spaces' => ['   %% c'],
+            'indented seven spaces' => ['       %% c'],
+        ];
+    }
+
+    #[DataProvider('commentIndentProvider')]
+    public function testNoIndentSpellsAParagraphHoldingOneComment(string $carve): void
+    {
+        $children = (new CarveConverter())->parse($carve)->getChildren();
+
+        $this->assertCount(1, $children);
+        $this->assertInstanceOf(Comment::class, $children[0]);
+        $this->assertNotInstanceOf(Paragraph::class, $children[0]);
+    }
+
+    /**
+     * THE NEAR MISS. A rule read as "a paragraph holding a comment is dropped"
+     * passes the case above and fails here: a comment SHARING its run is a
+     * paragraph the source can spell, and it comes back as one.
+     */
+    public function testAParagraphTheCommentSharesKeepsItsWrapper(): void
+    {
+        $document = (new CarveConverter())->parse('zz %% c');
+        $written = (new CarveRenderer())->render($document);
+
+        $this->assertSame(
+            [Paragraph::class],
+            array_map(
+                static fn (object $node): string => $node::class,
+                (new CarveConverter())->parse($written)->getChildren(),
+            ),
+            $written,
+        );
+    }
+
+    /**
+     * AND THE CONTRACT SAYS SO, which is the half that makes the amendment
+     * load-bearing rather than decoration. A declaration nothing reads rots the
+     * moment the behavior moves, which is how the list came to be missing a
+     * shape in the first place.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function contractTextProvider(): array
+    {
+        return [
+            'names the comment carve-out' => ['A BLOCK WHOSE WHOLE CONTENT IS ONE COMMENT'],
+            'cites the clause that rules it' => ['PART 11 section 1c'],
+            'states the rule over the PROPERTY rather than the node type' => [
+                'read back as a block opener of that node\'s kind',
+            ],
+            'bounds the sweep to what the importer can build' => [
+                'THE ONLY ONE THE IMPORTER CAN BUILD',
+            ],
+            'says where the unbuildable shapes come from instead' => [
+                'hand-built or ingested tree',
+            ],
+        ];
+    }
+
+    /**
+     * The class docblock, with its line furniture taken off.
+     *
+     * NORMALIZED, BECAUSE A DOCBLOCK WRAPS. A phrase that reads as one sentence
+     * in the source is split by the block's own line furniture wherever the line
+     * ended, so a literal
+     * `assertStringContainsString` against the raw text fails on a sentence that
+     * is present - and would pass again the moment an unrelated reflow moved the
+     * break. That is a check whose answer depends on the margin rather than on
+     * the content.
+     */
+    private function contract(): string
+    {
+        $source = (string)file_get_contents(dirname(__DIR__, 3) . '/src/Renderer/CarveRenderer.php');
+        $end = strpos($source, 'class CarveRenderer implements');
+        $this->assertNotFalse($end, 'the class declaration moved; this test can no longer find the contract');
+        $start = strrpos(substr($source, 0, $end), '/**');
+        $this->assertNotFalse($start);
+
+        return $this->unwrapped(substr($source, (int)$start, $end - (int)$start));
+    }
+
+    /**
+     * One line, with the docblock's leading `*` and every run of whitespace gone.
+     */
+    private function unwrapped(string $text): string
+    {
+        return (string)preg_replace('/\s+/', ' ', (string)preg_replace('/^\s*\*\s?/m', '', $text));
+    }
+
+    #[DataProvider('contractTextProvider')]
+    public function testTheContractTextNamesTheThirdCarveOut(string $phrase): void
+    {
+        $this->assertStringContainsString($phrase, $this->contract());
+    }
+
+    /**
+     * AND IT NEVER RESTATES THE INVARIANT UNQUALIFIED. The original sentence,
+     * standing alone, is the absolute markup-carve/carve#1658 was about; it may
+     * appear only where a carve-out is named in the same breath.
+     */
+    public function testTheInvariantIsNeverRestatedWithoutItsCarveOuts(): void
+    {
+        $source = $this->unwrapped(
+            (string)file_get_contents(dirname(__DIR__, 3) . '/src/Renderer/CarveRenderer.php'),
+        );
+        $absolute = 're-reads as what it was given';
+
+        $offset = 0;
+        $found = 0;
+        while (($at = strpos($source, $absolute, $offset)) !== false) {
+            $found++;
+            $this->assertMatchesRegularExpression(
+                '/carve-out|section 1c|EXCEPT/',
+                substr($source, $at, 300),
+                'the invariant is restated with no carve-out beside it',
+            );
+            $offset = $at + 1;
+        }
+
+        $this->assertGreaterThan(0, $found, 'the contract no longer states its invariant at all');
     }
 
     #[DataProvider('normalizedProvider')]
