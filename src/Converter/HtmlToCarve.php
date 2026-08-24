@@ -5442,7 +5442,7 @@ class HtmlToCarve
                         if ($childTag === 'ul' || $childTag === 'ol') {
                             // Process nested list separately
                             $nestedContent .= $this->processNode($liChild);
-                        } elseif ($childTag === 'input' && $liChild->getAttribute('type') === 'checkbox') {
+                        } elseif ($childTag === 'input' && $this->isCheckboxInput($liChild)) {
                             // Skip checkbox inputs (handled via $checkbox prefix)
                             continue;
                         } elseif ($isTaskList && $childTag === 'label' && trim($liChild->textContent) === '') {
@@ -5943,13 +5943,34 @@ class HtmlToCarve
             if (
                 $child instanceof DOMElement
                 && strtolower($child->tagName) === 'input'
-                && $child->getAttribute('type') === 'checkbox'
+                && $this->isCheckboxInput($child)
             ) {
                 return $child;
             }
         }
 
         return null;
+    }
+
+    /**
+     * `type` on an `<input>` is an ENUMERATED attribute, and HTML matches an
+     * enumerated keyword ASCII case-insensitively: `<input type="CHECKBOX">` is
+     * a checkbox to every browser, and so is `Checkbox`. Compared exactly, a
+     * real task list imported as an ordinary bullet list and the task state
+     * left the document with nothing said.
+     *
+     * `strtolower()` is the ASCII fold this wants: since PHP 8.2 it is
+     * locale-independent and converts only `A-Z`, which is exactly the rule
+     * HTML states. A Unicode-aware fold would additionally read `CHEC`
+     * + U+212A KELVIN SIGN + `BOX` as the keyword, which no browser does.
+     *
+     * @param \DOMElement $input The `<input>` element to test.
+     *
+     * @return bool Whether it is a checkbox.
+     */
+    protected function isCheckboxInput(DOMElement $input): bool
+    {
+        return strtolower($input->getAttribute('type')) === 'checkbox';
     }
 
     /**
@@ -5961,7 +5982,7 @@ class HtmlToCarve
         foreach ($li->childNodes as $child) {
             // Skip checkbox inputs in task lists
             if ($isTaskList && $child instanceof DOMElement) {
-                if ($child->tagName === 'input' && $child->getAttribute('type') === 'checkbox') {
+                if ($child->tagName === 'input' && $this->isCheckboxInput($child)) {
                     continue;
                 }
             }
