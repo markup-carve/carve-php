@@ -586,7 +586,7 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'dd' && !$this->hasImportContentToUnwrap($node)) {
+        if ($tag === 'dd' && $this->definitionDescriptionIsDropped($path)) {
             // A DECLARED LOSS IS A CEILING, NOT A LICENCE
             // (`docs/html-import.md`). Carve has no spelling for an empty
             // definition description - every candidate leaks a colon into
@@ -2153,6 +2153,7 @@ class HtmlToCarve
         $this->abbreviationMap = [];
         $this->captionFlattenDiagnostics = [];
         $this->splitDefinitionLists = [];
+        $this->droppedDefinitionDescriptions = [];
 
         // Wrap in a single root element unless the input is already a full
         // document. Only a leading <!doctype>/<html>/<body> counts as a root:
@@ -2503,6 +2504,29 @@ class HtmlToCarve
      * @var array<string, true>
      */
     protected array $splitDefinitionLists = [];
+
+    /**
+     * The `<dd>` elements this conversion dropped for writing nothing.
+     *
+     * THE SAME RECORD FOR THE SAME REASON as {@see self::$splitDefinitionLists}
+     * above, and it was missing for the row that sits next to that one. The
+     * `structure-unspellable` row asked `hasImportContentToUnwrap()`, which
+     * answers what a `<dd>` HOLDS, while the writer that drops it answers what
+     * it WRITES. Those disagree on exactly the two shapes the split record's
+     * own comment names: `<dd><p> </p></dd>` and `<dd><ul></ul></dd>` both hold
+     * an element and both write nothing, so both were dropped with no row.
+     *
+     * `docs/html-import.md`'s "a declared loss is a ceiling, not a licence"
+     * makes the row the thing that PERMITS the drop, so an undeclared drop is
+     * the half the ceiling does not cover - which is the reasoning that added
+     * this row in the first place (carve-php#1615).
+     *
+     * Keyed by path for the reason the split record is: `convertWithReport()`
+     * inspects a SECOND parse, so no node object is shared between the passes.
+     *
+     * @var array<string, true>
+     */
+    protected array $droppedDefinitionDescriptions = [];
 
     private function conversionNodePath(DOMElement $node): string
     {
@@ -6274,6 +6298,11 @@ class HtmlToCarve
                     // `<dd>` whose only child renders to a non-breaking space
                     // writes `:` and three spaces, which round-trips exactly,
                     // so it is not this case and keeps its line.
+                    //
+                    // RECORDED HERE so the row that declares the drop is
+                    // decided by the writer that made it. See
+                    // {@see self::$droppedDefinitionDescriptions}.
+                    $this->droppedDefinitionDescriptions[$this->conversionNodePath($child)] = true;
                     $pendingBreak = true;
 
                     continue;
@@ -6304,6 +6333,19 @@ class HtmlToCarve
     protected function definitionListSplits(string $path): bool
     {
         return isset($this->splitDefinitionLists[$path]);
+    }
+
+    /**
+     * Did writing this `<dd>` drop it for writing nothing?
+     *
+     * Read off the writer's own record, for the reason
+     * {@see self::definitionListSplits()} is: the question is about the
+     * RENDERED description, and a DOM-shaped predicate answers it differently
+     * from the writer on `<dd><p> </p></dd>` and `<dd><ul></ul></dd>`.
+     */
+    protected function definitionDescriptionIsDropped(string $path): bool
+    {
+        return isset($this->droppedDefinitionDescriptions[$path]);
     }
 
     /**
