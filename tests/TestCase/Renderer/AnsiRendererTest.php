@@ -31,16 +31,20 @@ class AnsiRendererTest extends TestCase
         $this->assertStringContainsString('Heading 2', $output);
     }
 
-    public function testBlockquoteBlockImageHasNoQuoteBar(): void
+    public function testBlockquoteBlockImageKeepsQuoteBar(): void
     {
-        // A bare block image is a block-level element (like a heading), so it
-        // does NOT take the blockquote `│` prefix - matching carve-js/carve-rs
-        // and the heading/code precedent.
+        // INVERTED by markup-carve/carve#1689. This asserted the opposite - that a
+        // promoted block image takes no bar, "like a heading", on the strength of
+        // carve-js/carve-rs doing the same. That was a statement about three
+        // implementations, not about a rule: the bar reports CONTAINMENT, not node
+        // kind, and this image is inside the quote in the HTML.
+        //
+        // The heading/code precedent it appealed to was itself the same accident -
+        // those blocks had no bar only because no render method asked for one.
         $doc = $this->converter->parse('> ![a](/u)');
         $output = preg_replace('/\033\[[0-9;]*m/', '', $this->renderer->render($doc));
 
-        $this->assertSame('[img: a]', trim((string)$output));
-        $this->assertStringNotContainsString('│', (string)$output);
+        $this->assertSame('│ [img: a]', trim((string)$output));
     }
 
     public function testBlockquoteIndentedImageParagraphKeepsQuoteBar(): void
