@@ -742,6 +742,25 @@ class CarveCorpusTest extends TestCase
         // markup-carve/carve#1631: a footnote continuation survives a blank
         // run, landed as carve-php#1651. The bump found no reader defect here.
         'a-footnote-continuation-survives-a-blank-run',
+        // The bump to carve be6936d. Two categories, six documents, and every
+        // one renders byte-identically to its pinned HTML here - the reader work
+        // they name landed first, as carve-php#1683.
+        //
+        // markup-carve/carve#1660 and #1662: a lone INDENTED image is a
+        // paragraph, and its HTML cannot say so - both spellings emit the bare
+        // `<img>` the column-0 form emits, so the distinction lives in the tree
+        // and nowhere else. markup-carve/carve#1673 adds the two `.fmt` sidecars
+        // recording the canonical bytes, which is where the distinction is
+        // spent: the canonical form dedents to column 0 and the wrapper is lost,
+        // the PART 11 §1c ceiling `CarveFmtCorpusTest` now pins in both
+        // directions.
+        'a-lone-indented-image-is-a-paragraph-and-its-html-cannot-say-so',
+        // markup-carve/carve#1666: a lone REFERENCE image at column 0 in every
+        // spelling - full, collapsed and direct all reach the standalone image,
+        // with the UNRESOLVED reference as the counter-case that stays a
+        // paragraph of literal text. Already answered here; rendered and
+        // compared per document before listing.
+        'a-lone-reference-image-at-column-0-in-every-spelling',
     ];
 
     /**
