@@ -5427,8 +5427,12 @@ class HtmlToCarve
                 $liAttrs = $this->getElementAttributes($child, $liSkipAttrs);
                 $attrToken = $liAttrs !== '' ? '{' . $liAttrs . '}' : '';
 
+                $barePrefix = $isOrdered
+                    ? $this->orderedListMarkerText($counter, $olType) . $marker . ' '
+                    : $marker . ' ';
+                $markerWidth = strlen($barePrefix);
                 $prefix = $isOrdered
-                    ? $this->orderedListMarkerText($counter, $olType) . $marker . $attrToken . ' '
+                    ? rtrim($barePrefix) . $attrToken . ' '
                     : $marker . $attrToken . ' ' . $checkbox;
 
                 // Process list item content, separating nested lists from other content
@@ -5467,8 +5471,8 @@ class HtmlToCarve
 
                 $this->flushListItemInlineBuffer($contentParts, $inlineBuffer);
 
-                // The attributes widen the marker, so the item's content column
-                // moves with it and every continuation line follows.
+                // Attributes are metadata and do not widen the bare marker's
+                // content column (markup-carve/carve#1701).
                 //
                 // A TASK ITEM'S `[x] ` DOES NOT. The checkbox is CONTENT, which
                 // the reader consumes as the item's task state, so it leaves the
@@ -5484,7 +5488,7 @@ class HtmlToCarve
                 // AST writer holds the first, in CarveRenderer::renderList();
                 // the importer writes source directly and so has to say it
                 // again. Both were wrong the same way (carve-php#1693).
-                $continuation = $indent . str_repeat(' ', strlen($prefix) - strlen($checkbox));
+                $continuation = $indent . str_repeat(' ', $markerWidth);
 
                 // An item whose ONLY content is a nested list puts that list
                 // on the marker line, and the nested block below skips its
@@ -5538,10 +5542,7 @@ class HtmlToCarve
                 // task checkbox is content, not marker, so a task/bullet item's
                 // content column stays two.
                 if ($nestedContent !== '') {
-                    // A bullet's content column is two - the checkbox is
-                    // content, not marker - plus whatever the attributes added
-                    // to the marker itself.
-                    $markerWidth = $isOrdered ? strlen($prefix) : 2 + strlen($attrToken);
+                    // Attributes and the task checkbox add no marker width.
                     $surplus = $markerWidth - 2;
                     if ($surplus > 0) {
                         $pad = str_repeat(' ', $surplus);
@@ -5561,18 +5562,6 @@ class HtmlToCarve
                         // would attach to that item instead of this one. The
                         // prefix already carries them, ahead of any checkbox.
                         $output .= $indent . $prefix . $firstNested . "\n";
-                        // Attributes widen the marker, and the content column
-                        // moves with it. Without this the following lines sit
-                        // at the UNattributed column and dedent out of the
-                        // item, splitting the nested list off into its own.
-                        $attrSurplus = strlen($prefix) - $markerWidth;
-                        if ($attrSurplus > 0) {
-                            $attrPad = str_repeat(' ', $attrSurplus);
-                            $nestedLines = array_map(
-                                static fn (string $line): string => $line === '' ? '' : $attrPad . $line,
-                                $nestedLines,
-                            );
-                        }
                         foreach ($nestedLines as $line) {
                             $output .= $line === '' ? "\n" : $line . "\n";
                         }

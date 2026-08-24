@@ -1746,6 +1746,7 @@ class CarveRenderer implements RendererInterface
                 } else {
                     $prefix = $bullet . ' ';
                 }
+                $continuationWidth = $node->getListType() === ListBlock::TYPE_ORDERED ? strlen($prefix) : 2;
 
                 $itemAttrs = $this->renderAttrs($item);
                 if ($itemAttrs !== '') {
@@ -1781,13 +1782,8 @@ class CarveRenderer implements RendererInterface
                 $lines = $content === '' ? [''] : explode("\n", $content);
                 $first = array_shift($lines);
                 $out .= $prefix . ($first === '' ? '+' : $first) . "\n";
-                // A TASK ITEM'S `[x] ` IS CONTENT, NOT MARKER, so it does not
-                // move the item's content column and the continuation must not
-                // be indented past it. `- [x] ` is six characters wide and its
-                // content column is 2, the width of `- ` alone; `-{#k} [x] ` is
-                // ten and its content column is 6. Every non-task marker's
-                // content column IS its width, which is why the two only diverge
-                // once a checkbox widens the marker - and why this stayed unseen.
+                // A task checkbox is content and item attributes are metadata;
+                // neither moves the bare marker's content column (carve#1701).
                 //
                 // Writing the continuation at the marker's full width put every
                 // block after the item's first, four columns too far in, where an
@@ -1798,14 +1794,7 @@ class CarveRenderer implements RendererInterface
                 // `144-nested-item-looseness-does-not-propagate-to-the-outer-item-3`
                 // - are all task items, and carve-js fixed the same site in
                 // carve-js#1455.
-                //
-                // The prefix ENDS with the task marker in every branch that
-                // writes one, so subtracting its width is the item's content
-                // column in both shapes, with and without item attributes.
-                $taskMarker = $node->getListType() !== ListBlock::TYPE_ORDERED && $item->isTask()
-                    ? '[' . ($item->isCompleted() ? 'x' : ' ') . '] '
-                    : '';
-                $continuation = str_repeat(' ', strlen($prefix) - strlen($taskMarker));
+                $continuation = str_repeat(' ', $continuationWidth);
                 foreach ($lines as $line) {
                     // A BLANK continuation line stays blank: indenting it emits a
                     // whitespace-only line, which the writer never may

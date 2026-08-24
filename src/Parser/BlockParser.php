@@ -14038,14 +14038,10 @@ class BlockParser
      * The marker width of a list item, i.e. the column its content starts at
      * relative to the marker's own indent.
      *
-     * ORDERED and BULLET markers are MEASURED, so `- item` puts its content
-     * at 4 and `10. item` at 4. A TASK item is its BULLET plus any abutting
-     * attribute block: the checkbox is content, not marker, and extra spaces
-     * before it do not move the column either, so a bullet padded out in front
-     * of its checkbox still has its content column at 2 - while
-     * `-{#k} [ ] item` has it at 6. That is not an accident of this parser, it
-     * is what carve-js and carve-rs both do, and the three engines are pinned
-     * together by the corpus.
+     * ORDERED and BULLET markers are measured without item metadata. An
+     * abutting attribute block contributes zero, as does a task checkbox:
+     * `-{#k} [ ] item` and `- item` both put the body at column 2
+     * (markup-carve/carve#1701, #1698).
      *
      * One helper rather than a copy per call site: the width is consulted by
      * the list parser, by the implicit-heading pre-scan and by the looseness
@@ -14068,28 +14064,16 @@ class BlockParser
     /**
      * The content-column width of a marker whose head spans `$span` bytes.
      *
-     * A TASK'S COLUMN IS ITS BULLET'S, PLUS ITS ATTRIBUTE BLOCK. Its head runs
+     * A TASK'S COLUMN IS ITS BULLET'S. Its head runs
      * past the checkbox, because that is where its CONTENT starts, but the
      * column a continuation line has to reach is the bullet's - which is why
      * the two numbers are different here and only here. Spelled once so the
      * offset walk in {@see self::headingReferenceScanLine()} and the copying
      * one above cannot drift (markup-carve/carve-php#1463).
      *
-     * The attribute block is added back because it binds to the MARKER rather
-     * than to the content. PART 9 §15 A8 says so: "a `-{…} text` with no space
-     * after the marker attributes the LIST ITEM", and
-     * `docs/divergence-from-djot.md` §17 states it in as many words - "the
-     * attribute block binds to the MARKER". Part of the marker counts toward
-     * the marker's width, so `-{#k} [x] a` is the marker `-{#k} ` and then the
-     * checkbox, and its content column is 6.
-     *
-     * Pinning the whole head at 2 treated the block as though it were not
-     * there, which puts the column INSIDE it - where no content can begin,
-     * since A8 also notes the marker still needs content of its own - and a
-     * heading written at the real column came back as paragraph text
-     * (markup-carve/carve#1692). `$span` cannot answer this on its own: it has
-     * already counted the checkbox and any extra spaces in front of it, and
-     * neither of those moves the column.
+     * An attribute block is item metadata, not marker width, so it is removed
+     * from every head. `$span` cannot answer this on its own: it has already
+     * counted the checkbox or attributes, and neither moves the column.
      *
      * @param string $type The marker head that matched.
      * @param int $span Bytes from the marker's first byte to its content.
@@ -14097,7 +14081,7 @@ class BlockParser
      */
     protected function listMarkerWidthFor(string $type, int $span, int $attrsWidth = 0): int
     {
-        return $type === ListBlock::TYPE_TASK ? 2 + $attrsWidth : $span;
+        return $type === ListBlock::TYPE_TASK ? 2 : $span - $attrsWidth;
     }
 
     /**
