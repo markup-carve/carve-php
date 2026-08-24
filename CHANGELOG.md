@@ -124,6 +124,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The caption slot reports the blocks it flattens**, against the DOM nodes it actually consumed (#1353).
 - **A lazily collected or over-indented comment no longer closes a list item**, and no longer erases the fact that the block above it was invisible (#1458, follow-on to #1421).
 - **A heading written at a container's content column leaves no paragraph open** (#1464).
+- **A blank line loosens a list item only when a paragraph follows it** (#1657, #1659), so a blank line before an attached `:::` container or a colon fence leaves the item tight.
 
 ## [0.1.5] - 2026-08-18
 
