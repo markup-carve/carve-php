@@ -22,6 +22,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The ANSI quote bar reports containment, not node kind** (markup-carve/carve#1689). A quoted heading, code block, table, thematic break and lone image keep the bar, and a quoted list's bar sits outside its marker. All three engines agreed on the old behavior, so this moves agreed behavior rather than closing a divergence.
 - **The canonical writer's round-trip contract names its carve-outs** (#1678, markup-carve/carve#1658, PART 11 §1c). A block whose whole content is one image, one comment, or nothing writes that inner spelling and loses the wrapper; everything else re-reads as what it was given.
 - **A Djot blank-line run does not split a list on import** (markup-carve/carve#1430, PART 9 §11 N1a). `carve migrate --from djot` keeps an imported list as one list, with its numbering.
 - **The HTML importer spells adjacent sibling lists with the hard boundary** (#1290, PART 9 §11 N1a): the same marker separated by three blank lines. Lists that already differ, or carry an explicit `data-marker`, keep the single blank line.
@@ -54,6 +55,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A task item's checkbox is content, so it does not move the content column** (#1693, PART 9 §24, ports markup-carve/carve-js#1455). The canonical writer and the HTML importer both indented an item's later blocks to the full marker-line width, so a block opener written four columns too far opened nothing.
+- **A quoted lone-image paragraph keeps the blockquote bar in ANSI** (#1691, corpus 411), as carve-js and carve-rs already did. The promoted block image never reaches the paragraph path, so the carve-out only ever fired on the spelling that is still a paragraph.
 - **An indented lone image is a paragraph, not a block image** (#1681, markup-carve/carve#1660, PART 9 §15), so a leading space is decisive for an image as it already is for a heading marker.
 - **A figure caption never runs into its body, and never lands on a non-block** (#1676), so an inline figure body no longer concatenates with its caption.
 - **The lone-image paragraph row reads what the paragraph writes** (#1673), so a `<p>` holding an image behind a transparent wrapper declares the same `structure-unspellable` loss a bare one does.
