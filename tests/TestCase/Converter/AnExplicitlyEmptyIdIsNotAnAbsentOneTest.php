@@ -36,7 +36,7 @@ class AnExplicitlyEmptyIdIsNotAnAbsentOneTest extends TestCase
         return [
             'the only attribute' => [
                 '<ul><li>a<h1 id="">H</h1></li></ul>',
-                "- a\n\n  {id=\"\"}\n  # H\n",
+                "- a\n  {id=\"\"}\n  # H\n",
             ],
             // THE SHAPE THAT PROVED THIS IS NOT carve-js's CAUSE. carve-js kept
             // the empty id here before its own fix, because one more attribute
@@ -44,11 +44,11 @@ class AnExplicitlyEmptyIdIsNotAnAbsentOneTest extends TestCase
             // the cause where the VALUE is tested rather than where the set is.
             'beside a class' => [
                 '<ul><li>a<h1 id="" class="k">H</h1></li></ul>',
-                "- a\n\n  {id=\"\" .k}\n  # H\n",
+                "- a\n  {id=\"\" .k}\n  # H\n",
             ],
             'beside a key-value' => [
                 '<ul><li>a<h1 id="" data-a="1">H</h1></li></ul>',
-                "- a\n\n  {id=\"\" data-a=1}\n  # H\n",
+                "- a\n  {id=\"\" data-a=1}\n  # H\n",
             ],
             // NOT HEADING-SPECIFIC. getElementAttributes() serves every element
             // that writes an attribute block.
@@ -115,9 +115,9 @@ class AnExplicitlyEmptyIdIsNotAnAbsentOneTest extends TestCase
     public static function untouchedProvider(): array
     {
         return [
-            'heading with no attributes' => ['<ul><li>a<h1>H</h1></li></ul>', "- a\n\n  # H\n"],
+            'heading with no attributes' => ['<ul><li>a<h1>H</h1></li></ul>', "- a\n  # H\n"],
             'paragraph with no attributes' => ['<p>x</p>', "x\n"],
-            'class but no id' => ['<ul><li>a<h1 class="k">H</h1></li></ul>', "- a\n\n  {.k}\n  # H\n"],
+            'class but no id' => ['<ul><li>a<h1 class="k">H</h1></li></ul>', "- a\n  {.k}\n  # H\n"],
         ];
     }
 

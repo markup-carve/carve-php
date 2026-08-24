@@ -90,7 +90,7 @@ class HtmlImportOrderedListTypeTest extends TestCase
         );
 
         $this->assertSame(
-            "a. one\n\n   i. deep\n   ii. deeper\n",
+            "a. one\n   i. deep\n   ii. deeper\n",
             $carve,
         );
         $this->assertStringContainsString('<ol type="i">', $this->carve->convert($carve));
@@ -191,7 +191,7 @@ class HtmlImportOrderedListTypeTest extends TestCase
     public function testDecimalNestingIsUnaffected(): void
     {
         $this->assertSame(
-            "1. one\n\n   1. deep\n",
+            "1. one\n   1. deep\n",
             $this->converter->convert('<ol><li>one<ol><li>deep</li></ol></li></ol>'),
         );
     }

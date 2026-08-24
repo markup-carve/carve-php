@@ -70,35 +70,35 @@ class RoundtripReadsAGeneratedHeadingIdBackTest extends TestCase
         return [
             'the bare slug' => [
                 '<ul><li>a<h1 class="k" id="H">H</h1></li></ul>',
-                "- a\n\n  {.k #H}\n  # H\n",
-                "- a\n\n  {.k}\n  # H\n",
+                "- a\n  {.k #H}\n  # H\n",
+                "- a\n  {.k}\n  # H\n",
             ],
             // `H-2` is what a second `# H` in one document is given, so it is
             // an id this engine would have produced itself.
             'the -N dedup form' => [
                 '<ul><li>a<h1 class="k" id="H-2">H</h1></li></ul>',
-                "- a\n\n  {.k #H-2}\n  # H\n",
-                "- a\n\n  {.k}\n  # H\n",
+                "- a\n  {.k #H-2}\n  # H\n",
+                "- a\n  {.k}\n  # H\n",
             ],
             'a three-digit dedup tail' => [
                 '<ul><li>a<h1 class="k" id="H-137">H</h1></li></ul>',
-                "- a\n\n  {.k #H-137}\n  # H\n",
-                "- a\n\n  {.k}\n  # H\n",
+                "- a\n  {.k #H-137}\n  # H\n",
+                "- a\n  {.k}\n  # H\n",
             ],
             // The id was the whole of the block, so dropping it must leave the
             // heading with no attributes rather than an empty `{}` line.
             'an id that was the only attribute' => [
                 '<ul><li>a<h1 id="H">H</h1></li></ul>',
-                "- a\n\n  {#H}\n  # H\n",
-                "- a\n\n  # H\n",
+                "- a\n  {#H}\n  # H\n",
+                "- a\n  # H\n",
             ],
             // `data-source-line` is emitted LAST on purpose, so an id in front
             // of it is still in the generated position. The annotation itself
             // is an ordinary kept attribute on the way back in.
             'an id in front of the render annotation' => [
                 '<ul><li>a<h1 class="k" id="H" data-source-line="4">H</h1></li></ul>',
-                "- a\n\n  {.k #H data-source-line=4}\n  # H\n",
-                "- a\n\n  {.k data-source-line=4}\n  # H\n",
+                "- a\n  {.k #H data-source-line=4}\n  # H\n",
+                "- a\n  {.k data-source-line=4}\n  # H\n",
             ],
         ];
     }
@@ -130,7 +130,7 @@ class RoundtripReadsAGeneratedHeadingIdBackTest extends TestCase
             // generated id sits, so position alone would eat it.
             'an id written last whose value is not the slug' => [
                 '<ul><li>a<h1 class="k" id="Other">H</h1></li></ul>',
-                "- a\n\n  {.k #Other}\n  # H\n",
+                "- a\n  {.k #Other}\n  # H\n",
             ],
             // THE POSITION HALF SAVES THIS ONE, and it is the shape that makes
             // this a combination bug: `H` is exactly what `# H` generates, so
@@ -138,35 +138,35 @@ class RoundtripReadsAGeneratedHeadingIdBackTest extends TestCase
             // wrote - this engine would never have emitted it BEFORE the class.
             'an id written first whose value IS the slug' => [
                 '<ul><li>a<h1 id="H" class="k">H</h1></li></ul>',
-                "- a\n\n  {#H .k}\n  # H\n",
+                "- a\n  {#H .k}\n  # H\n",
             ],
             // `-1` is never written, because the first occurrence takes the
             // bare base.
             'a -1 tail' => [
                 '<ul><li>a<h1 class="k" id="H-1">H</h1></li></ul>',
-                "- a\n\n  {.k #H-1}\n  # H\n",
+                "- a\n  {.k #H-1}\n  # H\n",
             ],
             'a leading-zero tail' => [
                 '<ul><li>a<h1 class="k" id="H-02">H</h1></li></ul>',
-                "- a\n\n  {.k #H-02}\n  # H\n",
+                "- a\n  {.k #H-02}\n  # H\n",
             ],
             'a non-digit tail' => [
                 '<ul><li>a<h1 class="k" id="H-x">H</h1></li></ul>',
-                "- a\n\n  {.k #H-x}\n  # H\n",
+                "- a\n  {.k #H-x}\n  # H\n",
             ],
             'an empty tail' => [
                 '<ul><li>a<h1 class="k" id="H-">H</h1></li></ul>',
-                "- a\n\n  {.k #H-}\n  # H\n",
+                "- a\n  {.k #H-}\n  # H\n",
             ],
             'a digits-then-letter tail' => [
                 '<ul><li>a<h1 class="k" id="H-2x">H</h1></li></ul>',
-                "- a\n\n  {.k #H-2x}\n  # H\n",
+                "- a\n  {.k #H-2x}\n  # H\n",
             ],
             // The stamp says the id was authored, and no measurement beats a
             // statement.
             'an id the render stamped as explicit' => [
                 '<ul><li>a<h1 class="k" id="H" data-djot-explicit-id="1">H</h1></li></ul>',
-                "- a\n\n  {.k #H}\n  # H\n",
+                "- a\n  {.k #H}\n  # H\n",
             ],
         ];
     }
@@ -209,12 +209,12 @@ class RoundtripReadsAGeneratedHeadingIdBackTest extends TestCase
     public static function fixedPointProvider(): array
     {
         return [
-            'a generated id' => ["- a\n\n  {.k}\n  # H\n"],
-            'an authored id written last whose value IS the slug' => ["- a\n\n  {.k #H}\n  # H\n"],
-            'an authored id written first' => ["- a\n\n  {#H .k}\n  # H\n"],
-            'an authored id that is not the slug' => ["- a\n\n  {.k #Other}\n  # H\n"],
-            'an explicitly empty id' => ["- a\n\n  {id=\"\"}\n  # H\n"],
-            'a second heading taking the -2 dedup form' => ["# H\n\n- a\n\n  {.k}\n  # H\n"],
+            'a generated id' => ["- a\n  {.k}\n  # H\n"],
+            'an authored id written last whose value IS the slug' => ["- a\n  {.k #H}\n  # H\n"],
+            'an authored id written first' => ["- a\n  {#H .k}\n  # H\n"],
+            'an authored id that is not the slug' => ["- a\n  {.k #Other}\n  # H\n"],
+            'an explicitly empty id' => ["- a\n  {id=\"\"}\n  # H\n"],
+            'a second heading taking the -2 dedup form' => ["# H\n\n- a\n  {.k}\n  # H\n"],
         ];
     }
 

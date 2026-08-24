@@ -675,16 +675,45 @@ CARVE;
     // Nested Lists (with correct Djot syntax)
     // =========================================================================
 
+    /**
+     * A BLANK LINE BEFORE A SUBLIST IS NOT LOAD-BEARING, so the round trip
+     * settles on the tight spelling (carve-php#1708).
+     *
+     * A blank line loosens an item only when a PARAGRAPH follows it, and here a
+     * SUBLIST follows - so the rendered HTML holds no `<p>` and the importer,
+     * which keeps the source's tightness by asking whether any item holds a
+     * direct `<p>`, writes the tight form. carve-js and carve-rs write the same
+     * bytes for the same HTML.
+     *
+     * Asserted as a NORMALIZATION rather than dropped: the loose spelling is
+     * still a valid input and still has to come back meaning the same thing.
+     */
     public function testNestedListsWithBlankLines(): void
     {
-        $carve = <<<'CARVE'
+        $tight = <<<'CARVE'
+- Parent
+  - Child
+    - Grandchild
+CARVE;
+        $this->assertRoundTrip($tight);
+
+        $loose = <<<'CARVE'
 - Parent
 
   - Child
 
     - Grandchild
 CARVE;
-        $this->assertRoundTrip($carve);
+        // The blank lines carry no looseness, so they render the same HTML...
+        $this->assertSame(
+            $this->converter->convert($tight),
+            $this->converter->convert($loose),
+        );
+        // ...and the import settles on the one spelling.
+        $this->assertSame(
+            $tight . "\n",
+            $this->htmlToCarve->convert($this->converter->convert($loose)),
+        );
     }
 
     public function testNestedOrderedLists(): void
@@ -693,10 +722,12 @@ CARVE;
         // that column is 3 (marker width), so the sub-list is indented three
         // spaces; a two-space indent would be below the content column and
         // detach to document level (content-column model, carve#295).
-        // Blank lines between items may not be preserved (tight vs loose list).
+        // The blank line before the sublist is not preserved: no item holds a
+        // direct `<p>`, so the list is tight and the importer writes it tight
+        // (carve-php#1708). The CONTENT COLUMN is what this case is about, and
+        // it is unchanged - the sublist still sits at column three.
         $carve = <<<'CARVE'
 1. First
-
    1. Nested first
    2. Nested second
 2. Second
