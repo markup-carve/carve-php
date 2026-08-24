@@ -524,7 +524,35 @@ class HtmlToCarve
             return;
         }
 
-        $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
+        // A CONSUMED CHECKBOX ANSWERS FOR ITSELF, and for nothing else.
+        //
+        // The two questions below ask the OUTPUT whether this element's own
+        // values reappear in it. For the `<input>` the writer turned into a task
+        // marker the answer is yes and always was - the marker IS the element -
+        // but the re-render spells `type="checkbox"` in lowercase, so an
+        // authored `CHECKBOX` matched nothing and the report called a success a
+        // drop (carve-php#1705).
+        //
+        // SCOPED TO THIS ELEMENT'S INSPECTION rather than skipping the walk over
+        // it, because the rest of the walk is RIGHT. An `onclick` on that same
+        // input is a real loss and reports today; so do a `name` and a `value`.
+        // Returning early here would take all three rows out to remove two -
+        // the lowercase spelling reports them, and this is the spelling that is
+        // supposed to match it.
+        $outerConsumedCheckbox = $this->inspectedConsumedCheckbox;
+        $this->inspectedConsumedCheckbox = $tag === 'input' && isset($this->consumedCheckboxInputs[$path])
+            ? $path
+            : null;
+
+        try {
+            $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
+
+            if (!$this->isKnownImportElement($tag) && $tag !== 'math') {
+                $this->reportImportElementOutcome($node, $tag, $path, $diagnostics);
+            }
+        } finally {
+            $this->inspectedConsumedCheckbox = $outerConsumedCheckbox;
+        }
 
         if ($tag === 'math') {
             // Report the element, then stop - AFTER the attribute loop above,
@@ -536,10 +564,6 @@ class HtmlToCarve
             $this->inspectMath($node, $path, $diagnostics);
 
             return;
-        }
-
-        if (!$this->isKnownImportElement($tag)) {
-            $this->reportImportElementOutcome($node, $tag, $path, $diagnostics);
         }
 
         if ($this->isOrphanImportCaption($node, $tag) && !$this->importContentSurvived($node)) {
@@ -955,6 +979,30 @@ class HtmlToCarve
     protected function importElementSurvivedItself(DOMElement $node): bool
     {
         $this->importEmittedDocument();
+
+        // THE CONSUMED CHECKBOX DID SURVIVE, and the writer said so rather than
+        // the output being searched for its spelling (carve-php#1705).
+        //
+        // IT STILL SPENDS A CREDIT, which is the whole reason this is not a
+        // plain `return true`. The budget models how many inputs came back as
+        // elements, and exactly one did: this one. Leaving its credit unspent
+        // would let a SECOND checkbox in the document claim the marker as its
+        // own survivor and go unreported - the false negative the budget was
+        // introduced to prevent.
+        //
+        // The keyword is the one the MARKER emitted, not the one the author
+        // typed. That is not a value comparison deciding which element this is -
+        // the path already decided that - it is accounting for what the writer
+        // put in the document, which is `type="checkbox"` however the source
+        // spelled it.
+        if ($this->inspectedConsumedCheckbox !== null) {
+            if (($this->emittedImportValues['checkbox'] ?? 0) > 0) {
+                $this->emittedImportValues['checkbox']--;
+            }
+
+            return true;
+        }
+
         foreach ($node->attributes as $attribute) {
             $value = trim($attribute->value);
             if ($value === '' || ($this->emittedImportValues[$value] ?? 0) < 1) {
@@ -1832,6 +1880,19 @@ class HtmlToCarve
 
         $this->importEmittedDocument();
 
+        // THE CONSUMED CHECKBOX'S `type` IS REPRESENTED, by the task marker the
+        // writer put in its place (carve-php#1705). Only `type` - every other
+        // attribute on that input keeps the ordinary treatment, so an `onclick`,
+        // a `name` and a `value` still report the losses they are.
+        //
+        // Spent from the budget for the reason the element question above is:
+        // one emitted `type="checkbox"` answers for one input.
+        if ($this->inspectedConsumedCheckbox !== null && $name === 'type') {
+            $this->consumeSurvivingAttribute($this->importSurvivorKey('type', 'checkbox'));
+
+            return true;
+        }
+
         if ($name === 'class') {
             return $this->classTokensSurvived($value);
         }
@@ -2222,6 +2283,7 @@ class HtmlToCarve
         $this->splitDefinitionLists = [];
         $this->droppedDefinitionDescriptions = [];
         $this->loneImageParagraphs = [];
+        $this->consumedCheckboxInputs = [];
 
         // Wrap in a single root element unless the input is already a full
         // document. Only a leading <!doctype>/<html>/<body> counts as a root:
@@ -2612,6 +2674,45 @@ class HtmlToCarve
      * @var array<string, array{attributed: bool, overwritten: list<string>}>
      */
     protected array $loneImageParagraphs = [];
+
+    /**
+     * The `<input>` elements this conversion CONSUMED into a task marker.
+     *
+     * A checkbox at the head of a list item is not lost: it comes back as the
+     * `- [ ]` marker, which is why the report says nothing about it. That
+     * silence was produced by asking the OUTPUT whether any of the element's
+     * raw attribute VALUES reappears there, and the re-render writes
+     * `type="checkbox"` in lowercase - so an author who wrote `CHECKBOX`, which
+     * every browser and this importer read as the same keyword, got
+     * `attribute-dropped` and `element-dropped` about a marker that is right
+     * there in the output (carve-php#1705).
+     *
+     * RECORDED BY THE WRITER, at the point of consumption. The alternative is to
+     * re-derive during the report walk which `<input>` became the marker, and
+     * that reintroduces a comparison on the value - the shape that caused this.
+     * The writer already knows: it is holding the element it read the state off.
+     *
+     * NOT FIXED BY FOLDING CASE IN THE TALLY. That would change what counts as
+     * survival for every element and every attribute, well past this one
+     * keyword, and it could start suppressing real losses - trading a false
+     * negative here for a class of false positives elsewhere is a worse report.
+     *
+     * KEYED BY PATH for the reason {@see self::$loneImageParagraphs} is:
+     * `convertWithReport()` inspects a SECOND parse of the same HTML, so no node
+     * object is shared between the two passes.
+     *
+     * @var array<string, true>
+     */
+    protected array $consumedCheckboxInputs = [];
+
+    /**
+     * The path of the consumed checkbox currently being inspected, if any.
+     *
+     * Set around one element's inspection so the two questions that were
+     * answered wrongly can answer for it, and so that NOTHING ELSE about the
+     * element changes - see {@see self::inspectImportNode()}.
+     */
+    protected ?string $inspectedConsumedCheckbox = null;
 
     /**
      * How many flattened top-level nodes stand before this `<head>`/`<body>`.
@@ -5545,6 +5646,25 @@ class HtmlToCarve
                         ? $child->getAttribute('data-checked') === 'true'
                         : ($checkboxInput?->hasAttribute('checked') ?? false);
                     $checkbox = $isChecked ? '[x] ' : '[ ] ';
+
+                    // THE POINT OF CONSUMPTION, which is the only place that
+                    // knows WHICH input became this marker (carve-php#1705).
+                    // Exactly one does: `getDirectCheckboxInput()` returns the
+                    // first, and a second checkbox in the same item is dropped
+                    // like any other - so recording only this one leaves the
+                    // second's loss reported, which is what the survival budget
+                    // exists to keep.
+                    //
+                    // A TIPTAP ITEM KEEPS ITS STATE IN `data-checked` and wraps
+                    // the input in an empty `<label>` that the content loop
+                    // skips whole. That input is consumed by the marker just the
+                    // same, so it is recorded here too. Reaching the right-hand
+                    // side at all means there was no direct checkbox, which
+                    // inside this branch means the item is a task list.
+                    $consumed = $checkboxInput ?? $this->labelWrappedCheckboxInput($child);
+                    if ($consumed !== null) {
+                        $this->consumedCheckboxInputs[$this->conversionNodePath($consumed)] = true;
+                    }
                 }
 
                 // AN ITEM'S ATTRIBUTES ABUT ITS MARKER (carve-php#1587). They
@@ -6183,6 +6303,42 @@ class HtmlToCarve
         }
 
         return implode("\n", $output);
+    }
+
+    /**
+     * The checkbox a TipTap task item hides in the empty `<label>` beside it.
+     *
+     * TipTap keeps the state in `data-checked` on the `<li>` and wraps the input
+     * in a `<label>` that carries no text, which the content loop skips whole.
+     * The input inside it is therefore consumed by the marker exactly as a
+     * direct one is, and has the same claim to saying nothing about itself
+     * (carve-php#1705).
+     *
+     * The empty-label test matches the one the content loop applies, so the two
+     * cannot disagree about which label was skipped: a label carrying text is
+     * accessibility markup that falls through and is processed normally.
+     *
+     * @param \DOMElement $li The task item.
+     *
+     * @return \DOMElement|null The consumed input, or null when there is none.
+     */
+    protected function labelWrappedCheckboxInput(DOMElement $li): ?DOMElement
+    {
+        foreach ($li->childNodes as $child) {
+            if (
+                !$child instanceof DOMElement
+                || strtolower($child->tagName) !== 'label'
+                || trim($child->textContent) !== ''
+            ) {
+                continue;
+            }
+            $input = $this->getDirectCheckboxInput($child);
+            if ($input !== null) {
+                return $input;
+            }
+        }
+
+        return null;
     }
 
     /**
