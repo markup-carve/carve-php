@@ -3166,9 +3166,9 @@ class HtmlToCarve
         // than kept in `$classes`, so the derived-name test is told about it.
         $this->structuralClassInProgress = $fenceClass;
         $parts = [];
-        $id = $node->getAttribute('id');
-        if ($id !== '') {
-            $parts[] = '#' . $id;
+        $idPart = $this->idAttributePart($node);
+        if ($idPart !== null) {
+            $parts[] = $idPart;
         }
         foreach ($classes as $class) {
             $parts[] = '.' . $class;
@@ -3244,9 +3244,9 @@ class HtmlToCarve
         }
 
         $parts = [];
-        $id = $node->getAttribute('id');
-        if ($id !== '') {
-            $parts[] = '#' . $id;
+        $idPart = $this->idAttributePart($node);
+        if ($idPart !== null) {
+            $parts[] = $idPart;
         }
 
         foreach ($classes as $class) {
@@ -3300,9 +3300,9 @@ class HtmlToCarve
 
         // Build attributes (excluding admonition-specific classes and data attributes)
         $parts = [];
-        $id = $node->getAttribute('id');
-        if ($id !== '') {
-            $parts[] = '#' . $id;
+        $idPart = $this->idAttributePart($node);
+        if ($idPart !== null) {
+            $parts[] = $idPart;
         }
 
         // Get remaining classes (exclude 'admonition' and the type)
@@ -3801,9 +3801,9 @@ class HtmlToCarve
     {
         // Build attributes (excluding 'line-block' class)
         $parts = [];
-        $id = $node->getAttribute('id');
-        if ($id !== '') {
-            $parts[] = '#' . $id;
+        $idPart = $this->idAttributePart($node);
+        if ($idPart !== null) {
+            $parts[] = $idPart;
         }
 
         // Get remaining classes (exclude 'line-block')
@@ -4160,7 +4160,10 @@ class HtmlToCarve
     protected function writtenImportAttributeNames(DOMElement $node, array $skipAttrs = []): array
     {
         $names = [];
-        if ($node->getAttribute('id') !== '') {
+        if ($node->hasAttribute('id')) {
+            // PRESENT, not non-empty, for the reason
+            // {@see self::idAttributePart()} gives: an explicit `id=""` is
+            // written, so the names policy has to say so too.
             $names[] = 'id';
         }
         /** @var \DOMAttr $attr */
@@ -4195,15 +4198,117 @@ class HtmlToCarve
             return $prefix . $content . "\n\n";
         }
 
-        // Skip ID attribute unless it was explicitly set (marked by data-djot-explicit-id)
-        // Auto-generated IDs should not be preserved in round-trip
         $skipAttrs = ['data-djot-source-level', 'data-djot-explicit-id', 'data-djot-attrs-handled'];
-        if (!$node->hasAttribute('data-djot-explicit-id')) {
+        if ($this->headingIdWasGenerated($node)) {
+            // The renderer derives it again from the same text, so dropping it
+            // is a no-op on the render and carrying it would spell an authored
+            // slot the source never had.
             $skipAttrs[] = 'id';
         }
-        $attrs = $this->formatBlockAttributes($node, $skipAttrs);
+        // THE SLOT ORDER IS THE ELEMENT'S, which is only observable on a
+        // heading: this is the one construct whose writer can be handed an id
+        // and a class in either order and has to write them back in it.
+        $attrs = $this->formatBlockAttributes($node, $skipAttrs, true);
 
         return $attrs . $prefix . $content . "\n\n";
+    }
+
+    /**
+     * Whether this heading's `id` is one THIS ENGINE generated, so re-emitting
+     * it would change the render.
+     *
+     * GATED TO `roundtrip`, whose input is this engine's own output BY
+     * DEFINITION. In `safe` and `semantic` the HTML came from anywhere, so an
+     * id there is authored input and is kept exactly as it is - losing it is a
+     * real regression, and carve-js and carve-rs both fixed one.
+     *
+     * The re-emission is not cosmetic. `HtmlRenderer` puts a GENERATED heading
+     * id after every authored attribute and an AUTHORED one in the slot it was
+     * written in - it reads `#id` out of the node's attribute order to tell
+     * them apart - so `{.k}` and `{.k #H}` are two different documents even
+     * though they render the same bytes. Reading the id back as generated is
+     * what keeps the import a fixed point (carve-rs#1354, carve-rs#1355;
+     * carve-php#1699).
+     *
+     * TWO HALVES, AND NEITHER ALONE IS ENOUGH:
+     *
+     * - POSITION - {@see self::idInGeneratedPosition()}. Alone it would eat an
+     *   id an author wrote LAST, as in `{.k #Other}`.
+     * - VALUE - {@see self::isGeneratedHeadingId()}. Alone it could not tell
+     *   `{.k}` from an id an author wrote FIRST whose value happens to be the
+     *   slug, as in `{#H .k}`.
+     *
+     * `data-djot-explicit-id` settles it outright where the render stamped it:
+     * that marker says the id was authored, and no measurement beats a
+     * statement.
+     */
+    protected function headingIdWasGenerated(DOMElement $node): bool
+    {
+        if ($this->importMode !== 'roundtrip' || !$node->hasAttribute('id')) {
+            return false;
+        }
+        if ($node->hasAttribute('data-djot-explicit-id')) {
+            return false;
+        }
+
+        return $this->idInGeneratedPosition($node)
+            && $this->isGeneratedHeadingId($node->getAttribute('id'), trim($node->textContent));
+    }
+
+    /**
+     * Whether `id` sits where `HtmlRenderer` writes a GENERATED one: after
+     * every authored attribute.
+     *
+     * `data-source-line` is the one thing allowed to follow it. That is a
+     * render annotation rather than an authored attribute, and the renderer
+     * emits it last on purpose - `HtmlRenderer::RENDER_ANNOTATIONS` and the
+     * rule beside it, "A RENDER ANNOTATION IS EMITTED LAST - after the
+     * GENERATED attribute, not merely after the authored ones".
+     */
+    protected function idInGeneratedPosition(DOMElement $node): bool
+    {
+        $names = [];
+        /** @var \DOMAttr $attr */
+        foreach ($node->attributes as $attr) {
+            $names[] = $attr->name;
+        }
+        while ($names !== [] && end($names) === 'data-source-line') {
+            array_pop($names);
+        }
+
+        return $names !== [] && end($names) === 'id';
+    }
+
+    /**
+     * Whether `id` is a value this engine's renderer would derive for a heading
+     * whose plain text is `text`.
+     *
+     * THE DEFAULT SLUG ONLY, which is the accepted limit the importer already
+     * states for every other derived attribute: it cannot know which heading-id
+     * options the render used, so a value no default equals is
+     * indistinguishable from an authored one and KEEPING it is the safe side.
+     *
+     * The `-N` tail is `HeadingIdTracker::dedupe()`'s own shape, and it starts
+     * at 2 because the first occurrence takes the bare base. So `-1` is never a
+     * counter this engine wrote, and neither is a leading-zero run nor a tail
+     * holding anything but digits.
+     */
+    protected function isGeneratedHeadingId(string $id, string $text): bool
+    {
+        $base = (new HeadingIdTracker())->normalizeId($text);
+        if ($id === $base) {
+            return true;
+        }
+        if (!str_starts_with($id, $base . '-')) {
+            return false;
+        }
+
+        $count = substr($id, strlen($base) + 1);
+
+        return $count !== ''
+            && $count !== '1'
+            && !str_starts_with($count, '0')
+            && preg_match('/^[0-9]+$/', $count) === 1;
     }
 
     /**
@@ -5042,9 +5147,9 @@ class HtmlToCarve
     protected function mathAttributeSuffix(DOMElement $node, array $classes): string
     {
         $parts = [];
-        $id = $node->getAttribute('id');
-        if ($id !== '') {
-            $parts[] = '#' . $id;
+        $idPart = $this->idAttributePart($node);
+        if ($idPart !== null) {
+            $parts[] = $idPart;
         }
         foreach ($classes as $class) {
             $parts[] = '.' . $class;
@@ -7756,15 +7861,35 @@ class HtmlToCarve
     }
 
     /**
+     * The `#id` slot's key in the writer's slot map.
+     *
+     * Neither key can collide with a key-value slot, because a key-value slot
+     * is keyed by an HTML attribute NAME and no HTML attribute name may hold a
+     * `#` or a `.`.
+     *
+     * @var string
+     */
+    protected const ATTR_SLOT_ID = '#id';
+
+    /**
+     * The `.class` slot's key in the writer's slot map. One slot, however many
+     * classes it writes - they merge into a single run.
+     *
+     * @var string
+     */
+    protected const ATTR_SLOT_CLASS = '.class';
+
+    /**
      * Format element attributes as Djot block attribute syntax.
      * Returns empty string if no relevant attributes.
      *
      * @param \DOMElement $node The element to extract attributes from
      * @param array<string> $skipAttrs Additional attributes to skip for this element
+     * @param bool $elementSlotOrder Take the slot order from the element's own attribute order
      *
      * @return string Djot attribute block like "{#id .class key=value}\n" or ""
      */
-    protected function formatBlockAttributes(DOMElement $node, array $skipAttrs = []): string
+    protected function formatBlockAttributes(DOMElement $node, array $skipAttrs = [], bool $elementSlotOrder = false): string
     {
         // Inside a cell there is no line for a block attribute block to sit on,
         // so it would be written as literal text. The attribute is dropped
@@ -7774,7 +7899,7 @@ class HtmlToCarve
             return '';
         }
 
-        $attrs = $this->getElementAttributes($node, $skipAttrs);
+        $attrs = $this->getElementAttributes($node, $skipAttrs, $elementSlotOrder);
         if (!$attrs) {
             return '';
         }
@@ -7806,29 +7931,33 @@ class HtmlToCarve
      *
      * @param \DOMElement $node The element to extract attributes from
      * @param array<string> $skipAttrs Additional attributes to skip
+     * @param bool $elementSlotOrder Take the slot order from the element's own attribute order
      *
      * @return string Formatted attributes (without braces) or empty string
      */
-    protected function getElementAttributes(DOMElement $node, array $skipAttrs = []): string
+    protected function getElementAttributes(DOMElement $node, array $skipAttrs = [], bool $elementSlotOrder = false): string
     {
-        $parts = [];
+        $slots = [];
         $allSkip = $skipAttrs;
 
         // Process id first
-        $id = $node->getAttribute('id');
-        if ($id !== '') {
-            $parts[] = '#' . $id;
+        if (!in_array('id', $allSkip, true)) {
+            $idPart = $this->idAttributePart($node);
+            if ($idPart !== null) {
+                $slots[self::ATTR_SLOT_ID] = [$idPart];
+            }
         }
 
         // Process class (if not skipped)
         if (!in_array('class', $allSkip, true)) {
+            $classParts = [];
             $class = $node->getAttribute('class');
             if ($class !== '') {
                 $classes = preg_split('/\s+/', trim($class));
                 if ($classes) {
                     foreach ($classes as $c) {
                         if ($c !== '') {
-                            $parts[] = '.' . $c;
+                            $classParts[] = '.' . $c;
                         }
                     }
                 }
@@ -7836,7 +7965,10 @@ class HtmlToCarve
 
             $alignmentClass = $this->extractAlignmentClass($node);
             if ($alignmentClass !== null) {
-                $parts[] = '.' . $alignmentClass;
+                $classParts[] = '.' . $alignmentClass;
+            }
+            if ($classParts !== []) {
+                $slots[self::ATTR_SLOT_CLASS] = $classParts;
             }
         }
 
@@ -7860,13 +7992,95 @@ class HtmlToCarve
             }
             if ($value === '') {
                 // Boolean attribute
-                $parts[] = $name;
+                $slots[$name] = [$name];
             } else {
-                $parts[] = $name . '=' . $this->quoteAttributeValue($value);
+                $slots[$name] = [$name . '=' . $this->quoteAttributeValue($value)];
+            }
+        }
+
+        $order = $elementSlotOrder ? $this->slotOrderFromElement($node, $slots) : array_keys($slots);
+
+        $parts = [];
+        foreach ($order as $slot) {
+            foreach ($slots[$slot] as $part) {
+                $parts[] = $part;
             }
         }
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * The `#id` slot's written form, or null when the element carries no id.
+     *
+     * PRESENT, NOT NON-EMPTY. An explicit `id=""` is not an absent id: it wins
+     * verbatim and SUPPRESSES the auto slug, and this engine's own renderer
+     * writes `<h1 id="">` back for it. Asking `getAttribute('id') !== ''` could
+     * not tell the two apart - `getAttribute()` answers `''` for both - so the
+     * import dropped the empty id and the re-render gave the heading the anchor
+     * its source explicitly suppressed (carve-php#1698). The loss was in the
+     * VALUE test, which is why it happened beside a class too, where carve-js's
+     * own truthiness defect did not reach.
+     *
+     * An empty id has no `#` spelling, so it rides the key-value slot as
+     * `id=""` - the form carve-js and carve-rs write, and the one this engine's
+     * parser reads back into an explicit empty id.
+     */
+    protected function idAttributePart(DOMElement $node): ?string
+    {
+        if (!$node->hasAttribute('id')) {
+            return null;
+        }
+
+        $id = $node->getAttribute('id');
+
+        return $id === '' ? 'id=' . $this->quoteAttributeValue($id) : '#' . $id;
+    }
+
+    /**
+     * The writer's slot order for $slots, READ OFF THE ELEMENT'S OWN ATTRIBUTE
+     * ORDER.
+     *
+     * A fixed id-then-class-then-keys order writes `<h1 class="k" id="x">` back
+     * as `{#x .k}`, which re-renders as `<h1 id="x" class="k">` - attributes the
+     * input never had in that order. carve-rs ruled it in carve-rs#1354 and
+     * carve-js ported it; carve-php spelled the fixed order
+     * (carve-php#1699).
+     *
+     * A NON-EMPTY ORDER IS EXHAUSTIVE, so a slot the element did not spell
+     * under its own name - an attribute folded or renamed on the way in, an
+     * alignment class read off something other than `class` - still has to
+     * appear, or the writer drops it silently. Those follow the slots the
+     * element did name, keeping their own order among themselves.
+     *
+     * @param \DOMElement $node
+     * @param array<string, array<int, string>> $slots
+     *
+     * @return list<string>
+     */
+    protected function slotOrderFromElement(DOMElement $node, array $slots): array
+    {
+        $order = [];
+        /** @var \DOMAttr $attr */
+        foreach ($node->attributes as $attr) {
+            $name = $attr->name;
+            $slot = match ($name) {
+                'id' => self::ATTR_SLOT_ID,
+                'class' => self::ATTR_SLOT_CLASS,
+                default => $name,
+            };
+            if (isset($slots[$slot]) && !in_array($slot, $order, true)) {
+                $order[] = $slot;
+            }
+        }
+
+        foreach (array_keys($slots) as $slot) {
+            if (!in_array($slot, $order, true)) {
+                $order[] = $slot;
+            }
+        }
+
+        return $order;
     }
 
     protected function formatCaptionText(string $captionText): string
