@@ -375,11 +375,17 @@ class ListParser
      * width from offsets, and asking the task pattern a second time would be a
      * second spelling of the rule this class exists to keep single.
      *
+     * `attrs` is the BYTE WIDTH of the abutting `{...}` block, zero when there
+     * is none. A task's column is its bullet's PLUS that block, because the
+     * block is part of the marker rather than content
+     * (markup-carve/carve#1692), and the width cannot be recovered from
+     * `content` alone once the checkbox has been counted into it.
+     *
      * @param string $line A single line, read under the same interior-newline
      *   condition {@see self::markerContentOffset()} states.
      * @param int $from Byte offset to match at, anchored.
      *
-     * @return array{name: string, content: int}|null
+     * @return array{name: string, content: int, attrs: int}|null
      */
     public function markerHeadAt(string $line, int $from = 0): ?array
     {
@@ -403,7 +409,7 @@ class ListParser
                 continue;
             }
 
-            return ['name' => $name, 'content' => $from + strlen($m[0])];
+            return ['name' => $name, 'content' => $from + strlen($m[0]), 'attrs' => 0];
         }
 
         // AN ABUTTING ATTRIBUTE BLOCK, tried second because the two spellings
@@ -426,7 +432,11 @@ class ListParser
                 continue;
             }
 
-            return ['name' => $name, 'content' => $from + strlen($m[0])];
+            return [
+                'name' => $name,
+                'content' => $from + strlen($m[0]),
+                'attrs' => strlen($m['attrs']),
+            ];
         }
 
         return null;
@@ -437,7 +447,7 @@ class ListParser
      *
      * @param string $line The line to parse
      *
-     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, bareMarker?: bool, attributes?: array<string, string>}|null
+     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, bareMarker?: bool, attributes?: array<string, string>, attributesWidth?: int}|null
      */
     public function parseListItemMarker(string $line): ?array
     {
@@ -447,6 +457,11 @@ class ListParser
         // match, and attach the parsed attributes to the returned info. A space
         // before the brace does NOT match here -- it stays ordinary content.
         $itemAttributes = [];
+        // The block's BYTE WIDTH, kept separately from the attributes it
+        // yields: `{}` is a valid block that yields none, and a task item's
+        // content column has to count the block either way
+        // (markup-carve/carve#1692).
+        $attributesWidth = 0;
         $bullet = '[' . $this->bulletMarkerClass . ']';
         if (
             preg_match(
@@ -468,6 +483,7 @@ class ListParser
             // carve-js and carve-rs leave the line a paragraph.
             if (($parsed !== [] && AttributeParser::isValidInlinePayload($body)) || $body === '') {
                 $itemAttributes = $parsed;
+                $attributesWidth = strlen($am[2]);
                 $line = $am[1] . $am[3];
             }
         }
@@ -475,6 +491,9 @@ class ListParser
         $info = $this->parseListItemMarkerBase($line);
         if ($info !== null && $itemAttributes !== []) {
             $info['attributes'] = $itemAttributes;
+        }
+        if ($info !== null && $attributesWidth !== 0) {
+            $info['attributesWidth'] = $attributesWidth;
         }
 
         return $info;
