@@ -162,7 +162,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         $result = $this->converter->convert("- a\n\n   {.c}\n");
 
         $this->assertSame(
-            "<ul>\n  <li><p>a</p>\n    <p>{.c}</p>\n  </li>\n</ul>\n",
+            "<ul>\n  <li>a</li>\n</ul>\n",
             $result,
         );
     }

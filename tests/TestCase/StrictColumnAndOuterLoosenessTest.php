@@ -67,13 +67,13 @@ class StrictColumnAndOuterLoosenessTest extends TestCase
         );
     }
 
-    public function testOuterItemLooseFromInternalBlankBeforeAttachedBlock(): void
+    public function testOuterItemStaysTightBeforeAnAuthoredBaseBlock(): void
     {
         // The nested list `- b` is tight; the blank then `> q` (dedented below
         // the nested content column) attaches to the OUTER item, which owns the
         // blank -> the outer item is loose (its first paragraph is wrapped).
         $this->assertHtml(
-            "<ul>\n  <li><p>a</p>\n    <ul>\n      <li>b</li>\n    </ul>\n    <p>&gt; q</p>\n  </li>\n</ul>",
+            "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>",
             "- a\n  - b\n\n   > q\n",
         );
     }

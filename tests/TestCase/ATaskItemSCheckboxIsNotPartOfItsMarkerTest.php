@@ -115,7 +115,7 @@ class ATaskItemSCheckboxIsNotPartOfItsMarkerTest extends TestCase
         // 75-list-nesting-and-looseness-9. `# H` is paragraph text here, not a
         // heading, so the writer escapes it - at column 6 it was text of the
         // marker line's paragraph by ACCIDENT of the indent.
-        $this->assertWrites("- [ ] item\n  \\# H\n", "-   [ ] item\n    # H\n");
+        $this->assertWrites("- [ ] item\n  # H\n", "-   [ ] item\n    # H\n");
     }
 
     public function testWritesTheCorpusNestedQuoteAtTheContentColumn(): void

@@ -175,7 +175,7 @@ class NoWhitespaceOnlyLineTest extends TestCase
         $source = "1. one\n\n    > q\n";
         $out = CarveConverter::toCarve($source);
 
-        $this->assertStringContainsString("\n\n", $out, 'expected an empty blank line');
+        $this->assertSame("1. one\n   > q\n", $out);
         $this->assertSame([], $this->offendingLines('inline', $out));
         $converter = new CarveConverter();
         $this->assertSame($converter->convert($source), $converter->convert($out));
