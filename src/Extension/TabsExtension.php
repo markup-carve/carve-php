@@ -626,6 +626,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
                 $role ?? 'group',
                 $this->groupLabel ?? $renderer->label('tabsGroup'),
             ),
+            'div',
         );
     }
 

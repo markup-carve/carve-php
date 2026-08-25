@@ -27,6 +27,8 @@ trait ExtensionAttributesTrait
      * @param array<string> $excludeAttrs Attribute names to drop entirely.
      * @param array<string> $excludeClasses Author classes to drop from the merged value.
      * @param array<string, string> $defaultAttrs Added only when the author did not set them.
+     * @param string|null $tag The element being written, so a text-alignment
+     *   `align` renders its CSS declaration (markup-carve/carve#1755).
      */
     protected function renderExtensionAttributes(
         Node $node,
@@ -35,6 +37,7 @@ trait ExtensionAttributesTrait
         array $excludeAttrs = [],
         array $excludeClasses = [],
         array $defaultAttrs = [],
+        ?string $tag = null,
     ): string {
         $stored = $node->getAttributes();
         if ($excludeAttrs !== []) {
@@ -107,7 +110,7 @@ trait ExtensionAttributesTrait
             }
         }
 
-        return $renderer->renderAttributeArray($ordered);
+        return $renderer->renderAttributeArray($ordered, $tag);
     }
 
     /**

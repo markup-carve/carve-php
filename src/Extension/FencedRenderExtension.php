@@ -342,7 +342,11 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         if ($build !== null) {
             $defaults = array_merge($this->namingDefaults($node), $defaults);
         }
-        $attrs = $this->renderExtensionAttributes($node, $renderer, [$this->cssClass], [], [], $defaults);
+        // The tag differs per branch, and so does what a text-alignment
+        // `align` may become: HTML maps `align` to `text-align` on a `div` and
+        // to nothing at all on a `pre` (markup-carve/carve#1755).
+        $tag = $build !== null ? 'div' : 'pre';
+        $attrs = $this->renderExtensionAttributes($node, $renderer, [$this->cssClass], [], [], $defaults, $tag);
         $element = $build !== null
             // The build-time renderer owns its escaping (it emits SVG / <img>).
             ? '<div' . $attrs . '>' . $build($source) . "</div>\n"

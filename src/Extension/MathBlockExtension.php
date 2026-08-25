@@ -127,7 +127,7 @@ class MathBlockExtension implements StaticRenderExtensionInterface
         if ($build !== null) {
             // The build-time renderer owns its own escaping (it emits MathML /
             // HTML), so its output is used verbatim inside the math div.
-            $event->setHtml('<div' . $this->renderExtensionAttributes($node, $renderer, ['math', 'display'])
+            $event->setHtml('<div' . $this->renderExtensionAttributes($node, $renderer, ['math', 'display'], tag: 'div')
                 . '>' . $build($source) . '</div>');
 
             return true;
@@ -147,7 +147,7 @@ class MathBlockExtension implements StaticRenderExtensionInterface
     {
         $renderer = $this->renderer;
         $attrs = $renderer !== null
-            ? $this->renderExtensionAttributes($node, $renderer, ['math', 'display'])
+            ? $this->renderExtensionAttributes($node, $renderer, ['math', 'display'], tag: 'div')
             : ' class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"';
 
         return '<div' . $attrs . '>\\['

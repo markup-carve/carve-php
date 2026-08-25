@@ -623,6 +623,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
                 $role ?? 'group',
                 $this->groupLabel ?? $renderer->label('codeGroup'),
             ),
+            'div',
         );
     }
 }
