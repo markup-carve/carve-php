@@ -1674,7 +1674,7 @@ DJOT;
     public function testHardBreaksBlockMergesExistingClasses(): void
     {
         $djot = "{.mine}\n::: \\\none\ntwo\n:::";
-        $expected = "<div class=\"hardbreaks mine\">\n  <p>one<br>\ntwo</p>\n</div>\n";
+        $expected = "<div class=\"mine hardbreaks\">\n  <p>one<br>\ntwo</p>\n</div>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
