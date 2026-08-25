@@ -23,14 +23,25 @@ use PHPUnit\Framework\TestCase;
  *
  * The row is `element-unwrapped` at `info` reading
  * `Unwrapped unsupported <figure> element`, which is carve-rs's row byte for
- * byte and this file's own wording for every other unwrapped element. carve-js
- * reports the same CODE at `warning` with a figure-specific message, split in
- * two by whether the target was one it can write a caption line for. That split
- * follows carve-js's target set rather than this one's - carve-js writes a
- * caption line on a bare paragraph and this engine preserves that shape instead
- * - so copying its words would import a distinction this engine does not draw.
- * `theWordingDivergesFromCarveJs` below pins that as a measured difference
- * rather than leaving it to the next sweep.
+ * byte and this file's own wording for every other unwrapped element.
+ *
+ * ALL THREE ENGINES NOW AGREE ON IT. carve-js used to report the same code at
+ * `warning` with a figure-specific message split in two by target, and this
+ * file recorded that as a measured divergence. The ruling in
+ * markup-carve/carve#1716 closed it and carve-js#1477 landed the wording, so
+ * the figure row there is the generic sentence at `info` too - measured on
+ * carve-js `e0b1332`, built from source, byte for byte identical to this
+ * engine's.
+ *
+ * What the last test below guards is therefore the RULE rather than the words:
+ * a figure that did not survive is spelled like every other element that did
+ * not survive, with no severity and no sentence of its own. That is the
+ * property the ruling settled, and it is checked against this engine's own
+ * generic row so that reintroducing a figure-specific wording fails here.
+ *
+ * The CROSS-ENGINE half is gated where every other import contract is - the
+ * shared `tests/spec/tests/html-import` fixtures both engines run - and no
+ * fixture there covers a figure unwrap yet (carve-php#1735).
  */
 class AnUnwrappedFigureSaysSoTest extends TestCase
 {
@@ -370,15 +381,35 @@ class AnUnwrappedFigureSaysSoTest extends TestCase
     }
 
     /**
-     * The measured difference from carve-js, kept in the suite so it is a fact
-     * rather than a comment: carve-js reports the same code at `warning` with a
-     * figure-specific message. carve-rs reports what this engine now reports.
+     * A FIGURE IS NOT A SPECIAL CASE OF ITSELF. The row a lost `<figure>`
+     * collects is the row any lost element collects: same code, same severity,
+     * and the same sentence with the tag substituted into it.
+     *
+     * Measured against this engine's OWN generic row rather than against a
+     * quoted literal, because a literal is what let the previous version of
+     * this test die. It asserted `assertNotSame` on a carve-js message carve-js
+     * had already stopped emitting, so it passed for every string except the
+     * one string it could no longer see - a check that could not fail while it
+     * documented a divergence that had closed (carve-php#1735, the shape
+     * markup-carve/carve#755 catalogs).
+     *
+     * Now the two rows are compared to each other, so reintroducing a
+     * figure-specific severity or wording fails here, and so does changing the
+     * generic sentence without changing the figure with it.
      */
-    public function testTheWordingDivergesFromCarveJs(): void
+    public function testAFigureUnwrapIsSpelledLikeEveryOtherUnwrap(): void
     {
-        $rows = $this->rows('<figure><ul><li>a</li></ul></figure>');
+        $figure = $this->rows('<figure><ul><li>a</li></ul></figure>')[0];
+        $section = $this->rows('<section><p>a</p></section>')[0];
 
-        $this->assertSame('info', $rows[0]['severity']);
-        $this->assertNotSame('Unwrapped figure without a representable target', $rows[0]['message']);
+        $this->assertSame('element-unwrapped', $section['code']);
+        $this->assertSame($section['code'], $figure['code']);
+        $this->assertSame('info', $section['severity']);
+        $this->assertSame($section['severity'], $figure['severity']);
+        $this->assertSame(
+            str_replace('<section>', '<figure>', $section['message']),
+            $figure['message'],
+        );
+        $this->assertSame(self::MESSAGE, $figure['message']);
     }
 }
