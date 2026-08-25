@@ -6619,13 +6619,7 @@ class BlockParser
 
                 continue;
             }
-            $leadingBytes = strspn($line, " \t");
-            $base = 0;
-            for ($byte = 0; $byte < $leadingBytes; $byte++) {
-                $base = $line[$byte] === "\t"
-                    ? $base + (4 - ($base % 4))
-                    : $base + 1;
-            }
+            $base = IndentationHelper::getLeadingColumns($line);
             if (!$probeAfterBlank && $probeNestedColumns !== [] && $base < end($probeNestedColumns)) {
                 continue;
             }

@@ -100,4 +100,22 @@ final class ListItemAuthoredBlockBaseTest extends TestCase
         $html = (new CarveConverter())->convert("- x\n\n   ::: \\\n   a\n   b\n   :::\n");
         self::assertStringContainsString('class="hardbreaks"', $html);
     }
+
+    public function testDefinitionsBelowTheItemMinimumStayLiteral(): void
+    {
+        $html = (new CarveConverter())->convert("10. x\n   [r]: /u\n   [^n]: note\n\nSee [r][] and [^n].\n");
+        self::assertStringContainsString('[r]: /u', $html);
+        self::assertStringContainsString('[^n]: note', $html);
+        self::assertStringNotContainsString('href="/u"', $html);
+        self::assertStringNotContainsString('doc-noteref', $html);
+    }
+
+    public function testATabAndEquivalentSpacesChooseTheSameAuthoredBase(): void
+    {
+        $converter = new CarveConverter();
+        $tab = $converter->convert("- x\n\n\t# h\n");
+        $spaces = $converter->convert("- x\n\n    # h\n");
+        self::assertSame($spaces, $tab);
+        self::assertStringContainsString('<h1 id="h">h</h1>', $tab);
+    }
 }
