@@ -284,7 +284,6 @@ class ReferenceDefinitionExtractor
             $bare = $referenceLine['line'];
             if (
                 $referenceLine['inList']
-                && $reachedCol >= $contentCol
                 && preg_match('/^[ \t]+\[\^?[^\]]+\]: /', $bare) === 1
             ) {
                 $bare = ltrim($bare, " \t");

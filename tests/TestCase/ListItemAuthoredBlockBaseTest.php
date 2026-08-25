@@ -63,11 +63,13 @@ final class ListItemAuthoredBlockBaseTest extends TestCase
     public function testCaptionsStayAttachedToEveryCaptionableFamily(): void
     {
         $converter = new CarveConverter();
-        foreach ([
-            "| A |\n   | 1 |\n   ^ Cap" => '<caption>Cap</caption>',
-            "![a](u)\n   ^ Cap" => '<figcaption>Cap</figcaption>',
-            "```\n   code\n   ```\n   ^ Cap" => '<figcaption>Cap</figcaption>',
-        ] as $body => $caption) {
+        foreach (
+            [
+                "| A |\n   | 1 |\n   ^ Cap" => '<caption>Cap</caption>',
+                "![a](u)\n   ^ Cap" => '<figcaption>Cap</figcaption>',
+                "```\n   code\n   ```\n   ^ Cap" => '<figcaption>Cap</figcaption>',
+            ] as $body => $caption
+        ) {
             $html = $converter->convert("- x\n\n   {$body}\n");
             self::assertStringContainsString($caption, $html, $body);
         }
