@@ -1457,10 +1457,21 @@ class BlockParser
                     includeSublists: true,
                     definitionEntriesCarryTheirBase: true,
                 );
-                $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
-                $this->discoveringDefinitions = false;
+                // The document walk has already finished. Its pending block
+                // attributes belong after the document, not before this
+                // deferred body, so isolate the same parser-global state that
+                // the standalone footnote pass isolates below.
+                $outerPendingAttributes = $this->pendingAttributes;
+                $outerPendingAttributeOrder = $this->pendingAttributeOrder;
                 $this->pendingAttributes = [];
                 $this->pendingAttributeOrder = [];
+                try {
+                    $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
+                } finally {
+                    $this->discoveringDefinitions = false;
+                    $this->pendingAttributes = $outerPendingAttributes;
+                    $this->pendingAttributeOrder = $outerPendingAttributeOrder;
+                }
             }
             if (!$found) {
                 break;
