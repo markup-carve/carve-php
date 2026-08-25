@@ -10013,6 +10013,30 @@ class BlockParser
                                 $headerCell->setAttributes($cell->getAttributes());
                                 // Same source as the cell it replaces.
                                 $headerCell->setPos($cell->getPos());
+                                // BOTH AXES, and only one of them is re-supplied
+                                // here. A cell's marker run carries a vertical
+                                // alignment as well as a horizontal one, and the
+                                // shared reader had already put it on the cell
+                                // this promotion REPLACES. The constructor above
+                                // has no slot for it - it is reachable only
+                                // through the setter - so a valign not carried
+                                // over is dropped on the floor with the
+                                // discarded cell, and the header alone lost what
+                                // the identical run on a body cell one line down
+                                // kept (carve-php#1745).
+                                //
+                                // AND IT DECLARES THE COLUMN, exactly as the
+                                // canonical `|=` header row does: the body walk
+                                // below seeds `$columnValigns` from a header
+                                // cell's own marker, and a delimiter-form header
+                                // never reaches that line because the row was
+                                // parsed as a body row before being promoted.
+                                // Without the seed a plain body cell under a
+                                // `?^` header inherited nothing.
+                                if ($cell->hasExplicitVerticalAlignment()) {
+                                    $headerCell->setVerticalAlignment($cell->getVerticalAlignment());
+                                    $columnValigns[$cellIndex] = $cell->getVerticalAlignment();
+                                }
                                 foreach ($cell->getChildren() as $child) {
                                     $headerCell->appendChild($child);
                                 }
