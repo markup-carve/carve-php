@@ -846,11 +846,30 @@ class HtmlToCarve
             : null;
 
         try {
-            $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
-
+            // THE ELEMENT'S OWN OUTCOME IS REPORTED FIRST, ahead of the rows
+            // naming what it carried. A consumer reads the rows in order, and
+            // in the other order it was told what happened to a `<video>`'s
+            // `src` before it was told the `<video>` was gone - attributes
+            // reported against an element nothing had yet said anything about
+            // (carve-php#1737).
+            //
+            // This was the last site in this file writing the element row
+            // AFTER the attribute rows. Every other one - the sectioning
+            // wrappers, the unwrapped figures, the active elements, a
+            // `<colgroup>`, an orphan caption - already reports the element
+            // first, and both sibling engines report the element first for
+            // every one of these shapes too.
+            //
+            // THE TWO BUDGETS ARE INDEPENDENT, which is what makes the order a
+            // free choice rather than a behavior change: the element question
+            // spends from `emittedImportValues` and the attribute questions
+            // spend from `survivingImportAttributes`, so neither can consume
+            // the other's survivor whichever runs first.
             if (!$this->isKnownImportElement($tag) && $tag !== 'math') {
                 $this->reportImportElementOutcome($node, $tag, $path, $diagnostics);
             }
+
+            $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
         } finally {
             $this->inspectedConsumedCheckbox = $outerConsumedCheckbox;
         }
@@ -3790,6 +3809,43 @@ class HtmlToCarve
             // the import goes: it falls through to the ordinary section policy
             // below, which keeps the `<hr>` and the `<ol>` it is built from.
             // See processEndnotesSection() for why.
+        }
+
+        // THE SECTION ELEMENT ITSELF IS NEVER WRITTEN. Carve has no spelling
+        // for one: the renderer builds a `<section>` around a heading, so what
+        // reaches the output is the heading and whatever the id could be moved
+        // onto - never the element the author wrote. It left the document, and
+        // the row that says an element left the document is this one.
+        //
+        // markup-carve/carve#1723 states the condition over the INPUT: the row
+        // fires when an element did not survive into the output, and nesting
+        // does not exempt it. A `<section>` that unwraps did not survive, and
+        // this engine alone said nothing about it - for every shape, attributed
+        // or bare, at every depth (carve-php#1737). carve-js and carve-rs report
+        // it on all of them.
+        //
+        // NOT CONDITIONAL ON THE ID SURVIVING. An authored id does come back,
+        // on the heading below, and that is a statement about the ATTRIBUTE
+        // rather than about the element: `inspectImportAttributes()` asks the
+        // output for it and stays correctly silent when it is there. The
+        // element is gone either way, and making the element row depend on an
+        // attribute would be a third answer where the siblings already agree.
+        //
+        // Recorded in the SAME register the other unwrapped block containers
+        // use, so the row is written before the rows naming what the element
+        // carried - see `inspectImportNode()`.
+        //
+        // AN ENDNOTES SECTION IS EXEMPT, and it is the only one. That wrapper
+        // is DERIVED: the renderer writes a `<section role="doc-endnotes">`
+        // around the notes whenever a document has any, so the author never
+        // wrote it and nothing of theirs goes when it is unwrapped
+        // (carve-php#1588, markup-carve/carve#1558). The exemption is on the
+        // ROLE rather than on the tag, and it holds whichever way the import
+        // then goes - rebuilt into footnote definitions above, or degraded to
+        // the `<hr>` and `<ol>` it is built from below. Both sibling engines
+        // scope it exactly this way.
+        if ($node->getAttribute('role') !== 'doc-endnotes') {
+            $this->unwrappedBlockContainers[$this->conversionNodePath($node)] = true;
         }
 
         // Check if section has an explicit ID from round-trip mode
