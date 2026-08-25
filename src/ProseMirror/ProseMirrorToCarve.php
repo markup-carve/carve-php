@@ -66,6 +66,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\HeadingReferenceCollector;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use ReflectionClass;
 use ReflectionNamedType;
@@ -196,8 +197,8 @@ class ProseMirrorToCarve
         // `carveLinkRefDef` nodes the payload carried. A reference whose
         // definition is gone - or points somewhere else now - is not a link
         // any more once written, so it falls back to its inline form, which
-        // always renders correctly. Labels match exactly, the parser's own
-        // rule ("case-sensitive, no whitespace folding").
+        // always renders correctly. Labels use the parser's shared normalized
+        // key while their authored spelling stays on the node.
         $this->confirmLabelReferences($carveDocument, $this->collectLinkReferenceDefinitions($carveDocument));
 
         // Restore document-level abbreviation definitions (carve-php#519). See
@@ -1068,16 +1069,13 @@ class ProseMirrorToCarve
     {
         $definitions = [];
         if ($node instanceof LinkReferenceDefinition) {
-            $definitions[$node->getLabel()] = $node->getHref();
+            $definitions[LabelKey::normalize($node->getLabel())] = $node->getHref();
         }
 
-        // First definition wins on reparse, so a later duplicate must not
-        // shadow it here either.
+        // Link definitions are last-wins after normalization, as on reparse.
         foreach ($node->getChildren() as $child) {
             foreach ($this->collectLinkReferenceDefinitions($child) as $label => $href) {
-                if (!array_key_exists($label, $definitions)) {
-                    $definitions[$label] = $href;
-                }
+                $definitions[$label] = $href;
             }
         }
 
@@ -1091,7 +1089,7 @@ class ProseMirrorToCarve
     protected function confirmLabelReferences(Node $node, array $definitions): void
     {
         if ($node instanceof Link && !$node->isFromHeadingReference() && $node->getReferenceLabel() !== null) {
-            $href = $definitions[$node->getReferenceLabel()] ?? null;
+            $href = $definitions[LabelKey::normalize($node->getReferenceLabel())] ?? null;
             if ($href === null || $href !== $node->getDestination()) {
                 $this->setState($node, 'referenceLabel', null);
                 $this->setState($node, 'rawReferenceLabel', null);
@@ -1102,7 +1100,7 @@ class ProseMirrorToCarve
 
         // An image resolves by the same definitions; its destination is `src`.
         if ($node instanceof Image && $node->getReferenceLabel() !== null) {
-            $href = $definitions[$node->getReferenceLabel()] ?? null;
+            $href = $definitions[LabelKey::normalize($node->getReferenceLabel())] ?? null;
             if ($href === null || $href !== $node->getSource()) {
                 $this->setState($node, 'referenceLabel', null);
                 $this->setState($node, 'rawReferenceLabel', null);

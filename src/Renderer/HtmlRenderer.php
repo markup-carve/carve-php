@@ -66,6 +66,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
@@ -3322,7 +3323,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderFootnote(Footnote $node): string
     {
         // Collect footnote for rendering at document end, don't output here
-        $label = $node->getLabel();
+        $label = LabelKey::normalize($node->getLabel());
         $this->getRenderContext()->collectedFootnotes[$label] = $node;
 
         return '';
@@ -3523,7 +3524,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         $context = $this->getRenderContext();
-        $label = $node->getLabel();
+        $label = LabelKey::normalize($node->getLabel());
 
         // Assign number to footnote on first reference
         if (!isset($context->footnoteNumbers[$label])) {

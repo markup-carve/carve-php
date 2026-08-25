@@ -19,6 +19,7 @@ class ReferenceDefinition
      *   canonical writer needs the distinction: a heading-derived reference has
      *   no definition line to reproduce, so the authored `[text][]` form is the
      *   only record of what the author wrote.
+     * @param string|null $rawLabel authored label spelling for canonical output
      */
     public function __construct(
         public readonly string $url,
@@ -26,6 +27,7 @@ class ReferenceDefinition
         public readonly int $line = 0,
         public readonly ?string $title = null,
         public readonly bool $fromHeading = false,
+        public readonly ?string $rawLabel = null,
     ) {
     }
 }

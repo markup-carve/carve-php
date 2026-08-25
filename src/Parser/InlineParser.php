@@ -2533,11 +2533,9 @@ class InlineParser
                 // any of them could not be reached by the label that defined
                 // it, while a plain definition WAS reached by a decorated
                 // label that never named it (carve-php#768).
-                // EXACT on both forms. A collapsed `[text][]` takes the link
-                // text as its label and an explicit `[text][ref]` takes the ref,
-                // and neither is folded or trimmed - §6 and PART 9R R1 say
-                // "case-sensitive, no whitespace folding". carve-js and carve-rs
-                // agree on both forms; this engine folded both.
+                // Both forms use BlockParser's shared, case-sensitive ASCII-
+                // whitespace-normalized lookup key. The node keeps the raw
+                // bracket spelling for canonical output.
                 if ($ref === '') {
                     $ref = $linkText;
                 }

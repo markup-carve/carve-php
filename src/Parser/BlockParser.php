@@ -1331,7 +1331,7 @@ class BlockParser
         // invented `[H]: #H` line from the canonical writer, for a document that
         // only ever had a heading - is pinned in ImplicitHeadingReferenceTest.
         $authored = [];
-        foreach ($this->references as $label => $definition) {
+        foreach ($this->references as $key => $definition) {
             // strval, because PHP turns an all-digit array key into an INT.
             // A reference label is any inline text, so `[5]: /u` keys the map
             // with 5 rather than "5", and the definition node's constructor
@@ -1339,7 +1339,7 @@ class BlockParser
             // document (carve-php#881). Same coercion that broke a digit-only
             // abbreviation term in #880, and the same guard the attribute names
             // below already carry.
-            $authored[] = [(string)$label, $definition];
+            $authored[] = [$definition->rawLabel ?? (string)$key, $definition];
         }
         usort($authored, static fn (array $a, array $b): int => $a[1]->line <=> $b[1]->line);
 
@@ -1468,7 +1468,7 @@ class BlockParser
             function (ParseWarning $warning): bool {
                 if (
                     preg_match("/^Undefined footnote '(.+)'$/", $warning->getMessage(), $match) === 1
-                    && isset($this->footnotes[$match[1]])
+                    && $this->hasFootnote($match[1])
                 ) {
                     return false;
                 }
@@ -1493,7 +1493,7 @@ class BlockParser
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Link && UnresolvedReference::sourceOf($child) !== null) {
                 $label = $child->getReferenceLabel();
-                $definition = $label !== null ? ($this->references[$label] ?? null) : null;
+                $definition = $label !== null ? $this->getReference($label) : null;
                 if ($definition !== null) {
                     $child->resolveReference($definition->url, $definition->title);
                     $this->applyDeferredReferenceAttributes($child, $definition->attributes);
@@ -1501,7 +1501,7 @@ class BlockParser
                 }
             } elseif ($child instanceof Image && UnresolvedReference::sourceOf($child) !== null) {
                 $label = $child->getReferenceLabel();
-                $definition = $label !== null ? ($this->references[$label] ?? null) : null;
+                $definition = $label !== null ? $this->getReference($label) : null;
                 if ($definition !== null) {
                     $child->resolveReference($definition->url, $definition->title);
                     $this->applyDeferredReferenceAttributes($child, $definition->attributes);
@@ -1926,6 +1926,7 @@ class BlockParser
             // into it as paragraph text.
             if (($bare[0] ?? '') === '[' && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $bare, $matches)) {
                 $label = $matches[1];
+                $key = LabelKey::normalize($label);
                 $content = $matches[2];
                 if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
                     $i++;
@@ -1964,13 +1965,13 @@ class BlockParser
                     // container markers, so a `:` followed by whitespace in it
                     // is the description marker and nothing else.
                     $opensBlock = $this->definitionMarkerOpensBlock($lines, $i, $bare);
-                    if ($opensBlock && trim($content, StringUtil::WHITESPACE_CHARS) !== '' && !isset($this->footnotes[$label])) {
+                    if ($opensBlock && trim($content, StringUtil::WHITESPACE_CHARS) !== '' && !isset($this->footnotes[$key])) {
                         $footnote = new Footnote($label);
                         if ($this->trackSourceLines) {
                             $footnote->setAttribute('data-source-line', (string)($i + 1));
                         }
-                        $this->recordFootnoteDefinitionSpan($label, $i, $line, $bare);
-                        $this->footnotes[$label] = $footnote;
+                        $this->recordFootnoteDefinitionSpan($key, $i, $line, $bare);
+                        $this->footnotes[$key] = $footnote;
                         $bodyLines = [$content];
                         $bodyLineMap = [$i];
                         // A definition at an item's CONTENT COLUMN keeps its
@@ -2135,19 +2136,19 @@ class BlockParser
                 // The first definition of a label wins (grammar / carve-js): a
                 // later top-level def never overwrites an earlier one, whether
                 // that earlier one was top-level or container-nested.
-                if (!isset($this->footnotes[$label])) {
+                if (!isset($this->footnotes[$key])) {
                     $footnote = new Footnote($label);
                     if ($this->trackSourceLines) {
                         $footnote->setAttribute('data-source-line', (string)($i + 1));
                     }
-                    $this->recordFootnoteDefinitionSpan($label, $i, $line, $bare);
+                    $this->recordFootnoteDefinitionSpan($key, $i, $line, $bare);
                     $this->extendFootnoteDefinitionToLineStart(
-                        $label,
+                        $key,
                         (int)end($contentLineMap) + 1,
                     );
-                    $this->footnotes[$label] = $footnote;
+                    $this->footnotes[$key] = $footnote;
                     if ($contentLines) {
-                        $deferredBodies[$label] = [
+                        $deferredBodies[$key] = [
                             'lines' => $contentLines,
                             'lineMap' => $contentLineMap,
                         ];
@@ -10594,6 +10595,7 @@ class BlockParser
         }
 
         $label = $match[1];
+        $key = LabelKey::normalize($label);
         $content = $match[2];
         if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
             return null;
@@ -10674,24 +10676,24 @@ class BlockParser
             array_pop($bodyLineMap);
         }
 
-        if ($this->discoveringDefinitions && !isset($this->footnotes[$label])) {
+        if ($this->discoveringDefinitions && !isset($this->footnotes[$key])) {
             $footnote = new Footnote($label);
             if ($this->trackSourceLines) {
                 $footnote->setAttribute('data-source-line', (string)($this->sourceLineFor($start) + 1));
             }
             $sourceLine = $this->sourceLineFor($start);
             $this->recordFootnoteDefinitionSpan(
-                $label,
+                $key,
                 $sourceLine,
                 $this->sourceLines[$sourceLine] ?? $line,
                 $line,
             );
             $lastLine = end($bodyLineMap);
             if (is_int($lastLine) && $lastLine >= 0) {
-                $this->extendFootnoteDefinitionToLineStart($label, $lastLine + 1);
+                $this->extendFootnoteDefinitionToLineStart($key, $lastLine + 1);
             }
-            $this->footnotes[$label] = $footnote;
-            $this->discoveredFootnoteBodies[$label] = [
+            $this->footnotes[$key] = $footnote;
+            $this->discoveredFootnoteBodies[$key] = [
                 'lines' => $bodyLines,
                 'lineMap' => $bodyLineMap,
             ];
@@ -10727,11 +10729,13 @@ class BlockParser
 
         if ($this->discoveringDefinitions) {
             $sourceLine = $this->sourceLineFor($start);
-            $this->references[$definition['label']] = new ReferenceDefinition(
+            $this->references[LabelKey::normalize($definition['label'])] = new ReferenceDefinition(
                 $definition['url'],
                 $definition['attrs'],
                 $sourceLine,
                 $definition['title'],
+                false,
+                $definition['label'],
             );
         }
 
@@ -14986,12 +14990,20 @@ class BlockParser
 
     public function getReference(string $label): ?ReferenceDefinition
     {
-        return $this->references[$label] ?? null;
+        if (!LabelKey::isSingleLine($label)) {
+            return null;
+        }
+
+        return $this->references[LabelKey::normalize($label)] ?? null;
     }
 
     public function getCollapsedReference(string $label): ?ReferenceDefinition
     {
-        return $this->references[$label] ?? $this->headingReferencesByFoldedLabel[$this->foldReferenceLabel($label)] ?? null;
+        if (!LabelKey::isSingleLine($label)) {
+            return null;
+        }
+
+        return $this->references[LabelKey::normalize($label)] ?? $this->headingReferencesByFoldedLabel[$this->foldReferenceLabel($label)] ?? null;
     }
 
     /**
@@ -15047,7 +15059,7 @@ class BlockParser
 
     public function hasFootnote(string $label): bool
     {
-        return isset($this->footnotes[$label]);
+        return LabelKey::isSingleLine($label) && isset($this->footnotes[LabelKey::normalize($label)]);
     }
 
     /**
