@@ -1614,7 +1614,15 @@ class HtmlToCarve
                 // question. See the predicate for why each family qualifies.
                 continue;
             } elseif ($name === 'style') {
-                $this->addImportDiagnostic($diagnostics, 'style-unmapped', 'CSS declarations may not have a Carve mapping', 'info', $path);
+                // ONLY THE DECLARATIONS THAT WENT NOWHERE. `style` used to be
+                // reported wholesale, so a cell carrying `text-align:right`
+                // came back with a row naming a loss that this engine does not
+                // take - the alignment reaches the cell either way, and
+                // `docs/html-import.md` makes a declared loss a ceiling rather
+                // than a licence (markup-carve/carve#1741).
+                if ($this->unmappedStyleDeclarations($node) !== []) {
+                    $this->addImportDiagnostic($diagnostics, 'style-unmapped', 'CSS declarations may not have a Carve mapping', 'info', $path);
+                }
             } elseif ($name === 'scope' && $tag === 'th' && in_array('scope', $this->tableCellSkipAttributes($node), true)) {
                 // The value this cell's position generates. It is skipped so a
                 // round trip does not write the renderer's own output back as
@@ -7440,6 +7448,8 @@ class HtmlToCarve
         $headerCells = [];
         /** @var array<int, true> $headerAttributedCells */
         $headerAttributedCells = [];
+        /** @var array<int, string> $headerPrefixes */
+        $headerPrefixes = [];
         $columnCount = 0;
         $captionText = '';
         $alignments = [];
@@ -7453,6 +7463,24 @@ class HtmlToCarve
         // Find all rows
         $trElements = $this->getDirectTableRows($node);
 
+        // Whether this table will spell a column's alignment in a marker run at
+        // all. Only a first row of ALL header cells is promoted to the head,
+        // and only a promoted head carries the markers - so in every other
+        // table the collected alignments are written nowhere, and a cell that
+        // relied on them lost its alignment in silence
+        // (markup-carve/carve#1741). Asked here rather than at the write site
+        // because a cell's attributes are serialized before the promotion is
+        // decided.
+        $emitsColumnAlignment = $this->tableHeadTakesTheAlignmentMarkers($trElements);
+        // Whether the head will be written in the CANONICAL `|=` form, whose
+        // marker run holds both axes. The separator form can only spell the
+        // horizontal one, so a header cell's vertical alignment has to ride its
+        // own prefix there instead.
+        $emitsColumnValign = $emitsColumnAlignment
+            && $node->getAttribute('data-djot-col-widths') === ''
+            && !$this->tableHeadHasASpanMarker($trElements);
+        $valignments = [];
+
         // $rowspanMap[colIndex] = number of remaining rows that col is spanned
         // Used to inject `^` continuation markers at the right positions.
         /** @var array<int, int> $rowspanMap */
@@ -7464,6 +7492,12 @@ class HtmlToCarve
             // THIS converter wrote. Kept rather than re-sniffed off the string,
             // so a cell whose content merely starts with a brace is not glued.
             $attributedCells = [];
+            // The marker run each cell carries of its own - its alignment, its
+            // vertical alignment, or both - keyed the same way. Kept beside the
+            // cell strings rather than glued into them, because the header
+            // builder and the row builder place a run differently.
+            /** @var array<int, string> $cellPrefixes */
+            $cellPrefixes = [];
             // Indexes into $cells the source wrote as `th`. Header is a
             // property of the CELL, not of the row: a row-head column is one
             // `th` beside ordinary data cells, and `|= R | 1 |` spells exactly
@@ -7504,7 +7538,35 @@ class HtmlToCarve
 
                 // Serialize content, excluding colspan/rowspan from cell attributes.
                 $cellContent = $this->serializeTableCellContent($cell);
-                $cellAttrs = $this->getElementAttributes($cell, $this->tableCellSkipAttributes($cell));
+                $cellSkip = $this->tableCellSkipAttributes($cell);
+                $cellAlignment = $this->extractTableCellAlignment($cell);
+                $cellValign = $this->extractTableCellValign($cell);
+                // THE COLUMN MARKER TAKES WHAT IT CAN. A pipe table spells a
+                // column's alignment in the header cell's marker run, and the
+                // cells below inherit what they do not state - so a cell
+                // repeating its column's value would say a thing the document
+                // already says, and the round trip would grow a marker on every
+                // body row on each pass through HTML. A cell that DISAGREES
+                // keeps its own run, because that is the only thing overriding
+                // the column.
+                //
+                // AND `safe` WRITES NO RUN OF ITS OWN. The conservative mode
+                // maps no CSS onto a cell (markup-carve/carve#1741), so a cell
+                // the column does not cover loses its alignment there and says
+                // so. The COLUMN marker is not this mapping and is not gated:
+                // it is how a pipe table spells a column, and a sidecar-less
+                // `carve -> html -> carve` reconstruction is pinned on it in
+                // the default mode (markup-carve/carve#1344).
+                $ownAlignment = $this->importMode === 'safe' || ($emitsColumnAlignment
+                    && ($alignments[$logicalCol] ?? $cellAlignment) === $cellAlignment)
+                    ? TableCell::ALIGN_DEFAULT
+                    : $cellAlignment;
+                $ownValign = $this->importMode === 'safe' || ($emitsColumnValign
+                    && ($valignments[$logicalCol] ?? $cellValign) === $cellValign)
+                    ? ''
+                    : $cellValign;
+                $cellPrefixes[count($cells)] = $this->tableCellMarkerRun($ownAlignment, $ownValign);
+                $cellAttrs = $this->getElementAttributes($cell, $cellSkip);
                 if ($tag === 'th') {
                     // Every `th` gets the marker now. PART 9 §5 T10 binds the
                     // attribute block AFTER the marker run, so `|={#x} R |`
@@ -7525,7 +7587,10 @@ class HtmlToCarve
                     $headerCellCount++;
                 }
                 if (!isset($alignments[$logicalCol])) {
-                    $alignments[$logicalCol] = $this->extractTableCellAlignment($cell);
+                    $alignments[$logicalCol] = $cellAlignment;
+                }
+                if (!isset($valignments[$logicalCol])) {
+                    $valignments[$logicalCol] = $cellValign;
                 }
 
                 // Register rowspan: only the origin column gets `^` in subsequent rows.
@@ -7574,12 +7639,13 @@ class HtmlToCarve
                     // delimiter form the row after it is what makes them
                     // headers, and in the `|=` form the builder below writes
                     // the marker itself.
-                    $headerRow = $this->buildTableRowLine($cells, $attributedCells) . $rowAttrSuffix;
+                    $headerRow = $this->buildTableRowLine($cells, $attributedCells, [], $cellPrefixes) . $rowAttrSuffix;
                     $headerRowAttrs = $rowAttrSuffix;
                     $headerCells = $cells;
                     $headerAttributedCells = $attributedCells;
+                    $headerPrefixes = $cellPrefixes;
                 } else {
-                    $rows[] = $this->buildTableRowLine($cells, $attributedCells, $headerFlags) . $rowAttrSuffix;
+                    $rows[] = $this->buildTableRowLine($cells, $attributedCells, $headerFlags, $cellPrefixes) . $rowAttrSuffix;
                 }
             }
         }
@@ -7612,11 +7678,14 @@ class HtmlToCarve
                 // source was a GFM table (recorded via data-djot-col-widths).
                 $headerLine = '|';
                 foreach ($headerCells as $i => $cell) {
-                    $marker = $this->tableAlignMarker($alignments[$i] ?? TableCell::ALIGN_DEFAULT);
+                    $marker = $this->tableCellMarkerRun(
+                        $alignments[$i] ?? TableCell::ALIGN_DEFAULT,
+                        $valignments[$i] ?? '',
+                    );
                     // The block is already at the head of an attributed cell's
                     // string and glues to the marker run (T10), so that cell
                     // takes no separating space here.
-                    $headerLine .= '=' . $marker
+                    $headerLine .= '=' . $marker . ($headerPrefixes[$i] ?? '')
                         . (isset($headerAttributedCells[$i]) ? '' : ' ') . $cell . ' |';
                 }
                 $output .= $headerLine . $headerRowAttrs . "\n";
@@ -7952,8 +8021,9 @@ class HtmlToCarve
      * @param array<int, string> $cells
      * @param array<int, true> $attributed Indexes of cells opening with an attribute block.
      * @param array<int, true> $header Indexes of cells the source wrote as `th`.
+     * @param array<int, string> $prefixes The marker run each cell carries of its own.
      */
-    protected function buildTableRowLine(array $cells, array $attributed, array $header = []): string
+    protected function buildTableRowLine(array $cells, array $attributed, array $header = [], array $prefixes = []): string
     {
         $line = '|';
 
@@ -7963,8 +8033,13 @@ class HtmlToCarve
             // marker is glued to the pipe, the space goes after it - and an
             // attribute block glues to the marker in turn (PART 9 §5 T10), so
             // an attributed cell takes no space between the two.
+            // THE MARKER RUN COMES AFTER THE KIND MARKER and before the
+            // attribute block, which is the order the grammar binds them in
+            // (PART 9 §5 T10): `|=>{.x} h |` is a right-aligned attributed
+            // header cell, and any other order reads as content.
             $marker = isset($header[$index]) ? '=' : '';
-            $line .= $marker . (isset($attributed[$index]) ? '' : ' ') . $cell . ' |';
+            $line .= $marker . ($prefixes[$index] ?? '')
+                . (isset($attributed[$index]) ? '' : ' ') . $cell . ' |';
         }
 
         return $line;
@@ -8457,14 +8532,338 @@ class HtmlToCarve
         return $this->alignmentClasses[strtolower($matches[1])] ?? null;
     }
 
+    /**
+     * The Carve attributes this element's inline CSS maps to.
+     *
+     * THE TEST IS THIS ENGINE'S OWN RENDERER. `text-align: right` maps because
+     * `{align=right}` is written back as `align="right"` by the same renderer
+     * that would otherwise have lost the declaration, so refusing it declared a
+     * loss the engine did not have to take (markup-carve/carve#1741).
+     *
+     * WHAT STAYS UNMAPPED, and why the list is short:
+     *
+     * - `vertical-align` has a cell `valign` in the AST, but no importer maps
+     *   it and the reference engine does not either, so mapping it HERE would
+     *   trade one divergence for another. It is a ruling of its own.
+     * - `text-align: justify` / `start` / `end` are outside Carve's alignment
+     *   enum (`left`, `right`, `center`), so there is no value to write.
+     * - `color`, `background`, `width`, `font-*` and the rest of CSS have no
+     *   presentational attribute this converter writes and no Carve construct
+     *   that carries them. Their loss is a real ceiling and stays reported.
+     *
+     * `safe` maps NOTHING, which {@see self::unmappedStyleDeclarations()}
+     * answers for the report as well, so the two cannot disagree about what
+     * went nowhere.
+     *
+     * @param \DOMElement $node
+     *
+     * @return array<string, string>
+     */
+    protected function mappedStyleAttributes(DOMElement $node): array
+    {
+        if ($this->isTableCell($node)) {
+            // A CELL TAKES THE MARKER RUN, NOT AN ATTRIBUTE. `|>` is written
+            // back as `style="text-align: right;"` and `{align=right}` as
+            // `align="right"`, so only the marker returns the declaration the
+            // import was handed - and only the marker keeps
+            // `carve -> html -> carve -> html` stable
+            // (markup-carve/carve#1745). processTable() reads the axes off the
+            // cell itself.
+            return [];
+        }
+
+        if ($this->extractAlignmentClass($node) !== null) {
+            // The configured class already carries this element's alignment.
+            // Writing the key as well would spell one source twice, in two
+            // mechanisms - the same reason cells take the native marker instead
+            // of a class.
+            return [];
+        }
+
+        $mapped = [];
+        foreach ($this->styleDeclarations($node->getAttribute('style')) as [$property, $value]) {
+            if ($this->mappedStyleSlot($node, $property, $value) === 'align') {
+                $mapped['align'] = $value;
+            }
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * The Carve attribute names this element's inline CSS fills, whichever
+     * mechanism carries them.
+     *
+     * Asked SEPARATELY from {@see self::mappedStyleAttributes()} because a
+     * cell's axes reach the marker run rather than the attribute block, and a
+     * presentational `align` / `valign` beside them still has to go: CSS beats
+     * the presentational attribute in HTML, and keeping both would spell one
+     * axis twice from one source.
+     *
+     * @param \DOMElement $node
+     *
+     * @return array<string, true>
+     */
+    protected function mappedStyleSlots(DOMElement $node): array
+    {
+        if (!$this->isTableCell($node) && $this->extractAlignmentClass($node) !== null) {
+            return [];
+        }
+
+        $slots = [];
+        foreach ($this->styleDeclarations($node->getAttribute('style')) as [$property, $value]) {
+            $slot = $this->mappedStyleSlot($node, $property, $value);
+            if ($slot !== null) {
+                $slots[$slot] = true;
+            }
+        }
+
+        return $slots;
+    }
+
+    protected function isTableCell(DOMElement $node): bool
+    {
+        $tag = strtolower($node->tagName);
+
+        return $tag === 'td' || $tag === 'th';
+    }
+
+    /**
+     * The property names in this element's inline CSS that reach nothing the
+     * converter writes.
+     *
+     * ASKED OF THE NODE, not of the attribute string, because the alignment has
+     * TWO destinations and only the node knows which one it took: the key-value
+     * above, or the caller-configured class. A string-only version reported a
+     * loss for a declaration the class had just carried.
+     *
+     * @param \DOMElement $node
+     *
+     * @return array<string>
+     */
+    protected function unmappedStyleDeclarations(DOMElement $node): array
+    {
+        $carriedByClass = !$this->isTableCell($node) && $this->extractAlignmentClass($node) !== null;
+        $unmapped = [];
+        foreach ($this->styleDeclarations($node->getAttribute('style')) as [$property, $value]) {
+            if ($carriedByClass && $property === 'text-align') {
+                continue;
+            }
+            if ($this->mappedStyleSlot($node, $property, $value) === null) {
+                $unmapped[] = $property;
+            }
+        }
+
+        return $unmapped;
+    }
+
+    /**
+     * The Carve slot a CSS declaration reaches on this element, or null where
+     * nothing in the language spells it.
+     *
+     * `vertical-align` is a CELL slot and nothing else. Carve has a cell
+     * `valign` and the marker run writes it back as
+     * `style="vertical-align: top;"`, but `valign` is an attribute HTML defines
+     * for table cells alone - putting it on a paragraph would emit something no
+     * reader honours, which looks like a mapping and is not one
+     * (markup-carve/carve#1746).
+     *
+     * @param \DOMElement $node
+     * @param string $property Already lowercased.
+     * @param string $value Already lowercased.
+     */
+    protected function mappedStyleSlot(DOMElement $node, string $property, string $value): ?string
+    {
+        if ($this->importMode === 'safe') {
+            return null;
+        }
+
+        if ($property === 'text-align') {
+            return in_array($value, [TableCell::ALIGN_LEFT, TableCell::ALIGN_RIGHT, TableCell::ALIGN_CENTER], true)
+                ? 'align'
+                : null;
+        }
+
+        if ($property === 'vertical-align' && $this->isTableCell($node)) {
+            return in_array($value, ['top', 'middle', 'bottom'], true) ? 'valign' : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * A `style` attribute split into lowercased property/value pairs.
+     *
+     * @param string $style
+     *
+     * @return array<array{0: string, 1: string}>
+     */
+    protected function styleDeclarations(string $style): array
+    {
+        $declarations = [];
+        foreach (explode(';', $style) as $declaration) {
+            $colon = strpos($declaration, ':');
+            if ($colon === false) {
+                continue;
+            }
+            $property = strtolower(trim(substr($declaration, 0, $colon)));
+            if ($property === '') {
+                continue;
+            }
+            $declarations[] = [$property, strtolower(trim(substr($declaration, $colon + 1)))];
+        }
+
+        return $declarations;
+    }
+
     protected function extractTableCellAlignment(DOMElement $cell): string
     {
+        // NOT MODE-GATED, and that is deliberate. `safe` maps no CSS to an
+        // ATTRIBUTE - markup-carve/carve#1741 says so and
+        // `mappedStyleDeclarationValue()` implements it - but the column marker
+        // is not an attribute mapping. It is how a pipe table SPELLS a column,
+        // it round-trips the declaration byte for byte, and
+        // `TheHtmlRoundTripWithoutTheSidecarTest` pins a sidecar-less
+        // `carve -> html -> carve` on it in the default mode
+        // (markup-carve/carve#1344). Gating it here dropped that reconstruction.
         $style = $cell->getAttribute('style');
         if ($style !== '' && preg_match('/text-align\s*:\s*(left|right|center)\s*;?/i', $style, $matches) === 1) {
             return strtolower($matches[1]);
         }
 
         return TableCell::ALIGN_DEFAULT;
+    }
+
+    /**
+     * Whether this table's head will carry the column alignment markers.
+     *
+     * THE SAME RULE THE PROMOTION USES: only the first row holding cells is a
+     * candidate, and only a row whose cells are ALL headers is promoted. A
+     * table that promotes nothing writes no marker run and no separator row, so
+     * a column alignment collected from its cells has nowhere to go - which is
+     * why the cell keeps its own `{align=...}` there instead.
+     *
+     * @param array<\DOMElement> $trElements
+     */
+    protected function tableHeadTakesTheAlignmentMarkers(array $trElements): bool
+    {
+        foreach ($trElements as $tr) {
+            $cells = 0;
+            $headers = 0;
+            foreach ($tr->childNodes as $cell) {
+                if (!$cell instanceof DOMElement) {
+                    continue;
+                }
+                $tag = strtolower($cell->tagName);
+                if ($tag !== 'th' && $tag !== 'td') {
+                    continue;
+                }
+                $cells++;
+                if ($tag === 'th') {
+                    $headers++;
+                }
+            }
+            if ($cells === 0) {
+                // A row with no cells is not emitted, so the NEXT one is still
+                // the candidate - the same reason the promotion tests
+                // `$rows === []` rather than the row's index.
+                continue;
+            }
+
+            return $headers === $cells;
+        }
+
+        return false;
+    }
+
+    /**
+     * The vertical alignment this cell's inline CSS states, or `''` for none.
+     *
+     * A SIBLING OF {@see self::extractTableCellAlignment()}, and mapped for the
+     * same reason: Carve has a cell `valign`, the marker run writes it back as
+     * `style="vertical-align: top;"`, and refusing it declared a loss the
+     * engine did not have to take (markup-carve/carve#1746).
+     */
+    protected function extractTableCellValign(DOMElement $cell): string
+    {
+        // Unlike the horizontal axis this is NOT carried in `safe`. Nothing
+        // shipped depends on it, so it follows the ruling rather than the
+        // exception the horizontal one inherited.
+        if ($this->importMode === 'safe') {
+            return '';
+        }
+
+        $style = $cell->getAttribute('style');
+        if ($style !== '' && preg_match('/vertical-align\s*:\s*(top|middle|bottom)\s*;?/i', $style, $matches) === 1) {
+            return strtolower($matches[1]);
+        }
+
+        return '';
+    }
+
+    /**
+     * The marker run a cell carrying these axes is written with.
+     *
+     * `?` IS THE INHERITED HORIZONTAL. The vertical marker only exists in the
+     * second position of the run, so a cell stating only a vertical alignment
+     * needs something in the first - and a bare `|^` is not that: it reads as
+     * cell content and comes back as the literal text `^ a`. `|~` alone is the
+     * CENTER horizontal marker, not a vertical one, which is the other way the
+     * run is easy to misspell.
+     */
+    protected function tableCellMarkerRun(string $alignment, string $valign): string
+    {
+        $align = $this->tableAlignMarker($alignment);
+        if ($valign === '') {
+            return $align;
+        }
+
+        $vertical = match ($valign) {
+            'top' => '^',
+            'middle' => '~',
+            'bottom' => 'v',
+            default => '',
+        };
+
+        return ($align === '' ? '?' : $align) . $vertical;
+    }
+
+    /**
+     * Whether the head row would be written with a span marker, which is what
+     * sends the table to the separator form: `|= < |` is not valid Carve for a
+     * colspan continuation, so the head cannot take the `|=` shape.
+     *
+     * Asked of the SOURCE rather than of the built cells, because a cell's
+     * marker run has to be decided before the row is built.
+     *
+     * @param array<\DOMElement> $trElements
+     */
+    protected function tableHeadHasASpanMarker(array $trElements): bool
+    {
+        foreach ($trElements as $tr) {
+            $cells = 0;
+            $spanning = false;
+            foreach ($tr->childNodes as $cell) {
+                if (!$cell instanceof DOMElement) {
+                    continue;
+                }
+                $tag = strtolower($cell->tagName);
+                if ($tag !== 'th' && $tag !== 'td') {
+                    continue;
+                }
+                $cells++;
+                if ((int)$cell->getAttribute('colspan') > 1) {
+                    $spanning = true;
+                }
+            }
+            if ($cells === 0) {
+                continue;
+            }
+
+            return $spanning;
+        }
+
+        return false;
     }
 
     protected function buildTableSeparator(int $width, string $alignment): string
@@ -9724,6 +10123,13 @@ class HtmlToCarve
             }
         }
 
+        // The keys a mapped CSS declaration fills, read BEFORE the loop. CSS
+        // beats the presentational attribute in HTML, and it has to beat it in
+        // BOTH source orders - reading it as the loop reached `style` let
+        // `<td align="right" style="text-align:left">` keep both, because the
+        // attribute had already been written by then.
+        $styleMapped = in_array('style', $allSkip, true) ? [] : $this->mappedStyleSlots($node);
+
         // Process other attributes
         /** @var \DOMAttr $attr */
         foreach ($node->attributes as $attr) {
@@ -9734,7 +10140,24 @@ class HtmlToCarve
             if ($name === 'id' || $name === 'class') {
                 continue;
             }
+            if (strtolower($name) === 'style' && !in_array($name, $allSkip, true)) {
+                // A DECLARATION THIS ENGINE CAN SPELL IS NOT A LOSS. `style` was
+                // refused wholesale, so a cell carrying `text-align:right` came
+                // back unaligned - for a value this converter's own renderer
+                // writes from `{align=right}`, byte for byte
+                // (markup-carve/carve#1741). A cell whose column marker already
+                // carries the alignment passes `style` in $skipAttrs and lands
+                // above, so the same information is never spelled twice.
+                foreach ($this->mappedStyleAttributes($node) as $key => $mapped) {
+                    $slots[$key] = [$key . '=' . $this->quoteAttributeValue($mapped)];
+                }
+
+                continue;
+            }
             if (in_array($name, $allSkip, true) || $this->isStrippedImportAttribute($name)) {
+                continue;
+            }
+            if (isset($styleMapped[$name])) {
                 continue;
             }
 
