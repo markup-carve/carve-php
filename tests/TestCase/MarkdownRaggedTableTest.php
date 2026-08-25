@@ -138,4 +138,20 @@ class MarkdownRaggedTableTest extends TestCase
 
         $this->assertSame([2, 2, 2], $this->cellCounts($out));
     }
+
+    public function testMultipleHeaderRowsKeepEveryRowAndTheLaterAlignment(): void
+    {
+        $this->assertSame(
+            "| H1 |\n| :--- |\n| H2 |\n| D |\n",
+            $this->md("|=> H1 |\n|=< H2 |\n| D |\n"),
+        );
+    }
+
+    public function testABodyCellOverrideBeforeTheHeaderDoesNotAlignTheColumn(): void
+    {
+        $this->assertSame(
+            "| H2 |\n| --- |\n| R1 |\n| D |\n",
+            $this->md("|> R1 |\n|= H2 |\n| D |\n"),
+        );
+    }
 }

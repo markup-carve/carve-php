@@ -1433,21 +1433,34 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 }
                 if (is_array($cell) && isset($cell['content']) && is_string($cell['content'])) {
                     $cells[] = $cell['content'];
-                    if ($row['isHeader'] && !isset($alignments[$index])) {
-                        $alignments[$index] = is_string($cell['alignment'] ?? null)
-                            ? $cell['alignment']
-                            : TableCell::ALIGN_DEFAULT;
-                    }
                 } else {
                     $cells[] = '';
                 }
             }
 
-            if ($row['isHeader'] && $headerCells === null) {
-                // No trailing-empty pop here: an EMPTY authored cell is a cell,
-                // and `authoredWidth` above already removed the padding that
-                // pop was aimed at.
-                $headerCells = $cells;
+            if ($row['isHeader']) {
+                // Multiple header rows collapse to Markdown's one header row.
+                // The later header's effective column alignment wins in Carve,
+                // so update the delimiter source on every header.
+                foreach ($row['cells'] as $index => $cell) {
+                    if (
+                        $index < $row['authoredWidth']
+                        && is_array($cell)
+                        && is_string($cell['alignment'] ?? null)
+                        && $cell['alignment'] !== TableCell::ALIGN_DEFAULT
+                    ) {
+                        $alignments[$index] = $cell['alignment'];
+                    }
+                }
+                if ($headerCells === null) {
+                    // No trailing-empty pop here: an EMPTY authored cell is a
+                    // cell, and `authoredWidth` already removed the padding.
+                    $headerCells = $cells;
+                } else {
+                    // Markdown cannot retain another header row, but dropping
+                    // it would violate the presentation target's content floor.
+                    $bodyRows[] = '| ' . implode(' | ', $cells) . ' |';
+                }
             } else {
                 $bodyRows[] = '| ' . implode(' | ', $cells) . ' |';
             }

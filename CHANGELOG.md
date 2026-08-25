@@ -59,6 +59,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The Markdown target keeps every row from a multi-header table and uses the final effective column alignment.** Additional header rows degrade to body rows instead of disappearing, and body-cell overrides do not leak into the delimiter.
+
 - **An exact-column fence in a definition body keeps its opaque payload indentation.** A backtick run inside a tilde fence is no longer reconsidered as an authored-base opener, so exact and over-indented spellings format identically and idempotently.
 - Preserve fenced block-quote spelling through the ProseMirror bridge.
 
