@@ -459,6 +459,33 @@ class HtmlToCarve
         $index = 0;
         foreach ($nodes as $child) {
             $index++;
+            if ($child instanceof DOMComment) {
+                // AN HTML COMMENT WITH NO INLINE SPELLING IS DROPPED, and this
+                // is where the row for it is added (`markup-carve/carve#1709`).
+                //
+                // HERE rather than beside the conversion that decides it,
+                // because this walk is the one that numbers a path in DOCUMENT
+                // ORDER - and `docs/html-import.md` orders the report by the
+                // position of the losing node, not by when the row was built.
+                if (
+                    !$this->commentStandsAmongBlocks($child)
+                    && $this->commentHasNoInlineSpelling($child->textContent)
+                ) {
+                    $why = str_contains($child->textContent, '%}')
+                        ? 'holds the comment closer'
+                        : 'holds a blank line';
+                    $this->addImportDiagnostic(
+                        $diagnostics,
+                        'element-dropped',
+                        'Dropped an HTML comment: its text ' . $why
+                            . ', which ends a Carve inline comment early, and the comment is not moved out of the run to make it spellable',
+                        'warning',
+                        $parentPath . '/comment()[' . $index . ']',
+                    );
+                }
+
+                continue;
+            }
             if (!$child instanceof DOMElement) {
                 continue;
             }
@@ -1347,7 +1374,29 @@ class HtmlToCarve
         $index = 0;
         foreach ($node->childNodes as $child) {
             $index++;
-            if ($child instanceof DOMElement || $child instanceof DOMComment) {
+            if ($child instanceof DOMElement) {
+                continue;
+            }
+            if ($child instanceof DOMComment) {
+                // A COMMENT BETWEEN TWO ITEMS MOVES, and now that it is KEPT
+                // the move has to be said (`markup-carve/carve#1709`). It used
+                // to be dropped, so there was nothing to declare and the row
+                // was suppressed here.
+                //
+                // `info`, where the text row below is `warning`, and the split
+                // is principled rather than a dial: moved TEXT changes the
+                // rendered document, and a comment renders nothing in either
+                // language, so the move costs a reader of the OUTPUT nothing
+                // and a reader of the SOURCE one position.
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'element-unwrapped',
+                    'An HTML comment directly inside <' . $tag . '> kept its text but not its place among the items:'
+                        . ' it is emitted as a comment ahead of the list',
+                    'info',
+                    $path . '/comment()[' . $index . ']',
+                );
+
                 continue;
             }
             if (trim($child->textContent) === '') {
@@ -2413,6 +2462,21 @@ class HtmlToCarve
             return $this->inPre ? $text : $this->escapeHtmlTextAsCarveProse($text);
         }
 
+        if ($node instanceof DOMComment) {
+            // AN HTML COMMENT IS A CARVE COMMENT, and this is the INLINE
+            // position of it (`markup-carve/carve#1709`). The block position is
+            // decided in processChildren(), which is the only walk that can see
+            // whether the comment stands among blocks.
+            //
+            // The usual reason this importer drops something is that Carve
+            // cannot express the shape. That reason never applied here: Carve
+            // HAS comments, so dropping one was a choice to lose bytes the
+            // format can hold, in a mode whose whole job is fidelity, made by
+            // nobody. A comment renders nothing in either language, so keeping
+            // it is invisible in the output and lossless in the source.
+            return $this->inlineCommentSource($node);
+        }
+
         if (!($node instanceof DOMElement)) {
             // Process children for other node types
             return $this->processChildren($node);
@@ -2806,6 +2870,131 @@ class HtmlToCarve
     }
 
     /**
+     * Does this comment stand AMONG BLOCKS rather than inside an inline run?
+     *
+     * THE RUN DECIDES, NOT THE TAG IT SITS UNDER (`markup-carve/carve#1709`).
+     * A run is the span of consecutive non-block siblings the comment belongs
+     * to. If everything in that span is a comment or the layout between them,
+     * the comment is sitting between blocks however the markup got it there,
+     * and the block spelling is the honest one. If the run carries anything
+     * else - a word, an inline element - the comment is inside a real inline
+     * run, and emitting a block there would split the words either side of it
+     * into two paragraphs, which is the document saying something it never
+     * said.
+     *
+     * Whitespace-only text is NOT "something else". It is the layout between
+     * the blocks, which is exactly what a comment between two of them sits in,
+     * and counting it as content would make the answer depend on whether the
+     * author indented their HTML.
+     */
+    protected function commentStandsAmongBlocks(DOMComment $node): bool
+    {
+        foreach (['previousSibling', 'nextSibling'] as $direction) {
+            $sibling = $node->$direction;
+            while ($sibling !== null) {
+                if ($sibling instanceof DOMElement) {
+                    if (in_array(strtolower($sibling->tagName), $this->blockElements, true)) {
+                        break;
+                    }
+
+                    return false;
+                }
+                if ($sibling instanceof DOMText && !$this->isLayoutOnlyText($sibling->textContent)) {
+                    return false;
+                }
+                $sibling = $sibling->$direction;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Every character layout, and none of it content.
+     *
+     * `trim()` is not this question. PHP's `trim()` default set is ASCII, so it
+     * happens to agree here, but the question being asked is PART 11 section 7's
+     * content-versus-layout line and naming it stops the next reader reaching
+     * for a whitespace test that answers a different one.
+     */
+    protected function isLayoutOnlyText(string $text): bool
+    {
+        return $text === '' || strspn($text, " \t\n\r\f") === strlen($text);
+    }
+
+    /**
+     * An HTML comment in a BLOCK position, as the fenced Carve comment.
+     *
+     * A FENCE MUST BE WIDER THAN ANY RUN OF `%` INSIDE IT - a nested `%%%`
+     * closes it early - so it widens the way a code fence does. That is why the
+     * block form has no unspellable payload and the inline form does: nothing
+     * an author can write into a comment can close this one.
+     *
+     * The widening rule is `CarveRenderer::renderComment`'s, spelled the same
+     * way, so a document that comes through this importer and then through the
+     * writer does not change width.
+     */
+    protected function blockCommentSource(string $content): string
+    {
+        preg_match_all('/%+/', $content, $matches);
+        $longest = 0;
+        foreach ($matches[0] as $match) {
+            $longest = max($longest, strlen($match));
+        }
+        $fence = str_repeat('%', max(3, $longest + 1));
+
+        return $fence . "\n" . $content . "\n" . $fence;
+    }
+
+    /**
+     * An HTML comment in an INLINE position, as the delimited Carve comment.
+     *
+     * TWO PAYLOADS HAVE NO INLINE SPELLING, and both close the comment EARLY
+     * rather than being escapable:
+     *
+     * - text holding the closer, which ends the comment where it appears, so
+     *   the rest of the payload comes back as prose;
+     * - text holding a BLANK line, which ends the paragraph the run is in, so
+     *   both halves come back as prose and the comment is gone.
+     *
+     * Those are DROPPED, with one row saying so. Not truncated and not escaped
+     * into the form: a comment that came back shorter, or carrying characters
+     * the author did not write, is a silent content change, and the row is the
+     * point. Not relocated to the block form either - moving it would put text
+     * somewhere the author did not write it.
+     *
+     * A single newline is NOT one of the two: it is a soft wrap inside the run
+     * rather than its end, so such a comment re-reads intact.
+     */
+    protected function inlineCommentSource(DOMComment $node): string
+    {
+        $content = $node->textContent;
+        $closesEarly = str_contains($content, '%}');
+        $endsTheRun = preg_match('/\n[ \t]*\n/', $content) === 1;
+        if ($this->commentHasNoInlineSpelling($content)) {
+            // The ROW is added by the inspection walk, which is where every
+            // other row is added and the only walk that numbers a path in
+            // document order. See inspectImportNodes().
+            return '';
+        }
+
+        return '{% ' . $content . ' %}';
+    }
+
+    /**
+     * Is this comment text one of the two payloads the inline form cannot hold?
+     *
+     * ONE PLACE, because two walks ask it: the CONVERSION decides whether to
+     * write the comment, and the INSPECTION decides whether to report it. Two
+     * spellings of the same test is how a row appears for a comment that was
+     * written, or fails to appear for one that was not.
+     */
+    protected function commentHasNoInlineSpelling(string $content): bool
+    {
+        return str_contains($content, '%}') || preg_match('/\n[ \t]*\n/', $content) === 1;
+    }
+
+    /**
      * Block-level elements that should break implicit paragraphs
      *
      * @var array<string>
@@ -2896,6 +3085,30 @@ class HtmlToCarve
             if ($child instanceof DOMElement) {
                 $tagName = strtolower($child->tagName);
                 $isBlock = in_array($tagName, $this->blockElements, true);
+            }
+
+            if ($child instanceof DOMComment && $this->commentStandsAmongBlocks($child)) {
+                // A COMMENT STANDING AMONG BLOCKS IS A BLOCK COMMENT
+                // (`markup-carve/carve#1709`). It flushes the buffer the way a
+                // block element does, because that is what it is here.
+                //
+                // The run around it is what decides, not the tag it sits under:
+                // `<div>text <!--n--> more</div>` is ONE paragraph, and
+                // splitting it at the comment would move the words either side
+                // of it into two. Only a run holding nothing but comments and
+                // the layout between them is a comment among blocks.
+                $inlineText = trim($inlineBuffer);
+                if ($inlineText !== '') {
+                    $inlineText = $this->escapeDetachedCaptionOpener($previousBlock, $inlineText);
+                    $content .= $inlineText . "\n\n";
+                    $previousBlock = $inlineText;
+                }
+                $inlineBuffer = '';
+                $rendered = $this->blockCommentSource($child->textContent);
+                $content .= $rendered . "\n\n";
+                $previousBlock = $rendered;
+
+                continue;
             }
 
             if ($isBlock) {
@@ -4551,6 +4764,30 @@ class HtmlToCarve
                 if ($sibling->textContent !== '') {
                     return $this->edgeCharacter($sibling->textContent, $trailing);
                 }
+            } elseif ($sibling instanceof DOMComment) {
+                // A WRITTEN COMMENT IS A CONSTRUCT, so it ends the search with
+                // its own punctuation and never blocks a bare delimiter
+                // (`markup-carve/carve#1709`).
+                //
+                // This walk used to step over a comment because the importer
+                // DELETED it: `<p>a<!-- n --><strong>b</strong> c</p>` really
+                // did put `a` next to the emphasis, so the braced form was
+                // right. Now `{% n %}` stands between them and the neighbouring
+                // character is `}`, so the bare form is what the canonical
+                // writer emits - and an importer that still braced it was no
+                // longer a fixed point of `carve fmt`, which is the property
+                // boundaryDelimiters() exists to hold.
+                //
+                // A comment the importer does NOT write is stepped over exactly
+                // as before: one standing among blocks is not in this run at
+                // all, and one with no inline spelling is dropped, so neither
+                // puts a character anywhere.
+                if (
+                    !$this->commentStandsAmongBlocks($sibling)
+                    && !$this->commentHasNoInlineSpelling($sibling->textContent)
+                ) {
+                    return '';
+                }
             } elseif ($sibling instanceof DOMElement) {
                 $tag = strtolower($sibling->tagName);
                 if (
@@ -6011,6 +6248,14 @@ class HtmlToCarve
                 continue;
             }
             if ($child instanceof DOMComment) {
+                // A COMMENT BETWEEN TWO ITEMS IS KEPT NOW
+                // (`markup-carve/carve#1709`). A list holds items, so there is
+                // no Carve position BETWEEN two of them - and the comment takes
+                // the same answer every other stray child of a list takes here:
+                // emitted ahead of the list, with the move declared by
+                // inspectImportListChildren().
+                $blocks[] = $this->blockCommentSource($child->textContent);
+
                 continue;
             }
             $rendered = trim($this->processNode($child));
@@ -6121,7 +6366,26 @@ class HtmlToCarve
     {
         for ($prev = $node->previousSibling; $prev !== null; $prev = $prev->previousSibling) {
             if ($prev instanceof DOMComment) {
-                // A comment is not written at all, at any nesting level.
+                // A WRITTEN COMMENT SEPARATES THE TWO LISTS, so the hard
+                // boundary is not needed behind one (`markup-carve/carve#1709`).
+                //
+                // This used to `continue` unconditionally, on the ground that a
+                // comment is not written at all - which was true while the
+                // importer deleted it. It is written now, and a `%%%` block
+                // between two lists parses them as two, so keeping the boundary
+                // behind one wrote three blank lines nothing needed and put this
+                // engine's bytes a line apart from carve-js on the same input.
+                //
+                // A comment the importer does NOT write is still stepped over:
+                // one standing inside this run rather than among blocks writes
+                // no block, and one with no inline spelling is dropped.
+                if (
+                    $this->commentStandsAmongBlocks($prev)
+                    && !$this->commentHasNoInlineSpelling($prev->textContent)
+                ) {
+                    return $prev;
+                }
+
                 continue;
             }
 
@@ -9664,6 +9928,8 @@ class HtmlToCarve
         $inList = false;
         $inFootnote = false;
         $lineBlockFence = 0;
+        // The width of the `%%%` comment fence currently open, or 0.
+        $commentFence = 0;
         $result = [];
         // Which emitted lines sit inside a fence, so the blank-line collapse
         // below can leave their blanks alone.
@@ -9693,6 +9959,34 @@ class HtmlToCarve
             }
             if (preg_match('/^(:{3,})\s+\|/', $line, $lbm) === 1) {
                 $lineBlockFence = strlen($lbm[1]);
+                $verbatim[count($result)] = true;
+                $result[] = $line;
+
+                continue;
+            }
+
+            // A `%%%` COMMENT FENCE IS VERBATIM, like the code fence below and
+            // the line block above (`markup-carve/carve#1709`).
+            //
+            // The default branch of this loop LTRIMS, and a comment's body is
+            // the author's bytes: `<!-- c -->` imports as a fence around ` c `,
+            // and without this the leading space was gone before the source was
+            // returned - the same silent content change the comment rule exists
+            // to stop, one layer down in the writer.
+            //
+            // It could not have shown up before, because no importer path wrote
+            // a `%%%` fence until comments were kept.
+            if ($commentFence > 0) {
+                $verbatim[count($result)] = true;
+                $result[] = $line;
+                if (preg_match('/^(%{3,})[ \t]*$/', $line, $cfm) === 1 && strlen($cfm[1]) >= $commentFence) {
+                    $commentFence = 0;
+                }
+
+                continue;
+            }
+            if (preg_match('/^(%{3,})[ \t]*$/', $line, $cfm) === 1) {
+                $commentFence = strlen($cfm[1]);
                 $verbatim[count($result)] = true;
                 $result[] = $line;
 

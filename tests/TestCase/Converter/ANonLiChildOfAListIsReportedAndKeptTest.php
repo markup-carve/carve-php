@@ -125,16 +125,38 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
     }
 
     /**
-     * The margin between pretty-printed items is blank text and a comment is a
-     * comment: neither produces a block, so neither produces a note. Delegating
-     * to the ordinary walk is what settles this without a rule of its own.
+     * The margin between pretty-printed items is blank text and writes nothing,
+     * so it produces neither a block nor a note.
+     *
+     * THE COMMENT BESIDE IT IS KEPT NOW (`markup-carve/carve#1709`). It used to
+     * be deleted, which is what made "neither produces a block" true of both;
+     * the text of a comment is the document's and Carve can hold it, so losing
+     * it was a choice nobody made. A list holds items, so there is no Carve
+     * position between two of them: the comment takes the same answer every
+     * other stray child of a list takes here, emitted ahead of the list with
+     * the move declared.
+     *
+     * `info`, where the text row is `warning`: a comment renders nothing in
+     * either language, so the move costs a reader of the OUTPUT nothing and a
+     * reader of the SOURCE one position.
      */
-    public function testAMarginAndACommentProduceNeitherBlocksNorRows(): void
+    public function testAMarginWritesNothingAndAKeptCommentSaysThatItMoved(): void
     {
         $html = "<ul>\n  <!-- c -->\n  <li>a</li>\n  <li>b</li>\n</ul>";
 
-        $this->assertSame("- a\n- b\n", $this->carve($html));
-        $this->assertSame([], $this->rows($html));
+        $this->assertSame("%%%\n c \n%%%\n\n- a\n- b\n", $this->carve($html));
+        $this->assertSame(
+            [
+                [
+                    'code' => 'element-unwrapped',
+                    'message' => 'An HTML comment directly inside <ul> kept its text but not its place among the items:'
+                        . ' it is emitted as a comment ahead of the list',
+                    'severity' => 'info',
+                    'path' => '/ul[1]/comment()[2]',
+                ],
+            ],
+            $this->rows($html),
+        );
     }
 
     /**
