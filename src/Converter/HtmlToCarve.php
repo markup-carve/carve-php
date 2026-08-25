@@ -865,13 +865,16 @@ class HtmlToCarve
             // and a captioned one outside `roundtrip`, where there is no
             // preserved block to keep it (carve-php#1723).
             //
-            // WORDING AND SEVERITY ARE carve-rs's, byte for byte, and they are
-            // this file's own for every other unwrapped element. carve-js says
-            // something figure-specific at `warning` instead, and splits it
-            // into two messages by whether the target was one it can write a
-            // caption line for - a split that follows carve-js's target set
-            // rather than this one's, so copying the words would import a
-            // distinction this engine does not draw.
+            // WORDING AND SEVERITY ARE ALL THREE ENGINES', byte for byte, and
+            // they are this file's own for every other unwrapped element.
+            // markup-carve/carve#1716 ruled the row: `element-unwrapped` at
+            // `info`, saying `Unwrapped unsupported <figure> element`, because
+            // the row means one thing wherever it appears - the content
+            // survived, the element did not - and that is the same event for a
+            // figure, a section or an address. It also retired carve-js's
+            // figure-specific message and its split by target set, since a
+            // diagnostic whose text varies with one engine's capabilities
+            // leaks an implementation detail into the wire format.
             //
             // BEFORE THE ATTRIBUTE LOOP, so the row naming what happened to the
             // element stands ahead of the rows naming what happened to its
