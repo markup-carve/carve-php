@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Performance;
 
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -195,7 +196,7 @@ final class BorrowedHtmlLayout
             ) {
                 return null;
             }
-            $definitions[$match[1]] = ['href' => $match[2], 'title' => $match[3] ?? null];
+            $definitions[LabelKey::normalize($match[1])] = ['href' => $match[2], 'title' => $match[3] ?? null];
             $this->accept($stats, 'linkDefinitions', $index, $index + 1, true);
         }
 
@@ -493,7 +494,7 @@ final class BorrowedHtmlLayout
                     if ($close === false) {
                         return null;
                     }
-                    $key = substr($text, $labelEnd + 2, $close - $labelEnd - 2);
+                    $key = LabelKey::normalize(substr($text, $labelEnd + 2, $close - $labelEnd - 2));
                     if (!isset($definitions[$key])) {
                         return null;
                     }

@@ -352,11 +352,13 @@ class ReferenceDefinitionExtractor
                 $definition = null;
             }
             if ($definition !== null) {
-                $references[$definition['label']] = new ReferenceDefinition(
+                $references[LabelKey::normalize($definition['label'])] = new ReferenceDefinition(
                     $definition['url'],
                     $definition['attrs'],
                     $i,
                     $definition['title'],
+                    false,
+                    $definition['label'],
                 );
                 $pendingAttrs = [];
                 $pendingAttrsInQuote = false;
@@ -681,12 +683,8 @@ class ReferenceDefinitionExtractor
             return null;
         }
 
-        // EXACT, as written. §6 and PART 9R R1 both say matching is
-        // "case-sensitive, no whitespace folding", and folding the key here (and
-        // the lookup in InlineParser) meant `[t][ b  c]` resolved against
-        // `[b c]: /u`. carve-js fixed the same defect in carve-js#674; carve-rs
-        // was already exact. Neither trimmed nor collapsed: identical padding has
-        // to keep matching, so `[ b]` resolves `[ b]`.
+        // Preserve the authored spelling on the definition. The caller keys it
+        // with LabelKey so links, images and definitions share one algorithm.
         $label = $matches[1];
 
         // The LEADING side of the destination is trimmed and the trailing side
