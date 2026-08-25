@@ -66,6 +66,18 @@ class HtmlToCarve
     protected const LIST_BOUNDARY = "\x01carve-list-boundary\x01";
 
     /**
+     * The stand-in a description with no spelling takes on the AST exit only.
+     *
+     * `\x01` cannot appear in a document - the same reason LIST_BOUNDARY above
+     * uses it - so the line this writes parses as an ordinary description and
+     * nothing an author can type collides with it. `emptyTheStoodInDescriptions`
+     * takes the content back out; the string never reaches a caller.
+     *
+     * @var string
+     */
+    protected const EMPTY_DESCRIPTION = "\x01carve-empty-description\x01";
+
+    /**
      * @var list<string>
      */
     protected const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
@@ -343,15 +355,150 @@ class HtmlToCarve
      */
     public function convertToAstWithReport(string $html): HtmlImportAstResult
     {
-        $source = $this->convertWithReport($html);
+        // `finally`, because a throwing conversion must not leave the flag
+        // standing: this converter is reusable and long-lived by design, and
+        // the next `convertWithReport()` would then write a sentinel into
+        // source a caller reads.
+        $this->astExit = true;
+        try {
+            $source = $this->convertWithReport($html);
+        } finally {
+            $this->astExit = false;
+        }
         $document = CarveConverter::create()->parse($source->value);
 
         return new HtmlImportAstResult(
-            (new AstCodec())->encode($document),
+            self::withoutTheWriter((new AstCodec())->encode($document)),
             $source->mode,
             $source->adapter,
             $source->diagnostics,
         );
+    }
+
+    /**
+     * The published tree with the SOURCE WRITER taken back out of it.
+     *
+     * This engine reads its AST back from its own written Carve, which is what
+     * makes the two public exits one invariant rather than two goldens nobody
+     * compares. The cost is that everything the WRITER does on the way through
+     * was reaching the published tree, and two of its habits did
+     * (`markup-carve/carve-php#1716`).
+     *
+     * ONE: ITS ESCAPES. PART 12 section 1a makes `escaped_text` a node of its
+     * own that never merges with `text`, "because an escape is authored form" -
+     * and on this exit no escape is authored. HTML has no Carve escapes, so
+     * every backslash in the source this importer just wrote was put there by
+     * the writer to keep a character from meaning what it means in Carve.
+     * Reading them back as nodes published the writer's bookkeeping rather than
+     * the document: `<p>a :rocket: b</p>` came out as five inline nodes where
+     * the document has one. Folding them back is what section 1a's own
+     * coalescing rule then asks for, and no import fixture in the shared suite
+     * expects an `escaped_text` node anywhere.
+     *
+     * THE MERGED NODE CARRIES NO POSITION. Section 1a keeps a `pos` on a merged
+     * run only where the pieces are contiguous in the source, and these are
+     * not: the backslash sits between them in the source and in no version of
+     * the value, so the merged text is a slice at no offset.
+     *
+     * TWO: ITS CEILING. A description with no Carve spelling is written as
+     * `EMPTY_DESCRIPTION` so the PARSER builds the `definition_description` the
+     * document has, and the stand-in is taken out here. `docs/html-import.md`
+     * says why the source exit's limit is not this one's: for a structure Carve
+     * SOURCE cannot spell, "the AST-returning entry point loses nothing and
+     * reports nothing; the one that writes source reports this". An AST exit
+     * has nothing to spell.
+     *
+     * Matched on the WHOLE description rather than by string replacement: the
+     * stand-in is the entire content of the descriptions it was written into,
+     * so anything else carrying it is not one of them and is left alone.
+     *
+     * @param array<string, mixed> $tree
+     *
+     * @return array<string, mixed>
+     */
+    private static function withoutTheWriter(array $tree): array
+    {
+        foreach ($tree as $key => $value) {
+            $tree[$key] = self::asPublished($value);
+        }
+
+        return $tree;
+    }
+
+    /**
+     * One value of the encoded tree, with both of the writer's habits undone.
+     *
+     * ON THE ENCODED TREE rather than the node model, and recursing over LISTS
+     * rather than over a roster of container keys: every container spells its
+     * children under its own name - `children`, `items`, `rows`, `cells` - and
+     * a roster is what would rot. A table cell and a span are reached by the
+     * same lines that reach a paragraph.
+     *
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    private static function asPublished(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+        if (array_is_list($value)) {
+            $out = [];
+            foreach ($value as $entry) {
+                $entry = self::asPublished($entry);
+                if (is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
+                    $escaped = $entry['value'] ?? '';
+                    $entry = ['type' => 'text', 'value' => is_string($escaped) ? $escaped : ''];
+                }
+                $last = $out === [] ? null : array_key_last($out);
+                $previous = $last === null ? null : $out[$last];
+                if (
+                    $last !== null
+                    && is_array($entry)
+                    && ($entry['type'] ?? null) === 'text'
+                    && is_array($previous)
+                    && ($previous['type'] ?? null) === 'text'
+                ) {
+                    $head = $previous['value'] ?? '';
+                    $tail = $entry['value'] ?? '';
+                    $out[$last] = [
+                        'type' => 'text',
+                        'value' => (is_string($head) ? $head : '') . (is_string($tail) ? $tail : ''),
+                    ];
+
+                    continue;
+                }
+                $out[] = $entry;
+            }
+
+            return $out;
+        }
+        if (($value['type'] ?? null) === 'definition_description' && self::holdsOnlyTheStandIn($value)) {
+            $value['children'] = [];
+
+            return $value;
+        }
+        foreach ($value as $key => $inner) {
+            $value[$key] = self::asPublished($inner);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Is this description's whole content the stand-in the writer put there?
+     *
+     * @param array<mixed> $description
+     */
+    private static function holdsOnlyTheStandIn(array $description): bool
+    {
+        $children = $description['children'] ?? null;
+        $only = is_array($children) && count($children) === 1 ? ($children[0] ?? null) : null;
+        $inlines = is_array($only) && ($only['type'] ?? null) === 'paragraph' ? ($only['children'] ?? null) : null;
+        $first = is_array($inlines) && count($inlines) === 1 ? ($inlines[0] ?? null) : null;
+
+        return is_array($first) && ($first['value'] ?? null) === self::EMPTY_DESCRIPTION;
     }
 
     /**
@@ -2698,6 +2845,18 @@ class HtmlToCarve
      * @var array<string, true>
      */
     protected array $splitDefinitionLists = [];
+
+    /**
+     * Is this conversion the one feeding the AST exit?
+     *
+     * The two exits differ in exactly one way and it is not a mode: where Carve
+     * SOURCE has no spelling for a structure, the source exit loses it and says
+     * so, and the AST exit keeps it (`docs/html-import.md`). This engine reads
+     * its tree back from its own source, so the shapes with no spelling need
+     * carrying across, and this flag is what turns that on. Nothing else about
+     * the conversion changes, and the REPORT does not change at all.
+     */
+    protected bool $astExit = false;
 
     /**
      * The `<dd>` elements this conversion dropped for writing nothing.
@@ -7534,7 +7693,17 @@ class HtmlToCarve
             $tag = strtolower($child->tagName);
             if ($tag === 'dt') {
                 if ($pendingBreak) {
-                    $output .= "\n%%\n\n";
+                    // THE MARK IS SET EITHER WAY and only the separator is
+                    // conditional. The break exists because a DROPPED entry
+                    // would hand the term above it the next entry's
+                    // description; on the AST exit the description is not
+                    // dropped, so there is nothing to break the list around -
+                    // but the loss is still what the source exit takes, and the
+                    // row that declares it has to read the same from both
+                    // (`markup-carve/carve-php#1716`).
+                    if (!$this->astExit) {
+                        $output .= "\n%%\n\n";
+                    }
                     $pendingBreak = false;
                     $this->splitDefinitionLists[$this->conversionNodePath($node)] = true;
                 }
@@ -7568,6 +7737,28 @@ class HtmlToCarve
                     // {@see self::$droppedDefinitionDescriptions}.
                     $this->droppedDefinitionDescriptions[$this->conversionNodePath($child)] = true;
                     $pendingBreak = true;
+
+                    // THE AST EXIT LOSES NOTHING, so it does not take the
+                    // source writer's ceiling (`markup-carve/carve-php#1716`).
+                    //
+                    // `docs/html-import.md` says it in as many words: for a
+                    // structure Carve SOURCE cannot spell, "the AST-returning
+                    // entry point loses nothing and reports nothing; the one
+                    // that writes source reports this". This engine derives its
+                    // tree from its own source, so without a way to carry the
+                    // description across, the exit that is supposed to lose
+                    // nothing lost exactly what the writer did - and the entry
+                    // came back as a term with no description at all.
+                    //
+                    // The mark above is set EITHER WAY, so the report is the
+                    // same on both exits, which is what the shared fixtures
+                    // assert. Only the bytes differ, and only in a string no
+                    // caller ever sees.
+                    if ($this->astExit) {
+                        $output .= ':  ' . self::EMPTY_DESCRIPTION . "\n";
+
+                        continue;
+                    }
 
                     continue;
                 }

@@ -47,12 +47,15 @@ class HtmlImportReportTest extends TestCase
      * @var array<string, string>
      */
     private const AST_DIVERGENCES = [
-        'detached-caption-caret' => 'The source exit degrades a detached caption caret to text.',
-        'empty-definition-description' => 'The source exit cannot yet preserve the empty first description.',
-        'empty-definition-description-not-last' => 'The source exit cannot yet preserve an empty middle description.',
-        'marker-shaped-cell' => 'The source exit reparses the marker-shaped table cell differently.',
-        'note-reference-in-a-span' => 'The source exit reparses the note reference outside its authored span shape.',
-        'symbol-sigil-escape' => 'The source exit retains the symbol escape as an escaped-text node.',
+        // EMPTY, and the two-way guard below is what keeps it that way: an
+        // entry whose divergence stops reproducing FAILS with "delete its
+        // AST_DIVERGENCES entry", so a row cannot outlive its cause.
+        //
+        // The six it held had two causes, both of them the AST exit publishing
+        // the SOURCE WRITER rather than the document, and both closed in
+        // `markup-carve/carve-php#1716`. Four were the writer's escapes read
+        // back as `escaped_text` nodes; two were structures Carve source cannot
+        // spell, which this exit is not allowed to lose.
     ];
 
     /**
