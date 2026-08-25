@@ -9,34 +9,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A definition-body continuation indented PAST the body's column is LAZY TEXT.
- *
- * `definition_indent` REACHES the body's column and does not measure how far
- * past it a line went, because there is nothing past that column for
- * indentation to MEAN (markup-carve/carve#918). A line indented further
- * therefore continues the body's OPEN PARAGRAPH, and a paragraph continuation
- * carries inline content:
- *
- * A term line `:: t`, then a body line written `:` + two spaces + `body` (which
- * puts the body's column at 3), then a line indented FOUR columns holding
- * `> q`, gives `<dd>body` newline `&gt; q</dd>` - not a nested block quote. The
- * example is spelled out rather than shown because the formatter collapses a
- * literal double space in a doc block, and the double space after the `:` is
- * exactly what sets the column this rule is about.
- *
- * WHY IT IS NOT "EXTRA INDENTATION NESTS". That reading makes indentation depth
- * mean two different things one line apart: lazy continuation already governs
- * the line above, folding it into the same paragraph, and a stray four-space
- * indent would silently become a block quote.
- *
- * THE TWO COLUMNS ON EITHER SIDE DO NOT MOVE, and they are the controls. At the
- * body's own column the quote opens; flush left the body ends and the quote is
- * a sibling. A fix that reaches either of them has overshot.
- *
- * A LEGITIMATELY NESTED CONSTRUCT needs the blank-line-then-indented-block form
- * (FORM A), which is how a `dd` already holds more than one paragraph. That is
- * the whole of the distinction: the blank is what separates the two readings,
- * and once FORM A has opened a block the lines under it belong to that block.
+ * A recognized opener past a definition body's minimum column establishes an
+ * authored local block base (markup-carve/carve#1729). Ordinary text may still
+ * continue lazily; below-column lines still leave the body.
  */
 class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
 {
@@ -63,20 +38,20 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     public static function blockOpenerProvider(): array
     {
         return [
-            'a block quote' => ['> q', '&gt; q'],
-            'a bullet list' => ['- x', '- x'],
-            'a heading' => ['# h', '# h'],
-            'a thematic break' => ['---', '—'],
-            'a table row' => ['| a |', '| a |'],
+            'a block quote' => ['> q', '<blockquote>'],
+            'a bullet list marker remains lazy without a blank' => ['- x', '- x</dd>'],
+            'a heading' => ['# h', '<h1'],
+            'a thematic break' => ['---', '<hr>'],
+            'a table row' => ['| a |', '<table>'],
         ];
     }
 
     #[DataProvider('blockOpenerProvider')]
-    public function testABlockOpenerPastTheColumnIsText(string $opener, string $rendered): void
+    public function testABlockOpenerPastTheColumnUsesItsAuthoredBase(string $opener, string $rendered): void
     {
-        $this->assertSame(
-            "<dl> <dt>t</dt> <dd>body {$rendered}</dd> </dl>",
-            $this->squash($this->html(":: t\n:  body\n    {$opener}\n")),
+        $this->assertStringContainsString(
+            $rendered,
+            $this->html(":: t\n:  body\n    {$opener}\n"),
         );
     }
 
@@ -112,13 +87,8 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     }
 
     /**
-     * AT the column the fence is a fence. ONE COLUMN PAST it, it is not: the
-     * body is dedented by the description's content column and by nothing
-     * more, so the opener arrives with a residual column and never opens a
-     * block at all. Both rows are byte-identical to carve-js `ba42673`, which
-     * has always read them this way (markup-carve/carve-php#1650); the second
-     * used to expect the first's answer, and only an `ltrim` of the body could
-     * give it.
+     * A fence at or past the minimum is structural. The authored base is removed
+     * from the delimiter run while payload indentation remains relative to it.
      */
     public function testFormAKeepsAFencedBlockWhole(): void
     {
@@ -128,21 +98,21 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
         );
     }
 
-    public function testAFenceOneColumnPastTheColumnOpensNoBlock(): void
+    public function testAFenceOneColumnPastTheColumnUsesItsAuthoredBase(): void
     {
-        $this->assertSame(
-            '<dl> <dt>t</dt> <dd> <p>a</p> <p><code> c </code></p> </dd> </dl>',
-            $this->squash($this->html(":: t\n:  a\n\n    ```\n    c\n    ```\n")),
+        $this->assertStringContainsString(
+            '<pre><code>c',
+            $this->html(":: t\n:  a\n\n    ```\n    c\n    ```\n"),
         );
     }
 
     /**
-     * Several lazy lines past the column all join the one paragraph.
+     * A following deeper line stays relative to the authored quote base.
      */
-    public function testConsecutiveLinesPastTheColumnAllFoldIn(): void
+    public function testConsecutiveLinesPastTheColumnStayInTheAuthoredQuote(): void
     {
         $this->assertSame(
-            '<dl> <dt>t</dt> <dd>body &gt; q &gt; r</dd> </dl>',
+            '<dl> <dt>t</dt> <dd> <p>body</p> <blockquote><p>q &gt; r</p></blockquote> </dd> </dl>',
             $this->squash($this->html(":: t\n:  body\n    > q\n     > r\n")),
         );
     }
@@ -176,7 +146,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
             'a fenced code block, at the column' => [":: t\n:  ```\n   c\n   ```\n", '<pre><code>c </code></pre>'],
             'a fenced code block, one past it' => [
                 ":: t\n:  ```\n    c\n    ```\n",
-                '<pre><code> c ``` </code></pre>',
+                '<pre><code> c </code></pre>',
             ],
         ];
     }

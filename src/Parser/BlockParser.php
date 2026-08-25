@@ -1441,6 +1441,10 @@ class BlockParser
     {
         foreach ($this->discoveredFootnoteBodies as $label => $body) {
             $this->discoveringDefinitions = true;
+            $body['lines'] = $this->rebaseOverindentedItemBlocks(
+                $body['lines'],
+                includeSublists: true,
+            );
             $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
             $this->discoveringDefinitions = false;
             $this->pendingAttributes = [];
@@ -2148,6 +2152,10 @@ class BlockParser
                     );
                     $this->footnotes[$key] = $footnote;
                     if ($contentLines) {
+                        $contentLines = $this->rebaseOverindentedItemBlocks(
+                            $contentLines,
+                            includeSublists: true,
+                        );
                         $deferredBodies[$key] = [
                             'lines' => $contentLines,
                             'lineMap' => $contentLineMap,
@@ -6622,18 +6630,24 @@ class BlockParser
     }
 
     /**
-     * Apply carve#1705's authored block base to an already content-column
-     * stripped item body. Sublists are excluded: their residual indentation is
-     * another list level and their collector is already column-lenient.
+     * Apply an authored block base after a container's minimum content column
+     * has been stripped. Item calls exclude sublists because their residual
+     * indentation is another list level; definition and footnote bodies include
+     * them under carve#1729's shared rule.
      *
      * @param array<string> $lines
-     * @param int|null $leadNestedColumn
      * @param array<int, true>|null $eligible
+     * @param int|null $leadNestedColumn
+     * @param bool $includeSublists
      *
      * @return array<string>
      */
-    private function rebaseOverindentedItemBlocks(array $lines, ?array $eligible = null, ?int $leadNestedColumn = null): array
-    {
+    private function rebaseOverindentedItemBlocks(
+        array $lines,
+        ?array $eligible = null,
+        ?int $leadNestedColumn = null,
+        bool $includeSublists = false,
+    ): array {
         // An uninterrupted marker-line descendant owns the entire chunk. Its
         // own recursive item parse will see any opener that reaches that item's
         // minimum; the parent has no authored-base decision to make until a
@@ -6674,6 +6688,11 @@ class BlockParser
             $local = ltrim($line, " \t");
             $marker = $this->listParser->parseListItemMarker($local);
             if ($marker !== null) {
+                if ($includeSublists && $base > 0 && $probeNestedColumns === []) {
+                    $hasCandidate = true;
+
+                    break;
+                }
                 if (!$hasBlank && $index > 0) {
                     return $lines;
                 }
@@ -6728,7 +6747,7 @@ class BlockParser
             }
             $trimmed = ltrim($line, " \t");
             $marker = $this->listParser->parseListItemMarker($trimmed);
-            if ($marker !== null) {
+            if ($marker !== null && (!$includeSublists || $base === 0 || $nestedColumns !== [])) {
                 $nestedColumns[] = $base + $this->listMarkerWidth($trimmed, $marker);
                 $afterBlank = false;
 
@@ -6745,7 +6764,7 @@ class BlockParser
             $opener = IndentationHelper::stripLeadingColumns($line, $base);
             if (
                 !$this->lineOpensBlockForLooseness($opener, true)
-                || $this->listParser->parseListItemMarker($opener) !== null
+                || (!$includeSublists && $this->listParser->parseListItemMarker($opener) !== null)
             ) {
                 $afterBlank = false;
 
@@ -6823,6 +6842,17 @@ class BlockParser
                             $stack[] = $width;
                         }
                     }
+                }
+            } elseif ($this->listParser->parseListItemMarker($opener) !== null) {
+                for ($j = $i + 1; $j < $count; $j++) {
+                    $candidate = $lines[$j];
+                    if (
+                        IndentationHelper::isBlankLine($candidate)
+                        || IndentationHelper::getLeadingColumns($candidate, $base) < $base
+                    ) {
+                        break;
+                    }
+                    $end = $j;
                 }
             } elseif ($this->blockQuoteLineContent($opener) !== null) {
                 // Repeated quote prefixes and lazy paragraph continuations use
@@ -8500,13 +8530,10 @@ class BlockParser
                     // answer depend on which character an editor inserted
                     // (carve-php#964).
                     $indent = IndentationHelper::getLeadingColumns($contLine, self::DEFINITION_CONTINUATION_COLUMN + 1);
-                    // PAST THE COLUMN IS LAZY TEXT, NOT A NESTED BLOCK
-                    // (markup-carve/carve#918). `definition_indent` REACHES the
-                    // body's column and does not measure how far past it a line
-                    // went, because there is nothing past that column for
-                    // indentation to mean. A line indented further therefore
-                    // continues the body's OPEN PARAGRAPH, and a paragraph
-                    // continuation carries inline content - so
+                    // Ordinary text past the minimum may continue the open
+                    // paragraph, but carve#1729 gives a recognized block opener
+                    // an authored local base. Test the opener before joining the
+                    // physical line to the previous paragraph entry, so
                     //
                     //     :: t
                     //     :  body
@@ -8554,6 +8581,7 @@ class BlockParser
                         && $lastBodyKey !== null
                         && $lastBodyEntry !== ''
                         && $lastBodyOpener !== false
+                        && !$this->lineOpensBlockForLooseness(ltrim($contLine, " \t"), true)
                         && !$this->startsNewBlock($lastBodyOpener)
                         && $this->listParser->parseListItemMarker($lastBodyOpener) === null
                         // A LINE THAT RENDERS NOTHING LEAVES NO PARAGRAPH OPEN,
@@ -8606,12 +8634,9 @@ class BlockParser
                     //    in a `dd` came back as two SIBLINGS where carve-js
                     //    nests them.
                     //
-                    // carve#918 is not touched: "past the column is lazy text"
-                    // governs a line CONTINUING AN OPEN PARAGRAPH, which is the
-                    // branch above this one and still folds with its indent
-                    // trimmed. A line that opens a block here is not continuing
-                    // anything, and inside every other container its indent is
-                    // measured from the content column.
+                    // Ordinary continuation text still folds through the branch
+                    // above. A recognized opener reaches this form-A branch and
+                    // is rebased after collection under carve#1729.
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= self::DEFINITION_CONTINUATION_COLUMN) {
                         $formABlockOpen = true;
                         $body[] = IndentationHelper::stripLeadingColumns(
@@ -8766,6 +8791,7 @@ class BlockParser
 
                     break;
                 }
+                $body = $this->rebaseOverindentedItemBlocks($body, includeSublists: true);
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
                 $this->parseBlocks($dd, $body, 0, $bodyMap);

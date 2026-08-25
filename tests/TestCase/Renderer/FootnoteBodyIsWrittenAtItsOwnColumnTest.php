@@ -12,25 +12,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * `fmt` writes a footnote body at TWO spaces, the body's own column.
  *
- * The writer used THREE. Three is legal continuation - §16 is `space, space,
- * {whitespace}` - but it puts the body's blocks at a relative column ABOVE zero,
- * and an indented block opener does not open a block. So the body's structure was
- * flattened on the way back in: a table returned as a paragraph.
- *
- * That is a §1 round-trip break, and it was NOT limited to tables. Measured
- * across body shapes, seven of them broke at three spaces and hold at two: table,
- * code fence, block quote, heading, div, nested list, definition list.
- *
- * A BULLET LIST is the exception, and it is the reason this went unnoticed: a
- * bullet opens a list at any indent (Rule B), so the most-used block body shape
- * round-tripped at three spaces and nothing complained.
- *
- * carve-js writes three spaces too, and its round trip passes - because its
- * PARSER accepts a table at three where the executable spec, carve-rs and this
- * engine all read a paragraph. That divergence is reported separately; it is why
- * the one engine you would reach for as an oracle here agrees with the bug.
- *
- * carve-php#823.
+ * Three spaces is legal authored input and now establishes a local block base
+ * under carve#1729. The writer still uses the minimum column for stable,
+ * portable canonical output.
  */
 class FootnoteBodyIsWrittenAtItsOwnColumnTest extends TestCase
 {
@@ -88,14 +72,14 @@ class FootnoteBodyIsWrittenAtItsOwnColumnTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/\n   \S/', $out, 'a body line indented past its own column');
     }
 
-    public function testAThreeSpaceBodyIsStillReadAsAParagraph(): void
+    public function testAThreeSpaceBodyUsesItsAuthoredBase(): void
     {
         // WHY two rather than three, stated as a fact about the reader: at three,
         // the table opener is indented and does not open. If this ever starts
         // failing, the parse rule moved and the writer's column can be revisited.
         $html = $this->html("[^a]: intro\n\n   | a |\n   | - |\n   | b |\n\nsee[^a]\n");
 
-        $this->assertStringNotContainsString('<table>', $html);
+        $this->assertStringContainsString('<table>', $html);
     }
 
     public function testTheTwoSpaceFormIsReadAsATable(): void
