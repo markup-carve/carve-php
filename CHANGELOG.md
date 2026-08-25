@@ -59,6 +59,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Preserve fenced block-quote spelling through the ProseMirror bridge.
+
 - **A task item's checkbox is content, so it does not move the content column** (#1693, PART 9 §24, ports markup-carve/carve-js#1455). The canonical writer and the HTML importer both indented an item's later blocks to the full marker-line width, so a block opener written four columns too far opened nothing.
 - **A quoted lone-image paragraph keeps the blockquote bar in ANSI** (#1691, corpus 411), as carve-js and carve-rs already did. The promoted block image never reaches the paragraph path, so the carve-out only ever fired on the spelling that is still a paragraph.
 - **An indented lone image is a paragraph, not a block image** (#1681, markup-carve/carve#1660, PART 9 §15), so a leading space is decisive for an image as it already is for a heading marker.

@@ -1458,6 +1458,11 @@ class ProseMirrorToCarve
                 $node instanceof ListBlock && in_array($key, ['carveOlType', 'carveListStyle'], true) => $this->setState($node, 'style', self::asString($value)),
                 $node instanceof ListBlock && in_array($key, ['carveDelim', 'carveListMarker'], true) => $this->setState($node, 'marker', self::asString($value)),
                 $node instanceof ThematicBreak && $key === 'carveMarker' => true,
+                $node instanceof BlockQuote && $key === 'carveFenced' => $this->setState(
+                    $node,
+                    'fenced',
+                    self::asBool($value),
+                ),
                 $node instanceof TableCell && $key === 'textAlign' && in_array(
                     self::asString($value),
                     [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT],
