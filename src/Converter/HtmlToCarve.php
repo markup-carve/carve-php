@@ -8781,6 +8781,7 @@ class HtmlToCarve
         $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
 
         if ($img instanceof DOMElement) {
+            $this->recordFiguresPassedOverForTheTarget($node, $img);
             $output .= $this->processImage($img) . "\n";
         } elseif ($this->hasOnlySupportedFigureContent($node) && $blockquote instanceof DOMElement) {
             $output .= $this->processBlockquote($blockquote);
@@ -9059,6 +9060,48 @@ class HtmlToCarve
 
             return $spelling !== null && trim($this->processNode($body)) === $spelling ? $image : null;
         });
+    }
+
+    /**
+     * Record the `<figure>` elements the target was reached THROUGH.
+     *
+     * {@see self::figureImageTarget()} looks past a transparent wrapper to the
+     * image behind it, and the wrapper is then never written: the arm above
+     * writes the IMAGE and the caption line, so anything between the two is
+     * gone from the output. When one of those wrappers is itself a `<figure>`,
+     * the element that vanished is an unwrapped figure like any other, and
+     * nothing else in this file would ever hear about it - the nested element
+     * is not walked by the writer at all, so neither call site in
+     * {@see self::processFigure()} can record it (ruling markup-carve/carve#1723).
+     *
+     * `<figure><figure><img></figure><figcaption>Cap</figcaption></figure>`
+     * writes one image and one caption line, so ONE figure comes back out of
+     * the two that went in. The outer one is the survivor - it is the caption
+     * that makes a figure (PART 9 §4b), and the caption was the outer one's -
+     * and the inner one is reported here. carve-js and carve-rs both report
+     * exactly that node, and an element that did not survive is reported
+     * whether or not it sits inside another one that did not either: an
+     * uncaptioned pair reports both, and a three-deep nest reports the two
+     * inside the captioned outer.
+     *
+     * ONLY THE FIGURE WRAPPERS, because `$unwrappedFigures` answers for
+     * `<figure>` alone {@see self::inspectImportNode()}. A `<p>` or a
+     * `<picture>` passed over the same way is a different question this row
+     * does not decide: the paragraph is written nowhere and reported by nobody,
+     * and the `<picture>` already collects the generic row every element with
+     * no construct collects. Neither sibling engine names a FIGURE for either,
+     * so neither may this.
+     */
+    protected function recordFiguresPassedOverForTheTarget(DOMElement $figure, DOMElement $target): void
+    {
+        for ($current = $target->parentNode; $current instanceof DOMElement; $current = $current->parentNode) {
+            if ($current === $figure) {
+                return;
+            }
+            if (strtolower($current->tagName) === 'figure') {
+                $this->unwrappedFigures[$this->conversionNodePath($current)] = true;
+            }
+        }
     }
 
     /**

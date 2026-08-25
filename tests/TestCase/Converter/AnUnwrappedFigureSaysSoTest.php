@@ -191,6 +191,185 @@ class AnUnwrappedFigureSaysSoTest extends TestCase
     }
 
     /**
+     * THE SECOND HALF OF THE SAME DEFECT, and the one this engine was alone in
+     * (ruling markup-carve/carve#1723): `element-unwrapped` fires when an element did
+     * not survive into the output, that is the whole condition, and nesting
+     * does not exempt it.
+     *
+     * Two `<figure>` elements go in and ONE comes out - the caption line on the
+     * image makes a figure of it - so one of the two is gone. The outer is the
+     * survivor, because the caption that rebuilt the figure was the outer one's,
+     * and the inner is the element with nothing left standing for it.
+     *
+     * IT REACHES NEITHER CALL SITE IN `processFigure()`. The outer figure looks
+     * PAST its body to the image behind it, so the inner element is never
+     * written and never records anything; the outer writes its caption line and
+     * is correctly silent. That is why the row is recorded where the target is
+     * chosen rather than where a figure is written.
+     *
+     * ALL THREE MODES, because the divergence was in all three: the shape
+     * rebuilds as an image plus a caption line everywhere, so `roundtrip` has
+     * nothing to preserve and takes the same arm.
+     *
+     * @param string $mode
+     */
+    #[DataProvider('everyImportMode')]
+    public function testAnInnerFigureThatDidNotSurviveIsReported(string $mode): void
+    {
+        $html = '<figure><figure><img src="a.png"></figure><figcaption>Cap</figcaption></figure>';
+
+        $this->assertSame("![](a.png)\n^ Cap\n", $this->carve($html, $mode));
+        $this->assertSame(
+            [
+                [
+                    'code' => 'element-unwrapped',
+                    'message' => self::MESSAGE,
+                    'severity' => 'info',
+                    'path' => '/figure[1]/figure[1]',
+                ],
+            ],
+            $this->rows($html, $mode),
+        );
+    }
+
+    /**
+     * AN UNWRAPPED ELEMENT INSIDE ANOTHER UNWRAPPED ONE IS STILL AN UNWRAPPED
+     * ELEMENT. With no caption anywhere neither wrapper is a figure, so both
+     * are gone and both are named, outer first - the report walk is in document
+     * order. A three-deep nest under one caption reports the two INSIDE the
+     * survivor and not the survivor itself, which is the same rule read twice.
+     *
+     * @param string $html
+     * @param list<string> $paths
+     */
+    #[DataProvider('nestedFigures')]
+    public function testEveryFigureThatDidNotSurviveIsNamedOnce(string $html, array $paths): void
+    {
+        $this->assertSame("![](a.png)\n", substr($this->carve($html, 'safe'), 0, 11));
+        $this->assertSame($paths, array_column($this->rows($html, 'safe'), 'path'));
+        $this->assertSame(
+            array_fill(0, count($paths), self::MESSAGE),
+            array_column($this->rows($html, 'safe'), 'message'),
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: list<string>}>
+     */
+    public static function nestedFigures(): array
+    {
+        return [
+            'neither carries a caption' => [
+                '<figure><figure><img src="a.png"></figure></figure>',
+                ['/figure[1]', '/figure[1]/figure[1]'],
+            ],
+            'the outer caption spells nothing' => [
+                '<figure><figure><img src="a.png"></figure><figcaption></figcaption></figure>',
+                ['/figure[1]', '/figure[1]/figure[1]'],
+            ],
+            'two inside a captioned outer' => [
+                '<figure><figure><figure><img src="a.png"></figure></figure><figcaption>Cap</figcaption></figure>',
+                ['/figure[1]/figure[1]', '/figure[1]/figure[1]/figure[1]'],
+            ],
+        ];
+    }
+
+    /**
+     * THE CONTROL, and the way to get this wrong. The condition is "this
+     * element did not survive", never "this element was a figure": a figure
+     * whose image sits behind an ordinary wrapper looks past that wrapper the
+     * same way, and reports nothing, because the one figure in the input is the
+     * one in the output. An implementation that walked for `<figure>` targets
+     * generally, or that reported every element passed over, turns a missing
+     * row into a spurious one here.
+     *
+     * An inner figure that keeps its OWN caption survives as a figure too, so
+     * only the outer - which lost its caption to prose - is named.
+     *
+     * READ OVER THE FIGURE ROWS ALONE. A `<picture>` passed over already
+     * collects a row of its own, from the generic handler that answers for
+     * every element this importer has no construct for, and that row is not
+     * this one: the assertion is that no FIGURE was declared lost where none
+     * was.
+     *
+     * @param string $html
+     * @param list<string> $paths
+     */
+    #[DataProvider('figuresThatSurvive')]
+    public function testAnElementThatSurvivedIsNotReported(string $html, array $paths): void
+    {
+        $rows = array_values(array_filter(
+            $this->rows($html, 'safe'),
+            static fn (array $row): bool => $row['message'] === self::MESSAGE,
+        ));
+
+        $this->assertSame($paths, array_column($rows, 'path'));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: list<string>}>
+     */
+    public static function figuresThatSurvive(): array
+    {
+        return [
+            'a paragraph wrapper is passed over silently' => [
+                '<figure><p><img src="a.png"></p><figcaption>Cap</figcaption></figure>',
+                [],
+            ],
+            'a picture wrapper is passed over silently' => [
+                '<figure><picture><img src="a.png"></picture><figcaption>Cap</figcaption></figure>',
+                [],
+            ],
+            'an inner figure with its own caption survives' => [
+                '<figure><figure><img src="a.png"><figcaption>Inner</figcaption></figure><figcaption>Cap</figcaption></figure>',
+                ['/figure[1]'],
+            ],
+        ];
+    }
+
+    /**
+     * THE TWO NEIGHBOURING SHAPES THE RULING LEFT ALONE, pinned here so this
+     * change cannot move them. They converged across all three engines before
+     * this one did (markup-carve/carve#1723): both report the outer unwrap in the lossy
+     * modes and neither reports it in `roundtrip`, where the element is kept
+     * byte for byte instead. A fix that only checked the new row would pass
+     * while silently rewriting these.
+     *
+     * @param string $html
+     */
+    #[DataProvider('theNeighbouringShapes')]
+    public function testTheNeighbouringShapesDoNotMove(string $html): void
+    {
+        foreach (['safe', 'semantic'] as $mode) {
+            $this->assertSame(
+                [['code' => 'element-unwrapped', 'message' => self::MESSAGE, 'severity' => 'info', 'path' => '/figure[1]']],
+                $this->rows($html, $mode),
+            );
+        }
+
+        $this->assertSame(['raw-preserved'], array_column($this->rows($html, 'roundtrip'), 'code'));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function theNeighbouringShapes(): array
+    {
+        return [
+            'two body blocks under one caption' => ['<figure><p>a</p><p>b</p><figcaption>Cap</figcaption></figure>'],
+            'a div body' => ['<figure><div>x</div><figcaption>Cap</figcaption></figure>'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function everyImportMode(): array
+    {
+        return ['safe' => ['safe'], 'semantic' => ['semantic'], 'roundtrip' => ['roundtrip']];
+    }
+
+    /**
      * The measured difference from carve-js, kept in the suite so it is a fact
      * rather than a comment: carve-js reports the same code at `warning` with a
      * figure-specific message. carve-rs reports what this engine now reports.
