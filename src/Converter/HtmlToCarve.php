@@ -4716,8 +4716,37 @@ class HtmlToCarve
         // holds in the direction the grammar names.
         $opener = $backticks . $language;
 
+        // EXACTLY ONE TRAILING NEWLINE IS THE LAST LINE'S TERMINATOR, and
+        // everything past it is content (markup-carve/carve#1708).
+        //
+        // The renderer settles it rather than taste: this engine writes
+        // `<pre><code>x\n</code></pre>` for a code block whose content is `x`,
+        // and `<pre><code>x\n\n</code></pre>` for one whose content ends in a
+        // blank line. An importer that strips BOTH newlines does not invert its
+        // own renderer, and the two documents arrive here indistinguishable.
+        // The asymmetry mirrors HTML's own at the other end, where a newline
+        // immediately after `<pre>` is stripped and one before `</pre>` is not.
+        //
+        // `rtrim()` was the whole of it before, so it took every trailing
+        // newline AND every trailing space and tab. Trailing whitespace on the
+        // last line is content too - a code block is bytes the author wrote -
+        // and losing it is the same class of silent change, applied to the same
+        // documents. Nothing is reported for the one newline this removes,
+        // because nothing is lost: it was the terminator, not a line.
+        //
+        // A BYTE TEST RATHER THAN A REGEX, and not a style choice.
+        // `preg_replace('/\n$/', '', "x\n\n")` returns `"x"`: PCRE's `$`
+        // matches at the end of the subject AND just before a string-final
+        // newline, and `preg_replace` replaces EVERY match, so the pattern
+        // takes both newlines and reproduces the trim this rule exists to
+        // remove. `\z` with a limit of 1 would work; `str_ends_with` cannot be
+        // read two ways at all.
+        if (str_ends_with($content, "\n")) {
+            $content = substr($content, 0, -1);
+        }
+
         // Glued, not separated - see processBlockquote() for why.
-        return $attrs . $opener . "\n" . rtrim($content) . "\n" . $backticks . "\n\n";
+        return $attrs . $opener . "\n" . $content . "\n" . $backticks . "\n\n";
     }
 
     protected function extractRoundTripSource(DOMElement $node, string $tagName): ?string
