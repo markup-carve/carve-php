@@ -528,4 +528,33 @@ class CliTest extends TestCase
         $this->assertSame(0, $result['exit']);
         $this->assertSame("*bold*\n", $result['out']);
     }
+
+    public function testRenderLossWarningDoesNotContaminateStdout(): void
+    {
+        $result = $this->runCliInput(['--html'], "`x`{=latex}\n");
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame("<p></p>\n", $result['out']);
+        $this->assertStringContainsString('<stdin>:1:1 raw-format-dropped', $result['err']);
+    }
+
+    public function testStrictRenderLossRefusesOutput(): void
+    {
+        $result = $this->runCliInput(['--strict-losses'], "`x`{=latex}\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertSame('', $result['out']);
+    }
+
+    public function testAllowedRenderLossIsExplicitAndSilent(): void
+    {
+        $result = $this->runCliInput(
+            ['--strict-losses', '--allow-loss', 'raw-format-dropped'],
+            "`x`{=latex}\n",
+        );
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame('', $result['err']);
+        $this->assertSame("<p></p>\n", $result['out']);
+    }
 }

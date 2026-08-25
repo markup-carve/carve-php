@@ -75,8 +75,9 @@ use MarkupCarve\Carve\Util\StringUtil;
 /**
  * Renders AST to HTML
  */
-class HtmlRenderer implements RendererInterface
+class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterface
 {
+    use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use EventDispatcherTrait;
 
@@ -3135,6 +3136,10 @@ class HtmlRenderer implements RendererInterface
     {
         // Only output if format is HTML
         if ($node->getFormat() !== 'html') {
+            if (!$this->roundTripMode) {
+                $this->recordRawFormatDropped($node, $node->getFormat(), 'block');
+            }
+
             return '';
         }
 
@@ -3209,6 +3214,8 @@ class HtmlRenderer implements RendererInterface
                 return '<span data-djot-raw="' . $this->escapeAttribute($format) . '">'
                     . $this->guardVerbatimNewlines($this->escape($content)) . '</span>';
             }
+
+            $this->recordRawFormatDropped($node, $format, 'inline');
 
             return '';
         }

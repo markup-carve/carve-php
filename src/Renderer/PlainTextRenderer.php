@@ -72,8 +72,9 @@ use MarkupCarve\Carve\Util\StringUtil;
  * - Plain text email fallbacks
  * - Word count / reading time estimation
  */
-class PlainTextRenderer implements RendererInterface
+class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInterface
 {
+    use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use DerivedLabelTrait;
     use EventDispatcherTrait;
@@ -401,7 +402,7 @@ class PlainTextRenderer implements RendererInterface
                 // rendered output moving on a tree change that must not move it
                 // (markup-carve/carve#1276).
                 $node instanceof CitationDefinition => '',
-                $node instanceof RawBlock => '', // Skip raw blocks (format-specific)
+                $node instanceof RawBlock => $this->dropRaw($node, 'block'),
                 $node instanceof BlockQuote => $this->renderBlockQuote($node),
                 $node instanceof ListBlock => $this->renderList($node),
                 $node instanceof ListItem => $this->renderListItem($node),
@@ -444,7 +445,7 @@ class PlainTextRenderer implements RendererInterface
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
                 $node instanceof HardBreak => "\n",
-                $node instanceof RawInline => '', // Skip raw inlines (format-specific)
+                $node instanceof RawInline => $this->dropRaw($node, 'inline'),
                 // §27: always emitted (unlike raw passthrough above), as plain prose.
                 $node instanceof LiteralInline => $this->stripControls($node->getContent()),
                 $node instanceof RawText => $this->stripControls($node->getContent()),
@@ -914,6 +915,13 @@ class PlainTextRenderer implements RendererInterface
     protected function renderLink(Link $node): string
     {
         return $this->renderChildren($node);
+    }
+
+    protected function dropRaw(RawBlock|RawInline $node, string $nodeType): string
+    {
+        $this->recordRawFormatDropped($node, $node->getFormat(), $nodeType);
+
+        return '';
     }
 
     /**

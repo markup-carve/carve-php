@@ -95,8 +95,9 @@ use MarkupCarve\Carve\Util\StringUtil;
  *
  * Options: setSoftBreakMode(), setSmartTypography(), setAttributeFallback().
  */
-class MarkdownRenderer implements RendererInterface
+class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInterface
 {
+    use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use DerivedLabelTrait;
 
@@ -1778,6 +1779,8 @@ class MarkdownRenderer implements RendererInterface
             return $this->escapeHtml($this->stripControls($node->getContent())) . "\n\n";
         }
 
+        $this->recordRawFormatDropped($node, $node->getFormat(), 'block');
+
         return '';
     }
 
@@ -1786,6 +1789,8 @@ class MarkdownRenderer implements RendererInterface
         if ($node->getFormat() === 'html') {
             return $this->escapeHtml($this->stripControls($node->getContent()));
         }
+
+        $this->recordRawFormatDropped($node, $node->getFormat(), 'inline');
 
         return '';
     }

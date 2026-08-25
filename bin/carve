@@ -49,18 +49,24 @@ if (!$autoloaderFound) {
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstMerge;
-use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
 use MarkupCarve\Carve\Extension\MathBlockExtension;
 use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Lint\FigureGroupLinter;
+use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
+use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
+use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
+use MarkupCarve\Carve\Lint\TableColumnLinter;
+use MarkupCarve\Carve\Lint\TemplateSourceLinter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -68,9 +74,12 @@ use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\RenderMode;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
+use MarkupCarve\Carve\RenderResult;
 use MarkupCarve\Carve\Stamp;
 
-/** @param array<int, string> $argv */
+/**
+ * @param array<int, string> $argv
+ */
 function runMergeCommand(array $argv): never
 {
     $json = false;
@@ -133,7 +142,9 @@ function runMergeCommand(array $argv): never
     exit(0);
 }
 
-/** @param array<int, string> $argv */
+/**
+ * @param array<int, string> $argv
+ */
 function runMigrateCommand(array $argv): never
 {
     $mode = 'safe';
@@ -230,6 +241,10 @@ function parseArgs(array $argv): array
         'static' => false,
         'warnings' => false,
         'strict' => false,
+        'strictLosses' => false,
+        'reportLosses' => null,
+        'allowLoss' => false,
+        'maxRenderLosses' => 100,
         'help' => false,
         'version' => false,
     ];
@@ -278,6 +293,29 @@ function parseArgs(array $argv): array
         } elseif ($arg === '--strict') {
             $options['strict'] = true;
             $options['warnings'] = true;
+        } elseif ($arg === '--strict-losses') {
+            $options['strictLosses'] = true;
+        } elseif ($arg === '--report-losses') {
+            if (!isset($argv[$i + 1])) {
+                fwrite(STDERR, "Error: --report-losses requires a filename or -\n");
+                exit(2);
+            }
+            $options['reportLosses'] = $argv[++$i];
+        } elseif ($arg === '--allow-loss') {
+            if (($argv[$i + 1] ?? null) !== 'raw-format-dropped') {
+                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped\n");
+                exit(2);
+            }
+            $i++;
+            $options['allowLoss'] = true;
+        } elseif ($arg === '--max-render-losses') {
+            $value = $argv[$i + 1] ?? null;
+            if ($value === null || !ctype_digit($value)) {
+                fwrite(STDERR, "Error: --max-render-losses requires a non-negative integer\n");
+                exit(2);
+            }
+            $i++;
+            $options['maxRenderLosses'] = (int)$value;
         } elseif ($arg === '--smart-typography') {
             // The document-global switch the spec documents. Source mode is
             // for machine-facing output - text piped into something that
@@ -362,7 +400,7 @@ function parseLintArgs(array $argv): array
  */
 function assertKnownLintPlatform(string $platform): void
 {
-    $known = MarkupCarve\Carve\Lint\MarkdownHabitLinter::knownPlatforms();
+    $known = MarkdownHabitLinter::knownPlatforms();
     if (in_array($platform, $known, true)) {
         return;
     }
@@ -449,6 +487,11 @@ Output format (default --html; last one wins):
 Rendering:
   --smart-typography MODE  glyph (default) or source: emit the runs the author
                            typed instead of the resolved glyphs (HTML/Markdown)
+  --strict-losses          Refuse output when a raw format would be dropped
+  --report-losses FILE     Write the machine-readable render-loss report (`-` for stderr)
+  --allow-loss raw-format-dropped
+                           Accept intentional target filtering
+  --max-render-losses N    Bound detailed losses while retaining the full count (default 100)
 
 Formatter:
   lint                Report markup that renders as something else: Markdown
@@ -502,7 +545,7 @@ HELP;
 
 function showVersion(): void
 {
-    echo 'carve-php version ' . \MarkupCarve\Carve\CarveConverter::LIB_VERSION . "\n";
+    echo 'carve-php version ' . CarveConverter::LIB_VERSION . "\n";
 }
 
 // Main
@@ -522,12 +565,12 @@ if (($options['command'] ?? null) === 'lint') {
         exit(0);
     }
 
-    $linter = new MarkupCarve\Carve\Lint\MarkdownHabitLinter();
-    $semanticLinter = new MarkupCarve\Carve\Lint\SemanticAttributeLinter();
-    $retiredLinter = new MarkupCarve\Carve\Lint\RetiredSpellingLinter();
-    $tableColumnLinter = new MarkupCarve\Carve\Lint\TableColumnLinter();
-    $templateSourceLinter = new MarkupCarve\Carve\Lint\TemplateSourceLinter();
-    $figureGroupLinter = new MarkupCarve\Carve\Lint\FigureGroupLinter();
+    $linter = new MarkdownHabitLinter();
+    $semanticLinter = new SemanticAttributeLinter();
+    $retiredLinter = new RetiredSpellingLinter();
+    $tableColumnLinter = new TableColumnLinter();
+    $templateSourceLinter = new TemplateSourceLinter();
+    $figureGroupLinter = new FigureGroupLinter();
     $sources = [];
 
     if ($options['files'] === []) {
@@ -543,7 +586,7 @@ if (($options['command'] ?? null) === 'lint') {
                 fwrite(STDERR, "Error: File not found: $file\n");
                 exit(1);
             }
-            $sources[$file] = (string) file_get_contents($file);
+            $sources[$file] = (string)file_get_contents($file);
         }
     }
 
@@ -606,12 +649,14 @@ if (($options['command'] ?? null) === 'fmt') {
         if (!is_string($file) || !is_file($file) || !is_readable($file)) {
             fwrite(STDERR, "Error: Cannot read file: $file\n");
             $exitCode = 1;
+
             continue;
         }
         $input = file_get_contents($file);
         if ($input === false) {
             fwrite(STDERR, "Error: Failed to read file: $file\n");
             $exitCode = 1;
+
             continue;
         }
         $formatted = CarveConverter::toCarve($input);
@@ -623,6 +668,7 @@ if (($options['command'] ?? null) === 'fmt') {
                 fwrite(STDERR, "$file is not formatted\n");
                 $exitCode = 1;
             }
+
             continue;
         }
         if ($options['write']) {
@@ -630,6 +676,7 @@ if (($options['command'] ?? null) === 'fmt') {
                 fwrite(STDERR, "Error: Failed to write file: $file\n");
                 $exitCode = 1;
             }
+
             continue;
         }
         echo $formatted;
@@ -779,11 +826,11 @@ try {
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         ) . "\n";
     } elseif ($document !== null) {
-        $output = $converter->render($document);
+        $checked = $converter->renderWithReport($document, false, $options['maxRenderLosses']);
+        $output = $checked->value;
     } else {
-        $output = $options['format'] === 'carve'
-            ? $converter->getRenderer()->render($converter->parse($input))
-            : $converter->convert($input);
+        $checked = $converter->convertWithReport($input, false, $options['maxRenderLosses']);
+        $output = $checked->value;
     }
 } catch (RenderDepthExceededException $exception) {
     // A renderer that reaches its ceiling REFUSES (PART 9 §25). The CLI reports
@@ -796,6 +843,29 @@ try {
 
 // Handle warnings
 $exitCode = 0;
+$checked ??= new RenderResult($output, [], 0, false);
+if ($options['allowLoss']) {
+    $checked = new RenderResult($checked->value, [], 0, false);
+}
+if ($checked->totalLosses > 0) {
+    foreach ($checked->losses as $loss) {
+        $pos = isset($loss['pos']) ? ':' . $loss['pos']['startLine'] . ':' . $loss['pos']['startColumn'] : '';
+        fwrite(STDERR, ($inputFile ?? '<stdin>') . $pos . ' ' . $loss['code'] . ' - ' . $loss['message'] . "\n");
+    }
+    fwrite(STDERR, sprintf("%s: %d render loss%s\n", $inputFile ?? '<stdin>', $checked->totalLosses, $checked->totalLosses === 1 ? '' : 'es'));
+}
+if ($options['reportLosses'] !== null) {
+    $report = json_encode(['losses' => $checked->losses, 'totalLosses' => $checked->totalLosses, 'truncated' => $checked->truncated], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+    if ($options['reportLosses'] === '-') {
+        fwrite(STDERR, $report);
+    } elseif (file_put_contents($options['reportLosses'], $report) === false) {
+        fwrite(STDERR, "Error: Failed to write render-loss report\n");
+        exit(2);
+    }
+}
+if ($options['strictLosses'] && $checked->totalLosses > 0) {
+    exit(1);
+}
 if ($options['warnings'] || $options['strict']) {
     $warnings = $converter->getWarnings();
     foreach ($warnings as $warning) {

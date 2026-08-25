@@ -75,8 +75,9 @@ use MarkupCarve\Carve\Util\StringUtil;
  * Produces colored, styled text suitable for display in terminals
  * that support ANSI escape codes.
  */
-class AnsiRenderer implements RendererInterface
+class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterface
 {
+    use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use DerivedLabelTrait;
 
@@ -705,7 +706,7 @@ class AnsiRenderer implements RendererInterface
                 $node instanceof FootnoteRef => $this->renderFootnoteRef($node),
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
-                $node instanceof RawInline => '', // Skip raw inline
+                $node instanceof RawInline => $this->dropRawInline($node),
                 // §27: always emitted (unlike raw passthrough above). It is
                 // prose, not code, so it carries no code styling.
                 $node instanceof LiteralInline => $this->stripControls($node->getContent()),
@@ -1374,6 +1375,13 @@ class AnsiRenderer implements RendererInterface
         $content = $this->stripControls($node->getContent());
 
         return $this->style('[raw:' . $format . '] ' . $content, self::DIM) . "\n\n";
+    }
+
+    protected function dropRawInline(RawInline $node): string
+    {
+        $this->recordRawFormatDropped($node, $node->getFormat(), 'inline');
+
+        return '';
     }
 
     /**
