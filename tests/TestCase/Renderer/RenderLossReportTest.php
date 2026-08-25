@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
+use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\RenderLossException;
 use PHPUnit\Framework\TestCase;
@@ -37,6 +38,11 @@ class RenderLossReportTest extends TestCase
         self::assertSame(0, CarveConverter::ansi()->convertWithReport($block)->totalLosses);
         self::assertSame(1, CarveConverter::plainText()->convertWithReport($block)->totalLosses);
         self::assertSame(0, CarveConverter::carve()->convertWithReport($block)->totalLosses);
+
+        $markdown = CarveConverter::markdown()->convertWithReport(self::SOURCE);
+        self::assertSame(2, $markdown->totalLosses);
+        $ansi = CarveConverter::ansi()->convertWithReport(self::SOURCE);
+        self::assertSame(2, $ansi->totalLosses);
     }
 
     public function testStrictErrorCarriesTheCompleteBoundedReport(): void
@@ -49,5 +55,21 @@ class RenderLossReportTest extends TestCase
             self::assertCount(1, $exception->result->losses);
             self::assertTrue($exception->result->truncated);
         }
+    }
+
+    public function testResultArrayUsesTheSharedWireNames(): void
+    {
+        $result = CarveConverter::create()->convertWithReport(self::SOURCE);
+
+        self::assertSame(
+            ['value', 'losses', 'totalLosses', 'truncated'],
+            array_keys($result->toArray()),
+        );
+    }
+
+    public function testNegativeReportBoundIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        CarveConverter::create()->convertWithReport(self::SOURCE, maxRenderLosses: -1);
     }
 }
