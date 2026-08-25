@@ -1439,16 +1439,31 @@ class BlockParser
      */
     private function finishIntegratedDefinitionPass(Document $document, array $lines): void
     {
-        foreach ($this->discoveredFootnoteBodies as $label => $body) {
-            $this->discoveringDefinitions = true;
-            $body['lines'] = $this->rebaseOverindentedItemBlocks(
-                $body['lines'],
-                includeSublists: true,
-            );
-            $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
-            $this->discoveringDefinitions = false;
-            $this->pendingAttributes = [];
-            $this->pendingAttributeOrder = [];
+        // Parsing one footnote body can discover another definition inside it.
+        // Iterate to a fixed point instead of relying on foreach's snapshot;
+        // otherwise the nested note is registered but its body stays empty.
+        $finishedFootnoteBodies = [];
+        while (true) {
+            $found = false;
+            foreach ($this->discoveredFootnoteBodies as $label => $body) {
+                if (isset($finishedFootnoteBodies[$label])) {
+                    continue;
+                }
+                $finishedFootnoteBodies[$label] = true;
+                $found = true;
+                $this->discoveringDefinitions = true;
+                $body['lines'] = $this->rebaseOverindentedItemBlocks(
+                    $body['lines'],
+                    includeSublists: true,
+                );
+                $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
+                $this->discoveringDefinitions = false;
+                $this->pendingAttributes = [];
+                $this->pendingAttributeOrder = [];
+            }
+            if (!$found) {
+                break;
+            }
         }
         if ($this->discoveredAbbreviationLines !== []) {
             $firstAbbreviationLine = min(array_keys($this->discoveredAbbreviationLines));
@@ -5877,7 +5892,11 @@ class BlockParser
                     // comment changed how both paragraphs render - a line that
                     // outputs nothing making a visible difference (carve#630,
                     // carve-php#771).
-                    if ($firstContentOpensBlock && $this->isInvisibleOrAttributeLine($strippedCurrent)) {
+                    if (
+                        $firstContentOpensBlock
+                        && $this->isInvisibleOrAttributeLine($strippedCurrent)
+                        && $this->fencedBlockParser->parseFencedCommentOpener($strippedCurrent) === null
+                    ) {
                         $behind = $this->firstVisibleLineAfterInvisible($lines, $i, $lastItemContentIndent);
                         if ($behind !== null && !$this->lineOpensBlockForLooseness($behind)) {
                             $firstContentOpensBlock = false;
@@ -6639,6 +6658,7 @@ class BlockParser
      * @param array<int, true>|null $eligible
      * @param int|null $leadNestedColumn
      * @param bool $includeSublists
+     * @param bool $skipOpaqueAtMinimum
      *
      * @return array<string>
      */
@@ -6647,6 +6667,7 @@ class BlockParser
         ?array $eligible = null,
         ?int $leadNestedColumn = null,
         bool $includeSublists = false,
+        bool $skipOpaqueAtMinimum = true,
     ): array {
         // An uninterrupted marker-line descendant owns the entire chunk. Its
         // own recursive item parse will see any opener that reaches that item's
@@ -6757,6 +6778,35 @@ class BlockParser
                 continue;
             }
             if ($base === 0) {
+                // An opaque group already at the container's minimum column
+                // owns its payload. Do not reconsider a fence-shaped payload
+                // line as a separate authored-base opener.
+                $code = $skipOpaqueAtMinimum
+                    ? $this->fencedBlockParser->parseCodeFenceOpener($line)
+                        ?? $this->fencedBlockParser->parseRawBlockOpener($line)
+                    : null;
+                $comment = $skipOpaqueAtMinimum && $code === null
+                    ? $this->fencedBlockParser->parseFencedCommentOpener($line)
+                    : null;
+                if ($skipOpaqueAtMinimum && ($code !== null || $comment !== null)) {
+                    if ($code !== null) {
+                        $fence = $code['fence'];
+                        for ($j = $i + 1; $j < $count; $j++) {
+                            $i = $j;
+                            if ($this->fencedBlockParser->isCodeFenceCloser($lines[$j], $fence[0], strlen($fence))) {
+                                break;
+                            }
+                        }
+                    } else {
+                        $width = strlen($comment['fence']);
+                        for ($j = $i + 1; $j < $count; $j++) {
+                            $i = $j;
+                            if ($this->fencedBlockParser->isFencedCommentCloser($lines[$j], $width)) {
+                                break;
+                            }
+                        }
+                    }
+                }
                 $afterBlank = false;
 
                 continue;
@@ -6899,6 +6949,33 @@ class BlockParser
                     // the extent to marker lines rebased only `:: term` and
                     // left `more` / `:  def` carrying residual indentation,
                     // which destroyed the definition description.
+                    $end = $j;
+                }
+            } elseif (preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $opener) === 1) {
+                // A footnote definition establishes the authored base for the
+                // surrounding run. Sibling content after an internal blank is
+                // still owned by the outer list/note; leaving it at residual
+                // indentation moves it out of that container.
+                for ($j = $i + 1; $j < $count; $j++) {
+                    $candidate = $lines[$j];
+                    if (IndentationHelper::isBlankLine($candidate)) {
+                        $ahead = $j + 1;
+                        while ($ahead < $count && IndentationHelper::isBlankLine($lines[$ahead])) {
+                            $ahead++;
+                        }
+                        if (
+                            $ahead >= $count
+                            || IndentationHelper::getLeadingColumns($lines[$ahead], $base) < $base
+                        ) {
+                            break;
+                        }
+                        $end = $j;
+
+                        continue;
+                    }
+                    if (IndentationHelper::getLeadingColumns($candidate, $base) < $base) {
+                        break;
+                    }
                     $end = $j;
                 }
             }
@@ -8791,7 +8868,11 @@ class BlockParser
 
                     break;
                 }
-                $body = $this->rebaseOverindentedItemBlocks($body, includeSublists: true);
+                $body = $this->rebaseOverindentedItemBlocks(
+                    $body,
+                    includeSublists: true,
+                    skipOpaqueAtMinimum: false,
+                );
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
                 $this->parseBlocks($dd, $body, 0, $bodyMap);
@@ -14583,6 +14664,13 @@ class BlockParser
             }
 
             $stripped = IndentationHelper::stripLeadingColumns($line, $contentIndent);
+            // A fenced percent block is one block, not an invisible opener
+            // followed by visible payload. Returning its opener lets the
+            // looseness predicate keep the list tight and prevents the payload
+            // from being mistaken for a second paragraph.
+            if ($this->fencedBlockParser->parseFencedCommentOpener($stripped) !== null) {
+                return $stripped;
+            }
             // The second half of PART 12 §7's consequence. §7 recognizes an
             // abbreviation definition only as a direct child of the document,
             // and every line this scan walks sits in an ITEM BODY - so the same

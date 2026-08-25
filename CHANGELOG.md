@@ -23,6 +23,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Authored block bases now keep opaque fence payloads and nested footnote definitions in their structural owner. Invisible fenced percent blocks no longer make an otherwise tight list loose.
 - **Recognized block groups authored past a definition or footnote body's minimum column now parse at their authored local base and format back to the canonical column** (markup-carve/carve#1729). Plain lazy continuation and below-column behavior are unchanged.
 - **Recognized block groups authored past a list item's canonical content column now use that column as a temporary local base and format back canonically** (#1720, markup-carve/carve#1705). Exact-column and below-minimum behavior stay unchanged; this is a source-compatibility change for older readers that treated the over-indented marker literally.
 - **The ANSI quote bar reports containment, not node kind** (markup-carve/carve#1689). A quoted heading, code block, table, thematic break and lone image keep the bar, and a quoted list's bar sits outside its marker. All three engines agreed on the old behavior, so this moves agreed behavior rather than closing a divergence.

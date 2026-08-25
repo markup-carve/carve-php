@@ -19,7 +19,7 @@ final class ListItemAuthoredBlockBaseTest extends TestCase
         yield 'quote with lazy continuation' => ["> q\n   lazy", "<blockquote><p>q\nlazy</p></blockquote>"];
         yield 'code fence' => ["```\n     c\n   ```", "<pre><code>  c\n</code></pre>"];
         yield 'raw fence' => ["```=html\n     <b>x</b>\n   ```", '<b>x</b>'];
-        yield 'comment fence' => ["%%%\n     hidden\n   %%%", '<li><p>x</p></li>'];
+        yield 'comment fence' => ["%%%\n     hidden\n   %%%", '<li>x</li>'];
         yield 'colon fence' => ["::: note\n   body\n   :::", '<aside class="admonition note"'];
         yield 'table' => ["| A |\n   | b |", '<table>'];
         yield 'definition list' => [":: term\n   :  def", '<dl>'];
