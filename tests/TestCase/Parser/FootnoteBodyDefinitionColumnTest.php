@@ -75,17 +75,15 @@ class FootnoteBodyDefinitionColumnTest extends TestCase
     }
 
     /**
-     * Inside the body, but above its content column: the body's blocks read the
-     * residual indent and the line is paragraph text there, exactly as above a
-     * list item's content column (§24 C3).
+     * At an authored base past the minimum, the definition is metadata too.
      */
     #[DataProvider('pastTheColumnProvider')]
-    public function testIsTextPastTheBodyColumnAndInert(int $indent): void
+    public function testDefinesAtAnAuthoredBasePastTheBodyColumn(int $indent): void
     {
         $html = $this->html($this->document($indent));
 
-        $this->assertStringContainsString('[r]: /u', $html);
-        $this->assertStringNotContainsString('href="/u"', $html);
+        $this->assertStringNotContainsString('[r]: /u', $html);
+        $this->assertStringContainsString('href="/u"', $html);
     }
 
     public function testNeverRendersALineItAlsoDefinesFrom(): void

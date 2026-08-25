@@ -11,7 +11,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * A definition body has three column bands: BELOW its content column the body
  * ENDS and the line is classified in the surviving context; AT the column the
- * line is the body's own block content; PAST the column the line is lazy text.
+ * line is the body's own block content; PAST the column a recognized opener
+ * establishes an authored local base.
  *
  * This ladder is what makes the floor observable at all, since a reader whose
  * floor was lowered from column 3 to column 1 would otherwise pass every
@@ -93,10 +94,10 @@ class DefinitionBodyColumnBandsTest extends TestCase
     }
 
     #[DataProvider('pastTheColumnProvider')]
-    public function testPastTheColumnTheLineIsLazyText(string $source): void
+    public function testPastTheColumnTheLineUsesItsAuthoredBase(string $source): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>body\n&gt; q</dd>\n</dl>\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>body</p>\n    <blockquote><p>q</p></blockquote>\n  </dd>\n</dl>\n",
             $this->html($source),
         );
     }

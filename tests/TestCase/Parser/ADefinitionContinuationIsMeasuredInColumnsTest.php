@@ -162,17 +162,14 @@ class ADefinitionContinuationIsMeasuredInColumnsTest extends TestCase
     }
 
     /**
-     * THE BOUND, and the row the wider claim above used to swallow: a run of
-     * exactly the content column nests the block, and one column more does not,
-     * because the extra column stays on the line and no opener is recognized
-     * behind it. Without this the change back to an `ltrim` body would pass
-     * everything else in this file.
+     * A recognized opener at or past the minimum uses an authored base. A tab
+     * reaching the same visual column gives the same result.
      */
-    public function testTheColumnItselfNestsAndOneColumnMoreDoesNot(): void
+    public function testTheColumnAndAuthoredBasesNest(): void
     {
         $this->assertStringContainsString('<h1', $this->html(":: t\n:  a\n\n   # h\n"));
-        $this->assertStringNotContainsString('<h1', $this->html(":: t\n:  a\n\n    # h\n"));
-        $this->assertStringNotContainsString('<h1', $this->html(":: t\n:  a\n\n\t# h\n"));
+        $this->assertStringContainsString('<h1', $this->html(":: t\n:  a\n\n    # h\n"));
+        $this->assertStringContainsString('<h1', $this->html(":: t\n:  a\n\n\t# h\n"));
     }
 
     /**

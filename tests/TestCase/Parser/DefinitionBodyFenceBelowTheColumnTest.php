@@ -63,9 +63,8 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
     }
 
     /**
-     * AT OR PAST the column the line is the fence's content - and PAST the
-     * column it keeps the columns it wrote past it, because the body is
-     * dedented by the description's content column and by nothing more.
+     * AT OR PAST the column the line is the fence's content. Payload indentation
+     * remains, while a matching closer at the authored base still closes.
      *
      * The `past the column` row used to expect the at-the-column rendering,
      * which needed the body to arrive `ltrim`ed. carve-js writes the residual
@@ -85,7 +84,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
             ],
             'past the column, keeping the column it wrote past it' => [
                 ":: t\n:  ```\n    body\n    ```\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code> body\n ```\n</code></pre>\n  </dd>\n</dl>\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code> body\n</code></pre>\n  </dd>\n</dl>\n",
             ],
         ];
     }

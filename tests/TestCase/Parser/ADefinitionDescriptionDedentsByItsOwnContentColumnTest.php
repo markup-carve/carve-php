@@ -36,10 +36,8 @@ use PHPUnit\Framework\TestCase;
  * spelling was worse, registering AND leaking, so the definition line reached
  * the reader as prose beside a working link.
  *
- * markup-carve/carve#918 is not touched. "Past the column is lazy text" governs
- * a line CONTINUING AN OPEN PARAGRAPH; a definition line leaves no paragraph
- * open, and a line after a blank is not continuing anything. Both readings are
- * pinned below as controls.
+ * carve#1729 now gives recognized openers past the minimum an authored local
+ * base. Ordinary continuation text retains the lazy behavior measured here.
  *
  * EVERY EXPECTATION HERE WAS COMPARED AGAINST carve-js `ba42673`, built from
  * source, and is byte-identical to it.
@@ -209,19 +207,17 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
     }
 
     /**
-     * carve#918's own shapes, UNMOVED. The first is the lazy continuation the
-     * clause is about; the rest are the column bands it names. A fix that
-     * dedented indiscriminately would turn the first into a nested quote, which
-     * is exactly what the clause forbids.
+     * The minimum-column bands after carve#1729. Recognized block openers at or
+     * past the minimum are structural; below-column behavior stays unchanged.
      *
      * @return array<string, array{string, string}>
      */
     public static function unmovedShapes(): array
     {
         return [
-            'past the column with an open paragraph: lazy text' => [
+            'past the column: an authored quote base' => [
                 ":: t\n:  body\n    > q\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>body\n&gt; q</dd>\n</dl>\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>body</p>\n    <blockquote><p>q</p></blockquote>\n  </dd>\n</dl>\n",
             ],
             'at the column after a blank: a real quote' => [
                 ":: t\n:  body\n\n   > q\n",
@@ -239,7 +235,7 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
     }
 
     #[DataProvider('unmovedShapes')]
-    public function testTheLazyContinuationClauseIsUnmoved(string $source, string $expected): void
+    public function testDefinitionBodyColumnBands(string $source, string $expected): void
     {
         $this->assertSame($expected, $this->html($source));
     }
