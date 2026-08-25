@@ -218,8 +218,13 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
      * This is the row that fails if the flattening is ever decided from the
      * input DOM again: a `<figcaption>` inside a `<figure>` looks exactly like
      * the slot case and is not one.
+     *
+     * THE ONE ROW THAT IS OWED here is about the WRAPPER, not the caption: the
+     * figure left the document and says so (carve-php#1723). Nothing names the
+     * list, which is the whole point - a flatten row here would report a loss
+     * that did not happen.
      */
-    public function testTheFigureFallbackKeepsItsListAndReportsNothing(): void
+    public function testTheFigureFallbackKeepsItsListAndReportsOnlyTheWrapper(): void
     {
         [$carve, $rows] = $this->importWithRows(
             '<figure><p>one</p><p>two</p><figcaption><ul><li>a</li><li>b</li></ul></figcaption></figure>',
@@ -228,7 +233,7 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
 
         $this->assertStringContainsString("- a\n- b", $carve);
         $this->assertStringContainsString('<li>a</li>', $rendered);
-        $this->assertSame([], $rows);
+        $this->assertSame([['element-unwrapped', 'Unwrapped unsupported <figure> element']], $rows);
     }
 
     /**
