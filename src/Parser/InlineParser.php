@@ -1459,7 +1459,10 @@ class InlineParser
             return false;
         }
 
-        $previous = $text[$pos - 1] ?? '';
+        // PHP accepts negative string offsets, so `$text[-1] ?? ''` reads the
+        // LAST byte when the placeholder is first. Guard the boundary before
+        // indexing or a leading `#` is flanked by the caption's final letter.
+        $previous = $pos > 0 ? $text[$pos - 1] : '';
         if ($previous !== '' && ($previous === '_' || ctype_alnum($previous))) {
             return false;
         }
