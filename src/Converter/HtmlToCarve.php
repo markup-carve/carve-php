@@ -830,6 +830,32 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'figcaption' && isset($this->detachedFigureCaptions[$path])) {
+            // THE CAPTION KEEPS ITS TEXT AND LOSES ITS ROLE (ruling
+            // `markup-carve/carve-js#1488`). The table's own `<caption>` fills
+            // Carve's one caption slot, so the figure's caption is written as
+            // the paragraph after it - which is a loss worth a row and not the
+            // corruption it replaces: this arm used to write a second `^ ` line
+            // that re-read as a literal paragraph, so the caret was IN the
+            // rendered text.
+            //
+            // NOT `structure-unspellable`, which is the row for the wrapper that
+            // disappears when a figure around a table is BUILT - nothing is
+            // built here - and not `table-degraded`, which says a table was
+            // degraded and nothing about where a caption went.
+            //
+            // WORDING AND PATH ARE carve-js's, verbatim: this ruling landed in
+            // both engines at once, so there is no older spelling to keep.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Detached a <figcaption> into a paragraph after the table: the table\'s own <caption> fills '
+                    . "Carve's one caption slot, so the figure's caption keeps its text and loses its role",
+                'warning',
+                $path,
+            );
+        }
+
         if ($tag === 'figure' && isset($this->unwrappedFigures[$path])) {
             // A FIGURE THAT WROTE NO CAPTION LINE IS NOT A FIGURE ANY MORE
             // (PART 9 §4b). The target is in the output and the wrapper is not,
@@ -2773,6 +2799,7 @@ class HtmlToCarve
         $this->rawPreservedElements = [];
         $this->unwrappedFigures = [];
         $this->captionedTableFigures = [];
+        $this->detachedFigureCaptions = [];
         $this->unwrappedBlockContainers = [];
 
         // Wrap in a single root element unless the input is already a full
@@ -3251,6 +3278,21 @@ class HtmlToCarve
      * @var array<string, true>
      */
     protected array $captionedTableFigures = [];
+
+    /**
+     * The `<figcaption>` elements this conversion DETACHED into a paragraph.
+     *
+     * A figure around a table that captions itself has two captions for one
+     * `^ ` slot (ruling `markup-carve/carve-js#1488`). The table keeps the slot
+     * and the figcaption's text follows as prose, so what is lost is the caption
+     * ROLE and not a byte of either caption - and this is the row that says so.
+     *
+     * KEYED BY THE CAPTION'S PATH, not the figure's, because the caption is what
+     * the row is about and the report is ordered by the losing node's position.
+     *
+     * @var array<string, true>
+     */
+    protected array $detachedFigureCaptions = [];
 
     /**
      * The block containers this conversion UNWRAPPED, keyed by path.
@@ -8869,6 +8911,28 @@ class HtmlToCarve
             $output .= $this->processPreBlock($pre);
             $output = rtrim($output) . "\n";
         } elseif ($this->figureRebuildsAsCaptionedTable($node)) {
+            /** @var \DOMElement $table */
+            $table = $this->findFirstDirectChildByTagName($node, 'table');
+            // TWO CAPTIONS AND ONE SLOT (ruling `markup-carve/carve-js#1488`).
+            // A table that captions itself has taken the slot, so no Carve
+            // spelling reproduces the figure and `roundtrip` keeps the element
+            // whole rather than writing something else.
+            if ($this->tableCaptionsItself($table)) {
+                $preserved = $this->preservedAsRawHtml($node);
+                if ($preserved !== null) {
+                    return $preserved;
+                }
+            }
+            // WRITTEN ONCE. The lossy exit needs to know whether the table
+            // actually WROTE a caption line, and re-running the conversion to
+            // ask would report everything inside the table twice.
+            $written = rtrim($this->processTable($table)) . "\n";
+            if ($caption instanceof DOMElement) {
+                $detached = $this->figureCaptionDetachedFromTheTable($node, $caption, $written);
+                if ($detached !== null) {
+                    return $detached;
+                }
+            }
             // THE CAPTION GOES ON THE TABLE, which is where it stays a caption.
             // The rebuild used to reach the generic fallback, which writes a
             // caption's content as ordinary blocks - so `Cap` left the figure
@@ -8879,10 +8943,8 @@ class HtmlToCarve
             //
             // The figure itself is still lost - the row below declares it - so
             // this is a ceiling, not a lossless spelling.
-            /** @var \DOMElement $table */
-            $table = $this->findFirstDirectChildByTagName($node, 'table');
             $this->captionedTableFigures[$this->conversionNodePath($node)] = true;
-            $output .= $this->processTable($table);
+            $output .= $written;
             $output = rtrim($output) . "\n";
         } else {
             // NO CARVE SPELLING REPRODUCES THIS FIGURE, so `roundtrip` keeps
@@ -9368,6 +9430,100 @@ class HtmlToCarve
         return $contentChildren !== null
             && count($contentChildren) === 1
             && in_array($contentChildren[0], ['img', 'blockquote', 'pre'], true);
+    }
+
+    /**
+     * Does this `<table>` already fill Carve's one caption slot?
+     *
+     * A `^ ` line on a table becomes the table's OWN `<caption>` rather than a
+     * `<figcaption>` beside it, so a table that arrived with a `<caption>` has
+     * taken the slot before the wrapping figure gets to ask for it. Empty is
+     * not taken: `<caption></caption>` writes no `^ ` line, so the slot is free
+     * and the ordinary rebuild below applies unchanged.
+     */
+    protected function tableCaptionsItself(DOMElement $table): bool
+    {
+        $caption = $this->findFirstDirectChildByTagName($table, 'caption');
+
+        return $caption instanceof DOMElement && $this->captionSpellsSomething($caption);
+    }
+
+    /**
+     * TWO CAPTIONS AND ONE SLOT (ruling `markup-carve/carve-js#1488`).
+     *
+     * A `<figure>` around a `<table>` that carries its own `<caption>` arrives
+     * with two captions, and Carve has one `^ ` line to spell them with. The
+     * ordinary table rebuild wrote BOTH, and the second re-read as a literal
+     * paragraph - so the document came back holding a `^` its author never
+     * typed, in every mode. That is `markup-carve/carve-php#1731`'s failure one
+     * construct over: a lossy mode may lose the figure, and no mode may add a
+     * character.
+     *
+     * NOR MAY THE `<figcaption>` SIMPLY GO. It is authored TEXT rather than
+     * structure, and text is the one thing an import may not spend to reach a
+     * simpler shape. carve-js dropped it and said `table-degraded`, which names
+     * neither the caption nor where it went; that arm is gone with this ruling.
+     *
+     * SO THE TWO EXITS SPLIT, exactly as `markup-carve/carve#1704` splits every
+     * other figure. `roundtrip` PRESERVES the element - the caller does that
+     * before this is reached - and both captions survive byte for byte. Here,
+     * `safe` and `semantic` keep the table's own `<caption>` and write the
+     * figcaption's text as a following PARAGRAPH: the association is gone, which
+     * the row declares, and neither author's words are.
+     *
+     * THE FIGURE'S ATTRIBUTES STILL RIDE ONTO THE TABLE, unchanged from the
+     * ordinary rebuild - `{#f}` above the pipe rows renders `<table id="f">`.
+     *
+     * NULL MEANS THE SLOT WAS FREE AFTER ALL, and the caller writes the ordinary
+     * rebuild. It is decided on what the table WROTE rather than on what its
+     * `<caption>` holds, because the two disagree: a `<caption>` holding only an
+     * empty `<span>` answers yes to a DOM test - which is the test that has to
+     * be used before converting - and writes no `^ ` line at all. Reading the
+     * DOM answer as final detached a caption the table had left room for.
+     *
+     * @return string|null
+     */
+    protected function figureCaptionDetachedFromTheTable(
+        DOMElement $node,
+        DOMElement $caption,
+        string $written,
+    ): ?string {
+        if (!$this->writtenTableCarriesACaption($written)) {
+            return null;
+        }
+
+        // THE CAPTION'S CONTENT AS ORDINARY BLOCKS, which is what this engine
+        // already does wherever a `<figcaption>` lands outside a caption slot
+        // ({@see self::processGenericFigureContent()}): the paragraph it becomes
+        // can hold a list, and flattening one to inline would destroy structure
+        // the output can carry.
+        $detached = trim($this->processChildren($caption));
+
+        // A CAPTION THAT CONVERTS TO NOTHING WAS NOT DETACHED, so it does not
+        // get the row saying it was. What happened is the ORDINARY rebuild: the
+        // table keeps its caption, the wrapper is gone, and
+        // `structure-unspellable` is the row for that.
+        if ($detached === '') {
+            $this->captionedTableFigures[$this->conversionNodePath($node)] = true;
+
+            return "\n" . $this->formatBlockAttributes($node) . ltrim($written, "\n") . "\n";
+        }
+
+        $this->detachedFigureCaptions[$this->conversionNodePath($caption)] = true;
+
+        return "\n" . $this->formatBlockAttributes($node) . ltrim($written, "\n")
+            . "\n" . $detached . "\n\n";
+    }
+
+    /**
+     * Did the written table take Carve's one caption slot?
+     *
+     * A pipe row starts with `|` and a row attribute line with `{`, so a line
+     * opening with `^ ` in a written table is its caption line and nothing else.
+     */
+    protected function writtenTableCarriesACaption(string $written): bool
+    {
+        return preg_match('/^\^ /m', $written) === 1;
     }
 
     /**
