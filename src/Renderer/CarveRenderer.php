@@ -2328,7 +2328,7 @@ class CarveRenderer implements RendererInterface
 
         return $classes !== []
             && !in_array($classes[0], ['hardbreaks', 'line-block'], true)
-            && preg_match('/^[A-Za-z_][\w-]*$/', $classes[0]) === 1;
+            && preg_match('/^[A-Za-z0-9_][\w-]*$/', $classes[0]) === 1;
     }
 
     protected function renderTypedDiv(Div $node): string
@@ -2399,7 +2399,7 @@ class CarveRenderer implements RendererInterface
                     return;
                 }
                 $id = $attrs['id'];
-                $parts[] = $this->isAttrIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
+                $parts[] = $this->isExplicitIdOrClassIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
 
                 return;
             }
@@ -3905,7 +3905,7 @@ class CarveRenderer implements RendererInterface
                     return;
                 }
                 $id = $attrs['id'];
-                $parts[] = $this->isAttrIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
+                $parts[] = $this->isExplicitIdOrClassIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
 
                 return;
             }
@@ -4938,6 +4938,11 @@ class CarveRenderer implements RendererInterface
     protected function isAttrIdentifier(string $text): bool
     {
         return preg_match('/^[A-Za-z_][\w-]*$/', $text) === 1;
+    }
+
+    protected function isExplicitIdOrClassIdentifier(string $text): bool
+    {
+        return preg_match('/^[A-Za-z0-9_][\w-]*$/', $text) === 1;
     }
 
     /**

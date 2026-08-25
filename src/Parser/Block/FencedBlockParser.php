@@ -319,7 +319,7 @@ class FencedBlockParser
             // so a form feed or a vertical tab would open an admonition the
             // grammar names nowhere. That narrowing came in with #947 and is
             // a fortiori still right now that the slot is a space.
-            } elseif (preg_match('/^([a-zA-Z_][\w-]*(?: +"[^"]*")?)(?: +\[([^\]]*)\])?$/', $rest, $m)) {
+            } elseif (preg_match('/^([a-zA-Z0-9_][\w-]*(?: +"[^"]*")?)(?: +\[([^\]]*)\])?$/', $rest, $m)) {
                 $rest = $m[1];
                 if (isset($m[2])) {
                     $label = $m[2];

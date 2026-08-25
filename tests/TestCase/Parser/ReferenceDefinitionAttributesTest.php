@@ -113,9 +113,9 @@ class ReferenceDefinitionAttributesTest extends TestCase
         // the half that parsed. markup-carve/carve#933 then says what a REJECTED
         // block leaves behind - leftover content, which the end-of-line anchor
         // turns into prose.
-        $html = $this->converter->convert("[r]: /u {.123}\n\nsee [E][r]");
+        $html = $this->converter->convert("[r]: /u {123=v}\n\nsee [E][r]");
 
-        $this->assertStringContainsString('<p>[r]: /u {.123}</p>', $html);
+        $this->assertStringContainsString('<p>[r]: /u {123=v}</p>', $html);
         $this->assertStringNotContainsString('<a href="/u">', $html);
     }
 

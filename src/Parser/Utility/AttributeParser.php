@@ -63,10 +63,8 @@ class AttributeParser
         // Single-pass regex that matches all token types in source order.
         // Order matters: quoted values and invalid unquoted values must be matched/skipped
         // first to prevent dots/hashes inside them from being matched as .class or #id.
-        // An attribute name (key, class, id) is a grammar identifier: it may
-        // not start with a digit. A digit-first name is not captured (and a
-        // digit-first key=value is consumed by the invalid-value skip), so
-        // the block yields no such attribute and stays literal (§14).
+        // Explicit ids/classes admit an ASCII digit first. Keys and booleans
+        // keep the narrower identifier grammar.
         $pattern = '/'
             // Group 1,2: key="double quoted value"
             . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
@@ -77,9 +75,9 @@ class AttributeParser
             // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
             . '(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+=[^ \t\r\n}]+|'
             // Group 7: .class shorthand
-            . '\.([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
+            . '\.([a-zA-Z0-9_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 8: #id shorthand
-            . '#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
+            . '#([a-zA-Z0-9_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 9: boolean attribute (bareword)
             . '(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|}|$)|'
             // Named groups: semantic language shorthand (the tag may be empty)
@@ -163,10 +161,8 @@ class AttributeParser
         // first to prevent dots/hashes inside them from being matched as .class or #id.
             // Unquoted values may contain any non-whitespace byte except
             // quotes and braces.
-        // An attribute name (key, class, id) is a grammar identifier and may
-        // not start with a digit, so a digit-first name is not captured (a
-        // digit-first key=value is consumed by the invalid-value skip). This
-        // also prevents a numeric key being cast to int and crashing escape().
+        // Explicit ids/classes admit an ASCII digit first. Keys do not; the
+        // invalid-value skip also prevents numeric keys becoming PHP ints.
         $pattern = '/'
             // Group 1,2: key="double quoted value"
             . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
@@ -178,9 +174,9 @@ class AttributeParser
             // This prevents .bar from being matched as a class
             . '(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+=[^ \t\r\n}]+|'
             // Group 7: .class shorthand
-            . '\.([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
+            . '\.([a-zA-Z0-9_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 8: #id shorthand
-            . '#([a-zA-Z_][a-zA-Z0-9_-]*+)(?!:)|'
+            . '#([a-zA-Z0-9_][a-zA-Z0-9_-]*+)(?!:)|'
             // Group 9: boolean attribute (bareword)
             . '(?:^|[ \t\r\n])([a-zA-Z][a-zA-Z0-9_-]*)(?=[ \t\r\n]|}|$)|'
             . '(?:(?<=[ \t\r\n])|^)(?<lang_sigil>:)(?<lang_tag>[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?(?=[ \t\r\n]|$)'
@@ -219,11 +215,9 @@ class AttributeParser
      *
      * Strips every recognized token (quoted key=value, comments, unquoted
      * key=value, .class, #id, boolean); if anything non-whitespace remains the
-     * block is invalid and must stay literal (§14). A name (key/class/id) is a
-     * grammar `identifier` -- letter/`_` first, then letters, digits, `_` or
-     * `-` -- so a digit-first, hyphen-first or COLON-bearing name invalidates
-     * the whole block even mixed with valid tokens, matching carve-js /
-     * carve-rs and the inline attribute rule. A colon is still legal inside an
+     * block is invalid and must stay literal (§14). Explicit id/class names may
+     * start with an ASCII digit; keys may not. A hyphen-first or COLON-bearing
+     * name invalidates the whole block even mixed with valid tokens. A colon is still legal inside an
      * unquoted VALUE (`{k=a:b}`), which `unquoted_value` admits.
      */
 
@@ -327,8 +321,8 @@ class AttributeParser
         $patterns = [
             '/(?:(?<=[ \t\r\n])|^):(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?(?=[ \t\r\n]|$)/',
             '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n"\'{}]+/',
-            '/\.[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
-            '/#[a-zA-Z_][a-zA-Z0-9_-]*+(?!:)/',
+            '/\.[a-zA-Z0-9_][a-zA-Z0-9_-]*+(?!:)/',
+            '/#[a-zA-Z0-9_][a-zA-Z0-9_-]*+(?!:)/',
             '/(?:(?<=[ \t\r\n])|^)[a-zA-Z][a-zA-Z0-9_-]*(?=[ \t\r\n]|$)/',
             '/[ \t\r\n]+/',
         ];
