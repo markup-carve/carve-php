@@ -337,12 +337,12 @@ class TabIndentationTest extends TestCase
      * (carve-php#890) makes the tab and space spellings of column 4 agree, and
      * the assertion follows the column rule rather than the bug.
      */
-    public function testTabIndentedBlockOpenerUnderItemIsTextPastTheContentColumn(): void
+    public function testTabIndentedBlockOpenerUnderItemUsesItsAuthoredBase(): void
     {
         $input = "1. a\n\t> quote";
         $result = $this->converter->convert($input);
 
-        $this->assertStringNotContainsString('<blockquote>', $result);
+        $this->assertStringContainsString('<blockquote>', $result);
         $this->assertSame(1, substr_count($result, '<ol>'));
     }
 

@@ -75,15 +75,15 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
         $this->assertStringNotContainsString('doc-noteref', $html);
     }
 
-    public function testADefinitionPastTheContentColumnStaysText(): void
+    public function testADefinitionPastTheContentColumnUsesItsAuthoredBase(): void
     {
         // The second control, on the other side: indented past the column the
         // line keeps residual spaces before the `[`, so it is lazy text as
         // well. Never MORE than the content column is stripped.
         $html = $this->converter->convert("- a\n    [^f]: x\n\nsee[^f]");
 
-        $this->assertStringContainsString('[^f]: x', $html);
-        $this->assertStringNotContainsString('doc-noteref', $html);
+        $this->assertStringNotContainsString('[^f]: x', $html);
+        $this->assertStringContainsString('doc-noteref', $html);
     }
 
     public function testADefinitionInsideASameLineNestedItemRegisters(): void

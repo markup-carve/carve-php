@@ -47,12 +47,12 @@ class PostBlankContentColumnTest extends TestCase
         );
     }
 
-    public function testBlockOpenerAboveContentColumnIsLazyText(): void
+    public function testBlockOpenerAboveContentColumnUsesItsAuthoredBase(): void
     {
         // Three columns in, above the content column: the heading marker is no
         // longer a block opener, it folds as lazy paragraph text (loose item).
         $this->assertHtml(
-            "<ul>\n  <li><p>one</p>\n    <p># h</p>\n  </li>\n</ul>",
+            "<ul>\n  <li>one\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
             "- one\n\n   # h\n",
         );
     }
@@ -140,7 +140,7 @@ class PostBlankContentColumnTest extends TestCase
         );
     }
 
-    public function testLazyFoldedFenceDedentsVerbatimContent(): void
+    public function testAuthoredBaseFenceDedentsVerbatimContent(): void
     {
         // A fence above the content column folds as lazy inline code. Its
         // verbatim content must NOT be re-indented by the nesting block
@@ -148,7 +148,7 @@ class PostBlankContentColumnTest extends TestCase
         // guarded so `<code>\nc\n</code>` stays flush, matching carve-js.
         // (Regression: the renderer was padding nested verbatim content.)
         $this->assertHtml(
-            "<ul>\n  <li><p>one</p>\n    <p><code>\nc\n</code></p>\n  </li>\n</ul>",
+            "<ul>\n  <li>one\n    <pre><code>c\n</code></pre>\n  </li>\n</ul>",
             "- one\n\n   ```\n   c\n   ```\n",
         );
     }

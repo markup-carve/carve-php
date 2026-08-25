@@ -22,6 +22,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Recognized block groups authored past a list item's canonical content column now use that column as a temporary local base and format back canonically** (#1720, markup-carve/carve#1705). Exact-column and below-minimum behavior stay unchanged; this is a source-compatibility change for older readers that treated the over-indented marker literally.
 - **The ANSI quote bar reports containment, not node kind** (markup-carve/carve#1689). A quoted heading, code block, table, thematic break and lone image keep the bar, and a quoted list's bar sits outside its marker. All three engines agreed on the old behavior, so this moves agreed behavior rather than closing a divergence.
 - **The canonical writer's round-trip contract names its carve-outs** (#1678, markup-carve/carve#1658, PART 11 §1c). A block whose whole content is one image, one comment, or nothing writes that inner spelling and loses the wrapper; everything else re-reads as what it was given.
 - **A Djot blank-line run does not split a list on import** (markup-carve/carve#1430, PART 9 §11 N1a). `carve migrate --from djot` keeps an imported list as one list, with its numbering.

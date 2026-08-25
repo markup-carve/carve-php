@@ -183,11 +183,11 @@ class CodeFenceHeaderTest extends TestCase
         );
     }
 
-    public function testCodeFenceOpenerIndentedPastListItemContentColumnDoesNotOpen(): void
+    public function testCodeFenceOpenerIndentedPastListItemContentColumnOpensAtItsAuthoredBase(): void
     {
         $html = $this->converter->convert("- item\n   ```\n   code\n   ```\n");
 
-        $this->assertStringNotContainsString('<pre><code>', $html);
+        $this->assertStringContainsString('<pre><code>', $html);
         $this->assertStringContainsString('code', $html);
     }
 

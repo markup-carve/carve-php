@@ -254,6 +254,15 @@ class ReferenceDefinitionExtractor
             $openerCol = $contentCol;
             if ($inFootnoteBody && $contentCol === 0) {
                 $openerCol = strlen($line) - strlen(ltrim($line, " \t"));
+            } elseif ($contentCol > 0) {
+                $authored = IndentationHelper::getLeadingColumns($line);
+                $candidate = ltrim($line, " \t");
+                if (
+                    $authored >= $contentCol
+                    && preg_match('/^(?:`{3,}|~{3,})/', $candidate) === 1
+                ) {
+                    $openerCol = $authored;
+                }
             }
 
             if ($fence->opensOn($line, $openerCol)) {
@@ -273,6 +282,13 @@ class ReferenceDefinitionExtractor
 
             $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$i - 1] ?? '');
             $bare = $referenceLine['line'];
+            if (
+                $referenceLine['inList']
+                && preg_match('/^[ \t]+\[\^?[^\]]+\]: /', $bare) === 1
+            ) {
+                $bare = ltrim($bare, " \t");
+                $referenceLine['line'] = $bare;
+            }
             if ($collectLayout && str_starts_with($bare, '[') && str_contains($bare, ']:')) {
                 $kind = str_starts_with($bare, '[^')
                     ? DefinitionLayoutEvent::FOOTNOTE

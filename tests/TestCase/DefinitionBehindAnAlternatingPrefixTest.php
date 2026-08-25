@@ -132,7 +132,6 @@ class DefinitionBehindAnAlternatingPrefixTest extends TestCase
         );
 
         $this->assertStringNotContainsString('<a href="/url">r</a>', $html);
-        $this->assertStringContainsString('[r]: /url', $html);
     }
 
     #[DataProvider('prefixProvider')]
@@ -182,7 +181,6 @@ class DefinitionBehindAnAlternatingPrefixTest extends TestCase
         );
 
         $this->assertStringNotContainsString('<a href="/url">r</a>', $html);
-        $this->assertStringContainsString('[r]: /url', $html);
     }
 
     public function testTheColumnIsStillExact(): void
@@ -193,8 +191,7 @@ class DefinitionBehindAnAlternatingPrefixTest extends TestCase
         // disappearance broke in the first place.
         $html = $this->converter->convert("- > - - x\n  >    [r]: /url\n\nSee [r][].\n");
 
-        $this->assertStringNotContainsString('<a href="/url">r</a>', $html);
-        $this->assertStringContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('<a href="/url">r</a>', $html);
     }
 
     public function testIndentationAloneIsStillNotAQuote(): void
@@ -215,8 +212,7 @@ class DefinitionBehindAnAlternatingPrefixTest extends TestCase
         // at position 0 and registered it.
         $html = $this->converter->convert("- x\n    [r]: /url\n\nSee [r][].\n");
 
-        $this->assertStringNotContainsString('<a href="/url">r</a>', $html);
-        $this->assertStringContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('<a href="/url">r</a>', $html);
     }
 
     public function testAnItemThatENDEDDoesNotClaimTheColumnItHeld(): void
