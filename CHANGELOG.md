@@ -9,6 +9,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Checked render results** (markup-carve/carve#1728). `convertWithReport()` and `renderWithReport()` preserve the existing value while reporting bounded, positioned `raw-format-dropped` losses; strict mode throws `RenderLossException` with the same complete count.
 - **A definition list's spelled looseness is a field on the wire** (#1658, #1660, markup-carve/carve#1624, PART 12 §8). `definition_list` publishes `loose` where the source spelled it, so a tree that goes out over the wire no longer has to derive each description's wrapper from its block count.
 - **The HTML importer has an AST exit** (#1666). `HtmlToCarve::convertToAst()` and `convertToAstWithReport()` return the PART 12 AST, the latter as an `HtmlImportAstResult` carrying the same mode, adapter and diagnostics as the source exit.
 - **A container takes PART 9 §17 L7's consumed `loose` boolean** (#1642, #1644, #1654, markup-carve/carve#1612, markup-carve/carve#1623). `{loose}` above a list or definition list renders the children as blocks and never reaches the HTML.

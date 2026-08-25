@@ -139,6 +139,21 @@ $markdown = CarveConverter::markdown()->convert('# Hello /Carve/');
 $ansi = CarveConverter::ansi()->convert('# Hello /Carve/');
 ~~~
 
+Raw nodes are routed to their named target. Use a checked result when omitted
+content must be observable:
+
+~~~ php
+$result = CarveConverter::create()->convertWithReport('`x`{=latex}');
+// $result->losses[0]['code'] === 'raw-format-dropped'
+
+CarveConverter::create()->convertWithReport('`x`{=latex}', strictLosses: true);
+// throws RenderLossException before a value is returned
+~~~
+
+Reports retain the complete count and are bounded to 100 detailed entries by
+default. The existing string-returning `convert()` and `render()` APIs remain
+available.
+
 ### Markdown output options
 
 `MarkdownRenderer` has three fluent setters. Build the renderer yourself and hand

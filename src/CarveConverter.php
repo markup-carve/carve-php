@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve;
 
 use Closure;
+use InvalidArgumentException;
 use LengthException;
 use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\SourceLayout;
 use MarkupCarve\Carve\Ast\TextRunCoalescer;
+use MarkupCarve\Carve\Exception\RenderLossException;
 use MarkupCarve\Carve\Extension\BeforeRenderContext;
 use MarkupCarve\Carve\Extension\BeforeRenderExtensionInterface;
 use MarkupCarve\Carve\Extension\ExtensionInterface;
@@ -32,6 +34,7 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\RendererInterface;
+use MarkupCarve\Carve\Renderer\RenderLossAwareRendererInterface;
 use MarkupCarve\Carve\Renderer\RenderMode;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 use MarkupCarve\Carve\Renderer\SoftBreakMode;
@@ -487,6 +490,17 @@ class CarveConverter
     }
 
     /**
+     * Convert with a bounded report of raw formats omitted by this target.
+     */
+    public function convertWithReport(string $source, bool $strictLosses = false, int $maxRenderLosses = 100): RenderResult
+    {
+        $this->enforceProfileMaxLength($source);
+        $this->parser->enablePositionTracking();
+
+        return $this->renderWithReport($this->parse($source), $strictLosses, $maxRenderLosses);
+    }
+
+    /**
      * @return array{
      *   headingNumbers: array{minLevel: int}|null,
      *   headingPermalinks: array{symbol: string, position: string, cssClass: string, ariaLabel: string, levels: array<int>, showOnHover: bool, copyToClipboard: bool}|null,
@@ -660,6 +674,44 @@ class CarveConverter
         }
 
         return $html;
+    }
+
+    /**
+     * Render an existing AST with a bounded report of actual target drops.
+     *
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \MarkupCarve\Carve\Exception\RenderLossException
+     */
+    public function renderWithReport(Document $document, bool $strictLosses = false, int $maxRenderLosses = 100): RenderResult
+    {
+        if ($maxRenderLosses < 0) {
+            throw new InvalidArgumentException('Maximum render losses must be non-negative.');
+        }
+        if (!$this->renderer instanceof RenderLossAwareRendererInterface) {
+            $result = new RenderResult($this->render($document), [], 0, false);
+
+            return $result;
+        }
+        $target = match (true) {
+            $this->renderer instanceof HtmlRenderer => 'html',
+            $this->renderer instanceof MarkdownRenderer => 'markdown',
+            $this->renderer instanceof PlainTextRenderer => 'plain',
+            $this->renderer instanceof AnsiRenderer => 'ansi',
+            default => throw new LogicException('Checked rendering requires a renderer with a declared target.'),
+        };
+        $this->renderer->beginRenderLossCollection($target, $maxRenderLosses);
+        try {
+            $value = $this->render($document);
+        } finally {
+            $report = $this->renderer->finishRenderLossCollection();
+        }
+        $result = new RenderResult($value, $report['losses'], $report['totalLosses'], $report['truncated']);
+        if ($strictLosses && $result->totalLosses > 0) {
+            throw new RenderLossException($result);
+        }
+
+        return $result;
     }
 
     /**
