@@ -251,7 +251,7 @@ class ADroppedColgroupSaysSoTest extends TestCase
             array_column($rows, 'path'),
         );
         $this->assertSame(
-            ['attribute-dropped', 'element-dropped', 'element-dropped'],
+            ['element-dropped', 'attribute-dropped', 'element-dropped'],
             array_column($rows, 'code'),
         );
     }

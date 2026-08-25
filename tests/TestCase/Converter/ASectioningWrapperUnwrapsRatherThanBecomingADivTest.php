@@ -31,9 +31,11 @@ use PHPUnit\Framework\TestCase;
  * input, in the same words at the same severity for the element row.
  *
  * `<section>` is deliberately NOT here. It goes through `processSection()`,
- * which can put an authored id back on the heading below it and so sometimes
- * keeps the element; `theSectionWrapperKeepsItsAuthoredId` pins that this fix
- * leaves that behavior alone.
+ * which can put an authored id back on the heading below it, and this ticket
+ * left that alone; `theSectionWrapperKeepsItsAuthoredId` pins it. What the
+ * section DOES report is carve-php#1737's, in
+ * `AnUnwrappedElementSaysSoBeforeItsAttributesDoTest` - the id coming back is a
+ * statement about the attribute, and the element is gone either way.
  */
 class ASectioningWrapperUnwrapsRatherThanBecomingADivTest extends TestCase
 {
@@ -275,6 +277,10 @@ class ASectioningWrapperUnwrapsRatherThanBecomingADivTest extends TestCase
     /**
      * A sectioning wrapper INSIDE another one unwraps as well, and the section
      * below it still keeps its id - the outer element is what goes.
+     *
+     * The section reports its OWN unwrap too, at its own path (carve-php#1737):
+     * its id comes back on the heading, so the attribute row is correctly
+     * silent, and the element is gone all the same.
      */
     public function testANestedSectionKeepsItsIdWhileTheArticleAroundItGoes(): void
     {
@@ -282,8 +288,12 @@ class ASectioningWrapperUnwrapsRatherThanBecomingADivTest extends TestCase
 
         $this->assertSame("{#s}\n## T\n\na\n", $this->carve($html));
         $this->assertSame(
-            ['element-unwrapped', 'attribute-dropped'],
+            ['element-unwrapped', 'attribute-dropped', 'element-unwrapped'],
             array_column($this->rows($html), 'code'),
+        );
+        $this->assertSame(
+            ['/article[1]', '/article[1]', '/article[1]/section[1]'],
+            array_column($this->rows($html), 'path'),
         );
     }
 }

@@ -306,6 +306,10 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
      * that `importAttributeSurvived()` spends from. If they consumed from it,
      * an element row would silence the attribute row underneath it - the exact
      * false negative that budget exists to prevent.
+     *
+     * THE ORDER IS INCIDENTAL to what this pins, and independent budgets are
+     * why it can be: the element row moved ahead of the attribute row in
+     * carve-php#1737 and both rows are still here, which is the whole claim.
      */
     public function testAnElementQuestionDoesNotConsumeAnAttributeSurvivor(): void
     {
@@ -314,8 +318,8 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
         $this->assertSame('', $this->carve($html));
         $this->assertSame(
             [
-                ['attribute-dropped', 'info', 'Dropped unsupported attribute src on <iframe>'],
                 ['element-dropped', 'warning', 'Dropped unsupported <iframe> element'],
+                ['attribute-dropped', 'info', 'Dropped unsupported attribute src on <iframe>'],
             ],
             $this->diagnostics($html),
         );

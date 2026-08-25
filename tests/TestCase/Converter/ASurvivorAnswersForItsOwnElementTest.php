@@ -44,9 +44,11 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
         $this->assertStringNotContainsString('disabled', $this->carve($alone));
         $this->assertStringNotContainsString('disabled', $this->carve($withTaskList));
 
+        // The element row stands ahead of the attribute row, which is the
+        // order every element row in this file now takes (carve-php#1737).
         $expected = [
-            ['attribute-dropped', 'Dropped unsupported attribute disabled on <button>'],
             ['element-unwrapped', 'Replaced unsupported <button> element with Carve span metadata'],
+            ['attribute-dropped', 'Dropped unsupported attribute disabled on <button>'],
         ];
 
         $this->assertSame($expected, $this->diagnostics($alone));
