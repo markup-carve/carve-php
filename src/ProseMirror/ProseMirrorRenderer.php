@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\ProseMirror;
 
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
@@ -665,6 +666,10 @@ class ProseMirrorRenderer
 
         if ($node instanceof Heading) {
             $attrs['level'] = $node->getLevel();
+        } elseif ($node instanceof BlockQuote && $node->isFenced()) {
+            // Fenced and prefixed quotes share one semantic node, but the
+            // canonical writer preserves the authored spelling.
+            $attrs['carveFenced'] = true;
         } elseif ($node instanceof ThematicBreak) {
             $attrs['carveMarker'] = $node->char;
         } elseif ($node instanceof CodeBlock) {

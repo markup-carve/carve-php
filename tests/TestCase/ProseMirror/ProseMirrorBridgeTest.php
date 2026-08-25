@@ -115,6 +115,7 @@ class ProseMirrorBridgeTest extends TestCase
             'image' => ["![Alt](p.png \"T\")\n"],
             'inline math' => ['Formula $`E=mc^2`.' . "\n"],
             'block quote' => ["> quoted\n"],
+            'fenced block quote' => ["::: >\nquoted\n:::\n"],
             'fenced code' => ["``` php\necho 1;\n```\n"],
             'fenced code without language' => ["```\nplain\n```\n"],
             'definition list' => [":: Term\n:  Definition\n"],
