@@ -759,6 +759,30 @@ class HtmlToCarve
         // Returning early here would take all three rows out to remove two -
         // the lowercase spelling reports them, and this is the spelling that is
         // supposed to match it.
+        if (isset($this->unwrappedBlockContainers[$path])) {
+            // A SECTIONING WRAPPER LEFT THE DOCUMENT AND NOW SAYS SO. It used
+            // to write a `::: name` fence, which renders as `<div class="name">`
+            // - so the element was gone AND a class the document never carried
+            // was in the output, with nothing reported either way
+            // (carve-php#1721). An addition is the worse half: a reader cannot
+            // tell it was not authored.
+            //
+            // Wording and severity are carve-js's and carve-rs's, which agree
+            // here byte for byte, and they are this file's own for every other
+            // unwrapped element.
+            //
+            // BEFORE THE ATTRIBUTE LOOP, so the row naming what happened to the
+            // element stands ahead of the rows naming what happened to what it
+            // carried, which is the order both sibling engines report.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Unwrapped unsupported <' . $tag . '> element',
+                'info',
+                $path,
+            );
+        }
+
         if ($tag === 'figure' && isset($this->captionedTableFigures[$path])) {
             // THE CAPTION SURVIVES AND THE FIGURE DOES NOT. `<table><caption>`
             // is the idiomatic HTML for a captioned table, so this shape
@@ -2711,6 +2735,7 @@ class HtmlToCarve
         $this->rawPreservedElements = [];
         $this->unwrappedFigures = [];
         $this->captionedTableFigures = [];
+        $this->unwrappedBlockContainers = [];
 
         // Wrap in a single root element unless the input is already a full
         // document. Only a leading <!doctype>/<html>/<body> counts as a root:
@@ -3188,6 +3213,30 @@ class HtmlToCarve
      * @var array<string, true>
      */
     protected array $captionedTableFigures = [];
+
+    /**
+     * The block containers this conversion UNWRAPPED, keyed by path.
+     *
+     * A sectioning wrapper - `<article>`, `<main>`, `<header>`, `<footer>`,
+     * `<nav>`, `<aside>` - has no Carve block, and the container fence is not
+     * one: it renders as `<div class="name">` for every name, so writing one
+     * put a class in the output the document never carried while the element
+     * the author wrote was gone anyway (carve-php#1721). They unwrap, and this
+     * is what lets the report say so.
+     *
+     * RECORDED BY THE WRITER, because the unwrapping is a decision about the
+     * WRITE - a table cell takes the same route for a different reason, and
+     * `<aside class="admonition note">` never reaches it at all, since that one
+     * really does have a construct. Asking the input DOM instead means a second
+     * copy of those conditions.
+     *
+     * KEYED BY PATH for the reason {@see self::$rawPreservedElements} is: the
+     * report walks a SECOND parse of the same HTML, so no node object is
+     * shared between the two passes.
+     *
+     * @var array<string, true>
+     */
+    protected array $unwrappedBlockContainers = [];
 
     /**
      * The `<dd>` elements this conversion dropped for writing nothing.
@@ -4614,53 +4663,72 @@ class HtmlToCarve
     }
 
     /**
-     * Does a `::: name` fence render back as this element?
+     * Is this one of the SECTIONING wrappers?
      *
-     * The container fence renders as a `<div class="name">` for every name, so
-     * the answer is yes only where the renderer maps the name back to its own
-     * tag. For those it is a lossless spelling and the fence stays; for the
-     * rest it is a `<div>` wearing the tag's name, which is the element gone
-     * (`markup-carve/carve-php#1713`).
+     * These are the names carve-js and carve-rs treat as document STRUCTURE
+     * rather than as markup they cannot express, and all three engines agree
+     * on the set. What this engine did with them was the outlier: it wrote a
+     * `::: name` container fence, on the premise that the fence renders back as
+     * the element.
      *
-     * The list is the SECTIONING one, matched against carve-js per tag: those
-     * are the names both engines treat as structure rather than as markup they
-     * cannot express.
+     * IT DOES NOT. A container fence renders as `<div class="name">` for EVERY
+     * name, sectioning ones included, so `<article id="k">` came back as
+     * `<div class="article" id="k">` - the element the author wrote gone, and a
+     * class they never wrote in the output. An undeclared loss is a ceiling an
+     * import may sit inside; an ADDITION is the document coming back saying
+     * something it never said, and only the second changes what the document
+     * means (carve-php#1721).
+     *
+     * SO THEY UNWRAP, which is what both sibling engines do with the same input:
+     * the children come through, the wrapper and its attributes are dropped, and
+     * the report says both. `<section>` is not here - it goes through
+     * {@see self::processSection()}, which can put an authored id back on a
+     * heading and so sometimes keeps the element.
+     *
+     * THIS IS NOT THE PRESERVE SET EITHER. The names that map to nothing at all
+     * are kept byte for byte in `roundtrip` (`markup-carve/carve-php#1713`);
+     * these map to structure a Carve document genuinely has no block for, and
+     * turning a page's `<header>`, `<nav>` and `<footer>` into opaque raw blocks
+     * would make the most common wrappers in a document unreadable as Carve.
      */
-    protected function containerFenceReproduces(string $tagName): bool
+    protected function isSectioningWrapper(string $tagName): bool
     {
-        return in_array($tagName, ['article', 'main', 'header', 'footer', 'nav', 'aside', 'section'], true);
+        return in_array($tagName, ['article', 'main', 'header', 'footer', 'nav', 'aside'], true);
     }
 
     protected function processGenericBlockContainer(DOMElement $node): string
     {
+        $tagName = strtolower($node->tagName);
+
         // `<details>` always builds a colon fence, which a cell cannot hold.
         // Every other tag here already degrades to its content once the cell
         // context has emptied its attributes; this makes the one exception
         // behave like the rest (carve-php#1164).
         if ($this->tableCellDepth > 0) {
-            return $this->degradeToContent($node);
+            return $this->unwrapBlockContainer($node, $tagName);
         }
 
-        $tagName = strtolower($node->tagName);
-
         // THE UNMAPPED NAMES ARE KEPT BYTE FOR BYTE IN `roundtrip`
-        // (`markup-carve/carve-php#1713`). `<article>` and its neighbours map
-        // to containers and go on mapping; these do not map to anything, and a
-        // `::: form` fence is not a `<form>` - it renders as a div, so the
-        // element was gone and the mode's contract with it.
-        if ($tagName !== 'details' && !$this->containerFenceReproduces($tagName)) {
+        // (`markup-carve/carve-php#1713`). `<form>` and its neighbours map to
+        // nothing, and a `::: form` fence is not a `<form>` - it renders as a
+        // div, so the element was gone and the mode's contract with it.
+        if ($tagName !== 'details' && !$this->isSectioningWrapper($tagName)) {
             $preserved = $this->preservedAsRawHtml($node);
             if ($preserved !== null) {
                 return $preserved;
             }
         }
 
-        $attrs = $this->formatBlockAttributes($node);
-
-        if ($tagName !== 'details' && $attrs === '') {
-            return $this->degradeToContent($node);
+        // ONLY `<details>` REACHES THE FENCE, and that is the whole of the
+        // change here. `::: details` is a real construct the extension renders
+        // back as a `<details>`; every other name this handler sees renders as
+        // a `<div>` wearing the name, so the fence was never a spelling for it -
+        // see {@see self::isSectioningWrapper()}.
+        if ($tagName !== 'details') {
+            return $this->unwrapBlockContainer($node, $tagName);
         }
 
+        $attrs = $this->formatBlockAttributes($node);
         $content = $this->insideColonFence(fn (): string => trim($this->processBlock($node)));
         $fence = $this->colonFenceFor();
         $output = $attrs . $fence . ' ' . $tagName . "\n";
@@ -4669,6 +4737,31 @@ class HtmlToCarve
         }
 
         return $output . $fence . "\n\n";
+    }
+
+    /**
+     * A block container's content, with the container itself declared gone.
+     *
+     * The unwrapping is what this handler always did for a wrapper carrying no
+     * attributes; what it did not do was SAY so, for that case or for the
+     * attributed one it used to write a fence for. Both engines report the row
+     * (carve-php#1721), and this file reports the equivalent unwrap for every
+     * element it has no mapping for - these were the exception.
+     *
+     * The wrapper's own attributes need no row of their own here: they are gone
+     * from the output, so {@see self::inspectImportAttributes()} already asks
+     * the document and finds them missing.
+     *
+     * @param \DOMElement $node
+     * @param string $tagName
+     */
+    protected function unwrapBlockContainer(DOMElement $node, string $tagName): string
+    {
+        if ($tagName !== 'details') {
+            $this->unwrappedBlockContainers[$this->conversionNodePath($node)] = true;
+        }
+
+        return $this->degradeToContent($node);
     }
 
     /**
@@ -9059,6 +9152,7 @@ class HtmlToCarve
         $loneImageParagraphs = $this->loneImageParagraphs;
         $unwrappedFigures = $this->unwrappedFigures;
         $captionedTableFigures = $this->captionedTableFigures;
+        $unwrappedBlockContainers = $this->unwrappedBlockContainers;
 
         try {
             return $ask();
@@ -9077,6 +9171,7 @@ class HtmlToCarve
             $this->loneImageParagraphs = $loneImageParagraphs;
             $this->unwrappedFigures = $unwrappedFigures;
             $this->captionedTableFigures = $captionedTableFigures;
+            $this->unwrappedBlockContainers = $unwrappedBlockContainers;
         }
     }
 

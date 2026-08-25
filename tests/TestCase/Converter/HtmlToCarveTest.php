@@ -150,10 +150,17 @@ class HtmlToCarveTest extends TestCase
         );
     }
 
-    public function testAsideWithoutAdmonitionTypeFallsBackToGenericContainer(): void
+    /**
+     * An `<aside>` with no admonition TYPE has no admonition to build, and the
+     * generic container it falls back to has no Carve block either: a
+     * `::: aside` fence renders as `<div class="aside">`, which loses the
+     * element and adds a class the document never carried. It unwraps, which is
+     * what carve-js and carve-rs do with the same input (carve-php#1721).
+     */
+    public function testAsideWithoutAdmonitionTypeUnwraps(): void
     {
         $this->assertSame(
-            "{.admonition}\n::: aside\nB\n:::\n",
+            "B\n",
             $this->converter->convert('<aside class="admonition"><p>B</p></aside>'),
         );
     }
@@ -1813,14 +1820,24 @@ HTML;
         $this->assertStringContainsString('Answer.', $result);
     }
 
-    public function testHtml5BlockContainerWithAttributesUsesTaggedFencedDiv(): void
+    /**
+     * A SECTIONING WRAPPER UNWRAPS, ATTRIBUTES AND ALL. It used to write a
+     * `::: article` fence, which renders as `<div class="article" id="a1">` -
+     * the element the author wrote gone, and a class they never wrote in its
+     * place. An addition is the half no row can declare, so the fence is not a
+     * spelling for these names and they degrade to their content, which is what
+     * carve-js and carve-rs both do (carve-php#1721).
+     */
+    public function testHtml5BlockContainerWithAttributesUnwrapsAndDeclaresIt(): void
     {
         $html = '<article id="a1" data-kind="post"><p>X</p></article>';
-        $result = $this->converter->convert($html);
+        $result = $this->converter->convertWithReport($html);
 
-        $this->assertStringContainsString('{#a1 data-kind=post}', $result);
-        $this->assertStringContainsString("::: article\n", $result);
-        $this->assertStringContainsString("X\n", $result);
+        $this->assertSame("X\n", $result->value);
+        $this->assertSame(
+            ['element-unwrapped', 'attribute-dropped', 'attribute-dropped'],
+            array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics),
+        );
     }
 
     // ==================== Round-trip Table Separators ====================

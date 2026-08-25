@@ -168,8 +168,15 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
                 '<blockquote disabled><p>a</p><p>b</p></blockquote>',
                 '<blockquote disabled="disabled">',
             ],
+            // `<address>` used to stand here. It no longer survives at all:
+            // a sectioning or unmapped container is unwrapped rather than
+            // written through a `::: name` fence, because that fence renders as
+            // a `<div class="name">` and so put a class in the output the
+            // document never carried (carve-php#1721). An admonition aside is
+            // the fenced container that DOES come back as its own element, so
+            // it is the one this row can ask the question of.
             'a container is written through a colon fence' => [
-                '<address disabled>bodytext</address>',
+                '<aside class="admonition note" disabled><p>a</p></aside>',
                 'disabled="disabled"',
             ],
         ];
