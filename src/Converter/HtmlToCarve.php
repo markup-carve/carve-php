@@ -759,6 +759,34 @@ class HtmlToCarve
         // Returning early here would take all three rows out to remove two -
         // the lowercase spelling reports them, and this is the spelling that is
         // supposed to match it.
+        if ($tag === 'figure' && isset($this->captionedTableFigures[$path])) {
+            // THE CAPTION SURVIVES AND THE FIGURE DOES NOT. `<table><caption>`
+            // is the idiomatic HTML for a captioned table, so this shape
+            // rebuilds instead of preserving (`markup-carve/carve#1704`) - and
+            // what it rebuilds into is a captioned TABLE, which is a different
+            // element from the one the author wrote.
+            //
+            // A declared loss is a ceiling, not a licence, and this row is the
+            // declaration. Without it the rebuild was a silent structural
+            // change, and before the rebuild existed the caption left the figure
+            // entirely and came back as body prose (carve-php#1722).
+            //
+            // WORDING IS carve-js's, verbatim. carve-rs reports the same code at
+            // the same severity but says the written table carries the figure's
+            // ATTRIBUTES as well, which is not true here: this engine drops a
+            // figure's own attributes on every rebuild arm and reports each one
+            // separately, so carve-rs's sentence would be a false statement
+            // about this output.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'A figure wrapping a table has no Carve spelling; the caption is written on the table, '
+                    . 'which renders <caption> inside it',
+                'warning',
+                $path,
+            );
+        }
+
         if ($tag === 'figure' && isset($this->unwrappedFigures[$path])) {
             // A FIGURE THAT WROTE NO CAPTION LINE IS NOT A FIGURE ANY MORE
             // (PART 9 §4b). The target is in the output and the wrapper is not,
@@ -2682,6 +2710,7 @@ class HtmlToCarve
         $this->consumedCheckboxInputs = [];
         $this->rawPreservedElements = [];
         $this->unwrappedFigures = [];
+        $this->captionedTableFigures = [];
 
         // Wrap in a single root element unless the input is already a full
         // document. Only a leading <!doctype>/<html>/<body> counts as a root:
@@ -3138,6 +3167,27 @@ class HtmlToCarve
      * @var array<string, true>
      */
     protected array $unwrappedFigures = [];
+
+    /**
+     * The `<figure>` elements this conversion rebuilt as a CAPTIONED TABLE.
+     *
+     * `<table><caption>` is the idiomatic HTML for a captioned table, so a
+     * figure around one rebuilds rather than preserving (`markup-carve/carve#1704`) -
+     * but the rebuild is not lossless. The `^ ` line reads back as the table's
+     * own `<caption>`, so what comes out is a captioned table where the input
+     * had a figure, and `structure-unspellable` is what says so.
+     *
+     * This is the row that was missing WITH the caption line: the caption used
+     * to leave the figure and land as a detached paragraph, and the report was
+     * empty either way (carve-php#1722).
+     *
+     * KEYED BY PATH for the reason {@see self::$rawPreservedElements} is: the
+     * report walks a SECOND parse of the same HTML, so no node object is
+     * shared between the two passes.
+     *
+     * @var array<string, true>
+     */
+    protected array $captionedTableFigures = [];
 
     /**
      * The `<dd>` elements this conversion dropped for writing nothing.
@@ -8649,6 +8699,22 @@ class HtmlToCarve
             // a plain paragraph lost the `^` association (carve-php#1288).
             $output .= $this->processPreBlock($pre);
             $output = rtrim($output) . "\n";
+        } elseif ($this->figureRebuildsAsCaptionedTable($node)) {
+            // THE CAPTION GOES ON THE TABLE, which is where it stays a caption.
+            // The rebuild used to reach the generic fallback, which writes a
+            // caption's content as ordinary blocks - so `Cap` left the figure
+            // and landed as its own paragraph, the association gone and the
+            // report empty (carve-php#1722). A `^ ` line after the pipe rows
+            // reads back as the table's `<caption>`, which is the closest the
+            // syntax comes and what carve-js and carve-rs both write.
+            //
+            // The figure itself is still lost - the row below declares it - so
+            // this is a ceiling, not a lossless spelling.
+            /** @var \DOMElement $table */
+            $table = $this->findFirstDirectChildByTagName($node, 'table');
+            $this->captionedTableFigures[$this->conversionNodePath($node)] = true;
+            $output .= $this->processTable($table);
+            $output = rtrim($output) . "\n";
         } else {
             // NO CARVE SPELLING REPRODUCES THIS FIGURE, so `roundtrip` keeps
             // the element instead of writing something else
@@ -8665,19 +8731,15 @@ class HtmlToCarve
             // uncaptioned `<figure>` is not one to preserve; it unwraps in
             // every mode, exactly as before.
             //
-            // ONE CARVE-OUT, DELIBERATE. A figure around a TABLE has no
-            // spelling that reproduces it either - the rebuild reads back as a
-            // table carrying its own `<caption>` rather than as a figure - so
-            // strictly it would preserve. It rebuilds anyway, because
-            // `<table><caption>` is the idiomatic HTML for a captioned table
-            // and preserving would throw the `| a |` spelling away for a common
-            // shape. The bend is on purpose; read as a bug it would be "fixed"
-            // straight back into a raw block.
+            // THE ONE CARVE-OUT IS THE ARM ABOVE, and it is exactly as wide
+            // as its own rebuild - see {@see self::figureRebuildsAsCaptionedTable()}.
+            // A figure a table merely stands IN, beside a paragraph or a second
+            // table, rebuilds nothing, so it is preserved here like any other
+            // shape with no spelling rather than falling through to the generic
+            // fallback and losing its caption to a paragraph (carve-php#1722).
             $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
-            $table = $this->findFirstDirectChildByTagName($node, 'table');
             if (
-                !$table instanceof DOMElement
-                && $caption instanceof DOMElement
+                $caption instanceof DOMElement
                 && $this->captionSpellsSomething($caption)
             ) {
                 $preserved = $this->preservedAsRawHtml($node);
@@ -8996,6 +9058,7 @@ class HtmlToCarve
         $droppedDefinitionDescriptions = $this->droppedDefinitionDescriptions;
         $loneImageParagraphs = $this->loneImageParagraphs;
         $unwrappedFigures = $this->unwrappedFigures;
+        $captionedTableFigures = $this->captionedTableFigures;
 
         try {
             return $ask();
@@ -9013,16 +9076,30 @@ class HtmlToCarve
             $this->droppedDefinitionDescriptions = $droppedDefinitionDescriptions;
             $this->loneImageParagraphs = $loneImageParagraphs;
             $this->unwrappedFigures = $unwrappedFigures;
+            $this->captionedTableFigures = $captionedTableFigures;
         }
     }
 
-    protected function hasOnlySupportedFigureContent(DOMElement $node): bool
+    /**
+     * The tag names of a figure's content children, or null if it holds stray text.
+     *
+     * The caption is not content - it is what the content is captioned WITH -
+     * so it is skipped, and layout-only text between the children is skipped
+     * too. Anything else at text level means the figure is holding words of its
+     * own, which no target arm can carry, and null says so rather than a list
+     * that looks clean.
+     *
+     * @param \DOMElement $node
+     *
+     * @return list<string>|null
+     */
+    protected function figureContentChildren(DOMElement $node): ?array
     {
         $contentChildren = [];
         foreach ($node->childNodes as $child) {
             if (!($child instanceof DOMElement)) {
                 if (trim($child->textContent) !== '') {
-                    return false;
+                    return null;
                 }
 
                 continue;
@@ -9035,11 +9112,50 @@ class HtmlToCarve
             $contentChildren[] = strtolower($child->tagName);
         }
 
-        if (count($contentChildren) !== 1) {
+        return $contentChildren;
+    }
+
+    protected function hasOnlySupportedFigureContent(DOMElement $node): bool
+    {
+        $contentChildren = $this->figureContentChildren($node);
+
+        return $contentChildren !== null
+            && count($contentChildren) === 1
+            && in_array($contentChildren[0], ['img', 'blockquote', 'pre'], true);
+    }
+
+    /**
+     * Does this figure rebuild as a table carrying its caption?
+     *
+     * THE ONE DELIBERATE CARVE-OUT in the figure rule (`markup-carve/carve#1704`).
+     * A `<figure>` around a table has no Carve spelling that reproduces it - the
+     * rebuild reads back as a table carrying its own `<caption>` rather than as
+     * a figure - so strictly it would preserve. It rebuilds anyway, because
+     * `<table><caption>` is the idiomatic HTML for a captioned table and
+     * preserving would throw the `| a |` spelling away for a common shape.
+     *
+     * THE CARVE-OUT IS EXACTLY AS WIDE AS THE REBUILD. It used to be a bare
+     * "is there a table", which excluded from preservation every figure a table
+     * merely stood in - a figure holding a table AND a paragraph, or two tables,
+     * neither of which rebuilds - and those fell through to the generic
+     * fallback, where the caption came back as a detached paragraph and nothing
+     * said so (carve-php#1722). A figure that cannot rebuild is preserved like
+     * any other, which is what carve-rs does with the same input.
+     *
+     * A CAPTION IS WHAT MAKES A FIGURE (PART 9 §4b), so an uncaptioned wrapper
+     * around a table is not one to rebuild either: it unwraps to the bare
+     * table, exactly as carve-js and carve-rs do.
+     *
+     * @param \DOMElement $node
+     */
+    protected function figureRebuildsAsCaptionedTable(DOMElement $node): bool
+    {
+        $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
+        if (!$caption instanceof DOMElement || !$this->captionSpellsSomething($caption)) {
             return false;
         }
 
-        return in_array($contentChildren[0], ['img', 'blockquote', 'pre'], true);
+        return $this->figureContentChildren($node) === ['table'];
     }
 
     protected function processGenericFigureContent(DOMElement $node): string
