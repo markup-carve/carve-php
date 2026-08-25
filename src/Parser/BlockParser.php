@@ -4777,18 +4777,13 @@ class BlockParser
         $fenceLength = strlen($matches['fence']);
         $div = new Div();
         $div->addClass('hardbreaks');
-        foreach ($this->pendingAttributes as $name => $value) {
-            if ($name === 'class') {
-                foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
-                    if ($class !== '') {
-                        $div->addClass($class);
-                    }
-                }
-            } else {
-                $div->setAttribute($name, $value);
-            }
-        }
+        // The attribute line is authored BEFORE the sigil fence. Merge it
+        // through the same leading-attribute path as other blocks so its class
+        // values and attrs.order stay ahead of the structural `hardbreaks`
+        // class. Adding the values one by one reversed both facts.
+        $div->mergeLeadingAttributes($this->pendingAttributes, $this->pendingAttributeOrder);
         $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
 
         $body = $this->collectColonFenceBody($lines, $start, $fenceLength, true);
         $innerLines = $body['lines'];
