@@ -832,7 +832,11 @@ HTML;
         $this->assertStringContainsString('^ A photo', $result);
 
         $htmlBack = (new CarveConverter(profile: Profile::article()))->convert($result);
-        $this->assertStringContainsString('<figure>', $htmlBack);
+        // THE ATTRIBUTES COME BACK ON THE REBUILT FIGURE. This used to assert a
+        // bare `<figure>` because the wrapper's own attributes were dropped and
+        // declared; the block attribute line the import now writes puts them
+        // back where the HTML had them (carve-php#1728).
+        $this->assertStringContainsString('<figure id="fig1" data-kind="hero">', $htmlBack);
         $this->assertStringContainsString('<figcaption>A photo</figcaption>', $htmlBack);
     }
 

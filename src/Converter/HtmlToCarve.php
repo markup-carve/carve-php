@@ -8857,10 +8857,43 @@ class HtmlToCarve
             ? $this->formatCaptionText(trim($this->processCaptionChildren($caption)))
             : '';
         if (trim($captionLine) === '') {
+            // NOTHING TO HANG THE ATTRIBUTES ON. The figure is gone and the
+            // target is a bare image, quote or fence, so a block attribute
+            // line here would land on the TARGET and say the document carried
+            // an id it never carried. Both sibling engines drop them here and
+            // declare the drop, and `element-unwrapped` above is the row that
+            // names what became of the element.
             $this->unwrappedFigures[$this->conversionNodePath($node)] = true;
+
+            return $output . $captionLine . "\n\n";
         }
 
-        return $output . $captionLine . "\n\n";
+        // THE FIGURE'S OWN ATTRIBUTES HAVE SOMEWHERE TO GO, so dropping them
+        // was a ceiling with a spelling available - which `docs/html-import.md`
+        // calls a licence nobody granted (carve-php#1728). The caption line
+        // makes a figure of the target again, and a block attribute line ABOVE
+        // that target lands on the rebuilt node: `{#f .c}`, then `![A](a.png)`,
+        // then `^ Cap` re-renders as `<figure id="f" class="c">`. carve-js and
+        // carve-rs write this line byte for byte, on every arm and every mode.
+        //
+        // ONE LINE FOR EVERY ARM, because it is one cause rather than one per
+        // arm: the arms differ in what they write for the TARGET, never in
+        // whether the figure around it carried attributes. Neither arm that
+        // returns early needs it - a preserved figure still HAS its attributes
+        // in the bytes it was kept as, and a composite group writes its own
+        // line in {@see self::processFigureGroup()}.
+        //
+        // THE TABLE ARM WRITES THEM ONTO THE TABLE rather than onto a figure,
+        // because that is what its rebuild is: pipe rows under `{#f .c}` with a
+        // caption line render `<table id="f" class="c"><caption>`. That is the
+        // sentence carve-rs's `structure-unspellable` message has always
+        // carried and this engine could not say.
+        //
+        // THE TARGET'S LEADING BLANK LINE IS THE SEAM. A table writes one, and
+        // it was invisible while nothing stood above it; between the attribute
+        // line and the rows it detaches the attributes into a paragraph of
+        // their own, so the body starts at its first written line.
+        return "\n" . $this->formatBlockAttributes($node) . ltrim($output, "\n") . $captionLine . "\n\n";
     }
 
     /**
