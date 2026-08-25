@@ -1455,6 +1455,7 @@ class BlockParser
                 $body['lines'] = $this->rebaseOverindentedItemBlocks(
                     $body['lines'],
                     includeSublists: true,
+                    definitionEntriesCarryTheirBase: true,
                 );
                 $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
                 $this->discoveringDefinitions = false;
@@ -2170,6 +2171,7 @@ class BlockParser
                         $contentLines = $this->rebaseOverindentedItemBlocks(
                             $contentLines,
                             includeSublists: true,
+                            definitionEntriesCarryTheirBase: true,
                         );
                         $deferredBodies[$key] = [
                             'lines' => $contentLines,
@@ -6660,6 +6662,7 @@ class BlockParser
      * @param bool $includeSublists
      * @param bool $skipOpaqueAtMinimum
      * @param bool $skipOnlyClosedOpaqueAtMinimum
+     * @param bool $definitionEntriesCarryTheirBase
      *
      * @return array<string>
      */
@@ -6670,6 +6673,7 @@ class BlockParser
         bool $includeSublists = false,
         bool $skipOpaqueAtMinimum = true,
         bool $skipOnlyClosedOpaqueAtMinimum = false,
+        bool $definitionEntriesCarryTheirBase = false,
     ): array {
         // An uninterrupted marker-line descendant owns the entire chunk. Its
         // own recursive item parse will see any opener that reaches that item's
@@ -6942,7 +6946,27 @@ class BlockParser
                     }
                     $end = $j;
                 }
-            } elseif (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $opener) === 1) {
+            } elseif (
+                !$definitionEntriesCarryTheirBase
+                && (
+                    preg_match(self::DEFINITION_TERM_LINE_PATTERN, $opener) === 1
+                    || preg_match(self::DEFINITION_BODY_PATTERN, $opener) === 1
+                )
+            ) {
+                // A LIST ITEM'S DEFINITION ENTRY ENDS AT ITS SEPARATING BLANK,
+                // WHATEVER COLUMN IT WAS AUTHORED AT.
+                //
+                // carve#1752 asks a payload to keep its offset from its opener,
+                // and in a list item both spellings carry the same offset - so
+                // both say the same thing, and the spec repo's own corpus test
+                // pins them equal under `over-column list block groups match
+                // their exact-column spelling`.
+                //
+                // A footnote body and a definition description are the
+                // exception, not this: carve#1752's clause names only "a
+                // definition body's column 3 or a footnote body's column 2", so
+                // those two pass `definitionEntriesCarryTheirBase` and take the
+                // blank-crossing arm below (carve-php#1764, carve-js#1520).
                 for ($j = $i + 1; $j < $count; $j++) {
                     $candidate = $lines[$j];
                     if (
@@ -6958,11 +6982,22 @@ class BlockParser
                     // which destroyed the definition description.
                     $end = $j;
                 }
-            } elseif (preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $opener) === 1) {
-                // A footnote definition establishes the authored base for the
-                // surrounding run. Sibling content after an internal blank is
-                // still owned by the outer list/note; leaving it at residual
-                // indentation moves it out of that container.
+            } elseif (
+                preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $opener) === 1
+                || (
+                    $definitionEntriesCarryTheirBase
+                    && (
+                        preg_match(self::DEFINITION_TERM_LINE_PATTERN, $opener) === 1
+                        || preg_match(self::DEFINITION_BODY_PATTERN, $opener) === 1
+                    )
+                )
+            ) {
+                // A footnote definition - and, inside a footnote body or a
+                // definition description, a definition entry - establishes the
+                // authored base for the surrounding run. Sibling content after
+                // an internal blank is still owned by the outer list/note;
+                // leaving it at residual indentation moves it out of that
+                // container.
                 for ($j = $i + 1; $j < $count; $j++) {
                     $candidate = $lines[$j];
                     if (IndentationHelper::isBlankLine($candidate)) {
@@ -8879,6 +8914,7 @@ class BlockParser
                     $body,
                     includeSublists: true,
                     skipOnlyClosedOpaqueAtMinimum: true,
+                    definitionEntriesCarryTheirBase: true,
                 );
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
