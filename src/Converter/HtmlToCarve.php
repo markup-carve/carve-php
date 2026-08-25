@@ -121,6 +121,22 @@ class HtmlToCarve
     ];
 
     /**
+     * The block tags `roundtrip` preserves as a raw HTML BLOCK.
+     *
+     * Every other element the mode preserves takes the inline span, and the
+     * split is not a taste: these are BLOCK-level and carry blocks, so an
+     * inline span around them would put block markup inside a paragraph. They
+     * are also the only block-level names this converter has no Carve
+     * construct for - `<article>` and its neighbours map to containers and go
+     * on mapping (`markup-carve/carve-php#1713`).
+     *
+     * Matched against carve-js per tag rather than ported from memory.
+     *
+     * @var list<string>
+     */
+    protected const RAW_PRESERVED_BLOCK_ELEMENTS = ['address', 'fieldset', 'figure', 'form', 'hgroup'];
+
+    /**
      * The HTML attribute each semantic span name carries its value in.
      *
      * A name absent here has no value to carry and is always the bare boolean.
@@ -668,6 +684,36 @@ class HtmlToCarve
         $tag = strtolower($node->tagName);
         if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
             $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $path);
+
+            return;
+        }
+
+        if (isset($this->rawPreservedElements[$path])) {
+            // THE ELEMENT WAS KEPT BYTE FOR BYTE (`markup-carve/carve-php#1713`).
+            //
+            // Its own refused attributes are restated rather than rolled back:
+            // they are IN the output, inside the preserved bytes, and the row
+            // saying an event handler survived is the one a consumer of this
+            // mode might act on (`markup-carve/carve-js#1468`). Calling them
+            // dropped would be a false statement about a success.
+            //
+            // AND THE WALK STOPS HERE. Every row from inside the element would
+            // name a loss that did not happen - the subtree is in the output
+            // exactly as it was written - so the descent that would produce
+            // them does not run at all.
+            $this->inspectImportAttributeList($node, $tag, $path, $diagnostics, true);
+            // The figure says WHY in its own words, matching carve-js: it is
+            // not an unsupported element - Carve has figures - it is a figure
+            // around a target no `^ ` line reproduces.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'raw-preserved',
+                $tag === 'figure'
+                    ? 'Preserved a <figure> as raw HTML: no Carve spelling reproduces a figure around this target'
+                    : 'Preserved unsupported <' . $tag . '> element as raw HTML',
+                'warning',
+                $path,
+            );
 
             return;
         }
@@ -1286,10 +1332,135 @@ class HtmlToCarve
      * @param string $path
      * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
      */
-    protected function inspectImportAttributeList(DOMElement $node, string $tag, string $path, array &$diagnostics): void
+
+    /**
+     * Would this importer have refused to write this attribute as a Carve one?
+     *
+     * Asked only of a PRESERVED element, where the ordinary oracle - did the
+     * attribute come back? - answers yes for everything and so decides nothing.
+     *
+     * DERIVED FROM THE POLICIES THAT ALREADY EXIST, not enumerated: the strip
+     * policy `isStrippedImportAttribute()` is the one every write site asks,
+     * and the identifier rule is the WRITER's, so this cannot admit a name the
+     * writer would have rewritten into a different one. A second roster is what
+     * drifts, which this file has said four times.
+     */
+    protected function importWouldRefuseAttribute(string $tag, string $name): bool
     {
+        if ($this->importAttributeIsReadNotWritten($tag, $name)) {
+            return false;
+        }
+
+        return $this->isStrippedImportAttribute($name)
+            || preg_match('/^[A-Za-z_][\w-]*$/', $name) !== 1;
+    }
+
+    /**
+     * One attribute of an element the mode kept BYTE FOR BYTE.
+     *
+     * It is not a loss and must not be reported as one: `attribute-dropped`
+     * beside preserved bytes that still carry the attribute is a false
+     * statement about a success, which is the failure this repository rates
+     * worst (`markup-carve/carve-js#1468`). `attribute-preserved` is the code
+     * the format added for exactly this row, in `markup-carve/carve#1710`.
+     *
+     * SEVERITY IS RULED, NOT COPIED. `error` where the attribute is one a
+     * renderer refuses for SAFETY - an event handler, an injection sink, a
+     * value carrying a denied URL scheme - and `info` otherwise. A dropped
+     * handler already spends `warning`, so a preserved one spending `warning`
+     * too would tell a filter nothing about which of the two it is looking at,
+     * and `roundtrip` is the mode `docs/html-import.md` calls unsafe for
+     * untrusted input, so this is the row somebody might act on. The `error` is
+     * not a failed import; it is the strongest thing the report can say.
+     *
+     * The safety test is DERIVED from the strip policy this importer already
+     * asks everywhere else, so it cannot admit a sink that policy knows about.
+     *
+     * @param string $tag
+     * @param string $name
+     * @param string $value
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function reportPreservedAttribute(
+        string $tag,
+        string $name,
+        string $value,
+        string $path,
+        array &$diagnostics,
+    ): void {
+        $handler = str_starts_with($name, 'on');
+        $sink = $name === 'srcdoc' || $name === 'formaction';
+        $live = $handler || $sink || $this->valueCarriesADeniedScheme($value);
+        $subject = $handler
+            ? 'event-handler attribute ' . $name
+            : ($sink ? 'injection-sink attribute ' . $name : 'attribute ' . $name);
+
+        $this->addImportDiagnostic(
+            $diagnostics,
+            'attribute-preserved',
+            'Preserved ' . $subject . ' on <' . $tag . '> in the raw HTML this element is kept as',
+            $live ? 'error' : 'info',
+            $path,
+        );
+    }
+
+    /**
+     * Does this value carry a URL scheme a renderer refuses?
+     *
+     * PART 9 section 25 blanks a value whose scheme LEADS it, and a list-valued
+     * attribute hides one past its head. In preserved raw bytes the renderer
+     * never runs at all, so either shape is live in the output and the row says
+     * so.
+     */
+    protected function valueCarriesADeniedScheme(string $value): bool
+    {
+        foreach (preg_split('/[\s,]+/', $value) ?: [] as $token) {
+            $colon = strpos($token, ':');
+            if ($colon === false) {
+                continue;
+            }
+            $scheme = strtolower(preg_replace('/[\s\x00-\x1f]/', '', substr($token, 0, $colon)) ?? '');
+            if (in_array($scheme, ['javascript', 'vbscript', 'data'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param string $tag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     * @param bool $preserved Whether the element was kept byte for byte.
+     */
+    protected function inspectImportAttributeList(
+        DOMElement $node,
+        string $tag,
+        string $path,
+        array &$diagnostics,
+        bool $preserved = false,
+    ): void {
         foreach ($node->attributes as $attribute) {
             $name = strtolower($attribute->name);
+            if ($preserved) {
+                // ONLY THE ATTRIBUTES THIS IMPORTER WOULD HAVE REFUSED.
+                //
+                // Every attribute of a preserved element reached the output, so
+                // the loop's other arms - each of which asks whether this one
+                // came back - answer "kept" for all of them and say nothing.
+                // The row that is owed is the one for an attribute the policy
+                // would NOT have written, because that is the one whose
+                // presence in the document is news: an `id` would have been
+                // kept either way and is not.
+                if ($this->importWouldRefuseAttribute($tag, $name)) {
+                    $this->reportPreservedAttribute($tag, $name, $attribute->value, $path, $diagnostics);
+                }
+
+                continue;
+            }
             if (str_starts_with($name, 'on')) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
@@ -2480,6 +2651,7 @@ class HtmlToCarve
         $this->droppedDefinitionDescriptions = [];
         $this->loneImageParagraphs = [];
         $this->consumedCheckboxInputs = [];
+        $this->rawPreservedElements = [];
 
         // Wrap in a single root element unless the input is already a full
         // document. Only a leading <!doctype>/<html>/<body> counts as a root:
@@ -2731,8 +2903,38 @@ class HtmlToCarve
             'figcaption' => '', // Handled by figure
             'caption' => '', // Handled by table
             'thead', 'tbody', 'tfoot', 'tr', 'th', 'td' => $this->processChildren($node), // Handled by table
+            // READ BY A PARENT'S WALK, so none of them is markup this
+            // converter cannot express and none preserves
+            // (`markup-carve/carve-php#1713`). `processDefinitionList()` and
+            // `processList()` read these directly; one reaching the dispatch
+            // at all means it was written outside the parent that owns it, and
+            // the answer there is the one it always gave. Naming them keeps
+            // them out of the `default` arm below, which is now the
+            // preserve arm - a `<dt>` inside a tab came back as raw HTML.
+            'dt', 'dd', 'li' => $this->processChildren($node),
             'script', 'style', 'noscript' => '', // Skip these
-            default => $this->processChildren($node),
+            /*
+             * THE DEFAULT ARM IS THE PRESERVE ARM (`markup-carve/carve-php#1713`),
+             * and that makes it load-bearing in a way it was not before.
+             *
+             * BEFORE ADDING A TAG ANYWHERE IN THIS MATCH, ask whether it can
+             * also arrive here on its own. A tag whose real handling lives in
+             * its PARENT's walk - a `<dt>` read by `processDefinitionList()`, a
+             * `<td>` read by `processTable()` - still reaches the dispatch when
+             * it is written outside that parent, and it used to land on
+             * `processChildren()`, which unwrapped it harmlessly. It now lands
+             * on the preserve arm and comes back as raw HTML: a `<dt>` inside a
+             * `::: tab` came out as `` `<dt>Term</dt>`{=html} ``, and the suite
+             * caught it only because one test happened to write a definition
+             * list in a container.
+             *
+             * So every such name is listed above with the answer it always
+             * gave. Reaching this arm now MEANS "this converter has no spelling
+             * for it", which is what makes the preserve rule derived rather
+             * than a roster - and the cost of that is that the match has to be
+             * honest about which names are handled elsewhere.
+             */
+            default => $this->preservedAsRawHtml($node) ?? $this->processChildren($node),
         };
     }
 
@@ -2791,6 +2993,20 @@ class HtmlToCarve
      * surviving under a wrapper. The depth reaches every descendant while
      * still letting inline elements convert normally, so the link is kept and
      * only the list inside it is flattened.
+     *
+     * THIS RECORDS DIAGNOSTICS. DO NOT CALL IT TO ASK A QUESTION.
+     *
+     * Every block it flattens appends an `element-unwrapped` row to
+     * `$captionFlattenDiagnostics`, so calling it to find out something about a
+     * caption and then converting for real reports the same flatten TWICE. That
+     * is not hypothetical: `markup-carve/carve-php#1713` asked it whether a
+     * caption spelled anything before deciding to preserve the figure, and a
+     * figure whose caption held a list gained three rows for one conversion.
+     *
+     * A question about a caption is asked of the DOM - see
+     * `captionSpellsSomething()`, which exists because of that bug. Anything
+     * this method can answer that the DOM cannot needs a side-effect-free
+     * predicate of its own rather than a second call to this one.
      */
     protected function processCaptionChildren(DOMNode $node): string
     {
@@ -2857,6 +3073,17 @@ class HtmlToCarve
      * the conversion changes, and the REPORT does not change at all.
      */
     protected bool $astExit = false;
+
+    /**
+     * The elements this conversion kept BYTE FOR BYTE, keyed by path.
+     *
+     * KEYED BY PATH for the reason every other record here is: the report walks
+     * a SECOND parse of the same HTML, so no node object is shared between the
+     * two passes, and the path is what both walks agree on.
+     *
+     * @var array<string, true>
+     */
+    protected array $rawPreservedElements = [];
 
     /**
      * The `<dd>` elements this conversion dropped for writing nothing.
@@ -4282,6 +4509,24 @@ class HtmlToCarve
         return $title;
     }
 
+    /**
+     * Does a `::: name` fence render back as this element?
+     *
+     * The container fence renders as a `<div class="name">` for every name, so
+     * the answer is yes only where the renderer maps the name back to its own
+     * tag. For those it is a lossless spelling and the fence stays; for the
+     * rest it is a `<div>` wearing the tag's name, which is the element gone
+     * (`markup-carve/carve-php#1713`).
+     *
+     * The list is the SECTIONING one, matched against carve-js per tag: those
+     * are the names both engines treat as structure rather than as markup they
+     * cannot express.
+     */
+    protected function containerFenceReproduces(string $tagName): bool
+    {
+        return in_array($tagName, ['article', 'main', 'header', 'footer', 'nav', 'aside', 'section'], true);
+    }
+
     protected function processGenericBlockContainer(DOMElement $node): string
     {
         // `<details>` always builds a colon fence, which a cell cannot hold.
@@ -4293,6 +4538,19 @@ class HtmlToCarve
         }
 
         $tagName = strtolower($node->tagName);
+
+        // THE UNMAPPED NAMES ARE KEPT BYTE FOR BYTE IN `roundtrip`
+        // (`markup-carve/carve-php#1713`). `<article>` and its neighbours map
+        // to containers and go on mapping; these do not map to anything, and a
+        // `::: form` fence is not a `<form>` - it renders as a div, so the
+        // element was gone and the mode's contract with it.
+        if ($tagName !== 'details' && !$this->containerFenceReproduces($tagName)) {
+            $preserved = $this->preservedAsRawHtml($node);
+            if ($preserved !== null) {
+                return $preserved;
+            }
+        }
+
         $attrs = $this->formatBlockAttributes($node);
 
         if ($tagName !== 'details' && $attrs === '') {
@@ -5551,7 +5809,12 @@ class HtmlToCarve
             return $this->processRawHtmlInlineElement($node);
         }
 
-        return '';
+        // A `<math>` with no TeX anywhere is not an equation this importer can
+        // build, and in `roundtrip` it is kept rather than dropped: its
+        // children are a token stream whose concatenation is meaningless, so
+        // the markup is the only thing left that means anything
+        // (`markup-carve/carve-php#1713`).
+        return $this->preservedAsRawHtml($node) ?? '';
     }
 
     /**
@@ -8062,6 +8325,87 @@ class HtmlToCarve
         return $backticks . $content . $backticks . '{=' . $format . '}';
     }
 
+    /**
+     * The element kept BYTE FOR BYTE, where `roundtrip` is the mode and Carve
+     * has no construct for it (`markup-carve/carve-php#1713`).
+     *
+     * `roundtrip` exists to be faithful, and this engine was the only one of
+     * the three that answered `<iframe>`, `<math>` and `<form>` by dropping,
+     * unwrapping or degrading them - data loss in the mode whose whole contract
+     * is fidelity. `docs/html-import.md` calls preserving a MAY, which made
+     * that permitted rather than right.
+     *
+     * THE RULE IS DERIVED, NOT A ROSTER. An element reaches here only from the
+     * arms that had given up - the dispatch's `default`, and a `<math>` with no
+     * TeX in it - so what preserves is exactly what this converter has no
+     * spelling for. A tag that gains a mapping later stops reaching this method
+     * without anyone having to remember to take it off a list.
+     *
+     * `null` where the mode is not `roundtrip`, so the caller keeps the answer
+     * it always gave: `safe` and `semantic` read untrusted HTML and must not
+     * hand raw markup back.
+     *
+     * THE PATH IS RECORDED because this engine reports by walking the DOM a
+     * second time rather than by watching the conversion, and that walk cannot
+     * see which elements were kept. `inspectImportNode()` reads the record: it
+     * writes `raw-preserved`, restates the element's own refused attributes as
+     * `attribute-preserved`, and does not descend - the rows from inside an
+     * element that was kept whole would name losses that did not happen.
+     */
+
+    /**
+     * Does this `<figcaption>` spell anything at all?
+     *
+     * A CAPTION IS WHAT MAKES A FIGURE (PART 9 §4b), so a wrapper whose caption
+     * contributes nothing is not a figure to preserve or to rebuild.
+     *
+     * ASKED OF THE DOM, and that is not a style choice: the obvious test is to
+     * convert the caption and look at the result, and
+     * `processCaptionChildren()` RECORDS DIAGNOSTICS as it runs. Asking it here
+     * and again on the real path reported every flattened element twice, so a
+     * figure whose caption held a list gained three rows for a conversion that
+     * happened once (`markup-carve/carve-php#1713`).
+     */
+    protected function captionSpellsSomething(DOMElement $caption): bool
+    {
+        foreach ($caption->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                return true;
+            }
+            if ($child instanceof DOMText && !$this->isLayoutOnlyText($child->textContent)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function preservedAsRawHtml(DOMElement $node): ?string
+    {
+        if ($this->importMode !== 'roundtrip') {
+            return null;
+        }
+        $tag = strtolower($node->tagName);
+        // A CELL CANNOT HOLD A BLOCK, and a raw HTML block is one. Inside a
+        // table cell every other block already degrades to its content, so the
+        // inline span is the answer there for both shapes.
+        $block = in_array($tag, self::RAW_PRESERVED_BLOCK_ELEMENTS, true) && $this->tableCellDepth === 0;
+        $this->rawPreservedElements[$this->conversionNodePath($node)] = true;
+        if (!$block) {
+            return $this->processRawHtmlInlineElement($node);
+        }
+
+        $clone = $node->cloneNode(true);
+        if ($clone instanceof DOMElement) {
+            $this->stripDjotDataAttributes($clone);
+        }
+        $html = $clone instanceof DOMElement ? $clone->ownerDocument?->saveHTML($clone) : null;
+        $html = is_string($html) ? rtrim($html, "\n") : '';
+        $fence = StringUtil::findSafeCodeFence($html, 3);
+
+        return $fence . "=html\n" . $html . "\n" . $fence . "\n\n";
+    }
+
     protected function processRawHtmlInlineElement(DOMElement $node): string
     {
         $clone = $node->cloneNode(true);
@@ -8252,6 +8596,42 @@ class HtmlToCarve
             $output .= $this->processPreBlock($pre);
             $output = rtrim($output) . "\n";
         } else {
+            // NO CARVE SPELLING REPRODUCES THIS FIGURE, so `roundtrip` keeps
+            // the element instead of writing something else
+            // (`markup-carve/carve#1704`, `markup-carve/carve-php#1713`).
+            //
+            // The three targets above each write a `^ ` line the parser reads
+            // back as the same figure, so they rebuild and lose nothing.
+            // Everything else does not: a figure around a bare PARAGRAPH came
+            // back as the body text with a detached `Cap` paragraph under it -
+            // the figure gone and the caption no longer merely lost but turned
+            // into prose the document never said.
+            //
+            // A CAPTION IS WHAT MAKES IT A FIGURE (PART 9 §4b), so an
+            // uncaptioned `<figure>` is not one to preserve; it unwraps in
+            // every mode, exactly as before.
+            //
+            // ONE CARVE-OUT, DELIBERATE. A figure around a TABLE has no
+            // spelling that reproduces it either - the rebuild reads back as a
+            // table carrying its own `<caption>` rather than as a figure - so
+            // strictly it would preserve. It rebuilds anyway, because
+            // `<table><caption>` is the idiomatic HTML for a captioned table
+            // and preserving would throw the `| a |` spelling away for a common
+            // shape. The bend is on purpose; read as a bug it would be "fixed"
+            // straight back into a raw block.
+            $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
+            $table = $this->findFirstDirectChildByTagName($node, 'table');
+            if (
+                !$table instanceof DOMElement
+                && $caption instanceof DOMElement
+                && $this->captionSpellsSomething($caption)
+            ) {
+                $preserved = $this->preservedAsRawHtml($node);
+                if ($preserved !== null) {
+                    return $preserved;
+                }
+            }
+
             return $this->processGenericFigureContent($node);
         }
 
