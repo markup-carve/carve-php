@@ -199,10 +199,12 @@ class RoundtripPreservesWhatCarveCannotExpressTest extends TestCase
             ],
             // A CAPTION IS WHAT MAKES IT A FIGURE (PART 9 §4b), so an
             // uncaptioned wrapper is not one to preserve and unwraps as before.
+            // The unwrap now SAYS so: the boundary was always right and the
+            // silence next to it was not (carve-php#1723).
             'with no caption at all, which is not a figure' => [
                 '<figure><ul><li>a</li></ul></figure>',
                 "- a\n",
-                [],
+                ['element-unwrapped'],
             ],
         ];
     }

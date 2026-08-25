@@ -759,6 +759,35 @@ class HtmlToCarve
         // Returning early here would take all three rows out to remove two -
         // the lowercase spelling reports them, and this is the spelling that is
         // supposed to match it.
+        if ($tag === 'figure' && isset($this->unwrappedFigures[$path])) {
+            // A FIGURE THAT WROTE NO CAPTION LINE IS NOT A FIGURE ANY MORE
+            // (PART 9 §4b). The target is in the output and the wrapper is not,
+            // which is what `element-unwrapped` says - and this engine said
+            // nothing, for every one of the arms that unwraps: an uncaptioned
+            // wrapper around an image, a quote, a code block or anything else,
+            // and a captioned one outside `roundtrip`, where there is no
+            // preserved block to keep it (carve-php#1723).
+            //
+            // WORDING AND SEVERITY ARE carve-rs's, byte for byte, and they are
+            // this file's own for every other unwrapped element. carve-js says
+            // something figure-specific at `warning` instead, and splits it
+            // into two messages by whether the target was one it can write a
+            // caption line for - a split that follows carve-js's target set
+            // rather than this one's, so copying the words would import a
+            // distinction this engine does not draw.
+            //
+            // BEFORE THE ATTRIBUTE LOOP, so the row naming what happened to the
+            // element stands ahead of the rows naming what happened to its
+            // attributes, which is the order both sibling engines report.
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Unwrapped unsupported <figure> element',
+                'info',
+                $path,
+            );
+        }
+
         $outerConsumedCheckbox = $this->inspectedConsumedCheckbox;
         $this->inspectedConsumedCheckbox = $tag === 'input' && isset($this->consumedCheckboxInputs[$path])
             ? $path
@@ -2652,6 +2681,7 @@ class HtmlToCarve
         $this->loneImageParagraphs = [];
         $this->consumedCheckboxInputs = [];
         $this->rawPreservedElements = [];
+        $this->unwrappedFigures = [];
 
         // Wrap in a single root element unless the input is already a full
         // document. Only a leading <!doctype>/<html>/<body> counts as a root:
@@ -3084,6 +3114,30 @@ class HtmlToCarve
      * @var array<string, true>
      */
     protected array $rawPreservedElements = [];
+
+    /**
+     * The `<figure>` elements this conversion UNWRAPPED, keyed by path.
+     *
+     * A FIGURE IS ITS CAPTION (PART 9 §4b), so a wrapper that writes no `^ `
+     * line did not survive as a figure whatever else came through: the target
+     * is in the output, the element around it is not, and the re-render shows
+     * a bare image, quote or code block where the input had a figure. That is
+     * `element-unwrapped` by the definition {@see self::inspectImportNode()}
+     * uses everywhere else, and this engine was the only one of the three
+     * saying nothing at all (carve-php#1723).
+     *
+     * RECORDED BY THE WRITER rather than re-derived, because the writer is the
+     * one that knows which of the five arms ran. Re-deriving it in the report
+     * walk means a second copy of {@see self::processFigure()}'s decision, and
+     * {@see self::convertWithReport()} exists to stop exactly that.
+     *
+     * KEYED BY PATH for the reason {@see self::$rawPreservedElements} is: the
+     * report walks a SECOND parse of the same HTML, so no node object is
+     * shared between the two passes.
+     *
+     * @var array<string, true>
+     */
+    protected array $unwrappedFigures = [];
 
     /**
      * The `<dd>` elements this conversion dropped for writing nothing.
@@ -8632,14 +8686,26 @@ class HtmlToCarve
                 }
             }
 
+            $this->unwrappedFigures[$this->conversionNodePath($node)] = true;
+
             return $this->processGenericFigureContent($node);
         }
 
-        if ($caption instanceof DOMElement) {
-            $output .= $this->formatCaptionText(trim($this->processCaptionChildren($caption)));
+        // A FIGURE IS ITS CAPTION (PART 9 §4b), AND NO CAPTION LINE IS NO
+        // FIGURE. The three arms above write the target and then this line;
+        // without it the output is a bare image, quote or code block, and the
+        // re-render has no `<figure>` in it at all. The target came through, so
+        // the outcome is an unwrapping rather than a drop - and it is the one
+        // outcome of this handler that used to leave the report empty
+        // (carve-php#1723). carve-js and carve-rs both report the row here.
+        $captionLine = $caption instanceof DOMElement
+            ? $this->formatCaptionText(trim($this->processCaptionChildren($caption)))
+            : '';
+        if (trim($captionLine) === '') {
+            $this->unwrappedFigures[$this->conversionNodePath($node)] = true;
         }
 
-        return $output . "\n\n";
+        return $output . $captionLine . "\n\n";
     }
 
     /**
@@ -8929,6 +8995,7 @@ class HtmlToCarve
         $splitDefinitionLists = $this->splitDefinitionLists;
         $droppedDefinitionDescriptions = $this->droppedDefinitionDescriptions;
         $loneImageParagraphs = $this->loneImageParagraphs;
+        $unwrappedFigures = $this->unwrappedFigures;
 
         try {
             return $ask();
@@ -8945,6 +9012,7 @@ class HtmlToCarve
             $this->splitDefinitionLists = $splitDefinitionLists;
             $this->droppedDefinitionDescriptions = $droppedDefinitionDescriptions;
             $this->loneImageParagraphs = $loneImageParagraphs;
+            $this->unwrappedFigures = $unwrappedFigures;
         }
     }
 
