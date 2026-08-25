@@ -255,7 +255,7 @@ class InlineAttributeInteriorIsSpaceOnlyTest extends TestCase
             'a valid block applies' => ["[r]: /u {.a .b}\n\n[t][r]\n", "<p><a href=\"/u\" class=\"a b\">t</a></p>\n"],
             'a tab-bearing block is prose'
                 => ["[r]: /u {.a\t.b}\n\n[t][r]\n", "<p>[r]: /u {.a\t.b}</p>\n<p>[t][r]</p>\n"],
-            'an invalid NAME is prose' => ["[r]: /u {.1}\n\n[t][r]\n", "<p>[r]: /u {.1}</p>\n<p>[t][r]</p>\n"],
+            'an invalid NAME is prose' => ["[r]: /u {1=v}\n\n[t][r]\n", "<p>[r]: /u {1=v}</p>\n<p>[t][r]</p>\n"],
             'trailing prose is not a definition at all'
                 => ["[r]: /u zzz\n\n[t][r]\n", "<p>[r]: /u zzz</p>\n<p>[t][r]</p>\n"],
         ];

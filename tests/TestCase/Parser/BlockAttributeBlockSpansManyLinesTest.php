@@ -126,8 +126,8 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
             'a line of spaces inside a quoted value' => ["{title=\"a\n   \nb\"}\npara\n", '{title='],
             // A6: not an attribute list -> not an attribute line. One invalid
             // name invalidates the whole block, however many lines it spans.
-            'an invalid name on a continuation line' => ["{.a\n.1\n.c}\npara\n", '{.a'],
-            'an invalid name on the closing line' => ["{.a\n.b\n.1}\npara\n", '{.a'],
+            'an invalid name on a continuation line' => ["{.a\n.-1\n.c}\npara\n", '{.a'],
+            'an invalid name on the closing line' => ["{.a\n.b\n.-1}\npara\n", '{.a'],
             // No closing brace at all.
             'never closed' => ["{.a\n.b\npara\n", '{.a'],
             // A QUOTED VALUE STOPS AT THE NEWLINE (PART 4, and
