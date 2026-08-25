@@ -3962,7 +3962,7 @@ class InlineParser
         }
 
         // The block must yield a valid attribute, else it is not an attribute
-        // block (§14): a digit-first name (`.123`, `#1`, `2=v`) or other
+        // block (§14): a digit-leading key (`2=v`) or other
         // unrecognized content makes the whole `{...}` stay literal. Decline
         // so the caller emits `{` literally and re-parses the content.
         // THE INLINE SURFACE, if this is ever wired up. `parseInlineAttributes`
@@ -4078,9 +4078,9 @@ class InlineParser
     {
         // Strip every RECOGNIZED token; if anything non-whitespace remains the
         // block is invalid and stays literal (§14). A name (key, class, id)
-        // is a grammar `identifier`: letter/`_` first, then letters, digits,
-        // `_` or `-` -- so a digit-first, hyphen-first or COLON-bearing name
-        // is NOT recognized, and one bad name invalidates the WHOLE block even
+        // uses a narrow identifier for keys and a digit-capable one for explicit
+        // ids/classes. A hyphen-first or COLON-bearing name is not recognized,
+        // and one bad name invalidates the WHOLE block even
         // mixed with valid ones, matching carve-js and carve-rs. A colon is
         // still legal inside an unquoted VALUE (`{k=a:b}`, `unquoted_value`).
         // Booleans and an invalid unquoted VALUE (which is tolerated and
@@ -4116,8 +4116,8 @@ class InlineParser
         $item = '(?:[a-zA-Z_][a-zA-Z0-9_-]*=' . $item . ')'
             . '|(?::(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?)'
             . '|(?:[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n}]+)'
-            . '|(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)'
-            . '|(?:#[a-zA-Z_][a-zA-Z0-9_-]*)'
+            . '|(?:\.[a-zA-Z0-9_][a-zA-Z0-9_-]*)'
+            . '|(?:#[a-zA-Z0-9_][a-zA-Z0-9_-]*)'
             . '|(?:[a-zA-Z][a-zA-Z0-9_-]*)';
         $ws = '[ \t\r\n]';
 
