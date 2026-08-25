@@ -316,6 +316,23 @@ class FencedBlockParser
                 // quote closed the outer one early and left the leftover fence
                 // to open an empty div.
                 $rest = $m[1];
+            } elseif (preg_match('/^(\\\\)$/', $rest, $m)) {
+                // THE BARE BACKSLASH ONLY, on the same terms as the pipe and
+                // the marker above. It is the local hard-break block opener and
+                // the backslash IS the whole info string, so it takes no quoted
+                // header and no [label] - nothing in the grammar gives
+                // `local_hard_break_block_open` either one.
+                //
+                // Admitted HERE, in the generic opener, and not only in the
+                // parser's own branch, for the reason the marker is: this is
+                // what the nesting-aware body collector counts openers with.
+                // Without it a hard-break block inside a hard-break block
+                // closed the outer one at the INNER closer, and the outer
+                // closer left over then opened a container of its own - never
+                // closed, so it ran to end of input and rendered as a stray
+                // empty div (carve-php#1743). It was the last member of the
+                // colon-fence family the collector could not see.
+                $rest = $m[1];
             // PADDING, and a space all the same. PART 7 decides the terminal
             // by POSITION, not by role: a tab is syntax only in a line's
             // leading indentation run, and these slots sit after the fence
