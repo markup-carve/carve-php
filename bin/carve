@@ -63,6 +63,7 @@ use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
 use MarkupCarve\Carve\Lint\FigureGroupLinter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
+use MarkupCarve\Carve\Lint\QuoteFenceLinter;
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
 use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
 use MarkupCarve\Carve\Lint\TableColumnLinter;
@@ -571,6 +572,7 @@ if (($options['command'] ?? null) === 'lint') {
     $tableColumnLinter = new TableColumnLinter();
     $templateSourceLinter = new TemplateSourceLinter();
     $figureGroupLinter = new FigureGroupLinter();
+    $quoteFenceLinter = new QuoteFenceLinter();
     $sources = [];
 
     if ($options['files'] === []) {
@@ -603,6 +605,7 @@ if (($options['command'] ?? null) === 'lint') {
             $tableColumnLinter->lint($source),
             $templateSourceLinter->lint($source),
             $figureGroupLinter->lint($source),
+            $quoteFenceLinter->lint($source),
         );
         usort(
             $warnings,
