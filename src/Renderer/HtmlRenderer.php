@@ -941,7 +941,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $level = $node->getLevel();
 
         // Don't render id on heading since it's on section
-        $attrs = $this->renderAttributesExcluding($node, ['id']);
+        $attrs = $this->renderAttributesExcluding($node, ['id'], 'h' . $level);
 
         return '<h' . $level . $attrs . '>' . $this->renderChildren($node) . '</h' . $level . ">\n";
     }
@@ -953,10 +953,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string> $exclude Attribute names to exclude
+     * @param string|null $tag
      */
-    public function renderAttributesExcluding(Node $node, array $exclude): string
+    public function renderAttributesExcluding(Node $node, array $exclude, ?string $tag = null): string
     {
-        return $this->renderAttributeArray($this->getRenderableAttributes($node, $exclude));
+        return $this->renderAttributeArray($this->getRenderableAttributes($node, $exclude), $tag);
     }
 
     protected function renderNode(Node $node): string
@@ -1066,7 +1067,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderParagraph(Paragraph $node): string
     {
-        $attrs = $this->renderAttributes($node);
+        $attrs = $this->renderAttributes($node, 'p');
 
         // A paragraph whose only content is a single image renders the
         // image as a bare block element (no <p> wrapper), per Carve. A leading
@@ -1144,7 +1145,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $explicitIdAttr = ' data-djot-explicit-id="1"';
         }
 
-        return '<h' . $level . $this->renderAttributeArray($attrs) . $idAttr . $annotationAttr
+        return '<h' . $level . $this->renderAttributeArray($attrs, 'h' . $level) . $idAttr . $annotationAttr
             . $explicitIdAttr . '>'
             . $this->renderChildren($node) . '</h' . $level . ">\n";
     }
@@ -1707,7 +1708,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // Tier 2: a custom type renders as a generic <div class="{type}">,
         // the fenced-div primitive the block-extension mechanism builds on.
-        $attrs = $this->renderAttributeArray($this->getRenderableAttributes($node));
+        $attrs = $this->renderAttributeArray($this->getRenderableAttributes($node), 'div');
         $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
         if ($body === '') {
@@ -1745,7 +1746,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 : '  ' . substr($rendered, 0, $newline) . substr($rendered, $newline) . "\n";
         }
 
-        $html = '<div' . $this->renderAttributeArray($attrs) . ">\n" . $inner . "</div>\n";
+        $html = '<div' . $this->renderAttributeArray($attrs, 'div') . ">\n" . $inner . "</div>\n";
 
         return str_replace("\u{00A0}", '&nbsp;', $html);
     }
@@ -2624,9 +2625,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             . $this->renderChildren($node) . '</abbr>';
     }
 
-    protected function renderAttributes(Node $node): string
+    protected function renderAttributes(Node $node, ?string $tag = null): string
     {
-        return $this->renderAttributeArray($this->getRenderableAttributes($node));
+        return $this->renderAttributeArray($this->getRenderableAttributes($node), $tag);
     }
 
     /**
@@ -3007,10 +3008,124 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * @param array<string, string> $attrs
+     * The elements on which HTML's legacy `align` attribute means TEXT
+     * ALIGNMENT, so `{align=...}` on them renders the CSS declaration instead
+     * of the deprecated attribute (PART 10, markup-carve/carve#1755).
+     *
+     * `table` IS DELIBERATELY ABSENT AND MUST NOT BE ADDED. On a table `align`
+     * is PLACEMENT - the table floats left or right, or centres as a block -
+     * which is a different property that does not map to `text-align` at all.
+     * Rewriting it would silently turn a floated table into one whose CELL TEXT
+     * is right-aligned, in every existing document that spells it, which is a
+     * worse defect than the deprecated attribute. `{align=...}` on a table
+     * keeps rendering `align=` until somebody rules what a floated table should
+     * spell.
+     *
+     * The same reasoning keeps `img`, `hr`, `iframe`, `object`, `embed`,
+     * `input` and `caption` out: HTML maps their `align` to a float, a margin,
+     * a `vertical-align` or a caption side, never to `text-align`.
+     *
+     * @var array<string>
      */
-    public function renderAttributeArray(array $attrs): string
+    private const TEXT_ALIGN_ELEMENTS = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+
+    /**
+     * The `align` values HTML gives a `text-align` meaning on those elements.
+     *
+     * @var array<string>
+     */
+    private const TEXT_ALIGN_VALUES = ['left', 'right', 'center'];
+
+    /**
+     * Rewrite a text-alignment `align` attribute into a `text-align` declaration.
+     *
+     * `align` is one of the KNOWN keys the attribute mechanism acts on,
+     * alongside `loose` (consumed, emits nothing), `#id` and `.class`. Every
+     * other key stays a raw pass-through: `{banana=yellow}` still renders
+     * `banana="yellow"`, and `{valign=...}` is untouched here
+     * (markup-carve/carve#1756 ruled it working as designed).
+     *
+     * The declaration takes the `align` slot so source order is preserved. When
+     * the author also wrote `style`, it is appended to that value instead - two
+     * `style` attributes would be invalid HTML and the second one ignored.
+     *
+     * @param array<string, string> $attrs
+     * @param string|null $tag
+     *
+     * @return array<string, string>
+     */
+    private function withTextAlignDeclaration(array $attrs, ?string $tag): array
     {
+        if ($tag === null || !in_array($tag, self::TEXT_ALIGN_ELEMENTS, true)) {
+            return $attrs;
+        }
+
+        // HTML attribute names are case-insensitive, so `{ALIGN=right}` is the
+        // same key and must take the same path.
+        $alignKey = null;
+        $styleKey = null;
+        foreach (array_keys($attrs) as $key) {
+            $folded = strtolower((string)$key);
+            if ($alignKey === null && $folded === 'align') {
+                $alignKey = $key;
+            }
+            if ($styleKey === null && $folded === 'style') {
+                $styleKey = $key;
+            }
+        }
+        if ($alignKey === null) {
+            return $attrs;
+        }
+
+        $value = strtolower(trim($attrs[$alignKey]));
+        if (!in_array($value, self::TEXT_ALIGN_VALUES, true)) {
+            return $attrs;
+        }
+
+        $declaration = 'text-align: ' . $value . ';';
+        $result = [];
+        foreach ($attrs as $key => $stored) {
+            if ($key === $alignKey) {
+                if ($styleKey === null) {
+                    $result['style'] = $declaration;
+                }
+
+                continue;
+            }
+            $result[$key] = $key === $styleKey
+                ? self::appendDeclaration($stored, $declaration)
+                : $stored;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Append a declaration to an author `style` value, keeping one `style` attribute.
+     *
+     * @param string $style
+     * @param string $declaration
+     */
+    private static function appendDeclaration(string $style, string $declaration): string
+    {
+        $trimmed = trim($style);
+        if ($trimmed === '') {
+            return $declaration;
+        }
+
+        return str_ends_with($trimmed, ';')
+            ? $trimmed . ' ' . $declaration
+            : $trimmed . '; ' . $declaration;
+    }
+
+    /**
+     * @param array<string, string> $attrs
+     * @param string|null $tag The element being written, so a text-alignment
+     *   `align` renders its CSS declaration (markup-carve/carve#1755).
+     */
+    public function renderAttributeArray(array $attrs, ?string $tag = null): string
+    {
+        $attrs = $this->withTextAlignDeclaration($attrs, $tag);
         if ($attrs === []) {
             return '';
         }
@@ -3306,7 +3421,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if (count($visible) === 1 && $visible[0] instanceof Paragraph) {
             $inner = $this->renderChildren($visible[0]);
             $body = $loose
-                ? '<p' . $this->renderAttributes($visible[0]) . '>' . $inner . '</p>'
+                ? '<p' . $this->renderAttributes($visible[0], 'p') . '>' . $inner . '</p>'
                 : $inner;
 
             return '  <dd' . $attrs . '>' . $body . "</dd>\n";
