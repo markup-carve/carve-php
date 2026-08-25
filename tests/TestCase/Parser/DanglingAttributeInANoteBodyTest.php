@@ -66,4 +66,12 @@ class DanglingAttributeInANoteBodyTest extends TestCase
 
         $this->assertStringNotContainsString('class="cls"', $html);
     }
+
+    public function testADocumentAttributeAfterANoteReferenceDoesNotMoveIntoTheNote(): void
+    {
+        $html = $this->html("[^a]: note\n[^a]\n{.cls}\n");
+
+        $this->assertStringNotContainsString('class="cls"', $html);
+        $this->assertStringContainsString('<p>note<a href="#fnref1"', $html);
+    }
 }
