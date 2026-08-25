@@ -110,9 +110,16 @@ class IntrawordEmphasisImportsInTheBracedFormTest extends TestCase
                 'a{*b*} c',
                 '<p>a<strong>b</strong> c</p>',
             ],
+            // A COMMENT IS NOT AN EMPTY WRAPPER ANY MORE. It used to be
+            // DELETED on import, so `a` really did end up next to the emphasis
+            // and the braced form was the only spelling that survived a
+            // re-parse. `markup-carve/carve#1709` keeps it, so `{% note %}`
+            // stands between them, the neighbouring character is `}`, and the
+            // bare form is what the canonical writer emits - which is what the
+            // fixed-point test below measures rather than asserts.
             'after a comment' => [
                 '<p>a<!-- note --><strong>b</strong> c</p>',
-                'a{*b*} c',
+                'a{%  note  %}*b* c',
                 '<p>a<strong>b</strong> c</p>',
             ],
             // Nesting does not change the question: the inner span is intraword

@@ -293,7 +293,15 @@ class AdjacentSiblingListsGetTheHardBoundaryTest extends TestCase
         );
         $this->assertSame(3, substr_count((new CarveConverter())->convert($item), '<ul>'));
 
+        // A COMMENT WRITES A BLOCK NOW (`markup-carve/carve#1709`), so it is
+        // what parts the two lists and the hard boundary is not needed behind
+        // it. This used to assert the boundary's three blank lines, because the
+        // importer deleted the comment and nothing else stood between them.
+        //
+        // The lists must still come back as TWO, which is the property the
+        // boundary existed to hold - so that is asserted rather than assumed.
         $commented = $this->converter->convert('<ul><li>a</li></ul><!-- c --><ul><li>b</li></ul>');
-        $this->assertSame("- a\n\n\n\n- b\n", $commented);
+        $this->assertSame("- a\n\n%%%\n c \n%%%\n\n- b\n", $commented);
+        $this->assertSame(2, substr_count((new CarveConverter())->convert($commented), '<ul>'));
     }
 }
