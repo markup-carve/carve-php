@@ -305,6 +305,17 @@ class FencedBlockParser
                 // (carve-php#820). Nothing in the grammar gives a line block a
                 // label or a title.
                 $rest = $m[1];
+            } elseif (preg_match('/^(>)$/', $rest, $m)) {
+                // THE BARE MARKER ONLY, on the same terms as the pipe above.
+                // `>` is the fenced block-quote opener and the marker IS the
+                // whole info string, so it takes no quoted header and no
+                // [label] (markup-carve/carve#1718). It is admitted HERE, in
+                // the generic opener, and not only in the parser's own branch,
+                // because this is what the nesting-aware body collector counts
+                // openers with - without it a fenced quote inside a fenced
+                // quote closed the outer one early and left the leftover fence
+                // to open an empty div.
+                $rest = $m[1];
             // PADDING, and a space all the same. PART 7 decides the terminal
             // by POSITION, not by role: a tab is syntax only in a line's
             // leading indentation run, and these slots sit after the fence

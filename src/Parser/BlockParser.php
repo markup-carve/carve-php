@@ -3543,6 +3543,7 @@ class BlockParser
                 ?? $this->tryParseCodeBlock($parent, $lines, $i)
                 ?? $this->tryParseLineBlock($parent, $lines, $i)
                 ?? $this->tryParseHardBreaksBlock($parent, $lines, $i)
+                ?? $this->tryParseQuoteBlock($parent, $lines, $i)
                 ?? $this->tryParseDiv($parent, $lines, $i)
                 ?? $this->tryParseDefinitionList($parent, $lines, $i)
                 ?? $this->tryParseHeading($parent, $lines, $i)
@@ -4680,6 +4681,49 @@ class BlockParser
         $this->lineOffset = $previousOffset;
 
         $parent->appendChild($group);
+
+        return $i - $start;
+    }
+
+    /**
+     * Try to parse a fenced block quote: a colon fence whose type token is a
+     * bare `>`. A second SPELLING of the block quote, not a second block - the
+     * body is ordinary block content and the node is the one a `>` prefix
+     * produces, with `fenced` recording which spelling was authored so the
+     * canonical writer can write it back (markup-carve/carve#1718).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param int $start
+     */
+    protected function tryParseQuoteBlock(Node $parent, array $lines, int $start): ?int
+    {
+        $line = $lines[$start];
+        // The separator is a SPACE, as it is for the line block and the
+        // hard-break block: the marker after it selects the block, so PART 7
+        // makes the slot a marker separator rather than padding.
+        if (preg_match('/^(?<fence>:{3,}) +>[ \t]*$/', $line, $matches) !== 1) {
+            return null;
+        }
+
+        $fenceLength = strlen($matches['fence']);
+        $quote = new BlockQuote();
+        $quote->setFenced(true);
+        $this->applyPendingAttributes($quote);
+
+        $body = $this->collectColonFenceBody($lines, $start, $fenceLength, true);
+        $innerLines = $body['lines'];
+        $innerLineMap = $body['lineMap'];
+        $i = $start + $body['consumed'];
+
+        $previousOffset = $this->lineOffset;
+        $this->lineOffset = $previousOffset + $start + 1;
+        $this->parseBlocks($quote, $innerLines, 0, $innerLineMap);
+        $this->pendingAttributes = [];
+        $this->pendingAttributeOrder = [];
+        $this->lineOffset = $previousOffset;
+
+        $parent->appendChild($quote);
 
         return $i - $start;
     }

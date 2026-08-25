@@ -32,7 +32,9 @@
     "required": []
   },
   "block_quote": {
-    "fields": [],
+    "fields": [
+      "fenced"
+    ],
     "required": []
   },
   "caption_number": {

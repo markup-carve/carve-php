@@ -1700,6 +1700,18 @@ class CarveRenderer implements RendererInterface
 
     protected function renderBlockQuote(BlockQuote $node): string
     {
+        // Written back in the spelling it was read in
+        // (markup-carve/carve#1718). Choosing structurally instead - the fence
+        // whenever the quote holds a non-paragraph block - re-canonicalizes 50
+        // corpus documents and every user document with a multi-block quote,
+        // so the node carries the author's choice rather than the writer
+        // inferring one.
+        if ($node->isFenced()) {
+            $fence = $this->colonFenceFor($node);
+
+            return $fence . ' >' . self::fencedDivBody($this->renderColonFenceBody($node)) . $fence;
+        }
+
         $inner = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($node->getChildren()));
         $lines = explode("\n", $inner);
 
