@@ -264,7 +264,10 @@ class FencedBlockParser
         // other text makes the line an ordinary paragraph, not a fence;
         // class/id attach via a preceding block-attribute line (§15).
         $tail = $matches[2];
-        if ($tail === '') {
+        if ($tail === '' || preg_match('/^[ \t]+$/D', $tail) === 1) {
+            // A run with no token after it is trailing line whitespace, not the
+            // marker-separator slot. PART 2 drops it before the bare opener is
+            // classified, so `:::\t` is the same generic div as `:::`.
             $rest = '';
         } elseif ($tail[0] === '[') {
             $rest = $tail;
