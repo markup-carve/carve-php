@@ -59,4 +59,45 @@ final class ListItemAuthoredBlockBaseTest extends TestCase
         $html = (new CarveConverter())->convert("- a\n  - b\n\n   > q\n");
         self::assertMatchesRegularExpression('/<\/ul>\s*<blockquote><p>q<\/p><\/blockquote>/', $html);
     }
+
+    public function testCaptionsStayAttachedToEveryCaptionableFamily(): void
+    {
+        $converter = new CarveConverter();
+        foreach ([
+            "| A |\n   | 1 |\n   ^ Cap" => '<caption>Cap</caption>',
+            "![a](u)\n   ^ Cap" => '<figcaption>Cap</figcaption>',
+            "```\n   code\n   ```\n   ^ Cap" => '<figcaption>Cap</figcaption>',
+        ] as $body => $caption) {
+            $html = $converter->convert("- x\n\n   {$body}\n");
+            self::assertStringContainsString($caption, $html, $body);
+        }
+    }
+
+    public function testWrappedDefinitionTermKeepsItsDescription(): void
+    {
+        $html = (new CarveConverter())->convert("- x\n\n   :: term\n   more\n   :  def\n");
+        self::assertStringContainsString('<dd>def</dd>', $html);
+        self::assertStringNotContainsString(':  def</dt>', $html);
+    }
+
+    public function testExactAndOverIndentedImageHaveTheSameLooseReading(): void
+    {
+        $converter = new CarveConverter();
+        $exact = $converter->convert("- x\n\n  ![a](u)\n");
+        $over = $converter->convert("- x\n\n   ![a](u)\n");
+        self::assertSame($exact, $over);
+        self::assertStringContainsString('<li><p>x</p>', $exact);
+    }
+
+    public function testImageLikeProseRemainsAParagraph(): void
+    {
+        $html = (new CarveConverter())->convert("- x\n\n  ![a](u) text ![b](v)\n");
+        self::assertStringContainsString('<p><img src="u" alt="a"> text <img src="v" alt="b"></p>', $html);
+    }
+
+    public function testHardBreakContainerUsesAnAuthoredBase(): void
+    {
+        $html = (new CarveConverter())->convert("- x\n\n   ::: \\\n   a\n   b\n   :::\n");
+        self::assertStringContainsString('class="hardbreaks"', $html);
+    }
 }

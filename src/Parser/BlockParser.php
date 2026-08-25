@@ -6652,7 +6652,7 @@ class BlockParser
             if (
                 ($eligible === null || isset($eligible[$index]))
                 && $base > 0
-                && $this->lineOpensBlockForLooseness($local)
+                && $this->lineOpensBlockForLooseness($local, true)
             ) {
                 $hasCandidate = true;
 
@@ -6680,7 +6680,7 @@ class BlockParser
             $base = IndentationHelper::getLeadingColumns($line);
             if (!$afterBlank && $nestedColumns !== [] && $base < end($nestedColumns)) {
                 $local = IndentationHelper::stripLeadingColumns($line, $base);
-                if ($base > 0 || !$this->lineOpensBlockForLooseness($local)) {
+                if ($base > 0 || !$this->lineOpensBlockForLooseness($local, true)) {
                     continue;
                 }
             }
@@ -6705,7 +6705,7 @@ class BlockParser
             }
             $opener = IndentationHelper::stripLeadingColumns($line, $base);
             if (
-                !$this->lineOpensBlockForLooseness($opener)
+                !$this->lineOpensBlockForLooseness($opener, true)
                 || $this->listParser->parseListItemMarker($opener) !== null
             ) {
                 $afterBlank = false;
@@ -6825,14 +6825,27 @@ class BlockParser
                     ) {
                         break;
                     }
-                    $local = IndentationHelper::stripLeadingColumns($candidate, $base);
-                    if (
-                        preg_match(self::DEFINITION_TERM_LINE_PATTERN, $local) !== 1
-                        && preg_match('/^:  /', $local) !== 1
-                    ) {
-                        break;
-                    }
+                    // A term owns wrapped term text and every following
+                    // description line until a blank or dedent. Restricting
+                    // the extent to marker lines rebased only `:: term` and
+                    // left `more` / `:  def` carrying residual indentation,
+                    // which destroyed the definition description.
                     $end = $j;
+                }
+            }
+
+            // Captions are structural continuations of the block immediately
+            // above them. They use the opener's authored base too; otherwise a
+            // table, image or fence rebases while its `^ caption` remains
+            // literal item text. Only one caption line can attach.
+            $caption = $end + 1;
+            if ($caption < $count && !IndentationHelper::isBlankLine($lines[$caption])) {
+                $captionLine = $lines[$caption];
+                if (
+                    IndentationHelper::getLeadingColumns($captionLine, $base) >= $base
+                    && preg_match('/^\^[ \t]+\S/', IndentationHelper::stripLeadingColumns($captionLine, $base)) === 1
+                ) {
+                    $end = $caption;
                 }
             }
 
@@ -14508,7 +14521,7 @@ class BlockParser
         return null;
     }
 
-    protected function lineOpensBlockForLooseness(string $line): bool
+    protected function lineOpensBlockForLooseness(string $line, bool $authoredBase = false): bool
     {
         if ($this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
             return true;
@@ -14535,7 +14548,11 @@ class BlockParser
         // paragraph. This must be asked here as well as in the post-parse image
         // promotion; otherwise list tightness changes while the HTML shape does
         // not expose why (carve#1705, corpus 411-5/6).
-        if (preg_match('/^!\[[^\r\n]*\]\([^\r\n]*\)[ \t]*$/', $line)) {
+        if ($authoredBase && preg_match('/^!\[[^\]\r\n]*\]\([^()\r\n]*(?:\([^()\r\n]*\)[^()\r\n]*)*\)[ \t]*$/', $line) === 1) {
+            return true;
+        }
+
+        if (preg_match('/^:{3,} +\\\\[ \t]*$/', $line) === 1) {
             return true;
         }
 
