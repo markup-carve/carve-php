@@ -9,8 +9,20 @@ use RuntimeException;
 
 final class RenderLossException extends RuntimeException
 {
-    public function __construct(public readonly RenderResult $result)
+    /**
+     * @var list<array<string, mixed>>
+     */
+    public readonly array $losses;
+
+    public readonly int $totalLosses;
+
+    public readonly bool $truncated;
+
+    public function __construct(RenderResult $result)
     {
-        parent::__construct(sprintf('Render would drop %d raw node%s.', $result->totalLosses, $result->totalLosses === 1 ? '' : 's'));
+        $this->losses = $result->losses;
+        $this->totalLosses = $result->totalLosses;
+        $this->truncated = $result->truncated;
+        parent::__construct(sprintf('Render would drop %d raw node%s.', $this->totalLosses, $this->totalLosses === 1 ? '' : 's'));
     }
 }

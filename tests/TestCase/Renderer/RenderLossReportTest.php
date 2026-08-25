@@ -51,9 +51,9 @@ class RenderLossReportTest extends TestCase
             CarveConverter::create()->convertWithReport(self::SOURCE, true, 1);
             self::fail('Strict rendering should refuse the loss.');
         } catch (RenderLossException $exception) {
-            self::assertSame(2, $exception->result->totalLosses);
-            self::assertCount(1, $exception->result->losses);
-            self::assertTrue($exception->result->truncated);
+            self::assertSame(2, $exception->totalLosses);
+            self::assertCount(1, $exception->losses);
+            self::assertTrue($exception->truncated);
         }
     }
 
