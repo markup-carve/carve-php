@@ -28,11 +28,11 @@ use PHPUnit\Framework\TestCase;
  * lossless spelling, and `structure-unspellable` is the row that declares it.
  *
  * The wording is carve-js's, verbatim. carve-rs reports the same code at the
- * same severity but says the written table carries the figure's ATTRIBUTES too,
- * which is not true of this engine - it drops a figure's own attributes on every
- * rebuild arm and reports each one separately, so that sentence would be a false
- * statement about this output. `theFiguresOwnAttributesAreStillDropped` pins
- * that as a measured divergence rather than leaving it implied.
+ * same severity and says the written table carries the figure's ATTRIBUTES too,
+ * which is now true of this engine as well: the figure's own attributes used to
+ * be dropped on every rebuild arm and declared one row at a time, and
+ * `theFiguresOwnAttributesAreWrittenOntoTheTable` pins the arm this file owns
+ * (carve-php#1728).
  */
 class AFigureAroundATableKeepsItsCaptionTest extends TestCase
 {
@@ -187,20 +187,63 @@ class AFigureAroundATableKeepsItsCaptionTest extends TestCase
     }
 
     /**
-     * The measured divergence from both sibling engines: they write the figure's
-     * own attributes onto the table, this engine drops them. It drops them on
-     * the image and quote arms too, so it is one pre-existing behavior rather
-     * than something this rebuild introduces - and the drop is DECLARED, which
-     * is the ceiling it sits inside.
+     * THE ATTRIBUTES GO WHERE THE CAPTION GOES. The rebuild writes the figure's
+     * content as a table, so the figure's own attributes ride the block
+     * attribute line above the pipe rows and land on that table - which is what
+     * carve-rs's message has always said and this engine could not say
+     * (carve-php#1728). They used to be dropped here, and on the image and
+     * quote arms too, one declared row at a time.
+     *
+     * THE ROWS ARE HALF THE CLAIM. `attribute-dropped` beside an attribute that
+     * arrived is a false statement about a success, so the id and the class
+     * rows have to be GONE - a fix that writes the right Carve and still
+     * reports the drop is half a fix. `structure-unspellable` stays: the figure
+     * is still not a figure, which is the ceiling the rebuild sits inside.
      */
-    public function testTheFiguresOwnAttributesAreStillDropped(): void
+    public function testTheFiguresOwnAttributesAreWrittenOntoTheTable(): void
     {
         $html = '<figure id="f" class="c"><table><tr><td>a</td></tr></table><figcaption>Cap</figcaption></figure>';
 
-        $this->assertSame("| a |\n^ Cap\n", $this->carve($html));
+        $this->assertSame("{#f .c}\n| a |\n^ Cap\n", $this->carve($html));
+        $this->assertSame(['structure-unspellable'], array_column($this->rows($html), 'code'));
+    }
+
+    /**
+     * THE DOCUMENT IS WHERE THE CLAIM IS SETTLED. A block attribute line above
+     * pipe rows with a caption line renders `<table id=... class=...>`, so the
+     * attributes are on the element the reader sees, not merely somewhere in
+     * the source.
+     */
+    public function testTheWrittenTableCarriesTheFiguresAttributes(): void
+    {
+        $html = '<figure id="f" class="c"><table><tr><td>a</td></tr></table><figcaption>Cap</figcaption></figure>';
+        $rendered = (new CarveConverter())->convert($this->carve($html));
+
+        $this->assertStringContainsString('<table id="f" class="c">', $rendered);
+        $this->assertStringContainsString('<caption>Cap</caption>', $rendered);
+    }
+
+    /**
+     * A TABLE THAT NAMES ITSELF IS STILL WRITTEN. Both sibling engines drop the
+     * table's own id and class on this arm and say nothing about it; this
+     * engine writes them on their own line under the figure's, where the two
+     * lines merge - the inner id wins, the classes union - and the report
+     * declares the figure id that lost, because the report asks the emitted
+     * document rather than a list of names.
+     */
+    public function testTheTablesOwnAttributesAreWrittenTooAndTheLoserIsDeclared(): void
+    {
+        $html = '<figure id="f" class="c"><table id="g" class="d"><tr><td>a</td></tr></table>'
+            . '<figcaption>Cap</figcaption></figure>';
+
+        $this->assertSame("{#f .c}\n{#g .d}\n| a |\n^ Cap\n", $this->carve($html));
         $this->assertSame(
-            ['structure-unspellable', 'attribute-dropped', 'attribute-dropped'],
+            ['structure-unspellable', 'attribute-dropped'],
             array_column($this->rows($html), 'code'),
+        );
+        $this->assertStringContainsString(
+            '<table id="g" class="c d">',
+            (new CarveConverter())->convert($this->carve($html)),
         );
     }
 }
