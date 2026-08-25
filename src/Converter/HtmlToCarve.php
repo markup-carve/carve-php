@@ -774,13 +774,32 @@ class HtmlToCarve
             // BEFORE THE ATTRIBUTE LOOP, so the row naming what happened to the
             // element stands ahead of the rows naming what happened to what it
             // carried, which is the order both sibling engines report.
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'element-unwrapped',
-                'Unwrapped unsupported <' . $tag . '> element',
-                'info',
-                $path,
-            );
+            //
+            // WHICH OF THE TWO ROWS IT EARNS FOLLOWS THE CONTENT, the same
+            // question {@see self::reportImportElementOutcome()} already asks
+            // of an element with no mapping at all (markup-carve/carve#1738).
+            // An empty `<form>` had nothing an unwrap could preserve, so
+            // `element-unwrapped` - which says the wrapper went and the
+            // children stayed - states something about content that did not
+            // happen, and this was the one path in this file still saying it
+            // unconditionally.
+            if ($this->hasImportContentToUnwrap($node)) {
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'element-unwrapped',
+                    'Unwrapped unsupported <' . $tag . '> element',
+                    'info',
+                    $path,
+                );
+            } else {
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'element-dropped',
+                    'Dropped empty <' . $tag . '> element',
+                    'warning',
+                    $path,
+                );
+            }
         }
 
         if ($tag === 'figure' && isset($this->captionedTableFigures[$path])) {
