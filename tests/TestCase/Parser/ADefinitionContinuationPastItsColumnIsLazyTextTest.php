@@ -107,6 +107,21 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     }
 
     /**
+     * The minimum-column fence already owns its payload. A backtick run in a
+     * tilde fence is code text, not a second authored-base opener.
+     */
+    public function testAnExactColumnTildeFenceKeepsPayloadIndentation(): void
+    {
+        $exact = ":: t\n:  a\n\n   ~~~~\n    ```\n   ~~~~\n";
+        $over = ":: t\n:  a\n\n    ~~~~\n     ```\n    ~~~~\n";
+        $expected = ":: t\n:  a\n\n   ````\n    ```\n   ````\n";
+
+        $this->assertSame($expected, CarveConverter::toCarve($exact));
+        $this->assertSame($expected, CarveConverter::toCarve($over));
+        $this->assertSame($expected, CarveConverter::toCarve($expected));
+    }
+
+    /**
      * A following deeper line stays relative to the authored quote base.
      */
     public function testConsecutiveLinesPastTheColumnStayInTheAuthoredQuote(): void

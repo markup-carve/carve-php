@@ -59,6 +59,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An exact-column fence in a definition body keeps its opaque payload indentation.** A backtick run inside a tilde fence is no longer reconsidered as an authored-base opener, so exact and over-indented spellings format identically and idempotently.
 - Preserve fenced block-quote spelling through the ProseMirror bridge.
 
 - **A task item's checkbox is content, so it does not move the content column** (#1693, PART 9 §24, ports markup-carve/carve-js#1455). The canonical writer and the HTML importer both indented an item's later blocks to the full marker-line width, so a block opener written four columns too far opened nothing.

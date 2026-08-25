@@ -6659,6 +6659,7 @@ class BlockParser
      * @param int|null $leadNestedColumn
      * @param bool $includeSublists
      * @param bool $skipOpaqueAtMinimum
+     * @param bool $skipOnlyClosedOpaqueAtMinimum
      *
      * @return array<string>
      */
@@ -6668,6 +6669,7 @@ class BlockParser
         ?int $leadNestedColumn = null,
         bool $includeSublists = false,
         bool $skipOpaqueAtMinimum = true,
+        bool $skipOnlyClosedOpaqueAtMinimum = false,
     ): array {
         // An uninterrupted marker-line descendant owns the entire chunk. Its
         // own recursive item parse will see any opener that reaches that item's
@@ -6791,11 +6793,16 @@ class BlockParser
                 if ($skipOpaqueAtMinimum && ($code !== null || $comment !== null)) {
                     if ($code !== null) {
                         $fence = $code['fence'];
+                        $closer = null;
                         for ($j = $i + 1; $j < $count; $j++) {
-                            $i = $j;
                             if ($this->fencedBlockParser->isCodeFenceCloser($lines[$j], $fence[0], strlen($fence))) {
+                                $closer = $j;
+
                                 break;
                             }
+                        }
+                        if ($closer !== null || !$skipOnlyClosedOpaqueAtMinimum) {
+                            $i = $closer ?? ($count - 1);
                         }
                     } else {
                         $width = strlen($comment['fence']);
@@ -8871,7 +8878,7 @@ class BlockParser
                 $body = $this->rebaseOverindentedItemBlocks(
                     $body,
                     includeSublists: true,
-                    skipOpaqueAtMinimum: false,
+                    skipOnlyClosedOpaqueAtMinimum: true,
                 );
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
