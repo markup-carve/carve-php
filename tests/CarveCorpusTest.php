@@ -781,6 +781,27 @@ class CarveCorpusTest extends TestCase
         // paragraph of literal text. Already answered here; rendered and
         // compared per document before listing.
         'a-lone-reference-image-at-column-0-in-every-spelling',
+        // ARRIVED WITH THE BUMP TO carve 62c28ce. Five categories, eighteen
+        // documents, and every one renders byte-identically to its pinned HTML
+        // here, so all five are IMPLEMENTED rather than deferred - KNOWN_GAPS
+        // would stop asserting them and AHEAD_OF_PIN is for goldens this engine
+        // DIFFERS from.
+        //
+        // markup-carve/carve#1808: an invisible line before the blank does not
+        // cancel the separation either.
+        'an-invisible-line-before-the-blank-does-not-cancel-the-separation',
+        // markup-carve/carve#1809: below a definition body's column an
+        // invisible line folds as text, and a floating attribute under a
+        // definition attaches at column zero. Landed here as carve-php#1798 and
+        // carve-php#1801.
+        'below-a-definition-body-s-column-an-invisible-line-folds-as-text',
+        'a-floating-attribute-under-a-definition-attaches-at-column-zero',
+        // markup-carve/carve#1813: one classification for the invisible lines,
+        // and the semantic action per kind - an abbreviation definition outside
+        // document level is not an invisible line, and a comment in a footnote
+        // body is invisible in both spellings.
+        'an-abbreviation-definition-outside-document-level-is-not-an-invisible-line',
+        'a-comment-in-a-footnote-body-is-invisible-in-both-spellings',
     ];
 
     /**
