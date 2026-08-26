@@ -176,6 +176,13 @@ class CarveRenderer implements RendererInterface
     protected const DEFINITION_BODY_INDENT = '  ';
 
     /**
+     * The column a raised `::` line sits at - ONE past the body's minimum.
+     *
+     * @var string
+     */
+    protected const ENTRY_RAISE_INDENT = ' ';
+
+    /**
      * @var string
      */
     private const ESCAPE_MODE_MINIMAL = 'minimal';
@@ -208,6 +215,27 @@ class CarveRenderer implements RendererInterface
     protected int $listDepth = 0;
 
     protected int $colonFenceDepth = 0;
+
+    /**
+     * Whether the block about to be written sits DIRECTLY in a body that gives
+     * a definition entry its own authored base: a footnote body or a definition
+     * description (PART 9 §24 C3, markup-carve/carve#1763). A definition list is
+     * the one block whose payload needs one - see atARaisedBase().
+     *
+     * A LIST ITEM IS NOT ONE OF THEM. Both spellings carry the same offset from
+     * the `::` there, so they say the same thing and the raise would buy
+     * nothing; carve#1752 pins them equal. Neither is a blockquote or a colon
+     * fence, which carry a marker or a fence rather than a column. The parser
+     * hands out the base at exactly these two hosts too - they are the only two
+     * rebase calls passing `definitionEntriesCarryTheirBase` - so the writer's
+     * question and the reader's answer are asked in the same places.
+     */
+    protected bool $atAnAuthoredBodyColumn = false;
+
+    /**
+     * The parser the writer asks its column question of - see atARaisedBase().
+     */
+    protected ?BlockParser $rebaseProbe = null;
 
     protected string $escapeMode = self::ESCAPE_MODE_CONSERVATIVE;
 
@@ -1504,14 +1532,23 @@ class CarveRenderer implements RendererInterface
     {
         $previous = $this->escapeUnit;
         $this->escapeUnit = $node;
+        // THE FLAG DESCRIBES THIS NODE, NOT ITS SUBTREE. A host sets it once
+        // and renderBlocks() walks several children with it still set, so it is
+        // read here and cleared for whatever this node renders inside itself -
+        // a definition list inside a blockquote inside a footnote body is at
+        // the QUOTE's column, not the body's - and restored so the next sibling
+        // still sees it.
+        $atAnAuthoredBodyColumn = $this->atAnAuthoredBodyColumn;
+        $this->atAnAuthoredBodyColumn = false;
         try {
-            return $this->renderBlockBody($node);
+            return $this->renderBlockBody($node, $atAnAuthoredBodyColumn);
         } finally {
             $this->escapeUnit = $previous;
+            $this->atAnAuthoredBodyColumn = $atAnAuthoredBodyColumn;
         }
     }
 
-    protected function renderBlockBody(Node $node): string
+    protected function renderBlockBody(Node $node, bool $atAnAuthoredBodyColumn = false): string
     {
         $attrs = $this->renderAttrs($node);
         $withAttrs = static fn (string $body): string => $attrs === '' ? $body : $attrs . "\n" . $body;
@@ -1581,7 +1618,15 @@ class CarveRenderer implements RendererInterface
             $node instanceof Div && $node->isTyped() && $this->admonitionKind($node) !== null => $this->withFencedDivAttrs($node, [$this->admonitionKind($node)], $this->renderAdmonition($node)),
             $node instanceof Div => $withAttrs($this->renderDiv($node)),
             $node instanceof LineBlock => $withAttrs($this->renderLineBlock($node)),
-            $node instanceof DefinitionList => $withLooseAttrs($node, $this->renderDefinitionList($node)),
+            // THE ATTRIBUTE LINE MOVES WITH THE LIST. It is part of how this
+            // block is spelled, so raising the body alone would leave `{loose}`
+            // at the body minimum with the `::` line a column past it - a shape
+            // no author writes and one the rebase then has to reconcile a line
+            // at a time.
+            $node instanceof DefinitionList => $this->atARaisedBase(
+                $withLooseAttrs($node, $this->renderDefinitionList($node)),
+                $atAnAuthoredBodyColumn,
+            ),
             $node instanceof FigureGroup => $withAttrs($this->renderFigureGroup($node)),
             $node instanceof Figure => $withAttrs($this->renderFigure($node)),
             $node instanceof RawBlock => $withAttrs($this->renderRawBlock($node)),
@@ -2545,6 +2590,145 @@ class CarveRenderer implements RendererInterface
         }
     }
 
+    /**
+     * Render a body that gives a definition entry its own authored base - a
+     * footnote body or a definition description - so a definition list among
+     * its DIRECT children can take that base one column in.
+     *
+     * @param callable(): string $render
+     *
+     * @return string
+     */
+    protected function atAnAuthoredBodyColumn(callable $render): string
+    {
+        $previous = $this->atAnAuthoredBodyColumn;
+        $this->atAnAuthoredBodyColumn = true;
+        try {
+            return $render();
+        } finally {
+            $this->atAnAuthoredBodyColumn = $previous;
+        }
+    }
+
+    /**
+     * One extra column, when a definition list's payload needs a base of its own.
+     *
+     * A DESCRIPTION'S PAYLOAD LIVES ABOVE ITS OPENER'S COLUMN. `:: term` sits at
+     * the list's own column and everything under `: ` sits two columns in, so a
+     * quote, a fence, a heading or a table inside a description is INDENTED
+     * relative to the `::` line. At a body's minimum column that indentation is
+     * an authored block base of its own (PART 9 §24 C3), and the body's rebase
+     * claims the block - the description keeps only its first paragraph and the
+     * block re-reads as the body's next sibling.
+     *
+     * Written one column in, the `::` line is the over-indented opener instead,
+     * its own column becomes the entry's base, and the rebase hands the whole
+     * run back with its relative columns intact.
+     *
+     * SO IT IS NOT A PREFERENCE BETWEEN TWO CANONICAL FORMS. Where the un-raised
+     * spelling still says what the document says - a single-line description, a
+     * soft-wrapped one, a second paragraph, a sub-list - nothing is raised and
+     * the canonical bytes are unchanged; PART 11 §2 pins those and they stay
+     * pinned. At the body minimum the description cannot hold the block at ANY
+     * payload column, so where the raise does fire there is no second spelling
+     * to prefer: it is the only one that says what the document says.
+     *
+     * @param string $rendered
+     * @param bool $atAnAuthoredBodyColumn
+     *
+     * @return string
+     */
+    protected function atARaisedBase(string $rendered, bool $atAnAuthoredBodyColumn): string
+    {
+        if (!$atAnAuthoredBodyColumn || !$this->bodyRebaseWouldMoveALine($rendered)) {
+            return $rendered;
+        }
+
+        // A BLANK LINE STAYS BLANK. Indenting it produces a line of nothing but
+        // spaces, which this writer never emits.
+        $raised = array_map(
+            static fn (string $line): string => $line === '' ? $line : self::ENTRY_RAISE_INDENT . $line,
+            explode("\n", $rendered),
+        );
+
+        // AT A RAISED BASE A BLANK LINE ENDS THE DESCRIPTION. The raise exists
+        // because the payload has to stay inside the `dd`; a blank written above
+        // that payload hands it back to the host as a sibling, which is the same
+        // loss the raise was applied to avoid.
+        //
+        // ONLY THE BLANK ABOVE A RECOGNIZED OPENER. A blank above ordinary
+        // payload text is a PARAGRAPH BREAK and carries its own meaning -
+        // dropping it merges two paragraphs of a `<dd>`, which is a loss of
+        // exactly the kind this method exists to prevent, and one that a list
+        // with two entries would reach whenever any single entry asks for the
+        // raise. So the question is asked per candidate line, and it is THE SAME
+        // question the raise itself is gated on rather than a second spelling of
+        // it: the rebase over the line at its description-relative column, with
+        // the raise taken back off.
+        //
+        // A blank between two ENTRIES never reaches the test: its next line sits
+        // at the entry column, not past it.
+        $raise = strlen(self::ENTRY_RAISE_INDENT);
+        $kept = [];
+        $count = count($raised);
+        for ($i = 0; $i < $count; $i++) {
+            $line = $raised[$i];
+            if (trim($line) === '') {
+                $j = $i + 1;
+                while ($j < $count && trim($raised[$j]) === '') {
+                    $j++;
+                }
+                $next = $raised[$j] ?? null;
+                if (
+                    $next !== null
+                    && self::leadingSpaces($next) > $raise
+                    && $this->bodyRebaseWouldMoveALine(substr($next, $raise))
+                ) {
+                    $i = $j - 1;
+
+                    continue;
+                }
+            }
+            $kept[] = $line;
+        }
+
+        return implode("\n", $kept);
+    }
+
+    /**
+     * Leading spaces of a line, for comparing a payload against its entry column.
+     *
+     * @param string $line
+     *
+     * @return int
+     */
+    protected static function leadingSpaces(string $line): int
+    {
+        return strlen($line) - strlen(ltrim($line, ' '));
+    }
+
+    /**
+     * Would a body's rebase pass move a line of `$rendered`?
+     *
+     * Asked of the PARSER, so the writer and the reader cannot drift: the reader
+     * owns the column rule and the writer asks it rather than restating it.
+     *
+     * @param string $rendered
+     *
+     * @return bool
+     */
+    protected function bodyRebaseWouldMoveALine(string $rendered): bool
+    {
+        // ONE instance for the whole render. The pass reads its sub-parsers and
+        // writes no parser state, so the answer does not depend on what was
+        // asked before it - and the raise asks once per candidate blank line on
+        // top of once per list, which is enough to make five sub-parsers per
+        // question worth not building.
+        $this->rebaseProbe ??= new BlockParser();
+
+        return $this->rebaseProbe->bodyRebaseWouldMoveALine($rendered);
+    }
+
     protected function renderDefinitionList(DefinitionList $node): string
     {
         $out = [];
@@ -2606,7 +2790,11 @@ class CarveRenderer implements RendererInterface
 
                     continue;
                 }
-                $body = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($child->getChildren()));
+                $body = $this->atAnAuthoredBodyColumn(
+                    fn (): string => $this->withResetColonFenceDepth(
+                        fn (): string => $this->renderBlocks($child->getChildren()),
+                    ),
+                );
                 $body = $this->trimNonNbsp($body);
                 if ($body === '') {
                     // A DESCRIPTION THAT WRITES NOTHING IS DROPPED, not spelled.
@@ -2977,7 +3165,9 @@ class CarveRenderer implements RendererInterface
      */
     protected function renderFootnote(Footnote $node): string
     {
-        $body = $this->trimNonNbsp($this->renderBlocks($node->getChildren()));
+        $body = $this->trimNonNbsp(
+            $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren())),
+        );
         if ($body === '') {
             return '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: {empty}';
         }

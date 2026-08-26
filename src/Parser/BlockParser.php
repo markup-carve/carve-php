@@ -6682,6 +6682,42 @@ class BlockParser
     }
 
     /**
+     * Would a container body's rebase pass MOVE any line of `$rendered`?
+     *
+     * The canonical writer asks this, and it asks THE REBASE ITSELF rather than
+     * a copy of its rule. A definition description's payload sits at its
+     * separator's column, in from the `::` line, which is ABOVE the minimum
+     * content column of a footnote body or a definition body - so at that
+     * minimum the body's rebase claims the payload as a block of its own and
+     * the description keeps only its first paragraph. One column further in,
+     * the `::` line's own column becomes the entry's base and the run comes
+     * back with its relative columns intact.
+     *
+     * A predicate spelled out again in the renderer would be a second spelling
+     * of the same column rule and would drift from this one; running the pass
+     * over a copy cannot (markup-carve/carve-php#755 is the class).
+     *
+     * The flavor is the one BOTH bodies that hand out an authored base parse
+     * with - sublists included, definition entries carrying their base
+     * (carve#1729). The two differ only in which opaque block at the minimum
+     * they skip, and no such block is what raises a definition list.
+     *
+     * @param string $rendered
+     *
+     * @return bool
+     */
+    public function bodyRebaseWouldMoveALine(string $rendered): bool
+    {
+        $lines = explode("\n", $rendered);
+
+        return $this->rebaseOverindentedItemBlocks(
+            $lines,
+            includeSublists: true,
+            definitionEntriesCarryTheirBase: true,
+        ) !== $lines;
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
