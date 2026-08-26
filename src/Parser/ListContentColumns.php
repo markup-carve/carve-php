@@ -145,7 +145,14 @@ class ListContentColumns
         // column was opened, and the definitions written in that `dd` stopped
         // being collected while the block parser went on emptying the entry
         // (markup-carve/carve-php#1431).
-        if (preg_match('/^([ \t]*):[ \t][ \t]+(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/', $rest, $descMatch) === 1) {
+        //
+        // THE SEPARATOR IS A RUN OF SPACES AND ITS WIDTH IS THE COLUMN
+        // (carve#1757), so this reads `: +` rather than a fixed two-slot run:
+        // `: x` opens column 2, `:  x` column 3. Two spellings of one rule -
+        // the block parser's `DEFINITION_BODY_PATTERN` is the other - and this
+        // one used to admit a tab in either slot where that one never did, so
+        // a `:\t\tx` opened a column no `<dd>` was ever formed at.
+        if (preg_match('/^([ \t]*): +(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/', $rest, $descMatch) === 1) {
             $this->popDeeperThan($consumed + strlen($descMatch[1]));
             $this->columns[] = [
                 'column' => $consumed + strlen($descMatch[0]),

@@ -288,11 +288,12 @@ class BlockParser
      */
     protected const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) [ \t]*/';
 
-    // THE BODY SEPARATOR IS TWO LITERAL SPACES, for the same reason the term
-    // marker's is one: `definition_body = ':', space, space, ...` with
-    // `space = ' '` and `whitespace = ' ' | '\t'` kept deliberately apart. A
-    // marker separator is literal; indentation is columns, and a separator is
-    // not indentation (carve#692, and carve#698 for the `::` marker above).
+    // THE BODY SEPARATOR IS A RUN OF LITERAL SPACES, for the same reason the
+    // term marker's is: `definition_body = ':', definition_separator, ...` with
+    // `definition_separator = space, {space}`, `space = ' '` and
+    // `whitespace = ' ' | '\t'` kept deliberately apart. A marker separator is
+    // literal; indentation is columns, and a separator is not indentation
+    // (carve#692, and carve#698 for the `::` marker above).
     //
     // Six sites spelled this `/^:\s\s+/`. Without the `u` modifier PCRE's `\s`
     // is `[ \t\n\r\f\v]`, so a tab, a vertical tab or a form feed in either
@@ -300,39 +301,63 @@ class BlockParser
     // with the separator, so the result was byte-identical to the two-space
     // spelling the grammar does admit (carve-php#935).
     //
-    // ` {2,}` rather than exactly two: the old pattern was greedy over the run,
-    // and a wider run is still the separator rather than leading indentation of
-    // the body. Named constants because six independent spellings is how this
+    // ONE OR MORE, not two or more (carve#1757). The body was the one marker in
+    // the language that demanded two spaces where `- item`, `1. item`,
+    // `> quote` and `:: term` all take one, and the separator's WIDTH now sets
+    // the body's content column rather than being measured against a fixed one.
+    // The run is CAPTURED for that reason: `$m[1]` is the separator, `$m[2]` the
+    // content. Named constants because six independent spellings is how this
     // survived the fix that corrected the three term patterns beside it.
+    //
+    // THE CONTENT MAY NOT OPEN WITH A SPACE, which is what stops the separator
+    // run from backtracking into it. PART 9's MARKER REQUIRES CONTENT applies to
+    // `:` as it does to `::` (carve#512) and to a bullet, so a separator-only
+    // line opens no body at any width. Without the guard a greedy ` +` gives up
+    // its last space to `(.+)` and `:  ` - two spaces, nothing else - became an
+    // empty `<dd>` while `: ` stayed paragraph text, which is the same rule
+    // answering differently one column apart (raised by codex review). The old
+    // pattern had the identical hole one width up: `: {2,}` refused `:  ` and
+    // admitted `:   `.
     /**
-     * A definition body, captured.
+     * A definition body: its separator run, then its content.
      *
      * @var string
      */
-    protected const DEFINITION_BODY_PATTERN = '/^: {2,}(.+)$/';
+    protected const DEFINITION_BODY_PATTERN = '/^:( +)([^ ].*)$/';
 
     /**
      * A definition BODY marker, where the caller checks only that the line
      * opens one.
      *
+     * Content-guarded exactly as the capturing pattern is. These two are the
+     * carve#755 pair: the prefix breaks a term's fold and ends a body, the
+     * pattern opens one, and a line one of them accepts while the other refuses
+     * falls out of the definition loop as a stray paragraph. That is what a
+     * separator-only two-space line used to do.
+     *
      * @var string
      */
-    protected const DEFINITION_BODY_LINE_PREFIX = '/^: {2,}/';
+    protected const DEFINITION_BODY_LINE_PREFIX = '/^: +(?=[^ ])/';
 
     /**
-     * The visual COLUMN a definition body's continuation line must reach.
+     * The width of the `:` marker the separator run follows.
      *
-     * `definition_continuation = (space, space, space, inline_content, newline)`
-     * - the body's content column, `:` plus its two-space separator. The number
-     * is a column, not a character count: `definition_continuation` is a leading
-     * indentation run, which is the one position where a tab IS syntax, and PART
-     * 9 §24 C1 measures a leading run in columns with a tab advancing to the next
-     * multiple of 4 (markup-carve/carve#888 signoff `direction=27fba08112af`,
-     * reaffirmed by markup-carve/carve#901).
+     * A body's content column is `self::DEFINITION_MARKER_WIDTH + strlen($separator)`
+     * - a one-space separator establishes column 2, a two-space separator
+     * column 3 and a four-space separator column 5 - and a continuation line
+     * qualifies by REACHING ITS OWN BODY'S column, which is what PART 9 §24 C1
+     * already asks of a footnote body and a list item. This was a fixed `3`, so
+     * the two-space spelling was the only one a body could have (carve#1757).
+     *
+     * The number is a column, not a character count: `definition_continuation`
+     * is a leading indentation run, which is the one position where a tab IS
+     * syntax, and PART 9 §24 C1 measures a leading run in columns with a tab
+     * advancing to the next multiple of 4 (markup-carve/carve#888 signoff
+     * `direction=27fba08112af`, reaffirmed by markup-carve/carve#901).
      *
      * @var int
      */
-    protected const DEFINITION_CONTINUATION_COLUMN = 3;
+    protected const DEFINITION_MARKER_WIDTH = 1;
 
     private int $nestingDepth = 0;
 
@@ -8569,12 +8594,17 @@ class BlockParser
                     break;
                 }
                 $definitionStart = $i;
+                // THE SEPARATOR'S WIDTH SETS THIS BODY'S CONTENT COLUMN
+                // (carve#1757). Read per body, not per list: `: one` and
+                // `:  two` may sit in one entry, and each one's continuations
+                // answer to its own column.
+                $continuationColumn = self::DEFINITION_MARKER_WIDTH + strlen($m[1]);
                 $i++;
-                // First-block form (`:  +`, mirroring the list `- +`): when the
+                // First-block form (`: +`, mirroring the list `- +`): when the
                 // sole content is a lone `+`, the body is the FOLLOWING
-                // flush-left block, with no indentation. `:  \+` is a literal `+`.
+                // flush-left block, with no indentation. `: \+` is a literal `+`.
                 $bodyMap = [];
-                if (preg_match('/^\+[ \t]*$/', trim($m[1], StringUtil::WHITESPACE_CHARS))) {
+                if (preg_match('/^\+[ \t]*$/', trim($m[2], StringUtil::WHITESPACE_CHARS))) {
                     [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
                         $lines,
                         $i,
@@ -8586,7 +8616,7 @@ class BlockParser
                     );
                     $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
                 } else {
-                    $body = [trim($m[1], StringUtil::WHITESPACE_CHARS)];
+                    $body = [trim($m[2], StringUtil::WHITESPACE_CHARS)];
                     $bodyMap = [$this->sourceLineFor($definitionStart)];
                 }
                 // A definition body continues like a list item (SS17):
@@ -8654,7 +8684,7 @@ class BlockParser
                     // reader of five spellings, and the only one that made the
                     // answer depend on which character an editor inserted
                     // (carve-php#964).
-                    $indent = IndentationHelper::getLeadingColumns($contLine, self::DEFINITION_CONTINUATION_COLUMN + 1);
+                    $indent = IndentationHelper::getLeadingColumns($contLine, $continuationColumn + 1);
                     // Ordinary text past the minimum may continue the open
                     // paragraph, but carve#1729 gives a recognized block opener
                     // an authored local base. Test the opener before joining the
@@ -8701,7 +8731,7 @@ class BlockParser
                     $lastBodyOpener = strtok($lastBodyEntry, "\n");
                     if (
                         !IndentationHelper::isBlankLine($contLine)
-                        && $indent > self::DEFINITION_CONTINUATION_COLUMN
+                        && $indent > $continuationColumn
                         && !$formABlockOpen
                         && $lastBodyKey !== null
                         && $lastBodyEntry !== ''
@@ -8762,11 +8792,11 @@ class BlockParser
                     // Ordinary continuation text still folds through the branch
                     // above. A recognized opener reaches this form-A branch and
                     // is rebased after collection under carve#1729.
-                    if (!IndentationHelper::isBlankLine($contLine) && $indent >= self::DEFINITION_CONTINUATION_COLUMN) {
+                    if (!IndentationHelper::isBlankLine($contLine) && $indent >= $continuationColumn) {
                         $formABlockOpen = true;
                         $body[] = IndentationHelper::stripLeadingColumns(
                             $contLine,
-                            self::DEFINITION_CONTINUATION_COLUMN,
+                            $continuationColumn,
                         );
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
@@ -8788,8 +8818,8 @@ class BlockParser
                         // the column the same way, or a tab-indented paragraph
                         // is unreachable through a blank line while reachable
                         // without one.
-                        $afterIndent = $after === null ? 0 : IndentationHelper::getLeadingColumns($after, self::DEFINITION_CONTINUATION_COLUMN);
-                        if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= self::DEFINITION_CONTINUATION_COLUMN) {
+                        $afterIndent = $after === null ? 0 : IndentationHelper::getLeadingColumns($after, $continuationColumn);
+                        if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= $continuationColumn) {
                             $formABlockOpen = false;
                             for (; $i < $look; $i++) {
                                 $body[] = '';
