@@ -8167,6 +8167,13 @@ class BlockParser
         array &$authoredBaseEligible = [],
     ): array {
         $sawIndentedUnclaimedColonFence = false;
+        $wrappedAttributeLinesRemaining = max(0, ($this->wrappedItemAttributeLength(
+            $itemLines[0] ?? '',
+            $lines,
+            $i,
+            $count,
+            $contentIndent,
+        ) ?? 1) - 1);
         // A COMMENT FENCE'S BODY IS OPAQUE AT THE CONTENT COLUMN TOO (PART 9
         // §28, §24 C3, corpus category 279). The shared trailing-block tracker
         // carries no comment state, while `trackBlockQuoteLazyState()` - the
@@ -8370,6 +8377,15 @@ class BlockParser
                     break;
                 }
                 $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                if ($wrappedAttributeLinesRemaining === 0) {
+                    $wrappedAttributeLinesRemaining = $this->wrappedItemAttributeLength(
+                        $contentLine,
+                        $lines,
+                        $i + 1,
+                        $count,
+                        $contentIndent,
+                    ) ?? 0;
+                }
                 $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $contentLine, $lines, $i);
                 if ($this->paragraphHasUnclaimedColonFenceLine($contentLine)) {
                     $sawIndentedUnclaimedColonFence = true;
@@ -8391,6 +8407,12 @@ class BlockParser
                     $nextIndent === $contentIndent,
                     $contentIndent,
                 );
+                if ($wrappedAttributeLinesRemaining > 0) {
+                    $wrappedAttributeLinesRemaining--;
+                    if ($wrappedAttributeLinesRemaining === 0) {
+                        $trailingState['openParagraph'] = false;
+                    }
+                }
                 $i++;
 
                 continue;
@@ -8547,6 +8569,46 @@ class BlockParser
         }
 
         return [$i, $trailingState];
+    }
+
+    /**
+     * Length of a wrapped attribute block beginning in an item's normalized
+     * content stream, or null when the brace run is ordinary text.
+     *
+     * @param string $first
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $count
+     * @param int $contentIndent
+     */
+    protected function wrappedItemAttributeLength(
+        string $first,
+        array $lines,
+        int $index,
+        int $count,
+        int $contentIndent,
+    ): ?int {
+        if (!str_starts_with($first, '{') || $this->isBlockAttributeLine($first)) {
+            return null;
+        }
+
+        $probe = [$first];
+        for ($i = $index; $i < $count; $i++) {
+            $line = $lines[$i];
+            if (
+                IndentationHelper::isBlankLine($line)
+                || IndentationHelper::getLeadingColumns($line, $contentIndent + 1) < $contentIndent
+            ) {
+                break;
+            }
+            $content = IndentationHelper::stripLeadingColumns($line, $contentIndent);
+            $probe[] = $content;
+            if (str_contains($content, '}')) {
+                break;
+            }
+        }
+
+        return $this->wrappedBlockAttributeLength($probe, 0);
     }
 
     /**
