@@ -9,6 +9,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **An empty description body is written with the `{empty}` sentinel** (#1813, #1811, markup-carve/carve#1833, markup-carve/carve#1827, PART 11 §7d). The canonical writer emits `: {empty}` where a description holds no blocks, the sentinel PART 11 §7b already gives an empty footnote definition body, so every entry writes its own description line and a `<dl>` reads back as one list with the grouping it parsed. The definition-list import path no longer reports `structure-unspellable` or `structure-split`.
 - **`paragraph.blockImage` is published on the wire and trusted on ingest** (#1806, #1800, markup-carve/carve#1816, PART 9R R7, PART 12 §23). One `BlockImagePromotion` phase replaces the four places that each re-derived the role, and the renderers read its answer.
 - **Citation items are typed, positioned nodes** (#1797, markup-carve/carve#1799). Each item is published with `type: "citation"` and its exact `pos`, preserved through AST decode and encode and through the ProseMirror bridge, with inline profiles applied per item.
 - **A fenced block quote** (#1748, markup-carve/carve#1718, markup-carve/carve#1734). `::: >` opens a quote whose body is ordinary block content, the same node the prefixed form produces; the node records which spelling was authored, so `carve fmt` writes it back.
