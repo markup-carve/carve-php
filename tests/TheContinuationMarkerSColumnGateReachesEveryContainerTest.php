@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test;
 
 use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -74,7 +75,7 @@ class TheContinuationMarkerSColumnGateReachesEveryContainerTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('bandProvider')]
+    #[DataProvider('bandProvider')]
     public function testTheMarkerReachesNoFurtherThanACommentDoes(string $src): void
     {
         $marker = str_replace('@', '+', $src);
@@ -125,7 +126,7 @@ class TheContinuationMarkerSColumnGateReachesEveryContainerTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('attachesProvider')]
+    #[DataProvider('attachesProvider')]
     public function testAColumnZeroBlockStillAttaches(string $src, string $expected): void
     {
         $this->assertSame($expected, $this->html($src));
