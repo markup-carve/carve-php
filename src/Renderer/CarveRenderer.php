@@ -2678,10 +2678,14 @@ class CarveRenderer implements RendererInterface
                 while ($j < $count && trim($raised[$j]) === '') {
                     $j++;
                 }
-                $next = $raised[$j] ?? null;
+                // A BLANK RUN AT THE END OF THE LIST HAS NOTHING BELOW IT TO
+                // KEEP, and the loop bound is the whole guard: `$j` reaches
+                // `$count` only where the run ran off the end. Read as an empty
+                // line there, which sits at column 0 and fails the test below
+                // like any line at the entry column.
+                $next = $j < $count ? $raised[$j] : '';
                 if (
-                    $next !== null
-                    && self::leadingSpaces($next) > $raise
+                    self::leadingSpaces($next) > $raise
                     && $this->bodyRebaseWouldMoveALine(substr($next, $raise))
                 ) {
                     $i = $j - 1;
