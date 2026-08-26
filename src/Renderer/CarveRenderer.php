@@ -169,6 +169,24 @@ class CarveRenderer implements RendererInterface
     protected const DEFINITION_BODY_MARKER = ': ';
 
     /**
+     * The body written for a footnote definition or a definition description
+     * whose body holds no blocks (PART 11 §7b, markup-carve/carve#1827).
+     *
+     * A block-attribute line: the block it would attach to does not exist, so
+     * the parse consumes the line and leaves the body empty. It has to be a
+     * VALID attribute block, which is why it is not `{}` or `{ }` - those need
+     * at least one attribute to be one and stay literal text. `{empty}` is a
+     * boolean attribute, collected on the line and discarded with the rest of
+     * the pending attributes, so it reaches nothing.
+     *
+     * The name is discarded by the parse, so it is chosen to be readable rather
+     * than to carry anything.
+     *
+     * @var string
+     */
+    protected const EMPTY_BODY_SENTINEL = '{empty}';
+
+    /**
      * Continuation indent matching the canonical marker width.
      *
      * @var string
@@ -2757,46 +2775,11 @@ class CarveRenderer implements RendererInterface
     protected function renderDefinitionList(DefinitionList $node): string
     {
         $out = [];
-        // A DROPPED ENTRY BREAKS THE LIST (markup-carve/carve#1636).
-        //
-        // Consecutive `::` lines SHARE the description written below them - that
-        // is the `<dl>` model the syntax mirrors - so dropping an entry that
-        // writes nothing and continuing the same list hands the surviving term
-        // the NEXT entry's description: `t1` / empty / `t2` / `d2` came back as
-        // `:: t1` / `:: t2` / `:  d2`, and `t1` acquired `d2`.
-        //
-        // AN ADDITION IS NOT A LOSS AND NO ROW CAN DECLARE IT. A loss that stays
-        // inside a declared ceiling is acceptable because the reader is told
-        // what is missing; an addition changes what the surviving term MEANS,
-        // and a reader told the empty description was dropped has been told
-        // nothing about `t1` acquiring `d2`. So the ceiling binds in both
-        // directions.
-        //
-        // THE SEPARATOR IS A COMMENT LINE, and it is the only construct that can
-        // be. A blank line neither ends a definition list nor loosens one, and
-        // this writer removes it again. The separator has to render nothing
-        // where it stands AND stay where it was written: a link-reference or
-        // footnote definition is hoisted to the end of the document and lets the
-        // two lists re-merge, frontmatter is document-start only, and an
-        // abbreviation definition is a fixed point but defines an abbreviation
-        // the input never had - an addition, which is the thing being avoided.
-        //
-        // SPENT ON A TERM, CLEARED ON A DESCRIPTION. What the break prevents is
-        // a term ABOVE the drop acquiring a description written BELOW it, and
-        // only a `::` line starts an entry that could carry one. A second
-        // description of the SAME entry is not that - the term already has it -
-        // and breaking there would strand `:  d2` outside the list, where it
-        // re-reads as a paragraph. An unspent mark is dropped, which is the
-        // one-entry shape markup-carve/carve#1627 already ruled.
-        $pendingBreak = false;
+        // Every entry writes its own description line, so consecutive `::`
+        // lines never end up sharing one: the list writes back with the
+        // grouping it parsed from.
         foreach ($node->getChildren() as $child) {
             if ($child instanceof DefinitionTerm) {
-                if ($pendingBreak) {
-                    $out[] = '';
-                    $out[] = '%%';
-                    $out[] = '';
-                    $pendingBreak = false;
-                }
                 $out[] = ':: ' . $this->renderInlines($child->getChildren());
             } elseif ($child instanceof DefinitionDescription) {
                 // An EMPTY description whose line carries a collected definition
@@ -2810,7 +2793,6 @@ class CarveRenderer implements RendererInterface
                     $written = $collected instanceof Footnote
                         ? $this->renderFootnote($collected)
                         : $this->renderLinkReferenceDefinition($collected);
-                    $pendingBreak = false;
                     $out[] = self::DEFINITION_BODY_MARKER . $written;
 
                     continue;
@@ -2822,47 +2804,34 @@ class CarveRenderer implements RendererInterface
                 );
                 $body = $this->trimNonNbsp($body);
                 if ($body === '') {
-                    // A DESCRIPTION THAT WRITES NOTHING IS DROPPED, not spelled.
+                    // A DESCRIPTION THAT WRITES NOTHING TAKES THE SENTINEL
+                    // `{empty}` (PART 11 §7b, markup-carve/carve#1827) - the
+                    // same body `renderFootnote()` writes one construct over.
                     //
-                    // Carve has no spelling for it, and the bare `:` line this
-                    // wrote is read as a continuation of the line above, so
-                    // the description was lost AND the term damaged:
-                    // `:: term` came back as a `<dt>` reading `term` and a
-                    // colon. `docs/html-import.md`, "A declared loss is a
-                    // ceiling, not a licence" - the loss may be no wider than
-                    // what declares it (markup-carve/carve#1608).
+                    // The line is a block-attribute line: the block it would
+                    // attach to does not exist, so the parse consumes it and
+                    // the description reads back holding no blocks. It is empty
+                    // above a blank line, above a flush-left paragraph and at
+                    // end of input alike, so the writer needs no lookahead over
+                    // what follows.
                     //
-                    // THE CEILING IS SPENT HERE, which is why the check is
-                    // here and not at each producer. Every shape whose
-                    // description renders to nothing is covered by this one
-                    // line: an ingested AST with no children, a description
-                    // holding only an empty paragraph, one holding a list with
-                    // no items. The HTML importer writes its own source and
-                    // drops the entry there too (markup-carve/carve-php#1629);
-                    // this is the same rule on the path that ingests an AST or
-                    // reformats one.
-                    //
-                    // The collected-definition branch above runs FIRST, so a
-                    // description emptied by collecting its own definition
-                    // still writes that definition back rather than vanishing
-                    // (markup-carve/carve#805). It is the only empty
-                    // description an ordinary parse produces.
+                    // THE CONDITION IS "THIS ENTRY WRITES NOTHING", which is
+                    // what `$body` already answers, so every path that reaches
+                    // this writer - an ingested AST, a reformatted parse - takes
+                    // the same branch. A description holding only an empty
+                    // paragraph or a list with no items writes nothing too.
                     //
                     // EMPTY IS WHAT WRITES NOTHING, not what holds nothing:
                     // `trimNonNbsp()` keeps a non-breaking space, so a
-                    // description holding one still writes its line and still
-                    // round-trips.
+                    // description holding one still writes its own line.
                     //
-                    // THE CONDITION IS "THIS ENTRY WRITES NOTHING", which is what
-                    // `$body` already answers, so every path that reaches this
-                    // writer - an ingested AST, a reformatted parse - takes the
-                    // same branch and the same break above.
-                    $pendingBreak = true;
+                    // `: \{empty}` and `: {empty} x` are content, not
+                    // sentinels, so both keep writing their own text.
+                    $out[] = self::DEFINITION_BODY_MARKER . self::EMPTY_BODY_SENTINEL;
 
                     continue;
                 }
 
-                $pendingBreak = false;
                 $lines = explode("\n", $body);
                 $out[] = self::DEFINITION_BODY_MARKER . array_shift($lines);
                 foreach ($lines as $line) {
@@ -3194,7 +3163,7 @@ class CarveRenderer implements RendererInterface
             $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren())),
         );
         if ($body === '') {
-            return '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: {empty}';
+            return '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: ' . self::EMPTY_BODY_SENTINEL;
         }
 
         $lines = explode("\n", $body);
