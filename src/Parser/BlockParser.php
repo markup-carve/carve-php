@@ -9314,9 +9314,36 @@ class BlockParser
                     // under the strict column-0 opener rule. At column 0 the same
                     // rule opens a quote, and at column 3 the quote opens INSIDE
                     // the `dd`; both are pinned as controls beside this.
+                    //
+                    // AN ATTRIBUTE LINE AT COLUMN 0 IS NOT THE BODY'S. It ends
+                    // the body like any other line that leaves no paragraph
+                    // open, and it has to do so BEFORE being collected: folding
+                    // it in put the characters inside a description that had
+                    // already ended, where `endContainerAttributeScope()`
+                    // rightly discards them, so the class was lost with nothing
+                    // reported (markup-carve/carve-php#1794, ruled on
+                    // markup-carve/carve#1801). Breaking here leaves the line at
+                    // document level, where §15 A2 FLOAT FORWARD attaches it to
+                    // the next visible block - which is what the blank-line
+                    // spelling of this host, a list item and a block quote all
+                    // already did.
+                    //
+                    // The tracker below already knew "an attribute block leaves
+                    // no paragraph"; it just learned it one line too late,
+                    // because it reads a collected line and this one had to not
+                    // be collected. Both forms are refused: the single-line
+                    // `{.k}` and the WRAPPED block, which is a block-attribute
+                    // line only once a later line closes it.
+                    //
+                    // ONLY COLUMN 0. Below the content column the guard above
+                    // has already broken out, and the line stays literal at
+                    // document level (corpus 157); AT the column it is inside
+                    // the description and §15 A4 drops it (corpus 329-…-5).
                     if (
                         $indent === 0
                         && !IndentationHelper::isBlankLine($contLine)
+                        && !$this->isBlockAttributeLine($contLine)
+                        && $this->wrappedBlockAttributeLength($lines, $i) === null
                         && !$this->startsInterruptingBlock($contLine, $lines, $i)
                     ) {
                         // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
