@@ -9,6 +9,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`paragraph.blockImage` is published on the wire and trusted on ingest** (#1806, #1800, markup-carve/carve#1816, PART 9R R7, PART 12 §23). One `BlockImagePromotion` phase replaces the four places that each re-derived the role, and the renderers read its answer.
+- **Citation items are typed, positioned nodes** (#1797, markup-carve/carve#1799). Each item is published with `type: "citation"` and its exact `pos`, preserved through AST decode and encode and through the ProseMirror bridge, with inline profiles applied per item.
 - **A fenced block quote** (#1748, markup-carve/carve#1718, markup-carve/carve#1734). `::: >` opens a quote whose body is ordinary block content, the same node the prefixed form produces; the node records which spelling was authored, so `carve fmt` writes it back.
 - **`carve lint` reports a quote fence that ends the quote above it** (#1761). The new `quote-fence-ends-the-quote-above` rule names the one `::: >` mistake that reads exactly like the nesting it is not.
 - **Digit-leading explicit ids and classes** (#1738). `{#123 .2col}` and a digit-leading generic-div type survive parsing, HTML import and canonical output; keys, booleans and generated heading ids are unchanged.
@@ -68,6 +70,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The continuation marker's column gate reaches every container** (#1805, #1804, markup-carve/carve#1817, PART 9 §17 L3). A footnote body, a definition description and a block quote refuse a payload that is not flush-left, exactly as a list item already did.
+- **A column-0 comment ends a definition description's body** (#1803, #1802, markup-carve/carve#1809). `tail` after the comment came out as a second paragraph of a description that had already ended, and a following definition list merged into the first.
+- **An invisible line below a definition description's column folds into it** (#1801, #1799, markup-carve/carve#1809, PART 9 §10 I5). The line stays lazy text of the container it fell below instead of being re-emitted one level out.
+- **An attribute line at column 0 under a definition description attaches** (#1798, #1794, markup-carve/carve#1801). The line was folded into the body as lazy text and ended it one line too late, with the attribute consumed as prose.
+- **The canonical writer no longer forces a raised base on a nested definition list** (#1795, markup-carve/carve#1802). A structural predicate short-circuited the parser-backed rebase probe, producing non-canonical indentation and dropping a meaningful blank line for a definition list nested in a list item.
+- **A wrapped block-attribute line leaves no item paragraph open** (#1792, markup-carve/carve#1799). The physical continuation was read as paragraph text, which kept the item paragraph open and absorbed a following below-column line.
 - **A definition body in a list item keeps its payload across the blank line** (#1789, #1787, PART 1 §4). With no blank line above the `::`, the payload landed beside the `<dl>` instead of inside the `<dd>`, and a second entry after it opened a spurious second list; both now read as carve-js, carve-rs and the spec oracle already did.
 - **The authored block base belongs to the innermost open container** (#1785, #1786, markup-carve/carve#1781, markup-carve/carve#1791, PART 9 §24 C3). The rule was spelled three ways: a definition entry in a list item ended at its separating blank where the same entry in a body carried its base across it, an opener written at a container's own minimum column was rebased out of the container it opened, and a line below the column it hands out came back as escaped prose. A definition entry is now measured at its exact authored extent, and a block at a description's or a nested item's content column stays inside it.
 - **The continuation marker attaches one block in every container** (#1780, markup-carve/carve#1782, PART 9 §17 L3 and L4). A footnote body and a definition description took the whole reach where a list item took one block; a second block now costs a second marker, and a marker before a quote line attaches it.
