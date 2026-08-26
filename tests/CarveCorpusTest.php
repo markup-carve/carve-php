@@ -802,6 +802,10 @@ class CarveCorpusTest extends TestCase
         // body is invisible in both spellings.
         'an-abbreviation-definition-outside-document-level-is-not-an-invisible-line',
         'a-comment-in-a-footnote-body-is-invisible-in-both-spellings',
+        // markup-carve/carve#1816: block image is a resolved-tree property,
+        // decided once by a promotion phase - an unresolved image gives its
+        // whole caption slot back at any depth.
+        'an-unresolved-image-gives-its-whole-caption-slot-back-at-any-depth',
     ];
 
     /**
