@@ -8252,10 +8252,35 @@ class BlockParser
                 // then measures them against the separator's column exactly as
                 // it does for the blank-above spelling. A payload below that
                 // column stays outside the `dd`.
+                //
+                // THE FOOTNOTE ARM ASKS WHETHER THE BODY REALLY RESUMES, the
+                // same question the definition-body arm below it asks. It used
+                // to be a bare latch, so a note whose body ended AT the blank
+                // still crossed it - and crossing keeps the blank inside the
+                // item's own stream, which is what silences the §17 L1b branch
+                // that would have loosened the list. An invisible line "is not a
+                // separator, so the separation it appears to interrupt is
+                // intact" (markup-carve/carve#1808, corpus 429-3): `- para` /
+                // `  [^f]: n` / blank / `  more` is two paragraphs with a blank
+                // between them, and the LINK spelling one line over was loose
+                // all along because it has no state to latch.
+                //
+                // The body's column is the note's own, measured from the item's
+                // content column - `more` written at that column is the ITEM's
+                // second paragraph, not the note's second block.
                 if (
                     $trailingState['inFence']
                     || $trailingState['inDiv']
-                    || $trailingState['inFootnoteBody']
+                    || (
+                        $trailingState['inFootnoteBody']
+                        && $this->footnoteBodyResumesAfter(
+                            $lines,
+                            $i,
+                            $count,
+                            $contentIndent + self::FOOTNOTE_BODY_COLUMN,
+                            true,
+                        ) !== null
+                    )
                     || $openCommentLength !== null
                     || (
                         $openDefinitionBody !== null
@@ -9123,7 +9148,23 @@ class BlockParser
                         && $lastBodyKey !== null
                         && $lastBodyEntry !== ''
                         && $lastBodyOpener !== false
-                        && !$this->lineOpensBlockForLooseness(ltrim($contLine, " \t"), true)
+                        // BELOW THE COLUMN THE INVISIBLE KINDS ARE NOT BLOCKS
+                        // (§10 I5, markup-carve/carve#1809, corpus 430): at a
+                        // nonzero column below the content column a link
+                        // reference, footnote or abbreviation definition, or an
+                        // attribute line, is lazy paragraph text OF THIS
+                        // description. Counting them as openers here is what
+                        // ended the body and published the characters at document
+                        // level - or, for the attribute, dropped them entirely.
+                        // The append below is the lazy frame the ruling asks for:
+                        // the line joins the previous ENTRY, so `parseBlocks()`
+                        // reads it as inline content and no shape can be
+                        // recognized a second time.
+                        && !$this->lineOpensBlockForLooseness(
+                            ltrim($contLine, " \t"),
+                            true,
+                            invisibleArms: false,
+                        )
                         && !$this->startsNewBlock($lastBodyOpener)
                         && $this->listParser->parseListItemMarker($lastBodyOpener) === null
                         // A LINE THAT RENDERS NOTHING LEAVES NO PARAGRAPH OPEN,
@@ -15191,8 +15232,11 @@ class BlockParser
         return null;
     }
 
-    protected function lineOpensBlockForLooseness(string $line, bool $authoredBase = false): bool
-    {
+    protected function lineOpensBlockForLooseness(
+        string $line,
+        bool $authoredBase = false,
+        bool $invisibleArms = true,
+    ): bool {
         if ($this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
             return true;
         }
@@ -15209,7 +15253,23 @@ class BlockParser
         // is one only as a direct child of the document. Here the same shape is
         // ordinary paragraph text that RENDERS, so it is exactly the second
         // paragraph §17 L1 asks about (carve#1267).
-        if ($this->isInvisibleOrAttributeLine($line, false)) {
+        //
+        // `$invisibleArms` is false for ONE caller: a definition description's
+        // BELOW-COLUMN band. §10 I5 DEFINITION OWNERSHIP IS COLUMN-SCOPED
+        // (markup-carve/carve#1809) makes a link reference, footnote or
+        // abbreviation definition, or a block-attribute line, at a nonzero column
+        // below the content column "lazy paragraph text of THAT container ... and
+        // does not register" - so it is not a block there, and calling it one is
+        // what ended the body and published the characters one level out.
+        //
+        // THE COMMENT KEEPS ITS ARM either way. It is column-exempt (PART 9 §24)
+        // and renders nothing at any column, which corpus 430-5 pins; folding it
+        // as text would put its characters on the page.
+        if ($invisibleArms) {
+            if ($this->isInvisibleOrAttributeLine($line, false)) {
+                return true;
+            }
+        } elseif (preg_match('/^[ \t]*%%/', $line) === 1) {
             return true;
         }
 
