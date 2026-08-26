@@ -8930,7 +8930,8 @@ class BlockParser
                     $lastBodyOpener = strtok($lastBodyEntry, "\n");
                     if (
                         !IndentationHelper::isBlankLine($contLine)
-                        && $indent > $continuationColumn
+                        && $indent > 0
+                        && $indent !== $continuationColumn
                         && !$formABlockOpen
                         && $lastBodyKey !== null
                         && $lastBodyEntry !== ''

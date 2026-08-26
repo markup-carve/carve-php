@@ -30,16 +30,7 @@ class HtmlImportReportTest extends TestCase
      *
      * @var array<string, array{reason: string, carve: string}>
      */
-    private const AHEAD_OF_PIN = [
-        'empty-definition-description-not-last' => [
-            'reason' => 'The canonical definition separator is one space.',
-            'carve' => ":: t1\n\n%%\n\n:: t2\n: d2\n",
-        ],
-        'traversal-shaped-index' => [
-            'reason' => 'The canonical definition separator is one space.',
-            'carve' => "- a\n- b [K]{kbd}\n\n|= h |\n| c | d |\n\n:: t\n: v\n",
-        ],
-    ];
+    private const AHEAD_OF_PIN = [];
 
     /**
      * Shared fixtures whose direct-import tree and canonical-source exit do not

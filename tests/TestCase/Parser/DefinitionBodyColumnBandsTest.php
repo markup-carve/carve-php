@@ -102,12 +102,13 @@ class DefinitionBodyColumnBandsTest extends TestCase
         );
     }
 
-    public function testAPlainLineBelowTheColumnEndsTheBodyToo(): void
+    public function testAPlainLineBelowTheColumnIsLazyBodyText(): void
     {
-        // The band, not the line's shape, is what decides - so a line that
-        // opens nothing ends the body just the same when it is below the column.
+        // Structural openers below the body column return to the surviving
+        // container. Plain text remains the definition paragraph's lazy
+        // continuation, as it does at column zero.
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p>tail</p>\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>body\ntail</dd>\n</dl>\n",
             $this->html(":: t\n:  body\n tail\n"),
         );
     }

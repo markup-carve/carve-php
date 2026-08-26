@@ -89,8 +89,8 @@ class ADefinitionPayloadKeepsItsDescriptionTest extends TestCase
         return [
             'base 2, separator 1, quote at column 4' => [self::footnoteBody(2, 1)],
             // The equal-column twin of `base 3, separator 1`: same absolute
-            // column 5, and here the description cannot hold the quote at ANY
-            // payload column, so there is nothing to keep.
+            // column 5. The unified ownership rule now lets the exact entry
+            // extent hold it without manufacturing an authored base.
             'base 2, separator 2, quote at column 5' => [self::footnoteBody(2, 2)],
         ];
     }

@@ -1624,6 +1624,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof DefinitionList => $this->atARaisedBase(
                 $withLooseAttrs($node, $this->renderDefinitionList($node)),
                 $atAnAuthoredBodyColumn,
+                $this->listDepth > 0 && $this->definitionListHasStructuralPayload($node),
             ),
             $node instanceof FigureGroup => $withAttrs($this->renderFigureGroup($node)),
             $node instanceof Figure => $withAttrs($this->renderFigure($node)),
@@ -2167,7 +2168,13 @@ class CarveRenderer implements RendererInterface
                         $separated = true;
                     }
                 }
-                $rendered = $this->renderBlock($child);
+                // A list item's content column is an authored block base just
+                // like a definition description's or footnote's.  Let a
+                // definition list among its direct children raise its opener
+                // when its payload would otherwise be re-owned by the item.
+                $rendered = $this->atAnAuthoredBodyColumn(
+                    fn (): string => $this->renderBlock($child),
+                );
                 if ($rendered === '') {
                     $previous = $child;
 
@@ -2633,12 +2640,19 @@ class CarveRenderer implements RendererInterface
      *
      * @param string $rendered
      * @param bool $atAnAuthoredBodyColumn
+     * @param bool $hasStructuralPayload
      *
      * @return string
      */
-    protected function atARaisedBase(string $rendered, bool $atAnAuthoredBodyColumn): string
-    {
-        if (!$atAnAuthoredBodyColumn || !$this->bodyRebaseWouldMoveALine($rendered)) {
+    protected function atARaisedBase(
+        string $rendered,
+        bool $atAnAuthoredBodyColumn,
+        bool $hasStructuralPayload = false,
+    ): string {
+        if (
+            !$atAnAuthoredBodyColumn
+            || (!$hasStructuralPayload && !$this->bodyRebaseWouldMoveALine($rendered))
+        ) {
             return $rendered;
         }
 
@@ -2695,6 +2709,28 @@ class CarveRenderer implements RendererInterface
         }
 
         return implode("\n", $kept);
+    }
+
+    /**
+     * Whether an entry contains a block whose ownership depends on the entry's
+     * authored base. Paragraph continuations and sub-lists have their own
+     * stable canonical spellings; every other block opener must move with the
+     * definition list when that list is itself a direct container child.
+     */
+    protected function definitionListHasStructuralPayload(DefinitionList $node): bool
+    {
+        foreach ($node->getChildren() as $entry) {
+            if (!$entry instanceof DefinitionDescription) {
+                continue;
+            }
+            foreach ($entry->getChildren() as $child) {
+                if (!$child instanceof Paragraph && !$child instanceof ListBlock) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
