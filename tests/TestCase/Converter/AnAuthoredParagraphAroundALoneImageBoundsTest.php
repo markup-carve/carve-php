@@ -102,7 +102,7 @@ class AnAuthoredParagraphAroundALoneImageBoundsTest extends TestCase
             ],
             'a definition term, which is an inline run' => [
                 '<dl><dt><p><img src="g.jpg" alt="G"></p></dt><dd>d</dd></dl>',
-                ":: ![G](g.jpg)\n:  d\n",
+                ":: ![G](g.jpg)\n: d\n",
             ],
             'a details opener, which is a quoted title' => [
                 '<details><summary><p><img src="g.jpg" alt="G"></p></summary><p>b</p></details>',

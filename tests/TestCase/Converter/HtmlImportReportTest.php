@@ -31,12 +31,14 @@ class HtmlImportReportTest extends TestCase
      * @var array<string, array{reason: string, carve: string}>
      */
     private const AHEAD_OF_PIN = [
-        // EMPTY, and that is the state to expect between windows. The only
-        // entry here was PART 9 §17 L7's `derived-endnotes-section`, and the
-        // pin move in this change is the one its own staleness half was
-        // waiting for: the fixture on disk now IS the value the entry
-        // recorded, so the entry stops asserting anything and goes in the same
-        // commit that moved the pin.
+        'empty-definition-description-not-last' => [
+            'reason' => 'The canonical definition separator is one space.',
+            'carve' => ":: t1\n\n%%\n\n:: t2\n: d2\n",
+        ],
+        'traversal-shaped-index' => [
+            'reason' => 'The canonical definition separator is one space.',
+            'carve' => "- a\n- b [K]{kbd}\n\n|= h |\n| c | d |\n\n:: t\n: v\n",
+        ],
     ];
 
     /**

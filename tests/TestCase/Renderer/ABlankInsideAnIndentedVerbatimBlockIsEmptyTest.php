@@ -51,10 +51,10 @@ class ABlankInsideAnIndentedVerbatimBlockIsEmptyTest extends TestCase
         // an attachment one.
         return [
             'footnote body' => ["[^f]: n\n  ```\n  a\n\n  b\n  ```\n\nsee[^f]\n"],
-            'definition body' => [":: t\n:  d\n   ```\n   a\n\n   b\n   ```\n"],
+            'definition body' => [":: t\n: d\n   ```\n   a\n\n   b\n   ```\n"],
             'raw block in a footnote body' => ["[^f]: n\n  ```=html\n  a\n\n  b\n  ```\n\nsee[^f]\n"],
-            'block comment in a definition body' => [":: t\n:  d\n   %%%\n   a\n\n   b\n   %%%\n"],
-            'definition inside a list item' => ["- x\n\n  :: t\n  :  d\n     ```\n     a\n\n     b\n     ```\n"],
+            'block comment in a definition body' => [":: t\n: d\n   %%%\n   a\n\n   b\n   %%%\n"],
+            'definition inside a list item' => ["- x\n\n  :: t\n  : d\n     ```\n     a\n\n     b\n     ```\n"],
             'list inside a footnote body' => ["[^f]: n\n\n  - x\n    ```\n    a\n\n    b\n    ```\n\nsee[^f]\n"],
         ];
     }
@@ -110,11 +110,11 @@ class ABlankInsideAnIndentedVerbatimBlockIsEmptyTest extends TestCase
         );
     }
 
-    public function testTheDefinitionBodyKeepsItsThreeSpaceColumn(): void
+    public function testTheDefinitionBodyKeepsItsTwoSpaceColumn(): void
     {
         $this->assertSame(
-            ":: t\n:  d\n\n   ```\n   a\n\n   b\n   ```\n",
-            CarveConverter::toCarve(":: t\n:  d\n   ```\n   a\n\n   b\n   ```\n"),
+            ":: t\n: d\n\n  ```\n  a\n\n  b\n  ```\n",
+            CarveConverter::toCarve(":: t\n: d\n  ```\n  a\n\n  b\n  ```\n"),
         );
     }
 

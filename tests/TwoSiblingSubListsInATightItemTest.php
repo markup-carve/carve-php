@@ -218,10 +218,10 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         $this->assertRoundTrips("- x\n\n  > - a\n  >\n  >\n  >\n  > - b\n");
         $this->assertRoundTrips("- x\n\n  > - o\n  >\n  >   - a\n  >\n  >\n  >\n  >   - b\n");
         $this->assertSame(
-            ":: t\n:  - a\n\n\n\n   - b\n",
-            $this->converter->toCarve(":: t\n:  - a\n\n\n\n   - b\n"),
+            ":: t\n: - a\n\n\n\n  - b\n",
+            $this->converter->toCarve(":: t\n: - a\n\n\n\n  - b\n"),
         );
-        $this->assertRoundTrips(":: t\n:  - a\n\n\n\n   - b\n");
+        $this->assertRoundTrips(":: t\n: - a\n\n\n\n  - b\n");
         $this->assertRoundTrips("::: note\n- a\n\n\n\n- b\n:::\n");
     }
 
@@ -262,7 +262,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         // Each member of the set is load-bearing rather than carried along for
         // symmetry: with a sub-list already open at the item's content column,
         // all four of these lose the second sub-list without the blank line.
-        foreach (['para', '![a](i.png)', "![a](i.png)\n  ^ cap", ":: t\n  :  d"] as $above) {
+        foreach (['para', '![a](i.png)', "![a](i.png)\n  ^ cap", ":: t\n  : d"] as $above) {
             $this->assertRoundTrips("- o\n  - z\n  | t |\n  " . $above . "\n\n  - s1\n");
         }
     }

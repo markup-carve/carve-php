@@ -125,6 +125,6 @@ class ADroppedDescriptionIsDeclaredByWhatItWritesTest extends TestCase
     #[DataProvider('droppedDescriptionProvider')]
     public function testTheWrittenSourceIsUnchanged(string $html, array $expected): void
     {
-        $this->assertSame(":: t1\n\n%%\n\n:: t2\n:  d2\n", (new HtmlToCarve())->convert($html));
+        $this->assertSame(":: t1\n\n%%\n\n:: t2\n: d2\n", (new HtmlToCarve())->convert($html));
     }
 }

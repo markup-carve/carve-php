@@ -62,7 +62,7 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
 
     public function testADescriptionThatWritesNothingIsDropped(): void
     {
-        $written = $this->writeWithEmptiedDescription(":: term\n:  d\n");
+        $written = $this->writeWithEmptiedDescription(":: term\n: d\n");
 
         $this->assertSame(":: term\n", $written);
     }
@@ -74,7 +74,7 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
      */
     public function testTheTermSurvivesTheDropUnharmed(): void
     {
-        $rendered = (new CarveConverter())->convert($this->writeWithEmptiedDescription(":: term\n:  d\n"));
+        $rendered = (new CarveConverter())->convert($this->writeWithEmptiedDescription(":: term\n: d\n"));
 
         $this->assertSame("<dl>\n  <dt>term</dt>\n</dl>\n", $rendered);
         $this->assertStringNotContainsString(':', $rendered);
@@ -89,7 +89,7 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
      */
     public function testACollectedDefinitionIsStillWrittenBackOnItsLine(): void
     {
-        $source = ":: term\n:  [r]: /u\n\nsee [t][r]\n";
+        $source = ":: term\n: [r]: /u\n\nsee [t][r]\n";
 
         $this->assertSame($source, $this->carve($source));
     }
@@ -100,7 +100,7 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
      */
     public function testACollectedFootnoteDefinitionIsStillWrittenBackOnItsLine(): void
     {
-        $source = ":: term\n:  [^f]: x\n\nsee[^f]\n";
+        $source = ":: term\n: [^f]: x\n\nsee[^f]\n";
 
         $this->assertSame($source, $this->carve($source));
     }
@@ -112,7 +112,7 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
      */
     public function testANonBreakingSpaceDescriptionKeepsItsLine(): void
     {
-        $source = ":: term\n:  \u{00a0}\n";
+        $source = ":: term\n: \u{00a0}\n";
 
         $this->assertSame($source, $this->carve($source));
     }
@@ -123,10 +123,10 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
      */
     public function testAnOrdinaryDescriptionIsUnchanged(): void
     {
-        $this->assertSame(":: term\n:  d\n", $this->carve(":: term\n:  d\n"));
+        $this->assertSame(":: term\n: d\n", $this->carve(":: term\n: d\n"));
         $this->assertSame(
-            ":: term\n:  a\n   b\n",
-            $this->carve(":: term\n:  a\n   b\n"),
+            ":: term\n: a\n  b\n",
+            $this->carve(":: term\n: a\n  b\n"),
         );
     }
 
@@ -142,7 +142,7 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
      */
     public function testTheListBreaksAtADroppedDescription(): void
     {
-        $written = $this->writeWithEmptiedDescription(":: t1\n:  d1\n:: t2\n:  d2\n");
+        $written = $this->writeWithEmptiedDescription(":: t1\n: d1\n:: t2\n: d2\n");
         $rendered = (new CarveConverter())->convert($written);
 
         // The helper empties EVERY description, so both entries are dropped and
@@ -173,7 +173,7 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
      */
     public function testAKeptDescriptionAfterADroppedOneBreaksTheList(): void
     {
-        $source = ":: t1\n:  d1\n:: t2\n:  d2\n";
+        $source = ":: t1\n: d1\n:: t2\n: d2\n";
         $json = (new AstCodec())->encode((new CarveConverter())->parse($source));
         $seen = 0;
         foreach ($json['children'] as &$block) {

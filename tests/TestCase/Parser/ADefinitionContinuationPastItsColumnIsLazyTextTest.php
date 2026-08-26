@@ -51,7 +51,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertStringContainsString(
             $rendered,
-            $this->html(":: t\n:  body\n    {$opener}\n"),
+            $this->html(":: t\n: body\n    {$opener}\n"),
         );
     }
 
@@ -59,7 +59,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertSame(
             '<dl> <dt>t</dt> <dd> <p>body</p> <blockquote><p>q</p></blockquote> </dd> </dl>',
-            $this->squash($this->html(":: t\n:  body\n   > q\n")),
+            $this->squash($this->html(":: t\n: body\n   > q\n")),
         );
     }
 
@@ -67,7 +67,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertSame(
             '<dl> <dt>t</dt> <dd>body</dd> </dl> <blockquote><p>q</p></blockquote>',
-            $this->squash($this->html(":: t\n:  body\n> q\n")),
+            $this->squash($this->html(":: t\n: body\n> q\n")),
         );
     }
 
@@ -82,7 +82,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertSame(
             '<dl> <dt>t</dt> <dd> <p>a</p> <ul> <li>x</li> <li>y</li> </ul> </dd> </dl>',
-            $this->squash($this->html(":: t\n:  a\n\n    - x\n    - y\n")),
+            $this->squash($this->html(":: t\n: a\n\n    - x\n    - y\n")),
         );
     }
 
@@ -94,7 +94,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertStringContainsString(
             '<pre><code>c',
-            $this->html(":: t\n:  a\n\n   ```\n   c\n   ```\n"),
+            $this->html(":: t\n: a\n\n   ```\n   c\n   ```\n"),
         );
     }
 
@@ -102,7 +102,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertStringContainsString(
             '<pre><code>c',
-            $this->html(":: t\n:  a\n\n    ```\n    c\n    ```\n"),
+            $this->html(":: t\n: a\n\n    ```\n    c\n    ```\n"),
         );
     }
 
@@ -112,9 +112,9 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
      */
     public function testAnExactColumnTildeFenceKeepsPayloadIndentation(): void
     {
-        $exact = ":: t\n:  a\n\n   ~~~~\n    ```\n   ~~~~\n";
-        $over = ":: t\n:  a\n\n    ~~~~\n     ```\n    ~~~~\n";
-        $expected = ":: t\n:  a\n\n   ````\n    ```\n   ````\n";
+        $exact = ":: t\n: a\n\n  ~~~~\n   ```\n  ~~~~\n";
+        $over = ":: t\n: a\n\n   ~~~~\n    ```\n   ~~~~\n";
+        $expected = ":: t\n: a\n\n  ````\n   ```\n  ````\n";
 
         $this->assertSame($expected, CarveConverter::toCarve($exact));
         $this->assertSame($expected, CarveConverter::toCarve($over));
@@ -128,7 +128,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         $this->assertSame(
             '<dl> <dt>t</dt> <dd> <p>body</p> <blockquote><p>q &gt; r</p></blockquote> </dd> </dl>',
-            $this->squash($this->html(":: t\n:  body\n    > q\n     > r\n")),
+            $this->squash($this->html(":: t\n: body\n    > q\n     > r\n")),
         );
     }
 
@@ -156,11 +156,11 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     public static function bodyOpensABlockProvider(): array
     {
         return [
-            'a list, at the column' => [":: t\n:  - x\n   - y\n", '<ul> <li>x</li> <li>y</li> </ul>'],
-            'a list, one past it' => [":: t\n:  - x\n    - y\n", '<ul> <li>x - y</li> </ul>'],
-            'a fenced code block, at the column' => [":: t\n:  ```\n   c\n   ```\n", '<pre><code>c </code></pre>'],
+            'a list, at the column' => [":: t\n: - x\n  - y\n", '<ul> <li>x</li> <li>y</li> </ul>'],
+            'a list, one past it' => [":: t\n: - x\n   - y\n", '<ul> <li>x - y</li> </ul>'],
+            'a fenced code block, at the column' => [":: t\n: ```\n  c\n  ```\n", '<pre><code>c </code></pre>'],
             'a fenced code block, one past it' => [
-                ":: t\n:  ```\n    c\n    ```\n",
+                ":: t\n: ```\n   c\n   ```\n",
                 '<pre><code> c </code></pre>',
             ],
         ];

@@ -65,7 +65,7 @@ class TheHtmlRoundTripWithoutTheSidecarTest extends TestCase
             'a verbatim span opening with a backtick' => ["Use `` `start`` here.\n"],
             'nested lists' => ["- First\n\n  - Nested one\n\n  - Nested two\n\n- Second\n"],
             'nested ordered lists' => ["1. First\n\n   1. Nested one\n\n   2. Nested two\n\n2. Second\n"],
-            'a definition list' => [":: Term\n:  Definition text here\n"],
+            'a definition list' => [":: Term\n: Definition text here\n"],
             'a numbered footnote' => ["Text[^1].\n\n[^1]: The note.\n"],
             'a line block' => ["::: |\nLine one\nLine two\nLine three\n:::\n"],
             'a line block with attributes' => ["{.poem}\n::: |\nRoses are red\nViolets are blue\n:::\n"],
