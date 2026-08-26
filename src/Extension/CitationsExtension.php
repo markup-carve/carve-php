@@ -451,6 +451,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         }
 
         $item = [
+            'type' => 'citation',
             'key' => $matches[3],
             'suppressAuthor' => $matches[2] === '-',
         ];

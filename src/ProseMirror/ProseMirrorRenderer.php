@@ -917,6 +917,14 @@ class ProseMirrorRenderer
                         $encoded[$stringField] = $item[$stringField];
                     }
                 }
+                foreach (['number', 'useIndex'] as $integerField) {
+                    if (isset($item[$integerField])) {
+                        $encoded[$integerField] = $item[$integerField];
+                    }
+                }
+                if (isset($item['pos'])) {
+                    $encoded['pos'] = $item['pos'];
+                }
                 $items[] = $encoded;
             }
             $attrs['items'] = $items;

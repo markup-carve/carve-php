@@ -53,6 +53,13 @@ class AstCodecSchemaTest extends TestCase
         // directly off the root. Both were only ever true by accident.
         $outsideTheVocabulary = [];
         foreach (AstCodec::schema() as $type => $entry) {
+            // `citation` is a typed inline node on the wire, but in PHP it is
+            // deliberately group-owned state rather than independently
+            // constructible. Its real decode path is covered by
+            // TypedCitationItemTest.
+            if ($type === 'citation') {
+                continue;
+            }
             if (!self::isInline($type) && !self::isBlock($type)) {
                 // A type this codec will ENCODE that the schema does not name
                 // as a node at all. `document` is the root and cannot be a

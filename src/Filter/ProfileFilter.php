@@ -128,6 +128,16 @@ class ProfileFilter
                 continue;
             }
 
+            // Citation items are typed nodes in a homogeneous group array. A
+            // text node cannot replace one item without invalidating the AST,
+            // so a type-wide denial is applied to the group at its ordinary
+            // inline slot while each denied item gets its own violation.
+            if ($child instanceof CitationGroup && !$profile->isInlineAllowed('citation')) {
+                $this->handleCitationViolation($child, $parent, $profile);
+
+                continue;
+            }
+
             // Check if this node type is allowed
             if (!$profile->isNodeAllowed($child)) {
                 $this->handleViolation($child, $parent, $profile, 'element_not_allowed');
@@ -147,7 +157,51 @@ class ProfileFilter
 
             // Recursively filter children
             $this->filterChildren($child, $profile, $depth + 1);
+            if ($child instanceof CitationGroup) {
+                $this->filterCitationItems($child, $profile, $depth + 1);
+            }
         }
+    }
+
+    protected function handleCitationViolation(CitationGroup $group, Node $parent, Profile $profile): void
+    {
+        foreach ($group->getItems() as $_item) {
+            $this->violations[] = new ProfileViolation(
+                'citation',
+                'element_not_allowed',
+                $profile->getReasonDisallowed('citation'),
+            );
+        }
+        if ($profile->getDisallowedAction() === Profile::ACTION_ERROR && $group->getItems() !== []) {
+            throw new ProfileViolationException($this->violations);
+        }
+        if ($profile->getDisallowedAction() === Profile::ACTION_STRIP) {
+            $this->stripNode($group, $parent);
+
+            return;
+        }
+        $this->convertToText($group, $parent);
+    }
+
+    protected function filterCitationItems(CitationGroup $group, Profile $profile, int $depth): void
+    {
+        $items = $group->getItems();
+        foreach ($items as &$item) {
+            foreach (['prefix', 'locator', 'suffix'] as $field) {
+                if (!isset($item[$field])) {
+                    continue;
+                }
+                $holder = new Paragraph();
+                $holder->setChildren($item[$field]);
+                $this->filterChildren($holder, $profile, $depth);
+                $item[$field] = array_values(array_filter(
+                    $holder->getChildren(),
+                    static fn (Node $child): bool => $child instanceof InlineNode,
+                ));
+            }
+        }
+        unset($item);
+        $group->setItems($items);
     }
 
     protected function filterLink(Link $node, Node $parent, Profile $profile): void

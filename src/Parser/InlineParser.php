@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
@@ -703,6 +704,14 @@ class InlineParser
         }
 
         $node->setPos($this->sourceMap->spanRange($start, $end));
+        if ($node instanceof CitationGroup) {
+            foreach ($node->itemSourceRanges() as $index => [$itemStart, $itemEnd]) {
+                $node->setItemPos(
+                    $index,
+                    $this->sourceMap->spanRange($start + $itemStart, $start + $itemEnd),
+                );
+            }
+        }
     }
 
     /**
@@ -1677,7 +1686,15 @@ class InlineParser
             if ($entry['first'] !== null && !isset($entry['first'][$char])) {
                 continue;
             }
-            $result = ($entry['matcher'])($text, $pos, $ctx);
+            // A matcher may call MatcherContext::parseInlines() for one of its
+            // nested fields. That recursive parse has no outer source map and
+            // must not erase the map used to place the matcher node itself.
+            $sourceMap = $this->sourceMap;
+            try {
+                $result = ($entry['matcher'])($text, $pos, $ctx);
+            } finally {
+                $this->sourceMap = $sourceMap;
+            }
             if ($result !== null) {
                 return $result;
             }

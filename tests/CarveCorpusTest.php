@@ -74,6 +74,10 @@ class CarveCorpusTest extends TestCase
         'a-floating-attribute-does-not-widen-a-list-item-s-content-column',
         'a-footnote-definition-s-block-runs-to-the-end-of-its-body',
         'a-heading-at-an-item-s-content-column-leaves-no-paragraph-open',
+        // markup-carve/carve#1799 extends the same closed-paragraph ownership
+        // rule to an item's wrapped attribute line. The parser already emits
+        // all three new fixtures byte-identically after carve-php#1796.
+        'a-wrapped-attribute-line-leaves-no-paragraph-open',
         'a-hyphen-run-opening-a-word-after-whitespace-is-a-flag',
         'a-label-beginning-with-an-at-sign-is-not-a-reference-label',
         'a-lazy-marker-line-s-definition-defines-nothing-in-any-container',
