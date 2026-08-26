@@ -296,7 +296,9 @@
     "required": []
   },
   "paragraph": {
-    "fields": [],
+    "fields": [
+      "blockImage"
+    ],
     "required": []
   },
   "raw_block": {
