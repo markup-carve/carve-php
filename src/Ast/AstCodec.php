@@ -211,6 +211,7 @@ class AstCodec
         'abbreviation.abbr', 'abbreviation.expansion', 'abbreviation_def.abbr',
         'abbreviation_def.expansion', 'admonition.children', 'admonition.kind',
         'autolink.href', 'autolink.text', 'block_quote.children',
+        'citation.key', 'citation.pos', 'citation.suppressAuthor',
         'citation_definition.children', 'citation_definition.key',
         'citation_group.items', 'citation_group.raw',
         'code.value', 'code_block.content', 'comment.block',
@@ -1453,6 +1454,14 @@ class AstCodec
             }
             $schema[$type] = ['fields' => $fields, 'required' => $required];
         }
+        // `citation` has no PHP Node class: it cannot occur outside a
+        // citation_group, and keeping it as an item map avoids a second owner
+        // for its prefix/locator/suffix nodes. It is nevertheless a typed node
+        // on the PART 12 wire and belongs in the advertised vocabulary.
+        $schema['citation'] = [
+            'fields' => ['key', 'prefix', 'locator', 'locatorLabel', 'locatorValue', 'suffix', 'suppressAuthor', 'number', 'useIndex', 'pos'],
+            'required' => ['key', 'suppressAuthor', 'pos'],
+        ];
         ksort($schema);
 
         return $schema;
@@ -1927,14 +1936,24 @@ class AstCodec
      */
     private static function citationShape(array $encoded): array
     {
-        if (($encoded['type'] ?? null) !== 'citation_group' || !array_key_exists('integral', $encoded)) {
+        if (($encoded['type'] ?? null) !== 'citation_group') {
             return $encoded;
         }
 
-        if ($encoded['integral'] === true) {
-            $encoded['mode'] = 'integral';
+        if (array_key_exists('integral', $encoded)) {
+            if ($encoded['integral'] === true) {
+                $encoded['mode'] = 'integral';
+            }
+            unset($encoded['integral']);
         }
-        unset($encoded['integral']);
+        if (is_array($encoded['items'] ?? null)) {
+            foreach ($encoded['items'] as &$item) {
+                if (is_array($item)) {
+                    $item = ['type' => 'citation'] + $item;
+                }
+            }
+            unset($item);
+        }
 
         return $encoded;
     }
@@ -2455,9 +2474,23 @@ class AstCodec
      */
     private static function citationFromWire(array $data): array
     {
-        if (($data['type'] ?? null) === 'citation_group' && array_key_exists('mode', $data)) {
-            $data['integral'] = $data['mode'] === 'integral';
-            unset($data['mode']);
+        if (($data['type'] ?? null) === 'citation_group') {
+            if (array_key_exists('mode', $data)) {
+                $data['integral'] = $data['mode'] === 'integral';
+                unset($data['mode']);
+            }
+            // Internally these remain group-owned maps. Removing only the wire
+            // discriminator prevents decodeValue() from treating them as
+            // independently constructible PHP nodes; citationShape() restores
+            // it on encode.
+            if (is_array($data['items'] ?? null)) {
+                foreach ($data['items'] as &$item) {
+                    if (is_array($item) && ($item['type'] ?? null) === 'citation') {
+                        unset($item['type']);
+                    }
+                }
+                unset($item);
+            }
         }
 
         return $data;

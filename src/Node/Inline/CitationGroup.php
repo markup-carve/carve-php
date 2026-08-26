@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Inline;
 
+use MarkupCarve\Carve\Ast\SourceSpan;
+
 /**
  * A bracketed citation group, e.g. [@key] or [see @key, p. 3].
  *
@@ -23,7 +25,7 @@ namespace MarkupCarve\Carve\Node\Inline;
 class CitationGroup extends InlineNode
 {
     /**
-     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>}> $items
+     * @param list<array{type?: string, key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, number?: int, useIndex?: int, pos?: array<string, int>}> $items
      * @param string $raw
      * @param bool $integral Whether this group carries the integral (`+`) group marker.
      */
@@ -35,7 +37,7 @@ class CitationGroup extends InlineNode
     }
 
     /**
-     * @return list<array{key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>}>
+     * @return list<array{type?: string, key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, number?: int, useIndex?: int, pos?: array<string, int>}>
      */
     public function getItems(): array
     {
@@ -47,11 +49,79 @@ class CitationGroup extends InlineNode
      * `locator` and `suffix` are inline arrays that live outside `children`, so
      * a walk over the tree cannot reach them through the ordinary child list.
      *
-     * @param list<array{key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>}> $items
+     * @param list<array{type?: string, key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, number?: int, useIndex?: int, pos?: array<string, int>}> $items
      */
     public function setItems(array $items): void
     {
         $this->items = $items;
+    }
+
+    public function setPos(?SourceSpan $pos): void
+    {
+        parent::setPos($pos);
+        if ($pos === null || $pos->startLine !== $pos->endLine) {
+            return;
+        }
+
+        $innerStart = $this->integral ? 2 : 1;
+        if (strlen($this->raw) <= $innerStart || !str_ends_with($this->raw, ']')) {
+            return;
+        }
+        $inner = substr($this->raw, $innerStart, -1);
+        $cursor = 0;
+        foreach (explode(';', $inner) as $index => $part) {
+            if (!isset($this->items[$index])) {
+                break;
+            }
+            $leading = strlen($part) - strlen(ltrim($part));
+            $trailing = strlen($part) - strlen(rtrim($part));
+            $startBytes = $innerStart + $cursor + $leading;
+            $endBytes = $innerStart + $cursor + strlen($part) - $trailing;
+            $start = mb_strlen(substr($this->raw, 0, $startBytes), 'UTF-8');
+            $end = mb_strlen(substr($this->raw, 0, $endBytes), 'UTF-8');
+            $this->items[$index]['pos'] = [
+                'startLine' => $pos->startLine,
+                'endLine' => $pos->startLine,
+                'startColumn' => $pos->startColumn + $start,
+                'endColumn' => $pos->startColumn + $end,
+                'startOffset' => $pos->startOffset + $start,
+                'endOffset' => $pos->startOffset + $end,
+            ];
+            $cursor += strlen($part) + 1;
+        }
+    }
+
+    /**
+     * Byte ranges of the authored items relative to the group's raw source.
+     *
+     * @return list<array{int, int}>
+     */
+    public function itemSourceRanges(): array
+    {
+        $innerStart = $this->integral ? 2 : 1;
+        if (strlen($this->raw) <= $innerStart || !str_ends_with($this->raw, ']')) {
+            return [];
+        }
+        $ranges = [];
+        $cursor = 0;
+        foreach (explode(';', substr($this->raw, $innerStart, -1)) as $part) {
+            $leading = strlen($part) - strlen(ltrim($part));
+            $trailing = strlen($part) - strlen(rtrim($part));
+            $ranges[] = [
+                $innerStart + $cursor + $leading,
+                $innerStart + $cursor + strlen($part) - $trailing,
+            ];
+            $cursor += strlen($part) + 1;
+        }
+
+        return $ranges;
+    }
+
+    public function setItemPos(int $index, ?SourceSpan $pos): void
+    {
+        if (isset($this->items[$index]) && $pos !== null) {
+            $this->items[$index]['pos'] = $pos->toArray();
+        }
     }
 
     public function getRaw(): string

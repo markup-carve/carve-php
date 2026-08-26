@@ -315,7 +315,10 @@ class ACitationDefinitionIsANodeTest extends TestCase
      */
     public function testTheNodeRidesThisEnginesOwnCodecOnceTheSchemaNamesIt(): void
     {
-        $payload = $this->codec->encode($this->converter()->parse(self::SOURCE));
+        // A citation is now a positioned wire node, so an AST intended for
+        // round-trip decoding is parsed with the source positions its schema
+        // requires.
+        $payload = $this->codec->encode($this->converter(true)->parse(self::SOURCE));
 
         /** @var array<mixed> $enum */
         $enum = AstSchema::schema()['$defs']['blockNode']['properties']['type']['enum'] ?? [];

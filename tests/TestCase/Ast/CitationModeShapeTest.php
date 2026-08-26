@@ -25,6 +25,8 @@ class CitationModeShapeTest extends TestCase
     {
         $converter = new CarveConverter();
         $converter->addExtension(new CitationsExtension());
+        // Citation items are positioned wire nodes.
+        $converter->getParser()->enablePositionTracking();
 
         return $converter;
     }

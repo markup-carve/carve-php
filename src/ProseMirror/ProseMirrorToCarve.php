@@ -1698,6 +1698,28 @@ class ProseMirrorToCarve
                     $item[$stringField] = $entry[$stringField];
                 }
             }
+            foreach (['number', 'useIndex'] as $integerField) {
+                if (is_int($entry[$integerField] ?? null)) {
+                    $item[$integerField] = $entry[$integerField];
+                }
+            }
+            $position = $entry['pos'] ?? null;
+            if (is_array($position)) {
+                $slots = ['startLine', 'endLine', 'startColumn', 'endColumn', 'startOffset', 'endOffset'];
+                $valid = true;
+                $pos = [];
+                foreach ($slots as $slot) {
+                    if (!is_int($position[$slot] ?? null)) {
+                        $valid = false;
+
+                        break;
+                    }
+                    $pos[$slot] = $position[$slot];
+                }
+                if ($valid) {
+                    $item['pos'] = $pos;
+                }
+            }
             $items[] = $item;
         }
         $node->setItems($items);

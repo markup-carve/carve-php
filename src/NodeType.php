@@ -266,6 +266,13 @@ final class NodeType
     public const CITATION_GROUP = 'citation_group';
 
     /**
+     * A typed item inside a citation group.
+     *
+     * @var string
+     */
+    public const CITATION = 'citation';
+
+    /**
      * The resolved number inside a numbered caption (`^ Figure #: ...`).
      *
      * @var string
@@ -396,6 +403,7 @@ final class NodeType
             self::INLINE_FOOTNOTE,
             self::HEADING_REF,
             self::CITATION_GROUP,
+            self::CITATION,
             self::CAPTION_NUMBER,
             self::SPAN,
             self::SUPERSCRIPT,

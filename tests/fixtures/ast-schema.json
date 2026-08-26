@@ -43,6 +43,25 @@
     ],
     "required": []
   },
+  "citation": {
+    "fields": [
+      "key",
+      "prefix",
+      "locator",
+      "locatorLabel",
+      "locatorValue",
+      "suffix",
+      "suppressAuthor",
+      "number",
+      "useIndex",
+      "pos"
+    ],
+    "required": [
+      "key",
+      "suppressAuthor",
+      "pos"
+    ]
+  },
   "citation_definition": {
     "fields": [
       "key"
