@@ -1092,7 +1092,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // A paragraph whose only content is a single image renders the
         // image as a bare block element (no <p> wrapper), per Carve. A leading
         // block-attribute line's attrs were already moved onto the <img> in the
-        // parser (promoteBlockImageAttributes), so the paragraph is attr-free
+        // parser (promoteBlockImages), so the paragraph is attr-free
         // here -- render-time extension attrs stay on the <p> as before.
         $children = $node->getChildren();
         if ($attrs === '' && $this->isBlockImageParagraph($node)) {

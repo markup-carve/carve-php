@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
  *
  * WHAT MAKES THESE FIXTURES ABLE TO FAIL is the shape they use, and it is the
  * whole lesson of the ticket: a lone indented image with NO CONTINUATION LINE.
- * `promoteBlockImageAttributes()` only fires on a paragraph whose entire content
+ * `promoteBlockImages()` only fires on a paragraph whose entire content
  * is one image, so every pinned document that indents an image - all three of
  * corpus `158-indented-image-and-caption-stay-literal` - carries a caption line
  * that keeps it from firing at all. Three engines held two readings with every
