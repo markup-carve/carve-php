@@ -110,20 +110,23 @@ class AnAttributeLineAtColumnZeroUnderADescriptionAttachesTest extends TestCase
     }
 
     /**
-     * A comment line at column 0 is NOT this rule and is deliberately left
-     * alone: it is a separate divergence from carve-js and carve-rs and needs a
-     * ruling of its own, so this row records what this build does rather than
-     * asserting what it should do. Its only job here is to fail if the fix
-     * reaches further than the attribute line.
+     * A comment line at column 0 ENDS the body but does not attach, so it is
+     * still the row that fails if this fix reaches past the attribute line.
+     *
+     * It recorded the fold when this file landed - a separate divergence from
+     * carve-js and carve-rs, deliberately left alone pending its own ruling.
+     * markup-carve/carve#1809 then reached it too: a comment renders nothing, so
+     * it leaves no paragraph open, so it ends the body like the other four
+     * invisible kinds (markup-carve/carve-php#1802). Only whether the body ends
+     * moved; the comment still attaches nothing, and that is what keeps this row
+     * apart from the attribute line's.
      */
-    public function testAControlCommentLineAtColumnZeroIsUntouched(): void
+    public function testAControlCommentLineAtColumnZeroEndsTheBodyWithoutAttaching(): void
     {
         $html = $this->html(":: t\n:  d\n%% c\ntail\n");
 
-        $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>",
-            $html,
-        );
+        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>", $html);
+        $this->assertStringNotContainsString('class=', $html);
     }
 
     public function testAControlTheHostsThatAlreadyAttached(): void

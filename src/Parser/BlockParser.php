@@ -9380,11 +9380,35 @@ class BlockParser
                     // has already broken out, and the line stays literal at
                     // document level (corpus 157); AT the column it is inside
                     // the description and §15 A4 drops it (corpus 329-…-5).
+                    //
+                    // A COMMENT LINE AT COLUMN 0 IS NOT THE BODY'S EITHER, and
+                    // for the same reason: it renders nothing, so it leaves no
+                    // paragraph open, so it ends the body - the ruling
+                    // markup-carve/carve#1809 gave the other four invisible
+                    // kinds, applied here (markup-carve/carve-php#1802). It has
+                    // to refuse the line BEFORE collection for the attribute
+                    // line's reason: folded in, the tracker below sees the
+                    // comment on the NEXT line and ends the body one line late,
+                    // with `tail` already inside a description that had ended.
+                    //
+                    // A COMMENT'S OWN COLUMN STAYING OPEN (§24 C3,
+                    // markup-carve/carve#1783) is a different question and is
+                    // untouched here. That property decides which line CHOOSES
+                    // the next line's owner; it does not make the comment itself
+                    // continue a body it renders nothing into. The band's own
+                    // collector still keeps the comment's arm.
+                    //
+                    // Both spellings are refused, because both are comment-shaped
+                    // at column 0: the line comment `%% c`, and the FENCE `%%%`,
+                    // whose closed form already broke out through
+                    // `startsInterruptingBlock()` and whose UNCLOSED form opens no
+                    // block (PART 9 §28) and so reached this branch and folded.
                     if (
                         $indent === 0
                         && !IndentationHelper::isBlankLine($contLine)
                         && !$this->isBlockAttributeLine($contLine)
                         && $this->wrappedBlockAttributeLength($lines, $i) === null
+                        && !$this->isCommentLineOrFence($contLine)
                         && !$this->startsInterruptingBlock($contLine, $lines, $i)
                     ) {
                         // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
