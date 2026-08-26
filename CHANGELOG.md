@@ -68,6 +68,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The continuation marker attaches one block in every container** (#1780, markup-carve/carve#1782, PART 9 §17 L3 and L4). A footnote body and a definition description took the whole reach where a list item took one block; a second block now costs a second marker, and a marker before a quote line attaches it.
+- **A definition list inside a footnote body keeps the block its description holds** (#1779, PART 11 §1). The canonical writer narrowed the body's base past the payload, so `carve fmt` wrote a document that said something else.
 - **A dangling attribute line does not reach a deferred footnote body** (#1770). An unattached attribute line at the end of a document no longer styles the first paragraph of the next note parsed.
 - **A caption number placeholder at offset zero is recognized** (#1769), so `^ # H` numbers the caption instead of leaving the placeholder literal, as carve-js and carve-rs already did.
 - **Trailing spaces and tabs after a bare colon fence are line whitespace** (#1768), so a `:::` followed by a tab opens a generic div rather than reading as paragraph text. A tab before a real type token is still not a marker separator.
