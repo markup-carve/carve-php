@@ -222,13 +222,11 @@ class CarveRenderer implements RendererInterface
      * description (PART 9 §24 C3, markup-carve/carve#1763). A definition list is
      * the one block whose payload needs one - see atARaisedBase().
      *
-     * A LIST ITEM IS NOT ONE OF THEM. Both spellings carry the same offset from
-     * the `::` there, so they say the same thing and the raise would buy
-     * nothing; carve#1752 pins them equal. Neither is a blockquote or a colon
-     * fence, which carry a marker or a fence rather than a column. The parser
-     * hands out the base at exactly these two hosts too - they are the only two
-     * rebase calls passing `definitionEntriesCarryTheirBase` - so the writer's
-     * question and the reader's answer are asked in the same places.
+     * A blockquote and a colon fence are not among them: they carry a marker or
+     * a fence rather than a column, so there is no base to raise. A list item is
+     * a container the reader's rule now reaches (carve#1791), but its two
+     * spellings carry the same offset from the `::`, so the raise would buy
+     * nothing there and the gate below answers no for it on its own.
      */
     protected bool $atAnAuthoredBodyColumn = false;
 

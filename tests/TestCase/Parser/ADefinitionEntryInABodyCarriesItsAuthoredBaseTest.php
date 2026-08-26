@@ -9,104 +9,186 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * PART 9 §24 C3 gives a recognized block opener AT OR PAST a definition body's
- * column 3 or a footnote body's column 2 an authored local `block_base`, and
- * that base has to survive the blank that separates a definition entry from its
- * payload. Written ONE column past the body minimum, the `::` line's own column
- * becomes the entry's base and the payload keeps its offset from it - so the
- * payload reaches the description and nests in the `dd`.
+ * THE BASE BELONGS TO THE INNERMOST OPEN CONTAINER (PART 9 §24 C3).
  *
- * THE CLAUSE NAMES ONLY THOSE TWO BODIES. A LIST ITEM IS OUTSIDE IT, and is
- * pinned here alongside them on purpose. carve#1752 asks a payload to keep its
- * offset from its opener, and in a list item both spellings already carry the
- * same offset - so both say the same thing and neither nests. carve-js first
- * wrote an arm that was right for one container and applied it to all of them,
- * which traded this defect for its mirror image (carve-js#1514, fixed in
- * carve-js#1520). Pinning both sides is what stops a later change from
- * repairing one and drifting the other.
+ * At or above a container's minimum content column, a recognized block opener
+ * establishes a local block base - and that question is asked of the INNERMOST
+ * container open where the line is written, never of an outer one. A line at a
+ * nested body's own content column is that body's CONTENT, not a new base for
+ * the outer body.
  *
- * The expectations are the executable spec oracle's, which reproduces the whole
- * corpus byte for byte; corpus category 419 pins the three footnote shapes.
+ * ONE RULE, ONE STATEMENT, AND THE SAME ONE FOR EVERY CONTAINER. It replaced
+ * three per-container spellings that disagreed (markup-carve/carve#1781), and
+ * then had to be extended once more because the unification left a container
+ * kind out: a list item is one too, and a quote at a nested item's content
+ * column was being lifted out of the item it was written into
+ * (markup-carve/carve#1791).
+ *
+ * THIS FILE USED TO PIN THE OPPOSITE for a list item, on the earlier reading
+ * that carve#1752 made both spellings say the same thing there. That reading is
+ * superseded: corpus
+ * `423-one-authored-base-rule-reaches-a-definition-nested-in-a-list-item` pins
+ * the item answering like the two bodies. What is pinned now is the agreement
+ * itself - every host, every band, the same answer - because the defect this
+ * rule replaced was three containers answering one question three ways
+ * (markup-carve/carve-php#1783).
+ *
+ * The expectations are the corpus goldens of categories 419, 422 and 423, which
+ * this repo's spec submodule predates.
  */
 final class ADefinitionEntryInABodyCarriesItsAuthoredBaseTest extends TestCase
 {
     /**
-     * The three bands, in each of the two bodies the clause names.
+     * The three bands, in each of the three hosts that open a container.
      *
-     * @return array<string, array{string, bool, bool}>
+     * A host is named by the container the entry sits in; the source puts the
+     * entry at that host's minimum content column, one column above it, or with
+     * its payload written below the column the description's own marker hands
+     * out.
+     *
+     * @return array<string, array{string, bool}>
      */
-    public static function inClauseProvider(): array
+    public static function everyHostProvider(): array
     {
         return [
-            // A raised entry whose payload sits at the description's own column.
+            // AT THE DESCRIPTION'S CONTENT COLUMN the payload is the
+            // description's content, whether or not the entry itself is raised.
             'footnote body, entry raised, payload at its column' => [
                 "[^n]: intro\n\n   :: term\n   :  definition\n\n      > quote\n\nsee[^n]\n",
                 true,
-                false,
             ],
             'definition body, entry raised, payload at its column' => [
                 ":: outer\n:  intro\n\n    :: term\n    :  definition\n\n       > quote\n",
                 true,
-                false,
             ],
-            // At the body minimum there is no raise, so the payload never
-            // reaches the description and stays a sibling of the list.
+            'list item, entry raised, payload at its column' => [
+                "- intro\n\n   :: term\n   :  definition\n\n      > quote\n",
+                true,
+            ],
             'footnote body, entry at the minimum' => [
                 "[^n]: intro\n\n  :: term\n  :  definition\n\n     > quote\n\nsee[^n]\n",
-                false,
-                false,
+                true,
             ],
             'definition body, entry at the minimum' => [
                 ":: outer\n:  intro\n\n   :: term\n   :  definition\n\n      > quote\n",
-                false,
-                false,
+                true,
             ],
-            // Raised, but the payload is written BELOW the description's column:
-            // it reaches nothing and stays the literal text it was written as.
-            'footnote body, entry raised, payload below its column' => [
+            'list item, entry at the minimum' => [
+                "- intro\n\n  :: term\n  :  definition\n\n     > quote\n",
+                true,
+            ],
+            // BELOW THE DESCRIPTION'S CONTENT COLUMN the description ENDS, and
+            // the surviving context is the host - where the line is still above
+            // the minimum, so it takes a base of its own and stays STRUCTURAL.
+            // It used to come back as escaped prose in all three hosts.
+            'footnote body, payload below the description column' => [
                 "[^n]: intro\n\n   :: term\n   :  definition\n\n     > quote\n\nsee[^n]\n",
                 false,
-                true,
             ],
-            'definition body, entry raised, payload below its column' => [
+            'definition body, payload below the description column' => [
                 ":: outer\n:  intro\n\n    :: term\n    :  definition\n\n      > quote\n",
                 false,
-                true,
+            ],
+            'list item, payload below the description column' => [
+                "- intro\n\n   :: term\n   :  definition\n\n     > quote\n",
+                false,
             ],
         ];
     }
 
-    #[DataProvider('inClauseProvider')]
-    public function testABodyEntryCarriesItsAuthoredBase(string $source, bool $nested, bool $literal): void
+    /**
+     * A NESTED LIST ITEM IS A CONTAINER TOO (carve#1791).
+     *
+     * @return array<string, array{string, bool}>
+     */
+    public static function nestedItemProvider(): array
     {
-        $html = (new CarveConverter())->convert($source);
-
-        if ($literal) {
-            self::assertStringContainsString('&gt; quote', $html);
-            self::assertStringNotContainsString('<blockquote>', $html);
-
-            return;
-        }
-
-        self::assertStringContainsString('<blockquote><p>quote</p></blockquote>', $html);
-        self::assertSame($nested, $this->quoteIsInsideTheDescription($html), $html);
+        return [
+            'footnote body, quote at the nested item column' => [
+                "[^n]: intro\n\n  - item\n\n    > quote\n\nsee[^n]\n",
+                true,
+            ],
+            'definition body, quote at the nested item column' => [
+                ":: outer\n:  intro\n\n   - item\n\n     > quote\n",
+                true,
+            ],
+            'list item, quote at the nested item column' => [
+                "- intro\n\n  - item\n\n    > quote\n",
+                true,
+            ],
+            // The control: one column BELOW the nested item's content column the
+            // item ends and the quote is the host's, still a quote.
+            'footnote body, quote below the nested item column' => [
+                "[^n]: intro\n\n  - item\n\n   > quote\n\nsee[^n]\n",
+                false,
+            ],
+            'definition body, quote below the nested item column' => [
+                ":: outer\n:  intro\n\n   - item\n\n    > quote\n",
+                false,
+            ],
+            'list item, quote below the nested item column' => [
+                "- intro\n\n  - item\n\n   > quote\n",
+                false,
+            ],
+        ];
     }
 
     /**
-     * A LIST ITEM IS OUTSIDE THE CLAUSE and keeps its own answer.
-     *
-     * Both spellings carry the same offset from the `::`, so both say the same
-     * thing: the quote is a sibling of the list in either one.
+     * A payload at the description's column is the description's; below it, it
+     * is the host's - and it is a QUOTE either way, never escaped prose.
      */
-    public function testAListItemEntryKeepsItsOwnAnswer(): void
+    #[DataProvider('everyHostProvider')]
+    public function testTheInnermostContainerOwnsThePayload(string $source, bool $inTheDescription): void
+    {
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringContainsString('<blockquote><p>quote</p></blockquote>', $html, $html);
+        self::assertStringNotContainsString('&gt; quote', $html, $html);
+        self::assertSame($inTheDescription, self::quoteIsInsideTheDescription($html), $html);
+    }
+
+    /**
+     * The same question with a nested list item as the innermost container.
+     */
+    #[DataProvider('nestedItemProvider')]
+    public function testANestedItemOwnsThePayloadAtItsColumn(string $source, bool $inTheItem): void
+    {
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringContainsString('<blockquote><p>quote</p></blockquote>', $html, $html);
+        self::assertSame($inTheItem, self::quoteIsInsideTheNestedItem($html), $html);
+    }
+
+    /**
+     * THE THREE HOSTS AGREE, which is the property the one rule exists to give.
+     *
+     * Asserted as its own statement rather than left implicit in the rows above:
+     * a later change that repairs one host and drifts another passes every row
+     * it did not touch, and this is what sees it.
+     */
+    public function testEveryHostAnswersTheSameWay(): void
     {
         $converter = new CarveConverter();
-        $minimum = $converter->convert("- intro\n\n  :: term\n  :  definition\n\n     > quote\n");
-        $raised = $converter->convert("- intro\n\n   :: term\n   :  definition\n\n      > quote\n");
+        $bands = [
+            'at the column' => [
+                "[^n]: intro\n\n  :: term\n  :  definition\n\n     > quote\n\nsee[^n]\n",
+                ":: outer\n:  intro\n\n   :: term\n   :  definition\n\n      > quote\n",
+                "- intro\n\n  :: term\n  :  definition\n\n     > quote\n",
+            ],
+            'below the column' => [
+                "[^n]: intro\n\n   :: term\n   :  definition\n\n     > quote\n\nsee[^n]\n",
+                ":: outer\n:  intro\n\n    :: term\n    :  definition\n\n      > quote\n",
+                "- intro\n\n   :: term\n   :  definition\n\n     > quote\n",
+            ],
+        ];
 
-        self::assertSame($minimum, $raised);
-        self::assertStringContainsString('<blockquote><p>quote</p></blockquote>', $raised);
-        self::assertFalse($this->quoteIsInsideTheDescription($raised), $raised);
+        foreach ($bands as $band => $sources) {
+            $answers = [];
+            foreach ($sources as $source) {
+                $answers[] = self::quoteIsInsideTheDescription($converter->convert($source));
+            }
+            self::assertCount(1, array_unique($answers), 'the hosts disagree ' . $band);
+        }
     }
 
     /**
@@ -135,13 +217,28 @@ final class ADefinitionEntryInABodyCarriesItsAuthoredBaseTest extends TestCase
      * Is the `> quote` payload inside the INNER description, or a sibling of
      * the list that holds it?
      */
-    private function quoteIsInsideTheDescription(string $html): bool
+    private static function quoteIsInsideTheDescription(string $html): bool
     {
         $quote = strpos($html, '<blockquote>');
         if ($quote === false) {
             return false;
         }
         $close = strpos($html, '</dl>');
+
+        return $close !== false && $quote < $close;
+    }
+
+    /**
+     * Is the `> quote` payload inside the NESTED item, or a sibling of the list
+     * that holds it?
+     */
+    private static function quoteIsInsideTheNestedItem(string $html): bool
+    {
+        $quote = strpos($html, '<blockquote>');
+        if ($quote === false) {
+            return false;
+        }
+        $close = strpos($html, '</ul>');
 
         return $close !== false && $quote < $close;
     }

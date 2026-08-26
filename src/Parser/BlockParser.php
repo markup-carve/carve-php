@@ -1480,7 +1480,6 @@ class BlockParser
                 $body['lines'] = $this->rebaseOverindentedItemBlocks(
                     $body['lines'],
                     includeSublists: true,
-                    definitionEntriesCarryTheirBase: true,
                 );
                 // The document walk has already finished. Its pending block
                 // attributes belong after the document, not before this
@@ -2205,7 +2204,6 @@ class BlockParser
                         $contentLines = $this->rebaseOverindentedItemBlocks(
                             $contentLines,
                             includeSublists: true,
-                            definitionEntriesCarryTheirBase: true,
                         );
                         $deferredBodies[$key] = [
                             'lines' => $contentLines,
@@ -6681,10 +6679,10 @@ class BlockParser
      * of the same column rule and would drift from this one; running the pass
      * over a copy cannot (markup-carve/carve-php#755 is the class).
      *
-     * The flavor is the one BOTH bodies that hand out an authored base parse
-     * with - sublists included, definition entries carrying their base
-     * (carve#1729). The two differ only in which opaque block at the minimum
-     * they skip, and no such block is what raises a definition list.
+     * The flavor is the one every container that hands out an authored base
+     * parses with, sublists included (carve#1729, carve#1781). The call sites
+     * differ only in which opaque block at the minimum they skip, and no such
+     * block is what raises a definition list.
      *
      * @param string $rendered
      *
@@ -6697,8 +6695,103 @@ class BlockParser
         return $this->rebaseOverindentedItemBlocks(
             $lines,
             includeSublists: true,
-            definitionEntriesCarryTheirBase: true,
         ) !== $lines;
+    }
+
+    /**
+     * The content column an opener at `$base` hands out, or null for none.
+     *
+     * A definition BODY line's separator IS the column (PART 9 section 16,
+     * markup-carve/carve#1757) and a list marker's width is, so the two are
+     * read the same way and the band below the column means the same thing for
+     * both: written there, a line reaches neither the container's content nor
+     * the container's own column, so the container ENDS and the line is
+     * classified in the surviving context.
+     *
+     * A TERM line hands out nothing. `:: term` does not carry a separator, so
+     * the column is not known until the `: ` line below it - the caller tracks
+     * it as it walks rather than guessing a width the author has not written.
+     *
+     * @param string $line
+     * @param int $base
+     *
+     * @return int|null
+     */
+    private function containerContentColumn(string $line, int $base): ?int
+    {
+        $local = IndentationHelper::stripLeadingColumns($line, $base);
+        if (preg_match(self::DEFINITION_BODY_PATTERN, $local, $match) === 1) {
+            return $base + 1 + strlen($match[1]);
+        }
+        $marker = $this->listParser->parseListItemMarker($local);
+        if ($marker !== null) {
+            return $base + $this->listMarkerWidth($local, $marker);
+        }
+
+        return null;
+    }
+
+    /**
+     * The last line an opener AT the container's minimum column owns.
+     *
+     * Everything written ABOVE the minimum below such an opener is the inner
+     * container's content, and so is a blank line that still has content above
+     * the minimum after it - a definition list is not ended by a blank, and a
+     * loose item's own blocks are separated by one. The run stops at the first
+     * line back AT the minimum that does not continue the same container, which
+     * is where the inner container's own collector would stop too.
+     *
+     * A trailing blank is not owned: the run reports its last NON-blank line, so
+     * a blank between this container and its next sibling stays where it is.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     *
+     * @return int
+     */
+    private function innermostContainerExtent(array $lines, int $start, int $count): int
+    {
+        $end = $start;
+        $opensList = $this->listParser->parseListItemMarker($lines[$start]) !== null;
+        $contentColumn = $this->containerContentColumn($lines[$start], 0);
+        for ($j = $start + 1; $j < $count; $j++) {
+            $candidate = $lines[$j];
+            if (IndentationHelper::isBlankLine($candidate)) {
+                continue;
+            }
+            $indent = IndentationHelper::getLeadingColumns($candidate);
+            if ($indent > 0) {
+                // BELOW THE COLUMN THE CONTAINER ENDS. A line between the
+                // minimum and the column the opener hands out is neither the
+                // container's content nor at the container's own column, so it
+                // is not owned - it is left for the walk to give an authored
+                // base of its own, one container out.
+                if ($contentColumn !== null && $indent < $contentColumn) {
+                    break;
+                }
+                $end = $j;
+
+                continue;
+            }
+            // BACK AT THE MINIMUM. The line continues the container only where
+            // it spells the same one: a further marker of the same list, or a
+            // further entry of the same definition list. Anything else is this
+            // container's next sibling and ends the run.
+            $continues = $opensList
+                ? $this->listParser->parseListItemMarker($candidate) !== null
+                : (
+                    preg_match(self::DEFINITION_TERM_LINE_PATTERN, $candidate) === 1
+                    || preg_match(self::DEFINITION_BODY_PATTERN, $candidate) === 1
+                );
+            if (!$continues) {
+                break;
+            }
+            $contentColumn = $this->containerContentColumn($candidate, 0) ?? $contentColumn;
+            $end = $j;
+        }
+
+        return $end;
     }
 
     /**
@@ -6713,7 +6806,6 @@ class BlockParser
      * @param bool $includeSublists
      * @param bool $skipOpaqueAtMinimum
      * @param bool $skipOnlyClosedOpaqueAtMinimum
-     * @param bool $definitionEntriesCarryTheirBase
      *
      * @return array<string>
      */
@@ -6724,7 +6816,6 @@ class BlockParser
         bool $includeSublists = false,
         bool $skipOpaqueAtMinimum = true,
         bool $skipOnlyClosedOpaqueAtMinimum = false,
-        bool $definitionEntriesCarryTheirBase = false,
     ): array {
         // An uninterrupted marker-line descendant owns the entire chunk. Its
         // own recursive item parse will see any opener that reaches that item's
@@ -6869,6 +6960,53 @@ class BlockParser
                         }
                     }
                 }
+
+                // THE BASE BELONGS TO THE INNERMOST OPEN CONTAINER (PART 9
+                // section 24 C3, markup-carve/carve#1781 and carve#1791).
+                //
+                // A line at the container's own minimum column that OPENS A
+                // CONTAINER is that container's opener, and everything written
+                // above the minimum under it is that container's CONTENT - so
+                // the question of a local block base is asked of the inner
+                // container, never of this one. Reconsidering the payload here
+                // rebases it to this container's column and lifts it out of the
+                // container it was written into: a quote at a description's
+                // content column left the `dd`, and a quote at a nested item's
+                // content column left the `li`.
+                //
+                // A LIST MARKER COUNTS, and it has to be said separately from
+                // the block openers. `lineOpensBlockForLooseness` answers a
+                // different question - whether a blank-separated sub-block
+                // leaves a list TIGHT - and a marker is deliberately absent from
+                // it, because a marker at a body's own column opens a SUBLIST
+                // rather than a sub-block. Ownership is not that question: a
+                // marker's content belongs to the item it opens. Leaving the
+                // marker out is the omission carve#1791 had to repair one layer
+                // up.
+                //
+                // ASKED OF THE OPENERS THAT HAND OUT A COLUMN, which here is the
+                // list marker and the definition entry. An OPAQUE group at the
+                // minimum is already owned by the branch above, and it owns its
+                // payload on different terms: its closer has to be rebased back
+                // to the opener's column to close it, so claiming the payload
+                // here left a `:  ` fence's closer indented and it came back as
+                // the fence's own content. A quote and a fence hand out no
+                // column at all - they carry a marker or a fence - so there is
+                // nothing for a payload line to be measured against.
+                if (
+                    !$skipOpaqueAtMinimum
+                    || ($code === null && $comment === null)
+                ) {
+                    if (
+                        $this->containerContentColumn($line, 0) !== null
+                        || preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) === 1
+                    ) {
+                        $i = $this->innermostContainerExtent($lines, $i, $count);
+                        $afterBlank = false;
+
+                        continue;
+                    }
+                }
                 $afterBlank = false;
 
                 continue;
@@ -6998,57 +7136,36 @@ class BlockParser
                     $end = $j;
                 }
             } elseif (
-                !$definitionEntriesCarryTheirBase
-                && (
-                    preg_match(self::DEFINITION_TERM_LINE_PATTERN, $opener) === 1
-                    || preg_match(self::DEFINITION_BODY_PATTERN, $opener) === 1
-                )
-            ) {
-                // A LIST ITEM'S DEFINITION ENTRY ENDS AT ITS SEPARATING BLANK,
-                // WHATEVER COLUMN IT WAS AUTHORED AT.
-                //
-                // carve#1752 asks a payload to keep its offset from its opener,
-                // and in a list item both spellings carry the same offset - so
-                // both say the same thing, and the spec repo's own corpus test
-                // pins them equal under `over-column list block groups match
-                // their exact-column spelling`.
-                //
-                // A footnote body and a definition description are the
-                // exception, not this: carve#1752's clause names only "a
-                // definition body's column 3 or a footnote body's column 2", so
-                // those two pass `definitionEntriesCarryTheirBase` and take the
-                // blank-crossing arm below (carve-php#1764, carve-js#1520).
-                for ($j = $i + 1; $j < $count; $j++) {
-                    $candidate = $lines[$j];
-                    if (
-                        IndentationHelper::isBlankLine($candidate)
-                        || IndentationHelper::getLeadingColumns($candidate, $base) < $base
-                    ) {
-                        break;
-                    }
-                    // A term owns wrapped term text and every following
-                    // description line until a blank or dedent. Restricting
-                    // the extent to marker lines rebased only `:: term` and
-                    // left `more` / `:  def` carrying residual indentation,
-                    // which destroyed the definition description.
-                    $end = $j;
-                }
-            } elseif (
                 preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $opener) === 1
-                || (
-                    $definitionEntriesCarryTheirBase
-                    && (
-                        preg_match(self::DEFINITION_TERM_LINE_PATTERN, $opener) === 1
-                        || preg_match(self::DEFINITION_BODY_PATTERN, $opener) === 1
-                    )
-                )
+                || preg_match(self::DEFINITION_TERM_LINE_PATTERN, $opener) === 1
+                || preg_match(self::DEFINITION_BODY_PATTERN, $opener) === 1
             ) {
-                // A footnote definition - and, inside a footnote body or a
-                // definition description, a definition entry - establishes the
-                // authored base for the surrounding run. Sibling content after
-                // an internal blank is still owned by the outer list/note;
-                // leaving it at residual indentation moves it out of that
-                // container.
+                // ONE ARM FOR EVERY CONTAINER (PART 9 section 24 C3,
+                // markup-carve/carve#1781). A footnote definition and a
+                // definition entry establish the authored base for the
+                // surrounding run, and the container they sit in does not
+                // change the answer. Sibling content after an internal blank is
+                // still owned by the outer list or note; leaving it at residual
+                // indentation moves it out of that container.
+                //
+                // A LIST ITEM USED TO END THE RUN AT THE SEPARATING BLANK, on
+                // the reading that carve#1752 made both spellings say the same
+                // thing there. carve#1781 replaced the three per-container
+                // spellings with this one, and corpus
+                // `423-one-authored-base-rule-reaches-a-definition-nested-in-a-list-item`
+                // pins the item answering like the two bodies: the payload
+                // written under the description belongs to the description.
+                //
+                // AND IT STOPS BELOW ITS OWN CONTENT COLUMN. A line written
+                // between the opener's column and the column its marker hands
+                // out reaches neither: it is not the entry's content, and it is
+                // not at the entry's own column either. So the entry ends and
+                // the line is classified in the SURVIVING context - the
+                // container the entry sits in, where it is above the minimum and
+                // takes an authored base of its own. Carried on until a dedent,
+                // it stayed at residual indentation and came back as escaped
+                // prose rather than the quote it was written as.
+                $contentColumn = $this->containerContentColumn($lines[$i], $base);
                 for ($j = $i + 1; $j < $count; $j++) {
                     $candidate = $lines[$j];
                     if (IndentationHelper::isBlankLine($candidate)) {
@@ -7069,6 +7186,16 @@ class BlockParser
                     if (IndentationHelper::getLeadingColumns($candidate, $base) < $base) {
                         break;
                     }
+                    // MEASURED UNCAPPED. The dedent test above passes `$base` as
+                    // a CAP, so it can answer "below the base" and nothing else;
+                    // the band needs the line's real column.
+                    if ($contentColumn !== null) {
+                        $indent = IndentationHelper::getLeadingColumns($candidate);
+                        if ($indent > $base && $indent < $contentColumn) {
+                            break;
+                        }
+                    }
+                    $contentColumn = $this->containerContentColumn($candidate, $base) ?? $contentColumn;
                     $end = $j;
                 }
             }
@@ -9022,7 +9149,6 @@ class BlockParser
                     $body,
                     includeSublists: true,
                     skipOnlyClosedOpaqueAtMinimum: true,
-                    definitionEntriesCarryTheirBase: true,
                 );
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
