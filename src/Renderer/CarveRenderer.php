@@ -2588,7 +2588,7 @@ class CarveRenderer implements RendererInterface
                         ? $this->renderFootnote($collected)
                         : $this->renderLinkReferenceDefinition($collected);
                     $pendingBreak = false;
-                    $out[] = ':  ' . $written;
+                    $out[] = ': ' . $written;
 
                     continue;
                 }
@@ -2637,9 +2637,9 @@ class CarveRenderer implements RendererInterface
 
                 $pendingBreak = false;
                 $lines = explode("\n", $body);
-                $out[] = ':  ' . array_shift($lines);
+                $out[] = ': ' . array_shift($lines);
                 foreach ($lines as $line) {
-                    $out[] = $this->indentContinuationLine($line, '   ');
+                    $out[] = $this->indentContinuationLine($line, '  ');
                 }
             }
         }
