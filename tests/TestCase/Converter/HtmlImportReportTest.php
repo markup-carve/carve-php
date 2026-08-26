@@ -35,16 +35,13 @@ class HtmlImportReportTest extends TestCase
      * @var array<string, array{reason: string, carve: string, diagnostics?: list<string>}>
      */
     private const AHEAD_OF_PIN = [
-        'empty-definition-description' => [
-            'reason' => 'an empty description body is written `: {empty}` (markup-carve/carve#1827)',
-            'carve' => ":: term\n: {empty}\n",
-            'diagnostics' => [],
-        ],
-        'empty-definition-description-not-last' => [
-            'reason' => 'the sentinel keeps the list whole, so nothing splits (markup-carve/carve#1827)',
-            'carve' => ":: t1\n: {empty}\n:: t2\n: d2\n",
-            'diagnostics' => [],
-        ],
+        // EMPTY. The two entries that stood here declared the
+        // `empty-definition-description` fixtures as ahead of a pin whose
+        // goldens still recorded the dropped body and the `%%` separator that
+        // kept the split list apart. Upstream re-recorded both - one list, no
+        // diagnostics - so the window closed, each entry failed its own
+        // staleness assertion on this pin, and both are deleted rather than
+        // reworded. The slot stays for the next window.
     ];
 
     /**

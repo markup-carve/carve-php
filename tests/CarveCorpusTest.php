@@ -794,6 +794,27 @@ class CarveCorpusTest extends TestCase
         'an-abbreviation-definition-outside-document-level-is-not-an-invisible-line',
         'a-comment-in-a-footnote-body-is-invisible-in-both-spellings',
         'an-unresolved-image-gives-its-whole-caption-slot-back-at-any-depth',
+        // Corpus 435-439, arriving with the bump to carve ac2493c0. Each of the
+        // 37 documents was rendered and compared against its pinned HTML before
+        // the category was listed here, so all five arrive IMPLEMENTED rather
+        // than deferred and KNOWN_GAPS stays empty.
+        //
+        // markup-carve/carve#1817 - the continuation marker's column gate is a
+        // property of the marker, so it reaches every container, not just a list.
+        'the-continuation-marker-s-column-gate-reaches-every-container',
+        // markup-carve/carve#1822 - an empty description body claims no line
+        // below its column, column 0 included.
+        'an-empty-description-body-claims-no-line-below-column',
+        'an-empty-description-body-claims-no-line-below-column-0',
+        // markup-carve/carve#1828 - a container reached by its own marker does
+        // not also honor a leading continuation marker, which stays text.
+        'a-leading-continuation-marker-in-a-footnote-body-or-a-quote-is-text',
+        // markup-carve/carve#1833 - the {empty} sentinel is written instead of
+        // dropping the body, so the list stays whole.
+        'an-empty-description-body-is-written-with-the-empty-sentinel',
+        // markup-carve/carve#1832 - a colon with only whitespace after it opens
+        // no description.
+        'a-colon-followed-by-only-whitespace-is-not-a-description',
     ];
 
     /**
