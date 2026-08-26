@@ -2173,6 +2173,20 @@ class BlockParser
                     // next footnote definition.
                     if (preg_match('/^\+[ \t]*$/', $nextLine)) {
                         $j++;
+                        // ...AND THE NOTE ENDS WHERE A COMMENT ENDS IT
+                        // (markup-carve/carve#1814). The gate below decides
+                        // whether this `+` is a marker at all; when it is not
+                        // the line is an ordinary invisible line at document
+                        // column 0, and a footnote body ends at one of those
+                        // exactly as it ends at a comment line there. Asked ONE
+                        // LINE EARLY because this loop's own continuation
+                        // branch would otherwise claim the following line
+                        // before any extent is measured. The `+` is consumed
+                        // either way, so the enclosing parse resumes on the
+                        // line the marker did not take.
+                        if (!$this->continuationAttachesAtColumnZero($j)) {
+                            break;
+                        }
                         [$j, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
                             $lines,
                             $j,
@@ -7735,6 +7749,23 @@ class BlockParser
      */
     private function collectAttachedBlock(array $lines, int $i, int $count, callable $isBoundary, ?callable $transform = null): array
     {
+        // AND FLUSH-LEFT MEANS COLUMN 0, ASKED HERE FOR EVERY CONTAINER
+        // (§17 L3, markup-carve/carve#1436, markup-carve/carve#1814). The
+        // predicate was already one function, but only the LIST asked it, so
+        // the footnote body, the definition description and the block quote
+        // each reached out for a line the clause leaves where the author wrote
+        // it: a `<dd>` whose content column is 3 pulled in a column-1 or
+        // column-2 line, a note pulled in a column-1 line, and a quote took a
+        // column-2 line that A QUOTE IS REACHED BY ITS MARKER (§10 I5,
+        // markup-carve/carve#1384) puts in no quote at all.
+        //
+        // Asked BEFORE any extent is measured, and an EMPTY range is the
+        // refusal: every caller already reads that as "the marker attached
+        // nothing" and lets its own ordinary rules have the line, which is
+        // exactly what the clause's comment spelling does.
+        if (!$this->continuationAttachesAtColumnZero($i)) {
+            return [$i, [], []];
+        }
         $fenced = $this->attachedFencedBlockEnd($lines, $i, $count, $transform);
         if ($fenced !== -1) {
             $take = $fenced - $i + 1;
@@ -8121,9 +8152,11 @@ class BlockParser
         // column-1 ` x` both arrive as `[' * +', ' x']`, byte-identical. Only
         // the source line still carries the column, and `sourceLineFor()` still
         // names it.
-        if (!$this->continuationAttachesAtColumnZero($i)) {
-            return [$i, [], []];
-        }
+        //
+        // The question is `collectAttachedBlock()`'s now, asked once for every
+        // container (markup-carve/carve#1814); the spelling that stood here was
+        // the only one in the engine, which is why the list was the only
+        // container the gate ever reached.
         // A MARKER INSIDE AN OPEN FENCE IS CODE TEXT here too (§24 S2). This
         // collector tracked no block state at all, so a `- x` line in the
         // attached block's fenced body ended the block and severed the body -
@@ -9100,6 +9133,25 @@ class BlockParser
                     // Form B: `+` pull-left continuation.
                     if (preg_match('/^\+[ \t]*$/', $contLine)) {
                         $i++;
+                        // ...AND THE DESCRIPTION ENDS WHERE A COMMENT ENDS IT
+                        // (markup-carve/carve#1814). The gate below decides
+                        // whether this `+` is a marker at all; when it is not,
+                        // the line is an ordinary invisible line at document
+                        // column 0, and a `<dd>` ends at one of those exactly
+                        // as it ends at a comment line there. Asked ONE LINE
+                        // EARLY because the branch below would otherwise fold
+                        // the following line into the open paragraph before any
+                        // extent is measured. The `+` is consumed either way,
+                        // so the enclosing parse resumes on the line the marker
+                        // did not take.
+                        //
+                        // A block quote does NOT end at a comment in that
+                        // position and so does not end at a refused marker
+                        // either: that is each container's invisible-line rule,
+                        // not a second column rule.
+                        if (!$this->continuationAttachesAtColumnZero($i)) {
+                            break;
+                        }
                         [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock(
                             $lines,
                             $i,
@@ -11405,6 +11457,20 @@ class BlockParser
             // definition) - mirror extractFootnotes exactly.
             if (preg_match('/^\+[ \t]*$/', $nextLine)) {
                 $i++;
+                // ...AND THE NOTE ENDS WHERE A COMMENT ENDS IT
+                // (markup-carve/carve#1814). The gate below decides
+                // whether this `+` is a marker at all; when it is not
+                // the line is an ordinary invisible line at document
+                // column 0, and a footnote body ends at one of those
+                // exactly as it ends at a comment line there. Asked ONE
+                // LINE EARLY because this loop's own continuation
+                // branch would otherwise claim the following line
+                // before any extent is measured. The `+` is consumed
+                // either way, so the enclosing parse resumes on the
+                // line the marker did not take.
+                if (!$this->continuationAttachesAtColumnZero($i)) {
+                    break;
+                }
                 [$i, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
                     $lines,
                     $i,
