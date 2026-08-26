@@ -68,6 +68,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The authored block base belongs to the innermost open container** (#1785, #1786, markup-carve/carve#1781, markup-carve/carve#1791, PART 9 §24 C3). The rule was spelled three ways: a definition entry in a list item ended at its separating blank where the same entry in a body carried its base across it, an opener written at a container's own minimum column was rebased out of the container it opened, and a line below the column it hands out came back as escaped prose. A definition entry is now measured at its exact authored extent, and a block at a description's or a nested item's content column stays inside it.
 - **The continuation marker attaches one block in every container** (#1780, markup-carve/carve#1782, PART 9 §17 L3 and L4). A footnote body and a definition description took the whole reach where a list item took one block; a second block now costs a second marker, and a marker before a quote line attaches it.
 - **A definition list inside a footnote body keeps the block its description holds** (#1779, PART 11 §1). The canonical writer narrowed the body's base past the payload, so `carve fmt` wrote a document that said something else.
 - **A dangling attribute line does not reach a deferred footnote body** (#1770). An unattached attribute line at the end of a document no longer styles the first paragraph of the next note parsed.
