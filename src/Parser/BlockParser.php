@@ -2144,13 +2144,11 @@ class BlockParser
                     // next footnote definition.
                     if (preg_match('/^\+[ \t]*$/', $nextLine)) {
                         $j++;
-                        [$j, $attached, $attachedLineMap] = $this->collectAttachedBlock(
+                        [$j, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
                             $lines,
                             $j,
                             $count,
-                            static fn (string $a): bool => IndentationHelper::isBlankLine($a)
-                                || preg_match('/^\+[ \t]*$/', $a)
-                                || preg_match('/^\[\^[^\]]+\]:/', $a),
+                            static fn (string $a): bool => (bool)preg_match('/^\[\^[^\]]+\]:/', $a),
                         );
                         if ($attached) {
                             $contentLines[] = '';
@@ -5217,30 +5215,16 @@ class BlockParser
                 // paragraph was attached too. {@see self::attachedBlockHasEnded()}
                 // is the rule, shared with the list-item spelling so the two
                 // cannot drift - they were already one rule with two answers.
-                $attachedKind = self::ATTACHED_PENDING;
-                $pendingThrough = -1;
-                $attachedState = self::INITIAL_TRAILING_BLOCK_STATE;
-                [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
-                    $lines,
-                    $i,
-                    $count,
-                    function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, $lines): bool {
-                        if (
-                            IndentationHelper::isBlankLine($line)
-                            || $this->blockQuoteLineContent($line) !== null
-                            || $this->isContinuationMarker($line)
-                        ) {
-                            return true;
-                        }
-                        if ($this->attachedBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState)) {
-                            return true;
-                        }
-                        $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $line, $lines, $index);
-                        $attachedState = $this->advanceTrailingBlockState($attachedState, $line);
-
-                        return false;
-                    },
-                );
+                // A `>` LINE IS NOT A BOUNDARY (markup-carve/carve#1782). The
+                // marker takes the next flush-left block whatever KIND it is,
+                // and a quote is a kind like any other, so `> a` / `+` / `> q`
+                // attaches an inner quote. Testing for one here made the marker
+                // attach NOTHING in exactly that case: the `+` line vanished
+                // and `> q` folded into the quoted paragraph above it, the
+                // marker doing nothing at all where L3 says it only ATTACHES.
+                // A `>` line under an attached PARAGRAPH still stays outside,
+                // because the narrowing stops at the paragraph.
+                [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
                 $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
                 if ($attached !== []) {
                     // $innerLines always holds the quote's first content line, so
@@ -7487,6 +7471,60 @@ class BlockParser
     }
 
     /**
+     * ONE flush-left block for a `+` marker, in a container with no marker
+     * column of its own.
+     *
+     * §17 L3 makes `+` ONE operation: ownership of the next flush-left block
+     * passes to the container, and the block is then parsed like any other.
+     * The boundary set - a blank line, a further `+`, plus whatever names a
+     * SIBLING of this container - is the marker's REACH, and
+     * {@see self::attachedBlockHasEnded()} narrows that reach to the one block
+     * L3 counts.
+     *
+     * This exists because the reach was spelled four times and narrowed twice:
+     * a block quote and a list item took one block, while a footnote body and
+     * a definition description took everything up to the boundary, so L3's own
+     * example - `+` / `para` / `> q` - gave the quote to the note and left it
+     * outside the item one container over (markup-carve/carve#1782).
+     *
+     * @param array<string> $lines
+     * @param int $i Index of the first line after the `+` marker.
+     * @param int $count Total line count.
+     * @param (callable(string): bool)|null $endsAtSibling Names a sibling of this container, or null.
+     *
+     * @return array{0: int, 1: array<string>, 2: array<int>}
+     */
+    private function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null): array
+    {
+        $attachedKind = self::ATTACHED_PENDING;
+        $pendingThrough = -1;
+        $attachedState = self::INITIAL_TRAILING_BLOCK_STATE;
+        [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
+            $lines,
+            $i,
+            $count,
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, $lines, $endsAtSibling): bool {
+                if (
+                    IndentationHelper::isBlankLine($line)
+                    || $this->isContinuationMarker($line)
+                    || ($endsAtSibling !== null && $endsAtSibling($line))
+                ) {
+                    return true;
+                }
+                if ($this->attachedBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState)) {
+                    return true;
+                }
+                $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $line, $lines, $index);
+                $attachedState = $this->advanceTrailingBlockState($attachedState, $line);
+
+                return false;
+            },
+        );
+
+        return [$i, $attached, $attachedRawLineMap];
+    }
+
+    /**
      * Collect the ONE flush-left block a `+` continuation marker attaches
      * (PART 9 §17 L3). The boundary remains container-specific, while a fence
      * opened by the first line makes its complete body opaque everywhere.
@@ -8657,14 +8695,12 @@ class BlockParser
                     // Form B: `+` pull-left continuation.
                     if (preg_match('/^\+[ \t]*$/', $contLine)) {
                         $i++;
-                        [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
+                        [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock(
                             $lines,
                             $i,
                             $count,
-                            static fn (string $a): bool => IndentationHelper::isBlankLine($a)
-                                || preg_match('/^\+[ \t]*$/', $a)
-                                || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
-                                || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a),
+                            static fn (string $a): bool => (bool)preg_match(self::DEFINITION_TERM_LINE_PREFIX, $a)
+                                || (bool)preg_match(self::DEFINITION_BODY_LINE_PREFIX, $a),
                         );
                         $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
                         if ($attached) {
@@ -10897,13 +10933,11 @@ class BlockParser
             // definition) - mirror extractFootnotes exactly.
             if (preg_match('/^\+[ \t]*$/', $nextLine)) {
                 $i++;
-                [$i, $attached, $attachedLineMap] = $this->collectAttachedBlock(
+                [$i, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
                     $lines,
                     $i,
                     $count,
-                    static fn (string $a): bool => IndentationHelper::isBlankLine($a)
-                        || preg_match('/^\+[ \t]*$/', $a)
-                        || preg_match('/^\[\^[^\]]+\]:/', $a),
+                    static fn (string $a): bool => (bool)preg_match('/^\[\^[^\]]+\]:/', $a),
                 );
                 if ($attached !== []) {
                     $bodyLines[] = '';
