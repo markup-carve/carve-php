@@ -9,29 +9,24 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `docs/html-import.md`, "A declared loss is a ceiling, not a licence"
- * (markup-carve/carve#1608, markup-carve/carve#1627): a loss may be no wider
- * than what declares it.
+ * EVERY DESCRIPTION THE WRITER WRITES HAS A SPELLING, on every path that
+ * reaches Carve source from a tree rather than from HTML - an ingested AST, and
+ * `carve fmt` over one.
  *
- * markup-carve/carve-php#1629 spent that ceiling in the HTML importer, which
- * writes its own source. THE WRITER SPENDS IT TOO, on every path that reaches
- * Carve source from a tree rather than from HTML - an ingested AST, and
- * `carve fmt` over one. Carve has no spelling for a description that writes
- * nothing, and the bare `:` line the writer emitted for one is read by the
- * parser as a continuation of the line above, so `:: term` came back as a
- * `<dt>` reading `term` and a colon: the description lost AND the term damaged.
+ * A body holding no blocks takes the sentinel `{empty}` (PART 11 §7d,
+ * markup-carve/carve#1827), so the check sits in `renderDefinitionList()` and
+ * covers every shape whose description renders to nothing with one line rather
+ * than one per producer. carve-js and carve-rs put theirs in the same place.
  *
- * This is where carve-js put its whole fix (`renderDefinitionList`, carve-js
- * PR #1402), and putting it here means every shape whose description renders to
- * nothing is covered by the one line rather than per producer.
- *
- * THE ORDINARY PARSE PRODUCES EXACTLY ONE empty description - the one whose
- * line carried a collected definition - and the branch that writes that
- * definition back runs first (markup-carve/carve#805). It is asserted here as a
- * bound, because a drop that reached it would delete a definition the author
- * wrote.
+ * THE BOUNDS ARE WHAT THIS CLASS IS FOR. The ordinary parse produces exactly
+ * one empty description - the one whose line carried a collected definition -
+ * and the branch that writes that definition back runs FIRST
+ * (markup-carve/carve#805); a sentinel that reached it would delete a
+ * definition the author wrote. A description holding a non-breaking space is
+ * content to the writer and keeps its own line. And an ordinary description is
+ * untouched, which is the population none of this may reach.
  */
-class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
+class TheWriterSpellsEveryDescriptionItWritesTest extends TestCase
 {
     protected function carve(string $source): string
     {
@@ -60,23 +55,25 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
         return CarveConverter::carve()->render((new AstCodec())->decode($json));
     }
 
-    public function testADescriptionThatWritesNothingIsDropped(): void
+    public function testADescriptionThatWritesNothingTakesTheSentinel(): void
     {
         $written = $this->writeWithEmptiedDescription(":: term\n: d\n");
 
-        $this->assertSame(":: term\n", $written);
+        $this->assertSame(":: term\n: {empty}\n", $written);
     }
 
     /**
-     * The load-bearing assertion: the term survives a re-parse. Pinning the
-     * source alone would not catch a spelling that looked right and re-parsed
-     * into the line above, which is exactly what the bare colon line did.
+     * The load-bearing assertion: the RE-PARSE. Pinning the source alone would
+     * not catch a spelling that looked right and folded into the line above,
+     * which is what a bare colon line does.
      */
-    public function testTheTermSurvivesTheDropUnharmed(): void
+    public function testTheEmptyDescriptionSurvivesTheReParse(): void
     {
         $rendered = (new CarveConverter())->convert($this->writeWithEmptiedDescription(":: term\n: d\n"));
 
-        $this->assertSame("<dl>\n  <dt>term</dt>\n</dl>\n", $rendered);
+        $this->assertSame("<dl>\n  <dt>term</dt>\n  <dd></dd>\n</dl>\n", $rendered);
+        // The sentinel line leaves no colon behind and folds nothing into the
+        // term.
         $this->assertStringNotContainsString(':', $rendered);
     }
 
@@ -131,47 +128,31 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
     }
 
     /**
-     * A list with an entry after the dropped one BREAKS at the drop
-     * (markup-carve/carve#1636, ruled after this test was written).
-     *
-     * It used to assert one `<dl>`, which was the open half of carve#1627 and
-     * is the half the ruling moved: keeping one list hands `t1` the description
-     * `d2`, an ADDITION no row can declare. What the drop still does not do is
-     * leave a bare colon line or a stray `<p>:</p>`, and those assertions stand
-     * unchanged.
+     * A LIST WHOSE EVERY DESCRIPTION IS EMPTY IS STILL ONE LIST. Each entry
+     * writes its own sentinel line, so no term is left sharing another's
+     * description and there is nothing to separate.
      */
-    public function testTheListBreaksAtADroppedDescription(): void
+    public function testAListOfEmptyDescriptionsStaysOneList(): void
     {
         $written = $this->writeWithEmptiedDescription(":: t1\n: d1\n:: t2\n: d2\n");
         $rendered = (new CarveConverter())->convert($written);
 
-        // The helper empties EVERY description, so both entries are dropped and
-        // the break sits between them. `t1` still has none and `t2` still has
-        // none - which is the point: the break costs the grouping and adds
-        // nothing, where one list would have to lend a description across it as
-        // soon as one survived.
-        $this->assertSame(":: t1\n\n%%\n\n:: t2\n", $written);
-        $this->assertSame(2, substr_count($rendered, '<dl>'), $rendered);
+        $this->assertSame(":: t1\n: {empty}\n:: t2\n: {empty}\n", $written);
+        $this->assertSame(1, substr_count($rendered, '<dl>'), $rendered);
         $this->assertStringNotContainsString('<p>:</p>', $rendered);
-        // The point of the break: nothing gains meaning it did not have.
+        // Each term keeps its OWN empty description rather than the terms
+        // stacking up over one.
         $this->assertStringNotContainsString("<dt>t1</dt>\n  <dt>t2</dt>", $rendered);
+        $this->assertSame(2, substr_count($rendered, '<dd></dd>'), $rendered);
     }
 
     /**
-     * NOW SETTLED (markup-carve/carve#1636).
-     *
-     * This said "not settled, and deliberately not pinned as correct": where a
-     * KEPT description follows a dropped one, consecutive `::` lines share the
-     * description below them, so the surviving term acquired a description it
-     * never had. The ruling breaks the list at the dropped entry instead - an
-     * ADDITION is not a loss and no row can declare it, so the ceiling binds in
-     * both directions.
-     *
-     * The assertion that moved is the `<dl>` count, which was the open half.
-     * The rest stands: no bare colon line, no stray `<p>:</p>`, and `d2` still
-     * on `t2`.
+     * A KEPT DESCRIPTION AFTER AN EMPTY ONE STAYS IN THE SAME LIST. Consecutive
+     * `::` lines share the description below them, so the empty entry has to be
+     * written for the term above it to keep its own - and once it is, `d2`
+     * belongs to `t2` and to nothing else.
      */
-    public function testAKeptDescriptionAfterADroppedOneBreaksTheList(): void
+    public function testAKeptDescriptionAfterAnEmptyOneStaysInTheSameList(): void
     {
         $source = ":: t1\n: d1\n:: t2\n: d2\n";
         $json = (new AstCodec())->encode((new CarveConverter())->parse($source));
@@ -197,10 +178,15 @@ class TheWriterHonorsTheDeclaredCeilingTest extends TestCase
         $rendered = (new CarveConverter())->convert($written);
 
         $this->assertStringNotContainsString(":\n\n", $written, 'no bare colon line survives');
-        $this->assertSame(2, substr_count($rendered, '<dl>'), $rendered);
+        $this->assertSame(":: t1\n: {empty}\n:: t2\n: d2\n", $written);
+        $this->assertSame(1, substr_count($rendered, '<dl>'), $rendered);
         $this->assertStringNotContainsString('<p>:</p>', $rendered);
         $this->assertStringContainsString('<dd>d2</dd>', $rendered);
-        // `t1` keeps having no description: that is what the break is for.
+        // `t1` keeps its own empty description rather than acquiring `d2`.
         $this->assertStringNotContainsString("<dt>t1</dt>\n  <dt>t2</dt>", $rendered);
+        $this->assertSame(
+            "<dl>\n  <dt>t1</dt>\n  <dd></dd>\n  <dt>t2</dt>\n  <dd>d2</dd>\n</dl>\n",
+            $rendered,
+        );
     }
 }

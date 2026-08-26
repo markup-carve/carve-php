@@ -66,16 +66,17 @@ class HtmlToCarve
     protected const LIST_BOUNDARY = "\x01carve-list-boundary\x01";
 
     /**
-     * The stand-in a description with no spelling takes on the AST exit only.
+     * The body written for a definition description holding no blocks
+     * (PART 11 §7b, markup-carve/carve#1827).
      *
-     * `\x01` cannot appear in a document - the same reason LIST_BOUNDARY above
-     * uses it - so the line this writes parses as an ordinary description and
-     * nothing an author can type collides with it. `emptyTheStoodInDescriptions`
-     * takes the content back out; the string never reaches a caller.
+     * A block-attribute line: the block it would attach to does not exist, so
+     * the parse consumes the line and the description reads back empty. It is
+     * what the canonical writer emits, so the source this converter produces
+     * and the tree read back from it say the same thing.
      *
      * @var string
      */
-    protected const EMPTY_DESCRIPTION = "\x01carve-empty-description\x01";
+    protected const EMPTY_BODY_SENTINEL = '{empty}';
 
     /**
      * Canonical definition marker.
@@ -385,16 +386,11 @@ class HtmlToCarve
      */
     public function convertToAstWithReport(string $html): HtmlImportAstResult
     {
-        // `finally`, because a throwing conversion must not leave the flag
-        // standing: this converter is reusable and long-lived by design, and
-        // the next `convertWithReport()` would then write a sentinel into
-        // source a caller reads.
-        $this->astExit = true;
-        try {
-            $source = $this->convertWithReport($html);
-        } finally {
-            $this->astExit = false;
-        }
+        // ONE CONVERSION FOR BOTH EXITS. Every shape this writer emits is
+        // spellable, so the tree read back from the source it wrote is the tree
+        // the document has - there is no stand-in for either exit to put in and
+        // take back out (markup-carve/carve#1827).
+        $source = $this->convertWithReport($html);
         $document = CarveConverter::create()->parse($source->value);
 
         return new HtmlImportAstResult(
@@ -411,10 +407,10 @@ class HtmlToCarve
      * This engine reads its AST back from its own written Carve, which is what
      * makes the two public exits one invariant rather than two goldens nobody
      * compares. The cost is that everything the WRITER does on the way through
-     * was reaching the published tree, and two of its habits did
+     * was reaching the published tree, and one of its habits did
      * (`markup-carve/carve-php#1716`).
      *
-     * ONE: ITS ESCAPES. PART 12 section 1a makes `escaped_text` a node of its
+     * ITS ESCAPES. PART 12 section 1a makes `escaped_text` a node of its
      * own that never merges with `text`, "because an escape is authored form" -
      * and on this exit no escape is authored. HTML has no Carve escapes, so
      * every backslash in the source this importer just wrote was put there by
@@ -430,18 +426,6 @@ class HtmlToCarve
      * not: the backslash sits between them in the source and in no version of
      * the value, so the merged text is a slice at no offset.
      *
-     * TWO: ITS CEILING. A description with no Carve spelling is written as
-     * `EMPTY_DESCRIPTION` so the PARSER builds the `definition_description` the
-     * document has, and the stand-in is taken out here. `docs/html-import.md`
-     * says why the source exit's limit is not this one's: for a structure Carve
-     * SOURCE cannot spell, "the AST-returning entry point loses nothing and
-     * reports nothing; the one that writes source reports this". An AST exit
-     * has nothing to spell.
-     *
-     * Matched on the WHOLE description rather than by string replacement: the
-     * stand-in is the entire content of the descriptions it was written into,
-     * so anything else carrying it is not one of them and is left alone.
-     *
      * @param array<string, mixed> $tree
      *
      * @return array<string, mixed>
@@ -456,7 +440,7 @@ class HtmlToCarve
     }
 
     /**
-     * One value of the encoded tree, with both of the writer's habits undone.
+     * One value of the encoded tree, with the writer's escapes undone.
      *
      * ON THE ENCODED TREE rather than the node model, and recursing over LISTS
      * rather than over a roster of container keys: every container spells its
@@ -504,31 +488,11 @@ class HtmlToCarve
 
             return $out;
         }
-        if (($value['type'] ?? null) === 'definition_description' && self::holdsOnlyTheStandIn($value)) {
-            $value['children'] = [];
-
-            return $value;
-        }
         foreach ($value as $key => $inner) {
             $value[$key] = self::asPublished($inner);
         }
 
         return $value;
-    }
-
-    /**
-     * Is this description's whole content the stand-in the writer put there?
-     *
-     * @param array<mixed> $description
-     */
-    private static function holdsOnlyTheStandIn(array $description): bool
-    {
-        $children = $description['children'] ?? null;
-        $only = is_array($children) && count($children) === 1 ? ($children[0] ?? null) : null;
-        $inlines = is_array($only) && ($only['type'] ?? null) === 'paragraph' ? ($only['children'] ?? null) : null;
-        $first = is_array($inlines) && count($inlines) === 1 ? ($inlines[0] ?? null) : null;
-
-        return is_array($first) && ($first['value'] ?? null) === self::EMPTY_DESCRIPTION;
     }
 
     /**
@@ -998,53 +962,6 @@ class HtmlToCarve
                 'element-unwrapped',
                 'Kept the <summary> text as block content; its label needs a quoted opener title, which cannot hold a quote or a line break',
                 'info',
-                $path,
-            );
-        }
-
-        if ($tag === 'dl' && $this->definitionListSplits($path)) {
-            // THE GROUPING IS A REAL LOSS AND TAKES ITS OWN ROW
-            // (markup-carve/carve#1636). A `<dd>` that writes nothing ends the
-            // list it is in, because one list would give the term above it the
-            // NEXT entry's description - an ADDITION, which no row can declare
-            // and which the ceiling forbids outright.
-            //
-            // NOT `structure-unspellable`: that code is for a shape the syntax
-            // cannot spell at all, and here every part is spellable, present and
-            // exact. What the source cannot say is that they were ONE list.
-            //
-            // It is a SERIALIZATION loss, so it belongs to the exit that writes
-            // source; the tree keeps one list with the empty description in it.
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'structure-split',
-                'A <dd> that writes nothing ends the list it is in; the entries after it are written as a second <dl>, '
-                    . 'because one list would give the term above it the next entry\'s description',
-                'warning',
-                $path,
-            );
-        }
-
-        if ($tag === 'dd' && $this->definitionDescriptionIsDropped($path)) {
-            // A DECLARED LOSS IS A CEILING, NOT A LICENCE
-            // (`docs/html-import.md`). Carve has no spelling for an empty
-            // definition description - every candidate leaks a colon into
-            // the text, folds into the term, or renders a non-breaking
-            // space - so the description is dropped and the term kept.
-            // That is the loss the clause permits, and permitting it is
-            // conditional on DECLARING it: the writer already dropped the
-            // description and said nothing, which is the half the ceiling
-            // does not cover (carve-php#1615).
-            //
-            // `structure-unspellable` is the code the shared fixture
-            // carries, and the message is the sibling engine's, so the two
-            // reports say the same thing about the same shape.
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'structure-unspellable',
-                'A <dd> that writes nothing has no Carve spelling; the empty description is dropped, '
-                    . 'because the only line that could carry it is read as more of the term above it',
-                'warning',
                 $path,
             );
         }
@@ -2817,8 +2734,6 @@ class HtmlToCarve
         $this->abbreviationDefinitions = [];
         $this->abbreviationMap = [];
         $this->captionFlattenDiagnostics = [];
-        $this->splitDefinitionLists = [];
-        $this->droppedDefinitionDescriptions = [];
         $this->loneImageParagraphs = [];
         $this->consumedCheckboxInputs = [];
         $this->rawPreservedElements = [];
@@ -3217,38 +3132,6 @@ class HtmlToCarve
     protected array $captionFlattenDiagnostics = [];
 
     /**
-     * The `<dl>` elements this conversion wrote as more than one list.
-     *
-     * RECORDED BY THE WRITER, not re-derived by the diagnostic walk. Whether an
-     * entry writes nothing is answered by RENDERING it - `<dd><p> </p></dd>` and
-     * `<dd><ul></ul></dd>` hold elements and still write nothing - so a second
-     * predicate over the DOM answers differently from the one that actually
-     * split the list, and the split goes undeclared. `convertWithReport()`
-     * converts first and inspects afterwards, so what the writer saw is
-     * available by the time the row is written.
-     *
-     * KEYED BY PATH, not by object id: `convertWithReport()` inspects a SECOND
-     * parse of the same HTML, so no node object is shared between the two
-     * passes. The path is what both walks agree on, and it is what the row
-     * carries anyway.
-     *
-     * @var array<string, true>
-     */
-    protected array $splitDefinitionLists = [];
-
-    /**
-     * Is this conversion the one feeding the AST exit?
-     *
-     * The two exits differ in exactly one way and it is not a mode: where Carve
-     * SOURCE has no spelling for a structure, the source exit loses it and says
-     * so, and the AST exit keeps it (`docs/html-import.md`). This engine reads
-     * its tree back from its own source, so the shapes with no spelling need
-     * carrying across, and this flag is what turns that on. Nothing else about
-     * the conversion changes, and the REPORT does not change at all.
-     */
-    protected bool $astExit = false;
-
-    /**
      * The elements this conversion kept BYTE FOR BYTE, keyed by path.
      *
      * KEYED BY PATH for the reason every other record here is: the report walks
@@ -3344,29 +3227,6 @@ class HtmlToCarve
     protected array $unwrappedBlockContainers = [];
 
     /**
-     * The `<dd>` elements this conversion dropped for writing nothing.
-     *
-     * THE SAME RECORD FOR THE SAME REASON as {@see self::$splitDefinitionLists}
-     * above, and it was missing for the row that sits next to that one. The
-     * `structure-unspellable` row asked `hasImportContentToUnwrap()`, which
-     * answers what a `<dd>` HOLDS, while the writer that drops it answers what
-     * it WRITES. Those disagree on exactly the two shapes the split record's
-     * own comment names: `<dd><p> </p></dd>` and `<dd><ul></ul></dd>` both hold
-     * an element and both write nothing, so both were dropped with no row.
-     *
-     * `docs/html-import.md`'s "a declared loss is a ceiling, not a licence"
-     * makes the row the thing that PERMITS the drop, so an undeclared drop is
-     * the half the ceiling does not cover - which is the reasoning that added
-     * this row in the first place (carve-php#1615).
-     *
-     * Keyed by path for the reason the split record is: `convertWithReport()`
-     * inspects a SECOND parse, so no node object is shared between the passes.
-     *
-     * @var array<string, true>
-     */
-    protected array $droppedDefinitionDescriptions = [];
-
-    /**
      * The `<p>` elements this conversion wrote as a bare block image.
      *
      * A paragraph holding nothing but an image has no Carve spelling, so the
@@ -3375,7 +3235,7 @@ class HtmlToCarve
      * the row has to SAY about it: whether the paragraph had attributes to
      * re-attach, and which of them the image's own attribute block overwrites.
      *
-     * KEYED BY PATH for the reason {@see self::$splitDefinitionLists} is:
+     * KEYED BY PATH for the reason {@see self::$rawPreservedElements} is:
      * `convertWithReport()` inspects a SECOND parse of the same HTML, so no node
      * object is shared between the two passes.
      *
@@ -5119,9 +4979,9 @@ class HtmlToCarve
          * that writes source reports `structure-unspellable`.
          *
          * RECORDED HERE, WHERE THE WRITER IS. The inspection walk cannot ask a
-         * DOM-shaped predicate for this and get the same answer, for the reason
-         * {@see self::definitionListSplits()} carries: what a `<p>` HOLDS and
-         * what it WRITES are different questions. This one is the writer's.
+         * DOM-shaped predicate for this and get the same answer: what a `<p>`
+         * HOLDS and what it WRITES are different questions. This one is the
+         * writer's.
          */
         $image = $this->loneImportImage($node, $content);
         if ($image !== null && $this->importParagraphIsWrittenAsABlock($node)) {
@@ -8344,95 +8204,36 @@ class HtmlToCarve
         // the only thing the extra one ever added was the blank line.
         $output = $dlAttrs;
 
-        // A DROPPED ENTRY BREAKS THE LIST (markup-carve/carve#1636). Consecutive
-        // `::` lines SHARE the description written below them, so dropping an
-        // entry that writes nothing and continuing the same list hands the
-        // surviving term the NEXT entry's description - an ADDITION, which no
-        // row can declare and which the ceiling forbids outright. The separator
-        // is a COMMENT LINE, the only construct that both renders nothing where
-        // it stands and stays where it was written; a blank line neither ends a
-        // definition list nor survives the canonical writer.
-        //
-        // Spent on a TERM and cleared on a description: what the break prevents
-        // is a term ABOVE the drop acquiring a description written BELOW it, and
-        // a second description of the SAME entry is not that. An unspent mark is
-        // dropped, which is the one-entry shape markup-carve/carve#1627 ruled.
-        $pendingBreak = false;
+        // Every entry writes its own description line, so consecutive `::`
+        // lines never end up sharing one: a `<dl>` writes back as ONE list with
+        // the grouping it came in with, and no term acquires the next entry's
+        // description.
         foreach ($this->definitionListEntries($node) as $child) {
             $tag = strtolower($child->tagName);
             if ($tag === 'dt') {
-                if ($pendingBreak) {
-                    // THE MARK IS SET EITHER WAY and only the separator is
-                    // conditional. The break exists because a DROPPED entry
-                    // would hand the term above it the next entry's
-                    // description; on the AST exit the description is not
-                    // dropped, so there is nothing to break the list around -
-                    // but the loss is still what the source exit takes, and the
-                    // row that declares it has to read the same from both
-                    // (`markup-carve/carve-php#1716`).
-                    if (!$this->astExit) {
-                        $output .= "\n%%\n\n";
-                    }
-                    $pendingBreak = false;
-                    $this->splitDefinitionLists[$this->conversionNodePath($node)] = true;
-                }
                 $output .= ':: ' . trim($this->processChildren($child)) . "\n";
             } elseif ($tag === 'dd') {
                 $description = trim($this->processChildren($child));
                 if ($description === '') {
-                    // A DESCRIPTION THAT WRITES NOTHING IS DROPPED, not spelled.
+                    // A DESCRIPTION THAT WRITES NOTHING TAKES THE SENTINEL
+                    // `{empty}` (PART 11 §7b, markup-carve/carve#1827).
                     //
-                    // Carve has no spelling for an empty `<dd>`: the bare colon
-                    // line this used to write is read as a continuation of the
-                    // line above it, so `<dl><dt>term</dt><dd></dd></dl>` came
-                    // back as a `<dt>` reading `term\n:` - the description lost
-                    // AND the term damaged - and an empty description with
-                    // entries after it split the list in two around a stray
-                    // `<p>:</p>`. Six spellings were probed on
-                    // markup-carve/carve#1608 and every one leaks a colon into
-                    // the text, folds into the term, or renders `&nbsp;`.
+                    // The line is a block-attribute line: the block it would
+                    // attach to does not exist, so the parse consumes it and
+                    // the description reads back holding no blocks. ONE
+                    // SPELLING FOR BOTH EXITS - this engine reads its AST back
+                    // from the source it just wrote, and the sentinel is what
+                    // makes the tree and the bytes say the same thing without a
+                    // stand-in either side has to take back out.
                     //
-                    // `docs/html-import.md`, "A declared loss is a ceiling, not
-                    // a licence": an import may lose what it declares and no
-                    // more, so the description goes and the term stays.
-                    //
-                    // EMPTY IS WHAT WRITES NOTHING, not what holds nothing. A
+                    // EMPTY IS WHAT WRITES NOTHING, not what holds nothing: a
                     // `<dd>` whose only child renders to a non-breaking space
-                    // writes `:` and three spaces, which round-trips exactly,
-                    // so it is not this case and keeps its line.
-                    //
-                    // RECORDED HERE so the row that declares the drop is
-                    // decided by the writer that made it. See
-                    // {@see self::$droppedDefinitionDescriptions}.
-                    $this->droppedDefinitionDescriptions[$this->conversionNodePath($child)] = true;
-                    $pendingBreak = true;
-
-                    // THE AST EXIT LOSES NOTHING, so it does not take the
-                    // source writer's ceiling (`markup-carve/carve-php#1716`).
-                    //
-                    // `docs/html-import.md` says it in as many words: for a
-                    // structure Carve SOURCE cannot spell, "the AST-returning
-                    // entry point loses nothing and reports nothing; the one
-                    // that writes source reports this". This engine derives its
-                    // tree from its own source, so without a way to carry the
-                    // description across, the exit that is supposed to lose
-                    // nothing lost exactly what the writer did - and the entry
-                    // came back as a term with no description at all.
-                    //
-                    // The mark above is set EITHER WAY, so the report is the
-                    // same on both exits, which is what the shared fixtures
-                    // assert. Only the bytes differ, and only in a string no
-                    // caller ever sees.
-                    if ($this->astExit) {
-                        $output .= self::DEFINITION_BODY_MARKER . self::EMPTY_DESCRIPTION . "\n";
-
-                        continue;
-                    }
+                    // writes its own line and is not this case.
+                    $output .= self::DEFINITION_BODY_MARKER . self::EMPTY_BODY_SENTINEL . "\n";
 
                     continue;
                 }
 
-                $pendingBreak = false;
                 $lines = explode("\n", $description);
                 $output .= self::DEFINITION_BODY_MARKER . array_shift($lines) . "\n";
                 foreach ($lines as $line) {
@@ -8442,34 +8243,6 @@ class HtmlToCarve
         }
 
         return $output . "\n";
-    }
-
-    /**
-     * Did writing this `<dl>` split it into more than one list?
-     *
-     * READ OFF THE WRITER'S OWN RECORD rather than re-derived here, so the ROW
-     * and the SOURCE cannot answer differently. Whether an entry writes nothing
-     * is a question about the RENDERED description - `<dd><p> </p></dd>` and
-     * `<dd><ul></ul></dd>` both hold elements and both write nothing - and a
-     * DOM-shaped predicate gets those two wrong, which would split the list and
-     * declare nothing.
-     */
-    protected function definitionListSplits(string $path): bool
-    {
-        return isset($this->splitDefinitionLists[$path]);
-    }
-
-    /**
-     * Did writing this `<dd>` drop it for writing nothing?
-     *
-     * Read off the writer's own record, for the reason
-     * {@see self::definitionListSplits()} is: the question is about the
-     * RENDERED description, and a DOM-shaped predicate answers it differently
-     * from the writer on `<dd><p> </p></dd>` and `<dd><ul></ul></dd>`.
-     */
-    protected function definitionDescriptionIsDropped(string $path): bool
-    {
-        return isset($this->droppedDefinitionDescriptions[$path]);
     }
 
     /**
@@ -9776,8 +9549,6 @@ class HtmlToCarve
         $abbreviationDefinitions = $this->abbreviationDefinitions;
         $abbreviationMap = $this->abbreviationMap;
         $captionFlattenDiagnostics = $this->captionFlattenDiagnostics;
-        $splitDefinitionLists = $this->splitDefinitionLists;
-        $droppedDefinitionDescriptions = $this->droppedDefinitionDescriptions;
         $loneImageParagraphs = $this->loneImageParagraphs;
         $unwrappedFigures = $this->unwrappedFigures;
         $captionedTableFigures = $this->captionedTableFigures;
@@ -9795,8 +9566,6 @@ class HtmlToCarve
             $this->abbreviationDefinitions = $abbreviationDefinitions;
             $this->abbreviationMap = $abbreviationMap;
             $this->captionFlattenDiagnostics = $captionFlattenDiagnostics;
-            $this->splitDefinitionLists = $splitDefinitionLists;
-            $this->droppedDefinitionDescriptions = $droppedDefinitionDescriptions;
             $this->loneImageParagraphs = $loneImageParagraphs;
             $this->unwrappedFigures = $unwrappedFigures;
             $this->captionedTableFigures = $captionedTableFigures;

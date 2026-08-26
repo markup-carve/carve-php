@@ -28,9 +28,24 @@ class HtmlImportReportTest extends TestCase
      *  - and it must still DIFFER from the pinned golden, so the entry fails and
      *    has to be deleted in the same commit that moves the pin.
      *
-     * @var array<string, array{reason: string, carve: string}>
+     * `diagnostics` is the code list this engine emits, given for a clause
+     * that moves the rows as well as the source - which is the usual case,
+     * since a row describes what the writer gave up.
+     *
+     * @var array<string, array{reason: string, carve: string, diagnostics?: list<string>}>
      */
-    private const AHEAD_OF_PIN = [];
+    private const AHEAD_OF_PIN = [
+        'empty-definition-description' => [
+            'reason' => 'an empty description body is written `: {empty}` (markup-carve/carve#1827)',
+            'carve' => ":: term\n: {empty}\n",
+            'diagnostics' => [],
+        ],
+        'empty-definition-description-not-last' => [
+            'reason' => 'the sentinel keeps the list whole, so nothing splits (markup-carve/carve#1827)',
+            'carve' => ":: t1\n: {empty}\n:: t2\n: d2\n",
+            'diagnostics' => [],
+        ],
+    ];
 
     /**
      * Shared fixtures whose direct-import tree and canonical-source exit do not
@@ -134,11 +149,23 @@ class HtmlImportReportTest extends TestCase
             } else {
                 $this->assertSame($expected, $result->value, basename($fixture));
             }
-            $this->assertSame(
-                array_column($expectedReport['diagnostics'], 'code'),
-                array_column($actual, 'code'),
-                basename($fixture),
-            );
+            $expectedCodes = array_column($expectedReport['diagnostics'], 'code');
+            if ($ahead !== null && array_key_exists('diagnostics', $ahead)) {
+                $this->assertSame($ahead['diagnostics'], array_column($actual, 'code'), $ahead['reason']);
+                // The staleness half, as above.
+                $this->assertNotSame(
+                    $ahead['diagnostics'],
+                    $expectedCodes,
+                    basename($fixture) . ' now matches the pin: delete its AHEAD_OF_PIN entry',
+                );
+                // The rows the fixture states are the ones this engine no
+                // longer emits, so there is no field of them left to read. The
+                // TREE and the two exits' agreement below still run: only the
+                // report moved.
+                $expectedReport['diagnostics'] = [];
+            } else {
+                $this->assertSame($expectedCodes, array_column($actual, 'code'), basename($fixture));
+            }
 
             // The fixtures state a `message`, a `severity` and - for one of
             // them - a `path` for every diagnostic too, and reading back only

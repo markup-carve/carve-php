@@ -38,11 +38,8 @@ use PHPUnit\Framework\TestCase;
  * `html-import/endnotes-section-not-last`, which the spec pin does not carry
  * yet.
  *
- * NOT ASSERTED HERE: the `structure-unspellable` row the empty-description
- * fixture also states. carve-php emits no row for this shape at all, which is
- * markup-carve/carve-php#1615's third item and is being fixed there; that
- * ticket parked WHAT the source should be on the ruling this test pins, and the
- * two halves compose.
+ * NO ROW IS OWED for an empty description: the sentinel spells it, so nothing
+ * is lost and the ceiling has nothing to permit (markup-carve/carve#1827).
  */
 class ADeclaredLossIsACeilingOnImportTest extends TestCase
 {
@@ -57,14 +54,14 @@ class ADeclaredLossIsACeilingOnImportTest extends TestCase
     }
 
     /**
-     * The shared fixture's source, byte for byte.
+     * The empty description is SPELLED, so the round trip loses nothing.
      */
-    public function testAnEmptyDescriptionIsDroppedAndTheTermSurvives(): void
+    public function testAnEmptyDescriptionIsWrittenWithTheSentinel(): void
     {
         $source = $this->import('<dl><dt>term</dt><dd></dd></dl>');
 
-        $this->assertSame(":: term\n", $source);
-        $this->assertSame("<dl>\n  <dt>term</dt>\n</dl>\n", $this->html($source));
+        $this->assertSame(":: term\n: {empty}\n", $source);
+        $this->assertSame("<dl>\n  <dt>term</dt>\n  <dd></dd>\n</dl>\n", $this->html($source));
     }
 
     /**
@@ -80,27 +77,21 @@ class ADeclaredLossIsACeilingOnImportTest extends TestCase
     }
 
     /**
-     * WORSE THAN THE FIXTURE, and the reason the drop is at the entry rather
-     * than at the document's last entry: an empty description with entries after
-     * it split the list in two around a stray `<p>:</p>`.
-     *
-     * THE LIST IS STILL SPLIT, DELIBERATELY NOW (markup-carve/carve#1636). This
-     * asserted ONE `<dl>`, and keeping one is what hands `t1` the description
-     * `d2` - an ADDITION, which no row can declare and which the ceiling forbids
-     * outright. The break is written with a COMMENT LINE, so what goes is the
-     * grouping and nothing else: no stray paragraph, no colon in the output, and
-     * `t1` still has no description.
+     * AN ENTRY AFTER THE EMPTY ONE CHANGES NOTHING. Each entry writes its own
+     * description line, so `t1` keeps its empty one and `d2` stays on `t2`: one
+     * `<dl>`, no stray `<p>:</p>`, and no colon anywhere in the output.
      */
-    public function testAnEmptyDescriptionSplitsTheListDeliberatelyAndCleanly(): void
+    public function testAnEmptyDescriptionKeepsTheListWhole(): void
     {
         $rendered = $this->html($this->import('<dl><dt>t1</dt><dd></dd><dt>t2</dt><dd>d2</dd></dl>'));
 
-        $this->assertSame(2, substr_count($rendered, '<dl>'), $rendered);
+        $this->assertSame(1, substr_count($rendered, '<dl>'), $rendered);
         $this->assertStringNotContainsString('<p>:</p>', $rendered);
         $this->assertStringContainsString('<dt>t1</dt>', $rendered);
         $this->assertStringContainsString('<dd>d2</dd>', $rendered);
-        // The whole point of the break: `t1` gains nothing it never had.
+        // The whole point: `t1` gains nothing it never had.
         $this->assertStringNotContainsString("<dt>t1</dt>\n  <dt>t2</dt>", $rendered);
+        $this->assertStringContainsString("<dt>t1</dt>\n  <dd></dd>", $rendered);
     }
 
     /**

@@ -304,21 +304,30 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
     }
 
     /**
-     * THE SAME RECORD CARRIES TWO OLDER ROWS, and they were dropped on a full
-     * document for the same reason. Asserting them here is what makes the path
-     * fix load-bearing beyond this ticket: a change that only lined up the
-     * lone-image key would leave these two silent.
+     * THE SAME RECORD CARRIES ANOTHER ROW, and it was dropped on a full
+     * document for the same reason. Asserting it here is what makes the path fix
+     * load-bearing beyond this ticket: a change that only lined up the
+     * lone-image key would leave the unwrapped figure silent.
+     *
+     * It used to assert the two rows the empty description owed. Those are gone
+     * - the sentinel spells the shape, so the import loses nothing there
+     * (markup-carve/carve#1827) - and an unwrapped figure is the surviving
+     * writer-recorded row that reaches a full document the same way.
      */
-    public function testTheOlderRowsOnTheSameRecordSurviveAFullDocumentToo(): void
+    public function testTheOtherRowOnTheSameRecordSurvivesAFullDocumentToo(): void
     {
         $html = '<html><head><title>x</title></head>'
-            . '<body><dl><dt>t1</dt><dd></dd><dt>t2</dt><dd>d2</dd></dl></body></html>';
-        $codes = array_map(
-            static fn (array $row): string => (string)$row['code'],
-            (new HtmlToCarve())->convertWithReport($html)->report()['diagnostics'],
-        );
-        $this->assertContains('structure-split', $codes);
-        $this->assertContains('structure-unspellable', $codes);
+            . '<body><figure><table><caption>c</caption><tr><td>a</td></tr></table></figure>'
+            . '<p><img src="i.png" alt="a"></p></body></html>';
+        $rows = (new HtmlToCarve())->convertWithReport($html)->report()['diagnostics'];
+        $byCode = [];
+        foreach ($rows as $row) {
+            $byCode[(string)$row['code']][] = (string)$row['path'];
+        }
+
+        $this->assertArrayHasKey('element-unwrapped', $byCode);
+        $this->assertContains('/figure[2]', $byCode['element-unwrapped']);
+        $this->assertSame(['/p[3]'], $byCode['structure-unspellable'] ?? []);
     }
 
     public function testItReportsEachOfTwoSuchParagraphsOnce(): void
