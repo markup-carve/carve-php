@@ -162,6 +162,20 @@ class CarveRenderer implements RendererInterface
     private const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
 
     /**
+     * Canonical definition marker.
+     *
+     * @var string
+     */
+    protected const DEFINITION_BODY_MARKER = ': ';
+
+    /**
+     * Continuation indent matching the canonical marker width.
+     *
+     * @var string
+     */
+    protected const DEFINITION_BODY_INDENT = '  ';
+
+    /**
      * @var string
      */
     private const ESCAPE_MODE_MINIMAL = 'minimal';
@@ -2588,7 +2602,7 @@ class CarveRenderer implements RendererInterface
                         ? $this->renderFootnote($collected)
                         : $this->renderLinkReferenceDefinition($collected);
                     $pendingBreak = false;
-                    $out[] = ': ' . $written;
+                    $out[] = self::DEFINITION_BODY_MARKER . $written;
 
                     continue;
                 }
@@ -2637,9 +2651,9 @@ class CarveRenderer implements RendererInterface
 
                 $pendingBreak = false;
                 $lines = explode("\n", $body);
-                $out[] = ': ' . array_shift($lines);
+                $out[] = self::DEFINITION_BODY_MARKER . array_shift($lines);
                 foreach ($lines as $line) {
-                    $out[] = $this->indentContinuationLine($line, '  ');
+                    $out[] = $this->indentContinuationLine($line, self::DEFINITION_BODY_INDENT);
                 }
             }
         }

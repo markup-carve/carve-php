@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\Fixture\CanonicalAheadOfPin;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -21,7 +22,6 @@ use function dirname;
 use function file_exists;
 use function file_get_contents;
 use function glob;
-use function in_array;
 use function is_array;
 use function json_encode;
 use function max;
@@ -67,18 +67,6 @@ use function trim;
 #[Group('corpus')]
 class CarveFmtCorpusTest extends TestCase
 {
-    /**
-     * Canonical writer rulings implemented ahead of this repository's spec pin.
-     *
-     * @var array<string>
-     */
-    private const AHEAD_OF_PIN = [
-        '227-a-definition-inside-a-definition-list-dd-is-collected-and-the-entry-keeps-no-trace',
-        '227-a-definition-inside-a-definition-list-dd-is-collected-and-the-entry-keeps-no-trace-2',
-        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3',
-        '407-one-consumed-boolean-spells-the-looseness-no-blank-line-can-2',
-    ];
-
     /**
      * The two causes measured here, one of which every ratchet entry below
      * must name. An entry belonging to none of them is a cause nobody has
@@ -246,12 +234,15 @@ class CarveFmtCorpusTest extends TestCase
     #[DataProvider('pinnedProvider')]
     public function testFormatMatchesThePinnedCanonicalForm(string $slug, string $crv, string $fmt): void
     {
-        if (in_array($slug, self::AHEAD_OF_PIN, true)) {
-            $this->assertNotSame($fmt, CarveConverter::toCarve($crv), 'the ahead-of-pin declaration is stale for ' . $slug);
+        $written = CarveConverter::toCarve($crv);
+        if (CanonicalAheadOfPin::declares($slug)) {
+            $canonical = CanonicalAheadOfPin::get($slug);
+            $this->assertSame($canonical, $written, 'the writer disagrees with the declared canonical form for ' . $slug);
+            $this->assertNotSame($canonical, $fmt, 'the spec pin has caught up; remove the declaration for ' . $slug);
 
             return;
         }
-        $this->assertSame($fmt, CarveConverter::toCarve($crv), 'the writer disagrees with the pinned canonical form for ' . $slug);
+        $this->assertSame($fmt, $written, 'the writer disagrees with the pinned canonical form for ' . $slug);
     }
 
     /**
