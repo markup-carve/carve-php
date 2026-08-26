@@ -7765,6 +7765,103 @@ class BlockParser
     }
 
     /**
+     * The content column of the definition body an item's collected run is
+     * currently inside, or null when it is inside none.
+     *
+     * A DEFINITION BODY IS A BLOCK WITH A BODY, so its extent is the whole
+     * body, BLANK LINES AND ALL (PART 1 S4). That is the same reading
+     * markup-carve/carve#1363 gave a footnote definition, and the reason the
+     * two constructs need it is the same: the blank between a body's two
+     * blocks sits INSIDE the body, so a collector that ends its run there
+     * hands the second block to the container instead.
+     *
+     * Tracked HERE rather than in `advanceTrailingBlockState()`, and for the
+     * same reason the comment fence above it is: the state is one column, the
+     * only caller is the item collector, and the shared tracker's branches are
+     * read by every container in the parser. `advanceItemCommentFence()` is
+     * the shape this mirrors.
+     *
+     * The column is the SEPARATOR'S, not a constant (carve#1757): a one-space
+     * body and a two-space body may sit in one entry, and each one's payload
+     * answers to its own column. Lines arrive stripped to the item's content
+     * column, so a block of the item's own sits at column 0 here.
+     *
+     * @param int|null $openColumn
+     * @param string $line
+     */
+    protected function advanceItemDefinitionBody(?int $openColumn, string $line): ?int
+    {
+        // A NEW BODY REPLACES THE OPEN ONE. Its separator sets a fresh column,
+        // so an entry whose two bodies are written apart does not measure the
+        // second against the first.
+        if (preg_match(self::DEFINITION_BODY_PATTERN, $line, $m) === 1) {
+            return self::DEFINITION_MARKER_WIDTH + strlen($m[1]);
+        }
+
+        if ($openColumn === null) {
+            return null;
+        }
+
+        // A TERM ENDS THE BODY ABOVE IT. The definition list stays open, but
+        // the entry it opens has no body yet, so there is no body column for a
+        // following blank to sit inside.
+        if (preg_match(self::DEFINITION_TERM_LINE_PREFIX, $line) === 1) {
+            return null;
+        }
+
+        if (IndentationHelper::isBlankLine($line)) {
+            return $openColumn;
+        }
+
+        return IndentationHelper::getLeadingColumns($line, $openColumn) >= $openColumn
+            ? $openColumn
+            : null;
+    }
+
+    /**
+     * Does the definition body open at `$openColumn` continue BELOW this blank?
+     *
+     * Asked at the blank rather than after it, because whether the blank is
+     * INSIDE the body or AFTER it is decided by the line below and by nothing
+     * on the blank itself. Inside, the body's run carries across (PART 1 S4);
+     * after, the blank ends the item's run exactly as it did before there was
+     * a body to ask about - and it is that second answer §17 L1 needs, because
+     * a blank separating two of the ITEM's blocks loosens the list.
+     *
+     * Getting this wrong in the permissive direction is not a near-miss: it
+     * turns every below-column payload from a loose item's second block into a
+     * tight item's lazy continuation, which is a change to documents this
+     * ticket is not about.
+     *
+     * @param array<string> $lines
+     * @param int $index Index of the blank line.
+     * @param int $count
+     * @param int $contentIndent The item's content column, which the body's own
+     *   column is measured from.
+     * @param int $openColumn
+     */
+    protected function definitionBodyContinuesPastBlank(
+        array $lines,
+        int $index,
+        int $count,
+        int $contentIndent,
+        int $openColumn,
+    ): bool {
+        $bodyColumn = $contentIndent + $openColumn;
+        for ($j = $index + 1; $j < $count; $j++) {
+            if (IndentationHelper::isBlankLine($lines[$j])) {
+                continue;
+            }
+
+            return IndentationHelper::getLeadingColumns($lines[$j], $bodyColumn) >= $bodyColumn;
+        }
+
+        // The item ends at the blank. Nothing follows for the body to hold, so
+        // the run ends here and the trailing blanks are dropped as they were.
+        return false;
+    }
+
+    /**
      * The attached run's block KIND, once its first visible line is known.
      *
      * Three answers, because §17 L3's boundary needs exactly three and not a
@@ -8091,8 +8188,13 @@ class BlockParser
         // sits at - the one a marker-line `- %%%` opener needs the lookahead to
         // start from.
         $openCommentLength = null;
+        // Seeded over the lead for the same reason the comment fence is: the
+        // item's `- :: t` / `  : d` spelling writes the body on a line this
+        // collector never sees.
+        $openDefinitionBody = null;
         foreach ($itemLines as $seedLine) {
             $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
+            $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
         }
         while ($i < $count) {
             $nextLine = $lines[$i];
@@ -8127,15 +8229,36 @@ class BlockParser
                 // there gave the note one block and handed `more` to the item.
                 // A LINK definition has no body and never arms this, which is
                 // the control corpus 359-2 is.
+                // AND A DEFINITION BODY IS THE FIFTH KIND, on the reading
+                // the footnote body above it already has: the blank separates
+                // the BODY's own blocks, so ending the item's run there gave
+                // the body one block and handed the rest to the item. That is
+                // what made a no-blank `:: t` / `:  d` inside an item lose its
+                // payload out of the `dd` while the same document with a blank
+                // above the term kept it - one construct, two answers, decided
+                // by a line that is not part of it
+                // (markup-carve/carve-php#1787).
+                //
+                // WHERE the payload lands is still the definition list's own
+                // question, not this gate's: crossing the blank only keeps the
+                // body's lines in ONE stream, and `tryParseDefinitionList()`
+                // then measures them against the separator's column exactly as
+                // it does for the blank-above spelling. A payload below that
+                // column stays outside the `dd`.
                 if (
                     $trailingState['inFence']
                     || $trailingState['inDiv']
                     || $trailingState['inFootnoteBody']
                     || $openCommentLength !== null
+                    || (
+                        $openDefinitionBody !== null
+                        && $this->definitionBodyContinuesPastBlank($lines, $i, $count, $contentIndent, $openDefinitionBody)
+                    )
                 ) {
                     $itemLines[] = '';
                     $itemLineMap[] = $this->sourceLineFor($i);
                     $trailingState = $this->advanceTrailingBlockState($trailingState, '');
+                    $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, '');
                     $i++;
 
                     continue;
@@ -8253,6 +8376,7 @@ class BlockParser
                 }
                 $authoredBaseEligible[count($itemLines)] = true;
                 $itemLines[] = $contentLine;
+                $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $contentLine);
                 $itemLineMap[] = $this->sourceLineFor($i);
                 // AT the item's content column - the line was dedented BY that
                 // column to get here - so an invisible block on it ends the
@@ -8411,6 +8535,7 @@ class BlockParser
                 $foldedAsText = true;
             } else {
                 $itemLines[] = $nextTrimmed;
+                $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
                 $itemLineMap[] = $this->sourceLineFor($i);
             }
             if ($foldedAsText) {
