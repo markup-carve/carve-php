@@ -72,6 +72,19 @@ class TheContinuationMarkerSColumnGateReachesEveryContainerTest extends TestCase
             'a description, one column further below' => [":: term\n:  intro\n@\n more\n"],
             'a block quote, with the quoted paragraph closed' => ["> intro\n>\n@\n  more\n"],
             'a list item, the container that always held the gate' => ["- intro\n@\n  more\n"],
+            // ONE RULE, TWO SPELLINGS. A footnote body is collected twice in
+            // this engine - the pre-pass for a top-level definition, and
+            // `tryParseFootnoteDefinition()` for one inside a container - and a
+            // gate written into only one of them is the shape
+            // markup-carve/carve#1814 is about. These two rows reach the second
+            // spelling, at the body's own minimum column where its continuation
+            // branch claims the line before the pull branch is asked.
+            'a footnote body in a block quote, at its minimum column' => [
+                "> [^a]: intro\n> @\n>   more\n>\n> see[^a]\n",
+            ],
+            'a footnote body in an admonition, at its minimum column' => [
+                "::: note\n[^a]: intro\n@\n  more\n:::\n\nsee[^a]\n",
+            ],
         ];
     }
 
