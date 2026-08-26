@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\Fixture\CanonicalAheadOfPin;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -13,7 +14,6 @@ use function dirname;
 use function file_exists;
 use function file_get_contents;
 use function glob;
-use function in_array;
 use function preg_match;
 
 /**
@@ -21,16 +21,6 @@ use function preg_match;
  */
 class CorpusRenderFixtureTest extends TestCase
 {
-    /**
-     * @var list<string>
-     */
-    private const AHEAD_OF_PIN = [
-        '227-a-definition-inside-a-definition-list-dd-is-collected-and-the-entry-keeps-no-trace',
-        '227-a-definition-inside-a-definition-list-dd-is-collected-and-the-entry-keeps-no-trace-2',
-        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3',
-        '407-one-consumed-boolean-spells-the-looseness-no-blank-line-can-2',
-    ];
-
     /**
      * @throws \RuntimeException
      *
@@ -76,8 +66,10 @@ class CorpusRenderFixtureTest extends TestCase
             default => throw new RuntimeException('Unknown corpus render target: ' . $target),
         };
 
-        if ($target === 'fmt' && in_array($slug, self::AHEAD_OF_PIN, true)) {
-            $this->assertNotSame($expected, $actual, 'the ahead-of-pin declaration is stale for ' . $slug);
+        if ($target === 'fmt' && CanonicalAheadOfPin::declares($slug)) {
+            $canonical = CanonicalAheadOfPin::get($slug);
+            $this->assertSame($canonical, $actual, 'the renderer disagrees with the declared canonical form for ' . $slug);
+            $this->assertNotSame($canonical, $expected, 'the spec pin has caught up; remove the declaration for ' . $slug);
 
             return;
         }

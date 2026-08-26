@@ -78,6 +78,20 @@ class HtmlToCarve
     protected const EMPTY_DESCRIPTION = "\x01carve-empty-description\x01";
 
     /**
+     * Canonical definition marker.
+     *
+     * @var string
+     */
+    protected const DEFINITION_BODY_MARKER = ': ';
+
+    /**
+     * Continuation indent matching the canonical marker width.
+     *
+     * @var string
+     */
+    protected const DEFINITION_BODY_INDENT = '  ';
+
+    /**
      * @var list<string>
      */
     protected const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
@@ -8410,7 +8424,7 @@ class HtmlToCarve
                     // assert. Only the bytes differ, and only in a string no
                     // caller ever sees.
                     if ($this->astExit) {
-                        $output .= ': ' . self::EMPTY_DESCRIPTION . "\n";
+                        $output .= self::DEFINITION_BODY_MARKER . self::EMPTY_DESCRIPTION . "\n";
 
                         continue;
                     }
@@ -8420,9 +8434,9 @@ class HtmlToCarve
 
                 $pendingBreak = false;
                 $lines = explode("\n", $description);
-                $output .= ': ' . array_shift($lines) . "\n";
+                $output .= self::DEFINITION_BODY_MARKER . array_shift($lines) . "\n";
                 foreach ($lines as $line) {
-                    $output .= '  ' . $line . "\n";
+                    $output .= self::DEFINITION_BODY_INDENT . $line . "\n";
                 }
             }
         }
