@@ -399,13 +399,23 @@ class CarveFmtCorpusTest extends TestCase
      * exactly the bound PART 11 §1c states for the loss it permits - "the
      * content, its attributes and its neighbours all survive as themselves".
      *
+     * `blockImage` IS ALLOWED AS A THIRD KEY, and it is the one exception the
+     * bound admits by its own terms (PART 12 section 23,
+     * markup-carve/carve-php#1800). It carries no content, no attribute and no
+     * neighbour: it is the promotion phase's statement that this paragraph is a
+     * block image and not a paragraph - which is to say, a statement that this
+     * wrapper is exactly the one section 1c dissolves. Excluding it would reject
+     * the section 1c ceiling on the very documents the clause is about, and it
+     * does not survive dissolution anyway, since the wrapper is replaced by its
+     * child.
+     *
      * @param array<string, mixed> $node
      */
     private static function isBareWrapper(array $node): bool
     {
         $keys = array_keys($node);
         sort($keys);
-        if ($keys !== ['children', 'type']) {
+        if ($keys !== ['children', 'type'] && $keys !== ['blockImage', 'children', 'type']) {
             return false;
         }
 

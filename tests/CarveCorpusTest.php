@@ -781,6 +781,19 @@ class CarveCorpusTest extends TestCase
         // paragraph of literal text. Already answered here; rendered and
         // compared per document before listing.
         'a-lone-reference-image-at-column-0-in-every-spelling',
+        // Arrived with the pin bump this change carries. Each renders
+        // byte-identically to its pinned HTML on this engine, so all six are
+        // IMPLEMENTED rather than deferred. The last is the one this change is
+        // about: PART 9R R7's give-back paths, on a caption slot more than one
+        // line wide and on a slot inside a container - the two paths on which a
+        // line of the document can be lost, and neither was held by any corpus
+        // document before this category.
+        'an-invisible-line-before-the-blank-does-not-cancel-the-separation',
+        'below-a-definition-body-s-column-an-invisible-line-folds-as-text',
+        'a-floating-attribute-under-a-definition-attaches-at-column-zero',
+        'an-abbreviation-definition-outside-document-level-is-not-an-invisible-line',
+        'a-comment-in-a-footnote-body-is-invisible-in-both-spellings',
+        'an-unresolved-image-gives-its-whole-caption-slot-back-at-any-depth',
     ];
 
     /**

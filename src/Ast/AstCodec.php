@@ -31,6 +31,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -741,6 +742,17 @@ class AstCodec
 
         $this->verifyNothingWasLost($data, $node);
         self::resolveFootnoteRefs($node);
+        // PART 12 section 23 on ingest: TRUST `blockImage`, and promote only
+        // where it is ABSENT (markup-carve/carve-php#1800). Unlike the two
+        // passes above, this one does not recompute what arrived. An orphaned
+        // footnote number is a claim the tree can be checked against, so it is
+        // dropped; a missing `blockImage` is not a claim at all - every AST JSON
+        // document written before the promotion phase existed omits it, so
+        // absence says the producer did not run the phase, NOT that the
+        // paragraph is ordinary. A tree is never refused for omitting it, and
+        // without this an ingested lone-image paragraph rendered `<p><img></p>`
+        // where the same document parsed from source rendered a bare `<img>`.
+        BlockImagePromotion::promoteWhereAbsent($node);
 
         return $node;
     }

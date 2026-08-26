@@ -71,6 +71,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\SafeMode;
+use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -690,6 +691,18 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     public function render(Document $document): string
     {
+        // ONE PROMOTION PHASE, BEFORE ANYTHING IS SERIALIZED (PART 9R R7,
+        // markup-carve/carve-php#1800). A parsed document was answered by the
+        // parser and an ingested one by the codec, so this settles the third
+        // case: a tree that reached the renderer without passing either -
+        // one an editor, an extension or a caller built by hand. Those used to
+        // work because the renderer re-derived the answer for itself; it reads
+        // the field now, so a tree nobody promoted would silently lose its bare
+        // `<img>` and render `<p><img></p>` instead.
+        //
+        // WHERE ABSENT ONLY, so the answer an ingested tree arrived with is not
+        // re-decided here against this document's reference table.
+        BlockImagePromotion::promoteWhereAbsent($document);
         $this->pickBreakGuards($document);
 
         return $this->restoreSoftBreakGuards($this->withRenderContext(
@@ -1044,25 +1057,32 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * A paragraph that renders as a bare block image (no attributes, a single
-     * Image child). Such a paragraph emits a block-level <img> with no <p>
-     * wrapper, so a container holding only it uses the expanded (indented)
-     * layout rather than the single-paragraph compact form.
+     * A paragraph that renders as a bare block image: one the promotion phase
+     * marked, carrying no render-time attributes. Such a paragraph emits a
+     * block-level <img> with no <p> wrapper, so a container holding only it uses
+     * the expanded (indented) layout rather than the single-paragraph compact
+     * form.
+     *
+     * READS THE FIELD, does not re-derive it (PART 9R R7, PART 12 section 23,
+     * markup-carve/carve-php#1800). Whether a paragraph's whole content resolves
+     * to a single image is a question about the RESOLVED tree - the definition
+     * behind `![a][r]` may sit anywhere in the document - and
+     * {@see \MarkupCarve\Carve\Parser\BlockParser::promoteBlockImages()} is
+     * the one place that answers it. This method used to ask it again, and the
+     * three call sites below reached through it, so one predicate had four
+     * spellings and only this one was ever tested.
+     *
+     * The attribute test stays here because it is not part of that question. It
+     * is a RENDER-TIME condition: a leading block-attribute line's attrs were
+     * already moved onto the <img> by the promotion phase, so the paragraph is
+     * attr-free by then, and attributes a render-time extension adds must keep
+     * their <p> wrapper.
      */
     protected function isBlockImageParagraph(Node $node): bool
     {
-        if (!$node instanceof Paragraph) {
-            return false;
-        }
-        $children = $node->getChildren();
-
-        // An UNRESOLVED reference image renders as its literal source (PART 12
-        // §3a), so it is not a block image: `![a][]` with nothing defining
-        // `[a]` keeps its <p>, as it does in carve-js.
-        return $this->renderAttributes($node) === ''
-            && count($children) === 1
-            && $children[0] instanceof Image
-            && ($children[0]->getRawReferenceLabel() === null || $children[0]->getSource() !== '');
+        return $node instanceof Paragraph
+            && $node->isBlockImage()
+            && $this->renderAttributes($node) === '';
     }
 
     protected function renderParagraph(Paragraph $node): string

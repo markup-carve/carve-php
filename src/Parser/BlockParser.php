@@ -50,6 +50,7 @@ use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -482,7 +483,7 @@ class BlockParser
      * A block image is a top-level block construct, so PART 9 section 15's
      * strict column-0 rule reaches it: an INDENTED lone image is a paragraph
      * holding an inline image, never a block image (markup-carve/carve#1660).
-     * {@see promoteBlockImageAttributes()} is the only reader.
+     * {@see promoteBlockImages()} is the only reader.
      *
      * PARSER-LOCAL, keyed by object id like `$unplaceableNodeIds` above, rather
      * than a property on `Paragraph`: {@see \MarkupCarve\Carve\Ast\AstCodec}
@@ -1201,7 +1202,7 @@ class BlockParser
         // this AFTER caption wrapping (so a captioned image is already a <figure>
         // and keeps its id there) and BEFORE rendering (so render-time extension
         // attributes are untouched -- they still land on the <p> wrapper).
-        $this->promoteBlockImageAttributes($document);
+        $this->promoteBlockImages($document);
 
         if ($this->trackPositions) {
             // After every pass that can move or wrap nodes, so a container sees
@@ -1234,18 +1235,47 @@ class BlockParser
     }
 
     /**
-     * Move a sole-image paragraph's SOURCE attributes (from a leading
-     * block-attribute line) onto the image, so it renders as a bare block
-     * `<img>` carrying those attrs (§15) rather than a `<p>` wrapper -- matching
-     * a direct block image and carve-js / carve-rs. Walks the whole block tree.
+     * THE BLOCK-IMAGE PROMOTION PHASE -- the ONE place that asks whether a
+     * paragraph is a block image (PART 9R R7, markup-carve/carve-php#1800).
+     *
+     * Block-image status is a property of the RESOLVED tree, not of the source
+     * line: `![a][r]` is a block image where `[r]: /u` is written and ordinary
+     * prose where it is not, and the definition may sit anywhere in the
+     * document. The question used to be asked in four places - this pass, the
+     * renderer's own `isBlockImageParagraph()`, and the two call sites that
+     * reached through it to choose a quote's frame and a list item's `<p>`.
+     * Four copies of one predicate are four chances for it to drift, and the
+     * renderer's was the only one any test could see.
+     *
+     * It is answered once, here, after every definition is known. A paragraph
+     * whose whole content resolves to a single image is marked `blockImage`,
+     * and the renderers read the field.
+     *
+     * TWO DECISIONS, ONE PREDICATE, AND THEY ARE NOT THE SAME DECISION. The
+     * FIELD is ungated on column: a lone-image paragraph renders as a bare
+     * block `<img>` at EVERY column, which is what the published HTML says and
+     * what carve-js and carve-rs also emit. Moving the paragraph's SOURCE
+     * attributes onto the image, and replacing the paragraph with the image
+     * node, stay gated on strict column 0 (PART 9 section 15,
+     * markup-carve/carve#1660): a block image is a top-level block construct,
+     * so an INDENTED lone image stays a paragraph holding an inline image.
+     * Reading one gate for both answers would either withhold the field from a
+     * paragraph the HTML treats as an image, or publish an image node where the
+     * tree must show a paragraph.
+     *
+     * Walks the whole block tree.
      */
-    protected function promoteBlockImageAttributes(Node $node): void
+    protected function promoteBlockImages(Node $node): void
     {
         $children = $node->getChildren();
         $replaced = false;
         foreach ($children as $index => $child) {
             if ($child instanceof Paragraph) {
                 $kids = $child->getChildren();
+                // THE FIELD, from the one predicate. Recomputed rather than
+                // accumulated, so promoting a tree twice cannot leave a stale
+                // `true` behind.
+                $child->setBlockImage(BlockImagePromotion::isBlockImage($child));
                 // An UNRESOLVED reference image is not an image in block
                 // position: it renders as its literal source (PART 12 §3a), so
                 // `![a][]` with nothing defining `[a]` stays a paragraph, as it
@@ -1284,7 +1314,7 @@ class BlockParser
                     continue;
                 }
             }
-            $this->promoteBlockImageAttributes($child);
+            $this->promoteBlockImages($child);
         }
         if ($replaced) {
             $node->setChildren($children);
@@ -11686,7 +11716,7 @@ class BlockParser
         // `$lines` is already dedented to that column, so a leading space here is
         // a space the author put ABOVE it - and a block image is a top-level
         // block construct, so section 15's strict column-0 rule reaches it. The
-        // reader is `promoteBlockImageAttributes()`, which without this could not
+        // reader is `promoteBlockImages()`, which without this could not
         // tell ` ![a](u)` from `![a](u)`: the two build the same paragraph and
         // render the same bytes, and only the published TREE differs
         // (markup-carve/carve#1660).
