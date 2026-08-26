@@ -441,7 +441,7 @@ class ReferenceDefinitionExtractor
 
     private function referenceListMarkerEndAt(string $line, int $at, string $previousLine): ?int
     {
-        $descriptionMarker = self::opensDefinitionEntry($previousLine) ? ':[ \t]|' : '';
+        $descriptionMarker = self::opensDefinitionEntry($previousLine) ? ':|' : '';
         $pattern = '/[ \t]*(?:' . $descriptionMarker
             . '[-*]|\.|(?:[0-9]+|[ivxlcdm]+|[a-z])[.)]) +(?:\[[ xX\-_>?]\] +)?(?='
             . StringUtil::NON_WHITESPACE_CLASS . ')/A';
@@ -574,8 +574,16 @@ class ReferenceDefinitionExtractor
         // somewhere else in the document (carve-php#891, spec
         // markup-carve/carve#801).
         //
-        // `::` is the TERM marker and must not match here: it needs whitespace
-        // after the single colon, which `::` and a `:::` fence opener both fail.
+        // `::` is the TERM marker and must not match here: the alternation's
+        // shared ` +` demands a SPACE after the single colon, which `::` and a
+        // `:::` fence opener both fail.
+        //
+        // The marker is the bare colon and the run belongs to that shared ` +`
+        // (carve#1757): the separator is one or more SPACES, so a one-space
+        // description line is stripped here as the block parser's
+        // `DEFINITION_BODY_PATTERN` opens one, and a tab in the separator's own
+        // slot is refused by both. Spelling the first slot here as `:[ \t]`
+        // disagreed with that pattern on both counts.
         $m0 = $line[0] ?? '';
         if (
             $m0 !== ' ' && $m0 !== "\t" && $m0 !== '-' && $m0 !== '*' && $m0 !== ':'
@@ -584,7 +592,7 @@ class ReferenceDefinitionExtractor
             return $line;
         }
 
-        $descriptionMarker = self::opensDefinitionEntry($previousLine) ? ':[ \t]|' : '';
+        $descriptionMarker = self::opensDefinitionEntry($previousLine) ? ':|' : '';
 
         return preg_replace(
             '/^[ \t]*(?:' . $descriptionMarker . '[-*]|[0-9]+[.)]) +(?:\[[ xX\-_>?]\] +)?(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/',
