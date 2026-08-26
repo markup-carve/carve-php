@@ -67,7 +67,11 @@ use function trim;
 #[Group('corpus')]
 class CarveFmtCorpusTest extends TestCase
 {
-    /** Canonical writer rulings implemented ahead of this repository's spec pin. */
+    /**
+     * Canonical writer rulings implemented ahead of this repository's spec pin.
+     *
+     * @var array<string>
+     */
     private const AHEAD_OF_PIN = [
         '227-a-definition-inside-a-definition-list-dd-is-collected-and-the-entry-keeps-no-trace',
         '227-a-definition-inside-a-definition-list-dd-is-collected-and-the-entry-keeps-no-trace-2',
