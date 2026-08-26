@@ -151,13 +151,24 @@ class AnAttributeLineAtColumnZeroUnderADescriptionAttachesTest extends TestCase
     }
 
     /**
-     * BELOW the content column it ends the body and stays literal - corpus
-     * 157, and the same in carve-js and carve-rs.
+     * BELOW the content column it FOLDS INTO the description and stays literal.
+     *
+     * This row asserted the other half of that when the file landed - that the
+     * body ended and the line was published at document level - which was what
+     * all three engines did at the time. markup-carve/carve#1809 then ruled the
+     * band: §10 I5 makes an invisible line at a nonzero column below the content
+     * column "lazy paragraph text of THAT container ... and does not register",
+     * and corpus 430-3 pins it. Only WHICH container the characters land in
+     * moved; they were never dropped by this spelling, and they still are not.
+     *
+     * It stays here rather than moving to the band's own file because it is what
+     * keeps the two columns apart: column 0 attaches, one column in folds, and a
+     * change that confused them fails one of the two.
      */
-    public function testAControlBelowTheContentColumnItStaysLiteral(): void
+    public function testAControlBelowTheContentColumnItFoldsAndStaysLiteral(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>{.k}\ntail</p>",
+            "<dl>\n  <dt>t</dt>\n  <dd>d\n{.k}\ntail</dd>\n</dl>",
             $this->html(":: t\n:  d\n  {.k}\ntail\n"),
         );
     }
