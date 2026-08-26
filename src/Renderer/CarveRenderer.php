@@ -1624,7 +1624,6 @@ class CarveRenderer implements RendererInterface
             $node instanceof DefinitionList => $this->atARaisedBase(
                 $withLooseAttrs($node, $this->renderDefinitionList($node)),
                 $atAnAuthoredBodyColumn,
-                $this->listDepth > 0 && $this->definitionListHasStructuralPayload($node),
             ),
             $node instanceof FigureGroup => $withAttrs($this->renderFigureGroup($node)),
             $node instanceof Figure => $withAttrs($this->renderFigure($node)),
@@ -2638,20 +2637,30 @@ class CarveRenderer implements RendererInterface
      * payload column, so where the raise does fire there is no second spelling
      * to prefer: it is the only one that says what the document says.
      *
+     * ONE GATE, AND IT IS THE PARSER'S. Whether the un-raised bytes still say
+     * what the document says is a question about how a READER rebases them, so
+     * it is asked by running the parser's own rebase pass over those bytes. A
+     * structural predicate beside it - "this description holds a block that is
+     * neither a paragraph nor a sub-list" - is a second spelling of a column
+     * rule, and it drifted from the first one exactly as carve#755 catalogs:
+     * short-circuiting the probe, it raised a definition list inside a LIST
+     * ITEM, where the un-raised form parses correctly in this engine and is
+     * what carve-js and carve-rs write. carve#1802. The probe alone answers
+     * every shape the predicate was added for, so the predicate is gone rather
+     * than narrowed.
+     *
      * @param string $rendered
      * @param bool $atAnAuthoredBodyColumn
-     * @param bool $hasStructuralPayload
      *
      * @return string
      */
     protected function atARaisedBase(
         string $rendered,
         bool $atAnAuthoredBodyColumn,
-        bool $hasStructuralPayload = false,
     ): string {
         if (
             !$atAnAuthoredBodyColumn
-            || (!$hasStructuralPayload && !$this->bodyRebaseWouldMoveALine($rendered))
+            || !$this->bodyRebaseWouldMoveALine($rendered)
         ) {
             return $rendered;
         }
@@ -2709,28 +2718,6 @@ class CarveRenderer implements RendererInterface
         }
 
         return implode("\n", $kept);
-    }
-
-    /**
-     * Whether an entry contains a block whose ownership depends on the entry's
-     * authored base. Paragraph continuations and sub-lists have their own
-     * stable canonical spellings; every other block opener must move with the
-     * definition list when that list is itself a direct container child.
-     */
-    protected function definitionListHasStructuralPayload(DefinitionList $node): bool
-    {
-        foreach ($node->getChildren() as $entry) {
-            if (!$entry instanceof DefinitionDescription) {
-                continue;
-            }
-            foreach ($entry->getChildren() as $child) {
-                if (!$child instanceof Paragraph && !$child instanceof ListBlock) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     /**
