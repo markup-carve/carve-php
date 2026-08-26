@@ -179,7 +179,7 @@ class TheAstExitPublishesTheDocumentNotTheWriterTest extends TestCase
         $importer->convertToAst($html);
         $after = $importer->convert($html);
 
-        $this->assertSame(":: t1\n\n%%\n\n:: t2\n: d2\n", $before);
+        $this->assertSame(":: t1\n: {empty}\n:: t2\n: d2\n", $before);
         $this->assertSame($before, $after);
     }
 

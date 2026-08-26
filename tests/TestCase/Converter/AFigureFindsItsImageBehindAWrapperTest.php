@@ -196,10 +196,12 @@ class AFigureFindsItsImageBehindAWrapperTest extends TestCase
      */
     public function testATrialWriteDoesNotDoubleTheLossesTheRealWriteRecords(): void
     {
-        // The body holds an image AND a `<dd>` that writes nothing, so the
-        // transparency question is asked, answered "no", and the generic path
-        // then writes the same subtree for real.
-        $html = '<figure><div><img src="i.png" alt="a"><dl><dt>t</dt><dd></dd></dl></div>'
+        // The body holds an image AND a `<dd>` whose whole content is one
+        // image - a loss the writer RECORDS - so the transparency question is
+        // asked, answered "no", and the generic path then writes the same
+        // subtree for real.
+        $html = '<figure><div><img src="i.png" alt="a">'
+            . '<dl><dt>t</dt><dd><p><img src="j.png" alt="b"></p></dd></dl></div>'
             . '<figcaption>cap</figcaption></figure>';
 
         $codes = $this->codes($html);
@@ -207,7 +209,7 @@ class AFigureFindsItsImageBehindAWrapperTest extends TestCase
         $this->assertSame(
             1,
             count(array_filter($codes, static fn (string $code): bool => $code === 'structure-unspellable')),
-            'the dropped description is one loss, reported once: ' . implode(',', $codes),
+            'the wrapped image is one loss, reported once: ' . implode(',', $codes),
         );
     }
 }

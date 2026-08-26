@@ -234,25 +234,19 @@ class AnImportKeepsTheMeaningTheHtmlHeldTest extends TestCase
     }
 
     /**
-     * An empty `<dd>` is dropped, and the drop is DECLARED.
+     * An empty `<dd>` is WRITTEN, and nothing is declared.
      *
-     * Carve has no spelling for an empty definition description, so the
-     * description goes and the term stays - which is the loss
-     * `docs/html-import.md` permits under "a declared loss is a ceiling, not a
-     * licence". Permitting it is conditional on declaring it, and the writer
-     * dropped it in silence.
+     * `: {empty}` is a block-attribute line whose block does not exist, so the
+     * parse consumes it and the description reads back holding no blocks. There
+     * is no loss for `docs/html-import.md`'s ceiling to permit
+     * (markup-carve/carve#1827).
      */
-    public function testAnEmptyDefinitionDescriptionSaysItWasDropped(): void
+    public function testAnEmptyDefinitionDescriptionSaysNothingBecauseItLosesNothing(): void
     {
         $report = $this->converter->convertWithReport('<dl><dt>term</dt><dd></dd></dl>');
 
-        // The source is the ruled one and does not move here.
-        $this->assertSame(":: term\n", $this->converter->convert('<dl><dt>term</dt><dd></dd></dl>'));
-        $this->assertSame(
-            ['structure-unspellable'],
-            array_map(static fn ($row): string => $row->code, $report->diagnostics),
-        );
-        $this->assertSame('/dl[1]/dd[2]', $report->diagnostics[0]->path);
+        $this->assertSame(":: term\n: {empty}\n", $this->converter->convert('<dl><dt>term</dt><dd></dd></dl>'));
+        $this->assertSame([], array_map(static fn ($row): string => $row->code, $report->diagnostics));
     }
 
     /**
