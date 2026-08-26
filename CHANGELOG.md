@@ -9,6 +9,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A fenced block quote** (#1748, markup-carve/carve#1718, markup-carve/carve#1734). `::: >` opens a quote whose body is ordinary block content, the same node the prefixed form produces; the node records which spelling was authored, so `carve fmt` writes it back.
+- **`carve lint` reports a quote fence that ends the quote above it** (#1761). The new `quote-fence-ends-the-quote-above` rule names the one `::: >` mistake that reads exactly like the nesting it is not.
+- **Digit-leading explicit ids and classes** (#1738). `{#123 .2col}` and a digit-leading generic-div type survive parsing, HTML import and canonical output; keys, booleans and generated heading ids are unchanged.
+- **`roundtrip` HTML import keeps what Carve cannot express, byte for byte** (#1724, #1713). `<iframe>`, `<svg>`, `<form>`, `<hgroup>` and the rest are preserved instead of dropped, unwrapped or degraded to a `:::` fence. `safe` and `semantic` are unchanged.
 - **Checked render results** (markup-carve/carve#1728). `convertWithReport()` and `renderWithReport()` preserve the existing value while reporting bounded, positioned `raw-format-dropped` losses; strict mode throws `RenderLossException` with the same complete count.
 - **A definition list's spelled looseness is a field on the wire** (#1658, #1660, markup-carve/carve#1624, PART 12 §8). `definition_list` publishes `loose` where the source spelled it, so a tree that goes out over the wire no longer has to derive each description's wrapper from its block count.
 - **The HTML importer has an AST exit** (#1666). `HtmlToCarve::convertToAst()` and `convertToAstWithReport()` return the PART 12 AST, the latter as an `HtmlImportAstResult` carrying the same mode, adapter and diagnostics as the source exit.
@@ -23,7 +27,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Authored block bases now keep opaque fence payloads and nested footnote definitions in their structural owner. Invisible fenced percent blocks no longer make an otherwise tight list loose.
+- **A definition body's separator is any run of spaces, and its width sets the content column** (#1772, #1773, markup-carve/carve#1757). `:  body` opens a wider body; the canonical writer and the HTML importer narrow every separator to one space and rebase the continuation by the same amount.
+- **`{align=left|right|center}` renders a `text-align` declaration** (#1758, markup-carve/carve#1755) on paragraphs, divs and headings, instead of the deprecated presentational `align` attribute. An element whose `align` means something else keeps it.
+- **Reference labels match on normalized ASCII whitespace** (#1740, markup-carve/carve#1726). Links, images and footnotes resolve across harmless spacing differences, in the parser, the borrowed HTML path and the ProseMirror bridge alike; case and Unicode whitespace still do not fold, and the winning definition's authored spelling is what `carve fmt` writes.
+- **A marker-attached attribute block moves no list content column** (#1706, markup-carve/carve#1701, markup-carve/carve#1703). `-{#k} a` keeps the bare marker's column, as a task checkbox already did, across the parser, the canonical writer and the HTML importer.
+- **An imported cell's alignment is the native marker run** (#1742, markup-carve/carve#1741). In `semantic` and `roundtrip` a `text-align` or `vertical-align` comes back as `|>` rather than `{align=…}`, so a render-and-import cycle no longer drifts; `safe` still drops it and reports.
+- **Authored block bases keep opaque fence payloads and nested footnote definitions in their structural owner** (#1756). Invisible fenced percent blocks no longer make an otherwise tight list loose.
 - **Recognized block groups authored past a definition or footnote body's minimum column now parse at their authored local base and format back to the canonical column** (markup-carve/carve#1729). Plain lazy continuation and below-column behavior are unchanged.
 - **Recognized block groups authored past a list item's canonical content column now use that column as a temporary local base and format back canonically** (#1720, markup-carve/carve#1705). Exact-column and below-minimum behavior stay unchanged; this is a source-compatibility change for older readers that treated the over-indented marker literally.
 - **The ANSI quote bar reports containment, not node kind** (markup-carve/carve#1689). A quoted heading, code block, table, thematic break and lone image keep the bar, and a quoted list's bar sits outside its marker. All three engines agreed on the old behavior, so this moves agreed behavior rather than closing a divergence.
@@ -59,11 +68,28 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **The Markdown target keeps every row from a multi-header table and uses the final effective column alignment.** Additional header rows degrade to body rows instead of disappearing, and body-cell overrides do not leak into the delimiter.
+- **A dangling attribute line does not reach a deferred footnote body** (#1770). An unattached attribute line at the end of a document no longer styles the first paragraph of the next note parsed.
+- **A caption number placeholder at offset zero is recognized** (#1769), so `^ # H` numbers the caption instead of leaving the placeholder literal, as carve-js and carve-rs already did.
+- **Trailing spaces and tabs after a bare colon fence are line whitespace** (#1768), so a `:::` followed by a tab opens a generic div rather than reading as paragraph text. A tab before a real type token is still not a marker separator.
+- **A local hard-break block keeps its authored attribute order** (#1766): an authored class precedes the structural `hardbreaks`, and the attribute slots stay in source order, as carve-js and carve-rs publish them.
+- **A definition entry inside a footnote body carries its authored base** (#1765), so a block written at the description's own column stays inside the `<dd>` instead of landing beside the list.
+- **A promoted header cell keeps both axes of its marker run** (#1752), so `|?^ L |` in a delimiter table's first row keeps its vertical alignment.
+- **A local hard-break block nested inside another one leaves nothing behind** (#1750). The outer body no longer ends a fence early, so no stray empty div follows it.
+- **A `<figure>` around a self-captioning table stops inventing a caret** (#1746, markup-carve/carve-js#1488). Only one caption line is written, so the import no longer adds a caret the author never typed.
+- **An element that did not survive an import says so, from one site** (#1725, #1734, #1739, #1741, markup-carve/carve#1723, markup-carve/carve#1738). An uncaptioned `<figure>`, a nested one and a `<section>` report `element-unwrapped`; an element that held nothing reports `element-dropped` instead; and the element's own row precedes its attribute rows.
+- **A rebuilt `<figure>` carries the figure's own attributes** (#1729), so `<figure id="f" class="c">` comes back as the element the HTML had rather than as two declared losses.
+- **A sectioning wrapper unwraps instead of becoming a `:::` container** (#1727), which had rendered back as a `<div class="article">` the source never carried. The wrapper and each dropped attribute are reported.
+- **A `<figure>` around a table writes its caption on the table** (#1726), instead of detaching it as a paragraph the document never had.
+- **An HTML comment imports as a Carve comment** (#1717, markup-carve/carve#1709) in every mode, fenced among blocks and delimited inside an inline run, instead of being dropped with nothing reported.
+- **A code block's last newline is its terminator, not a line** (#1715, markup-carve/carve#1708), so an authored trailing blank line and trailing spaces survive HTML import instead of being trimmed away.
+- **A checkbox consumed into a task marker is not reported as dropped** (#1711). The value was already right; the report contradicted it.
+- **An imported item whose lead is bare text keeps its blocks tight** (#1710). Looseness is voted per list, and the separator inside an item takes the same vote.
+- **An explicitly empty id survives HTML import, and a heading's ids are read off the element** (#1707), so `<h1 id="">` keeps `{id=""}` instead of regaining the slug its source suppressed.
+- **An `<input>` type matches the checkbox keyword case-insensitively** (#1704), so `type="CHECKBOX"` imports as a task item rather than an ordinary bullet.
+- **The Markdown target keeps every row from a multi-header table and uses the final effective column alignment** (#1763). Additional header rows degrade to body rows instead of disappearing, and body-cell overrides do not leak into the delimiter.
 
-- **An exact-column fence in a definition body keeps its opaque payload indentation.** A backtick run inside a tilde fence is no longer reconsidered as an authored-base opener, so exact and over-indented spellings format identically and idempotently.
-- Preserve fenced block-quote spelling through the ProseMirror bridge.
-
+- **An exact-column fence in a definition body keeps its opaque payload indentation** (#1759). A backtick run inside a tilde fence is no longer reconsidered as an authored-base opener, so exact and over-indented spellings format identically and idempotently.
+- **Fenced block-quote spelling survives the ProseMirror bridge** (#1749).
 - **A task item's checkbox is content, so it does not move the content column** (#1693, PART 9 §24, ports markup-carve/carve-js#1455). The canonical writer and the HTML importer both indented an item's later blocks to the full marker-line width, so a block opener written four columns too far opened nothing.
 - **A quoted lone-image paragraph keeps the blockquote bar in ANSI** (#1691, corpus 411), as carve-js and carve-rs already did. The promoted block image never reaches the paragraph path, so the carve-out only ever fired on the spelling that is still a paragraph.
 - **An indented lone image is a paragraph, not a block image** (#1681, markup-carve/carve#1660, PART 9 §15), so a leading space is decisive for an image as it already is for a heading marker.
