@@ -199,7 +199,7 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
             ],
             'a definition term' => [
                 '<dl><dt><p><picture><img src="g.jpg" alt="G"></picture></p></dt><dd>d</dd></dl>',
-                ":: ![G](g.jpg)\n:  d\n",
+                ":: ![G](g.jpg)\n: d\n",
             ],
         ];
     }

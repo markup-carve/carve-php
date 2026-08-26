@@ -282,7 +282,7 @@ class AConsumedLooseBooleanSpellsTheLoosenessNoBlankLineCanTest extends TestCase
     public function testTheWriterSpellsItOnTheOneBlockDefinitionDescription(): void
     {
         $this->assertSame(
-            "{loose}\n:: Term\n:  Definition.\n",
+            "{loose}\n:: Term\n: Definition.\n",
             $this->fmt("{loose}\n:: Term\n:  Definition.\n"),
         );
     }
@@ -322,8 +322,8 @@ class AConsumedLooseBooleanSpellsTheLoosenessNoBlankLineCanTest extends TestCase
      */
     public function testTheWriterDecoratesADefinitionListUnconditionally(): void
     {
-        $this->assertSame("{loose}\n:: T\n:  a\n\n   b\n", $this->fmt("{loose}\n:: T\n:  a\n\n   b\n"));
-        $this->assertSame("{loose}\n:: T\n:  a\n:: U\n:  b\n", $this->fmt("{loose}\n:: T\n:  a\n:: U\n:  b\n"));
+        $this->assertSame("{loose}\n:: T\n: a\n\n  b\n", $this->fmt("{loose}\n:: T\n:  a\n\n   b\n"));
+        $this->assertSame("{loose}\n:: T\n: a\n:: U\n: b\n", $this->fmt("{loose}\n:: T\n:  a\n:: U\n:  b\n"));
     }
 
     /**
@@ -331,8 +331,8 @@ class AConsumedLooseBooleanSpellsTheLoosenessNoBlankLineCanTest extends TestCase
      */
     public function testTheWriterDoesNotDeriveTheKeyOntoADefinitionListThatDidNotSpellIt(): void
     {
-        $this->assertSame(":: T\n:  a\n\n   b\n", $this->fmt(":: T\n:  a\n\n   b\n"));
-        $this->assertSame(":: T\n:  a\n", $this->fmt(":: T\n:  a\n"));
+        $this->assertSame(":: T\n: a\n\n  b\n", $this->fmt(":: T\n:  a\n\n   b\n"));
+        $this->assertSame(":: T\n: a\n", $this->fmt(":: T\n:  a\n"));
     }
 
     /**

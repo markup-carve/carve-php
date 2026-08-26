@@ -34,14 +34,14 @@ class DefinitionWrittenBackOnItsDescriptionLineTest extends TestCase
 
     public function testALinkDefinitionIsWrittenBackOnItsOwnLine(): void
     {
-        $source = ":: term\n:  [r]: /u\n\nsee [t][r]\n";
+        $source = ":: term\n: [r]: /u\n\nsee [t][r]\n";
 
         $this->assertSame($source, $this->fmt($source));
     }
 
     public function testAFootnoteDefinitionIsWrittenBackOnItsOwnLine(): void
     {
-        $source = ":: term\n:  [^f]: x\n\nsee[^f]\n";
+        $source = ":: term\n: [^f]: x\n\nsee[^f]\n";
 
         $this->assertSame($source, $this->fmt($source));
     }
@@ -50,7 +50,7 @@ class DefinitionWrittenBackOnItsDescriptionLineTest extends TestCase
     {
         // PART 11 §1, which is the property that actually broke: the bare `:`
         // re-parsed into the term, so the rendered document changed.
-        foreach ([":: term\n:  [r]: /u\n\nsee [t][r]\n", ":: term\n:  [^f]: x\n\nsee[^f]\n"] as $source) {
+        foreach ([":: term\n: [r]: /u\n\nsee [t][r]\n", ":: term\n: [^f]: x\n\nsee[^f]\n"] as $source) {
             $this->assertSame($this->html($source), $this->html($this->fmt($source)));
         }
     }
@@ -59,7 +59,7 @@ class DefinitionWrittenBackOnItsDescriptionLineTest extends TestCase
     {
         // The other half: once it is emitted on the description line, the
         // hoisted copy must not be emitted again at document level.
-        $out = $this->fmt(":: term\n:  [r]: /u\n\nsee [t][r]\n");
+        $out = $this->fmt(":: term\n: [r]: /u\n\nsee [t][r]\n");
 
         $this->assertSame(1, substr_count($out, '[r]: /u'));
     }
@@ -68,7 +68,7 @@ class DefinitionWrittenBackOnItsDescriptionLineTest extends TestCase
     {
         // The control: a description with real content still round-trips, so a
         // pass above cannot mean descriptions stopped being written at all.
-        $source = ":: term\n:  body\n";
+        $source = ":: term\n: body\n";
 
         $this->assertSame($source, $this->fmt($source));
     }

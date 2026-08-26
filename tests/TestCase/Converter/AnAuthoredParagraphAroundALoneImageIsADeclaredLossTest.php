@@ -249,7 +249,7 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
             ],
             'inside a definition description' => [
                 '<dl><dt>t</dt><dd><p><img src="g.jpg" alt="G"></p></dd></dl>',
-                ":: t\n:  ![G](g.jpg)\n",
+                ":: t\n: ![G](g.jpg)\n",
             ],
         ];
     }

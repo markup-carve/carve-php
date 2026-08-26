@@ -60,7 +60,7 @@ class AnAttributeLineEndsItsOwnLineOnImportTest extends TestCase
             ],
             'a definition list with an id' => [
                 '<dl id="x"><dt>t</dt><dd>d</dd></dl>',
-                "{#x}\n:: t\n:  d\n",
+                "{#x}\n:: t\n: d\n",
             ],
             // The key from carve-php#1648 rides the same line, so it has to
             // come out on one line too rather than gaining the blank back.
@@ -116,7 +116,7 @@ class AnAttributeLineEndsItsOwnLineOnImportTest extends TestCase
         return [
             'a list with no attributes' => ['<ul><li>a</li></ul>', "- a\n"],
             'a table with no attributes' => ['<table><tr><td>a</td></tr></table>', "| a |\n"],
-            'a definition list with no attributes' => ['<dl><dt>t</dt><dd>d</dd></dl>', ":: t\n:  d\n"],
+            'a definition list with no attributes' => ['<dl><dt>t</dt><dd>d</dd></dl>', ":: t\n: d\n"],
             'a loose one-item list with no attributes' => ['<ul><li><p>a</p></li></ul>', "{loose}\n- a\n"],
         ];
     }

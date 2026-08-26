@@ -699,7 +699,7 @@ HTML;
         $result = $this->converter->convert($html);
 
         $this->assertStringContainsString(':: Term', $result);
-        $this->assertStringContainsString(':  Definition', $result);
+        $this->assertStringContainsString(': Definition', $result);
     }
 
     public function testDefinitionListMultipleTerms(): void
@@ -710,7 +710,7 @@ HTML;
         // Multiple terms share one definition
         $this->assertStringContainsString(':: color', $result);
         $this->assertStringContainsString(':: colour', $result);
-        $this->assertStringContainsString(':  The visual property.', $result);
+        $this->assertStringContainsString(': The visual property.', $result);
     }
 
     public function testDefinitionListMultipleDefinitions(): void
@@ -720,8 +720,8 @@ HTML;
 
         $this->assertStringContainsString(':: color', $result);
         $this->assertStringContainsString(':: colour', $result);
-        $this->assertStringContainsString(':  The visual property.', $result);
-        $this->assertStringContainsString(':  Used in design.', $result);
+        $this->assertStringContainsString(': The visual property.', $result);
+        $this->assertStringContainsString(': Used in design.', $result);
     }
 
     // ==================== Spans with Attributes ====================
@@ -2155,7 +2155,7 @@ DJOT;
 {label=Defs}
 ::: tab
 :: Term
-:  Desc with *em*
+: Desc with *em*
 :::
 ::::
 DJOT;

@@ -743,7 +743,7 @@ CARVE;
     {
         $carve = <<<'CARVE'
 :: Term
-:  Definition text here
+: Definition text here
 CARVE;
         $this->assertRoundTrip($carve);
     }
@@ -753,7 +753,7 @@ CARVE;
         $carve = <<<'CARVE'
 :: First Term
 :: Second Term
-:  Shared definition
+: Shared definition
 CARVE;
         $this->assertRoundTrip($carve);
     }

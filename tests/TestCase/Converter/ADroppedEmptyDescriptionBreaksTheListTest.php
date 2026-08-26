@@ -103,7 +103,7 @@ class ADroppedEmptyDescriptionBreaksTheListTest extends TestCase
 
     public function testItWritesTwoListsSeparatedByACommentLine(): void
     {
-        $this->assertSame(":: t1\n\n%%\n\n:: t2\n:  d2\n", $this->import(self::NOT_LAST));
+        $this->assertSame(":: t1\n\n%%\n\n:: t2\n: d2\n", $this->import(self::NOT_LAST));
     }
 
     public function testTheSurvivingTermGainsNoDescriptionItNeverHad(): void
@@ -125,9 +125,9 @@ class ADroppedEmptyDescriptionBreaksTheListTest extends TestCase
     {
         $this->assertSame(
             "<dl>\n  <dt>t1</dt>\n  <dt>t2</dt>\n  <dd>d2</dd>\n</dl>\n",
-            $this->converter->convert(":: t1\n\n:: t2\n:  d2\n"),
+            $this->converter->convert(":: t1\n\n:: t2\n: d2\n"),
         );
-        $this->assertSame(":: t1\n:: t2\n:  d2\n", $this->converter->toCarve(":: t1\n\n:: t2\n:  d2\n"));
+        $this->assertSame(":: t1\n:: t2\n: d2\n", $this->converter->toCarve(":: t1\n\n:: t2\n: d2\n"));
     }
 
     public function testTheWrittenSourceIsAFixedPointOfTheWriter(): void
@@ -157,14 +157,14 @@ class ADroppedEmptyDescriptionBreaksTheListTest extends TestCase
      */
     public function testItDoesNotSplitWhenTheDroppedEntryIsLast(): void
     {
-        $this->assertSame(":: t1\n:  d1\n:: t2\n", $this->import(self::LAST));
+        $this->assertSame(":: t1\n: d1\n:: t2\n", $this->import(self::LAST));
         $this->assertSame(['structure-unspellable'], $this->codes(self::LAST));
     }
 
     public function testItDoesNotSplitAListWithNothingDropped(): void
     {
         $html = '<dl><dt>t1</dt><dd>d1</dd><dt>t2</dt><dd>d2</dd></dl>';
-        $this->assertSame(":: t1\n:  d1\n:: t2\n:  d2\n", $this->import($html));
+        $this->assertSame(":: t1\n: d1\n:: t2\n: d2\n", $this->import($html));
         $this->assertSame([], $this->codes($html));
     }
 
@@ -178,7 +178,7 @@ class ADroppedEmptyDescriptionBreaksTheListTest extends TestCase
     public function testItDoesNotBreakBeforeAnotherDescriptionOfTheSameTerm(): void
     {
         $html = '<dl><dt>t</dt><dd></dd><dd>d2</dd></dl>';
-        $this->assertSame(":: t\n:  d2\n", $this->import($html));
+        $this->assertSame(":: t\n: d2\n", $this->import($html));
         $this->assertSame(
             "<dl>\n  <dt>t</dt>\n  <dd>d2</dd>\n</dl>\n",
             $this->converter->convert($this->import($html)),
@@ -189,7 +189,7 @@ class ADroppedEmptyDescriptionBreaksTheListTest extends TestCase
     public function testItClearsTheMarkOnceTheSameEntryWritesADescriptionAfterAll(): void
     {
         $html = '<dl><dt>t1</dt><dd></dd><dd>d1</dd><dt>t2</dt><dd>d2</dd></dl>';
-        $this->assertSame(":: t1\n:  d1\n:: t2\n:  d2\n", $this->import($html));
+        $this->assertSame(":: t1\n: d1\n:: t2\n: d2\n", $this->import($html));
         $this->assertSame(['structure-unspellable'], $this->codes($html));
     }
 
@@ -203,7 +203,7 @@ class ADroppedEmptyDescriptionBreaksTheListTest extends TestCase
     public function testItBreaksAtEveryDroppedEntryNotOnlyTheFirst(): void
     {
         $html = '<dl><dt>t1</dt><dd></dd><dt>t2</dt><dd></dd><dt>t3</dt><dd>d3</dd></dl>';
-        $this->assertSame(":: t1\n\n%%\n\n:: t2\n\n%%\n\n:: t3\n:  d3\n", $this->import($html));
+        $this->assertSame(":: t1\n\n%%\n\n:: t2\n\n%%\n\n:: t3\n: d3\n", $this->import($html));
         $this->assertSame(
             ['structure-split', 'structure-unspellable', 'structure-unspellable'],
             $this->codes($html),
@@ -218,7 +218,7 @@ class ADroppedEmptyDescriptionBreaksTheListTest extends TestCase
      */
     public function testTheIngestedTreeTakesTheSameBranch(): void
     {
-        $this->assertSame(":: t1\n\n%%\n\n:: t2\n:  d2\n", $this->ingested());
+        $this->assertSame(":: t1\n\n%%\n\n:: t2\n: d2\n", $this->ingested());
     }
 
     /**
@@ -230,11 +230,11 @@ class ADroppedEmptyDescriptionBreaksTheListTest extends TestCase
     public function testADescriptionWhoseBlocksWriteNothingTakesTheSameBranch(): void
     {
         $this->assertSame(
-            ":: t1\n\n%%\n\n:: t2\n:  d2\n",
+            ":: t1\n\n%%\n\n:: t2\n: d2\n",
             $this->import('<dl><dt>t1</dt><dd><p>  </p></dd><dt>t2</dt><dd>d2</dd></dl>'),
         );
         $this->assertSame(
-            ":: t1\n\n%%\n\n:: t2\n:  d2\n",
+            ":: t1\n\n%%\n\n:: t2\n: d2\n",
             $this->import('<dl><dt>t1</dt><dd><ul></ul></dd><dt>t2</dt><dd>d2</dd></dl>'),
         );
     }

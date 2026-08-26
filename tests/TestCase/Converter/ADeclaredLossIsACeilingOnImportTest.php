@@ -117,8 +117,9 @@ class ADeclaredLossIsACeilingOnImportTest extends TestCase
 
     /**
      * THE NEAR MISS. `&nbsp;` is what a description "holding nothing" looks
-     * like to a reader and it is NOT this case: it writes a colon and three
-     * spaces, which round-trips exactly. A fix that asked whether the element
+     * like to a reader and it is NOT this case: it writes a colon, the canonical
+     * separator, and the non-breaking space, which round-trips exactly. A fix
+     * that asked whether the element
      * had children rather than whether it WRITES anything would take this one
      * too.
      */
@@ -126,7 +127,7 @@ class ADeclaredLossIsACeilingOnImportTest extends TestCase
     {
         $source = $this->import('<dl><dt>term</dt><dd>&nbsp;</dd></dl>');
 
-        $this->assertStringContainsString(':  ', $source);
+        $this->assertStringContainsString(": \u{00A0}", $source);
         $this->assertStringContainsString('<dd>&nbsp;</dd>', $this->html($source));
     }
 
@@ -138,7 +139,7 @@ class ADeclaredLossIsACeilingOnImportTest extends TestCase
     {
         $source = $this->import('<dl><dt>term</dt><dd>d</dd></dl>');
 
-        $this->assertSame(":: term\n:  d\n", $source);
+        $this->assertSame(":: term\n: d\n", $source);
         $this->assertStringContainsString('<dd>d</dd>', $this->html($source));
     }
 

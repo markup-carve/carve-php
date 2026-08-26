@@ -8410,7 +8410,7 @@ class HtmlToCarve
                     // assert. Only the bytes differ, and only in a string no
                     // caller ever sees.
                     if ($this->astExit) {
-                        $output .= ':  ' . self::EMPTY_DESCRIPTION . "\n";
+                        $output .= ': ' . self::EMPTY_DESCRIPTION . "\n";
 
                         continue;
                     }
@@ -8420,9 +8420,9 @@ class HtmlToCarve
 
                 $pendingBreak = false;
                 $lines = explode("\n", $description);
-                $output .= ':  ' . array_shift($lines) . "\n";
+                $output .= ': ' . array_shift($lines) . "\n";
                 foreach ($lines as $line) {
-                    $output .= '   ' . $line . "\n";
+                    $output .= '  ' . $line . "\n";
                 }
             }
         }
@@ -11601,7 +11601,7 @@ class HtmlToCarve
             }
 
             // Track definition lists (`:: term` / `:  definition`)
-            if (str_starts_with($line, ':: ') || str_starts_with($line, ':  ')) {
+            if (str_starts_with($line, ':: ') || preg_match('/^: +/', $line) === 1) {
                 $inDefinitionList = true;
                 $inList = false;
                 $inFootnote = false;
