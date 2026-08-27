@@ -176,6 +176,23 @@ CRV;
         self::assertSame($this->authoritative($extensions)->convert(self::SOURCE), $fast->convert(self::SOURCE));
     }
 
+    public function testEmptyExternalLinkTargetRemainsExactWithoutAnAst(): void
+    {
+        $source = '[a](https://elsewhere.test/x)';
+        $extension = new ExternalLinksExtension(target: '');
+        $plan = BorrowedExtensionPlan::compile([$extension], $source);
+        self::assertNotNull($plan);
+
+        $attempt = (new BorrowedHtmlLayout())->render($source, false, $plan);
+        self::assertNotNull($attempt);
+        self::assertSame(
+            $this->authoritative([new ExternalLinksExtension(target: '')])->convert($source),
+            $attempt['html'],
+        );
+        self::assertStringNotContainsString('target=', $attempt['html']);
+        self::assertStringContainsString('rel="noopener noreferrer"', $attempt['html']);
+    }
+
     public function testEveryAcceptedPinnedCorpusDocumentHasExactConfiguredShadowParity(): void
     {
         $paths = glob(__DIR__ . '/../../spec/tests/corpus/*.crv');

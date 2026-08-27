@@ -9,6 +9,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An empty external-link target omits the `target` attribute** (#1823).
+  External-link `rel` policy can now be applied without emitting the meaningless
+  `target=""`, in both the authoritative renderer and borrowed-HTML fast path.
 - **A soft-wrapped caption keeps its AST positions** (#1819). A caption that wraps across lines published every inline unplaced, and the figure, table or figure group it attached to ended at the host instead of at the end of the caption. The rendered HTML was never affected; this reaches AST consumers only.
 
 ## [0.1.6] - 2026-08-27

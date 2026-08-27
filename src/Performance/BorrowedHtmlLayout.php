@@ -831,8 +831,11 @@ final class BorrowedHtmlLayout
             $rel .= ' nofollow';
         }
 
-        return ' target="' . $this->escapeAttribute($external['target'])
-            . '" rel="' . $this->escapeAttribute(trim($rel)) . '"';
+        $target = $external['target'] === ''
+            ? ''
+            : ' target="' . $this->escapeAttribute($external['target']) . '"';
+
+        return $target . ' rel="' . $this->escapeAttribute(trim($rel)) . '"';
     }
 
     private function escape(string $text): string

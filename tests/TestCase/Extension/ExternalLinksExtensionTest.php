@@ -59,6 +59,22 @@ class ExternalLinksExtensionTest extends TestCase
         $this->assertStringContainsString('rel="external"', $html);
     }
 
+    public function testEmptyTargetIsOmittedWhileRelIsRetained(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new ExternalLinksExtension(
+            internalHosts: ['example.org'],
+            target: '',
+        ));
+
+        $html = $converter->convert('[a](https://elsewhere.test/x)');
+
+        $this->assertSame(
+            "<p><a href=\"https://elsewhere.test/x\" rel=\"noopener noreferrer\">a</a></p>\n",
+            $html,
+        );
+    }
+
     public function testNofollow(): void
     {
         $converter = new CarveConverter();
