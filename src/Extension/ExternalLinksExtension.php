@@ -32,7 +32,7 @@ class ExternalLinksExtension implements ExtensionInterface
 {
     /**
      * @param array<string> $internalHosts Hosts to treat as internal (won't get external link attributes)
-     * @param string $target Target attribute value (e.g., '_blank')
+     * @param string $target Target attribute value (e.g., '_blank'); an empty string omits the attribute
      * @param string $rel Rel attribute value (e.g., 'noopener noreferrer')
      * @param bool $nofollow Whether to add 'nofollow' to the rel attribute
      */
@@ -61,7 +61,9 @@ class ExternalLinksExtension implements ExtensionInterface
                 return;
             }
 
-            $node->setAttribute('target', $this->target);
+            if ($this->target !== '') {
+                $node->setAttribute('target', $this->target);
+            }
 
             $rel = $this->rel;
             if ($this->nofollow && !str_contains($rel, 'nofollow')) {
