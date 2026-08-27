@@ -7,6 +7,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-27
+
 ### Fixed
 
 - **A soft-wrapped caption keeps its AST positions** (#1819). A caption that wraps across lines published every inline unplaced, and the figure, table or figure group it attached to ended at the host instead of at the end of the caption. The rendered HTML was never affected; this reaches AST consumers only.
