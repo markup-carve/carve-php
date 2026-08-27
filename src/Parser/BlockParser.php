@@ -12043,8 +12043,15 @@ class BlockParser
 
     /**
      * @param list<array{int, int, int, string}> $contentLines resolved source line, column, length, text
+     * @param int $firstLineSearchFrom Column the FIRST line's text is searched from.
+     *   A folded construct carries its marker on that line and nowhere else, so
+     *   content that repeats the marker - `^ ^` - otherwise matches the marker
+     *   rather than itself and the span points one construct too far left. The
+     *   marker's width is a lower bound on where the text can sit in the raw
+     *   line (a container prefix only pushes it further right), so searching
+     *   from it can never skip the real occurrence.
      */
-    private function foldedLinesMap(array $contentLines): ?SourceMap
+    private function foldedLinesMap(array $contentLines, int $firstLineSearchFrom = 0): ?SourceMap
     {
         if (!$this->trackPositions || $contentLines === []) {
             return null;
@@ -12053,14 +12060,18 @@ class BlockParser
         $map = new SourceMap();
         $textOffset = 0;
         $any = false;
+        $index = 0;
         foreach ($contentLines as [$sourceLine, $column, $length, $lineText]) {
+            $rawLine = $this->sourceLines[$sourceLine] ?? '';
+            $searchFrom = $index === 0 ? min($firstLineSearchFrom, strlen($rawLine)) : 0;
+            $index++;
             $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
             // Nested content arrives already re-indented, so the column measured
             // against that copy is short by whatever was stripped. Locate the
             // text in the real source line instead.
             $sourceColumn = $lineText === ''
                 ? $column
-                : strpos($this->sourceLines[$sourceLine] ?? '', $lineText);
+                : strpos($rawLine, $lineText, $searchFrom);
             if ($sourceColumn === false) {
                 // The line is not a run of the source line it claims to come
                 // from - deeply nested content that was re-indented more than
@@ -12957,32 +12968,50 @@ class BlockParser
         return false;
     }
 
-    private function contiguousMapFor(int $index, string $line, string $content): ?SourceMap
+    /**
+     * Where a caption's text came from, ONE SEGMENT PER LINE IT WAS BUILT FROM.
+     *
+     * A caption is a FOLDED construct: `^ cap` plus every continuation line
+     * below it, joined with "\n" into a string the block layer BUILT. This used
+     * to be mapped by searching the `^ ` source line for the whole joined
+     * string, which can only succeed while the caption occupies one line. A
+     * wrapped caption is not a run of any single line, so the search declined,
+     * the caption parsed with NO map at all, and every inline in it came back
+     * unplaced - taking the host's extent with it, because a figure derives its
+     * span from the children it holds (carve-php#1819). The rendered HTML is
+     * identical either way, which is why only the spec repo's three-way span
+     * comparison could see it.
+     *
+     * Folding is what {@see self::foldedLinesMap()} already describes, for the
+     * heading and the definition term that fold the same way, so the caption
+     * reaches it through the same list rather than through a second spelling of
+     * the same idea. `$captionLines[0]` is the `^ ` line's content and
+     * `$captionLines[k]` the line `k` below it, which is the order the
+     * collector above built them in.
+     *
+     * @param int $start Index of the `^ ` line.
+     * @param list<string> $captionLines The caption's text, one entry per source line.
+     * @param int $markerWidth Width of the `^` and the spaces after it.
+     */
+    private function captionSourceMap(int $start, array $captionLines, int $markerWidth): ?SourceMap
     {
-        if (!$this->trackPositions || $content === '') {
+        if (!$this->trackPositions) {
             return null;
         }
 
-        $sourceLine = $this->sourceLineFor($index);
-        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
-        if ($lineStart === null) {
-            return null;
+        $folded = [];
+        foreach ($captionLines as $offset => $text) {
+            // The ORIGINAL source line, never the collector's copy: nested
+            // content reaches here already re-indented - a caption inside a
+            // list item or a block quote has had its marker and indentation
+            // stripped - so a column measured against that copy would be short
+            // by the amount removed. foldedLinesMap() locates each line's text
+            // in the real source line and declines the segment where the text
+            // is not a run of it.
+            $folded[] = [$this->sourceLineFor($start + $offset), 0, strlen($text), $text];
         }
 
-        // Search the ORIGINAL source line, not the one passed in. Nested
-        // content reaches here already re-indented - a paragraph inside a list
-        // item or blockquote has had its marker and indentation stripped - so a
-        // column measured against that copy would be short by the amount
-        // removed, and the span would select the wrong bytes.
-        $column = strpos($this->sourceLines[$sourceLine] ?? $line, $content);
-        if ($column === false) {
-            // Rebuilt rather than sliced - joined continuations, stripped
-            // indentation, an expanded tab.
-            return null;
-        }
-
-        return SourceMap::contiguous($lineStart + $column, strlen($content), $sourceLine + 1, $column + 1)
-            ->withSource($this->positionSource(), $this->positionIndex);
+        return $this->foldedLinesMap($folded, $markerWidth);
     }
 
     /**
@@ -13544,6 +13573,11 @@ class BlockParser
             return null;
         }
 
+        // `$matches[1]` is a SUFFIX of the line, so the difference is exactly
+        // the `^` plus the spaces after it - which is where the caption's own
+        // text starts, and where a search for it has to begin.
+        $markerWidth = strlen($line) - strlen($matches[1]);
+
         $captionLines = [$matches[1]];
         $i = $start + 1;
         $count = count($lines);
@@ -13624,13 +13658,13 @@ class BlockParser
             }
 
             $caption = new Caption();
-            $caption->setPos($this->wholeLineSpan($start));
+            $caption->setPos($this->wholeLinesSpan($start, $i - 1));
             $this->inlineParser->parse(
                 $caption,
                 $captionText,
                 $start,
                 true,
-                $this->contiguousMapFor($start, $lines[$start], $captionText),
+                $this->captionSourceMap($start, $captionLines, $markerWidth),
             );
             $lastChild->setCaption($caption);
             // The caption is the group's own child written after the closing
@@ -13658,13 +13692,13 @@ class BlockParser
             }
 
             $caption = new Caption();
-            $caption->setPos($this->wholeLineSpan($start));
+            $caption->setPos($this->wholeLinesSpan($start, $i - 1));
             $this->inlineParser->parse(
                 $caption,
                 $captionText,
                 $start,
                 true,
-                $this->contiguousMapFor($start, $lines[$start], $captionText),
+                $this->captionSourceMap($start, $captionLines, $markerWidth),
             );
             $lastChild->setCaption($caption);
             // The caption is one of the table's children, and it is written
@@ -13690,13 +13724,13 @@ class BlockParser
             }
 
             $caption = new Caption();
-            $caption->setPos($this->wholeLineSpan($start));
+            $caption->setPos($this->wholeLinesSpan($start, $i - 1));
             $this->inlineParser->parse(
                 $caption,
                 $captionText,
                 $start,
                 true,
-                $this->contiguousMapFor($start, $lines[$start], $captionText),
+                $this->captionSourceMap($start, $captionLines, $markerWidth),
             );
 
             $figure->appendChild($lastChild);
@@ -13717,13 +13751,13 @@ class BlockParser
             }
 
             $caption = new Caption();
-            $caption->setPos($this->wholeLineSpan($start));
+            $caption->setPos($this->wholeLinesSpan($start, $i - 1));
             $this->inlineParser->parse(
                 $caption,
                 $captionText,
                 $start,
                 true,
-                $this->contiguousMapFor($start, $lines[$start], $captionText),
+                $this->captionSourceMap($start, $captionLines, $markerWidth),
             );
 
             $figure->appendChild($lastChild);
@@ -13768,7 +13802,7 @@ class BlockParser
                     $captionText,
                     $start,
                     true,
-                    $this->contiguousMapFor($start, $lines[$start], $captionText),
+                    $this->captionSourceMap($start, $captionLines, $markerWidth),
                 );
 
                 // Build figure: image + caption
@@ -13808,7 +13842,7 @@ class BlockParser
                     $captionText,
                     $start,
                     true,
-                    $this->contiguousMapFor($start, $lines[$start], $captionText),
+                    $this->captionSourceMap($start, $captionLines, $markerWidth),
                 );
 
                 $figure->appendChild($lastChild);
