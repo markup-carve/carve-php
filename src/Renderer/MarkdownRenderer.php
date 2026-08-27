@@ -72,28 +72,6 @@ use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Renders AST to Markdown (CommonMark compatible where possible)
- *
- * This renderer converts Djot AST to Markdown syntax. The output is designed
- * for consumption by Markdown parsers, not Djot parsers. For round-trip
- * stability, the Markdown output should be re-parsed by a Markdown parser.
- *
- * Syntax mapping (Djot → Markdown):
- * - Emphasis: `_text_` → `*text*`
- * - Strong: `*text*` → `**text**`
- *
- * Note: Some Djot features don't have direct Markdown equivalents
- * and will be rendered as HTML or approximated.
- *
- * Attributes are the one case where the approximation is a policy choice rather
- * than a mapping. Markdown has no block container and no attribute syntax on an
- * image, so a `::: class` div and an `![alt](src){.class}` drop their
- * `{#id .class data-*}` by default - right for the human-facing export this
- * target is normally used for, data loss for a consumer treating Markdown as an
- * interchange format. `setAttributeFallback(AttributeFallback::Html)` keeps them
- * as raw HTML instead, the way an inline mark already degrades to `<mark>`
- * (carve-php#458).
- *
- * Options: setSoftBreakMode(), setSmartTypography(), setAttributeFallback().
  */
 class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInterface
 {
@@ -161,33 +139,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     /**
      * The same characters once §8b M2b HAS decided to keep the escape.
      *
-     * A second STATE rather than a second character, and the state is what
-     * makes the decision survive its containers. M2b measures on the EMITTED
-     * LINE and a line's content position is after its container prefix
-     * (markup-carve/carve#1330), so the question is answered where the writer
-     * prefixes the container's lines - and an outer container that adds a hash
-     * of its own runs that pass again, over content that already carries the
-     * inner marker. An undecided sentinel would be re-read there and the outer
-     * marker would take the escape straight back off.
-     *
-     * Recorded as a sentinel rather than as the `\#` it resolves to, because
-     * every sentinel is the same width: the passes address candidates by offset
-     * and spelling one answer as two characters would move every later
-     * candidate on the line, changing M1b's answers with it.
-     *
-     * IT WIDENS THE PICKED RUN FROM FOUR TO FIVE, and that is a real cost
-     * rather than none. `DocumentSentinels::pick()` walks the private-use area
-     * for a gap of the requested width and, finding none, returns the preferred
-     * run WHETHER OR NOT it collides - so a document that leaves a gap of four
-     * and no gap of five is now rendered with sentinels it contains, and an
-     * authored U+E004 comes back as an underscore. The condition is adversarial
-     * (about four fifths of the 6,396 private-use code points written, with no
-     * five-wide gap anywhere) and it is not created here: the colliding
-     * fallback is what corrupts, and §8b's own fourth sentinel moved the same
-     * boundary. It is recorded rather than worked around because no
-     * implementation of M2b's ruling can carry the decided state in fewer
-     * states, and a picker that cannot fail is the fix for the class.
-     *
      * @var list<string>
      */
     private const AUTHORED_DECIDED = ['#'];
@@ -203,20 +154,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * Sentinels standing in for the escapes PART 11 §8a decides on the LINE,
      * one per narrowed character, CHOSEN PER DOCUMENT from code points the
      * document does not contain.
-     *
-     * They used to be the fixed U+E004..U+E006, and the way author content was
-     * kept away from them was to DELETE the whole range in stripControls() on
-     * the way in. That is the collision, not a defense against it: PART 7 makes
-     * every character that is not one of the four whitespace characters
-     * CONTENT, and PART 9 §29 already answered what this target does with
-     * content it did not expect - it EMITS it, because "a target that silently
-     * deletes content is lossy rather than safe". The strip was the same
-     * decision §29 rejected for the C0 controls, applied to three private-use
-     * code points instead, so `a<U+E004>b` came out `ab`
-     * (markup-carve/carve-php#1087).
-     *
-     * Picking instead of stripping removes both halves at once: the sentinels
-     * cannot be authored, so nothing has to be deleted to protect them.
      *
      * @var array<string, string>
      */
@@ -380,27 +317,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     /**
      * Every abbreviation definition the author wrote, as source lines.
-     *
-     * PART 11 §10a: a definition NOTHING references is still emitted by this
-     * target. HTML drops it because it has nowhere to put one; Markdown, plain
-     * text and the terminal do not get to drop content the author wrote, and
-     * dropping it made the output depend on whether a reference exists
-     * elsewhere in the document (carve#589).
-     *
-     * They live on the document rather than in `children` here, so unlike
-     * carve-js and carve-rs this renderer places them itself - before the body
-     * or after it, following where the author put them.
-     *
-     * FROM THE NODES, not from the document's side list. A profile removes the
-     * AbbreviationDefinition NODE; the list is a second source of truth, so
-     * reading it emitted the line for a definition the host had denied - on this
-     * target and not on HTML, where the line never appears anyway
-     * (carve-php#858). Same shape as the numbering that lived in the render
-     * context (#843) and the profile that reached only the render path (#853).
-     *
-     * The expansion still comes from the map, and must: denying the definition
-     * denies the definition, and the inline `abbreviation` it feeds is a separate
-     * profile entry that keeps rendering.
      */
 
     /**
@@ -553,33 +469,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     /**
      * Resolve the narrowed escapes: PART 11 §8a, M1b.
-     *
-     * `_`, `#` and `[` are escaped IF AND ONLY IF the character is ADJACENT on
-     * the emitted line to an UNESCAPED DELIMITER OF THE SAME CHARACTER.
-     *
-     * Adjacent, and unescaping would MERGE THE TWO INTO ONE RUN, which every
-     * Markdown reader this target answers to resolves by run length - so the
-     * escape is holding a run boundary apart under all of them at once, and it
-     * is kept. Not adjacent, and the escape protects nothing under any of them:
-     * `company_id`, `C#` and `issue #123` are written as the author typed them,
-     * and a backslash inside an identifier no longer breaks exact-match search
-     * in the published document.
-     *
-     * IF AND ONLY IF, NOT A FLOOR. An escape this drops is dropped and an escape
-     * it keeps is kept. §8a is explicit that it is not a minimum to build a
-     * wider narrowing on, because a permissive reading yields three outputs from
-     * three engines - which is the failure the question came out of.
-     *
-     * Runs on the assembled output rather than in escapeText() because the test
-     * is a property of the LINE, not of one node: the parser splits `company_id`
-     * into the text nodes `company` and `_id`, so at escape time the underscore
-     * looks like it starts a word.
-     *
-     * It decides on the sentinel rather than on `\_` because the assembled
-     * document also contains regions this renderer must reproduce byte-exact -
-     * code spans, code blocks, link destinations, titles, raw HTML - and a
-     * backslash there is content, not an escape. Matching `\_` rewrote those
-     * too (carve-js issue 400).
      */
     protected function resolveNarrowedEscapes(string $markdown): string
     {
@@ -644,34 +533,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     /**
      * The finished content of a container, trimmed and with PART 11 §8b M2b
      * ANSWERED ON IT, ready for the caller to put its prefix in front.
-     *
-     * Every call site is a place the writer prefixes a container's lines, and
-     * that is the whole of the list: the block quote marker, the list and task
-     * marker with the alignment §10 gives the lines under it, the footnote
-     * definition marker, the definition marker. M2b measures on the EMITTED
-     * LINE and a line's content position is after its container prefix
-     * (markup-carve/carve#1330), so the question has to be settled here - after
-     * the trim, which is part of the shape of the line, and before the prefix,
-     * which is what the position is measured past.
-     *
-     * A HEADING IS NOT A CONTAINER and does not call this. Its `## ` belongs to
-     * the block's own line, so the hash behind it stays mid-line and loses the
-     * escape, which is the reading CommonMark gives it. Neither is a table
-     * cell. Both are left to the resolve pass at the end, which measures on the
-     * finished document - the right answer for a line no container encloses,
-     * and the wrong one for a line inside one, which is why these sites exist.
-     *
-     * DECIDING EARLIER DOES NOT WORK, and the trim is why. A block does not
-     * know whether the whitespace it wrote at the start of its first line
-     * survives: a paragraph opening with four spaces keeps them mid-document
-     * and loses them as the first block of a container. Answering M2b before
-     * that trim scores the hash as over-indented and emits it bare, and the
-     * trim then puts a bare hash at column 0 - a heading where the author wrote
-     * text.
-     *
-     * The counter is what keeps this from costing anything. A nested container
-     * decides on its own way out and leaves the count where it found it, so an
-     * outer one that added no hash of its own never touches the text.
      *
      * @param \Closure $render Renders the container's children.
      *
@@ -977,29 +838,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
                 $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
-                // Unresolved: the reference never formed, so the literal source
-                // is what is emitted -- and BOTH brackets are escaped, not just
-                // the closer.
-                //
-                // This used to run the whole run through escapeText(), which
-                // applies the section 8a M1b narrowing: `[` is escaped only when
-                // it is adjacent on the emitted line to another `[`, so the
-                // opener came back bare and only the `]` kept its backslash.
-                // M1b is a rule about a character that reached this writer
-                // inside a TEXT node, one "the Carve grammar did not read as an
-                // opener"; the grammar DID read this one, which is why there is
-                // a FootnoteRef node here at all. What the writer emits is a
-                // whole construct opener, and section 8a is explicit that
-                // dropping an escape "is an argument owed once per reader"
-                // while the adjacency case "owes none".
-                //
-                // The argument is owed and it fails. Under python-markdown's
-                // footnotes extension `[^a\]:` is read as a footnote DEFINITION
-                // whose label is `a\`, so a document that degraded the construct
-                // to literal text published a footnote section it never had -
-                // and the half-escaped run is what section 2 calls "a shape that
-                // happens to work rather than one that says what it means"
-                // (markup-carve/carve#1040).
                 $node instanceof FootnoteRef && $node->isUnresolved()
                 => '\\[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . '\\]',
                 // Escaped like the definition, so the pair still matches. The
@@ -1490,26 +1328,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         $output .= implode("\n", $bodyRows) . "\n";
 
-        // PART 11 §10e T2: a caption is authored text, and Markdown has no
-        // table-caption syntax, so it survives as BODY TEXT AFTER the table,
-        // SEPARATED BY ONE BLANK LINE. An image caption and a listing caption
-        // already take that position on this target, so the table was the odd
-        // one out rather than a consequence of Markdown lacking the syntax.
-        //
-        // The blank line is load-bearing, not cosmetic. §10e states the general
-        // form: attachment by adjacency is only available on a target where
-        // adjacency does not change what the adjacent block IS. Written directly
-        // under the last row, a GFM reader takes the caption as ANOTHER ROW and
-        // returns it as `<td>Fruit prices</td>` - the words survive as a
-        // fabricated data cell no reader can tell from an authored one, which is
-        // worse than losing them. So this half accepts an attachment weaker
-        // than §10c's continuation marker, which keeps the relationship rather
-        // than only the words: the floor is being met, not a relationship
-        // preserved.
-        //
-        // Cited as §10c because §10d is RETIRED - withdrawn by
-        // markup-carve/carve#1213, and its number is not reused, so PART 11
-        // runs 10c, 10e (markup-carve/carve#1365).
         $caption = $node->getCaption();
         if ($caption !== null) {
             $text = trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE);
@@ -1763,18 +1581,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderMath(Math $node): string
     {
-        // Escaped, exactly as the HTML target escapes the same content: a
-        // consumer decodes the entity back to the character before its math
-        // renderer sees it, so `a < b` still reaches KaTeX as `a < b` while
-        // `<script>` cannot become a tag (carve-php#1063).
-        //
-        // That covers the ampersand too, which a LaTeX matrix uses as its
-        // alignment separator: `a & b` is emitted `a &amp; b` and a Markdown
-        // consumer hands `a & b` to the math renderer. Re-parsing the Markdown
-        // with CARVE instead does not decode it - but that is not this target's
-        // contract, the `carve` target is (PART 11 section 1), and it is exactly
-        // what escapeText() already does to every other text node here
-        // (raised by codex review).
         $content = $this->escapeHtml($this->stripControls($node->getContent()));
 
         if ($node->isDisplay()) {
@@ -1926,30 +1732,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     /**
      * Escape a text value, leaving any UNRESOLVED crossref marker readable.
-     *
-     * `</#nope>` is source the resolver declined. `renderHeadingRef()` already
-     * emits it with its own delimiters literal - "a reader can still act on
-     * `</#nope>`" (carve-php#1063) - but a crossref inside a LINK never reaches
-     * that method: `CrossReferenceResolver::headingRefToLabel()` flattens it to
-     * a Text node first, because a crossref inside a link would render as a
-     * nested anchor. So the marker arrived here as ordinary text and M1e escaped
-     * its `<`, and one engine spelled one construct two ways depending on where
-     * it stood. This was the only Markdown divergence carve-php had left across
-     * the 1006-document corpus (markup-carve/carve#1147).
-     *
-     * THE ESCAPE PROTECTS NOTHING, measured rather than assumed. A CommonMark
-     * tag name must begin with an ASCII letter, so `</#` opens nothing; through
-     * commonmark 0.31.2 and marked 18.0.9 the escaped and bare spellings of
-     * `a [t</#nope>](/u) b` parse to the same HTML. M1e's `/` case is written on
-     * the next character alone, which is right for `</b>` and over-broad here.
-     *
-     * THE TARGET STILL TAKES THE HTML PASS, which is not carve-out noise: the id
-     * is author content and may hold a `<`, and `</#a<script>` emitted verbatim
-     * is a live tag in both readers. Only the writer's own `</#` and `>` stay
-     * literal - the same split `renderHeadingRef()` makes.
-     *
-     * SCANNED, NOT ANCHORED. PART 12 §1a coalesces adjacent runs, so the marker
-     * is usually in the middle of a longer text node rather than alone in one.
      */
     protected function escapeUnresolvedCrossrefs(string $text): string
     {
@@ -2004,20 +1786,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $text,
         ) ?? $text;
 
-        // PART 11 SS8a M1e: a `<` is escaped only where the emitted line would
-        // read it as markup - before an ASCII letter, `/`, `!` or `?`, the four
-        // things that open raw HTML. Everything else is inert, and so is `>`
-        // mid-line; at line start `>` is a block quote marker M1 already covers.
-        //
-        // A BACKSLASH, not an entity. This wrote the two entities
-        // unconditionally with no clause behind it (markup-carve/carve#1148),
-        // and that is precisely because an entity is not the operation the
-        // section describes: M2 and M3 protect a character so it survives as
-        // itself, and an entity replaces it instead. Escaping the `<` alone
-        // suffices - a tag that cannot open cannot be closed.
-        //
-        // AFTER the metacharacter pass, so the backslash this inserts is not
-        // itself escaped by it.
         return preg_replace('/<(?=[A-Za-z\/!?])/', '\\\\<', $escaped) ?? $escaped;
     }
 
@@ -2114,32 +1882,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     /**
      * Escape every ampersand that OPENS an HTML character reference.
-     *
-     * A CommonMark consumer decodes character references inside a link
-     * destination, so `&#106;avascript:alert1` reaches the browser as
-     * `javascript:alert1` - a scheme the probe never saw, because the probe
-     * reads the authored bytes. `&#x6A;` and `javascript&colon;alert1` are the
-     * same trick (the second hides the colon, so there is no scheme to find at
-     * all).
-     *
-     * Escaping the ampersand rather than percent-encoding it is what keeps this
-     * honest: percent-encoding `&` would corrupt every legitimate query string,
-     * while `&amp;` decodes back to `&` in the consumer, so the URL it resolves
-     * is byte-for-byte the one probed here. It also stops the consumer from
-     * silently rewriting an authored `&#106;` into `j`. An ampersand that opens
-     * nothing (`?a=1&b=2`) is left exactly as authored.
-     *
-     * The three forms a consumer decodes are `&#DIGITS;`, `&#xHEXDIGITS;` and
-     * `&NAME;`. An unknown NAME counts too - a consumer leaves it alone either
-     * way, so escaping it changes nothing a reader sees, and guessing which
-     * names are known would be a second denylist to keep in step with three
-     * engines.
-     *
-     * The digit bound is 8, one more than the 7 CommonMark allows, so every
-     * reference a conformant consumer decodes is covered. It is deliberately
-     * the same number carve-js and carve-rs use: the emitted bytes of this
-     * target are cross-engine pinned, and a wider bound in one engine would
-     * show up as a divergence on an input with a longer digit run.
      */
     protected function neutralizeCharacterReferences(string $url): string
     {

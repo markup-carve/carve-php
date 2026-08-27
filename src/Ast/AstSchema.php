@@ -27,32 +27,6 @@ use const JSON_THROW_ON_ERROR;
 /**
  * PART 12 §12(d): AN INGEST VALIDATES THE WHOLE PAYLOAD AGAINST THE AST SCHEMA
  * (markup-carve/carve#881).
- *
- * Types and required fields together, at DECODE, refused with the same typed
- * error §12(a), (b) and (c) already require. Not a fourth list of leniency
- * points: the schema IS the list, it already describes every row that diverged,
- * and those rows were only ever divergent because nothing consulted it.
- *
- * WHY A VALIDATOR RATHER THAN MORE HAND-WRITTEN CHECKS. Ruling the rows one at
- * a time is what produced the state this replaces - a payload whose `text.value`
- * was the number 7 rendered `<p>7</p>`, a `children: null` read as an empty
- * document, and two shapes that failed with a bare `TypeError`, which §9(b)
- * forbids. Every future schema addition becomes a rejection for a producer that
- * has not caught up, and that is the point rather than a side effect: it is what
- * makes the schema the contract instead of a description of it.
- *
- * THE SCHEMA IS VENDORED, as `resources/prosemirror-schema-map.json` already is.
- * The spec repo is a TEST fixture here and is not installed at runtime, so a
- * runtime rule cannot read it from there. `AstSchemaVendoredCopyTest` compares
- * the two byte for byte, so the copy cannot drift.
- *
- * THE KEYWORD SET IS THE ONE THE SCHEMA USES, and no more: `$ref` (local only),
- * `type`, `properties`, `required`, `additionalProperties`, `items`, `const`,
- * `enum`, `anyOf`, `oneOf`, `allOf`, `if`/`then`, `minimum` and `maximum`. A
- * general JSON Schema implementation would be a dependency this package does not
- * have and a much larger surface to be wrong in; a keyword the schema starts
- * using and this does not support would silently accept everything, so
- * `AstSchemaKeywordCoverageTest` walks the schema and fails on an unknown one.
  */
 final class AstSchema
 {
@@ -96,20 +70,6 @@ final class AstSchema
     private static ?array $schema = null;
 
     /**
-     * The first way `$payload` fails the schema, or null when it satisfies it.
-     *
-     * FIRST rather than all: the message is an error a producer acts on, and the
-     * rows this clause closes are single mistakes - a `class` map where `attrs`
-     * belongs, a `children` that is null. Reporting every consequence of one
-     * mistake buries it.
-     *
-     * AN APPLICATION TYPE IS EXEMPT, subtree and all. `AstCodec::register()`
-     * is how a consuming application teaches this codec a node class defined
-     * outside the package (docs/ast-json.md), and the schema cannot name a type
-     * it has never heard of - so §12(d) has nothing to say about one. The
-     * exemption is by NAME and only for types actually registered, so it cannot
-     * be used to smuggle a core type past the rule.
-     *
      * @param array<mixed> $payload
      * @param list<string> $exemptTypes
      *

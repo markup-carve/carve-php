@@ -402,30 +402,6 @@ class HtmlToCarve
     }
 
     /**
-     * The published tree with the SOURCE WRITER taken back out of it.
-     *
-     * This engine reads its AST back from its own written Carve, which is what
-     * makes the two public exits one invariant rather than two goldens nobody
-     * compares. The cost is that everything the WRITER does on the way through
-     * was reaching the published tree, and one of its habits did
-     * (`markup-carve/carve-php#1716`).
-     *
-     * ITS ESCAPES. PART 12 section 1a makes `escaped_text` a node of its
-     * own that never merges with `text`, "because an escape is authored form" -
-     * and on this exit no escape is authored. HTML has no Carve escapes, so
-     * every backslash in the source this importer just wrote was put there by
-     * the writer to keep a character from meaning what it means in Carve.
-     * Reading them back as nodes published the writer's bookkeeping rather than
-     * the document: `<p>a :rocket: b</p>` came out as five inline nodes where
-     * the document has one. Folding them back is what section 1a's own
-     * coalescing rule then asks for, and no import fixture in the shared suite
-     * expects an `escaped_text` node anywhere.
-     *
-     * THE MERGED NODE CARRIES NO POSITION. Section 1a keeps a `pos` on a merged
-     * run only where the pieces are contiguous in the source, and these are
-     * not: the backslash sits between them in the source and in no version of
-     * the value, so the merged text is a slice at no offset.
-     *
      * @param array<string, mixed> $tree
      *
      * @return array<string, mixed>
@@ -667,18 +643,6 @@ class HtmlToCarve
         }
 
         if (isset($this->rawPreservedElements[$path])) {
-            // THE ELEMENT WAS KEPT BYTE FOR BYTE (`markup-carve/carve-php#1713`).
-            //
-            // Its own refused attributes are restated rather than rolled back:
-            // they are IN the output, inside the preserved bytes, and the row
-            // saying an event handler survived is the one a consumer of this
-            // mode might act on (`markup-carve/carve-js#1468`). Calling them
-            // dropped would be a false statement about a success.
-            //
-            // AND THE WALK STOPS HERE. Every row from inside the element would
-            // name a loss that did not happen - the subtree is in the output
-            // exactly as it was written - so the descent that would produce
-            // them does not run at all.
             $this->inspectImportAttributeList($node, $tag, $path, $diagnostics, true);
             // The figure says WHY in its own words, matching carve-js: it is
             // not an unsupported element - Carve has figures - it is a figure
@@ -697,20 +661,6 @@ class HtmlToCarve
         }
 
         if ($tag === 'colgroup' && $this->isDirectTableChild($node)) {
-            // A table's column description has nowhere to land: Carve has no
-            // column model, and whether it should get one is a language
-            // question (`markup-carve/carve#1092`) rather than this importer's
-            // to answer. The drop stands, and now says so instead of claiming
-            // an unwrapping that does not happen - the table walk reads rows,
-            // so the element and everything under it left the document while
-            // the report called it `element-unwrapped` and put a second row
-            // under each `<col>` naming span metadata that is never written.
-            //
-            // Reported before the attribute loop, like the active elements
-            // above: the whole element goes, and its own attributes go with it.
-            //
-            // Wording verbatim from `markup-carve/carve-rs#1006`, so the three
-            // engines report the drop in the same words.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-dropped',
@@ -722,45 +672,7 @@ class HtmlToCarve
             return;
         }
 
-        // A CONSUMED CHECKBOX ANSWERS FOR ITSELF, and for nothing else.
-        //
-        // The two questions below ask the OUTPUT whether this element's own
-        // values reappear in it. For the `<input>` the writer turned into a task
-        // marker the answer is yes and always was - the marker IS the element -
-        // but the re-render spells `type="checkbox"` in lowercase, so an
-        // authored `CHECKBOX` matched nothing and the report called a success a
-        // drop (carve-php#1705).
-        //
-        // SCOPED TO THIS ELEMENT'S INSPECTION rather than skipping the walk over
-        // it, because the rest of the walk is RIGHT. An `onclick` on that same
-        // input is a real loss and reports today; so do a `name` and a `value`.
-        // Returning early here would take all three rows out to remove two -
-        // the lowercase spelling reports them, and this is the spelling that is
-        // supposed to match it.
         if (isset($this->unwrappedBlockContainers[$path])) {
-            // A SECTIONING WRAPPER LEFT THE DOCUMENT AND NOW SAYS SO. It used
-            // to write a `::: name` fence, which renders as `<div class="name">`
-            // - so the element was gone AND a class the document never carried
-            // was in the output, with nothing reported either way
-            // (carve-php#1721). An addition is the worse half: a reader cannot
-            // tell it was not authored.
-            //
-            // Wording and severity are carve-js's and carve-rs's, which agree
-            // here byte for byte, and they are this file's own for every other
-            // unwrapped element.
-            //
-            // BEFORE THE ATTRIBUTE LOOP, so the row naming what happened to the
-            // element stands ahead of the rows naming what happened to what it
-            // carried, which is the order both sibling engines report.
-            //
-            // WHICH OF THE TWO ROWS IT EARNS FOLLOWS THE CONTENT, the same
-            // question {@see self::reportImportElementOutcome()} already asks
-            // of an element with no mapping at all (markup-carve/carve#1738).
-            // An empty `<form>` had nothing an unwrap could preserve, so
-            // `element-unwrapped` - which says the wrapper went and the
-            // children stayed - states something about content that did not
-            // happen, and this was the one path in this file still saying it
-            // unconditionally.
             if ($this->hasImportContentToUnwrap($node)) {
                 $this->addImportDiagnostic(
                     $diagnostics,
@@ -781,23 +693,6 @@ class HtmlToCarve
         }
 
         if ($tag === 'figure' && isset($this->captionedTableFigures[$path])) {
-            // THE CAPTION SURVIVES AND THE FIGURE DOES NOT. `<table><caption>`
-            // is the idiomatic HTML for a captioned table, so this shape
-            // rebuilds instead of preserving (`markup-carve/carve#1704`) - and
-            // what it rebuilds into is a captioned TABLE, which is a different
-            // element from the one the author wrote.
-            //
-            // A declared loss is a ceiling, not a licence, and this row is the
-            // declaration. Without it the rebuild was a silent structural
-            // change, and before the rebuild existed the caption left the figure
-            // entirely and came back as body prose (carve-php#1722).
-            //
-            // WORDING IS carve-js's, verbatim. carve-rs reports the same code at
-            // the same severity but says the written table carries the figure's
-            // ATTRIBUTES as well, which is not true here: this engine drops a
-            // figure's own attributes on every rebuild arm and reports each one
-            // separately, so carve-rs's sentence would be a false statement
-            // about this output.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'structure-unspellable',
@@ -809,21 +704,6 @@ class HtmlToCarve
         }
 
         if ($tag === 'figcaption' && isset($this->detachedFigureCaptions[$path])) {
-            // THE CAPTION KEEPS ITS TEXT AND LOSES ITS ROLE (ruling
-            // `markup-carve/carve-js#1488`). The table's own `<caption>` fills
-            // Carve's one caption slot, so the figure's caption is written as
-            // the paragraph after it - which is a loss worth a row and not the
-            // corruption it replaces: this arm used to write a second `^ ` line
-            // that re-read as a literal paragraph, so the caret was IN the
-            // rendered text.
-            //
-            // NOT `structure-unspellable`, which is the row for the wrapper that
-            // disappears when a figure around a table is BUILT - nothing is
-            // built here - and not `table-degraded`, which says a table was
-            // degraded and nothing about where a caption went.
-            //
-            // WORDING AND PATH ARE carve-js's, verbatim: this ruling landed in
-            // both engines at once, so there is no older spelling to keep.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
@@ -835,28 +715,6 @@ class HtmlToCarve
         }
 
         if ($tag === 'figure' && isset($this->unwrappedFigures[$path])) {
-            // A FIGURE THAT WROTE NO CAPTION LINE IS NOT A FIGURE ANY MORE
-            // (PART 9 §4b). The target is in the output and the wrapper is not,
-            // which is what `element-unwrapped` says - and this engine said
-            // nothing, for every one of the arms that unwraps: an uncaptioned
-            // wrapper around an image, a quote, a code block or anything else,
-            // and a captioned one outside `roundtrip`, where there is no
-            // preserved block to keep it (carve-php#1723).
-            //
-            // WORDING AND SEVERITY ARE ALL THREE ENGINES', byte for byte, and
-            // they are this file's own for every other unwrapped element.
-            // markup-carve/carve#1716 ruled the row: `element-unwrapped` at
-            // `info`, saying `Unwrapped unsupported <figure> element`, because
-            // the row means one thing wherever it appears - the content
-            // survived, the element did not - and that is the same event for a
-            // figure, a section or an address. It also retired carve-js's
-            // figure-specific message and its split by target set, since a
-            // diagnostic whose text varies with one engine's capabilities
-            // leaks an implementation detail into the wire format.
-            //
-            // BEFORE THE ATTRIBUTE LOOP, so the row naming what happened to the
-            // element stands ahead of the rows naming what happened to its
-            // attributes, which is the order both sibling engines report.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
@@ -1068,47 +926,6 @@ class HtmlToCarve
     }
 
     /**
-     * Name what became of an element the importer has no mapping for.
-     *
-     * THE CODE IS DECIDED BY THE OUTCOME, not by which arm of the walk ran.
-     * `element-unwrapped` used to be written for every unsupported element,
-     * and it says something specific: the wrapper went and the children
-     * stayed. That is true of a `<button>`, whose label comes through, and
-     * false of a `<canvas>`, an `<object>` or an `<iframe>`, whose emitted
-     * Carve is empty - nothing was unwrapped there, the subtree was dropped,
-     * and `element-dropped` is what `<math>` and `<colgroup>` already say
-     * (carve-php#1377).
-     *
-     * WHAT SEPARATES THEM IS CONTENT TO UNWRAP. An element that has any is
-     * unwrapped, because that is what this importer does with one - measured
-     * over every unsupported tag, the content came through in all of them. An
-     * element that has none cannot have been unwrapped whatever else is true:
-     * there was nothing to put in its place.
-     *
-     * THE THIRD ANSWER IS SILENCE, and it is why the childless case cannot be
-     * settled from the tag either. An `<input type="checkbox">` at the head of
-     * a list item is not lost: it comes back as the task marker `- [ ]`. Its
-     * own attributes are in the emitted document, so it survived as an element
-     * and there is nothing to report. The same `<input>` anywhere else leaves
-     * nothing, and it is that difference - not a table of types - that decides.
-     *
-     * ONLY THE CHILDLESS CASE IS ASKED OF THE DOCUMENT, deliberately. Asking it
-     * of content too means searching the emitted document for an element's
-     * words, and a document-wide search answers yes for words that belong to
-     * somebody else. The direction of the error matters: a missed
-     * `element-dropped` leaves the report where it already was, while a
-     * `element-dropped` on an element whose content is right there in the
-     * output is a new false statement. A `<button>...</button>` whose content
-     * is all punctuation, and a `<button><hr></button>` whose child carries
-     * neither words nor attributes, are both unwrapped and both would have been
-     * called dropped by a search of that kind.
-     *
-     * SO THIS DOES NOT REACH an element whose content its CONTEXT discards - a
-     * `<button>` inside a `<table>`, whose label never reaches the output. It
-     * is still reported as unwrapped. Telling that apart needs the trace to be
-     * correlated with the element it came from, which is the same correlation
-     * `importAttributeSurvived()` does not have.
-     *
      * @param \DOMElement $node
      * @param string $tag
      * @param string $path
@@ -1144,31 +961,6 @@ class HtmlToCarve
     /**
      * A `<figcaption>` or `<caption>` written outside the container it captions.
      *
-     * NOT A PREDICATE FOR WHICH CAPTION THE SERIALIZER CONSUMED. That question
-     * has three routes through this importer and reading the input to answer it
-     * is what withdrew carve-php#1347. This one asks whether the element is in a
-     * position where ANY route could take it, and outside `<figure>` or
-     * `<table>` none can: there is no caption slot to compete for.
-     *
-     * The HTML content model is what makes it decidable. `<figcaption>` belongs
-     * to `<figure>` and `<caption>` to `<table>`, so an orphan is degenerate
-     * input whose text this importer has nowhere to put.
-     *
-     * IT CANNOT CURRENTLY CHANGE THE OUTCOME, and is kept for the MESSAGE. Every
-     * caption this writer places emits its text, so the survival test beside it
-     * suppresses the row for a placed one whatever this answers - dropping this
-     * test moves no document today. What it buys is that the row cannot LIE: if
-     * a placed caption ever stopped emitting, calling it "outside its own
-     * container" would be a false statement about a real loss, where staying
-     * silent is a known gap. A wrong reason is worse than a missing row.
-     *
-     * A DIRECT CHILD, for both, because that is what the content model says and
-     * what the writer reads. An ancestor WALK was written first and was too
-     * lenient in exactly the way that matters: `<figure><div><figcaption>` has
-     * a figure above it, is not a direct child of one, and its text leaves the
-     * document - so the walk called it placed and said nothing, which is the
-     * silence this whole change is about.
-     *
      * @param \DOMElement $node
      * @param string $tag
      */
@@ -1190,21 +982,6 @@ class HtmlToCarve
 
     /**
      * Did this element's own text reach the emitted document?
-     *
-     * ASKED OF THE OUTPUT, so a row is never written about text that is right
-     * there - the direction carve-php#1377 rates as a new false statement. The
-     * cost of asking it this way is a false NEGATIVE where the words happen to
-     * appear elsewhere in the document, which leaves the report where it
-     * already was.
-     *
-     * Both sides are reduced to letters and digits, the same reduction
-     * {@see self::importElementContentKey()} uses for the attribute survivors:
-     * the two are not written by the same hand, and a caption comes back behind
-     * a `^` marker with the renderer's own spacing around it.
-     *
-     * An element carrying no letters or digits at all is treated as surviving,
-     * because an empty key is contained in every string and asking the question
-     * of one answers yes for nothing.
      *
      * @param \DOMElement $node
      */
@@ -1577,48 +1354,8 @@ class HtmlToCarve
                 // of the element.
                 continue;
             } elseif ($this->isDerivedImportAttribute($node, $name, $attribute->value)) {
-                // The value the RENDERER writes for this element. It is not in
-                // the emitted Carve on purpose - baking it into source makes a
-                // generated string look authored and the imported copy then
-                // wins over the `labels` map on every later render
-                // (markup-carve/carve#1500) - and it comes back on the next
-                // render regardless, so it is reproduced, not dropped.
-                //
-                // Same shape as the generated `scope` above, and asked through
-                // the same predicates the WRITERS drop by, so the report cannot
-                // disagree with the conversion about what was derived. Reading
-                // the emitted document instead cannot answer this: that oracle
-                // re-renders with a bare converter, and every value here is
-                // written by a renderer the importer was never handed - the
-                // extension that claims the fence, the one that builds the tab
-                // set - so it asks a document where the attribute could not
-                // have come back and calls the absence a loss
-                // (markup-carve/carve#1502).
                 continue;
             } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
-                // THE DOCUMENT DECIDES, and nothing here knows the attribute's
-                // name. A `!isRepresentedImportAttribute($tag, $name)` disjunct
-                // stood in front of this and short-circuited on any name that
-                // was not on its list - so `aria-label` and `foo`, which this
-                // importer KEEPS, were reported as dropped while surviving into
-                // the emitted Carve as `{aria-label=note}` and `{foo=bar}`
-                // (carve-php#1337).
-                //
-                // That list was a second copy of the strip policy, which lives
-                // in `$skipAttributes` plus the `on*` and `data-djot-*` prefixes
-                // at the write site - and a second copy drifts, which is how the
-                // first copy came to disagree with the first about `cite`
-                // (carve-php#1346 deleted four predicates for the same reason).
-                //
-                // Measured over 495 tag/attribute pairs: removing it deleted 293
-                // rows and added NONE, and every deleted row named an attribute
-                // present in the emitted document. `role`, `xmlns`, `style` and
-                // every `on*` handler still report, because the oracle asks
-                // whether the attribute came BACK rather than whether anyone
-                // listed it. That includes the ones only the RENDERER strips -
-                // `srcdoc` and `formaction` are kept by this importer and blanked
-                // on the way out (PART 9 §25), and asking the rendered document
-                // reports them without either side having to know.
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
         }
@@ -1922,18 +1659,6 @@ class HtmlToCarve
         }
 
         if ($tier === 2) {
-            // `encoding-assumed`, which the spec added to the code set for
-            // exactly this case (carve#1235): MathML never says what `alttext`
-            // holds, so reading it as TeX is a guess, and the math node this
-            // produces is only correct while the guess is. The spec files that
-            // apart from `element-unwrapped` on purpose - unwrapping is a note
-            // about the input's structure and loses no meaning, while an
-            // assumed encoding is a warning about the OUTPUT, and a consumer
-            // told only that an element is gone cannot tell the two apart.
-            //
-            // `info`, matching carve-js: the spec maps no code to a severity,
-            // so raising this one would divide the engines over something
-            // nothing rules on.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'encoding-assumed',
@@ -2679,33 +2404,6 @@ class HtmlToCarve
 
     /**
      * The importer's strip policy, asked as ONE question.
-     *
-     * WHAT IT REFUSES is a rule, not a roster. `on*` is unbounded and browsers
-     * keep extending it, so an enumeration of handler names cannot be complete
-     * - and this list held exactly five of them (`onclick`, `onload`,
-     * `onmouseover`, `onmouseout`, `onsubmit`) while four separate writers each
-     * had to remember to pair it with the prefix rule. Three of them did not,
-     * so `<aside class="admonition note" onfocus="steal()">` imported to Carve
-     * source reading `{onfocus=steal()}` - the exact laundering the fourth
-     * writer's comment says the prefix exists to prevent (carve-php#1375).
-     *
-     * Four call sites that must agree with nothing making them agree is the
-     * defect carve-php#1346 and carve-php#1337 both came back to. So the
-     * question is asked here and only here, and the five names are gone: they
-     * were redundant wherever the prefix ran and the only defense where it did
-     * not, which is the worst of both readings.
-     *
-     * `srcdoc` and `formaction` join it. PART 9 §25 has the HTML renderer blank
-     * both, so keeping them on import produced Carve source carrying an
-     * attribute every target has to remember to refuse - a defense that holds
-     * only at the last stage is one target away from not holding. Nothing the
-     * reader sees changes: the renderer already blanked them, and the import
-     * report already said they were dropped, because it asks the rendered
-     * document (carve-php#1337).
-     *
-     * PER-SITE skips - `id`, `class`, an admonition's own `data-djot-*` keys -
-     * stay at their call sites. They are that writer's business; this is the
-     * policy.
      */
     protected function isStrippedImportAttribute(string $name): bool
     {
@@ -2902,22 +2600,6 @@ class HtmlToCarve
         }
 
         if ($this->captionDepth > 0 && $this->isFlattenedInACaption($tagName)) {
-            // Inside a caption line, a block is its content. See
-            // processCaptionChildren() for why this is a depth and not a rule
-            // about the caption's direct children.
-            //
-            // A FLATTEN PRESERVES THE BOUNDARY IT DISSOLVES (PART 11 §1b,
-            // markup-carve/carve#1325). Returning the content bare ran two
-            // blocks together: `<p>one</p><p>two</p>` became `onetwo`, and
-            // `<p><strong>a</strong></p><p><strong>b</strong></p>` became
-            // `*a**b*`, which re-parses as literal asterisks rather than two
-            // runs. The block boundary is gone either way - a caption is one
-            // line - but what it SEPARATED has to survive it.
-            //
-            // An EMPTY block contributes no separator, because there was
-            // nothing on this side of the boundary to keep apart (corpus
-            // convert case 32). The trailing one is removed by
-            // processCaptionChildren(), so a lone block reads exactly as before.
             $hadPending = $this->captionPendingBoundary;
             $needsSeparator = $this->captionPendingNeedsSeparator;
             $this->captionPendingBoundary = false;
@@ -3005,23 +2687,6 @@ class HtmlToCarve
             /*
              * THE DEFAULT ARM IS THE PRESERVE ARM (`markup-carve/carve-php#1713`),
              * and that makes it load-bearing in a way it was not before.
-             *
-             * BEFORE ADDING A TAG ANYWHERE IN THIS MATCH, ask whether it can
-             * also arrive here on its own. A tag whose real handling lives in
-             * its PARENT's walk - a `<dt>` read by `processDefinitionList()`, a
-             * `<td>` read by `processTable()` - still reaches the dispatch when
-             * it is written outside that parent, and it used to land on
-             * `processChildren()`, which unwrapped it harmlessly. It now lands
-             * on the preserve arm and comes back as raw HTML: a `<dt>` inside a
-             * `::: tab` came out as `` `<dt>Term</dt>`{=html} ``, and the suite
-             * caught it only because one test happened to write a definition
-             * list in a container.
-             *
-             * So every such name is listed above with the answer it always
-             * gave. Reaching this arm now MEANS "this converter has no spelling
-             * for it", which is what makes the preserve rule derived rather
-             * than a roster - and the cost of that is that the match has to be
-             * honest about which names are handled elsewhere.
              */
             default => $this->preservedAsRawHtml($node) ?? $this->processChildren($node),
         };
@@ -3060,42 +2725,6 @@ class HtmlToCarve
 
     /**
      * A caption's content, with block descendants UNWRAPPED to their inline run.
-     *
-     * A caption line is an INLINE slot - `^ ` followed by one line of inline
-     * content - so a block cannot live in it. Converting a caption's children
-     * the ordinary way wrote their Carve SOURCE into that slot, where it
-     * re-parses as prose: a `<ul><li>a</li><li>b</li></ul>` came back as the
-     * literal characters `- a` and `- b`, so the document gained text the
-     * author never wrote AND lost the list they did write (carve-php#1345).
-     *
-     * Carrying the source into a slot that cannot hold its meaning reads as
-     * preservation and is really loss - the same shape as the `{cite=u}` that
-     * landed as caption text. The honest degradation is to take the content and
-     * drop the structure, which is what carve-js and carve-rs both already do:
-     * each renders `^ ab` here, and each reports an `element-unwrapped` row per
-     * block it unwrapped. This engine was the outlier on both halves.
-     *
-     * A DEPTH rather than a walk of the caption's own children, because the
-     * block need not be one: `<figcaption><a><ul>…</ul></a></figcaption>` is
-     * valid - `<a>` is transparent - and a child-only rule left that list
-     * serializing as `- a` inside the link, which is the original defect
-     * surviving under a wrapper. The depth reaches every descendant while
-     * still letting inline elements convert normally, so the link is kept and
-     * only the list inside it is flattened.
-     *
-     * THIS RECORDS DIAGNOSTICS. DO NOT CALL IT TO ASK A QUESTION.
-     *
-     * Every block it flattens appends an `element-unwrapped` row to
-     * `$captionFlattenDiagnostics`, so calling it to find out something about a
-     * caption and then converting for real reports the same flatten TWICE. That
-     * is not hypothetical: `markup-carve/carve-php#1713` asked it whether a
-     * caption spelled anything before deciding to preserve the figure, and a
-     * figure whose caption held a list gained three rows for one conversion.
-     *
-     * A question about a caption is asked of the DOM - see
-     * `captionSpellsSomething()`, which exists because of that bug. Anything
-     * this method can answer that the DOM cannot needs a side-effect-free
-     * predicate of its own rather than a second call to this one.
      */
     protected function processCaptionChildren(DOMNode $node): string
     {
@@ -3145,23 +2774,6 @@ class HtmlToCarve
     /**
      * The `<figure>` elements this conversion UNWRAPPED, keyed by path.
      *
-     * A FIGURE IS ITS CAPTION (PART 9 §4b), so a wrapper that writes no `^ `
-     * line did not survive as a figure whatever else came through: the target
-     * is in the output, the element around it is not, and the re-render shows
-     * a bare image, quote or code block where the input had a figure. That is
-     * `element-unwrapped` by the definition {@see self::inspectImportNode()}
-     * uses everywhere else, and this engine was the only one of the three
-     * saying nothing at all (carve-php#1723).
-     *
-     * RECORDED BY THE WRITER rather than re-derived, because the writer is the
-     * one that knows which of the five arms ran. Re-deriving it in the report
-     * walk means a second copy of {@see self::processFigure()}'s decision, and
-     * {@see self::convertWithReport()} exists to stop exactly that.
-     *
-     * KEYED BY PATH for the reason {@see self::$rawPreservedElements} is: the
-     * report walks a SECOND parse of the same HTML, so no node object is
-     * shared between the two passes.
-     *
      * @var array<string, true>
      */
     protected array $unwrappedFigures = [];
@@ -3205,23 +2817,6 @@ class HtmlToCarve
     /**
      * The block containers this conversion UNWRAPPED, keyed by path.
      *
-     * A sectioning wrapper - `<article>`, `<main>`, `<header>`, `<footer>`,
-     * `<nav>`, `<aside>` - has no Carve block, and the container fence is not
-     * one: it renders as `<div class="name">` for every name, so writing one
-     * put a class in the output the document never carried while the element
-     * the author wrote was gone anyway (carve-php#1721). They unwrap, and this
-     * is what lets the report say so.
-     *
-     * RECORDED BY THE WRITER, because the unwrapping is a decision about the
-     * WRITE - a table cell takes the same route for a different reason, and
-     * `<aside class="admonition note">` never reaches it at all, since that one
-     * really does have a construct. Asking the input DOM instead means a second
-     * copy of those conditions.
-     *
-     * KEYED BY PATH for the reason {@see self::$rawPreservedElements} is: the
-     * report walks a SECOND parse of the same HTML, so no node object is
-     * shared between the two passes.
-     *
      * @var array<string, true>
      */
     protected array $unwrappedBlockContainers = [];
@@ -3245,29 +2840,6 @@ class HtmlToCarve
 
     /**
      * The `<input>` elements this conversion CONSUMED into a task marker.
-     *
-     * A checkbox at the head of a list item is not lost: it comes back as the
-     * `- [ ]` marker, which is why the report says nothing about it. That
-     * silence was produced by asking the OUTPUT whether any of the element's
-     * raw attribute VALUES reappears there, and the re-render writes
-     * `type="checkbox"` in lowercase - so an author who wrote `CHECKBOX`, which
-     * every browser and this importer read as the same keyword, got
-     * `attribute-dropped` and `element-dropped` about a marker that is right
-     * there in the output (carve-php#1705).
-     *
-     * RECORDED BY THE WRITER, at the point of consumption. The alternative is to
-     * re-derive during the report walk which `<input>` became the marker, and
-     * that reintroduces a comparison on the value - the shape that caused this.
-     * The writer already knows: it is holding the element it read the state off.
-     *
-     * NOT FIXED BY FOLDING CASE IN THE TALLY. That would change what counts as
-     * survival for every element and every attribute, well past this one
-     * keyword, and it could start suppressing real losses - trading a false
-     * negative here for a class of false positives elsewhere is a worse report.
-     *
-     * KEYED BY PATH for the reason {@see self::$loneImageParagraphs} is:
-     * `convertWithReport()` inspects a SECOND parse of the same HTML, so no node
-     * object is shared between the two passes.
      *
      * @var array<string, true>
      */
@@ -3513,38 +3085,6 @@ class HtmlToCarve
     /**
      * Which block, written below a tight item's lead, still opens a block there.
      *
-     * A TIGHT ITEM WRITES NO BLANK LINE between its blocks (carve-php#1708), and
-     * that is only safe for a block that OPENS at the item's content column. A
-     * block that does not open one there is read as the lead paragraph's lazy
-     * continuation (PART 9 §10 I2) and the item comes back holding ONE block
-     * where the source held two - so those keep the blank line they have today.
-     *
-     * AN ALLOWLIST, AND THE DEFAULT IS THE BLANK LINE, because the two errors
-     * are not the same size. A tag missing from this list costs a source
-     * spelling that differs from carve-js, which is where this engine already
-     * was; a tag wrongly ON it costs a lost block. So an unlisted tag keeps the
-     * separator.
-     *
-     * WHAT IS LEFT OUT, and why each one folds - measured, not assumed:
-     *
-     *   - `figure`, and a lone `img`: both are written as a bare inline run on
-     *     their own line (`![](i.png)`, plus a `^ cap` line), which at the
-     *     content column is lazy continuation exactly as a paragraph is. This
-     *     is the same pair `CarveRenderer::foldsIntoAnOpenParagraph()` had to
-     *     carve out after measuring twenty-two constructs (carve-php#1069).
-     *   - `div` and the other bare containers: the tag alone does not decide.
-     *     An ATTRIBUTED `<div>` is written as a colon fence and does open a
-     *     block; a bare one is DEGRADED to its content, so the part is plain
-     *     text with no opener at all. One tag, two outcomes, and only the
-     *     second is safe to abut - so the tag stays off this list and the
-     *     attributed div keeps a blank line carve-js does not write. That is
-     *     the spelling divergence this list's default direction accepts; the
-     *     alternative reads the emitted text back to tell the two apart, which
-     *     is a second spelling of the grammar this file already refuses
-     *     elsewhere.
-     *   - `p`: it never reaches the question. A direct `<p>` makes the list
-     *     loose, and a loose list writes the blank line everywhere.
-     *
      * @var list<string>
      */
     protected const TIGHT_ITEM_BLOCK_OPENERS = [
@@ -3757,39 +3297,6 @@ class HtmlToCarve
             // See processEndnotesSection() for why.
         }
 
-        // THE SECTION ELEMENT ITSELF IS NEVER WRITTEN. Carve has no spelling
-        // for one: the renderer builds a `<section>` around a heading, so what
-        // reaches the output is the heading and whatever the id could be moved
-        // onto - never the element the author wrote. It left the document, and
-        // the row that says an element left the document is this one.
-        //
-        // markup-carve/carve#1723 states the condition over the INPUT: the row
-        // fires when an element did not survive into the output, and nesting
-        // does not exempt it. A `<section>` that unwraps did not survive, and
-        // this engine alone said nothing about it - for every shape, attributed
-        // or bare, at every depth (carve-php#1737). carve-js and carve-rs report
-        // it on all of them.
-        //
-        // NOT CONDITIONAL ON THE ID SURVIVING. An authored id does come back,
-        // on the heading below, and that is a statement about the ATTRIBUTE
-        // rather than about the element: `inspectImportAttributes()` asks the
-        // output for it and stays correctly silent when it is there. The
-        // element is gone either way, and making the element row depend on an
-        // attribute would be a third answer where the siblings already agree.
-        //
-        // Recorded in the SAME register the other unwrapped block containers
-        // use, so the row is written before the rows naming what the element
-        // carried - see `inspectImportNode()`.
-        //
-        // AN ENDNOTES SECTION IS EXEMPT, and it is the only one. That wrapper
-        // is DERIVED: the renderer writes a `<section role="doc-endnotes">`
-        // around the notes whenever a document has any, so the author never
-        // wrote it and nothing of theirs goes when it is unwrapped
-        // (carve-php#1588, markup-carve/carve#1558). The exemption is on the
-        // ROLE rather than on the tag, and it holds whichever way the import
-        // then goes - rebuilt into footnote definitions above, or degraded to
-        // the `<hr>` and `<ol>` it is built from below. Both sibling engines
-        // scope it exactly this way.
         if ($node->getAttribute('role') !== 'doc-endnotes') {
             $this->unwrappedBlockContainers[$this->conversionNodePath($node)] = true;
         }
@@ -3862,43 +3369,11 @@ class HtmlToCarve
     {
         $expected = (new HeadingIdTracker())->getIdForText(trim($heading->textContent));
 
-        // A duplicate heading's dedup id (`-2`) differs from the slug and is
-        // KEPT, deliberately: written back as an authored id it renders the
-        // same HTML, while stripping it would also strip a real authored
-        // `{#a-2}` and break its anchors - the ambiguity has no third reading.
-        //
-        // Compared EXACTLY, not case-insensitively. `normalizeId()` only folds
-        // case under the `lowercase` option, so this tracker - built with
-        // defaults, because the importer cannot know which mode rendered the
-        // HTML - derives the case-PRESERVING slug. A case-insensitive match
-        // therefore read `{#methods}` on `## Methods` as generated and dropped
-        // it, and regeneration wrote `id="Methods"`: the same broken `#methods`
-        // anchor carve-php#1289 fixed, in the one shape it left open. Keeping
-        // it is the safe half of the ambiguity, and the rule above already says
-        // so - an id that cannot be CONFIRMED generated is kept, and a kept
-        // lowercase-mode id re-renders to the id it came from either way.
         return $sectionId !== $expected;
     }
 
     /**
      * The colon fence for a container opening at the CURRENT nesting depth.
-     *
-     * INWARD-WIDENING, which is the form `carve fmt` emits (grammar PART 9
-     * §12, PART 11). A colon fence closes on an EXACT length match, so both
-     * directions parse and the direction is a WRITER's choice - and
-     * `docs/html-import.md` gives the importer no choice at all: "an importer
-     * emits the source `carve fmt` emits", so that every `expected.crv` in
-     * `tests/html-import` is a fixed point of the formatter too.
-     *
-     * This used to scan the ALREADY-WRITTEN body for colon-only lines and take
-     * one more than the longest, on the superseded `len(close) >= len(open)`
-     * reading where a container's fence was a quoting relation. That is a
-     * bottom-up rule, so it can only widen OUTWARD - and it inverted every
-     * nesting depth against the formatter, which widens by depth on the way
-     * down: `<div class="tabs"><div class="tabs-panel">` imported as
-     * `:::: tabs` / `::: tabs-panel` and formatted back as `::: tabs` /
-     * `:::: tabs-panel` (markup-carve/carve-php#1583). Code fences keep the
-     * `>=` relation (§2), where the length axis really is quoting.
      */
     protected function colonFenceFor(): string
     {
@@ -3946,29 +3421,6 @@ class HtmlToCarve
             return $this->processLineBlock($node);
         }
 
-        // The block form of the same loss the inline math span had: pandoc and
-        // the MathBlockExtension both write <div class="math display">, and
-        // importing that as a colon fence turned the equation into a paragraph
-        // of escaped backslashes (carve-php#1543).
-        //
-        // It comes back as the CORE display form - `$$` in front of a verbatim
-        // span, a paragraph holding one math node - and never as a ``` math ```
-        // fence (PART 9 section 18, ruled at markup-carve/carve#1514).
-        //
-        // THE FENCE WAS THE FIRST ANSWER HERE, on the argument that the
-        // extension WRITES that div, so the fence is an exact inverse and
-        // `docs/html-import.md` already accepts an inverse a reader recovers by
-        // enabling an extension. That argument was weighed by the ruling and
-        // lost. The fence is an EXTENSION: with it not loaded the same imported
-        // document is an ordinary `language-math` code block, so the equation
-        // is mathematics for one consumer and a code block for another.
-        // `math_display` is core and needs nothing loaded. An importer's job is
-        // to produce a document that MEANS what the HTML meant, not to
-        // reconstruct the document that happened to generate it - and it cannot
-        // know an extension generated it at all, since HTML from anywhere else
-        // carrying those classes arrives here identically. Emitting the fence
-        // only when the extension is registered was rejected on purpose: it
-        // makes two runs of the same tool over the same input differ.
         $blockMath = $this->mathDelimitedContent($node, 'div');
         if ($blockMath !== null) {
             // The display flag decides the sigil, so a div spelled
@@ -4017,23 +3469,6 @@ class HtmlToCarve
 
         if ($fenceClass === null || $fenceClass === '') {
             $attrs = $this->formatBlockAttributes($node);
-            // THE BOUNDARY IS WHAT ONLY A CONTAINER CAN HOLD, not the tag. A
-            // div carrying none of it is not a container worth spelling, so it
-            // unwraps and the `:::` fence is not written
-            // (markup-carve/carve#1578) - the fence would buy the reader
-            // nothing and cost two lines of markup nobody asked for.
-            //
-            // Today that means an attribute the language can hold OR a grouping
-            // label. #1578 wrote the test as the attribute alone, as a proxy for
-            // its own stated rationale - "then there IS something only the
-            // container can hold" - and the proxy turned out narrower than the
-            // principle it stood in for. When a proxy and its rationale
-            // disagree the rationale governs (markup-carve/carve-rs#1315).
-            //
-            // What settles it is that the narrow test was not a declarable loss:
-            // `::: [g]` came back as a `{.div-label}` PARAGRAPH, so the
-            // container was gone and the label had become body content. That is
-            // an ADDITION, and an addition cannot be declared away.
             if ($attrs === '' && $label === null) {
                 return $this->degradeToContent($node);
             }
@@ -4248,28 +3683,6 @@ class HtmlToCarve
 
     /**
      * Is this the accessible name the RENDERER derives for this element?
-     *
-     * PART 9 §16a and Extensions §13 write a name onto elements the author never
-     * spelled. Re-importing it makes a generated string look authored, and §12
-     * writes a name only where the author wrote NONE - so the imported copy WINS
-     * on the next render and the document can no longer be localized: a source
-     * carrying `{aria-label=Note}` still emits `aria-label="Note"` under
-     * `labels: {admonitionNote: 'Hinweis'}` (markup-carve/carve#1500).
-     *
-     * Dropping it is free. The renderer regenerates the same string, so the
-     * output is byte-identical with the attribute gone - measured on every shape
-     * below - and only then does the `labels` map reach it again.
-     *
-     * MATCHED ON VALUE, NOT ON PROVENANCE. If the value equals what the renderer
-     * derives, the output is identical whether the author wrote it or the engine
-     * did, so this cannot repeat carve-php#1337: a name that DIFFERS is the
-     * author's and is kept. Same rule the generated `scope` on a `<th>` already
-     * gets.
-     *
-     * The residue is deliberate. A document rendered with a non-default `labels`
-     * map carries a value this cannot recognize, so it is kept. Closing that
-     * needs the importer to be handed the same map, which is step 2 on
-     * markup-carve/carve#1500.
      */
     protected function isDerivedAccessibleName(DOMElement $node, string $name, string $value): bool
     {
@@ -4328,36 +3741,6 @@ class HtmlToCarve
     /**
      * WHAT THE RENDERER DERIVES for this element: the `role` values it can
      * write, and the accessible name it writes beside them.
-     *
-     * ONE SHAPE TEST, TWO ANSWERS. The role and the name are decided by the
-     * same fact - that this element IS a claimed fence, a tab set, an endnotes
-     * section - so reading them off one walk is what keeps them from
-     * disagreeing about which elements those are. They are still applied
-     * INDEPENDENTLY: `FencedRenderExtension::namingDefaults()` writes the role
-     * whenever the fence has a name from EITHER side, so a fence carrying the
-     * author's own `aria-label` keeps that name and still has its role derived
-     * - which is the second half of the spec's `derived-accessible-name`
-     * fixture.
-     *
-     * A ROLE HAS SEVERAL SPELLINGS where one shape has several renderings. A
-     * tab set is `group` under the CSS mode and `tablist` under the ARIA one,
-     * and a panel is `group` or `tabpanel` the same way; the importer cannot
-     * see which mode produced the HTML, so both are the renderer's.
-     *
-     * The classes are the ones the renderers write at their DEFAULT options -
-     * an importer cannot see a host's `wrapperClass`, nor whether the extension
-     * that names this shape is even registered on the render that reads the
-     * source back - which is the same blind spot the default-only label match
-     * already accepts. A `<div class="tabs">` holding no tabs is the sharp end
-     * of it: nothing reconstructs a tab set from it, so neither the role nor
-     * the name comes back.
-     *
-     * THAT RESIDUE IS NOT DECIDED HERE. The name is already dropped from such a
-     * div, by `isDerivedAccessibleName()`, and the role by `$skipAttributes` -
-     * both before this method existed. Reporting the drop did not mitigate it;
-     * it only made the report contradict the conversion, which is what
-     * markup-carve/carve#1502 measured. If the drop is too eager the fix is in
-     * the shape test below, in one place, and this map follows it.
      *
      * @return array{role: list<string>, aria-label: list<string>}
      */
@@ -4464,28 +3847,6 @@ class HtmlToCarve
             return ['role' => [], 'aria-label' => [$lead . ' ' . $term . ' ' . $m[1]]];
         }
 
-        // A CLAIMED fence is named by its own fence word, which is its class -
-        // and `FencedRenderExtension::namingDefaults()` never writes that
-        // default name without `role="img"` beside it, because an `img` with
-        // no accessible name is skipped entirely. An ordinary classed `<div>`
-        // or `<pre>` is not a claimed fence and the renderer names it not at
-        // all, so an `aria-label` that happens to equal its first class word is
-        // the AUTHOR's and stays - dropping it would lose a name no re-render
-        // brings back, which is the regression carve-php#1337 records.
-        //
-        // The role is the discriminator rather than a list of preset fence
-        // words: a roster would be importer policy the three engines have to
-        // agree on first, and it would still be wrong for a custom preset.
-        //
-        // ONE RESIDUE, DELIBERATE and measured: an author who wrote their own
-        // `role` keeps it, and `namingDefaults()` still writes the default name
-        // beside it - `{role=group}` on a mermaid fence renders as
-        // `<pre class="mermaid" role="group" aria-label="mermaid">`, so the name
-        // is not recognized here and survives the import. That fails in the SAFE
-        // direction: it keeps a name rather than losing one, which is the side
-        // markup-carve/carve#1502 says a value-matched drop must never get wrong.
-        // Closing it needs the roster above, or the render's own `labels` map,
-        // which is step 2 on markup-carve/carve#1500.
         if (
             ($tag === 'pre' || $tag === 'div')
             && $classes !== []
@@ -4499,29 +3860,6 @@ class HtmlToCarve
 
     /**
      * Does this attribute point at the admonition title this import consumes?
-     *
-     * A REFERENCE THE IMPORT DOES NOT KEEP IS NOT A REFERENCE. PART 9 §12 names
-     * a TITLED admonition with `aria-labelledby` pointing at the id on its own
-     * `<p class="admonition-title">`. That element does not survive the import:
-     * its text becomes the opener's quoted title, so the id goes with it and the
-     * attribute is left naming nothing.
-     *
-     * Keeping it was worse than noise. §12 writes a name only where the author
-     * wrote NONE, so on the next render the stale attribute - by then
-     * indistinguishable from an authored one - SUPPRESSES the correct name, and
-     * the aside points at an id no document has. Rendering the imported source
-     * shows both halves: `aria-labelledby="adm-1"` on the aside and no `id` on
-     * the title at all.
-     *
-     * Same rule as the generated `scope` on a `<th>`: an attribute the renderer
-     * DERIVES is dropped when the import cannot carry what it derives from. An
-     * `aria-labelledby` pointing anywhere else names an element this import is
-     * not consuming, so it is the author's and it stays.
-     *
-     * Asked HERE and only here because `processAside()` and
-     * `processAdmonition()` each carry their own copy of the attribute loop, and
-     * a second copy of a policy drifts - which is the defect carve-php#1346 and
-     * carve-php#1337 both came back to.
      */
     protected function isConsumedTitleReference(DOMElement $node, string $name, string $value): bool
     {
@@ -4666,32 +4004,6 @@ class HtmlToCarve
 
     /**
      * Is this one of the SECTIONING wrappers?
-     *
-     * These are the names carve-js and carve-rs treat as document STRUCTURE
-     * rather than as markup they cannot express, and all three engines agree
-     * on the set. What this engine did with them was the outlier: it wrote a
-     * `::: name` container fence, on the premise that the fence renders back as
-     * the element.
-     *
-     * IT DOES NOT. A container fence renders as `<div class="name">` for EVERY
-     * name, sectioning ones included, so `<article id="k">` came back as
-     * `<div class="article" id="k">` - the element the author wrote gone, and a
-     * class they never wrote in the output. An undeclared loss is a ceiling an
-     * import may sit inside; an ADDITION is the document coming back saying
-     * something it never said, and only the second changes what the document
-     * means (carve-php#1721).
-     *
-     * SO THEY UNWRAP, which is what both sibling engines do with the same input:
-     * the children come through, the wrapper and its attributes are dropped, and
-     * the report says both. `<section>` is not here - it goes through
-     * {@see self::processSection()}, which can put an authored id back on a
-     * heading and so sometimes keeps the element.
-     *
-     * THIS IS NOT THE PRESERVE SET EITHER. The names that map to nothing at all
-     * are kept byte for byte in `roundtrip` (`markup-carve/carve-php#1713`);
-     * these map to structure a Carve document genuinely has no block for, and
-     * turning a page's `<header>`, `<nav>` and `<footer>` into opaque raw blocks
-     * would make the most common wrappers in a document unreadable as Carve.
      */
     protected function isSectioningWrapper(string $tagName): bool
     {
@@ -4996,40 +4308,6 @@ class HtmlToCarve
 
     /**
      * The one `<img>` a paragraph WRITES, when it writes nothing else.
-     *
-     * READING THE `<p>`'S DIRECT CHILDREN WAS THE DEFECT (carve-php#1673). The
-     * question is what the paragraph writes, and a wrapper that contributes no
-     * characters of its own does not change that answer: `<picture>`, a bare
-     * `<span>`, a `<source>` beside the image - each writes the image and
-     * nothing else, so `<p><picture><img></picture></p>` writes the same bare
-     * block image that `<p><img></p>` does, loses the same `<p>`, and owes the
-     * same row. A shape-shaped predicate could not see any of them, and every
-     * one of those losses went undeclared. carve-rs reports them, because its
-     * predicate reads the built inline run rather than the DOM.
-     *
-     * THE OVER-BROAD FIX IS THE WORSE ONE, so the comparison is against what was
-     * actually written rather than a descent through any single-element wrapper.
-     * A wrapper that DOES contribute makes a paragraph the source can spell and
-     * must keep reporting nothing: `<span class="x">` writes `[..]{.x}`,
-     * `<a href="u">` writes a link, an `<em>` writes its own delimiters - and a
-     * row on any of those would declare a loss that did not happen, which
-     * `docs/html-import.md` reads as licence to stop comparing the exits.
-     *
-     * AN IMAGE THAT WRITES NO IMAGE IS NOT THE SHAPE EITHER, and that half was
-     * wrong before this change rather than merely missing. `<p><img src=""></p>`
-     * unwraps to its alt text and re-reads as the PARAGRAPH it was - nothing is
-     * lost - and the old predicate reported it anyway. {@see
-     * self::importImageSpelling()} carries which of `processImage()`'s four
-     * returns are an image.
-     *
-     * Whitespace between the tags is layout, not content (PART 11 section 7), so
-     * `<p>\n <img>\n</p>` is the same paragraph as `<p><img></p>`; it needs no
-     * clause of its own here, because layout writes no characters either.
-     *
-     * `$written` is what the paragraph's own run wrote, trimmed. It is the
-     * answer this predicate reads, and it is passed in rather than recomputed
-     * because the caller is about to emit that exact string - asking a second
-     * time would be a second opinion about the run rather than a reading of it.
      */
     protected function loneImportImage(DOMElement $node, string $written): ?DOMElement
     {
@@ -5188,31 +4466,6 @@ class HtmlToCarve
     /**
      * Whether this heading's `id` is one THIS ENGINE generated, so re-emitting
      * it would change the render.
-     *
-     * GATED TO `roundtrip`, whose input is this engine's own output BY
-     * DEFINITION. In `safe` and `semantic` the HTML came from anywhere, so an
-     * id there is authored input and is kept exactly as it is - losing it is a
-     * real regression, and carve-js and carve-rs both fixed one.
-     *
-     * The re-emission is not cosmetic. `HtmlRenderer` puts a GENERATED heading
-     * id after every authored attribute and an AUTHORED one in the slot it was
-     * written in - it reads `#id` out of the node's attribute order to tell
-     * them apart - so `{.k}` and `{.k #H}` are two different documents even
-     * though they render the same bytes. Reading the id back as generated is
-     * what keeps the import a fixed point (carve-rs#1354, carve-rs#1355;
-     * carve-php#1699).
-     *
-     * TWO HALVES, AND NEITHER ALONE IS ENOUGH:
-     *
-     * - POSITION - {@see self::idInGeneratedPosition()}. Alone it would eat an
-     *   id an author wrote LAST, as in `{.k #Other}`.
-     * - VALUE - {@see self::isGeneratedHeadingId()}. Alone it could not tell
-     *   `{.k}` from an id an author wrote FIRST whose value happens to be the
-     *   slug, as in `{#H .k}`.
-     *
-     * `data-djot-explicit-id` settles it outright where the render stamped it:
-     * that marker says the id was authored, and no measurement beats a
-     * statement.
      */
     protected function headingIdWasGenerated(DOMElement $node): bool
     {
@@ -5381,23 +4634,6 @@ class HtmlToCarve
                     return $this->edgeCharacter($sibling->textContent, $trailing);
                 }
             } elseif ($sibling instanceof DOMComment) {
-                // A WRITTEN COMMENT IS A CONSTRUCT, so it ends the search with
-                // its own punctuation and never blocks a bare delimiter
-                // (`markup-carve/carve#1709`).
-                //
-                // This walk used to step over a comment because the importer
-                // DELETED it: `<p>a<!-- n --><strong>b</strong> c</p>` really
-                // did put `a` next to the emphasis, so the braced form was
-                // right. Now `{% n %}` stands between them and the neighbouring
-                // character is `}`, so the bare form is what the canonical
-                // writer emits - and an importer that still braced it was no
-                // longer a fixed point of `carve fmt`, which is the property
-                // boundaryDelimiters() exists to hold.
-                //
-                // A comment the importer does NOT write is stepped over exactly
-                // as before: one standing among blocks is not in this run at
-                // all, and one with no inline spelling is dropped, so neither
-                // puts a character anywhere.
                 if (
                     !$this->commentStandsAmongBlocks($sibling)
                     && !$this->commentHasNoInlineSpelling($sibling->textContent)
@@ -5503,20 +4739,6 @@ class HtmlToCarve
         $backticks = StringUtil::findSafeCodeFence($content, 1);
         $attrs = $this->formatInlineAttributes($node);
 
-        // Pad the content away from the fence when it starts or ends with a
-        // backtick of its own.
-        //
-        // BOTH sides or neither. A reader strips one space from each end only
-        // when there is one at each end, so padding a single side left that
-        // space in the content: `<code>`start</code>` came back as
-        // `<code> `start</code>` and `<code>end `</code>` with a trailing space
-        // (markup-carve/carve-php#1224). carve-js and carve-rs both pad
-        // symmetrically.
-        //
-        // Added unconditionally once either side calls for it, because a space
-        // already in the content is CONTENT and the reader eats one from each
-        // end regardless. Skipping the pad on a side that already had a space
-        // therefore consumed the author's own space instead of a pad.
         if (strlen($backticks) > 1) {
             $needsStartSpace = str_starts_with($content, '`');
             $needsEndSpace = str_ends_with($content, '`');
@@ -5569,31 +4791,6 @@ class HtmlToCarve
         // holds in the direction the grammar names.
         $opener = $backticks . $language;
 
-        // EXACTLY ONE TRAILING NEWLINE IS THE LAST LINE'S TERMINATOR, and
-        // everything past it is content (markup-carve/carve#1708).
-        //
-        // The renderer settles it rather than taste: this engine writes
-        // `<pre><code>x\n</code></pre>` for a code block whose content is `x`,
-        // and `<pre><code>x\n\n</code></pre>` for one whose content ends in a
-        // blank line. An importer that strips BOTH newlines does not invert its
-        // own renderer, and the two documents arrive here indistinguishable.
-        // The asymmetry mirrors HTML's own at the other end, where a newline
-        // immediately after `<pre>` is stripped and one before `</pre>` is not.
-        //
-        // `rtrim()` was the whole of it before, so it took every trailing
-        // newline AND every trailing space and tab. Trailing whitespace on the
-        // last line is content too - a code block is bytes the author wrote -
-        // and losing it is the same class of silent change, applied to the same
-        // documents. Nothing is reported for the one newline this removes,
-        // because nothing is lost: it was the terminator, not a line.
-        //
-        // A BYTE TEST RATHER THAN A REGEX, and not a style choice.
-        // `preg_replace('/\n$/', '', "x\n\n")` returns `"x"`: PCRE's `$`
-        // matches at the end of the subject AND just before a string-final
-        // newline, and `preg_replace` replaces EVERY match, so the pattern
-        // takes both newlines and reproduces the trim this rule exists to
-        // remove. `\z` with a limit of 1 would work; `str_ends_with` cannot be
-        // read two ways at all.
         if (str_ends_with($content, "\n")) {
             $content = substr($content, 0, -1);
         }
@@ -6078,23 +5275,6 @@ class HtmlToCarve
     /**
      * The TeX a Carve-rendered math element carries, or null if it is not one.
      *
-     * TWO SIGNALS have to agree before this claims an element, because either
-     * alone is something else. `class="math inline"` on its own is a class a
-     * stylesheet could have put anywhere, and a `\(…\)` payload on its own is
-     * ordinary text that happens to contain escapes. Together they are the
-     * shape this engine's renderer writes - and djot.js and pandoc write it
-     * too - so reading it back as math is a round trip, not a guess.
-     *
-     * The delimiter must MATCH the declared display mode: a `display` class
-     * around `\(…\)` disagrees with itself, and guessing which half is right
-     * would change the equation's typesetting on a document that never said so.
-     *
-     * Element children disqualify the element. `textContent` would flatten
-     * `<span class="math inline">\(<em>x</em>\)</span>` to the same string as
-     * the plain form, silently discarding the emphasis, and TeX has no markup
-     * inside it to lose in the first place - so the shape is not this engine's
-     * output and falls through to the ordinary attributed span.
-     *
      * @param \DOMElement $node
      * @param string $tag The element name this shape is spelled with.
      *
@@ -6139,22 +5319,6 @@ class HtmlToCarve
             return null;
         }
 
-        // A CODE SPAN IS ONE LINE, so the payload is folded to one. Carve math
-        // is a prefix on a code span (`math_inline = '$', code_span`), and a
-        // payload that arrived across source lines has no other spelling: a
-        // blank line inside one ENDS the paragraph, so `\(p\n\nq\)` written out
-        // verbatim came back as an equation `p`, a paragraph `q` and a stray
-        // code span - the document destroyed by the whitespace it carried. TeX
-        // reads a whitespace run as one space, so the folded equation is the
-        // same equation.
-        //
-        // EVERY run folds, not only the ones holding a newline, because that is
-        // what carve-js and carve-rs already do and the importers' output is
-        // compared across engines. The cases where TeX itself is whitespace-
-        // sensitive - a `%` comment whose line break folds away, a `\verb` run
-        // holding two spaces - are real and are a question for all three
-        // engines at once; folding differently HERE would put three engines on
-        // three spellings, which is what PART 9 section 18 exists to stop.
         $content = trim((string)preg_replace('/\s+/u', ' ', substr($text, strlen($open), -strlen($close))));
         if ($content === '') {
             return null;
@@ -6380,31 +5544,6 @@ class HtmlToCarve
 
     protected function processList(DOMElement $node): string
     {
-        // A NON-`li` CHILD IS NOT DISCARDED, and it is not discarded in silence
-        // either (carve-php#1589). The item loop below acts only on `li` and
-        // has no `else`, so the WHOLE of anything else the list carried used to
-        // leave the document: `<ul><div id="stray">z</div><li>a</li></ul>` came
-        // back as one item, with the text `z` gone and nothing in the report
-        // saying it had been.
-        //
-        // HTML5 does not allow the shape. A sliced-up editor export produces it
-        // anyway, and that is the input an importer exists for.
-        //
-        // The content is emitted as blocks AHEAD OF THE LIST, which is the call
-        // `<dd>`-with-no-`<dt>` already makes: it keeps every word and stays
-        // valid Carve, where a list holding a non-item has no Carve spelling at
-        // all. The stray child goes through the ORDINARY block walk rather than
-        // being unwrapped by hand, so it keeps its own element and attributes
-        // too - a `<div id="stray">` comes back as a Carve div still carrying
-        // the id. Unwrapping it, the way the `<dd>` has to, would drop the id
-        // for no reason: a `<dd>` has no standalone spelling and a div has one.
-        //
-        // Collected BEFORE the depth counter moves, so the stray blocks render
-        // at the depth they are written at rather than one level in.
-        //
-        // The report says `element-unwrapped` for these, from
-        // `inspectImportListChildren()`; the matching ruling is
-        // markup-carve/carve-rs#1266.
         $strayBlocks = $this->processStrayListChildren($node);
 
         $this->listDepth++;
@@ -6439,18 +5578,6 @@ class HtmlToCarve
             $counter = (int)$node->getAttribute('start');
         }
 
-        // Get marker from data attribute (for round-trip fidelity), otherwise
-        // the ordinary default: `-` for a bullet list, `.` for an ordered one.
-        //
-        // THE MARKER IS NOT THE SEPARATOR ANY MORE. Two back-to-back lists used
-        // to be kept apart by ALTERNATING the marker across adjacent siblings -
-        // `-`/`*` for bullets, `.`/`)` for ordered ones (carve-php#1290) -
-        // because two same-marker lists parted by a single blank line reparse
-        // as one list. That invented a marker the source HTML never carried,
-        // and it disagreed with the other engines' importers. Carve now spells
-        // the split itself: PART 9 §11 N1a makes a run of three or more
-        // blank lines a HARD LIST BOUNDARY, so the lists are separated by the
-        // boundary below and every list keeps the marker it was authored with.
         $marker = $isOrdered ? $this->resolveOrderedDelim($node) : $this->resolveBulletMarker($node);
 
         $olType = $isOrdered ? $this->orderedListNumberingStyle($node) : null;
@@ -6554,29 +5681,6 @@ class HtmlToCarve
                     }
                 }
 
-                // AN ITEM'S ATTRIBUTES ABUT ITS MARKER (carve-php#1587). They
-                // used to be written on an indented line BELOW the marker,
-                // where a block attribute floats FORWARD - so it landed on
-                // whatever block came next instead of on the item, and on a
-                // one-block item it left the document entirely. A degraded
-                // footnote's `id` was lost that way, and on a two-block note it
-                // attached to the second paragraph.
-                //
-                // The floating itself is correct and is not what changes here;
-                // what changes is that the attribute is no longer put somewhere
-                // it can float away from. `1.{#fn1} n` is the spelling carve-js
-                // writes, and the abutting shape was already in this writer for
-                // an item whose only content is a nested list - it simply was
-                // not reached on any other path.
-                //
-                // The attributes go on the MARKER, ahead of a task checkbox:
-                // `-{#t} [x] a`. A checkbox is item CONTENT rather than part of
-                // the marker, so `- [x]{#t} a` would parse as a span carrying
-                // the id around the letter `x`.
-                //
-                // For TipTap task items only, drop the editor's
-                // data-type/data-checked markers; ordinary list items keep
-                // their attributes.
                 $liSkipAttrs = $isTaskList ? ['data-type', 'data-checked'] : [];
                 $liAttrs = $this->getElementAttributes($child, $liSkipAttrs);
                 $attrToken = $liAttrs !== '' ? '{' . $liAttrs . '}' : '';
@@ -6651,23 +5755,6 @@ class HtmlToCarve
                 $this->flushListItemInlineBuffer($contentParts, $inlineBuffer);
                 $partOpensBlock = array_pad($partOpensBlock, count($contentParts), false);
 
-                // Attributes are metadata and do not widen the bare marker's
-                // content column (markup-carve/carve#1701).
-                //
-                // A TASK ITEM'S `[x] ` DOES NOT. The checkbox is CONTENT, which
-                // the reader consumes as the item's task state, so it leaves the
-                // content column where the bullet put it: `- [x] ` is six wide
-                // and its content column is 2, `-{#k} [x] ` is ten and its is 6.
-                // Indenting a continuation to the full width put a block opener
-                // four columns too far in, where it opens nothing - the heading
-                // in `<li><input type="checkbox" checked> <h1 id="h">h</h1></li>`
-                // came back as text of the marker line's paragraph, so the
-                // visible text moved from `h` to `# h` (carve-js#1450).
-                //
-                // This is the SECOND spelling of the rule in this engine. The
-                // AST writer holds the first, in CarveRenderer::renderList();
-                // the importer writes source directly and so has to say it
-                // again. Both were wrong the same way (carve-php#1693).
                 $continuation = $indent . str_repeat(' ', $markerWidth);
 
                 // An item whose ONLY content is a nested list puts that list
@@ -6709,31 +5796,6 @@ class HtmlToCarve
                     }
 
                     foreach ($contentParts as $partIndex => $part) {
-                        // THE SEPARATOR INSIDE AN ITEM IS THE LIST'S TIGHTNESS,
-                        // not a fixed part of the shape. A blank line here was
-                        // written between every pair of parts whatever the list
-                        // spelled, so an item whose lead is BARE TEXT came back
-                        // with a gap the source never had: `<li>a<h1>H</h1></li>`
-                        // was written `- a`, blank, `  # H` where carve-js and
-                        // carve-rs write it tight (carve-php#1708).
-                        //
-                        // `$isLoose` is already the vote this needs, and it is
-                        // the vote markup-carve/carve-js#1110 settled: only a
-                        // DIRECT `<p>` loosens, decided per LIST rather than per
-                        // item. So a sibling item's paragraph loosens this item's
-                        // interior too, which is what the other two engines do -
-                        // a heading, a quote, a code block or a sublist votes for
-                        // nothing on its own.
-                        //
-                        // NO RENDERED BYTE MOVES. A blank line loosens an item
-                        // only when a PARAGRAPH follows it, and a part written
-                        // tight here OPENS ITS OWN BLOCK at the content column,
-                        // so both spellings render the same HTML. This is the
-                        // SOURCE agreeing with the other engines, not a
-                        // rendering fix - which is also why a part that does NOT
-                        // open a block keeps its blank line: written tight it
-                        // would fold into the lead and the item would come back
-                        // holding one block where the source held two.
                         $tight = !$isLoose && ($partOpensBlock[$partIndex] ?? false);
                         $output .= ($tight ? '' : "\n") . $this->indentListItemPart($part, $continuation) . "\n";
                     }
@@ -6987,19 +6049,6 @@ class HtmlToCarve
     {
         for ($prev = $node->previousSibling; $prev !== null; $prev = $prev->previousSibling) {
             if ($prev instanceof DOMComment) {
-                // A WRITTEN COMMENT SEPARATES THE TWO LISTS, so the hard
-                // boundary is not needed behind one (`markup-carve/carve#1709`).
-                //
-                // This used to `continue` unconditionally, on the ground that a
-                // comment is not written at all - which was true while the
-                // importer deleted it. It is written now, and a `%%%` block
-                // between two lists parses them as two, so keeping the boundary
-                // behind one wrote three blank lines nothing needed and put this
-                // engine's bytes a line apart from carve-js on the same input.
-                //
-                // A comment the importer does NOT write is still stepped over:
-                // one standing inside this run rather than among blocks writes
-                // no block, and one with no inline spelling is dropped.
                 if (
                     $this->commentStandsAmongBlocks($prev)
                     && !$this->commentHasNoInlineSpelling($prev->textContent)
@@ -7072,25 +6121,6 @@ class HtmlToCarve
      * The code fence this line opens or closes, behind whatever a container
      * wrote to its left - or null when the line is not a fence delimiter.
      *
-     * The blank-run collapse in `cleanup()` exempts a fence payload, because a
-     * blank line there is CONTENT and collapsing it rewrites what the author
-     * wrote. Recognizing the fence by `trim($line)` alone found the exemption
-     * only when the delimiter began the line, and a list item does not write it
-     * that way: an item's first block goes on the MARKER line, so the opener
-     * arrived as ``- ```` and was not recognized at all (carve-php#1618).
-     *
-     * That cost the payload twice over. The opener did not arm the exemption,
-     * so the item's own fence lost its blank runs; and the CLOSER, which is
-     * indented rather than prefixed, WAS recognized and toggled - leaving the
-     * flag inverted for the rest of the document, so the next ordinary
-     * top-level fence lost its blank runs too.
-     *
-     * So the prefixes are stripped before the test rather than trimmed away:
-     * any run of indentation, quote markers, list markers and definition
-     * markers, which is what nesting writes to the left of a block at any
-     * depth. A prose line that would collide is not reachable here - the
-     * importer escapes a verbatim delimiter that opens a line.
-     *
      * @param string $line The emitted line.
      *
      * @return string|null The fence delimiter run, or null when there is none.
@@ -7115,30 +6145,6 @@ class HtmlToCarve
     /**
      * Would this list MERGE with the sibling list written immediately before
      * it, if the two were only parted by the usual blank line?
-     *
-     * The predicate is the writer's own, from
-     * `CarveRenderer::listsWouldMerge()`: same list type, same marker, same
-     * numbering style. Anything the two differ on already separates them, and
-     * the boundary is only needed where nothing else does.
-     *
-     * Adjacency is read off the DOM rather than off the emitted string, so it
-     * holds at every nesting level and for a run of three or more lists: each
-     * list asks only about the one before it.
-     *
-     * WHAT SITS BETWEEN THEM IS MEASURED BY WHAT IT WRITES, not by whether the
-     * DOM holds a node (carve-php#1617). `previousElementSibling` alone read an
-     * `<p></p>` between two lists as separation, so the boundary was never
-     * armed and the two came back as ONE list - the empty paragraph writes
-     * nothing, so nothing stood between the markers in the source that was
-     * emitted. Every element that renders to nothing did it: `<div></div>`,
-     * `<span></span>`, an empty `<table>`, a `<script>`, a `<p>` holding only
-     * whitespace or an empty `<span>`.
-     *
-     * So the walk steps back over siblings that write nothing and stops at the
-     * first one that writes something. It walks ALL node types rather than
-     * elements only, because a text node is content too: a comment writes
-     * nothing and is stepped over, while a run of text separates the lists by
-     * itself and ends the walk with no boundary.
      *
      * @param \DOMElement $node The `<ul>` or `<ol>` element.
      *
@@ -7418,22 +6424,6 @@ class HtmlToCarve
                 $cellSkip = $this->tableCellSkipAttributes($cell);
                 $cellAlignment = $this->extractTableCellAlignment($cell);
                 $cellValign = $this->extractTableCellValign($cell);
-                // THE COLUMN MARKER TAKES WHAT IT CAN. A pipe table spells a
-                // column's alignment in the header cell's marker run, and the
-                // cells below inherit what they do not state - so a cell
-                // repeating its column's value would say a thing the document
-                // already says, and the round trip would grow a marker on every
-                // body row on each pass through HTML. A cell that DISAGREES
-                // keeps its own run, because that is the only thing overriding
-                // the column.
-                //
-                // AND `safe` WRITES NO RUN OF ITS OWN. The conservative mode
-                // maps no CSS onto a cell (markup-carve/carve#1741), so a cell
-                // the column does not cover loses its alignment there and says
-                // so. The COLUMN marker is not this mapping and is not gated:
-                // it is how a pipe table spells a column, and a sidecar-less
-                // `carve -> html -> carve` reconstruction is pinned on it in
-                // the default mode (markup-carve/carve#1344).
                 $ownAlignment = $this->importMode === 'safe' || ($emitsColumnAlignment
                     && ($alignments[$logicalCol] ?? $cellAlignment) === $cellAlignment)
                     ? TableCell::ALIGN_DEFAULT
@@ -8053,36 +7043,6 @@ class HtmlToCarve
     /**
      * Take PART 9 §10's grouping `[label]` back off the `<p class="div-label">`
      * the renderer degraded it to, removing that paragraph from the container.
-     *
-     * A LABEL HAS NO SPELLING ANYWHERE BUT ON AN OPENER, so a container that
-     * keeps its fence and leaves the label in its body has not round-tripped -
-     * `::: note [g]` came back as `::: note` wrapping a `{.div-label}`
-     * paragraph, and the document said something it never said
-     * (markup-carve/carve-php#1661, ruled at markup-carve/carve-rs#1315).
-     *
-     * The same fact is half of the UNWRAP BOUNDARY on a bare `<div>`: a div
-     * unwraps when it carries nothing only a container can hold, and a label is
-     * exactly as much "only a container can hold it" as an attribute is. Which
-     * is why the lift runs BEFORE that test rather than after it.
-     *
-     * FOUR REFUSALS, and each one is also a control on the boundary: when the
-     * lift refuses, a bare div kept nothing and must still unwrap.
-     *
-     *  - NOT THE FIRST THING. The paragraph is found by scanning for the first
-     *    ELEMENT, which is not the first thing in the container: text ahead of
-     *    it would be REORDERED behind the label on the opener, which is the one
-     *    thing a lift must never do. Whitespace between tags is not text an
-     *    author wrote, so a pretty-printed container still lifts.
-     *  - MARKUP INSIDE IT. The field is a raw string and the writer emits it
-     *    raw, so lifting `<p class="div-label"><em>g</em></p>` would flatten the
-     *    emphasis and lose it without a word.
-     *  - A `]` OR A NEWLINE IN IT. Neither has a spelling inside a bracket run
-     *    on an opener line.
-     *  - AN ATTRIBUTE RIDING IT. carve-rs lifts and declares the loss; this
-     *    importer writes source text in a pass with no diagnostics channel, so
-     *    the same lift here would be an UNDECLARED loss. Refusing keeps the
-     *    attribute on the paragraph the HTML actually has, which is the
-     *    conservative direction: a refusal never invents.
      */
     protected function liftContainerLabel(DOMElement $node): ?string
     {
@@ -8215,20 +7175,6 @@ class HtmlToCarve
             } elseif ($tag === 'dd') {
                 $description = trim($this->processChildren($child));
                 if ($description === '') {
-                    // A DESCRIPTION THAT WRITES NOTHING TAKES THE SENTINEL
-                    // `{empty}` (PART 11 §7b, markup-carve/carve#1827).
-                    //
-                    // The line is a block-attribute line: the block it would
-                    // attach to does not exist, so the parse consumes it and
-                    // the description reads back holding no blocks. ONE
-                    // SPELLING FOR BOTH EXITS - this engine reads its AST back
-                    // from the source it just wrote, and the sentinel is what
-                    // makes the tree and the bytes say the same thing without a
-                    // stand-in either side has to take back out.
-                    //
-                    // EMPTY IS WHAT WRITES NOTHING, not what holds nothing: a
-                    // `<dd>` whose only child renders to a non-breaking space
-                    // writes its own line and is not this case.
                     $output .= self::DEFINITION_BODY_MARKER . self::EMPTY_BODY_SENTINEL . "\n";
 
                     continue;
@@ -8324,26 +7270,6 @@ class HtmlToCarve
 
     /**
      * The Carve attributes this element's inline CSS maps to.
-     *
-     * THE TEST IS THIS ENGINE'S OWN RENDERER. `text-align: right` maps because
-     * `{align=right}` is written back as `align="right"` by the same renderer
-     * that would otherwise have lost the declaration, so refusing it declared a
-     * loss the engine did not have to take (markup-carve/carve#1741).
-     *
-     * WHAT STAYS UNMAPPED, and why the list is short:
-     *
-     * - `vertical-align` has a cell `valign` in the AST, but no importer maps
-     *   it and the reference engine does not either, so mapping it HERE would
-     *   trade one divergence for another. It is a ruling of its own.
-     * - `text-align: justify` / `start` / `end` are outside Carve's alignment
-     *   enum (`left`, `right`, `center`), so there is no value to write.
-     * - `color`, `background`, `width`, `font-*` and the rest of CSS have no
-     *   presentational attribute this converter writes and no Carve construct
-     *   that carries them. Their loss is a real ceiling and stays reported.
-     *
-     * `safe` maps NOTHING, which {@see self::unmappedStyleDeclarations()}
-     * answers for the report as well, so the two cannot disagree about what
-     * went nowhere.
      *
      * @param \DOMElement $node
      *
@@ -8831,29 +7757,6 @@ class HtmlToCarve
     /**
      * The element kept BYTE FOR BYTE, where `roundtrip` is the mode and Carve
      * has no construct for it (`markup-carve/carve-php#1713`).
-     *
-     * `roundtrip` exists to be faithful, and this engine was the only one of
-     * the three that answered `<iframe>`, `<math>` and `<form>` by dropping,
-     * unwrapping or degrading them - data loss in the mode whose whole contract
-     * is fidelity. `docs/html-import.md` calls preserving a MAY, which made
-     * that permitted rather than right.
-     *
-     * THE RULE IS DERIVED, NOT A ROSTER. An element reaches here only from the
-     * arms that had given up - the dispatch's `default`, and a `<math>` with no
-     * TeX in it - so what preserves is exactly what this converter has no
-     * spelling for. A tag that gains a mapping later stops reaching this method
-     * without anyone having to remember to take it off a list.
-     *
-     * `null` where the mode is not `roundtrip`, so the caller keeps the answer
-     * it always gave: `safe` and `semantic` read untrusted HTML and must not
-     * hand raw markup back.
-     *
-     * THE PATH IS RECORDED because this engine reports by walking the DOM a
-     * second time rather than by watching the conversion, and that walk cannot
-     * see which elements were kept. `inspectImportNode()` reads the record: it
-     * writes `raw-preserved`, restates the element's own refused attributes as
-     * `attribute-preserved`, and does not descend - the rows from inside an
-     * element that was kept whole would name losses that did not happen.
      */
 
     /**
@@ -9136,27 +8039,6 @@ class HtmlToCarve
             $output .= $written;
             $output = rtrim($output) . "\n";
         } else {
-            // NO CARVE SPELLING REPRODUCES THIS FIGURE, so `roundtrip` keeps
-            // the element instead of writing something else
-            // (`markup-carve/carve#1704`, `markup-carve/carve-php#1713`).
-            //
-            // The three targets above each write a `^ ` line the parser reads
-            // back as the same figure, so they rebuild and lose nothing.
-            // Everything else does not: a figure around a bare PARAGRAPH came
-            // back as the body text with a detached `Cap` paragraph under it -
-            // the figure gone and the caption no longer merely lost but turned
-            // into prose the document never said.
-            //
-            // A CAPTION IS WHAT MAKES IT A FIGURE (PART 9 §4b), so an
-            // uncaptioned `<figure>` is not one to preserve; it unwraps in
-            // every mode, exactly as before.
-            //
-            // THE ONE CARVE-OUT IS THE ARM ABOVE, and it is exactly as wide
-            // as its own rebuild - see {@see self::figureRebuildsAsCaptionedTable()}.
-            // A figure a table merely stands IN, beside a paragraph or a second
-            // table, rebuilds nothing, so it is preserved here like any other
-            // shape with no spelling rather than falling through to the generic
-            // fallback and losing its caption to a paragraph (carve-php#1722).
             $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
             if (
                 $caption instanceof DOMElement
@@ -9195,31 +8077,6 @@ class HtmlToCarve
             return $output . $captionLine . "\n\n";
         }
 
-        // THE FIGURE'S OWN ATTRIBUTES HAVE SOMEWHERE TO GO, so dropping them
-        // was a ceiling with a spelling available - which `docs/html-import.md`
-        // calls a licence nobody granted (carve-php#1728). The caption line
-        // makes a figure of the target again, and a block attribute line ABOVE
-        // that target lands on the rebuilt node: `{#f .c}`, then `![A](a.png)`,
-        // then `^ Cap` re-renders as `<figure id="f" class="c">`. carve-js and
-        // carve-rs write this line byte for byte, on every arm and every mode.
-        //
-        // ONE LINE FOR EVERY ARM, because it is one cause rather than one per
-        // arm: the arms differ in what they write for the TARGET, never in
-        // whether the figure around it carried attributes. Neither arm that
-        // returns early needs it - a preserved figure still HAS its attributes
-        // in the bytes it was kept as, and a composite group writes its own
-        // line in {@see self::processFigureGroup()}.
-        //
-        // THE TABLE ARM WRITES THEM ONTO THE TABLE rather than onto a figure,
-        // because that is what its rebuild is: pipe rows under `{#f .c}` with a
-        // caption line render `<table id="f" class="c"><caption>`. That is the
-        // sentence carve-rs's `structure-unspellable` message has always
-        // carried and this engine could not say.
-        //
-        // THE TARGET'S LEADING BLANK LINE IS THE SEAM. A table writes one, and
-        // it was invisible while nothing stood above it; between the attribute
-        // line and the rows it detaches the attributes into a paragraph of
-        // their own, so the body starts at its first written line.
         return "\n" . $this->formatBlockAttributes($node) . ltrim($output, "\n") . $captionLine . "\n\n";
     }
 
@@ -9329,24 +8186,6 @@ class HtmlToCarve
 
     /**
      * The `<img>` a figure captions, found by what its body WRITES.
-     *
-     * THE DIRECT-CHILD SEARCH WAS THE DEFECT (carve-php#1672). A `<figure>`
-     * whose image sits inside a `<p>` - which is what every WYSIWYG editor
-     * produces - had no direct `<img>` child, so the whole figure fell through
-     * to {@see self::processGenericFigureContent()} and the `<figcaption>` came
-     * back as an ORDINARY PARAGRAPH beside the image. That is not a loss inside
-     * a declared ceiling: `![a](i.png)` then a blank line then `cap` re-reads as
-     * a block image and an unrelated paragraph, so the caption is bound to
-     * nothing and the document says something the HTML never said.
-     *
-     * ASK WHAT THE BODY WRITES, NOT WHAT SHAPE IT IS. A wrapper is transparent
-     * exactly when it contributes no characters of its own, and the only
-     * authority on that is the writer: `<p>`, `<picture>` and `<div>` all write
-     * their image and nothing else, so the figure's target is the image behind
-     * them. A wrapper that DOES contribute is not the shape and keeps the
-     * generic path - `<a href="u">` writes a link, `<p class="x">` writes an
-     * attribute line above the image, and unwrapping either would drop
-     * something the HTML held.
      */
     protected function figureImageTarget(DOMElement $node): ?DOMElement
     {
@@ -9390,33 +8229,6 @@ class HtmlToCarve
 
     /**
      * Record the `<figure>` elements the target was reached THROUGH.
-     *
-     * {@see self::figureImageTarget()} looks past a transparent wrapper to the
-     * image behind it, and the wrapper is then never written: the arm above
-     * writes the IMAGE and the caption line, so anything between the two is
-     * gone from the output. When one of those wrappers is itself a `<figure>`,
-     * the element that vanished is an unwrapped figure like any other, and
-     * nothing else in this file would ever hear about it - the nested element
-     * is not walked by the writer at all, so neither call site in
-     * {@see self::processFigure()} can record it (ruling markup-carve/carve#1723).
-     *
-     * `<figure><figure><img></figure><figcaption>Cap</figcaption></figure>`
-     * writes one image and one caption line, so ONE figure comes back out of
-     * the two that went in. The outer one is the survivor - it is the caption
-     * that makes a figure (PART 9 §4b), and the caption was the outer one's -
-     * and the inner one is reported here. carve-js and carve-rs both report
-     * exactly that node, and an element that did not survive is reported
-     * whether or not it sits inside another one that did not either: an
-     * uncaptioned pair reports both, and a three-deep nest reports the two
-     * inside the captioned outer.
-     *
-     * ONLY THE FIGURE WRAPPERS, because `$unwrappedFigures` answers for
-     * `<figure>` alone {@see self::inspectImportNode()}. A `<p>` or a
-     * `<picture>` passed over the same way is a different question this row
-     * does not decide: the paragraph is written nowhere and reported by nobody,
-     * and the `<picture>` already collects the generic row every element with
-     * no construct collects. Neither sibling engine names a FIGURE for either,
-     * so neither may this.
      */
     protected function recordFiguresPassedOverForTheTarget(DOMElement $figure, DOMElement $target): void
     {
@@ -9509,28 +8321,6 @@ class HtmlToCarve
 
     /**
      * Ask what a node WRITES, and leave nothing behind for having asked.
-     *
-     * A trial write is a QUESTION, not an exit, and a conversion accumulates two
-     * kinds of answer as it runs. It RECORDS the losses it takes - a lone-image
-     * paragraph, a split definition list, a dropped description, a flattened
-     * caption - which the inspection walk turns into report rows. And it
-     * COLLECTS the trailing definitions its output needs - a reference, a
-     * footnote, an abbreviation - which are written out at the end of the
-     * document. A trial that kept either would answer a question by changing the
-     * document.
-     *
-     * BOTH KINDS BIT, and the second is the worse one. Leaving a loss record
-     * behind declares a loss for a node the figure went on to unwrap, and
-     * doubles the list-shaped records when the real write follows. Leaving a
-     * definition behind is an ADDITION, which markup-carve/carve#1636 forbids outright:
-     * probing `<figure><noscript><img data-djot-ref="r"></noscript>` asked the
-     * image what it wrote, the generic path then wrote no image at all, and the
-     * conversion still emitted a dangling `[r]: g.jpg` the input never held.
-     *
-     * SO THE RULE IS MECHANICAL RATHER THAN JUDGED: everything
-     * {@see self::convert()} resets at the top of a conversion is restored here,
-     * in the same order. A state added there belongs here too, and a reader can
-     * check that by putting the two lists side by side.
      *
      * @template TResult
      *
@@ -9636,36 +8426,6 @@ class HtmlToCarve
     /**
      * TWO CAPTIONS AND ONE SLOT (ruling `markup-carve/carve-js#1488`).
      *
-     * A `<figure>` around a `<table>` that carries its own `<caption>` arrives
-     * with two captions, and Carve has one `^ ` line to spell them with. The
-     * ordinary table rebuild wrote BOTH, and the second re-read as a literal
-     * paragraph - so the document came back holding a `^` its author never
-     * typed, in every mode. That is `markup-carve/carve-php#1731`'s failure one
-     * construct over: a lossy mode may lose the figure, and no mode may add a
-     * character.
-     *
-     * NOR MAY THE `<figcaption>` SIMPLY GO. It is authored TEXT rather than
-     * structure, and text is the one thing an import may not spend to reach a
-     * simpler shape. carve-js dropped it and said `table-degraded`, which names
-     * neither the caption nor where it went; that arm is gone with this ruling.
-     *
-     * SO THE TWO EXITS SPLIT, exactly as `markup-carve/carve#1704` splits every
-     * other figure. `roundtrip` PRESERVES the element - the caller does that
-     * before this is reached - and both captions survive byte for byte. Here,
-     * `safe` and `semantic` keep the table's own `<caption>` and write the
-     * figcaption's text as a following PARAGRAPH: the association is gone, which
-     * the row declares, and neither author's words are.
-     *
-     * THE FIGURE'S ATTRIBUTES STILL RIDE ONTO THE TABLE, unchanged from the
-     * ordinary rebuild - `{#f}` above the pipe rows renders `<table id="f">`.
-     *
-     * NULL MEANS THE SLOT WAS FREE AFTER ALL, and the caller writes the ordinary
-     * rebuild. It is decided on what the table WROTE rather than on what its
-     * `<caption>` holds, because the two disagree: a `<caption>` holding only an
-     * empty `<span>` answers yes to a DOM test - which is the test that has to
-     * be used before converting - and writes no `^ ` line at all. Reading the
-     * DOM answer as final detached a caption the table had left room for.
-     *
      * @return string|null
      */
     protected function figureCaptionDetachedFromTheTable(
@@ -9713,25 +8473,6 @@ class HtmlToCarve
 
     /**
      * Does this figure rebuild as a table carrying its caption?
-     *
-     * THE ONE DELIBERATE CARVE-OUT in the figure rule (`markup-carve/carve#1704`).
-     * A `<figure>` around a table has no Carve spelling that reproduces it - the
-     * rebuild reads back as a table carrying its own `<caption>` rather than as
-     * a figure - so strictly it would preserve. It rebuilds anyway, because
-     * `<table><caption>` is the idiomatic HTML for a captioned table and
-     * preserving would throw the `| a |` spelling away for a common shape.
-     *
-     * THE CARVE-OUT IS EXACTLY AS WIDE AS THE REBUILD. It used to be a bare
-     * "is there a table", which excluded from preservation every figure a table
-     * merely stood in - a figure holding a table AND a paragraph, or two tables,
-     * neither of which rebuilds - and those fell through to the generic
-     * fallback, where the caption came back as a detached paragraph and nothing
-     * said so (carve-php#1722). A figure that cannot rebuild is preserved like
-     * any other, which is what carve-rs does with the same input.
-     *
-     * A CAPTION IS WHAT MAKES A FIGURE (PART 9 §4b), so an uncaptioned wrapper
-     * around a table is not one to rebuild either: it unwraps to the bare
-     * table, exactly as carve-js and carve-rs do.
      *
      * @param \DOMElement $node
      */
@@ -10002,18 +8743,6 @@ class HtmlToCarve
      * The writer's slot order for $slots, READ OFF THE ELEMENT'S OWN ATTRIBUTE
      * ORDER.
      *
-     * A fixed id-then-class-then-keys order writes `<h1 class="k" id="x">` back
-     * as `{#x .k}`, which re-renders as `<h1 id="x" class="k">` - attributes the
-     * input never had in that order. carve-rs ruled it in carve-rs#1354 and
-     * carve-js ported it; carve-php spelled the fixed order
-     * (carve-php#1699).
-     *
-     * A NON-EMPTY ORDER IS EXHAUSTIVE, so a slot the element did not spell
-     * under its own name - an attribute folded or renamed on the way in, an
-     * alignment class read off something other than `class` - still has to
-     * appear, or the writer drops it silently. Those follow the slots the
-     * element did name, keeping their own order among themselves.
-     *
      * @param \DOMElement $node
      * @param array<string, array<int, string>> $slots
      *
@@ -10113,35 +8842,6 @@ class HtmlToCarve
     /**
      * Rebuild the footnote definitions an endnotes section holds, or refuse the
      * section entirely.
-     *
-     * A DEFINITION IS REBUILT ONLY WHERE ITS REFERENCE IS PRESENT. That is the
-     * shape a rendered document has - `docs/html-import.md`: "A footnote whose
-     * `role="doc-noteref"` reference IS present rebuilds as a footnote, which
-     * is the shape a rendered document has" - and for that shape the round trip
-     * is exact.
-     *
-     * A REFERENCE-LESS SECTION IS NOT ONE, and rebuilding it deleted the note:
-     * an unreferenced definition renders to the EMPTY STRING, so
-     *
-     *     <section role="doc-endnotes"><hr><ol><li id="fn1"><p>n</p></li></ol></section>
-     *
-     * imported as `[^1]: n` and re-rendered through this engine's own converter
-     * as `""` - the note's text gone from the document, with the only
-     * diagnostic being about the `id` (markup-carve/carve-php#1582). A `<li>`
-     * with no `fn`-shaped id was worse: it matched no label, the section
-     * returned empty, and the note left with no diagnostic at all.
-     *
-     * So a section that rebuilt NOTHING returns null and takes the ordinary
-     * section policy, which keeps the `<hr>` and the `<ol>` the section is built
-     * from - `docs/html-import.md` again: "a loss where the degraded form keeps
-     * every byte a reader could see". markup-carve/carve#1558 records the
-     * degraded form as the contract and pins it in carve-js and carve-rs, which
-     * have always read it that way.
-     *
-     * A PARTIALLY referenced section rebuilds what it can and emits the rest as
-     * the list it is, which is what carve-js does: the notes that left are gone
-     * from the `<ol>`, the separator goes with the first of them, and every
-     * remaining item is still on the page.
      *
      * @return string|null The source for this section, or null when no note was
      *   rebuilt and the ordinary section policy should have it.
@@ -11185,23 +9885,6 @@ class HtmlToCarve
     /**
      * Harden a label whose text would open a NOTE REFERENCE.
      *
-     * A span and an inline link both write their content in a bracket run,
-     * and `[^x]` is a note reference (PART 11 §2). So an element whose text
-     * begins with a caret came back as a reference instead of as itself:
-     * `<abbr title="y">^1</abbr>` was written `[^1]{abbr=y}`, which renders
-     * `<p>[^1]</p>` - the span gone and the attribute block literal text
-     * (carve-php#1615).
-     *
-     * ONLY THE LABELED HALF COLLIDES, which is the other half of §2 and the
-     * half that is wrong silently, because an idle escape passes every gate
-     * aimed at the missing one. The parser's rule is `[^` followed by at
-     * least one character that is not `]` or a line break, so `[^]` is not a
-     * reference and keeps no escape, and a caret anywhere but the first
-     * position is ordinary punctuation.
-     *
-     * An IMAGE label is not this slot: `![^1](u)` is an image whose
-     * alternative text is `^1`, because the `!` takes the `[` first.
-     *
      * @param string $text The label text, already escaped as prose.
      *
      * @return string The label, with a colliding caret escaped.
@@ -11393,26 +10076,6 @@ class HtmlToCarve
                 continue;
             }
 
-            // Preserve indentation for list items and track list context.
-            //
-            // An ordered marker is not only decimal: `a.`, `A.`, `iv.` and
-            // `IV.` are markers too, and the parser reads them as such. While
-            // only `\d+\.` was recognized here, an alphabetic or Roman item
-            // fell through to the ltrim branch, so a list nested under one lost
-            // its indentation and dedented out of its parent - which only
-            // showed up once anything emitted those markers.
-            //
-            // A marker may ABUT an attribute brace pair - `1.{#fn1} n` is where
-            // an item's attributes go (carve-php#1587) - and the space the
-            // marker is recognized by comes after that pair, not before it.
-            // Without the optional group the attributed marker line fell to the
-            // ltrim branch, which also closed the list context, so every
-            // continuation line under the item was flattened to column zero and
-            // the item's later blocks dedented out of it.
-            //
-            // The pair is spelled as `ListParser` spells it, quoted values and
-            // all: a title an editor export carries a `}` in - and a `<li>` may
-            // - is inside quotes, and a plain `[^{}]*` ended the block at it.
             if (
                 preg_match(
                     '/^(\s*)([-*+]|\d+\.|[A-Za-z]\.|[ivxlcdm]{2,}\.|[IVXLCDM]{2,}\.)'

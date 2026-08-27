@@ -102,23 +102,6 @@ class DjotToCarve
             'close' => '^}',
         ],
         [
-            // The `[A-Za-z0-9_]` lookarounds are a DELIBERATE DIVERGENCE from
-            // Djot, not a transcription of its rule, and they are the one place
-            // this converter knowingly changes what a document means.
-            //
-            // Djot puts no word boundary on emphasis at all. Its spec says only
-            // that a `_` opens "if it is not directly followed by whitespace"
-            // and closes "if it is not directly preceded by whitespace", so a
-            // strict reader emphasizes an intraword pair - pandoc's Djot reader
-            // turns `snake_case_name` into `snake<em>case</em>name`.
-            //
-            // This converter does not, because the documents it exists for -
-            // notes, READMEs, generated docs - are full of `snake_case`
-            // identifiers no author meant as emphasis, and Carve itself leaves
-            // an intraword `_` literal for that reason (carve-php#417). The
-            // migration is therefore faithful to INTENT rather than to a strict
-            // reading, and the cost is real and silent: a Djot document that
-            // did mean emphasis inside a word loses it with no warning.
             'id' => 'djot-emphasis-underscore',
             'family' => '_',
             'pattern' => '/(?<![A-Za-z0-9_])_(?!\s)((?:(?!\n[ \t]*\n)[^_])+?)(?<!\s)_(?![A-Za-z0-9_])/',
@@ -483,32 +466,6 @@ class DjotToCarve
 
     /**
      * Collapse a blank-line run that only Carve reads as a list boundary.
-     *
-     * The two languages disagree about what a long blank run between two
-     * sibling markers MEANS. Carve (PART 9 §11, clause N1a) makes three or more
-     * blank lines a hard boundary: the marker after the run opens a NEW list.
-     * Djot has no such rule - any run of blanks between compatible markers is
-     * one loose list. So a verbatim rewrite silently changes the document: the
-     * seam is invisible for bullets, but an ordered list restarts numbering.
-     *
-     * The run is cut back to a single blank line, which both languages read the
-     * same way. Only a run Carve alone would break on is touched: it must be
-     * followed by a marker line and preceded by a line that keeps a list open
-     * (a marker, or an item's indented content - Djot has no indented code
-     * blocks, so an indented line under a list is that list's content). A run
-     * before an item's own indented content closes nothing under N1a and stays,
-     * and a run inside a fenced block is that block's content, not layout.
-     *
-     * Every line is read THROUGH its block-quote prefix, because inside a quote
-     * a blank line is written `>` and a marker line `> - item`, so a test on the
-     * raw line recognizes neither and the same silent split happens one
-     * container down. The run, the marker after it and the line above it must
-     * share a quote depth: a marker one level away separates nothing this run
-     * could join. The run's OWN first line survives the collapse, so a quoted
-     * run keeps its `>` and an unquoted one stays the empty line it was.
-     *
-     * carve-rs applies the same rule in `collapse_false_list_boundaries`; the
-     * two importers must agree byte for byte.
      */
     protected function collapseFalseListBoundaries(string $source): string
     {

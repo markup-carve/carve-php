@@ -233,22 +233,6 @@ class IndentationHelper
     /**
      * Check if a line is blank.
      *
-     * `blank_line = {whitespace}, newline` over `whitespace = ' ' | '\t'`
-     * (grammar.ebnf PART 2 and PART 7). SPACE and TAB, and nothing else: the
-     * production names two characters, so a line holding any third one is
-     * CONTENT however invisible that character renders.
-     *
-     * This was spelled `trim($line) === ''`, and PHP's default charlist is
-     * `" \t\n\r\0\x0B"` - it also admits U+000B LINE TABULATION and U+0000,
-     * neither of which appears in `whitespace`. A line holding only a vertical
-     * tab therefore ended a paragraph here while carve-rs read it as content
-     * (carve-php#963); the same charlist had already let a vertical tab through
-     * three other slots (carve-php#955). `\n` and `\r` cannot reach a line at
-     * all - the source is split on them first - and `\0` is replaced by U+FFFD
-     * before parsing, so U+000B is the one character the charlist actually
-     * moved. The rule is stated here rather than delegated, so the next
-     * character PHP decides to trim cannot move it again.
-     *
      * @param string $line The line to check
      *
      * @return bool True if the line is blank

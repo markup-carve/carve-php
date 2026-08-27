@@ -8,34 +8,6 @@ use MarkupCarve\Carve\Exception\SentinelSpaceExhaustedException;
 
 /**
  * Picks in-band sentinels a document cannot contain.
- *
- * A renderer that has to mark a position inside a string it is still building
- * needs a character the finished bytes will never carry by accident. A FIXED
- * character cannot give that guarantee: whatever it is, an author may write it,
- * and then the restore pass rewrites the author's own character into whatever
- * the sentinel stood for. Three of the canonical writer's four fixed sentinels
- * were found corrupting authored occurrences into a space, a tab or nothing
- * (markup-carve/carve#678), and the HTML target's soft-break guard was
- * substituting a newline for an authored U+0001 (markup-carve/carve-php#1077).
- *
- * The fix is not to escape the authored occurrences: any escape needs a
- * reserved character of its own, which has exactly the same collision. It is to
- * choose sentinels the DOCUMENT does not contain, from the private-use area,
- * before rendering starts. That cannot collide by construction.
- *
- * Two renderers need this and the reasoning is one rule, so it lives in one
- * place rather than being spelled twice.
- *
- * A private-use code point is THREE BYTES standing for one position, so any
- * byte-length arithmetic around a sentinel has to be checked rather than
- * assumed.
- *
- * THE ONE PROPERTY: {@see self::pick()} never returns a run the document
- * contains. Where no such run exists it REFUSES {@see
- * \MarkupCarve\Carve\Exception\SentinelSpaceExhaustedException} rather than
- * answering anyway. It used to fall back to the preferred run - a check that
- * could not fail, since it always produced something and what it produced was
- * the collision the mechanism exists to avoid.
  */
 final class DocumentSentinels
 {
@@ -139,19 +111,6 @@ final class DocumentSentinels
             }
         }
 
-        // NO RUN MEANS NO SENTINEL, AND THIS SAYS SO. Returning the preferred
-        // run here was a check that could not fail: it always produced an
-        // answer, and the answer was a run the document may contain - the one
-        // property the mechanism exists for, given up silently. The corruption
-        // then appeared later as text the author never wrote, with no
-        // diagnostic anywhere to review (markup-carve/carve-php#1398).
-        //
-        // REFUSING RATHER THAN WIDENING. Searching further - below $first, or
-        // into another plane - would move the boundary without removing it, and
-        // leave the same silent answer waiting at the new one. The honest
-        // failure is the fix; it is also what the import path already does for
-        // what it cannot represent, and what PART 9 §25 asks of the render
-        // ceiling next door.
         throw new SentinelSpaceExhaustedException($count, $first, self::PRIVATE_USE_LAST);
     }
 

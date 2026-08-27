@@ -85,31 +85,6 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
     /**
      * The opening delimiter, in ONE spelling.
      *
-     * THE SLOT BEFORE THE FORMAT TOKEN IS A SPACE, U+0020 and nothing else.
-     * PART 7's MARKER SEPARATORS AND PADDING SLOTS decides the terminal by
-     * POSITION rather than by role: a tab is syntax only in a line's leading
-     * indentation run, and this slot sits after the `---`. The grammar spells
-     * it `frontmatter_open = "---", [space], [frontmatter_format], newline`,
-     * and the clause names this slot among the padding ones - "the `---` pair
-     * has already decided the block; the token only names the metadata
-     * dialect" - padding that takes `space` all the same.
-     *
-     * The slot read `[ \t]*`, so `---<TAB>yaml` opened frontmatter and its
-     * body was swallowed as metadata where the grammar leaves a thematic break
-     * followed by ordinary lines. The trailing `\s*$` is not a slot in the
-     * grammar and stays as tolerant as it was (carve-php#951).
-     *
-     * EXACTLY ONE, so ` ?` and not ` *`. PART 7's cardinality paragraph names
-     * this among the four slots spelled `space`, and holds the production right
-     * against the four artifacts that accepted a run (carve#912). With two
-     * spaces `frontmatter_format = (letter | digit)+` cannot match, so the line
-     * is not a typed opener; it is not a thematic break either, and the
-     * metadata lines fold into an ordinary paragraph.
-     *
-     * The pattern was spelled out twice, once to register the matcher and once
-     * to re-read the captured format. One rule gets one spelling, so a future
-     * correction cannot land on one of them and miss the other.
-     *
      * @var string
      */
     // LINE PADDING, so PART 7's four characters and not `\s`. A VERTICAL TAB or a

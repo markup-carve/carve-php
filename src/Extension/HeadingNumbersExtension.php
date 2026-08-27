@@ -204,20 +204,6 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
                 }
                 $entry = $byId[$id];
                 $link = new Link('#' . $id);
-                // DERIVED DISPLAY TEXT CLONES THE SAME NODES
-                // (markup-carve/carve#957). PART 9R R4 binds every consumer that
-                // derives display text from a heading, not the cross-reference
-                // alone, and a numbered cross-reference label is one of them.
-                // The TITLE part is the heading's inline NODES cloned; a node
-                // carries the run the author typed and a string does not, so
-                // composing the label as glyphs here would destroy the source run
-                // before any renderer existed - and this transform runs in
-                // `beforeRender`, so no renderer change could reach the loss.
-                //
-                // NUMBERING, PREFIXING AND JOINING REMAIN THIS EXTENSION'S OWN
-                // BUSINESS: the label word, the number and the separator are
-                // still composed here as text. The clause governs only what the
-                // TITLE part is made of.
                 if ($this->crossref === 'number') {
                     $link->appendChild(new Text($this->label . ' ' . $entry['number']));
                 } else {
@@ -240,22 +226,6 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
 
     /**
      * The TITLE part of a numbered cross-reference label, as NODES.
-     *
-     * PART 9R R4's `WHAT IS CLONED IS THE HEADING'S INLINE NODES` binds every
-     * consumer that derives display text from a heading, and
-     * markup-carve/carve#957 says so for this one by name. The tracker's own
-     * label sequence is used rather than a second walk, so this consumer and the
-     * cross-reference resolver cannot answer the same question differently.
-     *
-     * THE LABEL IS TAKEN BEFORE ANY RENDER-STAGE INJECTION. The nodes are the
-     * heading's AUTHORED inline content, captured when its id was tracked; the
-     * `section-number` span this extension injects is not part of the label and
-     * never appears in derived text. That matters HERE more than anywhere,
-     * because this extension is the thing doing the injecting.
-     *
-     * The string fallback is for an id with no nodes behind it - a numbered
-     * caption registers its label as an already-composed string, which has no
-     * nodes to keep.
      *
      * @param \MarkupCarve\Carve\Renderer\HeadingIdTracker $tracker
      * @param string $id

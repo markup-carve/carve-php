@@ -437,30 +437,6 @@ class ListTableExtension implements ExtensionInterface
      * the pipe-table span model (BlockParser grid walk / carve-js render-html
      * `renderTable`) so the output is identical to the equivalent pipe table.
      *
-     * Each row becomes a positional list of grid entries (one per SOURCE cell;
-     * ragged rows simply have fewer columns). A single left-to-right walk then:
-     *
-     * - a `^` cell grows the rowspan of the nearest non-skipped cell directly
-     *   above it in the same source column, then is flagged `skip`. The origin is
-     *   tracked per column via `$lastNonSkip`, so an all-`^` column resolves in
-     *   O(1).
-     * - a `<` cell grows the colspan of the nearest non-skipped cell to its LEFT,
-     *   scanning PAST columns already merged by another span, then is flagged
-     *   `skip`. A leading `<` (or one whose leftward scan runs off the table edge)
-     *   finds no source: it stays an unmerged marker and renders as an empty cell.
-     * - a marker that cannot merge (first-row `^`, leading/blocked `<`, or a `^`
-     *   clamped at the header/body boundary) stays non-skipped; its content is
-     *   still suppressed at render time (an empty `<td>`/`<th>`).
-     * - a cell carrying its own attribute block, or one that owns trailing blocks,
-     *   is never a bare marker (its `^`/`<` is literal); see markerOf().
-     *
-     * `headerRows` clamps a rowspan so it never crosses the header/body boundary:
-     * a `^` in a body row whose origin sits in the header rows is NOT merged and
-     * degrades to an empty cell (an HTML cell cannot span row groups reliably).
-     *
-     * Every grid entry is `{cell, marker, rowspan, colspan, skip}`; output columns
-     * are assigned separately by placeColumns().
-     *
      * @param array<array<\MarkupCarve\Carve\Node\Block\ListItem>> $rows
      * @param int $headerRows Number of leading rows that form the `<thead>`.
      * @param array<int, array<\MarkupCarve\Carve\Node\Node>> $extras Per-cell trailing blocks
@@ -831,7 +807,7 @@ class ListTableExtension implements ExtensionInterface
 
     /**
      * @param \MarkupCarve\Carve\Node\Block\ListItem $cell
-@param array{align?: string, valign?: string, width?: float} $column
+     * @param array{align?: string, valign?: string, width?: float} $column
      */
     private function cellStyle(ListItem $cell, array $column): string
     {

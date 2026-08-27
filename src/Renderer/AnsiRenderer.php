@@ -834,22 +834,6 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $lang = $this->stripControls($lang);
         }
 
-        // Drop the content's TERMINATOR only. A bare `rtrim` also takes the
-        // trailing space on the block's last line and every blank line at its
-        // end - both of which are VERBATIM CONTENT that this engine's HTML,
-        // plain-text, Markdown and canonical targets all keep, and that the
-        // corpus HTML pins (`<pre><code>abc \n</code></pre>`). Only the ANSI
-        // target dropped them, so the same code block rendered two ways out of
-        // one engine (corpus 268-trailing-whitespace-on-a-content-line-is-
-        // dropped-9).
-        // The condition is on the CONTENT, not on the split. `explode` always
-        // returns at least one element, so testing whether the last one is
-        // empty cannot tell an emptied code block - content `''`, which splits
-        // to one empty line and must RENDER as one empty line, the way carve-js
-        // and carve-rs render it - from a block whose terminator left a
-        // trailing empty element. Only the second has a terminator to drop
-        // (corpus 276-a-fence-opened-on-a-list-marker-line-body-below-the-
-        // content-column and three siblings).
         $lines = explode("\n", $content);
         if (str_ends_with($content, "\n")) {
             array_pop($lines);
@@ -1258,23 +1242,6 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             && !$node->isAutolink()
             && !str_starts_with($url, '#');
         if ($showTarget) {
-            // PART 9 §25 binds every target that emits a resolvable URL, and this
-            // parenthetical IS the destination: a terminal autolinks it and hands
-            // the scheme to the OS handler on click, which is the same "deferred
-            // by one step" the clause describes for Markdown. It printed
-            // `javascript:` and the OS protocol-handler class verbatim, in all
-            // three engines, where Markdown already blanked them (carve-php#867).
-            //
-            // Blanked rather than omitted: §25 says to emit an EMPTY value, and
-            // the empty parenthetical distinguishes "withheld" from "the author
-            // wrote none". `$showTarget` is decided from the AUTHORED destination
-            // above, so a blanked one cannot change whether the parenthetical
-            // appears - only what is in it.
-            //
-            // The HTML renderer's one implementation, not a copy: a local list of
-            // four schemes in a writer is what let the OS-handler class through in
-            // carve#385, and the Markdown writer's own sanitizer delegates here
-            // for exactly that reason.
             $shown = HtmlRenderer::blankDangerousScheme($this->stripControls($url));
             $styled .= $this->style(' (' . $shown . ')', self::DIM);
         }

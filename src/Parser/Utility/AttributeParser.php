@@ -223,29 +223,6 @@ class AttributeParser
 
     /**
      * PART 4: THE INLINE INTERIOR IS SPACE-ONLY (markup-carve/carve#906).
-     *
-     * Every whitespace slot of the INLINE attribute block is spelled `space`,
-     * which is one character: the run after `{`, the run between two
-     * attributes, the run before `}`, the boundary after an UNQUOTED value, and
-     * the blessed empty block `{ }`. All five sit AFTER the first non-whitespace
-     * character of their line, which is where PART 7's rule already says a tab
-     * is not syntax. A tab at any of them makes the block unrecognized, and its
-     * braces show.
-     *
-     * THE BLOCK-ATTRIBUTE LINE IS NOT NARROWED, and that distinction is the
-     * ruling rather than an omission: it is the one construct whose interior can
-     * hold a leading indentation run, because after a `continuation` the next
-     * line's leading whitespace IS indentation. So this is a separate test with
-     * its own name, applied at the inline call sites only - a fix that narrowed
-     * both surfaces at once fails on corpus category 273.
-     *
-     * INSIDE A QUOTED VALUE a tab is CONTENT and does not move, so the scan
-     * tracks quoting rather than looking for a byte.
-     *
-     * SPACE-ONLY, not tab-only. `whitespace` in the grammar is `' ' | '\t'` and
-     * `space` is `' '`, so a vertical tab or a form feed was never a separator
-     * under either spelling - this engine accepted them because PHP's `\s` did.
-     * Narrowing the slot to one character answers both at once.
      */
     public static function inlineInteriorIsSpaceOnly(string $attrStr): bool
     {

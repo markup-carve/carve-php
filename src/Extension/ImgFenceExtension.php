@@ -16,32 +16,6 @@ use MarkupCarve\Carve\Util\StringUtil;
  * `img` (alias `image`) and renders the SVG **body** — sanitized — rather than
  * showing it as verbatim source. `svg` / `xml` are deliberately NOT claimed, so
  * an author can still syntax-highlight SVG source with those words.
- *
- * Two emit modes, **sandbox by default**:
- *
- * - **sandbox (default):** the sanitized SVG is encoded into a
- *   `data:image/svg+xml` URI on an `<img>`, which the browser sandboxes — no
- *   script, no fetch, no DOM leakage — regardless of the sanitizer. This is the
- *   safe path for untrusted input. `{alt=…}` sets the alt text.
- *
- * - **inline (opt-in):** with `new ImgFenceExtension(allowInline: true)`, a
- *   fence marked `{inline}` renders a live `<svg>` in the DOM, so `currentColor`,
- *   CSS classes and dark-mode apply. Without `allowInline`, `{inline}` is
- *   ignored and the fence stays sandboxed — an author cannot self-elevate out of
- *   the sandbox. Inline mode injects live SVG into the DOM guarded only by this
- *   hand-rolled sanitizer (not a browser-grade parser); it is suitable for
- *   TRUSTED author content, not a hardened XSS boundary for attacker-controlled
- *   input.
- *
- * The sanitizer ({@see SvgSanitizer}) drops `<script>`, `<foreignObject>`,
- * event handlers, `javascript:`/external URLs and active CSS. A body that is not
- * a single `<svg>` root degrades to an escaped code block.
- *
- * Author `{#id .class}` on the fence merge onto the `<img>` (sandbox) or the
- * root `<svg>` (inline), hardened by the core attribute sanitizer and — for
- * inline — re-run through the SVG sanitizer.
- *
- * Faithful port of carve-js `src/svg-fence.ts`.
  */
 class ImgFenceExtension implements StaticRenderExtensionInterface
 {

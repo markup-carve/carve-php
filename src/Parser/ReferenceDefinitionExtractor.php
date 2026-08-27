@@ -86,18 +86,6 @@ class ReferenceDefinitionExtractor
         // closer is read at that depth rather than at any composition summing
         // to the same column.
         $verseDepth = 0;
-        // A comment's body is OPAQUE, and this pass did not know it: a
-        // `[r]: /u` written inside `%%%` registered, so a reference elsewhere
-        // resolved against text the author commented out - invisible in the
-        // output and active in the link table (carve-php#778). The footnote
-        // pass beside this one already tracked it; this one did not.
-        //
-        // WHERE the fence sits, when it opens and when it closes: one spelling,
-        // shared with the footnote and abbreviation prepasses, and its own
-        // state so no caller can carry half of it. It reads the opener past an
-        // indent, past a quote marker and past a list marker, and bounds a
-        // prefixed one by its container (markup-carve/carve#1311, corpus
-        // 335-341; markup-carve/carve#1341).
         $commentFence = new PrepassCommentFence($lines);
         $contentColumns = new ListContentColumns();
         // A FOOTNOTE BODY is a container like any other: a definition written
@@ -123,18 +111,6 @@ class ReferenceDefinitionExtractor
                     false,
                 );
             }
-            // Content columns are measured INSIDE a block quote: `> - a` puts
-            // the item's content column at 2 of the QUOTED content. Feeding the
-            // raw line matched no marker, so the column stayed 0 and a
-            // definition written at it was rejected - while the item consumed
-            // the line anyway, leaving it neither visible nor active
-            // (carve#658).
-            //
-            // Only a quote marker at COLUMN 0 is stripped. An indented one is
-            // inside something - `- a` / `  > [r]: /u` puts the quote at the
-            // item's content column - and eating that indentation here loses
-            // the very column the definition has to reach (carve-php#788).
-            // Inside a code fence a `- x` line is sample text, not a marker.
             $contentCol = $contentColumns->observe($line, $fence->isOpen());
             // One line can open SEVERAL items (`- - a` opens two, columns 2 and
             // 4), and a definition belongs to whichever open item's column it
@@ -216,20 +192,6 @@ class ReferenceDefinitionExtractor
                 continue;
             }
 
-            // An INDENTED `::: |` opens a line block when the indent is an
-            // item's CONTENT COLUMN, and only then: `   ::: |` at top level is
-            // prose, and admitting it skipped the definition under it as verse.
-            // WHERE THE OPENER SITS, ANSWERED THE SAME WAY BY BOTH PREPASSES.
-            // This one read the RAW line, so a `> ::: |` was prose to it and
-            // verse to the footnote pass beside it, and a link definition
-            // inside a quoted line block registered while the footnote kind did
-            // not (tests/TestCase/LineBlockLinkDefinitionTest states the rule).
-            //
-            // Composed, so a `::: |` written at the content column of an item
-            // inside a quote is found: dedenting the raw line by the whole
-            // column asked for the quote marker's columns as indentation,
-            // matched nothing, and left the verse untracked - so a definition
-            // written in it registered (markup-carve/carve-php#1431).
             $openerWalk = $fence->containerOpenerView($line, $contentCol);
             $verseOpenerColumn = $contentCol;
             $verseOpenerView = $openerWalk['line'];
@@ -303,20 +265,6 @@ class ReferenceDefinitionExtractor
                     $referenceLine['inList'],
                 );
             }
-            // A footnote body has a content column of its own and it is TWO -
-            // the indent §16 requires of a continuation line (carve#717). This
-            // used to strip ALL leading whitespace instead, so a definition
-            // ANYWHERE in a note body was collected, including at columns where
-            // the body renders the line as prose: the reader saw `[r]: /u` in
-            // the note text while a reference to it silently resolved through
-            // the same line. Visible AND active is the outcome no reading
-            // produces - the `VA` rows of carve#669 and carve#701.
-            //
-            // Above the column the body's blocks read the residual indent and
-            // the line is paragraph text, exactly as above a list item's content
-            // column (§24 C3); below it the line is outside the body. Neither is
-            // a definition. A list or quote inside the body carries its own
-            // column and is left to the branches that track those.
             $notAtBodyColumn = false;
             if ($inFootnoteBody && $reachedCol === 0 && !$referenceLine['inList'] && !$referenceLine['inQuote']) {
                 if (IndentationHelper::getLeadingColumns($bare) >= self::FOOTNOTE_BODY_COLUMN) {
@@ -537,18 +485,6 @@ class ReferenceDefinitionExtractor
      */
     public static function opensDefinitionEntry(string $previousLine): bool
     {
-        // Read the term through its CONTAINER PREFIX. A definition list inside
-        // a block quote or a list item writes its term as `> :: term` or
-        // `- :: term`, and testing the raw line found a `>` or a `-` and
-        // answered no - so the description marker was not stripped and the
-        // definition on it registered nowhere, while the block parser emptied
-        // the `dd` anyway. The line was consumed and the definition lost
-        // (markup-carve/carve#840).
-        //
-        // The current line is already reduced this way by the loop in
-        // `referenceLineView`; this is the same reduction for the line above
-        // it. It cannot widen 216 - a `: ` line whose predecessor is prose
-        // reduces to prose and still answers no.
         $trimmed = ltrim($previousLine, " \t");
         while (true) {
             $before = $trimmed;
@@ -566,24 +502,6 @@ class ReferenceDefinitionExtractor
 
     private function stripReferenceListMarker(string $line, string $previousLine = ''): string
     {
-        // A definition list's DESCRIPTION marker opens item content exactly as a
-        // bullet does, so a definition written on that line is the entry's own
-        // content and is collected from it. Without this the block parser still
-        // removed the line - the `dd` renders empty, which is right - while
-        // nothing was registered, so the reference it feeds stayed literal
-        // somewhere else in the document (carve-php#891, spec
-        // markup-carve/carve#801).
-        //
-        // `::` is the TERM marker and must not match here: the alternation's
-        // shared ` +` demands a SPACE after the single colon, which `::` and a
-        // `:::` fence opener both fail.
-        //
-        // The marker is the bare colon and the run belongs to that shared ` +`
-        // (carve#1757): the separator is one or more SPACES, so a one-space
-        // description line is stripped here as the block parser's
-        // `DEFINITION_BODY_PATTERN` opens one, and a tab in the separator's own
-        // slot is refused by both. Spelling the first slot here as `:[ \t]`
-        // disagreed with that pattern on both counts.
         $m0 = $line[0] ?? '';
         if (
             $m0 !== ' ' && $m0 !== "\t" && $m0 !== '-' && $m0 !== '*' && $m0 !== ':'
@@ -639,35 +557,6 @@ class ReferenceDefinitionExtractor
 
     /**
      * Read a line as a reference definition, ANCHORED AT END OF LINE.
-     *
-     * `reference_definition = '[', reference_label, ']', ':', space,
-     * link_destination, [link_title], [space, attributes], newline` ends in
-     * `newline` and always did. What follows the destination and the optional
-     * title is not ignored: it makes the production FAIL, and the line is then
-     * an ordinary paragraph (markup-carve/carve#911). This engine read the tail
-     * with a swallow-everything `(\S.*)$`, so `[a]: /u zzz` was a definition and
-     * a `[a][]` below it resolved.
-     *
-     * WHY THE TAIL WAS WORSE THAN UNTIDY. PART 7 promises that a slot which
-     * fails to match "falls back to prose rather than silently dropping
-     * metadata". At this line there was no prose to fall back to: the swallowing
-     * tail ate whatever a failed slot rejected, so the promised failure mode was
-     * unreachable here and every narrowing at this line dropped metadata
-     * instead of failing visibly.
-     *
-     * ONE SPELLING, THREE CALLERS. The line is also asked "is this a
-     * definition?" by the paragraph-interruption predicate and by the block
-     * parser's own consume pass. While the pattern ended in a swallow-everything
-     * tail those could test the RAW line and be right by accident, because
-     * `[a]: /u {.c}` matched it raw. Anchored, they cannot - so they call this
-     * rather than carrying a fourth and fifth spelling of the same question.
-     *
-     * THE LINE ENDING IS `[ \t]*`, NOT A UNICODE PROPERTY. `whitespace` is
-     * `' ' | '\t'` and nothing else (PART 1, markup-carve/carve#890), so
-     * `[a]: /u<SP>` and `[a]: /u<TAB>` are definitions while `[a]: /u<NBSP>`
-     * and `[a]: /u<U+2000>` are not. A tab fixture cannot tell the two
-     * spellings apart, because a tab is inside the Unicode property too
-     * (markup-carve/carve#888).
      *
      * @param string $line
      *
@@ -737,26 +626,6 @@ class ReferenceDefinitionExtractor
             $rest = (string)$tm[3];
         }
 
-        // `[space, attributes]`, the fourth of PART 7's exactly-one-space slots.
-        //
-        // AN INVALID BLOCK IS NOT `attributes`, SO THE LINE IS NOT A DEFINITION
-        // (markup-carve/carve#933). The slot names the `attributes` production,
-        // and a balanced `{...}` that production does not accept is not an
-        // instance of it: it is leftover content, and the anchor below disposes
-        // of it like any other leftover. So `[a]: /u {#}`, `[a]: /u { }` and
-        // `[a]: /u {=}` are paragraphs, and an `[a][]` under one of them does
-        // not resolve.
-        //
-        // The same characters already read this way one construct over: `x {#}`
-        // in a paragraph keeps its braces as text, because `attributes` rejects
-        // that block there too and inline content keeps what it cannot parse.
-        //
-        // THE OLD READING - "consumed is not the same question as valid" - made
-        // the anchor unable to SEE the failure. The block is peeled off by a
-        // balance scan before anything validates it, so a rejected block had
-        // already been consumed and DISCARDED and the line went on to define
-        // with the author's `{...}` gone from the page. That is the outcome
-        // PART 7 names as the one to avoid, and the reason this anchor exists.
         $attrs = [];
         if (($rest[0] ?? '') === ' ' && ($rest[1] ?? '') === '{') {
             $parsed = $this->readTrailingAttributes(substr($rest, 1));
@@ -784,28 +653,6 @@ class ReferenceDefinitionExtractor
 
     /**
      * Read the definition's trailing attribute block, which must end the line.
-     *
-     * The block is SCANNED, not regex-matched: an attribute value may hold a
-     * `}` inside quotes, and a lazy `\{[^}]*\}` stops at that brace and drops
-     * every attribute on the line silently. Only an UNQUOTED `}` closes it.
-     *
-     * `null` means the block is NOT this definition's `attributes`, so what the
-     * caller still holds is leftover content and the anchor makes the whole line
-     * prose. Three different findings share that answer, and they are three
-     * rather than two on purpose (markup-carve/carve#933): the block never
-     * CLOSES at the end of the line; the block closes but its payload is not
-     * `attributes`; the block closes and yields no attribute at all. The middle
-     * one used to return an EMPTY array, which is also what "there was nothing
-     * to take" looked like - and where a rejection and an absence are the same
-     * value, the rejection has nowhere to be observed and the block is silently
-     * eaten.
-     *
-     * `attribute_list = attribute, {space+, attribute}` needs at least one
-     * attribute, so `{}` and `{ }` are not `attributes` here. The blessed EMPTY
-     * block is written for the inline span (`[text]{}`) and for
-     * `item_attributes` (`-{} text`), each with its own prose; this slot has
-     * none, and markup-carve/carve#933 names `[a]: /u { }` among the lines that
-     * stop defining.
      *
      * @param string $tail The line from its `{` to its end.
      *

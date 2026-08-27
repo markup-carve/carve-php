@@ -13,35 +13,6 @@ use MarkupCarve\Carve\SafeMode;
 
 /**
  * The context handed to {@see BeforeRenderExtensionInterface::beforeRender()}.
- *
- * A hook runs BEFORE the render starts, so it has nothing to inherit from: with
- * the document alone in hand, a hook that produces output of its own produces it
- * with DEFAULTS. A table-of-contents entry then disagrees with the heading it was
- * cloned from as soon as a render option reaches inline rendering - the same
- * nodes, two answers. The spec's extension contract (docs/extensions.md §2.2)
- * names this context as what the hook inherits instead; see carve#1007.
- *
- * It carries the three things that clause requires:
- *
- * - the render options the conversion was configured with;
- * - the EFFECTIVE render mode for the target format;
- * - whether the final render target is HTML.
- *
- * READ-ONLY, and that is contract rather than convention. The guards run after
- * the hooks, so a hook handed live options could clear the very field a guard
- * measures. carve-rs met that shape from the other side: its `max_length` cap
- * sat behind these hooks, and because the hook took the document by value a hook
- * could empty the field the cap measured. This class therefore hands out VALUES
- * rather than the renderer that holds them - the renderer's setters are exactly
- * the write grant the clause withholds. It is the same discipline
- * {@see \MarkupCarve\Carve\Parser\MatcherContext} applies at parse time, which
- * exposes `parseInlines()` rather than the parser.
- *
- * PHP arrays are copied on assignment, so the maps below really are the hook's
- * own copies. A SafeMode instance is an object and is shared by reference, which
- * is the honest bound (carve-js states the same one for its nested values):
- * read-only remains the contract past the first level even where the language
- * stops enforcing it.
  */
 final class BeforeRenderContext
 {

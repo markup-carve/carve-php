@@ -41,45 +41,6 @@ use SplFileInfo;
 
 /**
  * Encodes the AST as plain arrays (JSON) and reads it back.
- *
- * The reason this exists: every non-HTML integration currently has to pivot
- * through rendered HTML and re-parse it, because the AST is only reachable as
- * PHP objects. An interchange encoding turns that into a direct hop - editors
- * (ProseMirror/Tiptap), linters, structural diffing and cross-implementation
- * conformance all want the tree, not markup.
- *
- * ## Shape
- *
- * A document is
- *
- *     {"ast": 1, "type": "document", "children": [...]}
- *
- * and every node is
- *
- *     {"type": "heading", "level": 2, "attrs": {"id": "x"}, "children": [...]}
- *
- * - `type` is the node's own `getType()` value - the same snake_case vocabulary
- *   `Profile` uses for allow/deny lists, so the names are already public.
- * - `attrs` and `children` are omitted when empty, keeping small documents small.
- * - Everything else is the node's declared state, keyed by property name.
- *
- * Historical note: the encoder used to lift `frontmatter` and footnote
- * definitions out of `children` onto document-level fields. That matched the
- * old PART 12 §2 root form, but PART 12 §7 replaced it: the root now carries
- * exactly `type`, `children`, and `srcByteLength`, with frontmatter and
- * footnote definitions published as block nodes in the tree. The decoder used
- * to adopt the old root fields as well; it does not any more (carve-php#1002).
- * There is one wire shape, and a payload stored under the old one is converted
- * once by {@see \MarkupCarve\Carve\Ast\StoredPayloadUpgrade}.
- *
- * Field names are derived by reflection over properties declared on the node
- * class itself (the base class bookkeeping - parent, children, attributes,
- * attributeOrder - is excluded). That means a new node type is encodable the day
- * it is added, with no table to forget. The consequence is that renaming a
- * property is a wire-format change, which is what AstCodecSchemaTest pins: the
- * full type-to-fields map is a golden file (tests/fixtures/ast-schema.json), so
- * any rename shows up as a diff to approve rather than a silent break for
- * consumers.
  */
 class AstCodec
 {
@@ -100,37 +61,7 @@ class AstCodec
     public const VERSION = 4;
 
     /**
-     * Node types this engine has and the wire does not, and what each PUBLISHES
-     * as instead (PART 12 §1 and §5).
-     *
-     * The class map is built by reflection, so a node class is publishable the
-     * day it is added - which is what keeps the codec complete, and what makes
-     * an internal one leak by default. All three of these leaked: the published
-     * schema advertised them, and two of them REACHED THE WIRE, so this engine
-     * encoded types its own decoder refuses and a round trip through its own
-     * codec produced a payload it could not read back (carve-php#1002).
-     *
-     * - `raw_text` is the case §5 names: markup the parser declined, kept so the
-     *   writer can reproduce it verbatim. Nothing has produced it since §3a.
-     * - `caption` is this engine's wrapper for a figure's or a table's caption.
-     *   In both of those positions the encoder already publishes the caption as
-     *   the reference does, a FIELD holding inline content, so the node itself
-     *   only ever survives the shape passes somewhere the reference has no
-     *   caption at all - and there it is a block of inline content, which is a
-     *   paragraph.
-     * - `section` is a rendering wrapper the parser never builds; the ProseMirror
-     *   bridge does. It holds blocks and says nothing else, so the published
-     *   container is what it maps to.
-     *
-     * The mapping happens after the whole tree is encoded, not in `encodeNode`,
-     * because `figureShape` and `captionShape` still have to recognise a caption
-     * node while they are turning the legitimate ones into fields. `raw_text` is
-     * the exception and maps in `encodeNode`: its `content` has to resolve
-     * against `text` to be published as `value`.
-     *
-     * DECODING accepts none of them. Each is refused as a type the vocabulary
-     * does not hold, and a payload naming one is upgraded by
-     * {@see \MarkupCarve\Carve\Ast\StoredPayloadUpgrade}.
+     * Node types this engine has and the wire does not, and what each publishes.
      *
      * @var array<string, string>
      */
@@ -647,22 +578,6 @@ class AstCodec
         // does not have is refused rather than half-read.
         self::verifyNoUnnamedSlots($data);
 
-        // PART 12 §12(d): the WHOLE payload against `resources/ast-schema.json`,
-        // types and required fields together, refused with the same typed error
-        // (a), (b) and (c) already require (markup-carve/carve#881).
-        //
-        // ON THE PAYLOAD AS THE CALLER WROTE IT, for the reason §11's pass gives
-        // one line up: everything below rewrites `$data`. LAST of the three, so
-        // the clauses with a message of their own - a version envelope, a root
-        // missing one of §7's fields, an unnamed slot - still answer first and
-        // say which rule the payload broke rather than where in the schema it
-        // stopped matching.
-        //
-        // AND ONLY ONCE THE ROOT CLAIMS TO BE A CARVE DOCUMENT, which is how
-        // §12(a) scopes itself one block up and for the same reason: a
-        // ProseMirror `doc` fails the schema at `$` for want of `children`, and
-        // reporting that would tell a foreign payload about a field it was
-        // never going to carry instead of telling it that it is foreign.
         if (($data['type'] ?? null) === 'document') {
             self::verifySchema($data);
         }
@@ -784,39 +699,6 @@ class AstCodec
 
     /**
      * Assign footnote numbers for the published tree.
-     *
-     * PART 12 §5 serializes them: a consumer cannot recompute a footnote number
-     * without reimplementing PART 9R. The rule is the renderer's - first USE
-     * order, a repeat reusing its number, an unresolved reference left unnumbered
-     * because it never formed a footnote at all.
-     *
-     * AN INLINE FOOTNOTE TAKES A NUMBER FROM THE SAME SEQUENCE. carve-js and
-     * carve-rs both number `[^a] ^[x] [^a] ^[y]` as 1, 2, 1, 3; counting only
-     * references would disagree with both and with this engine's own HTML.
-     *
-     * A DEFINITION BODY IS NOT WALKED WHERE IT SITS. The definitions are hoisted
-     * to the end of the tree in SOURCE order, so numbering them where they lie
-     * numbers a note in the body of the first-defined footnote before one in the
-     * body of the first-USED footnote, and numbers the body of a definition that
-     * is never referenced at all - a body that renders nowhere. Both disagree
-     * with this engine's own HTML, which walks the endnotes in use order and
-     * emits nothing for an unreferenced definition. So the bodies are deferred
-     * into a queue keyed on first use, exactly as carve-js does, and only a
-     * referenced definition ever joins it.
-     *
-     * An inline note's own content is never searched for footnotes: a note
-     * inside a note has no rendered home. Parsing cannot build one (`[^b]`
-     * inside `^[...]` stays text), but a decoded tree can carry one.
-     *
-     * AN UNRESOLVED REFERENCE'S TEXT IS NOT SEARCHED EITHER. PART 9R R1
-     * degrades such a reference to its literal source, so the text it holds is
-     * discarded rather than written into the document, and R2 rules that a note
-     * in that text "is not a reference": it gets no number, no endnote and no
-     * backlink (markup-carve/carve#1198). `HtmlRenderer::renderLink()` already
-     * returns the raw source BEFORE rendering its children, so nothing in there
-     * is rendered - numbering it anyway published a number naming a footnote the
-     * page does not contain, and in `a [t[^1]][nope] b [^1] c` it published the
-     * SAME number as the one live noteref a reader can see.
      */
     private static function numberFootnotes(Document $document): void
     {
@@ -953,23 +835,6 @@ class AstCodec
 
     /**
      * Re-encode what was just decoded and complain if a field went missing.
-     *
-     * A foreign tree used to decode WRONGLY and exit 0: carve-js writes `value`
-     * where this codec read `content`, unrecognized keys were ignored, and a
-     * missing content field defaulted to an empty string - so every text node
-     * came back empty and nothing said so. PART 12 §6 calls that out: "a
-     * serializer that loses a field is not a lossy convenience; it is a consumer
-     * breaking silently one document later."
-     *
-     * Comparing the re-encoded tree against the input catches exactly that,
-     * including fields lost for reasons nobody predicted. Keys the encoder does
-     * not produce - `pos`, which this engine cannot yet emit - are ignored, so
-     * accepting a conformant tree from another engine stays possible.
-     *
-     * @param array<string, mixed> $input
-     * @param \MarkupCarve\Carve\Node\Document $document
-     *
-     * @throws \MarkupCarve\Carve\Exception\AstDecodeException When decoding dropped content the input carried.
      */
 
     /**
@@ -1145,21 +1010,6 @@ class AstCodec
     }
 
     /**
-     * PART 12 §11: refuse a property the schema does not name, saying which one
-     * and where.
-     *
-     * The node's OWN keys are answered by the loss comparison, which reports a
-     * key the re-encode did not reproduce. That comparison cannot see inside
-     * `attrs` and `pos`, and must not be made to: `attrs` is NORMALIZED on the
-     * way back out (a `class` slot re-encodes as `classes`), so comparing it
-     * against the re-encode would report a wrong TYPE as an unnamed property,
-     * and a wrong type is §11's neighbour rather than §11 itself
-     * (markup-carve/carve#881). Names are therefore checked BY NAME.
-     *
-     * Walks the payload the CALLER handed over, before `decode()` rewrites it -
-     * `liftAbbreviationDefs` rebuilds `children`, and a pass asking afterwards
-     * would be asking about a payload this class wrote.
-     *
      * @param array<mixed> $payload
      *
      * @throws \MarkupCarve\Carve\Exception\AstDecodeException
@@ -1328,26 +1178,6 @@ class AstCodec
     /**
      * Deepest JSON nesting `decodeJson()` will read.
      *
-     * The bound is on JSON STRUCTURAL levels, which is NOT the unit the parser
-     * caps: one AST level costs several structural levels on the wire - two for
-     * a div (its object plus its `children` array), four for a list, six for a
-     * table. Equating the two numbers is how carve-rs came to reject ASTs its
-     * own encoder had produced (carve-rs#389), so this number comes from
-     * measurement instead. At the parser's cap of 200 the deepest wire forms
-     * are 405 structural levels for a div ladder, 405 for blockquotes, 805 for a
-     * list ladder and 402 for a table under a deep chain; 1200 clears the worst
-     * of them by half again.
-     *
-     * Below this the reader used to inherit `json_decode()`'s default of 512,
-     * which stood in for a decision nobody had made and reported a payload past
-     * it as a raw JsonException.
-     *
-     * DERIVED, not written down: 1200 was right for a parser capped at 200 and
-     * silently wrong for any other number. Raising the parser's cap now raises
-     * this with it, which is the whole invariant - the decoder must accept
-     * anything the encoder can emit, whatever that limit becomes. carve-rs
-     * makes the same bound the same way (carve-rs#394).
-     *
      * @var int
      */
     public const MAX_JSON_DEPTH = self::MAX_PARSER_NESTING_DEPTH * self::LONGEST_WIRE_CHAIN + 16;
@@ -1398,31 +1228,6 @@ class AstCodec
     }
 
     /**
-     * The encodable fields per node type, and which of them a payload must
-     * carry, for documentation and drift tests.
-     *
-     * A field is required when the node has no default for it - neither a
-     * declared property default nor a constructor parameter default - so there
-     * is nothing to fall back on when it is omitted.
-     *
-     * DERIVED OVER THE WIRE VOCABULARY, not over the class map. The class map is
-     * built by reflection and is keyed by `Node::getType()`, so it holds this
-     * engine's INTERNAL name for every node - and three wire types have no class
-     * of their own: `encodeNode()` narrows a bare-URL `Link` to `autolink`, a
-     * typed `Div` to `admonition`, and a `Mention` carrying the `tag` class to
-     * `tag`. Reflection cannot see a retype, so all three were emitted by the
-     * encoder and absent from the schema it published: a consumer validating
-     * against this map was told an `admonition` is not a node type, while its
-     * own copy of the encoder produced them (carve-php#1002 fixed the opposite
-     * direction, for `caption` and `section`).
-     *
-     * {@see \MarkupCarve\Carve\Ast\ReferenceShape::TYPE_ALIASES} is the ONE
-     * declaration of that narrowing, and both the encoder and this derivation
-     * read it, so a fourth alias cannot reach the wire without reaching the
-     * schema. Fields resolve under the WIRE name, exactly as `encodeNode()`
-     * resolves them, or an `autolink` would advertise `destination` where the
-     * encoder writes `href`.
-     *
      * @return array<string, array{fields: array<string>, required: array<string>}>
      */
     public static function schema(): array
@@ -1832,21 +1637,6 @@ class AstCodec
                 continue;
             }
 
-            // AUTHORED alignment reaches the wire; INHERITED alignment does
-            // not. A column declares its alignment once, in the delimiter row
-            // or in the header cells' own markers, so republishing the resolved
-            // value on every body cell states as per-cell something the source
-            // says once - and leaves a consumer unable to tell the two apart
-            // (carve#784).
-            //
-            // A body cell that carries its OWN marker (`|< 12`) still
-            // publishes, and so does every cell of a HEADERLESS table, where
-            // there is no header row to carry the column's value. Both are
-            // authored, and both are what carve-js and carve-rs publish.
-            //
-            // The node keeps its alignment either way - this engine's renderer
-            // aligns body cells from their own nodes - and `applyDerivedFields`
-            // copies the column's value back down on decode.
             if (
                 $field === 'align'
                 && $node instanceof TableCell
@@ -2518,18 +2308,6 @@ class AstCodec
     private static function listMarkerFromWire(array $data): array
     {
         if (($data['type'] ?? null) === 'list' && array_key_exists('delim', $data)) {
-            // `delim` is this engine's `marker`, which the encoder publishes
-            // under whichever name the list kind calls for.
-            //
-            //
-            // A payload written before this codec separated the two carries the
-            // DIALECT here (`a`, `i`), and decodes as a marker. Reinterpreting
-            // it by value was tried and rejected: the loss check compares the
-            // payload against a re-encode, so a `delim` that comes back as
-            // `olType` reads as a dropped field and the whole document fails to
-            // decode. Silently mis-reading one field beats refusing the
-            // document, and that field was never readable by another engine
-            // anyway - `a` is not a value `delim` is allowed to hold.
             $data['bulletChar'] = $data['delim'];
             unset($data['delim']);
         }

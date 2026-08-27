@@ -81,78 +81,10 @@ use Throwable;
 /**
  * Renders AST back to canonical Carve source.
  *
- * THE CONTRACT, AND WHAT IT DOES NOT COVER. What this writer returns re-reads as
- * what it was given - EXCEPT for the shapes named below, which it writes as the
- * nearest source Carve has and which therefore re-read as something else.
- *
- * The list is the point. A contract stated as an absolute while carrying an
- * exception nothing declares is worse than a narrower one that is true as
- * written, because every reader of the first is entitled to rely on it
- * (markup-carve/carve#1658). PART 11 section 1c is the normative form of this,
- * and it is written over the PROPERTY rather than the node type: where a block's
- * whole content is a single node whose own spelling, at the block's column, is
- * read back as a block opener of that node's kind, the writer emits that
- * spelling and the wrapper is LOST. So the invariant holds AS WRITTEN, and these
- * sit outside it rather than being places where it quietly fails:
- *
- * - A PARAGRAPH WHOSE WHOLE CONTENT IS ONE IMAGE. It is written as a bare block
- *   image at column 0, which re-reads as a block image and not as the paragraph
- *   it was. `resources/examples/edge-cases.md` rules the shape - "a paragraph
- *   whose whole content is one image is still the standalone image shape, not a
- *   wrapped one" - so there is no source to write instead. An indented spelling
- *   is not the answer either, and the reason CHANGED with carve-php#1683: this
- *   engine now reads a lone INDENTED image as a paragraph, which corpus 411
- *   pins, so at top level the shape does have a spelling. One level down it has
- *   none at any width - a list item's or a definition description's marker
- *   absorbs the padding, so `- ![a](u)` and the same line with the image pushed
- *   any distance further right are one tree, and `list_item > paragraph > image`
- *   cannot be spelled at all. PART 11 §1c
- *   settles which way that asymmetry resolves: THE CEILING IS UNIFORM AND NOT
- *   POSITIONAL. A writer preserving the wrapper at the one depth that can spell
- *   it and losing it at the next describes nothing, and the indented form emits
- *   meaning-bearing leading whitespace that editors and pipelines strip. So the
- *   wrapper is lost everywhere, and one sentence describes this writer at every
- *   depth.
- *
- *   MEASURED, AND IT IS THE ONLY ONE THE IMPORTER CAN BUILD. Twenty single-child
- *   paragraph shapes were imported and re-read; every other kind - a link, a
- *   code span, an emphasis of each sort, a span, a hard break, a quote, a critic
- *   mark, plain text - comes back as the paragraph it was. The comment shape
- *   below has the same property and is NOT in that sweep, because no HTML builds
- *   `paragraph[comment]`: it reaches this writer from a hand-built or ingested
- *   tree, which is exactly why the list is STATED rather than derived from what
- *   an import happens to produce.
- *
- *   NOT SILENT WHERE IT MATTERS. This class has no diagnostic channel and can
- *   only throw, and refusing would break every import of a `<p><img></p>`, so
- *   the caller that WRITES source declares the loss instead:
- *   {@see \MarkupCarve\Carve\Converter\HtmlToCarve::convertWithReport()} reports a
- *   `structure-unspellable` row for it (`docs/html-import.md`, carve-php#1667).
- *
- * - A BLOCK WHOSE WHOLE CONTENT IS ONE COMMENT. `%% c` reads back as the block
- *   comment, so the wrapper is lost the same way. This one has no top-level
- *   escape at all - `%%` opens a block comment at every column, where an
- *   indented image at least parses as a paragraph on some engines - which is why
- *   PART 11 section 1c is written over the PROPERTY (a wrapper whose own
- *   content, written at the block's column, reads back as a block opener of that
- *   node's kind) rather than over the image.
- *
- * - A PARAGRAPH WITH NO CONTENT AT ALL. It writes nothing, so it is simply not
- *   in the source and the re-read document is one block shorter. No source
- *   spells an empty paragraph - a blank line is a separator, not a block - so
- *   there is nothing to write instead, and this class has no channel to say so.
- *
- *   The parser cannot build one, so this shape reaches the writer only from a
- *   HAND-BUILT or INGESTED tree. It is named here anyway: the whole point of the
- *   ruling is that the carve-outs a caller may rely on are listed rather than
- *   discovered.
- *
- * Where it CAN see that emitting source would change the tree, and no carve-out
- * above covers the shape, it refuses with
- * {@see \MarkupCarve\Carve\Exception\SourceUnspellableException} rather than
- * emitting the nearest form - an empty raw inline is the standing example. That
- * is a statement about the shapes it detects, not a second absolute: the list
- * above is what a caller may rely on.
+ * Output re-reads as what it was given, with structural carve-outs. A BLOCK
+ * WHOSE WHOLE CONTENT IS ONE COMMENT may read back as a block opener of that
+ * node's kind (PART 11 section 1c). It is THE ONLY ONE THE IMPORTER CAN BUILD;
+ * the other carve-outs require a hand-built or ingested tree.
  */
 class CarveRenderer implements RendererInterface
 {
@@ -503,44 +435,6 @@ class CarveRenderer implements RendererInterface
      * The four writer-only sentinels, chosen per render from code points the
      * DOCUMENT does not contain.
      *
-     * They used to be the fixed U+E001..U+E004, restored unconditionally, so an
-     * AUTHORED occurrence was indistinguishable from one this renderer inserted:
-     * U+E001 and U+E004 came back as a space, U+E002 as a tab, U+E003 as nothing
-     * at all. Three of those are worse than a deletion, because a space or a tab
-     * is plausible content and the diff reads as whitespace (carve#678). It was
-     * never limited to code blocks - a paragraph holding one was corrupted too.
-     *
-     * Escaping the authored occurrences cannot fix it: any escape needs a
-     * reserved character, and that character has the same collision. Choosing
-     * characters the document does not use cannot collide by construction, and
-     * cannot run out - the BMP private-use area alone has 6400 code points.
-     *
-     * U+E000 is not one of the chosen characters - it is the parser's in-band
-     * marker for a non-breaking space, shared with the HTML, plain, ANSI and
-     * Markdown renderers, so an authored U+E000 is already conflated with a
-     * parsed nbsp before this renderer runs. That is the other half of carve#678.
-     *
-     * Slot 4 CARRIES an authored U+E000 through normalization, which would
-     * otherwise rewrite it to `\ ` - correct outside verbatim content and wrong
-     * inside it, where a backslash is literal (carve-php#829). It is a carrier,
-     * not a replacement for the marker: restoreVerbatim() puts the character
-     * back.
-     *
-     * SLOT 5 IS THE MARKER-COLUMN TAG, and it is in this run rather than beside
-     * it. It used to be the fixed U+E010, on the reasoning that a tag inside the
-     * re-picked run would be rewritten underneath itself - which is true, and is
-     * why it belongs IN the run instead of next to it. Outside it, the tag was
-     * a fixed sentinel with exactly the collision this array exists to remove:
-     * an authored U+E010 opening a list item's continuation line was eaten AND
-     * the paragraph was written back at column 0, out of the item it was in.
-     * That is worse than the four carve#678 found, because it changes the
-     * document's BLOCK STRUCTURE rather than a character
-     * (markup-carve/carve-php#1087).
-     *
-     * A run of seven also cannot collide with itself: the picker returns seven
-     * DISTINCT consecutive code points, so the tag differs from every carrier by
-     * construction rather than by being parked at a hopefully-unused address.
-     *
      * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string}
      */
     protected array $verbatimSentinels = [
@@ -585,22 +479,6 @@ class CarveRenderer implements RendererInterface
     /**
      * The tag that says section 11 N1a's boundary - three blank lines - goes
      * ABOVE the line it opens.
-     *
-     * IT MARKS A LINE, NOT A JOIN. It used to be spliced BETWEEN two rendered
-     * blocks (`a` + tag + `b`), which reads the same at the document level and
-     * is wrong everywhere else: splicing hides a line break from every host
-     * that indents its body line by line. A list item prefixes each of its
-     * content lines with its content column and a blockquote prefixes each with
-     * `> `, and neither can see a second line inside `- a<tag>- b` - so the
-     * boundary came out at column 0, taking the list it opened out of the item
-     * with it (markup-carve/carve#1501).
-     *
-     * Written at the START of the following block's first line instead, the tag
-     * rides through every host's prefix pass as ordinary text, and normalize()
-     * expands it once the prefix it has to repeat is finally visible: whatever
-     * columns sit to its left ARE the host's, so the three blank lines are
-     * spelled with them - nothing at all inside a list item, `>` inside a
-     * blockquote, which is exactly how each host spells a blank line of its own.
      */
     protected function listBoundary(): string
     {
@@ -634,27 +512,6 @@ class CarveRenderer implements RendererInterface
     /**
      * The conservative form of the units that need it, and the minimal form of
      * every other unit (PART 11 section 2b).
-     *
-     * WHY THIS IS A SEARCH AND NOT A LOOKUP. The comparison stays
-     * document-scoped - section 4's argument holds, a unit re-parsed alone has
-     * lost the document's link-reference and footnote definitions - so what a
-     * failure reports is THAT the document changed, never WHERE. The unit is
-     * found by trying: start from the conservative form, which is known to
-     * hold, and hand each unit back its minimal form only while the whole
-     * document still re-parses to the same tree. Every state this walks through
-     * is verified, and the one returned is the last that passed.
-     *
-     * HALVED RATHER THAN SWEPT, because a document is mostly units that need
-     * nothing. A group is offered its minimal form all at once and only split
-     * when that fails, so a document with one failing unit costs about log(n)
-     * renders instead of n.
-     *
-     * THE FIRST RENDER IS A CONTROL. With every unit escalated this must
-     * reproduce the conservative form byte for byte; if it does not, the
-     * selection is deciding something other than the escape mode - a unit the
-     * walk did not reach, for instance - and the document-scoped form is
-     * returned rather than a narrowing built on a state that is not what it
-     * claims.
      */
     protected function narrowEscalation(Document $document, string $conservative): string
     {
@@ -1026,37 +883,6 @@ class CarveRenderer implements RendererInterface
     /**
      * Render, and fall back to a break spelling that cannot be read as
      * frontmatter when the finished bytes would be.
-     *
-     * THE WRITER MANUFACTURED FRONTMATTER. A frontmatter block is an opening
-     * fence at byte 0 plus a bare `---` CLOSER anywhere below it, so the
-     * collision is a property of the whole emitted document rather than of its
-     * first line, and a first-line test answers a different question. Two
-     * unrelated writer decisions reach it:
-     *
-     * - an authored `---` break can open the document and gain a closer from
-     *   any later break.
-     * - renderDocumentParts() writes a hoisted link or footnote definition after
-     *   the body, promoting whatever stood second to byte 0. Nothing is
-     *   respelled there - the `---` was already in the source - so fixing the
-     *   first cause does not fix this one.
-     *
-     * And a THIRD shape the ticket does not name falls out of the same check: a
-     * hoisted definition can promote a PARAGRAPH whose first line is
-     * `---yaml`-shaped, which no head-of-document respelling can repair, because
-     * the paragraph's text is not the writer's to change. That document is saved
-     * by respelling the CLOSER instead - which is why the fallback moves every
-     * break in the document rather than the one at the head.
-     *
-     * So the FINISHED bytes are handed to the PARSER'S own opener test, twice:
-     * once to ask whether the canonical spelling is misread, and once to confirm
-     * the fallback is not. A document still misread with `***` - a `---` closer
-     * that came from somewhere other than a break, such as the inside of a
-     * fenced block - keeps the canonical spelling rather than paying a
-     * respelling that buys nothing.
-     *
-     * A leading break with nothing below it to close a block keeps `---`, which
-     * is what carve-js and carve-rs write and what the corpus asks for. It is a
-     * CONTROL: no mutation of this fallback moves it.
      */
     protected function renderWithEscapeMode(Document $document, string $escapeMode): string
     {
@@ -1869,18 +1695,6 @@ class CarveRenderer implements RendererInterface
                 $lines = $content === '' ? [''] : explode("\n", $content);
                 $first = array_shift($lines);
                 $out .= $prefix . ($first === '' ? '+' : $first) . "\n";
-                // A task checkbox is content and item attributes are metadata;
-                // neither moves the bare marker's content column (carve#1701).
-                //
-                // Writing the continuation at the marker's full width put every
-                // block after the item's first, four columns too far in, where an
-                // INDENTED block opener opens nothing: a heading, a fence or a
-                // quote came back as text of the marker line's paragraph. The
-                // three corpus documents that reported it - `05-lists-12`,
-                // `75-list-nesting-and-looseness-9` and
-                // `144-nested-item-looseness-does-not-propagate-to-the-outer-item-3`
-                // - are all task items, and carve-js fixed the same site in
-                // carve-js#1455.
                 $continuation = str_repeat(' ', $continuationWidth);
                 foreach ($lines as $line) {
                     // A BLANK continuation line stays blank: indenting it emits a
@@ -1941,25 +1755,6 @@ class CarveRenderer implements RendererInterface
 
     /**
      * `$line` at `$indent`, except a blank one, which stays blank.
-     *
-     * PART 11 §7: the writer never emits a line whose only content is space or
-     * tab. Such a line is not stable - editors that strip trailing whitespace on
-     * save, `git apply --whitespace=fix` and CI whitespace checks all rewrite
-     * it, so the formatter produces output ordinary tooling changes behind it
-     * (markup-carve/carve#375).
-     *
-     * SHARED because three writers indent a block body and each one had to know
-     * this: the list writer knew it and the footnote and definition writers did
-     * not, which is the whole of carve-php#1068. Measured as four verbatim
-     * constructs crossed with ten container contexts: 15 of the 40 rows emitted
-     * a whitespace-only line, every one of them through those two writers.
-     *
-     * The blank line is returned AS IT IS rather than as an empty string, and
-     * the difference is not observable today: restoreVerbatim() maps the
-     * sentinel to nothing at the end, so both spellings reach the same byte and
-     * a mutation returning the empty string survives the whole suite. Keeping
-     * the sentinel is the conservative half all the same - holding the
-     * document-wide trim off the line is the reason it exists.
      */
     protected function indentContinuationLine(string $line, string $indent): string
     {
@@ -1968,26 +1763,6 @@ class CarveRenderer implements RendererInterface
 
     /**
      * Sentinel marking a line to be written at the ITEM's marker column.
-     *
-     * The list writer prefixes an item's continuation lines with its content
-     * column. A `+` continuation marker and the block it attaches are the two
-     * things that must NOT get that prefix (§17 L3), and they are produced deep
-     * inside the item body where the prefix is not yet known - so they are
-     * tagged here and the prefix loop honours the tag.
-     *
-     * SLOT 5 of the run `$verbatimSentinels` picks per document, so an authored
-     * occurrence cannot exist: the run moves off any code point the document
-     * writes. It used to be the FIXED U+E010, parked outside the run on the
-     * reasoning that a re-picked run would rewrite it - which is a reason to
-     * put it IN the run, not beside it (markup-carve/carve-php#1087).
-     *
-     * WHICH slot it is, is INTENT rather than a load-bearing constraint, and the
-     * difference was measured rather than assumed: pointing this at slot 0
-     * instead passes the whole suite, because protectVerbatim() only ever
-     * encodes TRAILING whitespace and whole blank lines, so no line reaching the
-     * continuation loop can BEGIN with the trailing-space carrier. A slot of its
-     * own keeps the next reader from redoing that reasoning, and keeps the two
-     * independent if protectVerbatim() ever learns to encode a leading run.
      */
     protected function markerColumn(): string
     {
@@ -2034,31 +1809,6 @@ class CarveRenderer implements RendererInterface
     /**
      * Whether a sub-list written at the item's content column needs a blank line
      * above it to open at all.
-     *
-     * THE MARKER COLUMN. A block attached by section 17 L3's marker sits at
-     * column 0, and a sub-list at the item's content column below it is INDENTED
-     * under an open paragraph - lazy continuation, so the list never opens and
-     * its markers come back as text.
-     *
-     * A BLOCKQUOTE. It takes any non-blank line below it as lazy continuation,
-     * bullet line included, so an item holding a quote and then a bullet at the
-     * content column came back as a quote whose paragraph carries the bullet
-     * line as its own text. That shape holds no section 11 N1a
-     * boundary at all: it failed on its own account before
-     * markup-carve/carve#1501, and the same rule settles it.
-     *
-     * A PARAGRAPH BELOW A SUB-LIST THAT ALREADY OPENED. Once a sub-list has
-     * opened at the item's content column, a bullet written at that column below
-     * a paragraph joins THAT list instead of opening under the paragraph - so
-     * the paragraph keeps the line and the list keeps the marker. Without an
-     * earlier sub-list the same two lines open a list, which is why this is
-     * conditional rather than a blanket blank line after every paragraph:
-     * writing one there would re-spell every nested list in the corpus.
-     *
-     * A BLANK LINE IS SAFE HERE. It loosens an item only before a PARAGRAPH;
-     * before a sub-list the item stays tight, which is why an item whose
-     * sub-list follows a blank line and one whose sub-list follows the marker
-     * line directly are the same document.
      */
     protected function needsABlankLineAbove(
         ?Node $previousEmitted,
@@ -2080,25 +1830,6 @@ class CarveRenderer implements RendererInterface
 
     /**
      * Whether the WRITTEN form of a block opens with a block-attributes line.
-     *
-     * The three kinds above fold into an open paragraph one column in because
-     * their canonical source is a bare inline run. That stops being true the
-     * moment the writer has to put the block's attributes on a line of their
-     * own ahead of it: `block_attributes` is one of PART 9 §10's INVISIBLE
-     * CONSTRUCTS, so it INTERRUPTS the open paragraph and the block below it
-     * opens its own.
-     *
-     * So this is not a preference between two spellings. Where the attribute
-     * line is written, the fold the continuation marker exists to prevent
-     * cannot happen, and the marker costs a construct the document did not
-     * have. The marker form and the indented form render the same document in
-     * carve-php, carve-js and carve-rs alike - and the
-     * indented one is what the corpus source and carve-rs write, so writing the
-     * marker was this engine disagreeing with carve-rs (markup-carve/carve#1275).
-     *
-     * A paragraph whose own text is `{...}` does not reach this: the writer
-     * escapes that leading brace (`\{.c\}`), precisely so it cannot come back
-     * as attributes.
      */
     protected function opensWithAnAttributeLine(string $rendered): bool
     {
@@ -2200,81 +1931,6 @@ class CarveRenderer implements RendererInterface
                 if ($out !== '') {
                     $out .= "\n";
                 }
-                // §17 L3: a block that FOLDS INTO AN OPEN PARAGRAPH needs its
-                // continuation marker written back. Indented under the item it
-                // is a lazy continuation of the paragraph above (§10 I2), so
-                // the item comes back holding ONE block where the author wrote
-                // two (carve#861).
-                //
-                // WHICH BLOCKS FOLD. The claim this condition used to carry -
-                // "only a paragraph reaches this, no other attached kind can
-                // fold into an open paragraph" - was a premise in the code, and
-                // measuring it across twenty-two constructs refuted it for two:
-                // a standalone `image` and a `figure` are both written as a
-                // bare inline run on their own line (`![a](i.png)`, plus a
-                // `^ cap` line), so at the item's content column they are lazy
-                // continuation exactly as a paragraph is. `- x` / `+` /
-                // `![a](i.png)` / `^ cap` came back as ONE paragraph holding an
-                // inline image and the literal text `^ cap`, with the
-                // `<figure>` and its `<figcaption>` gone (carve-php#1069 cause
-                // 3). Every other construct measured - fence, quote, heading,
-                // table, break, div, list, definition list, admonition, verse,
-                // line block, math, raw block, comment, abbreviation
-                // definition, link definition, footnote definition - either
-                // opens its own block at that column or never reaches the item
-                // as its own node, and is unaffected.
-                //
-                // AND ONCE ONE CHILD IS AT THE MARKER COLUMN, EVERY LATER ONE
-                // MUST BE. The marker column is column 0, so a following child
-                // written at the item's CONTENT column is indented relative to
-                // the block above it and becomes that block's lazy
-                // continuation. `- x` / `+` / `---yaml` / `k: v` / `---` wrote
-                // the paragraph flush and the thematic break at two columns,
-                // and the break was absorbed into the paragraph and folded to
-                // an em dash where the input rendered a rule (cause 4). Mixed
-                // indentation inside one attached run is not a form any reader
-                // round-trips, whichever indentation was intended, so it is not
-                // written.
-                //
-                // A definition written back in the gap already ended the
-                // paragraph above, so the marker would be redundant there and
-                // would change corpus 228's canonical form. It does not release
-                // a run that is already at the marker column, because the
-                // column, not the paragraph, is what the later child continues.
-                // A LIST CHILD NEVER GOES TO THE MARKER COLUMN. The marker
-                // column is column 0, which is where the list this item belongs
-                // to writes ITS markers - so a sub-list put there is not
-                // attached to the item, it is dissolved into the list around it,
-                // and the `+` above it is read as the sibling item's own text.
-                // `- outer` / `+` / `- a` / `+` / `- b` came back as one flat
-                // list of three items with both sub-lists and the boundary
-                // between them gone (markup-carve/carve#1501). Section 17 L3's
-                // marker cannot help here: it attaches a block that could not
-                // open at column 0 on its own, and a list opens there in
-                // preference to being attached.
-                //
-                // So a sub-list is written at the item's CONTENT column, and
-                // what it needs there is the right separator above it. Three
-                // shapes, one question each - what would eat this list if
-                // nothing separated it:
-                //
-                //   - THE LIST ABOVE IT WOULD SWALLOW IT. Two sibling sub-lists
-                //     whose markers match are one list when written adjacent,
-                //     which is the whole of section 11 N1's merge rule; N1a's
-                //     boundary is the language's way of saying they are two, and
-                //     section 10i fixes its length at three blank lines.
-                //   - THE BLOCK ABOVE IT SITS AT COLUMN 0, or is a BLOCKQUOTE.
-                //     Either way a line at the item's content column is INDENTED
-                //     under it and reads as its lazy continuation, so the list
-                //     never opens. One blank line closes the block above without
-                //     loosening the item - a blank line before a sub-list does
-                //     not make a list loose, only a blank line before a
-                //     paragraph does.
-                //   - NOTHING ABOVE IT REACHES DOWN. Every other block kind was
-                //     swept: heading, fence, table, break, div, admonition, and a
-                //     sub-list with a different marker all close at their last
-                //     line, and the list opens on the next one with no separator
-                //     at all.
                 if ($child instanceof ListBlock) {
                     if (!$separated && $previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child)) {
                         $out .= $this->listBoundary() . $rendered;
@@ -2635,38 +2291,6 @@ class CarveRenderer implements RendererInterface
     /**
      * One extra column, when a definition list's payload needs a base of its own.
      *
-     * A DESCRIPTION'S PAYLOAD LIVES ABOVE ITS OPENER'S COLUMN. `:: term` sits at
-     * the list's own column and everything under `: ` sits two columns in, so a
-     * quote, a fence, a heading or a table inside a description is INDENTED
-     * relative to the `::` line. At a body's minimum column that indentation is
-     * an authored block base of its own (PART 9 §24 C3), and the body's rebase
-     * claims the block - the description keeps only its first paragraph and the
-     * block re-reads as the body's next sibling.
-     *
-     * Written one column in, the `::` line is the over-indented opener instead,
-     * its own column becomes the entry's base, and the rebase hands the whole
-     * run back with its relative columns intact.
-     *
-     * SO IT IS NOT A PREFERENCE BETWEEN TWO CANONICAL FORMS. Where the un-raised
-     * spelling still says what the document says - a single-line description, a
-     * soft-wrapped one, a second paragraph, a sub-list - nothing is raised and
-     * the canonical bytes are unchanged; PART 11 §2 pins those and they stay
-     * pinned. At the body minimum the description cannot hold the block at ANY
-     * payload column, so where the raise does fire there is no second spelling
-     * to prefer: it is the only one that says what the document says.
-     *
-     * ONE GATE, AND IT IS THE PARSER'S. Whether the un-raised bytes still say
-     * what the document says is a question about how a READER rebases them, so
-     * it is asked by running the parser's own rebase pass over those bytes. A
-     * structural predicate beside it - "this description holds a block that is
-     * neither a paragraph nor a sub-list" - is a second spelling of a column
-     * rule, and it drifted from the first one exactly as carve#755 catalogs:
-     * short-circuiting the probe, it raised a definition list inside a LIST
-     * ITEM, where the un-raised form parses correctly in this engine and is
-     * what carve-js and carve-rs write. carve#1802. The probe alone answers
-     * every shape the predicate was added for, so the predicate is gone rather
-     * than narrowed.
-     *
      * @param string $rendered
      * @param bool $atAnAuthoredBodyColumn
      *
@@ -2804,29 +2428,6 @@ class CarveRenderer implements RendererInterface
                 );
                 $body = $this->trimNonNbsp($body);
                 if ($body === '') {
-                    // A DESCRIPTION THAT WRITES NOTHING TAKES THE SENTINEL
-                    // `{empty}` (PART 11 §7b, markup-carve/carve#1827) - the
-                    // same body `renderFootnote()` writes one construct over.
-                    //
-                    // The line is a block-attribute line: the block it would
-                    // attach to does not exist, so the parse consumes it and
-                    // the description reads back holding no blocks. It is empty
-                    // above a blank line, above a flush-left paragraph and at
-                    // end of input alike, so the writer needs no lookahead over
-                    // what follows.
-                    //
-                    // THE CONDITION IS "THIS ENTRY WRITES NOTHING", which is
-                    // what `$body` already answers, so every path that reaches
-                    // this writer - an ingested AST, a reformatted parse - takes
-                    // the same branch. A description holding only an empty
-                    // paragraph or a list with no items writes nothing too.
-                    //
-                    // EMPTY IS WHAT WRITES NOTHING, not what holds nothing:
-                    // `trimNonNbsp()` keeps a non-breaking space, so a
-                    // description holding one still writes its own line.
-                    //
-                    // `: \{empty}` and `: {empty} x` are content, not
-                    // sentinels, so both keep writing their own text.
                     $out[] = self::DEFINITION_BODY_MARKER . self::EMPTY_BODY_SENTINEL;
 
                     continue;
@@ -2847,31 +2448,6 @@ class CarveRenderer implements RendererInterface
     {
         $rows = [];
         $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));
-        // Every row already carries one cell per grid column, including a
-        // placeholder for each `^`/`<` span marker (carve-php#527), so the
-        // column count and each row's own cells are read directly - no more
-        // reconstructing covered columns from a colspan/rowspan count.
-        // Tables prefer the NATIVE header form: an `=` on each header cell plus
-        // the per-cell alignment markers. The GFM delimiter row is an accepted
-        // alias on input, but it says something the AST does not - its alignment
-        // applies to the WHOLE column, header and body alike (PART 9 T7), while
-        // alignment on the AST belongs to each cell. Writing one for the
-        // ordinary shape (aligned header over unaligned body cells) brought
-        // every body cell back aligned, so `parse(fmt(x)) == parse(x)` did not
-        // hold (carve#359).
-        //
-        // ONE header shape still has no native spelling: `header_cell` is
-        // `'=' [alignment_marker] [cell_attributes] content` and admits no span
-        // marker, so
-        //
-        //     | < | b |     a span marker promoted to a header cell
-        //
-        // keeps a delimiter row to promote the first row, emitted BARE so the
-        // cells keep their own alignment markers and the delimiter cannot spill
-        // alignment down the column. An ATTRIBUTED header cell is no longer in
-        // that set - PART 9 §5 T10 binds the block after the marker run, so
-        // `|={.x} a |` spells it directly and the delimiter row it used to need
-        // dropped both the marker and the cell's own alignment.
         $headerRow = isset($tableRows[0]) && $tableRows[0]->isHeader();
         // This parser resolves a cell's alignment at parse time, so a body cell
         // carries the column's alignment even when the author only wrote it on
@@ -3094,21 +2670,6 @@ class CarveRenderer implements RendererInterface
             return $content === '' ? '%%' : '%% ' . $content;
         }
 
-        // A fence must be WIDER than any run of `%` inside it - a nested `%%%`
-        // inside a `%%%` block closes it early - and that is the ONLY thing
-        // that widens it. The author's own width is not reproduced: PART 12 §3
-        // records no run length for any delimiter, so `%%%` and `%%%%` are one
-        // spelling exactly as `***` and `*****` are one thematic break, and
-        // this writer already normalizes the colon, backtick and tilde fences
-        // the same way.
-        //
-        // The recorded width used to be a floor here. That made a `%%%%` around
-        // a body needing no width the one construct whose authored delimiter
-        // this writer reproduced - and since the wire carries blockness rather
-        // than a width (§3, carve#1000), the same document written from a
-        // decoded tree came back at `%%%`. Corpus 339 is where the two answers
-        // met: one document, two spellings, depending on whether it had been
-        // through JSON.
         preg_match_all('/%+/', $content, $matches);
         $longest = 0;
         foreach ($matches[0] as $match) {
@@ -3257,28 +2818,6 @@ class CarveRenderer implements RendererInterface
                     $captionCanOpen = false;
                     $lineEndsInComment = false;
                 } elseif ($node instanceof Comment) {
-                    // THE SEPARATOR SPACE IS ONLY A SEPARATOR. §21 recognizes
-                    // `%%` after whitespace OR at the start of its line, so a
-                    // comment that already STARTS its line has nothing to
-                    // separate from and must not be given a space it did not
-                    // have.
-                    //
-                    // Everywhere else that space was cosmetic, which is why it
-                    // went unnoticed: leading whitespace is stripped on the way
-                    // back in. A LINE BLOCK is the one place it is not - there
-                    // leading whitespace is preserved CONTENT (§23), so the
-                    // space pushes the marker off column 0, the reparse reads
-                    // `%%` as ordinary verse, and `carve fmt` both breaks its
-                    // own `toHtml(fmt(x)) == toHtml(x)` invariant and PUBLISHES
-                    // the comment text the author hid. carve-rs emits no space
-                    // here and round-trips; carve-js emits one and does not.
-                    //
-                    // NO SEPARATOR WITHOUT SOMETHING TO SEPARATE FROM, and an
-                    // EMPTY comment is the marker alone. The trailing space was
-                    // cosmetic everywhere but a line block, where PART 11 §7c
-                    // protects a line's last column with a backslash - and a
-                    // backslash after the marker is comment CONTENT, so the
-                    // note came back holding one (corpus 346-3).
                     $body = $node->getContent() === '' ? '%%' : '%% ' . $node->getContent();
 
                     // IN VERSE THAT IS WHAT PUTS THE COMMENT BACK ON THE LINE
@@ -3307,27 +2846,6 @@ class CarveRenderer implements RendererInterface
 
     /**
      * How a line block spells a `hard_break` (PART 11 §7c).
-     *
-     * A line block hardens every line boundary of its own accord (PART 9 §23),
-     * so the break is a BARE NEWLINE - right for most lines and wrong for the
-     * two where §7's precondition fails. §7 may strip a line's trailing
-     * whitespace only because the parser discards it too, and the parser does
-     * NOT discard it when a backslash follows: PART 7 makes that run INTERIOR.
-     *
-     * So the backslash is written where a bare newline would be RE-READ:
-     *
-     *  - the line's content is EMPTY. A blank body line ends the stanza, so one
-     *    stanza is written back as two.
-     *  - the line's content ends in a LONE space, which PART 2 then drops. A
-     *    run of two or more columns is already NBSP content (§23 MEDIAL GAPS)
-     *    and needs no backslash, and neither does an ESCAPED space: `a\ ` is
-     *    one non-breaking space, not line-trailing whitespace.
-     *
-     * A break that ENDS the paragraph writes the backslash and no newline at
-     * all: {@see self::renderLineBlock()} adds the line ending before the
-     * closing fence, and a second one would be the blank line this exists to
-     * avoid - which is how a block's last line lost its `<br>` and the space
-     * in front of it (markup-carve/carve#1334).
      */
     protected function verseLineBreak(string $out, bool $endsTheParagraph, bool $lineEndsInComment): string
     {
@@ -3500,24 +3018,6 @@ class CarveRenderer implements RendererInterface
     {
         $text = $this->renderInlines($node->getChildren());
 
-        // A reference RESOLVED FROM A HEADING is written back as the reference
-        // the author wrote (PART 11 R1, carve#478). There is no `[label]: url`
-        // line for it, so `[getting started][]` is the only record of the
-        // authored form - resolving it to `[getting started](#Getting-Started)`
-        // bakes a generated id into the source on every `fmt` pass, and both
-        // other engines keep the reference (carve-rs#435, carve-js#526).
-        //
-        // AN EXPLICIT DEFINITION NOW WRITES THE REFERENCE TOO. This used to
-        // write the resolved link, on the reasoning that "the definition line is
-        // dropped either way, so the authored pair is not reproducible from the
-        // tree". PART 12 §10 removed that premise: the definition IS in the
-        // tree, so both halves are reproducible and the pair round-trips.
-        //
-        // Inlining satisfied `toHtml(fmt(x)) == toHtml(x)` and broke PART 11
-        // §1: `ref` and `rawRef` - which §3a keeps precisely so `[a][r]` and
-        // `[a](/u)` stay distinguishable - were absent from the reparse. It also
-        // duplicated a destination the definition form exists to write once, so
-        // one URL became N after a single `fmt` (carve#642).
         $referenceLabel = $node->getReferenceLabel();
         if (!$node->isFromHeadingReference() && $referenceLabel !== null && $referenceLabel !== '') {
             // `rawRef` is the authored source VERBATIM and already includes any
@@ -3634,18 +3134,6 @@ class CarveRenderer implements RendererInterface
             return [];
         }
         $payload = substr($text, $open + 1, -1);
-        // The INLINE surface, so the writer reads back what the parser reads:
-        // a trailing block whose interior holds a tab is literal text now, and
-        // treating it as attributes here would re-attach on the way out what
-        // the parser had just declined (PART 4, markup-carve/carve#906).
-        //
-        // NOT DEMONSTRABLE FROM SOURCE, and that is stated rather than hidden.
-        // The only caller needs a reference IMAGE that already carries
-        // attributes, and after the parser change a tab-bearing block yields
-        // none - so this branch never sees a payload the parser accepted, and a
-        // mutation putting the general gate back survives. It is kept because
-        // the two surfaces have to agree, and a tree reaching the writer from
-        // the AST codec rather than from source is not bound by the parser.
         if (!AttributeParser::isValidInlinePayload($payload)) {
             return [];
         }
@@ -3693,20 +3181,6 @@ class CarveRenderer implements RendererInterface
     protected function renderMention(Mention $node): string
     {
         if (($node->getDestination() ?? '') === '') {
-            // A bare `@name` has nowhere to hang an attribute: the parser leaves
-            // a trailing `{.x}` outside the node, so this spelling cannot carry
-            // one back. Writing it anyway dropped the attribute silently, which
-            // is the one outcome worth refusing (carve-php#567) - the link form
-            // is unavailable too, since there is no destination to put in it.
-            //
-            // The bracketed form keeps it. `[@alice]{#x}` re-parses as a span
-            // AROUND the mention rather than a mention carrying the attribute,
-            // so the HTML gains a wrapper `<span>`. That is the fallback here;
-            // `writeStaticMentionExactly()` reproduces the rendered form instead
-            // wherever it can, which is every case the bridge produces. Only a
-            // programmatically built tree or the ProseMirror bridge can reach
-            // this state - the parser never produces it - so no parsed document
-            // changes.
             $bare = $this->plainInlineText($node);
             if ($node->getAttributes() === []) {
                 return $bare;
@@ -3987,21 +3461,6 @@ class CarveRenderer implements RendererInterface
     /**
      * PART 9 §17 L7 for a LIST, decided from the written body alone.
      *
-     * TAKEN OFF THE NODE so the other writer can ask it. `HtmlToCarve` writes
-     * Carve source straight from the DOM and never builds a tree, so it cannot
-     * call {@see self::needsLooseKey()} - and having missed L7 entirely when it
-     * landed, it wrote a one-item loose list with no key and lost the `<p>` the
-     * imported tree recorded (carve-php#1648). A second copy of the rule there
-     * would be the shape this codebase keeps paying for, so there is one copy
-     * and two callers.
-     *
-     * The clause is a DECISION PROCEDURE, not a shape test: write the body
-     * without the key, read it back, and emit the key exactly where the
-     * looseness did not survive. That is why this takes the body rather than
-     * anything structural - §17's looseness rules decide it together, and a
-     * second reading of them here would answer differently the day any of them
-     * moves.
-     *
      * @param bool $isLoose whether the list is loose at all
      * @param int $itemCount how many items the written body holds
      * @param string $body the body as written, without any key
@@ -4064,23 +3523,6 @@ class CarveRenderer implements RendererInterface
             return self::looseKeyIsNeededForBody(true, count($items), $body);
         }
 
-        // ON A DEFINITION LIST THE ANSWER IS UNCONDITIONAL
-        // (markup-carve/carve-rs#1305, markup-carve/carve#1639). The looseness
-        // field is set ONLY where the key was spelled - a `<dl>`'s own
-        // derivation gets it from nowhere else, because a blank line between two
-        // ENTRIES does not loosen a `<dl>` at any count - so a body written
-        // without the key can never read back with the field set, and the
-        // re-parse test says "emit" every time.
-        //
-        // A DESCRIPTION THAT ALREADY HOLDS TWO BLOCKS DOES NOT CHANGE IT. There
-        // the key is redundant in the RENDER, which is why redundant use is a
-        // no-op, and it is not redundant in the TREE - and the tree is what the
-        // equality is taken over.
-        //
-        // That is the same asymmetry the two fields have: `tight` is total and
-        // derived from the source, so the list arm above has a real question to
-        // answer, while a definition list's field records only what its own
-        // derivation misses.
         return $node->isLoose();
     }
 
@@ -4267,18 +3709,6 @@ class CarveRenderer implements RendererInterface
 
     protected function normalize(string $text): string
     {
-        // The placeholder means the author wrote an ESCAPED SPACE, so the writer
-        // says that again. Resolving it to a literal no-break space instead lost
-        // the distinction the parser draws: `10\ kg` came back carrying U+00A0,
-        // which re-parses as a literal nbsp rather than as an escape, so the text
-        // node differed even though the HTML did not (carve#352, corpus
-        // 29-non-breaking-space; carve-js fixed this in carve#369 and carve-rs in
-        // carve-rs#310).
-        //
-        // This runs AFTER escaping, so the backslash it introduces is not seen by
-        // escapeText and cannot be doubled. A line block's leading indent is
-        // already routed through the verbatim scheme by resolveIndentPlaceholder
-        // before this point, so what is left here is an escaped space.
         $text = str_replace("\u{E000}", '\ ', $text);
         $lines = explode("\n", $this->trimNonNbsp($text));
         foreach ($lines as $i => $line) {
@@ -4405,28 +3835,6 @@ class CarveRenderer implements RendererInterface
 
     protected function restoreVerbatim(string $text): string
     {
-        // A LINE THAT IS NOTHING BUT CONTAINER PREFIX AND THE BLANK MARKER is
-        // the blank line the marker stands for, and it is spelled the way its
-        // host spells a blank line: a list item writes nothing, a block quote
-        // writes `>` (PART 11 §7, §7a).
-        //
-        // Everything to the left of the marker was written by a host before
-        // this runs - two columns from an item, `> ` from a quote, both together
-        // when a list sits in a quote. §7 emits the STRUCTURAL INDENT of an
-        // empty verbatim line as nothing, "when the verbatim content on that
-        // line is EMPTY the indent alone is what remains -- that is layout, and
-        // it is omitted", so a purely whitespace prefix trims away entirely.
-        //
-        // THE QUOTE MARKER IS NOT LAYOUT AND STAYS: an empty line would close
-        // the quote and take the open fence with it. What goes with the marker
-        // is the prefix's TRAILING whitespace. Leaving it wrote `> ` for a blank
-        // line inside a fenced block inside a quote - a line with a trailing
-        // run, which every tool that strips trailing whitespace rewrites behind
-        // the formatter, and which no other path here emits: an authored blank
-        // quote line is already written `>`. The list writer answers the same
-        // question one host at a time (isBlankContinuationLine); this answers it
-        // for every host at once, which is where the quote was missing
-        // (markup-carve/carve#1544).
         $marker = preg_quote($this->verbatimSentinels[2], '/');
         $text = (string)preg_replace_callback(
             '/^([ \t>]*)' . $marker . '$/m',
@@ -4742,41 +4150,6 @@ class CarveRenderer implements RendererInterface
     /**
      * Does a `!` or `$` here BIND to the verbatim run that follows it?
      *
-     * TWO SIGILS PREFIX A VERBATIM RUN and no others: `!` opens an inline
-     * literal (PART 9 §27) and `$` opens inline math, which §27 names as the
-     * shape the literal mirrors. Written bare in front of a backtick run either
-     * one stops being text and becomes the construct's marker.
-     *
-     * §27 names the `!` case outright: "A literal `!` immediately before a
-     * backtick run is therefore written `\!` - the single case this construct
-     * reinterprets."
-     *
-     * FORCED IN THE MINIMAL MODE FOR THE SAME REASON THE CAPTION CARET IS
-     * FORCED IN BOTH {@see self::caretOpensACaption()}. The minimal/conservative
-     * decision is per DOCUMENT. Written bare in the minimal pass the `!` binds,
-     * so the minimal render re-parses with a `literal_inline` where the tree has
-     * a text `!` beside a code span - a difference the text and escaped-text
-     * merge cannot absorb, unlike an ordinary escape - and the WHOLE document
-     * escalates to conservative, which then escapes every candidate in it. A
-     * paragraph of `foo (bar) #baz 50% a-b` that round-trips bare on its own
-     * came back as `foo \(bar\) #baz 50\% a\-b` because of a `!` in an unrelated
-     * paragraph below it (markup-carve/carve-php#1412). That is the
-     * over-escaping PART 11 §4 forbids.
-     *
-     * THE `$` CASE IS NOT REACHABLE FROM A PARSE and is a defect all the same.
-     * `$` sat in neither escape class, so an INGESTED tree (PART 12) holding a
-     * text node that ends in `$` beside a code span was written as `a $` plus a
-     * backtick run and read back as MATH - `toHtml(fmt(x)) == toHtml(x)` broken
-     * outright, not merely over-escaped. The `!` case reaches the same seam from
-     * a parse, because an unclosed run is written back CLOSED and the adjacency
-     * the source did not have appears in the output.
-     *
-     * ONLY THE NODE'S LAST CHARACTER can abut the run. A sigil with more text
-     * after it is followed by that text, and a backtick INSIDE this node is
-     * escaped by this same pass, so no run forms there and the bare sigil is
-     * already correct. A doubled `$$` needs only its last one escaped for the
-     * same reason: the first is then followed by a backslash rather than a run.
-     *
      * @param string $text
      * @param int $offset
      * @param bool $nextOpensVerbatim Whether the next sibling renders as a
@@ -4791,26 +4164,6 @@ class CarveRenderer implements RendererInterface
 
     /**
      * Does this node's written form OPEN with a backtick run a sigil binds to?
-     *
-     * TWO NODES ARE WRITTEN THROUGH {@see self::renderCode()}, not one: a code
-     * span, and a raw inline, which is the same run with a `{=format}` suffix.
-     * Reading only the code span left an ingested `text("a $")` beside a raw
-     * inline written as `a $` plus a run, which came back as MATH holding the
-     * format block - the `toHtml(fmt(x)) == toHtml(x)` break this guard exists
-     * to close, on the node that is easy to forget because its type name says
-     * nothing about backticks.
-     *
-     * AN EMPTY CODE SPAN IS THE EXCEPTION. It writes as a bare `` `` ``, and a
-     * sigil does not bind to it: `` !`` `` parses as a text `!` beside an empty
-     * code node, so escaping there would add a `\!` that PART 11 §2 forbids -
-     * the same over-escaping this change removes, one shape smaller.
-     *
-     * An empty RAW inline is NOT exempt, and not because it round-trips: it
-     * does not, with or without a sigil beside it. `` ``{=html} `` reads back
-     * as a code span holding the format block, so an empty raw inline has no
-     * source spelling at all - filed as markup-carve/carve-php#1419, and out of
-     * this guard's reach. The escape is kept there because it preserves the
-     * sigil's own text, which is strictly more than the bare form keeps.
      */
     private static function opensAVerbatimRun(?Node $node): bool
     {
@@ -4824,19 +4177,6 @@ class CarveRenderer implements RendererInterface
     /**
      * Is this caret a CAPTION MARKER - `^` plus a space at the start of a block
      * line?
-     *
-     * Forced in both escape modes, unlike every other candidate. The
-     * minimal/conservative decision is per DOCUMENT: rendered bare in the
-     * minimal pass the marker becomes a caption, the two passes differ, and the
-     * whole document escalates to conservative - which then escapes every
-     * candidate in it, including characters that needed nothing. That produced
-     * `\^ Figure 1\: moon` for corpus 158-indented-image-and-caption-stay-
-     * literal, where the colon escape changes no parse in any engine
-     * (carve-php#743).
-     *
-     * `^sup^` is not this shape: superscript is braced-only and a caption needs
-     * the space, so it stays with caretOpensAConstruct() below and is written
-     * bare.
      *
      * @param string $text
      * @param int $offset
@@ -4902,27 +4242,6 @@ class CarveRenderer implements RendererInterface
             return false;
         }
 
-        // `{^` OPENS A BRACED SUPERSCRIPT - BUT ONLY WHERE THE PAIR COMPLETES.
-        // The reader refuses the opener outright when no `^}` lies at or after
-        // the content start, so a HALF pair closes into nothing and writing it
-        // bare forms no construct at all: `{^x`, `x^}`, `{^`, `^}` and `{^}`
-        // each re-render byte-identically stripped of the escape. §2 escapes a
-        // character IF AND ONLY IF omitting it would change the re-parsed AST,
-        // and here it does not - the escape only manufactures the difference §1
-        // forbids, turning one text node into text plus an `escaped_text` node
-        // plus text (markup-carve/carve-php#1522).
-        //
-        // THE OPENER IS THE UNIT (§2), so only the opening half is escaped.
-        // `^}` closes nothing on its own, and every opener that could reach a
-        // closer is escaped in its own right - `{^a{^b^}` escapes BOTH, because
-        // leaving the second bare would let it form the pair the first one's
-        // escape just freed.
-        //
-        // The condition mirrors the reader's own refusal in
-        // InlineParser::parseBracedInline(): a closer must lie one byte past
-        // the caret or later, exactly where the reader starts its own search.
-        // `$lastSupCloser` is that search done once for the whole text - see
-        // the note where it is computed.
         if ($previous === '{') {
             return $lastSupCloser >= $offset + 1;
         }
@@ -4960,24 +4279,6 @@ class CarveRenderer implements RendererInterface
 
     /**
      * An image's alt text, written between the `![` and its closing `]`.
-     *
-     * The run is RAW: it lands in an HTML attribute, nothing inside it is
-     * inline-parsed, and no escape inside it is resolved - `![t\]z](/i.png)`
-     * gives `alt="t\]z"`, backslash included. So the writer cannot neutralize
-     * anything here, only write the run or not write it, and it asks the
-     * READER'S OWN SCAN which it is. `![t[z]](/i.png)` came back written
-     * `t\[z\]` on the premise the run stops at the first `]`, which is the
-     * premise markup-carve/carve#1206 removed from the grammar, and the
-     * backslash then compounded one per pass.
-     *
-     * An alt text with no Carve spelling at all - a bare unbalanced `]`, or a
-     * run ending inside an unclosed code span - keeps the escape. `parse`
-     * cannot produce one; an ingested AST can. The escape is not a faithful
-     * representation of that value either, but it is better than none:
-     * `![t]z](/i.png)` written verbatim is a paragraph of literal text where
-     * the escaped spelling is still an image, and it settles, because the
-     * escaped alt is itself representable and the next pass writes the same
-     * bytes.
      */
     protected function escapeImageAlt(string $text): string
     {

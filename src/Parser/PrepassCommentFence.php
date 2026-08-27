@@ -10,73 +10,6 @@ use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 
 /**
  * Where a `%%%` COMMENT FENCE opens and closes, for the line-based prepasses.
- *
- * PART 9 §24 S2 and §28 make a comment's body verbatim and invisible WHEREVER
- * the fence sits, so a definition written inside one registers nothing. The
- * prepasses read the fence at column 0 only, so a `[r]: /url` written at a list
- * item's content column registered while the block parser rendered nothing -
- * the definition was active in the link table and absent from the page
- * (markup-carve/carve#1311, corpus 335-341).
- *
- * Three prepasses ask - link references, footnotes and abbreviations - and each
- * carried its own spelling of the fence. The rule lives here so widening it
- * once cannot leave one of them deciding the old way, and the open region is
- * this object's own state so a caller cannot carry half of it.
- *
- * A CONTAINER PREFIX IS PART OF THE INDENT, not a reason to stop reading. The
- * opener is read past leading whitespace, past leading blockquote markers and
- * past a list marker on the fence's own line, because §28 names no column and
- * no container. Leaving the quote marker unread was the last spelling to leak:
- *
- * ```
- * > %%%
- * > [r]: /url
- * > %%%
- *
- * See [r][].
- * ```
- *
- * closed the quote as an EMPTY blockquote - the block parser read the comment -
- * and resolved the reference anyway. The leak sorted definitions by KIND, which
- * is how it read as leakage rather than a competing reading of §28: this engine
- * registered the link reference and the footnote, carve-js only the link
- * reference, and the abbreviation collector neither, because PART 12 §7 already
- * refuses a quoted abbreviation definition on its own (markup-carve/carve#1341).
- *
- * WIDENING THE OPENER ALONE IS A WORSE DEFECT THAN THE ONE IT FIXES. A
- * container's comment is bounded by the container: a `%%%` written back at
- * column 0 far below does not close an item's fence, and a `> %%%` below a
- * blank line is inside a DIFFERENT quote, because the blank ended the first one
- * (tests/TestCase/FencedCommentFenceTest::testFencedCommentInABlockQuoteEndsAtABlankLine).
- * The block parser reads either as an unterminated one-line comment; entering
- * the fence state on that far closer swallows every definition in between. So a
- * prefixed opener is admitted only when its closer arrives before the container
- * ends {@see self::firstEscape()}. markup-carve/carve-rs#1052 landed the bound
- * in the same change for the same reason.
- *
- * THE PREFIX IS A SEQUENCE, NOT A DEPTH AND A COLUMN. Reading every quote
- * marker first and every list marker after left the two kinds unable to
- * interleave, and a document that interleaves them is the ordinary one: `- >`
- * opens an item and then a quote inside it. That spelling matched no opener at
- * all, so the fence was never entered and the definition under it registered -
- * one prefix further than the quote-only gap above (markup-carve/carve-php#1413).
- *
- * ```
- * - > %%%
- *   > [r]: /url
- *   > %%%
- *
- * See [r][].
- * ```
- *
- * So the prefix is carried as the ORDERED list of indent columns its quote
- * markers sit at {@see self::prefixOn()}, and the same walk reads the opener,
- * indexes the closers and tests the bound. `> %%%` is `[0]`, `- > %%%` is
- * `[2]`, `- - > > %%%` is `[4, 0]`, and a fence with no quote at all is `[]` -
- * so the pure shapes key exactly as the depth did, and the mixed ones now key
- * at all. A closer reproduces the opener's list with SPACES where the opener
- * wrote markers, which is why the walk counts a list marker as indentation
- * rather than as a step of its own.
  */
 class PrepassCommentFence
 {
@@ -188,25 +121,6 @@ class PrepassCommentFence
         }
         [$quotes, $column, $length, $composedColumn] = $opener;
 
-        // An indented fence is the CONTAINER's, and only the container's. Below
-        // the item's content column it is §24 C3 residual indent rather than
-        // the item's content, and with no item open at all a top-level comment
-        // may hold its own body below its fence - reading either as a
-        // container-scoped fence mispairs the delimiters.
-        //
-        // The column tested is the COMPOSED one - every column the prefix walk
-        // consumed, quote markers and list markers included - because that is
-        // the frame the callers measure the content column in
-        // (markup-carve/carve-php#1431; THE COLUMN IS REACHED BY COMPOSING THE
-        // STRIPS, grammar PART 1 S4). Testing only the indent INSIDE the
-        // innermost quote compared four columns of `>   %%%` against the two it
-        // leads with, so a fence inside a quoted item was refused and the
-        // definition in its body registered as a real one.
-        //
-        // A prefix ending in a quote marker leaves no indent of its own to
-        // test and skips this; what bounds THAT shape is the container test
-        // below, which walks the quote indents against every line under the
-        // fence.
         if ($column > 0 && ($contentColumn === 0 || $composedColumn < $contentColumn)) {
             return false;
         }
@@ -284,27 +198,6 @@ class PrepassCommentFence
 
     /**
      * Walk one line's container prefix.
-     *
-     * Whitespace, blockquote markers and - for an opener - list markers, in
-     * whatever order the line spells them, until none of the three matches. The
-     * quote markers are returned as the INDENT COLUMN each one sits at, which
-     * is the shape a closer can reproduce with spaces where the opener wrote
-     * markers. `column` is the indentation left over inside the innermost
-     * quote, which no closer has to match {@see self::closesHere()} and the
-     * bound does {@see self::firstEscape()}.
-     *
-     * A quote marker is taken only at position 0 of the view it sits in, which
-     * is where every other reader of this document takes one off. What changed
-     * for markup-carve/carve-php#1413 is that the view can now be an item's
-     * content rather than only the whole line: an indented `> ` is inside
-     * something, and the walk records the column of the something instead of
-     * eating it (markup-carve/carve-php#788).
-     *
-     * LIST MARKERS ARE READ ONLY FOR AN OPENER. A fence opens on the line that
-     * opens its item, so `- %%%` is a fence; a CLOSER is a continuation line,
-     * where a marker would open a new item rather than continue the one the
-     * fence is in. Reading them on both sides would make `- %%%` close a
-     * top-level `%%%` fence.
      *
      * @return array{0: array<int>, 1: string, 2: int} [quote indents, remainder, column]
      */

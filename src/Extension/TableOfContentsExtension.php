@@ -118,28 +118,6 @@ class TableOfContentsExtension implements ResettableExtensionInterface
             }
 
             $id = $tracker->getIdForHeading($node);
-            // A TABLE-OF-CONTENTS ENTRY IS DERIVED DISPLAY TEXT, so PART 9R R4
-            // reaches it (markup-carve/carve#957): it is the heading's inline
-            // NODES, rendered by the renderer that is running. Rendered rather
-            // than flattened because a node carries the code span and the
-            // emphasis the author wrote; rendered by THIS renderer because the
-            // glyph-or-source-run decision, the symbols map and the raw-HTML
-            // policy are its to make. Composed as glyphs of its own, a TOC in
-            // source mode showed curly quotes one line above a heading showing
-            // the typed ones.
-            //
-            // INSIDE AN ANCHOR: the entry is written into an `<a href="#id">`
-            // this extension emits, so a link in the heading unwraps rather than
-            // opening an anchor inside that one (PART 12 §3a).
-            //
-            // The label excludes the presentational section-number span but
-            // leaves the space that preceded the title, so a numbered heading
-            // yields " Alpha"; trim it to the bare title (matches carve-js/rs).
-            //
-            // The `?? []` is the RETURN TYPE's demand and not a case: the id
-            // was just registered from a heading, so the tracker holds that
-            // heading's nodes. Written as a branch it would be a check that
-            // cannot fail.
             $text = trim($tracker->getTextForId($id, $renderer->getSmartTypography()) ?? '');
             $nodes = $tracker->getLabelNodesForId($id) ?? [];
 

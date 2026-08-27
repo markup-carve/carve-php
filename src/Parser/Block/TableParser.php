@@ -61,19 +61,6 @@ class TableParser
             return false;
         }
 
-        // An UNTERMINATED verbatim run in a cell does not un-make the row. A row
-        // is split into cells at BLOCK level, before any inline parsing runs -
-        // which is what lets a separator row work at all - so a run that never
-        // closes is an inline fact reported inside a cell that already exists.
-        // Requiring the closing `|` to sit outside every run asked an inline
-        // question at block level, and answered it the one way no other
-        // malformed inline is answered anywhere in Carve: by dissolving the
-        // block. It also contradicted this same parser one line down, where the
-        // identical row under a header separator was a table
-        // (markup-carve/carve#1284).
-        //
-        // The closing pipe is a DELIMITER either way: splitCells() removes it
-        // before it scans for runs, so no code span can swallow it.
         return true;
     }
 
@@ -288,32 +275,6 @@ class TableParser
         $line = $this->stripRowAttributes($line);
         $line = rtrim($line, " \t");
 
-        // AN ESCAPED CLOSING PIPE IS CONTENT, NOT THE TERMINATOR
-        // (markup-carve/carve#1293). Chopping the last byte unconditionally
-        // assumed the row's final `|` was always a delimiter. On `| a b \|` it
-        // took the ESCAPED pipe as the terminator and left the backslash
-        // orphaned at the end of the cell, where the inline parser read it as a
-        // hard break - so the row rendered `a b <br>` and the literal pipe the
-        // author asked for was gone.
-        //
-        // The deciding fact is that this splitter was never escape-blind: the
-        // scan below already honors `\|` mid-cell, so `| a \| b | c |` has
-        // always given `a | b` + `c`. The escape was respected at every position
-        // except the last one, which is a position exception with nothing behind
-        // it. `\|` is also the only way to put a literal pipe in a cell, so
-        // under the terminator reading it stopped working in exactly the place
-        // an author most naturally reaches for it.
-        //
-        // PARITY, not "is the previous byte a backslash". A doubled `\\` is an
-        // escaped BACKSLASH, which leaves the `|` after it unescaped and
-        // therefore still the terminator: `| a b \\|` closes the row and the
-        // cell holds a single `\`. Only an ODD run of backslashes escapes the
-        // pipe. Counting the run is what tells the two apart.
-        //
-        // The row is still a table either way. `isTableRow()` asks whether the
-        // line ends with the `|` BYTE and an escaped pipe is one, which is why
-        // this stays a cell-splitting question and no row detection changes
-        // here; carve-js reaches a table by the same route.
         $line = $this->closingPipeIsEscaped($line)
             ? substr($line, 1)
             : substr($line, 1, -1);

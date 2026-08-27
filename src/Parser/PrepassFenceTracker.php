@@ -11,38 +11,6 @@ use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 
 /**
  * Whether a line-based prepass is inside a fenced code block.
- *
- * Both definition prepasses need it for the same reason: a `[^a]: note` or
- * `[r]: url` shown inside a ``` / ~~~ SAMPLE is code, and registering it makes
- * documenting the syntax change the prose around it. Getting that wrong is
- * silent in one direction only - the definition resolves somewhere far from the
- * sample - so the two prepasses must answer the question identically.
- *
- * The fence may be opened on a list MARKER line (`- ``` `) and closed by a line
- * carrying the item's indentation, so the opener is read after the marker is
- * stripped and the closer after the item's content column is removed. Missing
- * that left the footnote prepass reading a fenced sample's body as document
- * content (carve-php#761).
- *
- * WHAT AN OPENER IS is asked of the block parser and not spelled again here.
- * This tracker matched the fence RUN alone, so it opened a region on lines the
- * block parser reads as prose - and a region it opens has no closer ahead,
- * because the block parser never opened one to close. Every definition below
- * such a line then stopped being collected while still being consumed, so the
- * author's line rendered nowhere and defined nothing (carve-php#1348).
- *
- * The line PART 7's separator rule divides is the one that showed it:
- *
- * ```
- * ```<TAB>php
- * [r]: /u
- *
- * see [t][r]
- * ```
- *
- * A tab before content is a SEPARATOR, and the slot is a literal space it
- * cannot satisfy (markup-carve/carve#1295), so the fence does not open in any
- * engine - but this tracker opened one and swallowed `[r]: /u`.
  */
 class PrepassFenceTracker
 {

@@ -129,28 +129,9 @@ class BlockParser
      */
     /**
      * BULLETS ARE `-` AND `*` ONLY. `+` is not a Carve bullet -- it is the
-     * list-continuation marker (PART 9 §17), so `+ text` is ordinary paragraph
-     * text, which is what all three engines parse it as. Including `+` here
-     * opened a phantom list item on such a line, and the `!$inListItem` guard
-     * below then refused the abbreviation definition on the NEXT line: the term
-     * expanded nowhere and `fmt` dropped the line, while a link definition and a
-     * footnote definition in the same position were both collected normally.
-     *
-     * THE BARE DOT IS AN ORDERED MARKER AND BELONGS HERE. `. text` is a Carve
-     * addition with no CommonMark or Djot equivalent (`resources/grammar.ebnf`,
-     * `ordered_marker`, BARE DOT), so it is the marker least likely to have
-     * inherited a reference implementation's behavior - and every ordered
-     * alternative here required an enumerator BEFORE the delimiter, so it was
-     * the one marker that opened no item as far as this guard could see.
-     *
-     * A column-0 abbreviation definition after it was therefore collected, and
-     * PART 12 §7 says it is not one: the line "is an `abbreviation_definition`
-     * only as a direct child of the document. Written inside a block quote, a
-     * list item or a div, the line is not a definition at all: it is ordinary
-     * paragraph text, it defines nothing, and it is preserved as the text the
-     * author typed." Two wrong things happened together - the line stayed
-     * visible as lazy item text AND registered the term, so it expanded inside
-     * its own definition and anywhere else in the document (carve-php#1328).
+     * list-continuation marker (PART 9 §17). The bare `.` remains an ordered
+     * marker. This guard must recognize exactly the markers the block parser
+     * recognizes.
      *
      * @var string
      */
@@ -253,22 +234,6 @@ class BlockParser
      *
      * @var string
      */
-    // The separator is ONE literal space; whitespace AFTER it is stripped
-    // rather than being the term's first character. `(?=\S)` straight after
-    // ` +` required the term to start on a non-space, so `:: <TAB>x` was a
-    // paragraph while `::   x` - differing only in which whitespace follows -
-    // was a term (carve-php#884, spec markup-carve/carve#794).
-    //
-    // The leading space stays REQUIRED. `::<TAB>x` is still prose, because a tab
-    // does not satisfy the marker's separator at all (corpus
-    // 176-a-marker-separator-is-a-space-never-a-tab). Widening the separator to
-    // `[ \t]+` would have made both terms and broken that fixture.
-    //
-    // All THREE constants change together, for the reason the docblock above
-    // gives: they exist because a fix applied to only the one a report named
-    // would leave the rest deciding the old way. The prefix one matters most -
-    // it is what strips the marker, and leaving it narrow would keep the tab as
-    // the term's first character even once the other two matched.
     /**
      * @var string
      */
@@ -289,36 +254,6 @@ class BlockParser
      */
     protected const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) [ \t]*/';
 
-    // THE BODY SEPARATOR IS A RUN OF LITERAL SPACES, for the same reason the
-    // term marker's is: `definition_body = ':', definition_separator, ...` with
-    // `definition_separator = space, {space}`, `space = ' '` and
-    // `whitespace = ' ' | '\t'` kept deliberately apart. A marker separator is
-    // literal; indentation is columns, and a separator is not indentation
-    // (carve#692, and carve#698 for the `::` marker above).
-    //
-    // Six sites spelled this `/^:\s\s+/`. Without the `u` modifier PCRE's `\s`
-    // is `[ \t\n\r\f\v]`, so a tab, a vertical tab or a form feed in either
-    // slot opened a `<dd>` no other implementation opens - and it was consumed
-    // with the separator, so the result was byte-identical to the two-space
-    // spelling the grammar does admit (carve-php#935).
-    //
-    // ONE OR MORE, not two or more (carve#1757). The body was the one marker in
-    // the language that demanded two spaces where `- item`, `1. item`,
-    // `> quote` and `:: term` all take one, and the separator's WIDTH now sets
-    // the body's content column rather than being measured against a fixed one.
-    // The run is CAPTURED for that reason: `$m[1]` is the separator, `$m[2]` the
-    // content. Named constants because six independent spellings is how this
-    // survived the fix that corrected the three term patterns beside it.
-    //
-    // THE CONTENT MAY NOT OPEN WITH A SPACE, which is what stops the separator
-    // run from backtracking into it. PART 9's MARKER REQUIRES CONTENT applies to
-    // `:` as it does to `::` (carve#512) and to a bullet, so a separator-only
-    // line opens no body at any width. Without the guard a greedy ` +` gives up
-    // its last space to `(.+)` and `:  ` - two spaces, nothing else - became an
-    // empty `<dd>` while `: ` stayed paragraph text, which is the same rule
-    // answering differently one column apart (raised by codex review). The old
-    // pattern had the identical hole one width up: `: {2,}` refused `:  ` and
-    // admitted `:   `.
     /**
      * A definition body: its separator run, then its content.
      *
@@ -739,21 +674,6 @@ class BlockParser
     /**
      * Where THIS level's content begins on each source line, in bytes.
      *
-     * PART 12 §4: a span begins at the construct's OPENING MARKUP (carve#913).
-     * A block inside a container is parsed from lines the container prefix has
-     * already been cut off, so `lineStartOffsets` - which records the start of
-     * the whole source line - places a heading inside a block quote at the `>`
-     * that opens the QUOTE, not at the `#` that opens the heading. The cut is
-     * the only thing that knows how wide the prefix was, so the width is
-     * recorded where the cut is still visible: the built line is a SUFFIX of
-     * the source line, and the difference in length is the column.
-     *
-     * Keyed by SOURCE line and scoped exactly like `currentLineMap`, because a
-     * deeper container cuts more and the outer level must not see it. A line
-     * whose built text is not a suffix of its source (an item stream re-joined
-     * into one line, a tab re-indented) records nothing and falls back to the
-     * line start, which is where every span began before this existed.
-     *
      * @var array<int, int>
      */
     protected array $currentContentColumns = [];
@@ -1098,25 +1018,6 @@ class BlockParser
 
         // First pass: extract reference definitions, footnotes, abbreviations, and heading references
         $this->extractDefinitions($lines, $input);
-        // The implicit `[Heading][]` index. Two ways to build it, and which one
-        // runs depends only on whether the document could USE it:
-        //
-        // The line scan below is cheap and sees a heading marker at column 0,
-        // which is every top-level heading and every one inside a div. It
-        // cannot see one inside a list item, a definition or a nested list -
-        // those are indented, and an indented `#` at top level is a paragraph,
-        // so the scan has no way to tell the two apart without re-deriving
-        // block structure. It also cannot see that a `#` line is inside a code
-        // fence, so it indexed headings that do not exist.
-        //
-        // PART 11 R1 puts headings in divs, admonitions, LIST ITEMS and
-        // definitions in the index, excluding only a blockquote ancestor. To
-        // get that right the structure has to be known, so when the source can
-        // actually contain a reference link the blocks are parsed once into a
-        // scratch tree and the index is taken from it - the same document-order
-        // walk the renderer already uses to resolve heading ids, so the ids
-        // agree by construction rather than by two scanners mirroring each
-        // other (carve-php#572).
         if ($this->needsStructuredHeadingIndex($input)) {
             $this->indexHeadingsFromStructure($lines);
         } elseif ($this->collectWarnings && str_contains($input, '](#')) {
@@ -1183,18 +1084,6 @@ class BlockParser
             $document->appendChild($footnote);
         }
 
-        // PART 12 §10: an authored link reference definition is a NODE, hoisted
-        // to the document like the other two definition kinds. Without one a
-        // writer cannot reproduce the definition, so a resolved reference was
-        // written back as an inline link and `parse(fmt(x)) == parse(x)` failed
-        // for every one of them (PART 11 §1, markup-carve/carve#642).
-        //
-        // Appended here rather than at parse time because the line may sit
-        // inside a block quote or a list item, and the node belongs to the
-        // DOCUMENT - the same reason footnotes are appended above. Built from
-        // the collected table, so the node and the table resolution uses cannot
-        // disagree about what the author wrote. A heading-derived reference is
-        // skipped: it has no definition line to reproduce.
         $this->appendLinkReferenceDefinitions($document);
 
         // A sole-image paragraph carrying a leading block-attribute line's attrs
@@ -1234,37 +1123,6 @@ class BlockParser
         return $document;
     }
 
-    /**
-     * THE BLOCK-IMAGE PROMOTION PHASE -- the ONE place that asks whether a
-     * paragraph is a block image (PART 9R R7, markup-carve/carve-php#1800).
-     *
-     * Block-image status is a property of the RESOLVED tree, not of the source
-     * line: `![a][r]` is a block image where `[r]: /u` is written and ordinary
-     * prose where it is not, and the definition may sit anywhere in the
-     * document. The question used to be asked in four places - this pass, the
-     * renderer's own `isBlockImageParagraph()`, and the two call sites that
-     * reached through it to choose a quote's frame and a list item's `<p>`.
-     * Four copies of one predicate are four chances for it to drift, and the
-     * renderer's was the only one any test could see.
-     *
-     * It is answered once, here, after every definition is known. A paragraph
-     * whose whole content resolves to a single image is marked `blockImage`,
-     * and the renderers read the field.
-     *
-     * TWO DECISIONS, ONE PREDICATE, AND THEY ARE NOT THE SAME DECISION. The
-     * FIELD is ungated on column: a lone-image paragraph renders as a bare
-     * block `<img>` at EVERY column, which is what the published HTML says and
-     * what carve-js and carve-rs also emit. Moving the paragraph's SOURCE
-     * attributes onto the image, and replacing the paragraph with the image
-     * node, stay gated on strict column 0 (PART 9 section 15,
-     * markup-carve/carve#1660): a block image is a top-level block construct,
-     * so an INDENTED lone image stays a paragraph holding an inline image.
-     * Reading one gate for both answers would either withhold the field from a
-     * paragraph the HTML treats as an image, or publish an image node where the
-     * tree must show a paragraph.
-     *
-     * Walks the whole block tree.
-     */
     protected function promoteBlockImages(Node $node): void
     {
         $children = $node->getChildren();
@@ -1272,22 +1130,8 @@ class BlockParser
         foreach ($children as $index => $child) {
             if ($child instanceof Paragraph) {
                 $kids = $child->getChildren();
-                // THE FIELD, from the one predicate. Recomputed rather than
-                // accumulated, so promoting a tree twice cannot leave a stale
-                // `true` behind.
                 $child->setBlockImage(BlockImagePromotion::isBlockImage($child));
-                // An UNRESOLVED reference image is not an image in block
-                // position: it renders as its literal source (PART 12 §3a), so
-                // `![a][]` with nothing defining `[a]` stays a paragraph, as it
-                // does in carve-js. Promoting it dropped the `<p>` wrapper.
-                // STRICT COLUMN-0 (PART 9 section 15, markup-carve/carve#1660): a
-                // block image is a top-level block construct, so an INDENTED lone
-                // image is a paragraph holding an inline image. The HTML is the
-                // same either way - `HtmlRenderer::isBlockImageParagraph()` emits
-                // a bare `<img>` for the surviving paragraph, at every column -
-                // so the difference is visible only in the published tree, which
-                // is why every corpus document passed while three engines held
-                // two readings.
+                // Only resolved images at the container's content column become block nodes.
                 if (
                     count($kids) === 1
                     && $kids[0] instanceof Image
@@ -1331,23 +1175,6 @@ class BlockParser
 
     /**
      * PART 12 §7: "Definitions appear in DOCUMENT ORDER by source position."
-     *
-     * Collection moves a definition to the document and §4 keeps the `pos` it
-     * was written at, so the published order has to follow that `pos`. It
-     * followed the collection tables instead - footnotes appended first, link
-     * definitions second - so a footnote preceded a link definition whatever the
-     * author wrote, and `pos` ran backwards between two adjacent siblings
-     * (markup-carve/carve#746).
-     *
-     * Only the COLLECTED kinds move. An `abbreviation_def` is not collected out
-     * of the document - §7 refuses that specifically, since hoisting it would
-     * empty the line rather than relocate visible output - so it already sits at
-     * its source position and keeps its index.
-     *
-     * The reordering is confined to the slots the collected definitions already
-     * occupy, so no other child moves, and the sort is stable, so a definition
-     * with no recorded span (position tracking is opt-in, §4) keeps the order it
-     * was collected in rather than being given an invented one.
      */
     protected function orderCollectedDefinitions(Document $document): void
     {
@@ -1761,22 +1588,6 @@ class BlockParser
         // The item content column the open line block was opened at, so its
         // closer is read at that column instead of after arbitrary indentation.
         $lineBlockColumn = 0;
-        // A `%%%` COMMENT FENCE is opaque, so a literal `::: |` inside one is
-        // not a line-block opener. Entering that state there left it open past
-        // the comment's own closer -- which is not a colon fence -- and every
-        // later definition in the document was skipped (#698).
-        //
-        // A comment's body is skipped outright, so a definition inside one no
-        // longer registers either. That is an intended behaviour change: a
-        // comment renders nothing, and carve-js has never registered from
-        // inside one.
-        //
-        // WHERE the fence sits, when it opens and when it closes, spelled once
-        // for all three definition prepasses {@see PrepassCommentFence}. It
-        // indexes the closers in a single pass and memoizes the container bound
-        // per depth and column, so no opener rescans the tail -- which is what
-        // testDistinctWidthFenceOpenersDoNotRescanPerOpener forbids, and
-        // `%%% x`, `%%%% x`, ... is all openers and no closers.
         $commentFence = $this->definitionLayoutCollected ? null : new PrepassCommentFence($lines);
         // Footnote bodies are parsed AFTER the scan registers every label, so a
         // forward reference inside a body resolves (`[^1]: a[^2]` before
@@ -1839,27 +1650,6 @@ class BlockParser
             // and opens nothing. The open-region tests therefore all run before
             // any opener test: whichever region the line is already in owns it.
                 if ($lineBlockLen > 0) {
-                    // The closer has to be read at the DEPTH the line block opened
-                    // at: inside `> ::: |` a nested `> > :::` is a quoted `> :::`,
-                    // which the real parser keeps as line-block content. Reading
-                    // the fully stripped tail would close the region there and let
-                    // the lines after it register again. A line that no longer
-                    // reaches that depth has left the blockquote, so the line block
-                    // ended with it.
-                    //
-                    // And at the COLUMN it opened at, for the same reason. Exactly
-                    // that column comes off and never arbitrary indentation: an
-                    // indented `:::` inside a TOP-LEVEL line block is verse text,
-                    // and trimming it closed the block there, so the lines after it
-                    // registered while the real parser still had them as verse.
-                    // THE COLUMN IS REACHED BY COMPOSING THE STRIPS, so the
-                    // closer is read by the walk that reached the opener rather
-                    // than by peeling a leading quote run and then dedenting: a
-                    // block opened inside `> - a` writes `>   :::`, where two of
-                    // its four columns are the quote marker. The walk reports the
-                    // DEPTH it spent them at, and a closer at a different depth is
-                    // quoted content rather than the closer
-                    // (markup-carve/carve-php#1431).
                     $closerView = ContainerPrefix::atColumnAndDepth($line, $lineBlockColumn, $lineBlockDepth);
                     // A blank line is inside the block, not out of its container:
                     // it reaches no column and ends nothing. Out of the QUOTE the
@@ -1914,21 +1704,6 @@ class BlockParser
 
                     continue;
                 }
-            // An INDENTED `::: |` opens a line block too, when the indent is an
-            // item's CONTENT COLUMN. This read the raw line, so a line block
-            // inside a list item went untracked and a `%%%` written in its
-            // verse was read as a comment opener rather than the text it
-            // renders.
-            //
-            // Exactly the content column comes off and never arbitrary
-            // indentation: `   ::: |` at top level is prose, and admitting it
-            // skipped the definition under it as verse.
-            // Composed, on the RAW line: the column is reached by spending it
-            // across indentation and quote markers alike, so a `::: |` written
-            // at an item's content column inside a quote is found where
-            // dedenting the quote-stripped tail by the whole column looked two
-            // columns short and left the verse untracked - and a definition
-            // written in it registered (markup-carve/carve-php#1431).
                 $openerWalk = $fence->containerOpenerView($line, $contentCol);
                 $openerColumn = $contentCol;
                 $openerView = $openerWalk['line'];
@@ -1947,24 +1722,6 @@ class BlockParser
                 }
             }
 
-            // A footnote definition may sit at column 0 or directly inside a
-            // single container (blockquote / list item): the container consumes
-            // the def line without rendering it, but the definition must still
-            // populate the global footnote map so a `[^a]` reference resolves
-            // (carve spec #115). Mirrors how extractReferences handles
-            // container-nested reference definitions.
-            //
-            // Container-nested defs are collected ONLY from a single def line
-            // with a non-empty inline body (`> [^a]: body` / `- [^a]: body`):
-            // the oracle (carve-js) treats a following indented line inside a
-            // container as ordinary container content, not note body, and never
-            // collects an empty-bodied container def. Only a TOP-LEVEL def
-            // gathers indented continuation lines (the original behavior).
-            // A footnote definition (top-level or container-nested) always
-            // contains the literal `[^` token: the top-level form starts with
-            // it, and the container form has it after the stripped markers (a
-            // suffix of this line). When the line has no `[^` at all, neither
-            // path can fire, so skip the marker-stripping prefix scan entirely.
             if (!str_contains($line, '[^')) {
                 $i++;
 
@@ -1975,24 +1732,6 @@ class BlockParser
             $prefix = $container['prefix'];
             $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
 
-            // A definition on an item's CONTINUATION line carries no marker of
-            // its own, so the prefix scan above leaves the item's indentation in
-            // front of the `[` and the line stops looking like a definition. It
-            // was then collected by nobody while the block parser still removed
-            // it from the output: the author's line rendered as nothing and a
-            // `[^f]` reference to it stayed literal (carve-php#761) - the same
-            // disappearance markup-carve/carve#624 describes.
-            //
-            // Exactly the content column is removed, never more: one column
-            // short and the `[` is not at position 0, so a definition BELOW the
-            // column still registers nothing and folds as the paragraph text it
-            // looks like (§24 C3). Indented PAST the column it keeps residual
-            // spaces and fails the same test, matching carve-js.
-            //
-            // Measured on the quote-stripped view: inside `> - a` the content
-            // column counts from after the `> `, so applying it to the raw line
-            // cut into the quote marker and the definition was missed
-            // (carve#658).
             $columnBare = $container['kind'] === 'none'
                 ? ContainerPrefix::atComposedColumn($line, $reachedCol)
                 : null;
@@ -2020,35 +1759,6 @@ class BlockParser
                 }
 
                 if ($container['kind'] !== 'none') {
-                    // Container-nested: single-line, non-empty body only. The
-                    // FIRST definition of a label wins, so a container def never
-                    // overwrites an earlier (top-level or container) def.
-                    //
-                    // The def must OPEN a block. When it is written behind a
-                    // list marker, the parser-backed probe above distinguishes
-                    // a real item from a marker lazily folded into an open
-                    // paragraph. Other container forms keep their established
-                    // collecting behavior.
-                    // A line that REACHED the item's content column opens a
-                    // block there by geometry (§24 C3), so it needs no opener
-                    // test: carve-js collects it under an item paragraph, under
-                    // a blank, and as the item's first body line alike.
-                    // A BLOCKQUOTE marker in the prefix opens a block by
-                    // itself, wherever it sits: `- a` / `  > [^f]: x` starts a
-                    // quote inside the item, so the definition is that quote's
-                    // first block and does not depend on what precedes it. The
-                    // opener test below is about a line CONTINUING a paragraph,
-                    // which a quote marker never does (carve-php#788).
-                    // A DESCRIPTION MARKER in the prefix opens a block by
-                    // itself for the same reason a quote marker does: the `dd`
-                    // begins on that line, so the definition is the entry's
-                    // first block and does not depend on what precedes it. What
-                    // precedes it is the `::` term line, which is neither blank
-                    // nor a container, so without this the opener test refused
-                    // every definition written in a `dd` (carve-php#891, spec
-                    // markup-carve/carve#801). The prefix holds only stripped
-                    // container markers, so a `:` followed by whitespace in it
-                    // is the description marker and nothing else.
                     $opensBlock = $this->definitionMarkerOpensBlock($lines, $i, $bare);
                     if ($opensBlock && trim($content, StringUtil::WHITESPACE_CHARS) !== '' && !isset($this->footnotes[$key])) {
                         $footnote = new Footnote($label);
@@ -2059,46 +1769,12 @@ class BlockParser
                         $this->footnotes[$key] = $footnote;
                         $bodyLines = [$content];
                         $bodyLineMap = [$i];
-                        // A definition at an item's CONTENT COLUMN keeps its
-                        // continuation lines, measured from the definition
-                        // rather than from column 0 (PART 9 §16: ">= 2",
-                        // relative). Treating the column form as single-line
-                        // dropped `    more` under `  [^f]: x` - not into the
-                        // item, not into the note, gone from the document
-                        // (carve-php#794). carve-js and carve-rs both keep it;
-                        // a line at the definition's OWN column is not
-                        // continuation and all three leave it alone.
-                        //
-                        // Only for a COLUMN container: under a blockquote
-                        // prefix a continuation carries the `>` itself, which
-                        // this line-based pass does not strip, so those stay
-                        // single-line and are left to normal block parsing.
                         if ($container['kind'] === 'columnContainer') {
                             $bodyIndent = $reachedCol + 2;
                             $k = $i + 1;
                             while ($k < $count) {
                                 $continuation = $lines[$k];
                                 if (IndentationHelper::isBlankLine($continuation)) {
-                                    // THE BLOCK'S EXTENT IS THE DEFINITION'S,
-                                    // BLANK LINES AND ALL (PART 1 S4,
-                                    // markup-carve/carve#1363). A blank inside
-                                    // the body separates the NOTE's own blocks;
-                                    // it ends the body only when nothing below
-                                    // reaches the body column again.
-                                    //
-                                    // MIRRORS tryParseFootnoteDefinition(),
-                                    // which already reads it this way. The two
-                                    // disagreeing is what made the note keep
-                                    // one block while the block parser skipped
-                                    // both - so the second block was consumed
-                                    // by one pass, collected by neither, and
-                                    // left the document entirely.
-                                    // ONE SPELLING, shared with the definition
-                                    // skipper - see
-                                    // {@see self::footnoteBodyResumesAfter()}.
-                                    // A lone `+` does not resume a body under a
-                                    // column container, so the marker is not
-                                    // accepted here.
                                     $ahead = $this->footnoteBodyResumesAfter(
                                         $lines,
                                         $k,
@@ -2434,23 +2110,6 @@ class BlockParser
                 continue;
             }
 
-            // A definition list's DESCRIPTION marker is a container opener too,
-            // so a footnote definition written on that line is the entry's own
-            // content and is collected from it - the same answer the bullet arm
-            // above gives (carve-php#891, spec markup-carve/carve#801). `::` is
-            // the TERM marker and does not match: it needs whitespace after the
-            // single colon, which `::` and a `:::` fence opener both fail.
-            // Only when a term opened the entry above it. A description line
-            // with no term is not a description at all - it is paragraph text,
-            // and a definition in it defines nothing (corpus
-            // `216-a-description-line-needs-a-term-above-it`).
-            // ONE SPELLING of "is there a term above this", shared with the
-            // link-definition pass. Both passes had their own, and both read
-            // the RAW previous line - so a term written inside a block quote or
-            // a list item (`> :: term`) answered no, the description marker was
-            // not stripped, and the definition on the line registered nowhere
-            // while the block parser emptied the entry anyway
-            // (markup-carve/carve#840).
             $afterTerm = ReferenceDefinitionExtractor::opensDefinitionEntry($previousLine);
             if ($afterTerm && preg_match('/^[ \t]*:[ \t][ \t]*(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/', $rest, $descMatch) === 1) {
                 $rest = substr($rest, strlen($descMatch[0]));
@@ -2528,23 +2187,6 @@ class BlockParser
         $fenceChar = null;
         $fenceLen = 0;
         $verseFence = 0;
-        // A COMMENT's body is opaque too, and this pass alone did not know it:
-        // the link-reference and footnote prepasses each tracked `%%%`, so a
-        // `*[HTML]: ...` written inside one defined an abbreviation for the
-        // whole document while the comment rendered nothing - an <abbr> the
-        // reader never wrote, expanded from a line nobody can see (corpus 340).
-        // The abbreviation collector reaches its lines by a different path than
-        // the other two, which is why widening those left this one behind.
-        //
-        // Asked at column 0: PART 12 §7 recognizes the definition at document
-        // level, so a line an indented or QUOTED comment could hide has already
-        // been disqualified - by `$divs` or `$inListItem` below, or by the
-        // anchored pattern itself. That is why this pass alone was already
-        // right about `> %%%` / `> *[AB]: x` / `> %%%` while the other two
-        // registered from inside it (markup-carve/carve#1341): a leak that
-        // sorts definitions by KIND is a leak rather than a reading of §28.
-        // The shared fence still tracks the quoted region here, so the three
-        // passes cannot drift back apart over which lines are a comment's.
         $commentFence = new PrepassCommentFence($lines);
         // PART 12 §7 recognizes an abbreviation definition only at document
         // level. The pattern is anchored, so a block quote or list marker
@@ -3020,28 +2662,6 @@ class BlockParser
         $quoted = false;
         $openedList = false;
 
-        // THE WALK CARRIES AN OFFSET, NOT A SUFFIX. Every step used to cut the
-        // rest of the line out to ask its question - an `ltrim`, a quote
-        // content, a marker's content - so a line of N prefix elements cost N
-        // times the line and a 128 KB line copied 4 GB
-        // (markup-carve/carve-php#1463). PART 9 §25 is normative about refusing
-        // rather than degrading, which makes that a defect and not a slow path,
-        // and it is the fourth place this same walk had to stop copying:
-        // markup-carve/carve-php#1407, markup-carve/carve-php#1426,
-        // markup-carve/carve-php#1437 and markup-carve/carve-php#1442 settled
-        // it one container over each time. One `substr` at the end replaces N
-        // of them.
-        //
-        // The initial `stripLeadingColumns()` above stays a copy: a tab that
-        // straddles the column boundary comes back as spaces, so what the walk
-        // reads is not always a suffix of `$line`. That is ONE copy per line,
-        // not one per element.
-        //
-        // THE SCREEN IS ANSWERED ONCE FOR THE LINE. `markerHeadAt()` drops the
-        // `.*$` its capturing twin ends with, which is exact only where the
-        // subject holds no INTERIOR newline; where one does, the capturing form
-        // answers instead and pays a copy on a line that cannot be long enough
-        // for it to matter.
         $length = strlen($content);
         $newline = strpos($content, "\n");
         $screened = $newline !== false && $newline !== $length - 1;
@@ -3183,26 +2803,6 @@ class BlockParser
         bool $itemBody = false,
     ): void {
         if ($this->nestingDepth >= self::MAX_NESTING_DEPTH) {
-            // PART 9 §25: past the cap an opener degrades to ORDINARY PARAGRAPH
-            // TEXT, and therefore groups by the ordinary paragraph rule -
-            // consecutive over-cap openers and the text after them form ONE
-            // paragraph, ending at the first blank line like any other, with no
-            // trailing newline before `</p>`. Handing the whole remainder to
-            // one paragraph kept the document's trailing newline inside it and
-            // swallowed blank lines that end a paragraph everywhere else
-            // (carve-php#702).
-            // THE DEGRADED PARAGRAPH IS PLACEABLE, so it carries its span.
-            // Each group is a contiguous run of lines, and the map that turns a
-            // local index into a source line is the `$lineMap` argument - it is
-            // in scope here and nowhere after, because `$this->currentLineMap`
-            // is only swapped in below the cap check. Publishing no position
-            // read as compliant (§4 permits it on a REASSEMBLED node) while
-            // this node is nothing of the kind (carve-php#945, carve#534).
-            // AND SO IS THE CONTENT COLUMN, for the same reason: the swap
-            // below the cap check never happens on this path, so without this
-            // the degraded paragraph is placed at the column of the level
-            // ABOVE it - two hundred quote markers deep, at the second-to-last
-            // `>` rather than at the text (PART 12 §4, carve#913).
             $group = [];
             $groupStart = null;
             $previousContentColumns = $this->currentContentColumns;
@@ -3348,53 +2948,6 @@ class BlockParser
 
     /**
      * Place the text runs of a degraded paragraph, from line geometry.
-     *
-     * PART 12 §4 permits omitting `pos` on a REASSEMBLED node and names them; a
-     * degraded paragraph is none of them, and neither are its runs - each one
-     * is a contiguous slice of exactly one source line. carve-js publishes all
-     * of them and its spans pass the slice rule, so an honest span EXISTS here
-     * and the exemption does not apply (carve-php#965, carve#534). A node whose
-     * parent is placed and whose own span is missing is also the awkward case
-     * for a consumer: it can resolve an offset to the paragraph and then not
-     * descend into it.
-     *
-     * ONLY WHEN THE SOURCE PROVES THE MAPPING, on three counts, because these
-     * lines were rewritten on the way here - a container prefix was stripped -
-     * so nothing about a run's offset can be assumed:
-     *
-     * 1. The paragraph's DIRECT text children have to number exactly one per
-     *    group line, which is what makes the positional match meaningful.
-     *    Smart typography splitting a line into two runs fails here.
-     * 2. Each run's content has to be a SUFFIX of its source line. That
-     *    identifies the stripped prefix without having to know what it was, and
-     *    it fails closed when the inline parser rewrote the text rather than
-     *    copying it. A trailing backslash fails HERE and not at 1: it makes a
-     *    hard break, which leaves the run count intact and takes the backslash
-     *    out of the text, so the run is no longer a suffix of its line.
-     * 3. Every run has to pass before ANY is placed. A half-placed paragraph
-     *    would be a new shape for a consumer to handle, and PART 12 §4 rates a
-     *    wrong span worse than an absent one - so the group is all or nothing.
-     *
-     * Conditions 2 and 3 each reject a document the other two accept, and both
-     * are pinned. An earlier draft guarded the shape by requiring strictly
-     * alternating runs and SOFT breaks instead; that spelling made 2 and 3
-     * unreachable and no mutation of any of the three could be made to fail.
-     *
-     * CONDITION 1 IS A CONTROL, said out loud rather than counted: no document
-     * has been found that it alone rejects, because a line the inline parser
-     * splits into two runs makes neither of them a suffix of that line, so 2
-     * rejects it first. It is kept because without it an over-count would index
-     * runs against lines AFTER the group, where a suffix match could
-     * coincidentally succeed and publish a wrong span - which §4 rates worse
-     * than the absent one. The same holds for the empty-content guard in
-     * degradedRunSpan: no empty run is produced here, but `str_ends_with($line,
-     * '')` is vacuously true, so without it an empty run would take a
-     * zero-width span at an arbitrary line end.
-     *
-     * The spans this produces satisfy markup-carve/carve#913's containment
-     * invariant by construction: the paragraph's span runs from its first
-     * line's start to its last line's end, and every run lies inside one of
-     * those lines.
      *
      * @param \MarkupCarve\Carve\Node\Node $paragraph
      * @param array<string> $group
@@ -3977,19 +3530,6 @@ class BlockParser
         $i = $start + 1;
 
         while ($i < $count) {
-            // A QUOTED VALUE STOPS AT THE NEWLINE. `quoted_value` excludes a
-            // newline in both of its alternatives (PART 4, A QUOTED VALUE STOPS
-            // AT THE NEWLINE), and `block_attributes` reads the same
-            // production - so a break inside the quotes is neither content nor
-            // a separator. It ends the production, and the whole block is
-            // unrecognized (markup-carve/carve#888, carve-php#986).
-            //
-            // Tested BEFORE the closing branch, not after: `{k="a` + `b"}` has
-            // its closing brace on the second line, so a check that ran after
-            // the close was matched would accept exactly the shape this
-            // refuses. Collapsing that newline to a space is what this engine
-            // used to do, and no production in either normative file describes
-            // it.
             if ($openQuote !== null) {
                 return null;
             }
@@ -4492,18 +4032,6 @@ class BlockParser
             $i++;
         }
 
-        // Trim leading and trailing empty lines but preserve internal blank
-        // lines - and preserve the INDENTATION of the lines that remain. A
-        // comment body is verbatim text: `trim()` on the joined content ate
-        // the first line's leading whitespace, so
-        //
-        //     %%%
-        //       x
-        //     %%%
-        //
-        // parsed to a comment holding `x` here and `  x` in carve-js and
-        // carve-rs - a cross-engine AST difference, and a round trip through
-        // `carve fmt` that silently moved the author's line (carve#653).
         while ($contentLines && trim(end($contentLines)) === '') {
             array_pop($contentLines);
         }
@@ -5105,25 +4633,6 @@ class BlockParser
 
         $heading = new Heading($level);
 
-        // djot-strict (spec PART 2 headings; matches carve-js #153): a heading
-        // line carries NO trailing `{...}` attribute block -- a trailing brace
-        // block is ordinary inline content, and the heading id derives from
-        // the full literal text. Attributes attach via a PRECEDING
-        // block-attribute line (applyPendingAttributes below, PART 9 §15).
-        //
-        // §756 (NORMATIVE): strip the line's trailing whitespace. A leading tab
-        // is preserved (see the extraction note above).
-        //
-        // SPACE AND TAB ONLY, the same charlist the paragraph collector and the
-        // caption use. `whitespace = ' ' | '\t'` (PART 1), so a trailing NBSP -
-        // or a VERTICAL TAB, or a FORM FEED - is content and survives. PHP's
-        // DEFAULT charlist stood here and is wider: it takes U+000B, which made
-        // a heading the one construct in this engine that dropped a trailing
-        // vertical tab where the identical paragraph kept it. The emptiness gate
-        // above moved with it, because narrowing this charlist alone would have
-        // left the heading accepting a TRAILING vertical tab as content while
-        // still refusing a heading whose WHOLE content was one
-        // (markup-carve/carve-php#1038).
         $content = rtrim($content, " \t");
 
         // One source segment for the heading's single line.
@@ -5251,21 +4760,6 @@ class BlockParser
             // instead of folding into the preceding quoted paragraph.
             if ($this->isContinuationMarker($currentLine)) {
                 $i++; // consume the `+` marker
-                // ONE BLOCK, AND ITS EXTENT IS THE BOUNDARY (§17 L3). The three
-                // tests below end the run at the next CONTAINER marker, which is
-                // not the same thing: a heading written under the attached
-                // paragraph was attached too. {@see self::attachedBlockHasEnded()}
-                // is the rule, shared with the list-item spelling so the two
-                // cannot drift - they were already one rule with two answers.
-                // A `>` LINE IS NOT A BOUNDARY (markup-carve/carve#1782). The
-                // marker takes the next flush-left block whatever KIND it is,
-                // and a quote is a kind like any other, so `> a` / `+` / `> q`
-                // attaches an inner quote. Testing for one here made the marker
-                // attach NOTHING in exactly that case: the `+` line vanished
-                // and `> q` folded into the quoted paragraph above it, the
-                // marker doing nothing at all where L3 says it only ATTACHES.
-                // A `>` line under an attached PARAGRAPH still stays outside,
-                // because the narrowing stops at the paragraph.
                 [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
                 $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
                 if ($attached !== []) {
@@ -5581,42 +5075,6 @@ class BlockParser
                 return;
             }
 
-        // Any other non-blank line is paragraph-ish content (plain text, an open
-        // paragraph's continuation, or a block that opens with text on the same line:
-        // list item, nested quote) - all leave an open paragraph a lazy line
-        // may continue.
-        //
-        // EXCEPT the closed blocks below. PART 1 S4 makes lazy continuation
-        // conditional on an OPEN PARAGRAPH ("if ANY container in the open stack
-        // holds an OPEN PARAGRAPH ... Otherwise close the unmatched containers"),
-        // and a bounded single-line block leaves none. PART 9 §10 I6 says it
-        // again for the heading: "a bounded title holds no block and ENDS AT THE
-        // NEWLINE, so nothing folds into it at all".
-        //
-        // These used to leave the paragraph open, so `> # h` / `b` kept the
-        // quote open and put `b` inside it. carve-rs closes it; tracking two
-        // subtly different paragraph booleans was the bug (carve-php#652).
-        // AND THE QUOTE IT IS ASKED OF MAY ITSELF BE A QUOTE (PART 1 S4,
-        // markup-carve/carve#1355). A quote's answer is its own last block's,
-        // and when that block is a QUOTE the question just moves in one. Asked
-        // only of this quote's own content, `> > # H` read the inner `> # H` as
-        // prose - it starts with `>` and not `#` - so the outer quote reported
-        // an open paragraph and `tail` folded into it, while the same heading
-        // one level up already ended the quote.
-        //
-        // ON THE SAME STATE, not a fresh one per line. Every flag a quote
-        // carries has to cross its own line boundaries - an absorbed colon
-        // fence (corpus 260-4), an open code fence, a table's continuation row
-        // (corpus 356-8) - and while the content is a nested quote, the outer
-        // quote holds no block of its own for those flags to describe. So the
-        // inner call keeps them, and the two flags cleared at the top of THIS
-        // call are handed back for it to decide.
-        //
-        // The mode branches above run FIRST, which is what keeps the levels
-        // apart: a fence opened at the outer level owns the lines below it
-        // whatever markers they carry, and this step is only reached by a plain
-        // nested-quote line. Recursing on the CONTENT is also what makes three
-        // levels work without counting them (corpus 356-6, 356-9).
             $innerContent = ContainerPrefix::quoteContent(rtrim($content, " \t"));
             if ($innerContent !== null) {
                 // A NEW INNER QUOTE STARTS WITH NOTHING OPEN. The shared state is
@@ -6040,21 +5498,6 @@ class BlockParser
                             }
                             // Remove subIndent worth of indentation (handling tabs)
                             $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
-                            // A list marker reaching the content column starts a
-                            // sublist even when an open continuation paragraph
-                            // precedes it (PART 0 S3, PART 9 §24 C3; corpus 131).
-                            // Inject a blank separator so the nested parse opens
-                            // the sublist instead of lazily folding the marker
-                            // into the open PLAIN paragraph. Once the stream
-                            // holds list content, sibling markers belong to that
-                            // nested list and must not get a loosening blank.
-                            // ...AND NOT WHERE A QUOTE'S OWN PARAGRAPH HOLDS
-                            // THE LINE. The blank is what makes the marker open
-                            // a sublist, so injecting one where the quote claims
-                            // the line is the same defect as breaking the stream
-                            // for it, reached through the post-blank door (PART 9
-                            // §10 I6, markup-carve/carve-php#1575). `- x` /
-                            // blank / `  > q` / `  - s` is one quoted paragraph.
                             $strippedIsMarker = $this->listParser->parseListItemMarker(ltrim($stripped, " \t")) !== null;
                             if (
                                 $strippedIsMarker
@@ -6089,21 +5532,6 @@ class BlockParser
 
                                 break;
                             }
-                            // A lone `+` at the marker column is the CONTINUATION
-                            // MARKER (§17 L3), whatever this item already holds.
-                            // The clause conditions it on the column and on
-                            // nothing else - not on the item being tight, and not
-                            // on what was written above - so breaking here hands
-                            // it to the loop that attaches the following block,
-                            // exactly as happens when no blank line preceded it.
-                            //
-                            // Without this the marker fell through to the lazy
-                            // branch below and came out as literal text inside the
-                            // paragraph it was meant to end, so the same construct
-                            // read two ways depending on unrelated context above
-                            // (carve-php#925). `collectListContinuationBlock()`
-                            // already stops on exactly this line; this collector
-                            // was the one short of the case.
                             if ($this->isContinuationMarker($trimmedLine)) {
                                 break;
                             }
@@ -6124,22 +5552,6 @@ class BlockParser
                             ) {
                                 break;
                             }
-                            // Otherwise it's lazy continuation at base level. It
-                            // only folds into the nested content when that
-                            // content ends in an OPEN paragraph; after a closed
-                            // block (code/table/div) the dedented line ends the
-                            // item (family-D rule, matching carve-js/carve-rs).
-                            //
-                            // AN OPEN FENCE IS NOT AN OPEN PARAGRAPH, and it
-                            // does not extend the item's reach: §24's STEP walk
-                            // stops at the ITEM for a line that supplies no
-                            // indentation, so S2 FENCED BODY never fires and
-                            // S4's lazy branch has no paragraph to fold into
-                            // (markup-carve/carve#950). The plain-lead collector
-                            // states the same rule for a fence opened on the
-                            // MARKER line; this loop is the twin that collects
-                            // an item's POST-BLANK nested content, and the two
-                            // have to answer one question the same way.
                             if (
                                 !$subTrailingState['openParagraph']
                                 && !$subTrailingState['inDiv']
@@ -6169,24 +5581,6 @@ class BlockParser
                             if ($subTrailingState['inFence']) {
                                 break;
                             }
-                            // A block-shaped line HERE reaches neither the nested
-                            // content column nor the outer item's, so under the
-                            // strict content-column rule it opens nothing: with a
-                            // paragraph still open it is a lazy line like any
-                            // other text (PART 0 S4). Ending the item on it
-                            // closed BOTH lists and re-opened the marker as a new
-                            // top-level list (carve-php#706). The marker-line
-                            // collector already folds the same shape (#693);
-                            // these two collectors disagreed about one line.
-                            // An INVISIBLE line (definition, comment) counts
-                            // here too. It is not block-SHAPED, so it used to
-                            // fall through and be pushed TRIMMED - which put a
-                            // definition at the item's own column 0, where the
-                            // block parser consumes it as an already-extracted
-                            // definition and renders nothing. The line vanished
-                            // from the document (carve-php#721). Kept where the
-                            // author put it, the nested parse reads it as the
-                            // text it is.
                             $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
                                 || $this->startsNewBlock($trimmedLine, $lines, $i)
                                 || $this->isFoldableInvisibleLine($trimmedLine);
@@ -6296,58 +5690,6 @@ class BlockParser
                     break;
                 }
 
-                // §17 L1c: THE BLANK IS READ AT THE LIST'S LEVEL, NOT THE
-                // ITEM'S. L1's first disjunct asks what stands BETWEEN one item
-                // and the next sibling marker, and the line right before this
-                // marker answers it - however the previous item's interior
-                // accounted for that line. So both of
-                //
-                //     - ```           - ::: d
-                //       b               b
-                //
-                //     - s             - s
-                //
-                // are LOOSE, and so are the same documents with the closer
-                // written.
-                //
-                // Only the loop's own blank-skip above used to answer this, and
-                // that skip sees a blank only when the item's collector LEFT IT
-                // BEHIND. A div, an admonition, a raw block and a comment fence
-                // all stop their collector at the blank, so the skip saw it and
-                // those four already loosened. A code or a tilde fence with no
-                // closer absorbs the blank as its own payload line, so the
-                // collector returned past it and the list stayed tight - which
-                // let the CLOSER decide a rule that is not about closers, since
-                // the same document with the closer written loosened
-                // (markup-carve/carve-php#1445, carve#1383).
-                //
-                // NOT "did the container consume the blank". That reading was
-                // rejected upstream: it makes a structural answer depend on a
-                // detail the readers already spell differently - this engine
-                // drops the trailing blank from a raw block and keeps it in a
-                // code block - and it cannot be asked of a div at all, where
-                // nothing in the output shows which block took the line.
-                //
-                // carve#326 C's INTERIOR blank is untouched, by that clause's
-                // own stated reason: a sibling after such a fence "stays tight
-                // because no blank line actually separates the two items".
-                // Content follows an interior blank before the marker, so the
-                // line tested here is that content and not a blank, and
-                //
-                //     - ```
-                //       a
-                //
-                //       b
-                //       ```
-                //     - c
-                //
-                // stays tight.
-                //
-                // THE AXES ARE ALREADY DECIDED. This sits after the marker match
-                // on purpose: a `*` after a `-` list, or an ordered marker after
-                // a bullet one, opens a DIFFERENT list under §11, so nothing of
-                // the first list is followed by a blank before one of its own
-                // siblings and it stays tight.
                 if ($i > $start && IndentationHelper::isBlankLine($lines[$i - 1])) {
                     $lastItemHadBlankAfter = true;
                 }
@@ -6429,25 +5771,6 @@ class BlockParser
             $i++;
             $lastItemHadBlankAfter = false;
 
-            // Trailing-block tracker for CommonMark lazy continuation. Updated
-            // incrementally for each collected line (advanceTrailingBlockState)
-            // so the lazy-continuation gate below is O(1) per line instead of
-            // rescanning all collected lines. `openParagraph` is false when the
-            // trailing top-level block is a fenced code block or a table (no
-            // open paragraph for a dedented line to fold into).
-            //
-            // THE MARKER LINE IS NOT A SPECIAL COLUMN. A table written there
-            // used to re-arm `openParagraph`, on the reading that it "owns" the
-            // following lazy line. S4 has no such ownership: it asks what the
-            // container's last block left open, and a completed table leaves
-            // nothing wherever it was written. The carve-out made `- | a | b |`
-            // followed by a column-0 line fold that line into the item, while
-            // the same table one line lower ended it (corpus 326-3).
-            // First-block item (Carve): `- +` opens an item whose body is the
-            // flush-left block that follows, with no indentation. A lone `+` as
-            // the sole item content is the continuation marker, not literal text
-            // (`- + text` keeps `+ text` as literal content). This lets an item
-            // start directly with a table, code block, quote or div at column 0.
             if ($this->isContinuationMarker(ltrim($itemContent, " \t"))) {
                 // ...AND ONLY A FLUSH-LEFT ONE (SS17 L3, carve#1436). When the
                 // line below sits at any other column the marker attaches
@@ -6565,19 +5888,6 @@ class BlockParser
                     $itemLines,
                     $itemLineMap,
                 );
-                // §17 L1a: THE ITEM'S FIRST BLOCK DOES NOT MATTER. This branch
-                // keeps the whole item stream together so the colon fence
-                // captures its body, and that skipped the blank-line scan the
-                // plain path runs - so `- ::: d` / `b` / `:::` / blank / `Body.`
-                // stayed tight while `- x` / blank / `Body.` went loose, a rule
-                // changing with the first block's kind for no reason. The same
-                // omission was fixed one branch up for a sub-list lead
-                // (carve-php#681); this is the colon-fence lead.
-                //
-                // The predicate is the shared one, so carve#326 C still holds:
-                // a blank inside an open CODE fence is verbatim payload and
-                // does not loosen, while a blank inside a `:::` container
-                // separates two of the container's blocks and does.
                 if ($this->subContentHasLooseningBlank($itemLines, true)) {
                     $list->setTight(false);
                 }
@@ -6610,19 +5920,6 @@ class BlockParser
                 $authoredBaseEligible,
             );
 
-            // A marker-line colon fence whose body is BELOW the content column
-            // opens nothing: §24 C3 puts that line outside the item body, and
-            // with no blank it lazily continues the item's paragraph - so the
-            // opener is literal text and takes the following lines with it.
-            //
-            // The collected stream had lost that: the opener sits at the
-            // stream's own column 0 with the body under it, which is exactly
-            // the shape tryParseDiv() builds a container from, so `- ::: note`
-            // / `body` came back as an admonition where carve-js, carve-rs and
-            // the executable spec all render two literal lines
-            // (carve-php#748). Joining them into ONE line says what the
-            // geometry said. The body AT the content column is handled above
-            // and still nests.
             if (
                 count($itemLines) > 1
                 && $this->fencedBlockParser->parseDivFenceOpener($itemContent) !== null
@@ -6709,24 +6006,6 @@ class BlockParser
 
     /**
      * Would a container body's rebase pass MOVE any line of `$rendered`?
-     *
-     * The canonical writer asks this, and it asks THE REBASE ITSELF rather than
-     * a copy of its rule. A definition description's payload sits at its
-     * separator's column, in from the `::` line, which is ABOVE the minimum
-     * content column of a footnote body or a definition body - so at that
-     * minimum the body's rebase claims the payload as a block of its own and
-     * the description keeps only its first paragraph. One column further in,
-     * the `::` line's own column becomes the entry's base and the run comes
-     * back with its relative columns intact.
-     *
-     * A predicate spelled out again in the renderer would be a second spelling
-     * of the same column rule and would drift from this one; running the pass
-     * over a copy cannot (markup-carve/carve-php#755 is the class).
-     *
-     * The flavor is the one every container that hands out an authored base
-     * parses with, sublists included (carve#1729, carve#1781). The call sites
-     * differ only in which opaque block at the minimum they skip, and no such
-     * block is what raises a definition list.
      *
      * @param string $rendered
      *
@@ -7005,38 +6284,6 @@ class BlockParser
                     }
                 }
 
-                // THE BASE BELONGS TO THE INNERMOST OPEN CONTAINER (PART 9
-                // section 24 C3, markup-carve/carve#1781 and carve#1791).
-                //
-                // A line at the container's own minimum column that OPENS A
-                // CONTAINER is that container's opener, and everything written
-                // above the minimum under it is that container's CONTENT - so
-                // the question of a local block base is asked of the inner
-                // container, never of this one. Reconsidering the payload here
-                // rebases it to this container's column and lifts it out of the
-                // container it was written into: a quote at a description's
-                // content column left the `dd`, and a quote at a nested item's
-                // content column left the `li`.
-                //
-                // A LIST MARKER COUNTS, and it has to be said separately from
-                // the block openers. `lineOpensBlockForLooseness` answers a
-                // different question - whether a blank-separated sub-block
-                // leaves a list TIGHT - and a marker is deliberately absent from
-                // it, because a marker at a body's own column opens a SUBLIST
-                // rather than a sub-block. Ownership is not that question: a
-                // marker's content belongs to the item it opens. Leaving the
-                // marker out is the omission carve#1791 had to repair one layer
-                // up.
-                //
-                // ASKED OF THE OPENERS THAT HAND OUT A COLUMN, which here is the
-                // list marker and the definition entry. An OPAQUE group at the
-                // minimum is already owned by the branch above, and it owns its
-                // payload on different terms: its closer has to be rebased back
-                // to the opener's column to close it, so claiming the payload
-                // here left a `:  ` fence's closer indented and it came back as
-                // the fence's own content. A quote and a fence hand out no
-                // column at all - they carry a marker or a fence - so there is
-                // nothing for a payload line to be measured against.
                 if (
                     !$skipOpaqueAtMinimum
                     || ($code === null && $comment === null)
@@ -7184,31 +6431,6 @@ class BlockParser
                 || preg_match(self::DEFINITION_TERM_LINE_PATTERN, $opener) === 1
                 || preg_match(self::DEFINITION_BODY_PATTERN, $opener) === 1
             ) {
-                // ONE ARM FOR EVERY CONTAINER (PART 9 section 24 C3,
-                // markup-carve/carve#1781). A footnote definition and a
-                // definition entry establish the authored base for the
-                // surrounding run, and the container they sit in does not
-                // change the answer. Sibling content after an internal blank is
-                // still owned by the outer list or note; leaving it at residual
-                // indentation moves it out of that container.
-                //
-                // A LIST ITEM USED TO END THE RUN AT THE SEPARATING BLANK, on
-                // the reading that carve#1752 made both spellings say the same
-                // thing there. carve#1781 replaced the three per-container
-                // spellings with this one, and corpus
-                // `423-one-authored-base-rule-reaches-a-definition-nested-in-a-list-item`
-                // pins the item answering like the two bodies: the payload
-                // written under the description belongs to the description.
-                //
-                // AND IT STOPS BELOW ITS OWN CONTENT COLUMN. A line written
-                // between the opener's column and the column its marker hands
-                // out reaches neither: it is not the entry's content, and it is
-                // not at the entry's own column either. So the entry ends and
-                // the line is classified in the SURVIVING context - the
-                // container the entry sits in, where it is above the minimum and
-                // takes an authored base of its own. Carried on until a dedent,
-                // it stayed at residual indentation and came back as escaped
-                // prose rather than the quote it was written as.
                 $contentColumn = $this->containerContentColumn($lines[$i], $base);
                 for ($j = $i + 1; $j < $count; $j++) {
                     $candidate = $lines[$j];
@@ -7334,26 +6556,6 @@ class BlockParser
 
     /**
      * Is this the §17 L3 continuation marker?
-     *
-     * "A line whose only content is `+`" - so trailing whitespace is not
-     * content, matching the executable spec's own `/^\+[ \t]*$/`.
-     *
-     * ONE PREDICATE, and the CALLER owns the column. This was spelled four ways
-     * across seven sites - `trim()`, `rtrim()`, and twice against an already
-     * `ltrim`ed value - so whether a trailing space broke the marker depended on
-     * which code path a document happened to reach (carve-php#929, and the same
-     * asymmetry produced carve-php#925). Leading whitespace is deliberately NOT
-     * stripped here: the block-quote form requires column 0 and the list form
-     * checks its own base indent, so each caller passes a line whose indentation
-     * it has already accounted for.
-     *
-     * THE CHARLIST IS `whitespace`, not PHP's default. The default is
-     * `" \t\n\r\0\x0B"`, which also takes a VERTICAL TAB - so a line holding
-     * `+` and one U+000B was a marker here while the spelling this docblock
-     * quotes says it is not. `continuation_marker = '+', newline` spells NO
-     * RUN AT ALL (PART 7), so any character between the `+` and the line end
-     * is content. The predicate was unified across seven sites by
-     * carve-php#929; the DEFINITION was not (carve-php#1041).
      */
     /**
      * Does the continuation marker's candidate block begin at document column 0?
@@ -7681,19 +6883,6 @@ class BlockParser
      * ONE flush-left block for a `+` marker, in a container with no marker
      * column of its own.
      *
-     * §17 L3 makes `+` ONE operation: ownership of the next flush-left block
-     * passes to the container, and the block is then parsed like any other.
-     * The boundary set - a blank line, a further `+`, plus whatever names a
-     * SIBLING of this container - is the marker's REACH, and
-     * {@see self::attachedBlockHasEnded()} narrows that reach to the one block
-     * L3 counts.
-     *
-     * This exists because the reach was spelled four times and narrowed twice:
-     * a block quote and a list item took one block, while a footnote body and
-     * a definition description took everything up to the boundary, so L3's own
-     * example - `+` / `para` / `> q` - gave the quote to the note and left it
-     * outside the item one container over (markup-carve/carve#1782).
-     *
      * @param array<string> $lines
      * @param int $i Index of the first line after the `+` marker.
      * @param int $count Total line count.
@@ -7749,20 +6938,6 @@ class BlockParser
      */
     private function collectAttachedBlock(array $lines, int $i, int $count, callable $isBoundary, ?callable $transform = null): array
     {
-        // AND FLUSH-LEFT MEANS COLUMN 0, ASKED HERE FOR EVERY CONTAINER
-        // (§17 L3, markup-carve/carve#1436, markup-carve/carve#1814). The
-        // predicate was already one function, but only the LIST asked it, so
-        // the footnote body, the definition description and the block quote
-        // each reached out for a line the clause leaves where the author wrote
-        // it: a `<dd>` whose content column is 3 pulled in a column-1 or
-        // column-2 line, a note pulled in a column-1 line, and a quote took a
-        // column-2 line that A QUOTE IS REACHED BY ITS MARKER (§10 I5,
-        // markup-carve/carve#1384) puts in no quote at all.
-        //
-        // Asked BEFORE any extent is measured, and an EMPTY range is the
-        // refusal: every caller already reads that as "the marker attached
-        // nothing" and lets its own ordinary rules have the line, which is
-        // exactly what the clause's comment spelling does.
         if (!$this->continuationAttachesAtColumnZero($i)) {
             return [$i, [], []];
         }
@@ -7828,24 +7003,6 @@ class BlockParser
     /**
      * The content column of the definition body an item's collected run is
      * currently inside, or null when it is inside none.
-     *
-     * A DEFINITION BODY IS A BLOCK WITH A BODY, so its extent is the whole
-     * body, BLANK LINES AND ALL (PART 1 S4). That is the same reading
-     * markup-carve/carve#1363 gave a footnote definition, and the reason the
-     * two constructs need it is the same: the blank between a body's two
-     * blocks sits INSIDE the body, so a collector that ends its run there
-     * hands the second block to the container instead.
-     *
-     * Tracked HERE rather than in `advanceTrailingBlockState()`, and for the
-     * same reason the comment fence above it is: the state is one column, the
-     * only caller is the item collector, and the shared tracker's branches are
-     * read by every container in the parser. `advanceItemCommentFence()` is
-     * the shape this mirrors.
-     *
-     * The column is the SEPARATOR'S, not a constant (carve#1757): a one-space
-     * body and a two-space body may sit in one entry, and each one's payload
-     * answers to its own column. Lines arrive stripped to the item's content
-     * column, so a block of the item's own sits at column 0 here.
      *
      * @param int|null $openColumn
      * @param string $line
@@ -8141,31 +7298,6 @@ class BlockParser
      */
     protected function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent): array
     {
-        // AND ONLY A FLUSH-LEFT BLOCK (PART 9 SS17 L3, carve#1436). "flush-left"
-        // is the REACH, not a description of the usual case: the marker attaches
-        // a block that begins at DOCUMENT COLUMN 0 and nothing else, and a line
-        // at any other column falls through to the ordinary column rules that
-        // give it to whichever container its own column names.
-        //
-        // Asked of the ORIGINAL line, because `$lines` here is a container's
-        // body and is re-indented: `* * +` over a column-0 `x` and over a
-        // column-1 ` x` both arrive as `[' * +', ' x']`, byte-identical. Only
-        // the source line still carries the column, and `sourceLineFor()` still
-        // names it.
-        //
-        // The question is `collectAttachedBlock()`'s now, asked once for every
-        // container (markup-carve/carve#1814); the spelling that stood here was
-        // the only one in the engine, which is why the list was the only
-        // container the gate ever reached.
-        // A MARKER INSIDE AN OPEN FENCE IS CODE TEXT here too (§24 S2). This
-        // collector tracked no block state at all, so a `- x` line in the
-        // attached block's fenced body ended the block and severed the body -
-        // the same defect as in collectPlainListItemContinuation(), reached by
-        // a different door. It serves BOTH `+` paths, the first-block form
-        // (`- +`) and the mid-item form, so the two are one fix here.
-        //
-        // The state is local because the attached block starts fresh at column
-        // 0 below the marker: nothing the item collected above it is open.
         $trailingState = self::INITIAL_TRAILING_BLOCK_STATE;
         $attachedKind = self::ATTACHED_PENDING;
         $pendingThrough = -1;
@@ -8237,26 +7369,6 @@ class BlockParser
             $count,
             $contentIndent,
         ) ?? 1) - 1);
-        // A COMMENT FENCE'S BODY IS OPAQUE AT THE CONTENT COLUMN TOO (PART 9
-        // §28, §24 C3, corpus category 279). The shared trailing-block tracker
-        // carries no comment state, while `trackBlockQuoteLazyState()` - the
-        // mirror its own docblock names - has carried it since carve-php#800.
-        // One question about one construct, answered two ways depending on the
-        // container: a blank line inside an item's own `%%%` body ended the
-        // item, so the span leaked out as two paragraphs AND the blank loosened
-        // the item that held it (markup-carve/carve#985).
-        //
-        // Tracked HERE rather than in `advanceTrailingBlockState()` because
-        // opening the span needs a CLOSER AHEAD. An opener with none opens no
-        // block (§28) and must not latch this scan - latching it would swallow
-        // the rest of the document into the item - and the shared tracker
-        // cannot answer that without the line set. It is the same condition
-        // `commentFenceSpanEnd()` applies for the below-column spelling below,
-        // so the two columns now give one answer.
-        // The seeded lines are the item's lead, which ends at the line before
-        // this collector's first, so `$i - 1` is the index the last of them
-        // sits at - the one a marker-line `- %%%` opener needs the lookahead to
-        // start from.
         $openCommentLength = null;
         // Seeded over the lead for the same reason the comment fence is: the
         // item's `- :: t` / `  : d` spelling writes the body on a line this
@@ -8270,67 +7382,6 @@ class BlockParser
             $nextLine = $lines[$i];
 
             if (IndentationHelper::isBlankLine($nextLine)) {
-                // A BLANK LINE INSIDE AN OPEN CONTAINER DOES NOT END THE ITEM.
-                // The code fence has always been read that way here; the `:::`
-                // div was not, so `- item` / `  ::: note` / blank / `  :::`
-                // severed the div at the blank and the closer below read as a
-                // fresh bare-div OPENER, publishing a spurious `<div></div>`
-                // beside the aside. carve-js publishes one aside. The state
-                // this asks is already tracked - `advanceTrailingBlockState()`
-                // maintains `inDiv` right beside `inFence` - and only the gate
-                // was short of the case.
-                //
-                // The blank is a COLLECTED LINE and advances the tracker like
-                // any other. Inside a code fence that changes nothing -
-                // `openParagraph` is already false for the whole fence - but
-                // inside a div the line above the blank may well have been
-                // prose, and leaving the tracker at that line's answer let a
-                // flush-left line below fold into a paragraph the blank had
-                // closed: `- item` / `  ::: note` / `  a` / blank / `tail` put
-                // `tail` inside the aside, where it is a top-level paragraph.
-                //
-                // AND THE COMMENT FENCE IS THE THIRD KIND, on the same reading:
-                // §28 makes its body verbatim, so the blank is that body's
-                // content and neither ends the item nor loosens it.
-                // AND A FOOTNOTE DEFINITION'S BODY IS THE FOURTH KIND. THE
-                // BLOCK'S EXTENT IS THE DEFINITION'S, BLANK LINES AND ALL
-                // (PART 1 S4, markup-carve/carve#1363): a blank inside the body
-                // separates the NOTE's own blocks, so ending the item's run
-                // there gave the note one block and handed `more` to the item.
-                // A LINK definition has no body and never arms this, which is
-                // the control corpus 359-2 is.
-                // AND A DEFINITION BODY IS THE FIFTH KIND, on the reading
-                // the footnote body above it already has: the blank separates
-                // the BODY's own blocks, so ending the item's run there gave
-                // the body one block and handed the rest to the item. That is
-                // what made a no-blank `:: t` / `:  d` inside an item lose its
-                // payload out of the `dd` while the same document with a blank
-                // above the term kept it - one construct, two answers, decided
-                // by a line that is not part of it
-                // (markup-carve/carve-php#1787).
-                //
-                // WHERE the payload lands is still the definition list's own
-                // question, not this gate's: crossing the blank only keeps the
-                // body's lines in ONE stream, and `tryParseDefinitionList()`
-                // then measures them against the separator's column exactly as
-                // it does for the blank-above spelling. A payload below that
-                // column stays outside the `dd`.
-                //
-                // THE FOOTNOTE ARM ASKS WHETHER THE BODY REALLY RESUMES, the
-                // same question the definition-body arm below it asks. It used
-                // to be a bare latch, so a note whose body ended AT the blank
-                // still crossed it - and crossing keeps the blank inside the
-                // item's own stream, which is what silences the §17 L1b branch
-                // that would have loosened the list. An invisible line "is not a
-                // separator, so the separation it appears to interrupt is
-                // intact" (markup-carve/carve#1808, corpus 429-3): `- para` /
-                // `  [^f]: n` / blank / `  more` is two paragraphs with a blank
-                // between them, and the LINK spelling one line over was loose
-                // all along because it has no state to latch.
-                //
-                // The body's column is the note's own, measured from the item's
-                // content column - `more` written at that column is the ITEM's
-                // second paragraph, not the note's second block.
                 if (
                     $trailingState['inFence']
                     || $trailingState['inDiv']
@@ -8393,67 +7444,7 @@ class BlockParser
                 break;
             }
 
-            // NO EXCEPTION FOR AN ABSORBED FENCE. This used to break when the
-            // item had collected a colon-fence line that is not a valid opener,
-            // which ended the item and made the flush-left line a document
-            // paragraph. PART 1 S4 says the opposite: `:::note` fails PART 9
-            // §12's opener test so it is paragraph text, §12 then has the
-            // paragraph absorb the bare fence below it as text too, and a
-            // paragraph nothing ever interrupted is still OPEN when the
-            // flush-left line arrives (carve#891, corpus
-            // `86-list-lazy-continuation-9`). What decides is whether a block
-            // was opened, never the shape of the line that tried - and
-            // `advanceTrailingBlockState` below already answers that question
-            // for every other block kind.
-
             if ($nextIndent >= $contentIndent && !$isBlockQuoteLazyLine) {
-                // A MARKER INSIDE AN OPEN FENCE IS CODE TEXT, not a marker.
-                // §24 S1 matches the item, so the innermost MATCHED container
-                // is the FENCED BODY and S2 makes the line code text. This
-                // test asked about the marker before it asked about the fence,
-                // so `- ``` ` / `  - x` / `  ``` ` ended the item at `  - x`
-                // and published a sublist beside an empty code block - while
-                // the plain-text sibling at the same column
-                // (`276-a-fence-opened-on-a-list-marker-line-body-below-the-
-                // content-column-3`) has always been code. A marker CHARACTER
-                // decided whether a verbatim body was verbatim.
-                //
-                // ALL THREE FENCE KINDS, not just `inFence`. The reasoning that
-                // stood here - "a `:::` div body is ordinary blocks, so a
-                // marker in one IS a list" - answers a different question than
-                // the one this gate asks. This gate decides whether the line
-                // ends the ITEM, and §24 S1/S2 place a line by the column it
-                // reaches, never by its first character: a marker at the body's
-                // own column is inside the open container either way. Whether
-                // it then opens a list is the BODY'S question, and the div body
-                // answers it exactly as the top level does - `:::` / `a` /
-                // `- m` / `b` / `:::` is one paragraph there too, because a
-                // marker does not interrupt an open paragraph.
-                //
-                // So `- x` / `  :::` / `  a` / `  - m` / `  b` / `  :::` split
-                // the div in two around a nested list and published a spurious
-                // empty `<div>` (corpus category 279 row 5). A COMMENT body is
-                // verbatim on the same reading (§28).
-                //
-                // AND THE FOURTH THING THAT HOLDS THE LINE IS A QUOTE'S OPEN
-                // PARAGRAPH (PART 9 §10 I6, markup-carve/carve-js#1200,
-                // markup-carve/carve-php#1575). Same derivation as the three
-                // fences, one construct over: §24's S1/S2 place a line by the
-                // COLUMN it reaches and never read its first character, so a
-                // marker at the item's content column under `> q` is the same
-                // continuation plain `s` is - and plain `s` has always folded
-                // into the quoted paragraph here. Splitting the stream at the
-                // marker ended the quote and opened a sub-list, where carve-js,
-                // carve-rs and the executable spec all keep one quoted
-                // paragraph.
-                //
-                // THE QUOTE'S PARAGRAPH, NOT THE QUOTE. `openParagraph` is true
-                // for prose as well, and under prose §24 C3 really does open the
-                // sublist - so testing that instead would take every marker in
-                // every item. `- > # h` / `  - s` still opens one, because a
-                // heading leaves the quote no paragraph to fold into; so do the
-                // table, the blank quote line and the thematic break, which are
-                // the four rows carve-js#1200 names.
                 if (
                     !$trailingState['inFence']
                     && !$trailingState['inDiv']
@@ -8506,48 +7497,6 @@ class BlockParser
                 continue;
             }
 
-            // AN OPEN DIV IS NOT AN OPEN PARAGRAPH. `inDiv` used to keep the
-            // item collecting, so an unterminated `:::` inside an item
-            // swallowed the flush-left line INTO the div - where carve-js and
-            // carve-rs end the item and leave the div empty. The comment that
-            // justified it cited a §10 closer lookahead that carve#439 removed,
-            // and the shape was only reachable through the absorbed-fence latch
-            // deleted above, which is why it surfaced with that (carve#891).
-            //
-            // AN OPEN FENCE IS NOT AN OPEN PARAGRAPH EITHER, and this line is
-            // BELOW the item's content column. §24's STEP walk is driven by the
-            // indentation the line SUPPLIES: S1 stops at the first container
-            // whose prefix the line does not carry, which here is the ITEM, so
-            // the fenced body is never reached and S2 FENCED BODY never fires.
-            // S4 governs, and its lazy branch continues an open PARAGRAPH - a
-            // verbatim body is not one, so there is nothing to fold into. Close
-            // the item and let the residue re-parse outside it
-            // (markup-carve/carve#950, corpus 276).
-            //
-            // `inFence` used to keep collecting here on the reasoning that an
-            // unterminated fence runs to end of input by §28. It does - inside
-            // the container that opened it. The reach of a container is not
-            // extended by what its innermost block happens to be, and the BLOCK
-            // QUOTE spelling of this very shape already ends at the same line in
-            // every engine.
-            // TWO QUESTIONS, NOT ONE. "Is a paragraph open" answers whether a
-            // line can FOLD; "is the container finished" answers whether it can
-            // still collect. One flag served both, so closing the paragraph for
-            // an invisible block at the content column also ended the item -
-            // which corpus 197 and 277 refuse (markup-carve/carve-php#1421).
-            //
-            // A FLUSH-LEFT line still needs an open paragraph: it is a lazy
-            // continuation and there is nothing to continue (corpus 357-2,
-            // 357-3). The nonzero below-column exception is specifically the
-            // COMMENT rule. A collected definition ended the paragraph and
-            // keeps no such path open (markup-carve/carve#1376).
-            // ...EXCEPT THE ONE BLOCK A BARE MARKER NAMES (SS17 L3,
-            // carve#1436). A lead whose bottom block is a lone `+` leaves no
-            // open paragraph - that is what stops an INDENTED line folding into
-            // it - but it is still waiting for its flush-left block, so a
-            // DOCUMENT-COLUMN-0 line has to reach the item rather than end it.
-            // Answering "no paragraph is open" alone passed `* * +` / ` x` and
-            // broke `* * +` / `x`; the column is what separates them.
             if (
                 !$trailingState['openParagraph']
                 && ($nextIndent === 0 || !$trailingState['afterComment'])
@@ -8581,19 +7530,6 @@ class BlockParser
             $opensUnclosedCommentFence =
                 $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($nextTrimmed) !== null;
 
-            // A DEFINITION at the frame's own base column belongs to the
-            // container this item sits in, not to this item: it is at THAT
-            // item's content column, which §24 C3 reads as its block. Folding
-            // it here left it rendered as item text while the prepass had
-            // already registered it, so the note appeared twice and two
-            // elements claimed the same id (carve-php#783). Ending the item
-            // lets the enclosing frame see the definition at column 0, where
-            // the skip pass consumes it.
-            //
-            // The open-paragraph half of this test moved UP to the gate above,
-            // which now ends the item whenever no paragraph is open. Re-asking
-            // it here could no longer fail, and a check that cannot fail reads
-            // as a guard while guarding nothing.
             if (
                 $nextIndent === 0
                 && !$this->isBlockElementStart($nextTrimmed)
@@ -8619,21 +7555,6 @@ class BlockParser
                     || $this->isFoldableInvisibleLine($nextTrimmed)
                 )
             ) {
-                // A COMMENT renders nothing, but it DOES end the open paragraph:
-                // all of the executable spec, carve-js and carve-rs make the line
-                // after it the item's SECOND paragraph, not a continuation of the
-                // first. Folding onto the comment entry produced one entry holding
-                // `%% x\n# h`, which the comment handling then consumed whole so
-                // the author's line vanished (carve-php#791 for the fence form,
-                // carve-php#800 for the line form). Folding PAST it instead ran
-                // the two source lines together in one paragraph.
-                //
-                // So push it as its own entry, with ONE leading space. The space
-                // is load-bearing: the item body is dedented, so a block-shaped
-                // line like `# h` would re-parse as a real HEADING at column 0,
-                // where §24 C3's BELOW branch says it is text. One column reaches
-                // no content column at any depth, which is the same guard
-                // carve-js uses for this case.
                 $lastEntry = $itemLines[count($itemLines) - 1];
                 $afterComment = $this->isCommentLineOrFence($lastEntry);
                 if ($afterComment) {
@@ -8723,32 +7644,6 @@ class BlockParser
     /**
      * Does a line at the list's own column end the item's continuation?
      *
-     * The two gates below ask this at their own columns, so it is written once:
-     * a second spelling of one rule is a second place for it to drift, and the
-     * arm this method exists for was missing from BOTH.
-     *
-     * A BLOCK-ATTRIBUTE LINE ENDS IT (PART 9 §10 I5, markup-carve/carve#1028).
-     * I5 lists the invisible constructs that interrupt an open paragraph and are
-     * consumed - a reference definition, a comment, "and a block-attribute line
-     * (`{…}` alone on a line, §15)" - and I6 applies the relation to EVERY open
-     * paragraph, an item's included. Neither predicate below could see one:
-     * `isBlockElementStart()` enumerates the VISIBLE openers and
-     * `startsInterruptingBlock()` has no `{` arm at all, so the top level got
-     * I5 right (through `paragraphInterruptedBy()`, which asks
-     * `isInvisibleOrAttributeLine()` as well) and the list path did not.
-     *
-     * What that cost: `- item` / `{.cls}` / `> quote` kept the attribute line
-     * inside the item, where it is below the content column and renders as
-     * LITERAL TEXT - so the author saw `{.cls}` printed in the `<li>` and the
-     * quote it was written for carried no class. PART 2's LIST-ITEM ATTRIBUTES
-     * clause names that reading and REJECTS it: "The lazy-continuation accident
-     * - a trailing `{…}` line folded onto a tight item, which carve-php attached
-     * to the `<li>` and carve-js dropped - is REJECTED as the mechanism".
-     *
-     * A reference definition at the same column already ended the item here, and
-     * I5 names the two kinds in one breath, so this also removes an asymmetry
-     * inside this engine.
-     *
      * @param string $line
      * @param array<string>|null $lines
      * @param int|null $index
@@ -8792,21 +7687,6 @@ class BlockParser
     /**
      * Collect the body of a list item whose lead content (on the marker line)
      * is itself a list marker, as a SINGLE block stream.
-     *
-     * The lead marker line is already in $itemLines (dedented to column 0). This
-     * appends every following line that belongs to the item -- nested content at
-     * or past the content column, and internal blank lines -- dedented by
-     * $contentIndent, so the combined stream parses through the normal
-     * nested-list/absorption path (one persistent sub-list rather than a split
-     * sub-list plus a leaked parent-row block). Collection stops at end of
-     * input, a blank line that is NOT followed by further item-owned indented
-     * content, or a dedented line the stream has no open paragraph to fold into.
-     *
-     * A dedented line is lazy continuation, exactly as it is for a plain lead:
-     * where the sub-list ends in an open paragraph, `- - a` / `b` folds `b` into
-     * the sub-item (carve-php#693). A sibling marker or a block opener at the
-     * base column still ends the item, and after a CLOSED block (fenced code,
-     * table, div) there is no open paragraph, so the dedented line ends it too.
      *
      * @param array<string> $lines All lines being parsed.
      * @param int $i Index of the first line AFTER the lead marker line.
@@ -9133,22 +8013,6 @@ class BlockParser
                     // Form B: `+` pull-left continuation.
                     if (preg_match('/^\+[ \t]*$/', $contLine)) {
                         $i++;
-                        // ...AND THE DESCRIPTION ENDS WHERE A COMMENT ENDS IT
-                        // (markup-carve/carve#1814). The gate below decides
-                        // whether this `+` is a marker at all; when it is not,
-                        // the line is an ordinary invisible line at document
-                        // column 0, and a `<dd>` ends at one of those exactly
-                        // as it ends at a comment line there. Asked ONE LINE
-                        // EARLY because the branch below would otherwise fold
-                        // the following line into the open paragraph before any
-                        // extent is measured. The `+` is consumed either way,
-                        // so the enclosing parse resumes on the line the marker
-                        // did not take.
-                        //
-                        // A block quote does NOT end at a comment in that
-                        // position and so does not end at a refused marker
-                        // either: that is each container's invisible-line rule,
-                        // not a second column rule.
                         if (!$this->continuationAttachesAtColumnZero($i)) {
                             break;
                         }
@@ -9230,18 +8094,6 @@ class BlockParser
                         && $lastBodyKey !== null
                         && $lastBodyEntry !== ''
                         && $lastBodyOpener !== false
-                        // BELOW THE COLUMN THE INVISIBLE KINDS ARE NOT BLOCKS
-                        // (§10 I5, markup-carve/carve#1809, corpus 430): at a
-                        // nonzero column below the content column a link
-                        // reference, footnote or abbreviation definition, or an
-                        // attribute line, is lazy paragraph text OF THIS
-                        // description. Counting them as openers here is what
-                        // ended the body and published the characters at document
-                        // level - or, for the attribute, dropped them entirely.
-                        // The append below is the lazy frame the ruling asks for:
-                        // the line joins the previous ENTRY, so `parseBlocks()`
-                        // reads it as inline content and no shape can be
-                        // recognized a second time.
                         && !$this->lineOpensBlockForLooseness(
                             ltrim($contLine, " \t"),
                             true,
@@ -9249,30 +8101,6 @@ class BlockParser
                         )
                         && !$this->startsNewBlock($lastBodyOpener)
                         && $this->listParser->parseListItemMarker($lastBodyOpener) === null
-                        // A LINE THAT RENDERS NOTHING LEAVES NO PARAGRAPH OPEN,
-                        // so there is nothing here for a past-the-column line to
-                        // continue. `startsNewBlock()` cannot answer this: it is
-                        // the paragraph-INTERRUPTION predicate, and a definition
-                        // correctly does not interrupt one - `a` / `[^1]: b`
-                        // folds. The question here is the other one.
-                        //
-                        // Joining onto a definition destroyed it. `:  [^1]: a`
-                        // with a line below at column 4 arrived at the block
-                        // walk as the single entry `[^1]: a\nb`, which matches
-                        // no definition pattern, so the note was registered by
-                        // nobody while the `dd` rendered the author's own source
-                        // text and the `[^1]` reference stayed literal - the
-                        // define-nothing family markup-carve/carve#624 forbids
-                        // (markup-carve/carve-php#1650). The link-reference
-                        // spelling was worse: it registered AND leaked, so the
-                        // definition line reached the reader as prose beside a
-                        // working link.
-                        //
-                        // `abbreviationCounts: false`, because PART 12 §7 makes
-                        // an abbreviation definition one only as a direct child
-                        // of the document. Inside a `dd` the same shape is
-                        // ordinary paragraph text that RENDERS, so it does leave
-                        // a paragraph open - and carve-js folds it exactly so.
                         && !$this->isInvisibleOrAttributeLine($lastBodyOpener, false)
                     ) {
                         $body[$lastBodyKey] .= "\n" . ltrim($contLine, " \t");
@@ -9280,28 +8108,6 @@ class BlockParser
 
                         continue;
                     }
-                    // Form A: an indented continuation line (no intervening blank).
-                    //
-                    // EXACTLY THE CONTENT COLUMN COMES OFF, never all of it.
-                    // This was an `ltrim`, so every line in the body arrived at
-                    // column 0 however deep the author wrote it, and the `dd`
-                    // was the one container in this parser whose body could not
-                    // say how far past its column a line sat. Two things need
-                    // that number, and both were unreachable:
-                    //
-                    //  - a footnote definition's body column, which PART 9 §16
-                    //    states RELATIVE to the definition and §10 I5 binds to
-                    //    the container's content column - so
-                    //    markup-carve/carve-php#1650's `:  [^1]: a` could never
-                    //    reach `content column + 2` and dropped its
-                    //    continuation;
-                    //  - a nested list's own column, so `- x` / `  - y` written
-                    //    in a `dd` came back as two SIBLINGS where carve-js
-                    //    nests them.
-                    //
-                    // Ordinary continuation text still folds through the branch
-                    // above. A recognized opener reaches this form-A branch and
-                    // is rebased after collection under carve#1729.
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= $continuationColumn) {
                         $formABlockOpen = true;
                         $body[] = IndentationHelper::stripLeadingColumns(
@@ -9345,28 +8151,6 @@ class BlockParser
                     if (preg_match(self::DEFINITION_TERM_LINE_PREFIX, $contLine) || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $contLine)) {
                         break;
                     }
-                    // AN OPEN FENCE IS NOT AN OPEN PARAGRAPH, so nothing folds
-                    // into it (markup-carve/carve#956). §24's STEP walk is driven
-                    // by the indentation a line SUPPLIES: this line supplies less
-                    // than the body's content column, so S1 MATCH PREFIXES stops
-                    // at the DEFINITION ENTRY, the fenced body is never reached
-                    // and S2 FENCED BODY never fires. S4 governs, and its lazy
-                    // branch continues an open PARAGRAPH - "fold in as lazy
-                    // paragraph text" has no meaning inside content that is not
-                    // markup. So the containers close, the `dd` holds an EMPTY
-                    // code block, and the line re-parses at document level.
-                    //
-                    // THE QUESTION IS "IS A PARAGRAPH OPEN NOW", not "did the
-                    // marker line open a fence". Once the body has collected a
-                    // line AT the content column the fence may have closed and a
-                    // paragraph reopened, and then the below-column line folds in
-                    // as it always did. Asking about the open PARAGRAPH is also
-                    // what makes a CLOSED fence with nothing after it end the
-                    // body: a finished code block is no more an open paragraph
-                    // than an unfinished one, and the list and block-quote
-                    // spellings both put that line at document level. This is
-                    // byte for byte the guard `collectPlainListItemContinuation()`
-                    // carries for the list spelling (carve-php#1003).
                     for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
                         $bodyLine = explode("\n", $body[$bodyStateCursor], 2)[0];
                         $bodyState = $this->advanceTrailingBlockStateWithFenceLookahead(
@@ -9406,85 +8190,6 @@ class BlockParser
                     if (!$bodyState['openParagraph'] || $bodyEndsWithAttribute) {
                         break;
                     }
-                    // Lazy continuation: a FLUSH-LEFT line with no blank before
-                    // it that does not start an interrupting block folds into the
-                    // open paragraph (the same rule list items and block quotes
-                    // use; djot-compatible). A block opener ends the definition.
-                    //
-                    // FLUSH-LEFT IS PART OF THE PRODUCTION, not an accident of
-                    // how the indent is measured (markup-carve/carve#932).
-                    // `definition_indent` states the body's content column, and
-                    // BELOW that column the body ENDS and the line is classified
-                    // in the surviving context - the same thing "below the content
-                    // column" means for a list item and for a footnote body.
-                    // Column 0 is not a special case of that, it is the ordinary
-                    // case: the body ends there too, and `lazy_continuation_line`
-                    // then picks the line up because that production is written
-                    // for a flush-left line.
-                    //
-                    // One or two columns of indentation reach neither. Folding
-                    // such a line in as lazy text gave a SUB-COLUMN indent the
-                    // PAST-the-column band's meaning, which is the third meaning
-                    // the clause refuses: it would make indentation depth mean
-                    // two different things one column apart. So
-                    //
-                    //     :: t
-                    //     :  body
-                    //      > q
-                    //
-                    // ends the body, and `> q` is classified where it now sits -
-                    // at document level, where an indented `>` is a paragraph
-                    // under the strict column-0 opener rule. At column 0 the same
-                    // rule opens a quote, and at column 3 the quote opens INSIDE
-                    // the `dd`; both are pinned as controls beside this.
-                    //
-                    // AN ATTRIBUTE LINE AT COLUMN 0 IS NOT THE BODY'S. It ends
-                    // the body like any other line that leaves no paragraph
-                    // open, and it has to do so BEFORE being collected: folding
-                    // it in put the characters inside a description that had
-                    // already ended, where `endContainerAttributeScope()`
-                    // rightly discards them, so the class was lost with nothing
-                    // reported (markup-carve/carve-php#1794, ruled on
-                    // markup-carve/carve#1801). Breaking here leaves the line at
-                    // document level, where §15 A2 FLOAT FORWARD attaches it to
-                    // the next visible block - which is what the blank-line
-                    // spelling of this host, a list item and a block quote all
-                    // already did.
-                    //
-                    // The tracker below already knew "an attribute block leaves
-                    // no paragraph"; it just learned it one line too late,
-                    // because it reads a collected line and this one had to not
-                    // be collected. Both forms are refused: the single-line
-                    // `{.k}` and the WRAPPED block, which is a block-attribute
-                    // line only once a later line closes it.
-                    //
-                    // ONLY COLUMN 0. Below the content column the guard above
-                    // has already broken out, and the line stays literal at
-                    // document level (corpus 157); AT the column it is inside
-                    // the description and §15 A4 drops it (corpus 329-…-5).
-                    //
-                    // A COMMENT LINE AT COLUMN 0 IS NOT THE BODY'S EITHER, and
-                    // for the same reason: it renders nothing, so it leaves no
-                    // paragraph open, so it ends the body - the ruling
-                    // markup-carve/carve#1809 gave the other four invisible
-                    // kinds, applied here (markup-carve/carve-php#1802). It has
-                    // to refuse the line BEFORE collection for the attribute
-                    // line's reason: folded in, the tracker below sees the
-                    // comment on the NEXT line and ends the body one line late,
-                    // with `tail` already inside a description that had ended.
-                    //
-                    // A COMMENT'S OWN COLUMN STAYING OPEN (§24 C3,
-                    // markup-carve/carve#1783) is a different question and is
-                    // untouched here. That property decides which line CHOOSES
-                    // the next line's owner; it does not make the comment itself
-                    // continue a body it renders nothing into. The band's own
-                    // collector still keeps the comment's arm.
-                    //
-                    // Both spellings are refused, because both are comment-shaped
-                    // at column 0: the line comment `%% c`, and the FENCE `%%%`,
-                    // whose closed form already broke out through
-                    // `startsInterruptingBlock()` and whose UNCLOSED form opens no
-                    // block (PART 9 §28) and so reached this branch and folded.
                     if (
                         $indent === 0
                         && !IndentationHelper::isBlankLine($contLine)
@@ -9580,25 +8285,6 @@ class BlockParser
             $first = $entries[0]->getPos();
             $last = $entries[count($entries) - 1]->getPos();
             if ($first !== null && $last !== null) {
-                // THE LIST ENDS AT ITS LAST PLACED CHILD, like every other
-                // closerless container (PART 12 §4, markup-carve/carve#1530).
-                //
-                // It used to end on the last line it CONSUMED. A floating
-                // attribute is scoped to the container that holds it
-                // (markup-carve/carve#1298), so the attribute line really is
-                // one the list read - and reading it was taken for owning it,
-                // which put the extent a line past the last description
-                // (carve-php#1362). Scope and extent are different questions:
-                // scope decides which blocks an attribute may reach, extent
-                // decides which source a node claims. The attribute attaches
-                // to nothing, leaves no attributes on this node either, and is
-                // the unattached attribute block §4 excludes by name - exactly
-                // as it is under a bullet item.
-                //
-                // The consumed-lines reading also needed its own walk back off
-                // lines the list did not own: a column-0 reference definition
-                // becomes a node of its own and the extent covered it anyway
-                // (carve-php#1371). The children answer both without one.
                 $dl->setPos(new SourceSpan(
                     startLine: $first->startLine,
                     endLine: $last->endLine,
@@ -9785,48 +8471,6 @@ class BlockParser
             $keptOnLastLine,
         );
 
-        // ONE PARSE FOR THE WHOLE STANZA, and the break comes back out of it.
-        //
-        // Each line used to be handed to the inline parser on its own, with a
-        // HardBreak appended between them unconditionally. That made the line
-        // ending a hard boundary no inline construct could cross, and PART 2
-        // says the opposite: an unclosed inline verbatim run "renders as a
-        // `<code>` span to the end of the BLOCK". A line block is a block like
-        // any other, so the run reaches its end here too - and the break the
-        // run swallows produces no `<br>` at all, because it is content inside
-        // the span rather than a sibling of it (markup-carve/carve#1282).
-        //
-        // It was never only verbatim: math, inline literal, an inline footnote
-        // and emphasis all closed at the line ending for the same reason, since
-        // all of them are decided by one pass over one string.
-        //
-        // So the stanza is joined and parsed once, and the SOFT breaks the
-        // parser produces for the newlines it did not swallow are promoted to
-        // hard ones afterwards - the same order the `::: \` hard-break block
-        // already uses, and the reason that sibling never had this defect.
-        // A COMMENT-ONLY BODY LINE IS DECIDED HERE, at the block layer, and
-        // that is the whole of markup-carve/carve#1333. `comment_line` is a
-        // BLOCK (PART 1's invisible blocks, PART 9 §10 I5), so PART 9 §23
-        // removes it WITH the other block-layer decisions - before any inline
-        // content exists. Deciding it inside the one inline pass below instead
-        // let an unclosed verbatim run opened on an EARLIER line claim the
-        // line under §21's verbatim exclusion and PUBLISH the comment's own
-        // text, on a document whose only defect is a stray backtick above it.
-        //
-        // What is left behind is an EMPTY VERSE LINE, not a blank line: the
-        // stanza split has already happened above, so emptying the line keeps
-        // the stanza's shape rather than ending it. The line boundary survives
-        // and the run carries it as a newline like any other it swallows.
-        //
-        // ONLY A LINE WHOSE FIRST CHARACTER IS `%` qualifies. Leading
-        // whitespace is CONTENT in verse (§23), so `comment_line`'s optional
-        // `[whitespace]` prefix has nothing to consume and an INDENTED `%%`
-        // line stays ordinary verse text.
-        //
-        // The trailing comment is a different construct and is not touched:
-        // `x %% secret` is `inline_comment` (PART 3, §21), which §21's third
-        // bullet leaves standing inside a verbatim run - an engine may leave a
-        // `%%` in a run and may never delete author bytes out of one.
         $verseCommentSources = [];
         $verseComments = $this->verseCommentLines($lines, $verseCommentSources);
 
@@ -9937,42 +8581,6 @@ class BlockParser
 
     /**
      * Put each removed comment back into the stanza, in document order.
-     *
-     * REMOVED FROM THE RENDER, NOT FROM THE TREE (PART 9 §23): the line is a
-     * `comment` node like any other, so the canonical writer can emit it back
-     * unchanged and at the same column. Every other target drops it, which is
-     * the point of removing it.
-     *
-     * A comment sits after the line boundary that opens its line, and THE
-     * BOUNDARY IS WHEREVER THE INLINE PARSE PUT IT. Counting only the
-     * paragraph's own children found it for a stanza of plain verse and nowhere
-     * else: an inline container spanning the emptied line holds the boundary
-     * among its OWN children, so the walk stepped over the container in one
-     * move, landed on a node that is not a break, and dropped the comment.
-     *
-     * ```
-     * ::: |
-     * *a
-     * %% secret
-     * c*
-     * :::
-     * ```
-     *
-     * lost the author's text entirely. Neither gate could see it: the comment
-     * publishes nothing, so the HTML agrees before and after, and the writer's
-     * bare `%%` re-parses to the tree the loss produced, so `parse(fmt(x))`
-     * still equals `parse(x)` while the text is gone
-     * (markup-carve/carve-php#1411, markup-carve/carve#1340).
-     *
-     * So the placement DESCENDS. The soft-to-hard break conversion deliberately
-     * does not {@see self::convertParagraphSoftBreaksToHardBreaks()} - whether a
-     * break at a nested boundary hardens is a separate and contested question
-     * (markup-carve/carve#1351), and the comment belongs at the boundary
-     * whichever way the boundary is spelled.
-     *
-     * Where a verbatim run SWALLOWED the boundaries the count runs past the
-     * comment's line in one step, and the comment does not survive - the line it
-     * opens is inside the run's content rather than between two nodes.
      *
      * @param \MarkupCarve\Carve\Node\Block\Paragraph $paragraph
      * @param array<int, \MarkupCarve\Carve\Node\Block\Comment> $comments
@@ -10132,28 +8740,6 @@ class BlockParser
 
     /**
      * Put a comment's authored LINE back into a reference's stored source.
-     *
-     * `rawRef` is documented as the authored source VERBATIM (PART 12 §3a) and
-     * the canonical writer emits it unchanged, so the collapsed `[a][]` is not
-     * rewritten to `[a][a]` and an attribute block written at the reference is
-     * not emitted twice. But the snapshot is taken by the INLINE parse, which
-     * reads a stanza whose comment lines this class has already emptied - so
-     * the reference alone stored a source one layer stale, and `carve fmt`
-     * wrote a bare `%%` where the author had written `%% secret`
-     * (carve-php#1417).
-     *
-     * The emptied line is still THERE, as an empty line, so the repair is to
-     * put the author's bytes back in it. The comment is placed in document
-     * order and each one emptied exactly one line, so the FIRST empty line
-     * still in the snapshot is this comment's own.
-     *
-     * A BLANK LINE CANNOT BE MISTAKEN FOR ONE. A blank line ends the stanza, so
-     * no stanza's joined text - and therefore no snapshot taken from it - holds
-     * an empty line that a comment did not put there.
-     *
-     * The other consumers are unaffected because they do not write this string
-     * through: every renderer that emits it empties the comment lines out again
-     * (§23), which is the same split carve-js makes.
      */
     private function restoreCommentInReferenceSnapshot(Node $host, string $authoredLine): void
     {
@@ -10181,30 +8767,6 @@ class BlockParser
 
     /**
      * Drop every comment a run's swallowed newlines carried away.
-     *
-     * IT DOES NOT SURVIVE A RUN THAT ATE ITS LINE -- NORMATIVE (§23). What an
-     * unclosed verbatim run carries across an emptied line is the NEWLINE, the
-     * same thing it carries across every boundary it swallows, so there is no
-     * boundary left in the tree for a `comment` node to sit on: the run's value
-     * holds an EMPTY LINE instead. Appending the node anyway puts its span
-     * before the run that contains it and after the node that follows it, which
-     * PART 12 containment refuses.
-     *
-     * The writer's answer for that empty line is PART 11 §7c: an empty line
-     * inside a verbatim run is spelled `%%`, the one spelling that empties to
-     * nothing. The author's own comment TEXT is not recoverable there and is
-     * not required to be - the run consumed it, and §1 is about the tree.
-     *
-     * THE RUN KEEPS ITS OWN POSITION. This used to drop it, on the reading
-     * that a value reassembled around the emptied line is describable by no
-     * offset pair. It is: a verbatim run's position is an EXTENT that begins
-     * at the markup opening the construct (PART 12 §4, markup-carve/carve#913),
-     * so it covers the run's delimiters and never equalled the value in the
-     * first place - the emptied line is inside the region the run really did
-     * consume. Dropping it is the same over-reach carve-php#1369 already
-     * corrected for an indented fence, whose value drops the stripped indent
-     * for the same reason; carve-js and carve-rs both publish the extent
-     * (carve-php#1450).
      *
      * @param \MarkupCarve\Carve\Node\Node $run
      * @param list<array{0: int, 1: \MarkupCarve\Carve\Node\Block\Comment, 2: string}> $pending
@@ -10298,36 +8860,6 @@ class BlockParser
     /**
      * Promote a stanza's soft breaks to hard ones, AT EVERY DEPTH.
      *
-     * ONE LINE BOUNDARY PRODUCES ONE `<br>`, HOWEVER THE BOUNDARY IS SPELLED
-     * (PART 9 §23, markup-carve/carve#1351). The promotion used to reach DIRECT
-     * children only, on the reasoning that a break inside an emphasis run is
-     * content belonging to that construct. That reading made the engine
-     * contradict itself: `*a\` over `b*` put a `<br>` inside the `<strong>` and
-     * `*a` over `b*` put none, so the same boundary produced a different
-     * document for the backslash spelling than for the plain one.
-     *
-     * THE EXEMPTION IS NODE-PRESENCE, NOT DEPTH - a difference in KIND. A
-     * backslash break and an unclosed verbatim run are exempt because they
-     * leave NO soft break behind: the backslash already produced a hard break,
-     * and the run swallowed the boundary into its own content as a newline. So
-     * the rule is driven by node kind and applies wherever the node is, which
-     * is what this walk now does.
-     *
-     * THE BREAK IS PLACED FROM ITS LINE, NOT FROM THE MAP. Resolving it through
-     * the map is what IDENTIFIES which line ending survived - breaks and line
-     * endings are both in document order, and a swallowed ending is simply one
-     * that no break claims - but the resolved offset is not a span the break
-     * can keep. A text offset at the end of a line means two things at once:
-     * the exclusive end of the text before it, and the start of the newline.
-     * Those are the same byte until a trailing one-column run is dropped, and
-     * then they are one apart, so no single map answers both and the first
-     * segment covering the offset wins. Letting the break take that answer put
-     * it on the discarded space instead of the newline - a WRONG span, which
-     * PART 12 §4 rates below no span at all.
-     *
-     * So the text keeps the map and the break is stamped from its own line,
-     * which is where a line ending's extent was always measured.
-     *
      * @param \MarkupCarve\Carve\Node\Block\Paragraph $paragraph
      * @param list<array{0: int, 1: int}> $lineEndings Text offset and line number, ascending.
      */
@@ -10405,40 +8937,6 @@ class BlockParser
     /**
      * Expand one line-block line, preserving significant whitespace.
      *
-     * Leading indentation is always kept (even a single column). An inner or
-     * trailing run of TWO OR MORE columns is a medial gap (inline alignment,
-     * e.g. the caesura of Old English verse) and is kept too; a lone inner space
-     * stays an ordinary, collapsible space so a long line can still wrap between
-     * words. Preserved columns become the internal non-breaking-space
-     * placeholder (U+E000), which each renderer converts (HTML &nbsp;, Markdown
-     * U+00A0, plain space) and which never collides with a literal U+00A0 in the
-     * author's text. Tabs expand to four-column stops.
-     *
-     * A PURE STRING TRANSFORM, and that is the fix. It used to append inline
-     * NODES, which forced a separate inline parse per line - and, because a
-     * preserved run also flushed, per whitespace-delimited segment WITHIN a
-     * line. Every one of those parses was a fresh pass over a fresh string, so
-     * no inline construct could reach past the nearest gap. Returning the
-     * rewritten text instead lets the caller join the stanza and parse it once.
-     *
-     * The returned runs are the regions a segment can describe, each as
-     * `[offset in the expanded line, column in the source line, byte length in
-     * the expanded line, byte length in the source]`. The two lengths are equal
-     * for a region the expansion did not rewrite: a literal character is copied
-     * unchanged, and a one-column inner run is exactly one source character
-     * replaced by one space. They DIFFER for a preserved run of plain spaces,
-     * which becomes one three-byte sentinel per source column - a shape
-     * {@see \MarkupCarve\Carve\Parser\SourceMap::addSentinelRun()} carries and
-     * an ordinary segment cannot (carve-php#1351). A preserved run holding a TAB
-     * is still not returned at all, because a tab widens to between one and four
-     * columns and no fixed correspondence describes it.
-     *
-     * The third value is the byte length of the line the expansion KEPT: the
-     * whole line, unless it ended in a dropped one-column whitespace run. It is
-     * what a span over the line has to stop at, and it is returned from here
-     * rather than re-derived at the call site because the drop rule below is
-     * the only place that decides it (carve-php#1363).
-     *
      * @param string $line
      * @param int $lineNo
      *
@@ -10488,23 +8986,6 @@ class BlockParser
                     $runs[] = [$runStartInExpanded, $runStartInSource, $wsStart - $runStartInSource, $wsStart - $runStartInSource];
                     $runStartInSource = null;
                 }
-                // A run of PLAIN SPACES is one sentinel per source character,
-                // so the map can carry it as a rewritten run and the nodes over
-                // it keep their positions (carve-php#1351). A tab is the one
-                // thing that breaks the correspondence - it widens to between
-                // one and four columns depending on where it starts - so a run
-                // holding one is left unmapped exactly as before, which is why
-                // the tab form of this construct is unplaceable in every engine
-                // rather than merely unplaced in this one.
-                //
-                // NO SECOND SPELLING of that rule here. A width test would pass
-                // a run whose tabs happen to widen by one each, and the map
-                // would then hold a segment claiming more source columns than
-                // the run has - which OVERLAPS the literal run after it, leaves
-                // the segment list non-tiling, and costs every other node in the
-                // stanza its position. `SourceMap::addSentinelRun()` asks the
-                // source the same question when it verifies a span, so the rule
-                // is written once and checked once.
                 if (!str_contains(substr($line, $wsStart, $offset - $wsStart), "\t")) {
                     $runs[] = [strlen($expanded), $wsStart, $width * strlen(SourceMap::INDENT_SENTINEL), $width];
                 }
@@ -10759,26 +9240,6 @@ class BlockParser
                                 $headerCell->setAttributes($cell->getAttributes());
                                 // Same source as the cell it replaces.
                                 $headerCell->setPos($cell->getPos());
-                                // BOTH AXES, and only one of them is re-supplied
-                                // here. A cell's marker run carries a vertical
-                                // alignment as well as a horizontal one, and the
-                                // shared reader had already put it on the cell
-                                // this promotion REPLACES. The constructor above
-                                // has no slot for it - it is reachable only
-                                // through the setter - so a valign not carried
-                                // over is dropped on the floor with the
-                                // discarded cell, and the header alone lost what
-                                // the identical run on a body cell one line down
-                                // kept (carve-php#1745).
-                                //
-                                // AND IT DECLARES THE COLUMN, exactly as the
-                                // canonical `|=` header row does: the body walk
-                                // below seeds `$columnValigns` from a header
-                                // cell's own marker, and a delimiter-form header
-                                // never reaches that line because the row was
-                                // parsed as a body row before being promoted.
-                                // Without the seed a plain body cell under a
-                                // `?^` header inherited nothing.
                                 if ($cell->hasExplicitVerticalAlignment()) {
                                     $headerCell->setVerticalAlignment($cell->getVerticalAlignment());
                                     $columnValigns[$cellIndex] = $cell->getVerticalAlignment();
@@ -11144,27 +9605,6 @@ class BlockParser
      * same single LEFT-TO-RIGHT grid walk the carve-js renderer uses (carve spec
      * section 96).
      *
-     * Every source cell occupies exactly one grid column and its index IS its
-     * grid column - and, per carve-js parity (carve-php#527), EVERY column
-     * keeps an output cell of its own, marker or not: a row never loses a cell,
-     * so every row in a table has the same width. For each column:
-     *  - a `<` (colspan marker) is always its own empty cell. When there is a
-     *    NON-SKIPPED cell to its left - scanning PAST columns already merged
-     *    into another span - it ALSO grows that cell's reported colspan and is
-     *    recorded as consumed. At the very left edge (no cell to the left) it
-     *    stays unconsumed, degrading to a plain empty cell a following `<` can
-     *    still grow.
-     *  - a `^` (rowspan marker) is likewise always its own empty cell, and is
-     *    additionally recorded as consumed when its column has an open origin
-     *    from a row above (the rowspan pass extends that origin once per row).
-     *    With no cell above it stays unconsumed - a degenerate marker.
-     *  - any other cell is a normal content cell.
-     * A consumed column's own reported width is 1 (its span was credited to
-     * the cell it merged into, matching carve-js keeping a placeholder rather
-     * than a count on the origin); the caller uses `consumedRowspanColumns` /
-     * `consumedColspanColumns` to know which columns must NOT become a new
-     * open origin for a later row, exactly as if they had been dropped.
-     *
      * @param array<int, array{content: string, attributes: string, marker: string, offset: int|null, cellOffset?: int|null, verbatim: bool, rawLength: int|null, raw: string|null, sourceChunks?: list<array{int, int, string}>}> $mergedCellsWithAttrs
      * @param array<int, \MarkupCarve\Carve\Node\Block\TableCell> $columnOrigin Per-column open
      *   origin cell carried down from earlier rows.
@@ -11331,31 +9771,6 @@ class BlockParser
     /**
      * Where a footnote body resumes after a run of blank lines, or null when
      * the run ends the definition.
-     *
-     * THE WHOLE RUN, NOT THE NEXT LINE. A body extends to following lines that
-     * reach its content column (PART 9 §16), and a `+` marker keeps it open
-     * too (§17). Asking that of `lines[$i + 1]` answers it about a line that is
-     * itself blank as soon as there are two blanks, so the definition ended at
-     * the second one and an indented continuation was ejected to a top-level
-     * paragraph - and not to where it was written either: it landed ahead of
-     * the endnotes section, so the content moved backward past unrelated
-     * blocks. Ruled in markup-carve/carve#1620: the continuation stays in the
-     * note. A blank run does not end an indented block anywhere else in Carve -
-     * a list item, a quote and a container all keep one across it - and nothing
-     * in §16 says a footnote definition differs.
-     *
-     * THIS IS NOT §11 N1a. That fires at three or more blanks and only before a
-     * LIST MARKER; this fired at two, and for a plain paragraph as readily as a
-     * list, so the boundary settled in carve#1430 is untouched. Callers push
-     * the run through INTACT rather than collapsing it, so a genuine N1a
-     * boundary written INSIDE a note body still reaches the parser as the
-     * author wrote it.
-     *
-     * ONE SPELLING FOR THE THREE THAT EXISTED. The container collector already
-     * scanned the run this way and the definition skipper did not, so a body
-     * the one claimed the other released - the shape carve#1363 fixed once at
-     * one site and left standing at another. Extracted so the next reader finds
-     * one rule rather than deciding which copy is current.
      *
      * @param array<string> $lines
      * @param int $blank the index of the first blank line of the run
@@ -11721,29 +10136,6 @@ class BlockParser
 
         $content = implode("\n", $contentParts);
 
-        // TRAILING WHITESPACE (NORMATIVE, grammar PART 2 NO TRAILING WHITESPACE;
-        // pinned by corpus 102 and 268). A `whitespace` run at the end of a
-        // CONTENT LINE is DROPPED. It is applied here, to the SOURCE, rather
-        // than to rendered output: a renderer cannot tell authored trailing
-        // whitespace from spaces a construct legitimately produced, so trimming
-        // the output ate the content of an all-space inline literal
-        // (`` !`  ` `` alone rendered `<p></p>` instead of `<p>  </p>`).
-        //
-        // EVERY LINE, not just the paragraph's last. The rule was written down
-        // for the final line and implemented as a single `rtrim($content)`,
-        // which by construction could not reach an interior line - so
-        // `abc<SP>` + newline + `def` and `abc` + newline + `def` were
-        // different documents. They are the same document
-        // (markup-carve/carve#926), and PART 12 §7 asserted the opposite until
-        // it was corrected. This loop is the whole of the fix for a paragraph, a
-        // list item, a block quote line and a footnote body line, because all
-        // four fold through here.
-        //
-        // Space and tab ONLY. `whitespace = ' ' | '\t'` (PART 1,
-        // markup-carve/carve#890) and every other invisible character is
-        // content: an implementation that strips with a Unicode whitespace
-        // property, or a language's legacy `\s`, fails seven of the nine rows
-        // corpus 268-7 pins, and a plain-space fixture cannot see it.
         $physicalLines = explode("\n", $content);
         foreach ($physicalLines as $index => $physicalLine) {
             $trimmedLine = rtrim($physicalLine, " \t");
@@ -11778,22 +10170,6 @@ class BlockParser
         }
 
         $paragraph = new Paragraph();
-        // WHERE THE PARAGRAPH BEGAN, relative to its container's content column.
-        // `$lines` is already dedented to that column, so a leading space here is
-        // a space the author put ABOVE it - and a block image is a top-level
-        // block construct, so section 15's strict column-0 rule reaches it. The
-        // reader is `promoteBlockImages()`, which without this could not
-        // tell ` ![a](u)` from `![a](u)`: the two build the same paragraph and
-        // render the same bytes, and only the published TREE differs
-        // (markup-carve/carve#1660).
-        //
-        // `$indent` above is not this number - it has the content column added
-        // back for position reporting - so it is measured separately, at the top
-        // of this method rather than here: `$line` and `$content` are both
-        // reassigned while the paragraph folds, so asking them at this point
-        // answered for the LAST line. `![a` / `b](/i)` - one image whose alt text
-        // crosses a line boundary, corpus 351-4 - was read as indented and
-        // stopped promoting.
         if ($firstLineIsAboveContentColumn) {
             $this->paragraphsAboveContentColumn[spl_object_id($paragraph)] = true;
         }
@@ -12125,26 +10501,6 @@ class BlockParser
     /**
      * Every container that has NO CLOSER, and therefore ends at its last placed
      * child rather than at the lines it consumed (PART 12 §4).
-     *
-     * ONE PREDICATE, NOT ONE PATCH PER TYPE. This used to be an `instanceof`
-     * chain written inline at the one call site, and the chain is why the rule
-     * was wrong: a type had to be REMEMBERED into it, so `Heading`, `Footnote`,
-     * `DefinitionTerm` and `Figure` were simply never added and kept deriving
-     * their extent from the lines they consumed. That is the same rule with two
-     * spellings, and the second one drifted - `checkStopsAtChildren` in the spec
-     * repository reported 34 findings against this engine over the corpus, on
-     * three of those four types, while every type the chain did name agreed.
-     *
-     * The set mirrors `ENDS_AT_LAST_CHILD` in `scripts/spec/ast-positions.mjs`,
-     * which is the rule that measures it, so the two can be diffed by eye.
-     * `Paragraph` is in that set and absent here because the branch above
-     * already gives it an exact extent from both ends, which is strictly
-     * stronger than this one. `DefinitionDescription` is here and not there: it
-     * has no closer either, so the rule holds for it, and the spec's set names
-     * only the types its own checker walks.
-     *
-     * A container that DOES have a closer - a div, a fence, a table - is absent
-     * by construction: it ends at that closer, which is source no child owns.
      */
     private static function endsAtLastChild(Node $node): bool
     {
@@ -12773,25 +11129,6 @@ class BlockParser
 
     /**
      * How far the row's own start moved when its container prefix was stripped.
-     *
-     * A table inside a list item or a quote reaches the cell splitter already
-     * re-indented, so every column the split reports is short by whatever the
-     * strip removed. The row's OPENING DELIMITER anchors the two copies against
-     * each other: it is the first `|` or `+` on the line in both, and the text
-     * before it is exactly the prefix in question.
-     *
-     * Measured once per row rather than searched for per chunk. A search would
-     * have to accept the first match at or after the copied column, and a
-     * container marker can BE that match - `> - | - |` gave the cell's `-` the
-     * list marker's offset - while two cells holding the same text would both
-     * take the earlier one (carve-php#1450, raised by codex review).
-     *
-     * NO GUARD ON A LINE THAT HAS NO DELIMITER, deliberately. Such a line
-     * yields a delta that puts the chunk outside its own text, and
-     * {@see self::anchoredChunkColumn()} then declines the segment - so the
-     * failure mode is a missing position, never a wrong one, which is what §4
-     * asks for. Guards for it were written first and were dead across the whole
-     * suite, which is what they would have stayed.
      */
     private function rowPrefixDelta(int $index, string $line): int
     {
@@ -12940,25 +11277,6 @@ class BlockParser
      * A cell rebuilt from `+` continuation rows is ONE text node with NO span,
      * which is what carve-js emits (carve-php#612).
      *
-     * carve-php#608 gave it a span by splitting the cell into one node per
-     * source chunk. Every one of those spans was correct, and the tree was
-     * still wrong: PART 12 says a consumer written against one implementation
-     * must be able to read another's output, and this engine alone emitted
-     * three nodes where the reference emits one. Span-correctness testing
-     * cannot see that - three healthy spans read exactly like one.
-     *
-     * The obvious repair, one node spanning first chunk to last, is also wrong
-     * here: that region contains the `+ |` markers the value does not, and
-     * this repo already requires a text span to slice back to its value
-     * (SourcePositionTest::testNoCorpusDocumentGetsAWrongTextSpan). Relaxing
-     * that rule to fit this case would trade a real invariant for two nodes'
-     * worth of coverage.
-     *
-     * So the content is genuinely not a contiguous slice and the node is left
-     * unplaced, exactly as in carve-js. Inline nodes that DO land on an
-     * authored chunk still get positions through rebuiltCellSourceMap; only
-     * the all-plain rebuilt text is unplaced.
-     *
      * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
      * @param array{sourceChunks?: list<array{int, int, string}>} $cellData
      * @param string $content
@@ -12970,24 +11288,6 @@ class BlockParser
 
     /**
      * Where a caption's text came from, ONE SEGMENT PER LINE IT WAS BUILT FROM.
-     *
-     * A caption is a FOLDED construct: `^ cap` plus every continuation line
-     * below it, joined with "\n" into a string the block layer BUILT. This used
-     * to be mapped by searching the `^ ` source line for the whole joined
-     * string, which can only succeed while the caption occupies one line. A
-     * wrapped caption is not a run of any single line, so the search declined,
-     * the caption parsed with NO map at all, and every inline in it came back
-     * unplaced - taking the host's extent with it, because a figure derives its
-     * span from the children it holds (carve-php#1819). The rendered HTML is
-     * identical either way, which is why only the spec repo's three-way span
-     * comparison could see it.
-     *
-     * Folding is what {@see self::foldedLinesMap()} already describes, for the
-     * heading and the definition term that fold the same way, so the caption
-     * reaches it through the same list rather than through a second spelling of
-     * the same idea. `$captionLines[0]` is the `^ ` line's content and
-     * `$captionLines[k]` the line `k` below it, which is the order the
-     * collector above built them in.
      *
      * @param int $start Index of the `^ ` line.
      * @param list<string> $captionLines The caption's text, one entry per source line.
@@ -13040,28 +11340,6 @@ class BlockParser
     ): bool {
         $line = $lines[$i];
 
-        // A MARKER AT A LIST ITEM'S CONTENT COLUMN OPENS A SUBLIST, first in the
-        // item or not (PART 9 §24 C3, markup-carve/carve#1517). These lines are
-        // the item's body, so their column 0 IS that content column: "AT
-        // content_column: dedented to the body's column 0, a block opener nests
-        // and a list marker opens a sublist", holding "whether or not a blank
-        // line precedes the child". §10 I2 defers to it by name rather than
-        // competing with it.
-        //
-        // The collector answered it for the FIRST marker only, by injecting a
-        // synthetic blank before it while `!$subSawListMarker`. That guard is
-        // right about what it protects - a SIBLING marker of the sublist already
-        // open must not get a loosening blank - and wrong about how to tell the
-        // two apart, because whether the sublist is still open is a fact about
-        // the parsed stream and not about whether a marker has been seen. So the
-        // question moves to where the stream is actually parsed, and the
-        // collector's blank stays where it is: for the first marker both answers
-        // agree, and after it only this one can be right.
-        //
-        // COLUMN 0 EXACTLY. §24 C3's other band is explicit that BELOW the
-        // content column "a list marker folds as lazy item text", and the
-        // collector forwards such a line with its residual indent intact - so
-        // the leading-whitespace test is what keeps the two bands apart.
         if (
             $itemBody
             && $line !== ''
@@ -13084,24 +11362,6 @@ class BlockParser
             return true;
         }
 
-        // A WRAPPED ATTRIBUTE BLOCK INTERRUPTS TOO. §15 does not distinguish an
-        // attribute block written on one line from one broken across several -
-        // `attr_separator` admits a line break between attributes - so `{.k` +
-        // `#x}` floats forward exactly as `{.k #x}` does. The predicate below
-        // reads ONE line, and `{.k` is not a block-attribute line on its own,
-        // so the whole wrapped form folded into the paragraph as literal text
-        // and rendered its own source (`{.k` and `#x}` both visible, the second
-        // as an id-shaped inline). It is the same question the attached-run
-        // classifier asks, so it is asked through the same helper.
-        // NOT GATED ON `$topLevel`, and that is a deliberate divergence from
-        // carve-rs on a shape the corpus does not pin. §15 carves out no
-        // container: a wrapped attribute block is one wherever it is written,
-        // and this engine now reads it that way at the top level, inside a
-        // quote and inside a definition description - the last of which corpus
-        // 329-6 pins. carve-rs agrees on all three and then keeps
-        // `- q` / `  {.k` / `  #x}` as LITERAL TEXT inside a list item, where
-        // it reads the SINGLE-line form as an attribute in the same position.
-        // That is the inconsistent answer of the four, so it is not copied.
         if ($this->wrappedBlockAttributeLength($lines, $i) !== null) {
             return true;
         }
@@ -13305,24 +11565,6 @@ class BlockParser
      */
     protected function isReferenceDefinitionLine(string $line): bool
     {
-        // NOTE the `^` is NOT excluded here, unlike the two REGISTRATION sites.
-        // This predicate answers "does this line render nothing", which a
-        // footnote definition also does - it is what makes one interrupt a
-        // paragraph and end a definition term. Excluding `[^…]:` here stopped
-        // footnote definitions doing either.
-        //
-        // Precedence between the two definition kinds is decided where they are
-        // REGISTERED, not here.
-        //
-        // ANCHORED, THROUGH THE COLLECTOR. This predicate is the INTERRUPTION
-        // side of the rule, and its docblock above already says it has to accept
-        // exactly what the definition parser accepts. While the parser's pattern
-        // ended in a swallow-everything tail, an open-coded copy here got the
-        // right answer by accident, because `[a]: /u {.c}` matched it raw. With
-        // the line anchored (markup-carve/carve#911) it cannot: a copy would
-        // have to split the trailing attribute block off before testing, and
-        // `[a]: /u {.c}` would stop interrupting a paragraph. So the copy is
-        // gone and the collector answers.
         return $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null
             || preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1;
     }
@@ -13608,27 +11850,6 @@ class BlockParser
             $i++;
         }
 
-        // TRAILING WHITESPACE (NORMATIVE, grammar PART 2 NO TRAILING
-        // WHITESPACE; pinned by corpus 268). A caption line is a CONTENT LINE,
-        // so a `whitespace` run at its end is dropped - the same rule the
-        // paragraph collector applies a few thousand lines up, and for the same
-        // reason: it belongs to the SOURCE, because a renderer cannot tell an
-        // authored trailing space from one a construct legitimately produced.
-        //
-        // The caption path had no spelling of the rule at all. HTML looked
-        // right only because HtmlRenderer trimmed its own output, which is the
-        // very substitution the paragraph note warns against: it also ate the
-        // content of an all-space inline literal, so `^ x !` + backtick-space-
-        // space-backtick published `<caption>x</caption>` where the identical
-        // paragraph published `<p>x   </p>`. The published AST kept the space
-        // either way (markup-carve/carve#963).
-        //
-        // EVERY LINE, not just the first: a caption folds its continuation
-        // lines in here exactly as a paragraph does.
-        //
-        // Space and tab ONLY - `whitespace = ' ' | '\t'` (PART 1,
-        // markup-carve/carve#890). Every other invisible character is content
-        // and survives, which is what corpus 268-7 pins.
         foreach ($captionLines as $captionIndex => $captionLine) {
             $captionLines[$captionIndex] = rtrim($captionLine, " \t");
         }
@@ -13892,30 +12113,6 @@ class BlockParser
     /**
      * Whether a line ENDS an open definition term.
      *
-     * The term's own rule (PART 2, `definition_term`): "A term folds a following
-     * plain line as a soft break; a blank line, a new `::`/`: ` marker, or a
-     * BLOCK OPENER ends it."
-     *
-     * A `^ ` CAPTION LINE IS NOT ONE HERE (markup-carve/carve#1028). PART 9 §4
-     * gives a caption exactly five hosts - an image paragraph, a code block, a
-     * block quote, a table and a standalone display-math block - and a
-     * definition term is none of them. PART 2's `caption_slot` note draws the
-     * conclusion: "A `^ ` line that follows neither a slot-carrying host nor one
-     * of those two is ordinary inline/paragraph content." Ordinary inline
-     * content is precisely what `term_continuation_line` folds, and §10's two
-     * enumerations of what OPENS a block - I1's visible openers and I5's
-     * invisible ones - name no caption line in either. So `:: term` / `^ cap`
-     * is one `<dt>` holding both lines.
-     *
-     * This engine already read it that way for an open PARAGRAPH: `para` /
-     * `^ cap` is one paragraph here, as it is in carve-js and carve-rs. Only the
-     * term disagreed, because it reaches the decision through
-     * `startsNewBlock()`, whose caption arm was written for the block quote -
-     * where a caption really does end the fold, because it ATTACHES to the quote
-     * (PART 2, LAZY CONTINUATION: "not a caption ('^ ' ...), which attaches to
-     * the blockquote instead"). That arm stays where it is; it just does not
-     * reach a host that cannot take a caption.
-     *
      * @param string $line
      * @param array<string>|null $lines
      * @param int|null $index
@@ -13969,29 +12166,6 @@ class BlockParser
             return true;
         }
 
-        // This line is a flush-left lazy candidate by construction, so it is at
-        // DOCUMENT level - where an abbreviation definition is a definition
-        // (PART 12 §7). An INVISIBLE CONSTRUCT interrupts, so it ends the quote
-        // rather than folding into it. `startsNewBlock` cannot answer this: it
-        // is also asked about lines inside containers, where the abbreviation
-        // shape is ordinary paragraph text.
-        //
-        // ALL FOUR INVISIBLE KINDS, not the abbreviation alone
-        // (markup-carve/carve#1028). PART 2's LAZY CONTINUATION clause names
-        // them in one breath - a line continues the quote provided it is "not a
-        // block-opener: a heading, table, fenced code, `:::` div, thematic
-        // break, OR an 'invisible' reference / footnote / abbreviation
-        // definition OR COMMENT -- each ends the blockquote and starts that
-        // block OUTSIDE it" - and PART 9 §10 I5 adds the block-attribute line to
-        // the same set, with I6 applying the relation to "EVERY open paragraph,
-        // including a blockquote's lazy continuation".
-        //
-        // Only one of the four was here, so this engine ended the quote on a
-        // reference definition and kept it open across a `%%` comment and a
-        // `{…}` line. That is not cosmetic: `> quote` / `%% c` / `more` put
-        // `more` INSIDE the quote as a second paragraph, where carve-js and
-        // carve-rs make it a sibling paragraph of the document - one line of the
-        // author's prose, attributed to a quotation they did not write it in.
         if ($this->isInvisibleOrAttributeLine($line)) {
             return true;
         }
@@ -14273,21 +12447,6 @@ class BlockParser
         string $line,
         bool $atContentColumn = false,
     ): array {
-        // THE WALK CARRIES AN OFFSET, NOT A SUFFIX. Both recursive steps below
-        // strip a container prefix, and each one used to hand the step under it
-        // a fresh COPY of the rest of the line - so a line alternating a quote
-        // marker with a bullet cost the line length once per level, and 8 KB of
-        // `> - ` took about 2.8 s with the ratio per doubling still climbing
-        // (markup-carve/carve-php#1437). PART 9 section 25 is normative about
-        // refusing rather than degrading, so that is a defect and not a slow
-        // path. It is the same answer markup-carve/carve-php#1426 got for the
-        // marker walk one container over, and the same known-bad pattern
-        // markup-carve/carve-php#1407 and markup-carve/carve-php#1442 name.
-        //
-        // Three facts belong to the LINE rather than to the offset the walk has
-        // reached, so they are computed once here and carried down: where the
-        // line ends, where `rtrim($line, " \t")` would end it, and whether it
-        // holds an INTERIOR newline. None of them moves as the offset advances.
         return $this->advanceTrailingBlockStateAt(
             $state,
             $line,
@@ -14472,21 +12631,6 @@ class BlockParser
                 return $state;
             }
 
-            // AN UNTERMINATED DIV'S OWN TRAILING BLOCK DECIDES
-            // (markup-carve/carve#909, corpus 270 and 271). PART 1 S4 asks
-            // whether an open paragraph is on the stack, not which container
-            // kind is; a div the flush-left line can still reach has its own
-            // last block, and a line of body text in it IS an open paragraph.
-            // Forcing false here answered "no" for every line inside the div
-            // alike, so `- item` / `::: note` / `body` / `tail` ended the item
-            // where the corpus folds `tail` into the div's paragraph. The EMPTY
-            // case - a div whose opener is the last thing on the stack - is
-            // decided by the opener branch below, which sets false and is what
-            // keeps `::: note` / `tail` a sibling.
-            //
-            // A NESTED OPENER IS STILL AN OPENER, and leaves an EMPTY container
-            // on the stack rather than a paragraph - the same answer the outer
-            // opener gets one level up. A code fence opener leaves none either.
             if ($this->fencedBlockParser->parseDivFenceOpener(self::subjectFrom($line, $at, $end)) !== null) {
                 $state['divDepth']++;
                 $state['openParagraph'] = false;
@@ -14541,19 +12685,6 @@ class BlockParser
         }
 
         if (IndentationHelper::isBlankFrom($line, $at)) {
-            // A blank line closes the current block. Until a fresh block opens,
-            // a dedented line is a new top-level block, not a continuation.
-            // The paragraph that was absorbing malformed fences ends here too,
-            // so the next fence-shaped line is an opener again. `$wasAbsorbing`
-            // is deliberately not carried past this point.
-            //
-            // A FOOTNOTE DEFINITION'S BODY IS THE EXCEPTION, because the blank
-            // is INSIDE that block rather than after it: THE BLOCK'S EXTENT IS
-            // THE DEFINITION'S, BLANK LINES AND ALL (PART 1 S4,
-            // markup-carve/carve#1363). The body run is carried across so the
-            // line below the blank is still the note's, and only a line that
-            // stops reaching the body column gives the container its paragraph
-            // back.
             $state['inFootnoteBody'] = $wasInFootnoteBody;
             $state['afterInvisible'] = $wasInFootnoteBody;
             $state['openParagraph'] = false;
@@ -14657,34 +12788,6 @@ class BlockParser
             return $state;
         }
 
-        // A QUOTE IS DECIDED BY THE BLOCK INSIDE IT, not by being a quote.
-        // PART 1 S4 asks whether an open paragraph is on the stack; a quote is
-        // a container, so the answer is its own last block's. `> q` holds an
-        // open paragraph and a column-0 line folds into it; `>` alone holds
-        // nothing and the item closes (carve#572); `> # H` holds a HEADING,
-        // which is closed, and the item closes there too (corpus 326-11).
-        //
-        // Recursing on the quote's content is what makes those one rule rather
-        // than three: the marker-only case is the blank-line branch one level
-        // in, and the heading case is the heading branch one level in. Spelled
-        // as an `isEmptyQuoteLine` special case, only the degenerate answer was
-        // reachable and every non-empty quote reported an open paragraph.
-        // RTRIM ONLY, and then {@see ContainerPrefix} alone. The two halves are
-        // separate rules and each was got wrong by the obvious spelling:
-        //
-        //  - NOT ltrim. `>  >` is ONE marker and the content ` >`, so stripping
-        //    the leading space before the recursive step re-reads that content
-        //    as a second marker with an empty tail - the two-spellings defect
-        //    carve-php#969 removed, reintroduced one recursion deeper.
-        //  - BUT rtrim. Trailing whitespace is dropped from a content line, so
-        //    `> >` and `> >` plus a tab are the same line, and the parser builds
-        //    an empty quote for both. Reading the tab as content made them
-        //    disagree (carve-php#967 is the same class one level up).
-        // RTRIM AS A NUMBER. `$trimmedEnd` is where `rtrim($line, " \t")` ends,
-        // so asking {@see ContainerPrefix::quoteMarkerWidth()} to stop there
-        // reads the marker off the trimmed line without building it - and the
-        // step below inherits that end, exactly as it used to inherit the
-        // trimmed string.
         $quoteWidth = ContainerPrefix::quoteMarkerWidth($line, $at, $trimmedEnd);
         if ($quoteWidth !== null) {
             // The recursive step starts from the INITIAL state on every line,
@@ -14706,36 +12809,7 @@ class BlockParser
                 false,
             );
             $state['openParagraph'] = $inner['openParagraph'];
-            // A MARKER ON A QUOTE'S LAZY CONTINUATION IS TEXT (PART 9 §10 I6,
-            // markup-carve/carve-js#1200, markup-carve/carve-php#1575). §24 C3
-            // gives a marker at the item's content column a sublist, but only
-            // where that column is what the line reaches first - and a quote
-            // holding an OPEN PARAGRAPH reaches it before the item does: `> q` /
-            // `- s` is one quoted paragraph at the top level in this engine
-            // already, and the same two lines inside an item have to be one
-            // there too.
-            //
-            // IT IS THE QUOTE'S PARAGRAPH, NOT THE QUOTE. `openParagraph` above
-            // is true for the quote and for ordinary prose alike, and §24 C3
-            // really does open the sublist under prose - so a flag that only
-            // said "a paragraph is open" would take every marker in every item.
-            // This says which container is holding it, which is also what keeps
-            // `- > # h` / `  - s` opening a sublist: a heading leaves the quote
-            // with no paragraph to fold into, and the recursion above has
-            // already answered that.
             $state['quoteParagraph'] = $inner['openParagraph'];
-            // THE ROW ABOVE IS THE ONE IN THE SAME CONTAINER (PART 9 §5 T6,
-            // markup-carve/carve-php#1436). A table inside the QUOTE is not
-            // above a `+` line written in the ITEM, so the quote's run is
-            // carried in a slot of its own and this container's own `inTable`
-            // stays as the top of this call left it: false.
-            //
-            // Handing the quote's table outward made `- > | a |` / `  + b |`
-            // read the `+` line as that table's continuation row, so the item
-            // reported no open paragraph and the flush-left line went out -
-            // where PART 1 S4 has PROSE reopening the item's paragraph, because
-            // it does not ask whether the open paragraph is the container's
-            // FIRST block (corpus 361).
             $state['quotedTable'] = $inner['inTable'];
 
             return $state;
@@ -14846,27 +12920,6 @@ class BlockParser
             return $state;
         }
 
-        // AN INDENTED LINE UNDER A FOOTNOTE DEFINITION IS ITS BODY, not the
-        // container's prose. A definition written at an item's content column
-        // carries its continuation one indent further in, and reading that
-        // continuation as item text reopened the paragraph a flush-left line
-        // then folded into (markup-carve/carve#1357, corpus 357-4). The
-        // ONE-LINE spelling of the same definition already answered correctly,
-        // which is what makes the pair discriminating.
-        //
-        // Indentation is measured in THIS tracker's view, where a block of the
-        // container's own sits at column 0 - so an indented line here is
-        // already nested inside the container's last block.
-        // THE BLOCK'S EXTENT IS THE DEFINITION'S, BLANK LINES AND ALL (PART 1
-        // S4, markup-carve/carve#1363). A blank INSIDE the body separates the
-        // note's own blocks rather than ending it, so the body runs to the
-        // first line that neither is blank nor reaches the indent - and only
-        // then does the container get its paragraph back.
-        //
-        // Settled by an internal contradiction rather than by a count: this
-        // engine ended the item on the contiguous spelling and folded the
-        // flush-left line as soon as a blank sat between the note's blocks, so
-        // one definition answered differently by how its own body was laid out.
         if (
             $wasInFootnoteBody
             && (
@@ -14896,55 +12949,6 @@ class BlockParser
             return $state;
         }
 
-        // A LIST ITEM IS DECIDED BY THE BLOCK INSIDE IT, exactly as the quote
-        // above is, and for the same clause: PART 1 S4 asks whether an open
-        // paragraph is on the STACK, and an item is a container, so the answer
-        // is its own last block's.
-        //
-        // Without this branch the fallback below read a marker line as prose,
-        // so every nested item reported an open paragraph whatever it held. The
-        // clause names this case explicitly - "it binds even where the
-        // unmatched container is a LIST ITEM whose last block is a container"
-        // (markup-carve/carve#1280) - and this engine answered it only at depth
-        // 1, where the marker line never reaches this tracker at all: the item's
-        // own lead arrives with the marker already off. From depth 2 the lead
-        // IS a marker line, and the rule stopped applying
-        // (markup-carve/carve-php#1403, markup-carve/carve-php#1404).
-        //
-        // Depth 3 folded one level in rather than not at all, which is the same
-        // fact seen from the other end: one level of the walk was missing, not
-        // the rule.
-        //
-        // A LOOP AND NOT A RECURSIVE CALL PER MARKER. The two are EQUIVALENT -
-        // the recursive step below would take the next marker off by itself -
-        // so no output test can tell them apart, and one written as a mutant
-        // survives the whole file. What separates them is cost: `- - - ... x`
-        // is one LINE, so its marker count is bounded by the line rather than
-        // by the document, and a frame per marker measured ~2.4x slower on a
-        // 5000-marker line (16.1s against 6.3s). It did NOT overflow the stack
-        // at that size, which is the claim this comment used to make.
-        //
-        // The single recursive step is on the CONTENT, which is where a quote
-        // or a comment one level in is decided.
-        //
-        // AFTER the thematic break above, which a spaced `- - -` would
-        // otherwise take from it, and after the heading, which decides by the
-        // LEAD and would lose that fact one level down.
-        //
-        // WALKED AS OFFSETS, NOT AS STRINGS. Asking `parseListItemMarker()` for
-        // each nested marker copies the whole remaining line every time it
-        // matches, so the walk cost markers TIMES line length per entry and the
-        // entries are capped rather than bounded - 8 KB of markers took about
-        // three seconds with the ratio per doubling still climbing
-        // (carve-php#1426). PART 9 section 25 is normative about refusing
-        // rather than degrading, so that shape is a defect and not a slow path.
-        // `markerContentOffset()` answers the same question from the SAME
-        // spelling of the grammar with a zero-width lookahead, so one `substr`
-        // at the end replaces N of them.
-        // THE SCREEN IS ANSWERED ONCE FOR THE LINE, not once per level - see
-        // {@see self::lastInteriorNewline()}. An interior newline at or after
-        // `$at` is exactly the subject the fast marker form misreads, and
-        // `innermostMarkerContentOffset()` refuses it for the same reason.
         $contentOffset = $lastInteriorNewline >= $at
             ? null
             : $this->listParser->markerWalkOffset($line, $at);
@@ -15030,21 +13034,6 @@ class BlockParser
      * line, look at the next non-blank line. Content at or past the sub-list's
      * content column belongs to that sub-list (its looseness is decided by its
      * own recursive parse) and does not loosen THIS item; every other block
-     * opener after the blank keeps the item tight too, but a plain paragraph
-     * after the blank loosens it (carve#322).
-     *
-     * A CLOSED SPAN IS JUMPED OVER WHOLE, because a blank inside one is that
-     * block's own content and never a separator between the ITEM's blocks. The
-     * code fence was already skipped this way; the colon family was not, so
-     * the scan walked INTO a `:::` container and read the paragraph after its
-     * interior blank as the item's second block (markup-carve/carve#1633,
-     * markup-carve/carve-php#1657). One misattribution, and the item it
-     * loosened took its siblings loose with it.
-     *
-     * AN OPENER WITH NO CLOSER RUNS TO THE END OF THE CHUNK. An explicit
-     * closer is a spelling change tightness may not move across
-     * (markup-carve/carve#1632), so an unterminated opener gets the same span
-     * a closer on the last line would have given it.
      *
      * @param array<string> $subLines The item's dedented sub-content lines.
      * @param bool $sourceIsTheItemBody Whether these lines are the item's WHOLE
@@ -15395,30 +13384,6 @@ class BlockParser
             return true;
         }
 
-        // A line that RENDERS NOTHING is not a second paragraph either. §17 L1
-        // loosens an item that holds a blank-line-separated second PARAGRAPH,
-        // and a comment or a definition produces no output at all - so an item
-        // came back wrapped in `<p>` because of a line the reader never sees,
-        // which is the blank line showing through (carve-php#744). The blank
-        // before a following SIBLING marker is a different clause and still
-        // loosens; that one is decided by the caller, not here.
-        // `abbreviationCounts: false`: this predicate only ever sees lines
-        // inside an item body, and PART 12 §7 says an abbreviation definition
-        // is one only as a direct child of the document. Here the same shape is
-        // ordinary paragraph text that RENDERS, so it is exactly the second
-        // paragraph §17 L1 asks about (carve#1267).
-        //
-        // `$invisibleArms` is false for ONE caller: a definition description's
-        // BELOW-COLUMN band. §10 I5 DEFINITION OWNERSHIP IS COLUMN-SCOPED
-        // (markup-carve/carve#1809) makes a link reference, footnote or
-        // abbreviation definition, or a block-attribute line, at a nonzero column
-        // below the content column "lazy paragraph text of THAT container ... and
-        // does not register" - so it is not a block there, and calling it one is
-        // what ended the body and published the characters one level out.
-        //
-        // THE COMMENT KEEPS ITS ARM either way. It is column-exempt (PART 9 §24)
-        // and renders nothing at any column, which corpus 430-5 pins; folding it
-        // as text would put its characters on the page.
         if ($invisibleArms) {
             if ($this->isInvisibleOrAttributeLine($line, false)) {
                 return true;
@@ -15548,21 +13513,6 @@ class BlockParser
             return true;
         }
 
-        // Tables. The row is VALIDATED, not just recognized by its first byte:
-        // a pipe in prose (`|`, `|x`) opens no table, and treating it as one
-        // made the block boundary depend on the character rather than on what
-        // the line is. A column-0 `|` after a list item detached from the item
-        // while `*`, `-` and `x` attached, purely because those three reach the
-        // same decision through the paragraph-interruption predicate, which has
-        // always validated the row (carve-php#683). carve-js validates in both
-        // places (`isTableRow` in `lineOpensBlock`).
-        //
-        // The test has to accept exactly what {@see self::tryParseTable()}
-        // accepts, INCLUDING its continuation path: a row that opens a code
-        // span (`| ``a |`) is not a complete row on its own, but a following
-        // `+` row closes the span and a table is what gets parsed. Answering
-        // "no block here" for that shape folded the table into the preceding
-        // list item instead of letting it break out.
         if ($this->isTableBlockStart($line, $lines, $index)) {
             return true;
         }
@@ -15894,24 +13844,6 @@ class BlockParser
 
     /**
      * The line pre-scan no longer feeds the implicit-reference index.
-     *
-     * It matched `^#{1,6}` at column 0, so which headings it found came down
-     * to source indentation: a div's inner lines start at column 0 and were
-     * indexed, a list item's are indented and were not, and a blockquote's
-     * carry `>` and were not. Two of those three answers were right and all
-     * three were accidents - this engine had never implemented R1's blockquote
-     * rule, it just never saw past the prefix (#572).
-     *
-     * The index is now built from the parsed tree by
-     * HeadingReferenceCollector, which asks the question R1 actually asks:
-     * does this heading have a blockquote ANCESTOR.
-     *
-     * ONE LOOKUP, NOT TWO (markup-carve/carve#742). A heading goes into the
-     * FOLDED index and nowhere else. `$this->references` is the linkDefs table
-     * and `getReference()` reads it for the EXPLICIT `[text][label]` form, so a
-     * heading seeded there made an explicit label reach the heading index - a
-     * shape R1's fallback does not offer, since the fallback is scoped to the
-     * collapsed `[text][]` and to nothing else.
      */
     protected function registerHeadingReference(string $label, ReferenceDefinition $reference): void
     {
@@ -15985,21 +13917,6 @@ class BlockParser
     /**
      * Heading references collected from the PARSED TREE, keyed by folded
      * heading text (PART 11 R1).
-     *
-     * Seeds ONE lookup: the folded heading index, which only the COLLAPSED
-     * `[text][]` form reads. It used to seed the linkDefs table beside it, so
-     * an exact `[text][Label]` reached a heading too - and markup-carve/carve#742
-     * scopes R1's fallback to the collapsed form and to nothing else, at any
-     * spelling, folded or exact.
-     *
-     * THE ASYMMETRY IS THE ONE R1 ALREADY GIVES: a collapsed label is the author
-     * quoting prose from elsewhere in the document, which is why its matching is
-     * loose, and an explicit label is an identifier the author wrote twice and
-     * can keep identical, which is why its matching is exact. An identifier that
-     * names nothing names nothing; it is not retried as prose.
-     *
-     * A real link definition still wins, because `getCollapsedReference()` reads
-     * `$this->references` first and only falls back here.
      *
      * @param array<string, array{0: string, 1: \MarkupCarve\Carve\Parser\ReferenceDefinition}> $references
      */

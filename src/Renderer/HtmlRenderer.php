@@ -1062,21 +1062,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * block-level <img> with no <p> wrapper, so a container holding only it uses
      * the expanded (indented) layout rather than the single-paragraph compact
      * form.
-     *
-     * READS THE FIELD, does not re-derive it (PART 9R R7, PART 12 section 23,
-     * markup-carve/carve-php#1800). Whether a paragraph's whole content resolves
-     * to a single image is a question about the RESOLVED tree - the definition
-     * behind `![a][r]` may sit anywhere in the document - and
-     * {@see \MarkupCarve\Carve\Parser\BlockParser::promoteBlockImages()} is
-     * the one place that answers it. This method used to ask it again, and the
-     * three call sites below reached through it, so one predicate had four
-     * spellings and only this one was ever tested.
-     *
-     * The attribute test stays here because it is not part of that question. It
-     * is a RENDER-TIME condition: a leading block-attribute line's attrs were
-     * already moved onto the <img> by the promotion phase, so the paragraph is
-     * attr-free by then, and attributes a render-time extension adds must keep
-     * their <p> wrapper.
      */
     protected function isBlockImageParagraph(Node $node): bool
     {
@@ -1307,22 +1292,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
         $inner = rtrim(implode('', $rendered), "\n");
 
-        // A blockquote of a single paragraph is compact (one line);
-        // anything else (lists, headings, multiple blocks) is expanded
-        // with two-space indentation. Matches the carve-js reference.
-        // A single-image paragraph renders as a bare block <img>, a
-        // block-level element, so it takes the expanded form too (matching
-        // carve-js / carve-rs and this renderer's own div/heading handling).
-        // FRAMING COUNTS ONLY CHILDREN THAT RENDER SOMETHING. A comment
-        // (PART 9 section 4.13) and a raw block for another target both render
-        // '', and an invisible child was enough to push a single-paragraph
-        // quote into the expanded form: `> %% c` then `> y` produced the
-        // indented shape where the oracle produces the compact one
-        // (carve#1106). The list-item renderer already ignores such a child;
-        // this one counted it.
-        //
-        // Decided by rendering rather than by a type list, so a third node type
-        // that renders nothing cannot be added silently.
         $visible = [];
         foreach ($children as $index => $child) {
             if ($rendered[$index] !== '') {
@@ -2741,28 +2710,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     private const ASCII_WHITESPACE = "\t\n\f\r ";
 
     /**
-     * PART 9 §25: the four attributes whose value is a LIST of URLs that a
-     * consumer resolves or fetches, mapped to the separator class the
-     * attribute's OWN grammar uses. Probing only the value's head vouches for
-     * the whole value where the whole value is one URL, which these are not,
-     * so `srcset="safe.png 1x, javascript:alert(1) 2x"` rendered verbatim
-     * while the payload-first spelling of the same value blanked
-     * (markup-carve/carve#1320).
-     *
-     * THE SEPARATORS DIFFER DELIBERATELY AND MUST NOT BE UNIFIED. `ping` and
-     * `attributionsrc` are space-separated sets whose grammar holds no comma,
-     * so splitting them on commas would blank a single legitimate URL that
-     * merely carries one in its path - a false positive, and false positives
-     * are the binding constraint here. `srcset` and `imagesrcset` split on
-     * commas as well, because there a comma really does end a candidate and a
-     * whitespace-only split misses `safe.png 1x,javascript:alert(1) 2x`
-     * outright: with the space after the comma absent, the second candidate
-     * hides inside the first one's descriptor.
-     *
-     * The keys are lower-case and looked up against a lower-cased name, like
-     * the `on` prefix above: an attribute block may spell the name in any
-     * case and the element still carries the author's spelling, so matching
-     * the exact bytes would leave `SRCSET` unprobed.
+     * PART 9 §25 URL-list attributes, mapped to their separator classes. Every
+     * component is checked separately so a safe first URL cannot hide a denied
+     * one.
      *
      * @var array<string, string>
      */
@@ -2916,16 +2866,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * escaping - which is to say the authored text unless the sanitizer above
      * blanked it.
      *
-     * The one place that answers "what does the output actually contain?" for a
-     * raw attribute, so a caller outside the renderer never has to answer it
-     * from a second copy of the rules. `SemanticAttributeLinter` quotes it in
-     * `semantic-attribute-outside-span` (markup-carve/carve-js#1058): naming the
-     * authored text there would describe an output that does not exist, because
-     * `{kbd="javascript:alert(1)"}` really does render `kbd=""`.
-     *
-     * The name is lowercased first, matching `sanitizeAttributes()`, so
-     * `{STYLE=…}` and `{style=…}` are judged by the same rule.
-     *
      * @param string $name
      * @param string $value
      *
@@ -3031,19 +2971,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * The elements on which HTML's legacy `align` attribute means TEXT
      * ALIGNMENT, so `{align=...}` on them renders the CSS declaration instead
      * of the deprecated attribute (PART 10, markup-carve/carve#1755).
-     *
-     * `table` IS DELIBERATELY ABSENT AND MUST NOT BE ADDED. On a table `align`
-     * is PLACEMENT - the table floats left or right, or centres as a block -
-     * which is a different property that does not map to `text-align` at all.
-     * Rewriting it would silently turn a floated table into one whose CELL TEXT
-     * is right-aligned, in every existing document that spells it, which is a
-     * worse defect than the deprecated attribute. `{align=...}` on a table
-     * keeps rendering `align=` until somebody rules what a floated table should
-     * spell.
-     *
-     * The same reasoning keeps `img`, `hr`, `iframe`, `object`, `embed`,
-     * `input` and `caption` out: HTML maps their `align` to a float, a margin,
-     * a `vertical-align` or a caption side, never to `text-align`.
      *
      * @var array<string>
      */
@@ -3300,26 +3227,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     /**
      * Hide a raw block's own line breaks from the block indenters.
-     *
-     * ```` ```=html ```` means "these bytes reach the target unchanged"
-     * (carve#800). This renderer indents block output line by line AFTER the
-     * fact, and a text pass cannot tell a raw block's interior from ordinary
-     * block markup - so every line of a multi-line raw block gained the
-     * container's columns and came out different from what the author wrote.
-     * Inside a `<pre>` those columns are CONTENT, so the rendered code block
-     * said something the source did not (carve-php#907).
-     *
-     * The indenters split on "\n", so joining the interior with the existing
-     * inline-break guard makes the whole raw block ONE line to them: it takes
-     * the container's padding at its opening, the way any other block does, and
-     * nothing reaches its interior. `restoreSoftBreakGuards()` turns the guards
-     * back into newlines once all indentation has run.
-     *
-     * A `<pre>` guard already existed in both indenters and covered exactly the
-     * case where the tag is visible in the output. The rule is about raw
-     * blocks, not about `<pre>`, so it missed every raw block that does not
-     * open one - which is how `<i>y</i>` was indented while the `<pre>` beside
-     * it was not.
      */
     protected function guardInteriorNewlines(string $content): string
     {
@@ -3407,21 +3314,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $attrs = $this->renderAttributes($node);
         $children = $node->getChildren();
 
-        // A single-paragraph definition renders inline (<dd>text</dd>); any
-        // richer block content keeps its block structure.
-        //
-        // A COMMENT IS NOT RICHER CONTENT. §24 C3 keeps it invisible, so it
-        // emits nothing here - but it was still COUNTED, and a description
-        // holding one paragraph and one comment took the block shape whose
-        // only extra child renders the empty string:
-        //
-        //     :: t
-        //     :  a
-        //        %% c
-        //
-        // gave `<dd>` on its own line around `<p>a</p>` where the same
-        // description without the comment gives `<dd>a</dd>`
-        // (markup-carve/carve#1350, corpus 350-6).
         $visible = array_values(array_filter(
             $children,
             static fn (Node $child): bool => !$child instanceof Comment,

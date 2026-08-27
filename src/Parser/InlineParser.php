@@ -900,28 +900,6 @@ class InlineParser
                 continue;
             }
 
-            // Trailing (inline) line comment: `%%` preceded by a space/tab or
-            // at the start of the run consumes to the next newline. The
-            // preceding whitespace is absorbed; the newline stays (becomes a
-            // soft break, so the next line survives). Code spans parse before
-            // this on a backtick and consume opaquely; `\%%` is handled by the
-            // escape branch above.
-            //
-            // A NEWLINE COUNTS AS THE WHITESPACE BEFORE IT, so `%%` starting a
-            // LATER line is a comment exactly as it is on the first. A
-            // paragraph never showed the difference - a comment-only line is
-            // blanked at the block layer there - but a line block's stanza is
-            // ONE inline run, so a later body line reached this test with a
-            // newline before it and fell through as ordinary text. That
-            // published `%% c` as verse on every line but the first, which is
-            // what PART 9 §23 forbids: `%%` runs to end of line WHEREVER it
-            // appears, and a comment-only body line leaves an EMPTY verse line
-            // rather than its own source (markup-carve/carve-php#1393). The
-            // newline itself is left unconsumed, so it still becomes the soft
-            // break the stanza promotes to a `<br>` - which is how the empty
-            // line survives instead of the verse losing a row. carve-js
-            // corrected the identical defect by widening the same class
-            // (markup-carve/carve-js#581).
             if (
                 $char === '%' && $nextChar === '%'
                 && (
@@ -2543,19 +2521,6 @@ class InlineParser
             if ($refEnd !== false) {
                 $ref = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
 
-                // For empty reference [text][], the label IS the bracket text,
-                // whitespace-collapsed - the same normalization the explicit
-                // form below uses. Definitions are stored under the label the
-                // author wrote, so anything else cannot find them.
-                //
-                // This used to STRIP inline formatting characters from the
-                // label, which inverted the whole rule: a definition carrying
-                // any of them could not be reached by the label that defined
-                // it, while a plain definition WAS reached by a decorated
-                // label that never named it (carve-php#768).
-                // Both forms use BlockParser's shared, case-sensitive ASCII-
-                // whitespace-normalized lookup key. The node keeps the raw
-                // bracket spelling for canonical output.
                 if ($ref === '') {
                     $ref = $linkText;
                 }
@@ -2579,29 +2544,6 @@ class InlineParser
                     ? $this->blockParser->getCollapsedReference($ref)
                     : $this->blockParser->getReference($ref);
                 if ($refDef === null && $originalRefBracket === '') {
-                    // A HEADING-derived definition (PART 11 R1) is keyed by
-                    // the heading's RENDERED PLAIN TEXT, so a label carrying
-                    // inline markup cannot match it as written: a heading
-                    // holding a code span registers the span's content, not its
-                    // backticks. Retry once with the label reduced to the same
-                    // string kind, and accept the result only when it came from
-                    // a heading - an authored definition line is matched by the
-                    // label the author wrote, nothing else.
-                    //
-                    // R1 SAYS "THE SAME STRING KIND THE HEADING SIDE ALREADY
-                    // ENTERS AS", so the reduction is the heading side's own
-                    // extraction over the PARSED label rather than a character
-                    // class over its source. A character class answers only for
-                    // the delimiters someone remembered to list: it left `/em/`
-                    // (Carve's emphasis is the slash), `\_` (the escape
-                    // survives as a backslash the heading text does not carry),
-                    // `[x](/y)` (the destination stays behind) and a smart
-                    // apostrophe (the heading holds the glyph, the label the
-                    // typed `'`) all unmatchable, so no heading containing them
-                    // was reachable by its collapsed spelling at all
-                    // (markup-carve/carve#1011). Running the extraction instead
-                    // needs no list: whatever the heading contributes, the
-                    // label contributes too.
                     $plain = $this->blockParser->headingIndexKey($label);
                     if ($plain !== $ref && $plain !== '') {
                         $headingDef = $this->blockParser->getCollapsedReference($plain);
@@ -2783,21 +2725,6 @@ class InlineParser
             return null;
         }
 
-        // Alt text is RAW, NOT parsed inline: emphasis, code spans and
-        // backslashes are kept verbatim (`![*e* `c`](/p)` -> alt=`*e* `c``).
-        // It ends where the LINK's text ends. An image has the same three forms
-        // as a link and only the leading `!` and the `<img src>` output differ,
-        // so the bracketed run is the run a link uses, closed by the same
-        // balanced, escape- and literal-span-aware scan
-        // (markup-carve/carve#1206, markup-carve/carve#1197).
-        //
-        // This used to be a second scan written here, and it agreed with
-        // `findBalancedBracketEnd` on depth and on `\`, but not on the two
-        // opaque runs that scan skips: a code span and an editorial comment.
-        // So `![t`]`z](/i.png)` and `![t{# ] #}z](/i.png)` linked to the right
-        // destination while the alt stopped at a `]` the parse had already
-        // ruled was content. Reading the run parseLink closed removes the
-        // second spelling instead of teaching it the same two exceptions.
         $alt = $result['link_text'];
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
@@ -2892,27 +2819,6 @@ class InlineParser
 
     /**
      * Whether the run between `<` and `>` is a `url_autolink` body.
-     *
-     * ONE recognizer, called from both `parseAutolink()` and
-     * `findAutolinkEnd()`. The two carried independent copies of the same
-     * pattern, so a change to one silently disagreed with the other.
-     *
-     * PART 3, AN AUTOLINK BODY ADMITS NON-ASCII AND EXCLUDES FORMAT CHARACTERS
-     * (markup-carve/carve#844, markup-carve/carve#860). An internationalized
-     * domain, an accented host, a non-ASCII path and a non-ASCII character that
-     * is not a LETTER are all `url_char`s. The deciding argument is the
-     * asymmetry with the inline form: `[t](https://<IDN>/)` links in all three
-     * engines already, because `link_destination` admits `unicode_url_char`,
-     * and one destination cannot answer differently on the character set
-     * depending on the spelling.
-     *
-     * A FORMAT CHARACTER DOES NOT. It is invisible by definition, so a host
-     * carrying one renders as the host WITHOUT it and links somewhere else.
-     * That is a spoofing surface rather than an authoring convenience.
-     *
-     * `link_destination` is a DIFFERENT production and is unchanged: a format
-     * character in an inline destination or a reference definition is still an
-     * ordinary destination character.
      */
     private static function isUrlAutolinkBody(string $content): bool
     {
@@ -3195,20 +3101,6 @@ class InlineParser
                 // Check if this can be a closer (not preceded by whitespace)
                 $beforeClose = $searchPos > 0 ? $text[$searchPos - 1] : ' ';
                 if (!StringUtil::isWhitespaceChar($beforeClose)) {
-                    // A braced closer (like `_}` or `*}`) belongs to a braced
-                    // opener, so a bare opener must not steal it: in `{/x/}` the
-                    // whole construct is the braced form's, not this path's.
-                    //
-                    // That only holds when a braced opener actually EXISTS. An
-                    // ESCAPED brace is a literal `{` and opens nothing, so in
-                    // `\{/x/}` the `/x/` is an ordinary bare pair and this is its
-                    // closer. Skipping it unconditionally left the whole run
-                    // literal, so carve-php rendered `\{/x/}` as `{/x/}` where
-                    // carve-js and carve-rs render `{<em>x</em>}`
-                    // (markup-carve/carve-php#1191). `escaped_char` in
-                    // `resources/grammar.ebnf` is one backslash and ONE
-                    // punctuation character; nothing in it suppresses the
-                    // constructs after the character it escapes.
                     $afterClose = $text[$searchPos + 1] ?? '';
                     if ($afterClose === '}' && $openerIsBraced) {
                         $searchPos++;
@@ -4586,21 +4478,6 @@ class InlineParser
             [$warnLine, $warnColumn] = $this->lineAndColumnAt($pos);
             $this->blockParser->addUndefinedFootnoteWarning($label, $warnLine, $warnColumn);
 
-            // An UNRESOLVED footnote reference RENDERS literally as `[^label]`,
-            // but it is still a footnote_ref node - which is what lets it keep a
-            // trailing attribute block.
-            //
-            // It used to become a Text node and the attribute was consumed and
-            // thrown away, so `Text[^a]{.ref}.` lost `{.ref}` from the tree
-            // entirely and the canonical writer emitted `Text[^a].` where
-            // carve-js and carve-rs emit `Text[^a]{.ref}.`. The old comment here
-            // said those two "drop the orphan attribute" - true of their HTML,
-            // and not of their AST, which keeps it (carve#352, carve#405).
-            //
-            // Emitting a node rather than returning null still stops the generic
-            // inline-span path from claiming `[^a]{.ref}` as
-            // `<span class="ref">^a</span>`. An empty or invalid block stays
-            // literal, so `[^a]{}` and `[^a]{???}` are unchanged.
             $node = new FootnoteRef($label);
             $node->setUnresolved(true);
             $endPos = $pos + strlen($matches[0]);

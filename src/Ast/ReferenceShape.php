@@ -7,28 +7,6 @@ namespace MarkupCarve\Carve\Ast;
 /**
  * The PART 12 wire shape: carve-js's field names, and how this engine's
  * internals map onto them.
- *
- * PART 12 §1 makes the reference implementation's shape normative and says an
- * implementation whose internals differ "MAPS on the way out; it does not export
- * its internals", and §3 forbids inventing a synonym or exposing an internal
- * field the reference lacks. This table is that mapping, kept in one place so
- * the codec stays a walker rather than a pile of special cases.
- *
- * Three kinds of difference appear:
- *
- * - **Renames.** `content` is `value` on text and code, `destination` is `href`,
- *   `source` is `src`, `language` is `lang`, an inline footnote reference's
- *   `label` is `id`.
- * - **Container names.** The reference calls a list's children `items`, a
- *   table's `rows`, a row's `cells`. Only the key differs; the contents do not.
- * - **Derived state.** `ordered` is a boolean where this engine keeps a
- *   `listType` string, `checked` comes from a task marker, `header` from a
- *   cell's flag. Those convert in both directions rather than being renamed.
- *
- * Internal fields with no reference counterpart are NOT emitted (§3). They are
- * listed per type so the omission is a decision rather than an oversight, and so
- * AstCodecTest can assert the round trip still holds despite them - a field that
- * cannot be exported must be recomputable, or the round trip breaks.
  */
 final class ReferenceShape
 {
@@ -176,26 +154,6 @@ final class ReferenceShape
         'list' => ['listType'],
         // `checked` carries this; a non-task item simply has no `checked`.
         'list_item' => ['taskMarker'],
-        // `definition_list` hides NOTHING. PART 9 §17 L7's consumed `loose`
-        // boolean was listed here while PART 12 §8 had no field for it, and §8
-        // grew one in markup-carve/carve#1624 - so the exemption's premise
-        // expired and it goes with it. The reflection walk publishes the
-        // property under its own name, the property's `false` default keeps it
-        // off the wire wherever the key was not spelled, and that is exactly
-        // §8's `const: true` shape: present means SPELLED, absent means each
-        // description derived its own wrapper from its block count.
-        // `header` carries this; the row flag is recomputed from its cells.
-        // `rowspan`/`colspan` are internal bookkeeping this engine still keeps
-        // for its own writer, the ProseMirror bridge, and layout renderers
-        // that flatten a table into logical columns - none of it is the
-        // reference's shape. carve-php#527: the reference records a span as a
-        // real placeholder `table_cell` (`span: "rowspan"`/`"colspan"`), not a
-        // count on the origin, and `additionalProperties: false` rejects the
-        // count outright. The count is recomputable from the tree (every
-        // renderer that needs an ACCURATE one - HTML, Carve, ANSI/plain/
-        // Markdown - already resolves it fresh from the placeholders via
-        // TableSpanGrid rather than trusting this field), so dropping it from
-        // the wire loses nothing a consumer could read from it anyway.
         'table_cell' => ['isHeader', 'rowspan', 'colspan', 'hasExplicitAlignment', 'hasExplicitVerticalAlignment'],
         'table_row' => ['isHeader'],
         // Fence width is a writer concern, recomputed when formatting.

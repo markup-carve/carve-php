@@ -40,77 +40,6 @@ class FencedBlockParser
         $fence = $matches[1];
         $fenceChar = $fence[0];
         $fenceLength = strlen($fence);
-        // THE SLOT BEFORE THE INFO STRING IS A SPACE, U+0020 and nothing else.
-        // PART 7's MARKER SEPARATORS AND PADDING SLOTS decides the terminal by
-        // POSITION, not by role: a tab is syntax only in a line's leading
-        // indentation run, and this slot sits after the fence run. The grammar
-        // spells it `fenced_code_block = code_fence_open, [space],
-        // [code_fence_info], newline` and says so outright - the slot is
-        // PADDING, "but both roles take `space`".
-        //
-        // `trim()` was the trap. Its default charlist is `" \t\n\r\0\x0B"`, so
-        // it admitted a tab AND a vertical tab, the latter a character the
-        // grammar names nowhere at all. Trailing whitespace is not a slot in
-        // the grammar and stays as tolerant as it was, so only the leading side
-        // is narrowed (carve-php#951).
-        //
-        // EXACTLY ONE, and `ltrim($matches[2], ' ')` was the second trap: it
-        // took the whole run, so ```` ```<SP><SP>php ```` still opened a php
-        // block. PART 7's cardinality paragraph settles it - the slot is
-        // spelled `[space]`, one character, and a second space is not padding
-        // (carve#912). What is left over then reaches the info string, where
-        // `language_info` cannot match a space, and the opener falls back to an
-        // inline verbatim span in a paragraph.
-        //
-        // ORDER, and it was the third trap: the slot has to be read off the RAW
-        // tail, because `rtrim()` runs first and a tail that is ONLY a tab
-        // collapses to `''`. The leading-space test then never saw the tab at
-        // all, `$info` came out empty, and the fence opened - so ```` ```<TAB>
-        // ```` opened a bare code block while ```` ```<TAB>php ```` correctly
-        // fell back, the difference being nothing but whether the info string
-        // was empty. The EMPTY-INFO shape is the one the slot check could not
-        // reach (carve-php#1329).
-        //
-        // POSITION DECIDES, and the explicit slot test that used to stand here
-        // is gone because it could no longer fire (carve#1295). The ruling split
-        // this line in two, and the halves never overlap:
-        //
-        // - a run BEFORE content is a SEPARATOR. The slot rule governs, the
-        //   `space` terminal is not satisfied, and the fence does not open:
-        //   ```` ```<TAB>php ```` is prose.
-        // - a run at END OF LINE with nothing after it is TRAILING whitespace.
-        //   PART 2 drops it, and the fence opens normally: ```` ```<TAB> ```` is
-        //   a bare code block.
-        //
-        // Read as "a tab anywhere after the fence run disqualifies the opener",
-        // the slot rule reached a position it does not own: this engine refused
-        // ```` ```<TAB> ```` while opening ```` ```<SP><SP><SP> ```` - two tails
-        // that are ENTIRELY whitespace, two answers, told apart by nothing but
-        // which whitespace character the author typed. The grammar already
-        // refuses that shape of rule at MARKER REQUIRES CONTENT: "The rule
-        // ignores trailing whitespace, so `-` and `- ` behave identically (an
-        // editor stripping the trailing space cannot change the meaning)." An
-        // editor stripping a trailing TAB must not change this line either.
-        //
-        // This engine's own frontmatter opener already split it this way -
-        // ```` ---<TAB> ```` consumes the block, ```` ---<TAB>yaml ```` falls
-        // back - so the fence opener was the outlier inside carve-php rather
-        // than a second reading of the rule.
-        //
-        // WHY NO GUARD REPLACES IT. Narrowed to "refuse only when content
-        // follows", the test became one that cannot fail. When it would fire,
-        // `$info` begins with that same non-space whitespace character, and two
-        // branches below `language_info` refuses it: the character is neither
-        // `"` nor `[`, so the language branch runs, and `[A-Za-z0-9_\-+#./]+`
-        // cannot match a tab. Every input it would have caught returns null
-        // there instead. Measured as well as argued - across 504 opener shapes
-        // (both fence characters, seven whitespace runs, nine info tails, in a
-        // paragraph, a blockquote, a list item and a div, rendered to HTML,
-        // Markdown and canonical Carve) removing it changed no output at all.
-        // A check that cannot fail is worse than no check: it tells the next
-        // reader the slot is defended when the info parse is what defends it.
-        // The separator half is pinned by a BEHAVIOR test instead, so a future
-        // widening of the language token cannot quietly take it with it.
         $info = rtrim($matches[2], StringUtil::WHITESPACE_CHARS);
         if (($info[0] ?? '') === ' ') {
             $info = substr($info, 1);
@@ -152,20 +81,6 @@ class FencedBlockParser
                     return null;
                 }
                 $rest = substr($rest, strlen($language));
-                // Header/label must be SPACE-separated from the language
-                // (grammar: `code_fence_info = ( language_info, [space+,
-                // quoted_title], [space+, label] ) | …`). A language glued to a
-                // quote or bracket (```php"x", ```php[x]) is not valid metadata
-                // -> fall back.
-                //
-                // A RUN, not a first character. `ctype_space($rest[0])` looked
-                // at one character and then `ltrim($rest)` stripped the rest
-                // with the default charlist, so a tab or a vertical tab in the
-                // run reached the metadata either way - and
-                // ```` ``` js<SP><TAB>"T" ```` still carried its title. Testing
-                // the first character for a space and consuming only spaces
-                // leaves any other whitespace in `$rest`, which every branch
-                // below then rejects (carve-php#951).
                 if ($rest !== '' && $rest[0] !== ' ') {
                     return null;
                 }
@@ -272,21 +187,6 @@ class FencedBlockParser
         } elseif ($tail[0] === '[') {
             $rest = $tail;
         } elseif ($tail[0] === ' ') {
-            // THE SEPARATOR IS A SPACE, U+0020 and nothing else. PART 7's
-            // MARKER SEPARATORS AND PADDING SLOTS is normative: the slot
-            // immediately after the fence run is a marker separator, because
-            // the token after it selects which of the four blocks the line
-            // opens. A tab was accepted here, so a tabbed opener opened an
-            // admonition, a div, a line block or a local hard-break block
-            // where the grammar makes the line a paragraph (carve-php#941).
-            //
-            // A RUN, not a first character. `ltrim($tail, ' ')` consumes only
-            // spaces, so a tab anywhere in the separator run leaves the type
-            // token unreachable and every branch below rejects the line. The
-            // former `trim($tail)` inspected the first character and then
-            // stripped a tab that followed it, so `:::<SP><TAB>note` still
-            // opened an admonition. Trailing whitespace is not a slot in the
-            // grammar and stays as tolerant as it was.
             $rest = rtrim(ltrim($tail, ' '), StringUtil::WHITESPACE_CHARS);
         } else {
             return null;
@@ -320,21 +220,6 @@ class FencedBlockParser
                 // to open an empty div.
                 $rest = $m[1];
             } elseif (preg_match('/^(\\\\)$/', $rest, $m)) {
-                // THE BARE BACKSLASH ONLY, on the same terms as the pipe and
-                // the marker above. It is the local hard-break block opener and
-                // the backslash IS the whole info string, so it takes no quoted
-                // header and no [label] - nothing in the grammar gives
-                // `local_hard_break_block_open` either one.
-                //
-                // Admitted HERE, in the generic opener, and not only in the
-                // parser's own branch, for the reason the marker is: this is
-                // what the nesting-aware body collector counts openers with.
-                // Without it a hard-break block inside a hard-break block
-                // closed the outer one at the INNER closer, and the outer
-                // closer left over then opened a container of its own - never
-                // closed, so it ran to end of input and rendered as a stray
-                // empty div (carve-php#1743). It was the last member of the
-                // colon-fence family the collector could not see.
                 $rest = $m[1];
             // PADDING, and a space all the same. PART 7 decides the terminal
             // by POSITION, not by role: a tab is syntax only in a line's
@@ -399,22 +284,6 @@ class FencedBlockParser
             return null;
         }
 
-        // Carve raw block opener: ```=FORMAT (djot raw-block syntax, §4.15). The
-        // leading `=`, immediately followed by the format name, is the block
-        // parallel of the inline raw `{=format}` attribute; the former
-        // ```raw FORMAT keyword form was removed.
-        //
-        // THE SLOT BEFORE THE `=` IS A SPACE, U+0020 and nothing else. This one
-        // is a marker SEPARATOR rather than padding - the `=` after it selects
-        // a raw block over a code block - but PART 7 gives it the same terminal
-        // regardless: `raw_block = code_fence_open, [space], "=", format_name,
-        // newline`, and the clause says so of this exact slot ("identical
-        // shape, different role, same terminal").
-        //
-        // PCRE's `\s` is `[ \t\n\r\f\v]`, which made this the widest of the
-        // three fence-adjacent slots in this engine: a tab, a form feed AND a
-        // vertical tab all opened a raw block. The trailing `\s*$` is not a
-        // slot in the grammar and stays as tolerant as it was (carve-php#951).
         if (!preg_match('/^([`~]{3,}) *=([a-zA-Z][\w-]*)[ \t]*$/', $line, $matches)) {
             return null;
         }

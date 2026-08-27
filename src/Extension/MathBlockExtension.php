@@ -12,50 +12,6 @@ use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Renders a fenced code block tagged `math` as block-level display math.
- *
- * A ` ```math ` block becomes a `<div class="math display">\[…\]</div>`,
- * reusing Carve's math class and `\[`/`\]` delimiters so KaTeX / MathJax pick it
- * up exactly like inline / display `$…$` math. This is the block-fence form
- * authors expect from GitHub-Flavored Markdown / Pandoc.
- *
- * Example:
- * ```php
- * $converter = new CarveConverter();
- * $converter->addExtension(new MathBlockExtension());
- *
- * // Or with a custom language tag:
- * $converter->addExtension(new MathBlockExtension(language: 'latex'));
- * ```
- *
- * Input djot:
- * ```
- * ``` math
- * \int_0^1 x^2 \, dx
- * ```
- * ```
- *
- * Output HTML:
- * ```html
- * <div class="math display">\[\int_0^1 x^2 \, dx\]</div>
- * ```
- *
- * The LaTeX body is HTML-escaped for `&`, `<`, and `>`, mirroring Carve's core
- * inline / display math renderer (note this escapes `>` too, unlike the Mermaid
- * extension which keeps `>` for arrow syntax). A non-`math` code block defers to
- * the core renderer, and without the extension a ` ```math ` block stays an
- * ordinary `language-math` code block so documents remain readable.
- *
- * Author attributes on the fence (a `{#id .class key=val}` block-attribute line
- * above it) are merged onto the `<div>` - classes after the `math display`
- * base, then id and other attributes in source order - exactly as core inline /
- * display `$…$` math carries its attributes. They get the same treatment the
- * core renderer applies to every element: always-on hardening
- * ({@see HtmlRenderer::sanitizeAttributes()} - strips `on*`, `srcdoc`,
- * `formaction`, neutralizes dangerous URL / `expression()` values) plus any
- * additional safe-mode name filtering, and values are HTML-escaped. So a
- * `{onclick=...}` on a ` ```math ` fence can never reach the output.
- *
- * Ported alongside carve-js's `mathBlock()` extension.
  */
 class MathBlockExtension implements StaticRenderExtensionInterface
 {

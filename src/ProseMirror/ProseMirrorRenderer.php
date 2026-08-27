@@ -124,22 +124,6 @@ class ProseMirrorRenderer
             'content' => $this->renderBlocks($document->getChildren()),
         ];
 
-        // Abbreviation definitions are DOCUMENT state, not children, so they
-        // never reach renderBlocks and used to vanish across the bridge without
-        // being reported (carve-php#519). The occurrence survives - it is a
-        // `carveAbbreviation` mark carrying its title - but the definition it
-        // came from does not, so the writer emits no `*[ABBR]: ...` line and the
-        // next parse of that source has no abbreviation at all. Every expansion
-        // in the document silently stops working.
-        //
-        // They ride on the doc node's attrs, which is where ProseMirror puts
-        // document-level state. The ordering flag travels with them: it decides
-        // whether the definitions are written before the body or after it, and
-        // it is not recoverable from the map alone.
-        // The MAP cannot carry a term defined twice, and the author wrote both
-        // lines, so the authored list rides along beside it. Reading order
-        // matters on the way back: the list is what the writer prints, and the
-        // map is what resolution uses.
         $abbreviations = $document->getAbbreviations();
         if ($abbreviations !== []) {
             $doc['attrs'] = [
@@ -370,20 +354,6 @@ class ProseMirrorRenderer
         if ($rowspan !== 1) {
             $attrs['rowspan'] = $rowspan;
         }
-        // A BLOCKED span marker is content, not a span. `| < | b |` has no cell
-        // to its left to continue into, so the parser keeps the marker on the
-        // cell and renders it empty - and an empty cell is all the editor saw,
-        // so the writer had nothing to put back and the marker was lost in
-        // silence (carve-php#519, class 7). The resolved spans above are
-        // reconstructed from colspan/rowspan and were never the problem.
-        //
-        // `carveSpanMarker` follows `carveSource`: a lossless escape hatch for
-        // the exact thing the author wrote, which the editor carries but does
-        // not interpret.
-        // The cell's OWN alignment marker, which is what the wire spells as
-        // `textAlign` - the name Tiptap's own table extension uses. Without it
-        // an alignment row crossed as an author attribute and came back as
-        // `|={textAlign=left}`, which is an attribute run rather than a marker.
         if ($cell->hasExplicitAlignment() && $cell->getAlignment() !== TableCell::ALIGN_DEFAULT) {
             $attrs['textAlign'] = $cell->getAlignment();
         }
@@ -679,19 +649,6 @@ class ProseMirrorRenderer
             if ($language !== '') {
                 $attrs['language'] = $language;
             }
-            // The fence's own metadata, kept apart from the author attribute
-            // map (carve-php#519). Both were being lost or duplicated because
-            // the two share a name:
-            //
-            //   ``` php [NPM]        the label vanished - nothing carried it
-            //   ``` php "src/x.php"  came back with a `{title=src/x.php}`
-            //                        attribute line ADDED above the fence,
-            //                        because the structural title reached the
-            //                        editor as a plain `title` attribute and
-            //                        the writer then emitted it in both places
-            //
-            // Same shape as carveTyped / carveAttrs on a div: the payload has
-            // to say which values are the construct's own.
             $header = $node->getHeader();
             if ($header !== null) {
                 $attrs['carveHeader'] = $header;
@@ -800,23 +757,6 @@ class ProseMirrorRenderer
             if ($node->isAutolink()) {
                 $attrs['carveAutolink'] = true;
             }
-            // The reference SPELLING, for the one reference class the editor
-            // model can resolve on its own.
-            //
-            // `href` alone is what a link renders by, not what it was written
-            // as, so a collapsed `[text][]` came back as `[text](#some-id)` -
-            // a generated id baked into the source on every pass through the
-            // bridge, which is exactly what `fromHeadingReference` exists to
-            // prevent in the canonical writer (carve-php#1006).
-            //
-            // BOTH reference classes carry their spelling now. A heading
-            // reference resolves against a `heading` node the bridge carries; a
-            // `[text][label]` reference resolves against a
-            // `link_reference_definition`, which the bridge carries as
-            // `carveLinkRefDef` - so in each case writing the reference back
-            // reproduces a working link. The converter re-confirms both against
-            // the tree it rebuilt, and a reference whose anchor is gone falls
-            // back to its inline form rather than becoming prose.
             if ($node->isFromHeadingReference()) {
                 $attrs['carveHeadingRef'] = true;
             }
@@ -1040,17 +980,6 @@ class ProseMirrorRenderer
     /**
      * The atom a MARK WITH NO CONTENT crosses as, or null when the node has
      * content and travels as a mark on its text.
-     *
-     * A ProseMirror mark cannot span zero characters, so walking the children
-     * of `[]{.x}`, `[](https://example.com)`, `{++}` or `{--}` produced nothing
-     * and the construct simply vanished - a document that was only an empty
-     * link came back EMPTY. The map's `markCarrierNodes` section names the atom
-     * that carries them instead, with the mark it stands for and that mark's
-     * own attributes (markup-carve/carve-grammars#240).
-     *
-     * Only the five the map admits as `markType`. An empty `{==}` highlight is
-     * the same shape with no name on the wire, so it stays a reported loss
-     * rather than becoming a vocabulary this schema does not define.
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string, mixed> $mark
