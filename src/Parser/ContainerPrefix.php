@@ -6,38 +6,6 @@ namespace MarkupCarve\Carve\Parser;
 
 /**
  * The container prefix rule, spelled once.
- *
- * A block quote's marker is removed by the block parser, by both definition
- * prepasses, by the heading-reference pre-scan and by the prepass fence
- * tracker. Every one of them had its own spelling of it - three different ones
- * across three files, some as byte tests and some as `preg_replace` - and a
- * container-model change applied to one of them would have left the others
- * deciding the old way. That is the failure mode markup-carve/carve-rs#724 and
- * markup-carve/tree-sitter-carve#115 both came back with, so the rule lives
- * here and the callers ask.
- *
- * ONE rule is spelled. {@see self::quoteContent()} is the LANGUAGE rule
- * (PART 9 §11): the marker is `>` followed by a literal space, or a lone `>`.
- * `>text` and `>\t` open no quote, and that answer is the same one whether the
- * block parser, a definition prepass, the heading-reference pre-scan or the
- * prepass fence tracker is asking.
- *
- * A second, LOOSE spelling used to live here that treated the space as
- * optional, on the grounds that the line-based prepasses only decide which
- * REGION a line sits in and never what a line IS. That distinction did not
- * survive contact: the prepasses harvest definitions out of the regions they
- * find, so a shape only the loose rule admitted was collected as a definition
- * while the block parser - reading the strict rule - left it as prose. The
- * document then printed the definition AND resolved a link off it:
- *
- *     >[r]: /u
- *
- *     [link][r]
- *
- * rendered `<p>&gt;[r]: /u</p>` next to `<p><a href="/u">link</a></p>`. One
- * rule cannot disagree with itself, so the loose spelling is gone
- * (markup-carve/carve-php#961 measured the split; collapsing it moves no
- * corpus document).
  */
 class ContainerPrefix
 {
@@ -304,21 +272,6 @@ class ContainerPrefix
 
     /**
      * The INNERMOST container's view of a line at a content column.
-     *
-     * The composed walk reaches the column {@see self::composedWalk()}, and
-     * then every further block-quote marker comes off - because a quote OPENS
-     * NO ITEM, so one written past the column is a container the column cannot
-     * name. `- > x` puts its item's content column at 2 and its quote at 4, and
-     * a region opened on the line below it is inside the QUOTE
-     * (markup-carve/carve-php#1431).
-     *
-     * `quoteDepth` counts every marker the walk passed, at or past the column,
-     * so a caller can read a region's closer at the depth it opened at
-     * {@see self::atColumnAndDepth()}.
-     *
-     * A column of 0 asks the question at the top level, where it is exactly
-     * "the line past its leading quote markers" - the tail
-     * {@see self::quoteStages()} ends on.
      *
      * @return array{line: string, quoteDepth: int}|null
      */

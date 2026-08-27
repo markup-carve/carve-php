@@ -217,7 +217,7 @@ class CarveConverter
      * @param \MarkupCarve\Carve\SafeMode|bool|null $safeMode Enable safe mode (true for defaults, SafeMode instance for custom config)
      * @param \MarkupCarve\Carve\Profile|null $profile Profile for feature restriction (null = all features allowed)
      * @param \MarkupCarve\Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks that remain inside a paragraph (HTML renderer only). For local visible line breaks, use `::: \` or a trailing backslash.
-     @param \MarkupCarve\Carve\Renderer\SmartTypographyMode|bool|null $smartTypography Whether smart typography resolves to glyphs. Passing false keeps the author's source runs, so two hyphens stay two hyphens; true and null are the default. Unlike the options above, this one is NOT HTML-only - it reaches a renderer passed in $renderer too.
+     * @param \MarkupCarve\Carve\Renderer\SmartTypographyMode|bool|null $smartTypography Whether smart typography resolves to glyphs. Passing false keeps the author's source runs, so two hyphens stay two hyphens; true and null are the default. Unlike the options above, this one is NOT HTML-only - it reaches a renderer passed in $renderer too.
      * @param bool $roundTripMode Add data attributes for Djot→HTML→Djot round-trips (HTML renderer only)
      * @param string $mode Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC (HTML renderer only)
      * @param array<string, \Closure(string): string> $renderers Build-time renderers for client-script extensions (math/mermaid/chart), source-to-string, used in static mode
@@ -275,19 +275,6 @@ class CarveConverter
             }
         }
 
-        // SMART TYPOGRAPHY REACHES A RENDERER THE CALLER BUILT.
-        //
-        // The options above are documented as ignored when a renderer is
-        // passed, and that is right for them: xhtml, safeMode and
-        // softBreakMode all describe HTML. This one does not. Every renderer
-        // resolves the same node, and plain text and ANSI are reached in this
-        // engine ONLY by passing the renderer in - so ignoring it there would
-        // leave the documented option silently ineffective on exactly the
-        // targets it matters most for (carve#560).
-        //
-        // The boolean spelling is what the documentation shows and what
-        // carve-js takes; the enum is this engine's own vocabulary. Both are
-        // accepted, as safeMode beside it already accepts SafeMode or bool.
         if ($smartTypography !== null) {
             $typographyMode = $smartTypography instanceof SmartTypographyMode
                 ? $smartTypography
@@ -554,24 +541,6 @@ class CarveConverter
                 $extension->afterParse($document);
             }
         }
-
-        // NO UNWRAP HERE. "Links never nest" is a RENDERING rule, so it binds
-        // the renderer and not the encoder (PART 12 §3a, A NESTED LINK AND AN
-        // AUTOLINK STAY NODES). A link or an autolink inside a link's label
-        // reaches the parsed tree as the node the author wrote, and each of the
-        // four render targets unwraps it at its own render seam - every one of
-        // them runs CrossReferenceResolver::resolve(), which is where
-        // enforceLinksNeverNest() lives - so rendered output is unaffected.
-        //
-        // This used to unwrap for every renderer but CarveRenderer, on the
-        // reading that the rule binds the document (carve-php#859). It is
-        // strictly lossier than the case §3a opens with: flattening drops the
-        // inner destination entirely, so `[[x](y)](z)` published a link to `z`
-        // whose only child was the text `x`, `fmt` on the parsed document wrote
-        // `[[x](y)](z)` back while `fmt` through the AST wrote `[x](z)`, and an
-        // autolink came back as a bare URL, which is a different document. HTML
-        // is byte-identical either way, which is why PART 11 §1's invariant held
-        // and nothing caught it (carve#817).
 
         // A PROFILE FILTERS WHAT IS PUBLISHED, not only what is rendered.
         // Filtering used to happen on the render path alone, so a host that

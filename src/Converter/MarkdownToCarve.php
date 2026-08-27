@@ -103,18 +103,6 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
-        // REPLACED WITH U+FFFD, not deleted. CommonMark 2.3 is the rule for the
-        // flavour this converter reads and it says replace; the parse entry says
-        // the same for Carve source, and PART 12 §21 says it for a reader at
-        // either boundary. Deleting removed the character without leaving the
-        // mark the two specs put in its place, and disagreed with carve-js on a
-        // document neither flavour calls invalid.
-        //
-        // It is also what makes this file's placeholders safe: the inline pass
-        // holds protected spans behind `\x00P<n>\x00`, so an input NUL used to
-        // collide with the sentinel and crash the restore loop (TypeError).
-        // Either spelling closes that; only this one is what the format asks
-        // for.
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
@@ -1130,28 +1118,6 @@ class MarkdownToCarve
             }, $line) ?? $line;
         }
 
-        // `*` and `_` are Markdown's own emphasis delimiters, bare and braced
-        // alike, and the passes below rewrite them into Carve. Escaping them
-        // here would freeze `*x*` as literal text before it ever reaches that
-        // rewrite.
-        // `~` joins them: GFM strikethrough is a matching pair of ONE or two
-        // tildes, so `~b~` is struck and the pass below carries it into Carve,
-        // which spells strikethrough the same way. Escaping it here froze it as
-        // literal text, and the double form's rule could then never see it.
-        // `{#id}` IS ORDINARY TEXT IN MARKDOWN. Carve reads it as an ATTRIBUTE
-        // BLOCK, and the `#` rule inside escapePlainCarveInlineSyntax() declines
-        // to escape a `#` behind an unescaped brace, on the premise that the
-        // brace rules already handled the pair. They do not handle this one:
-        // `{#id}` is not a delimiter pair, and escapeAttributeListsThatAttach()
-        // below only reaches the ATTACHING and standalone forms. So `a {#id} b`
-        // came back carrying a tag span inside literal braces
-        // (markup-carve/carve-php#1624). Escaping the brace here is what makes
-        // that premise true again, and the `#` rule then escapes the sigil too.
-        //
-        // The HTML and BBCode paths call this for the same reason. Djot does
-        // not, and must not: an attribute block in Djot source is one the author
-        // deliberately wrote. Gated on the same flag as the attaching form, so a
-        // caller that asked for Markdown attribute extensions still means them.
         if (!$this->convertAttributes) {
             $line = $this->escapeAttributeBlockOpener($line);
         }
@@ -1232,23 +1198,6 @@ class MarkdownToCarve
     /**
      * Escape the Carve constructs that CommonMark and GFM read as ORDINARY
      * TEXT (markup-carve/carve#1130; the carve-js#1060 rule set).
-     *
-     * `escapePlainCarveInlineSyntax` covers the constructs whose spelling is a
-     * delimiter run. It cannot cover the ones spelled as a bracket, a marker
-     * column or a sigil-plus-code-span, and every one of those reached the
-     * migrated document live. Two are no Markdown construct in ANY flavour, so
-     * they are escaped unconditionally:
-     *
-     *   a $`x+y` c a math span - the source says `$` then a code span
-     *   a !`x` c a literal span - the `!` and the code formatting vanish
-     *   a :term[x] b an extension call - the source says a colon then text
-     *
-     * Three more are real syntax somewhere, so each is escaped unless its
-     * constructor flag opts in: the inline footnote (Pandoc), the abbreviation
-     * definition (PHP Markdown Extra), and the fenced div (Pandoc, Quarto).
-     * The reasoning is the dialect ruling's: under-converting leaves readable
-     * text, while inventing markup the source did not have makes the migrated
-     * document render differently from anything its author saw.
      *
      * @param string $line
      * @param array<string> $protected The protected spans, so a sigil can be checked against the code span it precedes.
@@ -1380,23 +1329,6 @@ class MarkdownToCarve
             }
 
             if ($closed === -1) {
-                // AN UNCLOSED RUN IS NOT A DELIMITER, so it is escaped here -
-                // the one place in this converter that knows which of the two a
-                // backtick is. HANDLED_MARKDOWN declares the delimiters this
-                // converter owns per CHARACTER, and whether a backtick is one is
-                // a property of the OCCURRENCE: a closed run is a code span this
-                // pass carries over, an unclosed one is ordinary text in
-                // CommonMark and GFM alike. Carried over bare it opened a Carve
-                // code span, and the UNCLOSED RUN clause runs that span to the
-                // end of the block, so everything after the character became
-                // verbatim content (markup-carve/carve-php#1624). PART 11 §2:
-                // escape a character if and only if omitting the escape would
-                // change the re-parsed AST.
-                //
-                // EVERY BACKTICK OF THE RUN, not only the first: what is left of
-                // a partly escaped run is a shorter run, and it opens a span
-                // just the same. Stashed rather than written, so the passes
-                // below see a placeholder and cannot escape the backslash again.
                 $out .= $replace(str_repeat('\\`', $runLength));
                 $i += $runLength;
 

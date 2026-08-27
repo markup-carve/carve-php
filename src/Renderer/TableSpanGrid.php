@@ -10,32 +10,6 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 
 /**
  * Resolves a table's `^`/`<` placeholder cells into a rendering grid.
- *
- * carve-php#527: the parser keeps a real, empty `table_cell` for every span
- * marker rather than folding it into the origin cell as a `rowspan`/`colspan`
- * count (carve-js parity - a consumer walking `rows[i].cells` gets the same
- * length for every row). That means a row no longer tells a renderer, by
- * itself, which of its cells are real content and which are placeholders a
- * span already claimed; this is the one place that answers it, by walking the
- * same single LEFT-TO-RIGHT, TOP-TO-BOTTOM grid the parser and carve-js both
- * use (carve spec section 96):
- *
- *  - a cell marked `^` extends the nearest non-skipped cell directly ABOVE it
- *    in the same column, if one is open; that cell's computed rowspan grows
- *    by one and this cell is marked skip.
- *  - a cell marked `<` extends the nearest non-skipped cell to its LEFT in the
- *    same row (scanning past columns already claimed by another span); that
- *    cell's computed colspan grows by one and this cell is marked skip.
- *  - any other cell - including a marker with no valid target, a degenerate
- *    marker - is never skipped: it renders as its own (typically empty) cell.
- *
- * A "skip" entry contributes no output element of its own; the cell it
- * extended reports the grown rowspan/colspan instead. This is the ONLY
- * consumer that should read `TableCell::getSpanMarker()` to decide whether a
- * cell is real or a placeholder - every other table renderer walks this
- * grid's output instead of `TableRow::getChildren()` directly, so none of
- * them re-implement the walk or risk double-counting a placeholder as an
- * extra column.
  */
 final class TableSpanGrid
 {

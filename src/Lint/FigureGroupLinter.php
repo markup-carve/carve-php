@@ -16,22 +16,6 @@ use MarkupCarve\Carve\Node\Node;
 /**
  * The five composite-figure rules of PART 9 §4c (markup-carve/carve#1122,
  * documented with trigger samples on the spec's validation page).
- *
- * Every one reports a shape that PARSES CLEANLY and renders less than it looks
- * like it does - the silent-failure class `carve lint` exists for. A nested
- * `::: figure` renders as a generic container; an opener carrying a quoted
- * title or `[label]` never matched the figure production at all; a `#` in a
- * PANEL caption stays a literal `#`; and a zero- or one-panel group is a
- * heavier spelling of something a plain figure or div already says.
- *
- * A tree-walking pass, because none of the five is visible in the source
- * lines: panel counts, nesting context and the demoted opener all exist only
- * in the parsed tree. The panel predicate is {@see FigureGroup::isPanel()},
- * the ONE spelling the numbering resolver also reads, so the lint cannot
- * drift from what the resolver registers. Message wording mirrors carve-js's
- * `lint.ts`, the parity reference, and all five report unconditionally - the
- * severity split (info in strict profiles for the count rules) is a consumer
- * policy this surface does not model, exactly as in carve-js.
  */
 class FigureGroupLinter
 {

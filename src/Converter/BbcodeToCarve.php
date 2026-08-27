@@ -95,19 +95,6 @@ class BbcodeToCarve
         $djot = str_replace("\r", "\n", $djot);
         $djot = $this->escapePlainBbcodeText($djot);
 
-        // CODE CONTENT IS LITERAL, and it has to stay literal for the whole
-        // pipeline rather than for one step of it. escapePlainBbcodeText()
-        // stashes code while it escapes and restores before returning, so every
-        // converter below saw the enclosed markup and rewrote it:
-        // [code][b]not bold[/b][/code] came out as a fence containing
-        // *not bold*, which is neither what the author wrote nor BBCode - and
-        // showing markup is most of what [code] is used for on a forum
-        // (markup-carve/carve-php#1206).
-        //
-        // Only the CONTENT is stashed; the tags stay visible so convertCode()
-        // still recognizes the run and builds the fence. The sentinel is
-        // restored at the very END, after cleanup, because cleanup strips
-        // leftover BBCode tags and the content legitimately contains some.
         $codeStash = [];
         $djot = $this->stashCodeContent($djot, $codeStash);
 
@@ -191,18 +178,6 @@ class BbcodeToCarve
             };
         };
 
-        // THE FENCE TRIM HAPPENS HERE, not in convertCode(). A block fence is
-        // built around the body, and once that body is a KEY there is no
-        // whitespace left for a trim to find: the newlines sit inside the stash
-        // and come back with the content, so every fence gained a blank line
-        // above and below its code. A forum post's [code] almost always carries
-        // a newline right after the opening tag, so it fired on ordinary input
-        // (markup-carve/carve-php#1612). carve-js trims in the same place
-        // (markup-carve/carve-js#1375).
-        //
-        // BLOCK FAMILY ONLY. The inline family is written verbatim between
-        // backticks and has never been trimmed - `[c] a [/c]` is a code span
-        // holding a space on each side - so it is stashed as it stands.
         $patterns = [
             '/(\[code(?:=[^\]]*)?\])(.*?)(\[\/code\])/is' => true,
             '/(\[(?:c|icode)\])(.*?)(\[\/(?:c|icode)\])/is' => false,
@@ -211,26 +186,6 @@ class BbcodeToCarve
             $text = preg_replace_callback($pattern, $protect($trim), $text) ?? $text;
         }
 
-        // [noparse] has no Carve construct to become. Its whole effect is "the
-        // enclosed text is literal", so the TAGS are consumed and the content
-        // is escaped to stay literal - the same treatment ordinary text gets.
-        // Keeping the tags emitted them into the output verbatim, and the
-        // cleanup pass then ate the closer, leaving an unbalanced `[noparse]`
-        // in a document that has no such construct (markup-carve/carve-php#1209).
-        // The content is already escaped: escapePlainBbcodeText() ran over the
-        // whole document before this, and it does not stash [noparse]. Escaping
-        // again here doubled the backslash - `a *b* c` became `a \\*b* c`,
-        // which renders a literal backslash AND the bold it was meant to
-        // prevent. So the content is stashed as it stands and only the tags go.
-        // ITS BLOCK OPENERS ARE ESCAPED HERE, because this is the last point
-        // at which the body is known to be literal. escapePlainBbcodeText()
-        // escaped what the body HOLDS and nothing it STARTS a line with, so
-        // `[noparse]` was the one place in this converter where a `- ` marker
-        // reached the document live: the text the author declared literal came
-        // back as a list, and the blank run inside it as the hard boundary
-        // between two of them (markup-carve/carve-php#1622). The code family
-        // above needs no such escape because its body lands inside a fence,
-        // which neutralizes everything; this one lands bare.
         $dropTags = function (array $match) use (&$stash, $open, $close): string {
             $stash[] = $this->escapeLineInitialBlockSyntax($match[1]);
 
@@ -664,27 +619,6 @@ class BbcodeToCarve
 
     /**
      * Convert every BBCode list, at any depth, into Carve list source.
-     *
-     * DEPTH-TRACKED, NOT MATCHED BY A REGEX, for the reason
-     * parseQuotesWithDepth() is: `/\[list\](.*?)\[\/list\]/is` is non-greedy,
-     * so an outer `[list]` CLOSES ON THE INNER `[/list]`. The leftover opener
-     * survived the passes below too - cleanup() strips `[/tag]` and
-     * `[tag=value]`, never a bare `[tag]` - so a nested list leaked a literal
-     * `[list]` into its first item, flattened the inner item to a sibling of
-     * the outer ones and left the second outer item as a paragraph carrying a
-     * literal `[*]` (markup-carve/carve-php#1623).
-     *
-     * The same single left-to-right pass with a stack of open-list buffers, and
-     * the same O(n) bound: each opener pushes a level, each `[/list]` pops one,
-     * formats it and folds it into the buffer that holds it. An unclosed list
-     * runs to the end of the input, which is what an unclosed quote does.
-     *
-     * `[list=X]` IS THE ORDERED FORM WHATEVER X IS. Only `[list=1]` was read as
-     * one, so `[list=a]` matched no branch at all: cleanup() ate its tags and
-     * the bare `[*]` markers were left as text - a pair of them on one line
-     * then read as an emphasis span, so `[*]one` came back as `[<strong>]one`.
-     * Carve has one ordered spelling, so the style X names is not carried, but
-     * the list is.
      */
     protected function convertLists(string $text): string
     {
@@ -747,22 +681,6 @@ class BbcodeToCarve
     /**
      * Append a formatted list block to the buffer that holds it, parted from an
      * ADJACENT SIBLING list by the hard list boundary.
-     *
-     * Two lists with only a blank line between them are ONE list to the parser,
-     * so `[list=1][*]one[/list][list=1][*]two[/list]` came back as a single
-     * `<ol>` of two items and the second list's restart at 1 went with it
-     * (markup-carve/carve-php#1621). The unordered path dodged that by
-     * ALTERNATING the bullet marker per list, which invents a marker the source
-     * never carried and has nothing left to say about a third list. The HTML
-     * importer gave the same trick up for the boundary in
-     * markup-carve/carve-php#1598; this is that rule, spelled the same way, and
-     * it now covers both axes instead of one.
-     *
-     * PART 9 §11 N1a: the boundary is a run of three blank lines. It cannot be
-     * written as three blank lines HERE, because cleanup() collapses every such
-     * run to one - it has to, the passes above leave runs everywhere - so a
-     * sentinel line stands in for it and expandListBoundaries() writes it out
-     * once cleanup is over.
      *
      * @param string $buffer
      * @param string $block

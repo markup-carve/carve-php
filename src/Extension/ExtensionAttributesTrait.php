@@ -116,26 +116,6 @@ trait ExtensionAttributesTrait
     /**
      * The `role` and the accessible name for a wrapper an extension builds.
      *
-     * Each tab of a tab set was already named by its own `<label>`; the SET was
-     * anonymous, so a reader could hear the parts and never the thing they
-     * belong to (markup-carve/carve#1468). The wrapper takes a role and a name
-     * together - a role with no name is a grouping a reader cannot identify.
-     *
-     * An author who wrote their own `role`, `aria-label` or `aria-labelledby`
-     * on the block keeps it: a second one beside theirs leaves the value
-     * undefined, and theirs is the more specific statement. HTML attribute
-     * names are ASCII-case-insensitive, so the comparison is too.
-     *
-     * The author's attributes are read through the SAME hardening and safe-mode
-     * filtering {@see self::renderExtensionAttributes()} applies to them, so a
-     * value safe mode is about to strip counts as absent - the convention that
-     * method already documents. Reading the raw node instead would let a host
-     * blocking `aria-label` suppress the author's name AND ours, and leave the
-     * group anonymous: the exact defect the name exists to fix.
-     *
-     * The result feeds the `$defaultAttrs` slot above, which APPENDS - naming
-     * the group never moves an attribute the author placed.
-     *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
      * @param string $role The role to claim when the author claimed none.
@@ -158,18 +138,6 @@ trait ExtensionAttributesTrait
 
     /**
      * The accessible name alone, for an element whose role is already implicit.
-     *
-     * `<nav>` is a navigation landmark unconditionally - unlike `<section>`,
-     * which maps to `generic` until it is named - so a table-of-contents nav
-     * needs the NAME half and must not be given a redundant `role`
-     * (Extensions §8b.1, markup-carve/carve#1509). That is the whole difference
-     * from {@see self::groupNameAttributes()}, whose wrapper has no role of its
-     * own to claim.
-     *
-     * The author's precedence and the safe-mode reading are that method's,
-     * verbatim: a name the author wrote wins with nothing added beside it,
-     * matched on the attribute NAME case-insensitively because HTML attribute
-     * names are, and an empty label suppresses the name entirely.
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer

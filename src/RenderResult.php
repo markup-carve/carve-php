@@ -8,7 +8,7 @@ final readonly class RenderResult
 {
     /**
      * @param string $value
-@param list<array<string, mixed>> $losses
+     * @param list<array<string, mixed>> $losses
      * @param bool $truncated
      * @param int $totalLosses
      */

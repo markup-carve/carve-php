@@ -11,32 +11,6 @@ use MarkupCarve\Carve\Node\Node;
 /**
  * The one authoring hazard around the fenced block quote that no other
  * diagnostic reaches (markup-carve/carve#1718).
- *
- * A `::: >` opener written at the column of the quote above it is a block
- * opener, so it ends that quote and starts a sibling one:
- *
- *     > a
- *     ::: >
- *     b
- *     :::
- *
- * renders two adjacent `<blockquote>` elements. That is ordinary container
- * behavior and correct - nesting needs the marker, `> ::: >`.
- *
- * It is reported because the failure is INVISIBLE for this container kind
- * alone. Written with any other type token the mistake produces a visibly
- * different element and the author notices; written with `::: >` it produces
- * the two blockquotes above, which read exactly like the nesting that was
- * intended. Nothing is malformed, so no other rule fires and `carve lint`
- * exits 0. The two hazards beside it already have a rule: a closer on the
- * wrong side of the marker leaves the fence unclosed to end of input.
- *
- * A tree pass rather than a line scan, because the relation is between two
- * SIBLING blocks - which the source lines cannot state at any column, since
- * an indented `::: >` under an item is the same mistake at a different column.
- * Rule id and message mirror carve-js's `lint.ts`, the parity reference: an
- * id is spec surface and anything keyed on it (a CI filter, an editor
- * suppression) is unshareable when two engines spell it differently.
  */
 class QuoteFenceLinter
 {

@@ -70,21 +70,6 @@ trait EscapesCarveConstructs
      * Double every backslash, for a source language that has no backslash
      * escape of its own.
      *
-     * HTML and BBCode do not: a backslash in their text is a character the
-     * author typed, so it has to survive into Carve, where a backslash IS an
-     * escape. Left alone it is read as one and eats the character after it -
-     * `a \\*b* c` lost its backslash, and `x \\ y` became a non-breaking
-     * space (markup-carve/carve-php#1214).
-     *
-     * Runs FIRST, before any delimiter escaping, which is also what keeps the
-     * already-escaped guard honest: after doubling, every backslash run coming
-     * from source text is EVEN, so a delimiter behind one is correctly seen as
-     * unescaped and still gets its own escape.
-     *
-     * Djot and Markdown do not call this. A backslash there is an escape the
-     * author wrote, and doubling it would render the backslash they meant to
-     * disappear.
-     *
      * @param string $text
      */
     protected function escapeLiteralBackslashes(string $text): string
@@ -194,36 +179,6 @@ trait EscapesCarveConstructs
     /**
      * Escape the BLOCK OPENERS a line begins with, for text declared literal.
      *
-     * escapePlainCarveInlineSyntax() covers what a line holds; this covers what
-     * a line STARTS with, which is the other half of "this text is not markup"
-     * and had no rule at all. A `[noparse]` body reached the document with its
-     * line-initial `- ` markers intact, so text the source declared literal came
-     * back as lists - and the blank run between them was then read as the hard
-     * list boundary of PART 9 §11 N1a, making two of them
-     * (markup-carve/carve-php#1622). PART 11 §2: escape a character if and only
-     * if omitting the escape would change the re-parsed AST.
-     *
-     * ONLY FOR TEXT THE SOURCE DECLARES LITERAL. Ordinary prose is not passed
-     * through here: a source language may spell its own list with `- `, and
-     * escaping every line-initial marker in a document would put a backslash in
-     * front of every bullet the author wrote.
-     *
-     * A RUN IS ESCAPED CHARACTER BY CHARACTER where a single escape would leave
-     * the construct standing. A fence is the clear case - what is left of a
-     * partly escaped run of backticks is a shorter run, and it still opens
-     * something - and a thematic break is the quiet one: `\---` escapes the
-     * first hyphen and smart typography then reads the remaining `--` as an en
-     * dash. An ordered marker is the opposite case: a backslash before a DIGIT
-     * is a literal backslash rather than an escape, so the DELIMITER is what
-     * gets escaped (`1\. `).
-     *
-     * TWO OPENERS THAT LOOK LIKE MEMBERS ARE NOT. Carve reads neither `+ ` as
-     * a bullet nor a `: ` line as a definition item - both render as the text
-     * they are - so escaping them would put a backslash in front of a character
-     * that needed none, which is the failure this rule stands one step away
-     * from at every point. Measured against the parser rather than carried over
-     * from the Markdown and Djot habit of spelling both.
-     *
      * @param string $text
      */
     protected function escapeLineInitialBlockSyntax(string $text): string
@@ -275,22 +230,6 @@ trait EscapesCarveConstructs
 
         $line = preg_replace_callback('/(^|[ \t])%%(?!%)/', fn (array $match): string => $match[1] . '\%%', $line) ?? $line;
 
-        // Braced forms first, so the bare rules below see an escaped `{` and
-        // leave the delimiter inside it alone instead of escaping it twice.
-        //
-        // Scanned rather than replaced wholesale, because the outer match of a
-        // nested `{^a{,b,}c^}` CONSUMES the inner pair, which would then render
-        // as a subscript inside literal text. The scanner resumes inside each
-        // match so the inner pair is reached. The
-        // already-escaped guard is what makes this terminate: a brace behind an
-        // odd backslash run is skipped, so a pass that escapes nothing leaves
-        // the line unchanged and ends the loop.
-        //
-        // The guard COUNTS the run rather than testing one character, because a
-        // source language without a backslash escape has its backslashes
-        // doubled before this runs. In `\\{^x^}` the brace is real and the two
-        // backslashes are one literal one; a single-character lookbehind read
-        // that as an escaped brace and let the superscript through.
         $bracedDelimiters = $this->bracedDelimiterClass($bracedHandled);
         if ($bracedDelimiters !== '') {
             $line = $this->escapeBracedPairs($line, $bracedDelimiters);
@@ -339,44 +278,10 @@ trait EscapesCarveConstructs
             $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9_])(?<!(?<!\\\\)\{)_(?![_\s])([^_\n]+?)(?<!\s)_(?![A-Za-z0-9_])/', $line);
         }
 
-        // A TAG is the one construct here that is not a pair: `#x` opens on its
-        // own and needs no closer, so nothing downstream can neutralize it and
-        // the brace-escaping above cannot either - `\{#y#}` still rendered a tag
-        // span inside literal braces (carve-php#1191).
-        //
-        // Source languages do not share it. Djot and Markdown both mean literal
-        // text by `#y`, so every `#word` in their prose became a Carve tag, of
-        // which the braced case was only the rarest instance.
-        //
-        // Mirrors the parser's opener rather than approximating it: a tag opens
-        // on a `#` NOT preceded by an alphanumeric and followed by an
-        // alphanumeric or `-`. That leaves a heading alone, since `# ` is
-        // followed by a space, and leaves `a#y` alone, which is not a tag
-        // either.
-        //
-        // `&` joins the exclusion for a reason the tag rule does not care about
-        // but this trait's callers do: `&#8212;` is a NUMERIC CHARACTER
-        // REFERENCE, and escaping its `#` stops it decoding, so `a &#8212; b`
-        // kept the entity instead of becoming an em dash.
         if (!str_contains($bareHandled, '#')) {
             $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9&])(?<!(?<!\\\\)\{)#(?=[A-Za-z0-9-])/', $line);
         }
 
-        // A MENTION is the tag's sibling and needs the same rule for the same
-        // reason: it opens on its own, so nothing downstream neutralizes it
-        // (carve-php#1380). None of the source languages here means a mention
-        // by that character, so prose that quotes one came back as a span - a
-        // documentation corpus describing Blade and Alpine turned 22 quoted
-        // directives into mentions across 15 of its 380 documents.
-        //
-        // Mirrors `MentionsExtension`'s opener rather than approximating it: a
-        // mention opens on an `@` NOT preceded by an alphanumeric or `_` and
-        // followed by one of those or `-`. The lookbehind is what leaves an
-        // email address alone, since `foo@bar` has a letter before the `@`.
-        //
-        // No brace guard, unlike the tag: `{@x@}` is not an attribute block and
-        // not a braced pair, so there is nothing above for this rule to
-        // duplicate.
         if (!str_contains($bareHandled, '@')) {
             $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9_])@(?=[A-Za-z0-9_-])/', $line);
         }

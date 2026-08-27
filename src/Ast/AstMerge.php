@@ -299,7 +299,7 @@ final class AstMerge
 
     /**
      * @param int $index
-@param array{sideToBase: array<int, int>} $match
+     * @param array{sideToBase: array<int, int>} $match
      * @param int $length
      */
     private static function anchor(int $index, array $match, int $length): string
@@ -474,7 +474,7 @@ final class AstMerge
      * @param mixed $ours
      * @param mixed $theirs
      * @param string $path
-@param list<array<string, mixed>> $conflicts
+     * @param list<array<string, mixed>> $conflicts
      * @param callable|null $resolve
      */
     private static function mergeValue(mixed $base, mixed $ours, mixed $theirs, string $path, array &$conflicts, ?callable $resolve): mixed

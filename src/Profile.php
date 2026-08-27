@@ -560,27 +560,6 @@ class Profile
     /**
      * Types outside the vocabulary that are always allowed.
      *
-     * A profile cannot name these, so denying them would express nothing:
-     * `raw_text` serves the formatter, and the document root is the tree itself.
-     *
-     * `frontmatter` used to sit here on the "renders nothing" reasoning. The
-     * spec's block vocabulary lists it, so a profile CAN name it - and since
-     * PART 12 §2 publishes it as a root field, denying it is a real decision
-     * about what leaves the engine even though the HTML is unchanged. Keeping it
-     * here meant a host denying frontmatter was silently ignored.
-     *
-     * `abbreviation_def` left for exactly the same reason (carve-php#858). The
-     * AST schema declares it, docs/profiles.md names it beside
-     * `link_reference_definition` as one case, and that sibling was never on this
-     * list - so denying one worked and denying the other was ignored, on both
-     * actions and on every target. "Renders nothing" is true of the HTML only:
-     * markdown, plain and ansi all emit the definition LINE, which is content a
-     * host can have a reason to withhold.
-     *
-     * What a deny must NOT take is the EXPANSION. profiles.md: the inline
-     * `abbreviation` the definition feeds is a separate profile entry, and both
-     * other engines keep emitting `<abbr>` after this deny.
-     *
      * @var list<string>
      */
     private const NON_DENIABLE_TYPES = [

@@ -21,26 +21,6 @@ use MarkupCarve\Carve\Util\StringUtil;
  * bottom), this renders a named `<nav class="toc">` exactly where the author writes a
  * `::: toc` block, so a long document can place its contents after an intro.
  * Off by default.
- *
- * The level window is set with attributes on the line *before* the opener
- * (Carve attaches `:::`-block attributes on a preceding attribute line):
- *
- * ```
- * ::: toc (all levels, 1-6)
- * :::
- *
- * {depth=2} (levels 1-2)
- * ::: toc
- * :::
- *
- * {from=2 to=4} (levels 2-4)
- * ::: toc
- * :::
- * ```
- *
- * Heading ids are read from the shared HeadingIdTracker after the renderer's
- * pre-resolve pass, so the links always match the emitted heading anchors. The
- * TOC HTML is byte-identical to carve-js and TableOfContentsExtension.
  */
 class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtensionInterface
 {
@@ -159,27 +139,6 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
                 continue;
             }
             $id = $tracker->getIdForHeading($heading);
-            // A TABLE-OF-CONTENTS ENTRY IS DERIVED DISPLAY TEXT, so PART 9R R4
-            // reaches it (markup-carve/carve#957): it is the heading's inline
-            // NODES, rendered by the renderer that is running, so the entry
-            // keeps the code span and the emphasis the author wrote and the
-            // glyph-or-source-run decision, the symbols map and the raw-HTML
-            // policy all stay the RENDERER's.
-            //
-            // INSIDE AN ANCHOR: the entry is written into an `<a href="#id">`
-            // this extension emits, so a link in the heading unwraps rather than
-            // opening an anchor inside that one (PART 12 §3a).
-            //
-            // The label excludes the presentational section-number span but
-            // keeps the space before the title; trim to the bare title (matches
-            // carve-js / carve-rs). stripBidi still runs as defence in depth -
-            // the renderer already strips the reordering controls from the text
-            // it escapes.
-            //
-            // The `?? []` is the RETURN TYPE's demand and not a case: the id was
-            // just registered from a heading, so the tracker holds that
-            // heading's nodes. Written as a branch it would be a check that
-            // cannot fail.
             $nodes = $tracker->getLabelNodesForId($id) ?? [];
 
             $entries[] = [

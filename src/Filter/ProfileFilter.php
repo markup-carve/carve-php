@@ -333,26 +333,6 @@ class ProfileFilter
      */
     protected function rendersNothing(Node $node): bool
     {
-        // Deliberately not a list of "probably empty" node types: a
-        // ThematicBreak already extracts to `---` and never reaches here, so
-        // adding it would be a branch that cannot fire.
-        //
-        // A comment produces no output by definition. Frontmatter is document
-        // METADATA - it is published on the serialized root rather than in the
-        // document's flow (PART 12 section 2) and renders nowhere - so degrading
-        // it to text has nothing to substitute. Without this it took the
-        // missing-extractor path and injected a literal `[frontmatter]`
-        // paragraph into the output, which is the marker's way of saying an arm
-        // is missing rather than a claim about the content.
-        // A definition line is the same case again, and profiles.md names the
-        // two together: "`link_reference_definition` is the `abbreviation_def`
-        // case exactly: the definition line renders nothing in HTML, so denying
-        // it would not stop anything reaching the page - the `link` or `image`
-        // it feeds is the node a profile denies." Without them, denying a link
-        // reference definition under the default action injected a literal
-        // `[link_reference_definition]` paragraph, the same marker frontmatter
-        // used to produce (carve-php#855). The `link` and the `abbr` they feed
-        // are separate nodes a profile denies separately, and still render.
         return $node instanceof Comment
             || $node instanceof Frontmatter
             || $node instanceof Footnote

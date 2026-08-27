@@ -88,23 +88,6 @@ class HeadingIdTracker
     /**
      * Resolved heading id => a CLONE of the heading's inline nodes.
      *
-     * PART 9R R4 says the label of a resolved cross-reference is the target
-     * heading's inline NODES cloned, and the difference from a rendered string
-     * is the whole point: a node carries its SOURCE RUN, a string does not.
-     * Flattening here - which is what this class used to do, keeping only
-     * `textById` - discarded the run before any renderer existed, so smart
-     * typography's SOURCE mode could not recover it on any target and no
-     * renderer change could reach it (markup-carve/carve#952).
-     *
-     * A CLONE rather than the live children, for the same reason `resolvedTexts`
-     * is captured eagerly: an extension may append to the heading afterwards
-     * (HeadingPermalinksExtension adds a permalink symbol), and the label is the
-     * heading as the author wrote it. `Node::__clone()` is already deep.
-     *
-     * Only HEADING ids get an entry. A numbered caption registers its label
-     * through `setTextForId()` as an already-composed string ("Figure 2"), which
-     * has no nodes behind it, so those ids keep the string path.
-     *
      * @var array<string, list<\MarkupCarve\Carve\Node\Node>>
      */
     protected array $nodesById = [];
@@ -542,26 +525,6 @@ class HeadingIdTracker
                 return ':' . $child->getName() . ':';
             }
 
-            // A SYMBOL CONTRIBUTES NOTHING TO DERIVED TEXT. syntax.md section
-            // 4.1 step 1 takes the heading's rendered plain text "(inline
-            // markup removed; symbols `:name:` and footnote references
-            // excluded)", and the exclusion is by CONSTRUCT, not by whatever
-            // the symbol happens to render as.
-            //
-            // It has to be, because a symbol's rendering is processor
-            // configuration (PART 3: an inline-renderer handler, else the
-            // `symbols` map, else the literal `:name:`) while an id is assigned
-            // in the parse pass that no renderer option reaches. Feeding the
-            // construct in makes the id a function of that configuration:
-            // returning the NAME published `a-smile-b` for `# a :smile: b` even
-            // with `smile` mapped to an emoji, so the id named a spelling the
-            // document never rendered, and returning the RESOLVED value would
-            // have moved every such id the first time a host configured a map.
-            // Excluding it is the only answer that holds still
-            // (markup-carve/carve#1011).
-            //
-            // Scoped to derived TEXT: contributesNothingToDisplay() keeps the
-            // symbol in a derived display label, where it is visible content.
             return '';
         }
         if ($child instanceof FootnoteRef || $child instanceof InlineFootnote) {
@@ -601,31 +564,6 @@ class HeadingIdTracker
      * The one derivation every consumer of a heading's display text goes
      * through (PART 9R R4, DERIVED DISPLAY TEXT CLONES THE SAME NODES,
      * markup-carve/carve#957).
-     *
-     * R4 binds every such consumer, not the core cross-reference alone, and
-     * names three - a numbered cross-reference label, an index term's display,
-     * a table-of-contents entry. Each answering the follow-on questions on its
-     * own is how one rule acquires four readings, so they all call this.
-     *
-     * WHAT COMES BACK IS NODES, NOT A STRING. A node carries the author's
-     * source run and a string does not, so flattening here destroys the code
-     * span, the emphasis and the escape before any renderer is invoked, and no
-     * renderer change can reach the loss - the label was materialized in the
-     * wrong subsystem. The sequence used to be flat, with only the
-     * smart-typography nodes left standing so a renderer could still pick
-     * glyph-or-source-run; that answered R4's `</#id>` half and left the
-     * markup half unanswered.
-     *
-     * The run is a DEEP COPY (the stored snapshot is deep-cloned again per
-     * call), so the label and the heading are two trees: a caller that rewrites
-     * one in place - the no-nesting unwrap in CrossReferenceResolver does
-     * exactly that - does not rewrite the other.
-     *
-     * `insideLink` is the CALLER's context rather than a fact about the nodes:
-     * a cross-reference label and a table-of-contents entry are placed inside
-     * an `<a>` and pass true, while an index list item is not an anchor - only
-     * the backrefs after the display are - and passes false, so an authored
-     * link in the term survives.
      *
      * @param list<\MarkupCarve\Carve\Node\Node> $children
      * @param bool $insideLink
@@ -733,24 +671,6 @@ class HeadingIdTracker
 
     /**
      * A node that contributes NOTHING to a heading's display text.
-     *
-     * The three cases inlineTextLeaf() answers with the empty string, plus the
-     * footnote apparatus it answers with the empty string by having no children
-     * to recurse into:
-     *
-     * - an `:index[term]` MARKER is invisible (PART 9 §8.1) - it emits no
-     *   visible text, so it is not display text anywhere it is derived, and its
-     *   `idx-` anchor id is published exactly once;
-     * - a `section-number` SPAN is injected by HeadingNumbers (§9) and is named
-     *   by R4 as not part of the label - the class is the discriminator this
-     *   engine and carve-js both use, and it is the same one the id slug uses;
-     * - a RAW INLINE is excluded from heading text on every target, and the
-     *   permalink anchor HeadingPermalinks injects is a render-event addition
-     *   that never reaches the snapshot at all;
-     * - a FOOTNOTE REFERENCE is a pointer into the endnotes rather than display
-     *   text: a second copy publishes a duplicate `fnref` id inside an anchor of
-     *   its own and points the backlink at whichever rendered last. An inline
-     *   footnote is the same pointer with its body attached.
      *
      * @param \MarkupCarve\Carve\Node\Node $child
      */

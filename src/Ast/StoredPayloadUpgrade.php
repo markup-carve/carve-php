@@ -9,40 +9,6 @@ use MarkupCarve\Carve\Exception\AstDecodeException;
 
 /**
  * Rewrites a payload stored before PART 12 §7 into the §7 shape.
- *
- * This engine used to READ five spellings that predate §7, normalizing each one
- * on the way in. They are gone: §12(d) validates the payload as literally
- * written, and a permanently tolerated pre-§7 spelling is exactly the leniency
- * that clause replaces - neither sibling engine accepts them, so keeping them
- * kept a cross-engine divergence in what an ingest accepts.
- *
- * The five, and what each becomes:
- *
- * - a root `abbreviations` map (with `abbreviationsBeforeBody`) becomes
- *   `abbreviation_def` block nodes, ahead of the body or after it exactly as
- *   the flag said;
- * - a root `frontmatter` object becomes the leading `frontmatter` block node;
- * - a root `footnoteDefs` map becomes trailing `footnote` block nodes, one per
- *   label;
- * - a `footnote` node keyed `id` is rekeyed `label`, the name §7 gives it;
- * - a `raw_text` node becomes the `text` node the encoder already mapped it to,
- *   because `raw_text` is this engine's own and PART 12 §5 keeps it off the
- *   wire.
- *
- * IT WORKS ON THE PAYLOAD, NOT ON THE SOURCE. An application holding stored
- * payloads may no longer have the Carve they were parsed from, so re-parsing is
- * not a migration path available to it - which is why this ships in the same
- * release as the removal rather than on a deprecation timeline.
- *
- * ```php
- * $payload = StoredPayloadUpgrade::upgrade(json_decode($stored, true));
- * $document = (new AstCodec())->decode($payload);
- * ```
- *
- * The result is what this engine would have published had it decoded the stored
- * payload and encoded it again, minus the resolution results §5 stamps at encode
- * time - those are recomputed by the next encode and are not the migration's
- * business.
  */
 final class StoredPayloadUpgrade
 {

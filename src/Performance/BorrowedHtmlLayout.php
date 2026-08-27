@@ -777,7 +777,7 @@ final class BorrowedHtmlLayout
 
     /**
      * @param string $line
-@param array{char: string, len: int} $fence
+     * @param array{char: string, len: int} $fence
      */
     private function isFenceClose(string $line, array $fence): bool
     {

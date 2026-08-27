@@ -11,30 +11,6 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * The two rules about the compact semantic-span names (PART 9 §9 and §10).
- *
- * NEITHER REPORTS AN ENGINE DEFECT. All three engines render these
- * byte-identically and exactly as the clause reads. They report the two places
- * where the clause's own scope loses something the author wrote, with nothing
- * else marking it (markup-carve/carve#1131, markup-carve/carve#1132):
- *
- * - `semantic-attribute-value-ignored`: a value on a name that only SELECTS its
- *   wrapper. `[x]{kbd="V"}` renders `<kbd>x</kbd>` and `V` reaches no target.
- *   Only `abbr`, `dfn` and `time` carry a value, as `title` or `datetime`.
- * - `semantic-attribute-outside-span`: a reserved name on anything other than an
- *   ordinary `[content]{attrs}` span, where §10 does not apply and the name
- *   stays a raw attribute. `` `c`{kbd} `` renders `<code kbd="">c</code>`, which
- *   is what it has always rendered - the wart is that one spelling now means two
- *   things depending on what it attaches to.
- *
- * BOTH RULES ARE TIER-AWARE. §9 puts `abbr`, `time` and `kbd` in core and leaves
- * `samp`, `var`, `cite` and `dfn` to the SemanticSpan extension. A name the
- * caller's render does NOT turn into an element is an ordinary attribute
- * everywhere, so its value reaches the output intact and neither rule applies to
- * it. Pass the extensions you render with; omitted means a core render.
- *
- * This is this package's first AST-walking lint pass. `MarkdownHabitLinter`
- * never parses - it is a source scan, named for a different job - so these rules
- * live here rather than bolted onto it.
  */
 class SemanticAttributeLinter
 {

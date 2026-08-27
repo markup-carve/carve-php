@@ -117,23 +117,6 @@ final class SourceMap
      * Record that `$columns` source bytes at `$sourceOffset` were REWRITTEN into
      * one indent sentinel each, so they occupy `$columns * 3` bytes of the built
      * string at `$textOffset`.
-     *
-     * A line block preserves its whitespace as content: PART 2 §23 turns a
-     * leading run, and any inner run of two columns or more, into that many
-     * non-breaking spaces, carried through the parse as
-     * {@see self::INDENT_SENTINEL}. {@see self::add()} cannot describe the
-     * result, because that method maps N source bytes onto N built bytes and
-     * this run is one source byte onto three - which is why the whole region
-     * used to be left out of the map, and why every node covering it declined
-     * (carve-php#1351).
-     *
-     * ONLY A RUN OF PLAIN SPACES qualifies. A tab widens to a variable number
-     * of columns, so its sentinels stand for no fixed count of source bytes and
-     * no segment describes them either - those stay unmapped, which is what
-     * makes the tab form of this construct genuinely unplaceable in every
-     * engine rather than merely unplaced in this one. The spaces are checked
-     * again when a span is verified {@see self::rebuild()}, so a caller that
-     * gets this wrong loses the span rather than publishing a false one.
      */
     public function addSentinelRun(int $textOffset, int $sourceOffset, int $columns, int $line, int $column): void
     {

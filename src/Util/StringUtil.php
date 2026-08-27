@@ -15,26 +15,6 @@ final class StringUtil
      * PART 7's `whitespace` as a TRIM CHARLIST: space, tab, carriage return,
      * line feed, and NOTHING ELSE.
      *
-     * "ONE WHITESPACE DEFINITION, IN EVERY CONSTRUCT" (PART 7, written by
-     * markup-carve/carve#977): the whitespace characters Carve has are exactly
-     * four, U+0020, U+0009, U+000A and U+000D, and EVERY OTHER CHARACTER IS
-     * CONTENT. The clause names the two an implementation is likeliest to
-     * admit by accident, so their absence cannot be read as an oversight - a
-     * VERTICAL TAB (U+000B) is CONTENT and a FORM FEED (U+000C) is CONTENT.
-     *
-     * PHP's DEFAULT trim charlist is `" \t\n\r\0\x0B"`. It differs from this
-     * one in exactly two places: it takes a VERTICAL TAB, which the clause
-     * calls content, and a NUL, which is replaced with U+FFFD upstream and
-     * cannot reach a trim here. So every `trim()` that reads a slot of Carve
-     * SOURCE passes this charlist, and a bare `trim($x)` in the parser is the
-     * host language answering a question the grammar has already answered.
-     *
-     * The two wider notions the grammar marks as such keep their own classes:
-     * `unicode_url_char` (PART 3) means the Unicode White_Space property for a
-     * destination, and PART 9 §25's scheme probe strips the C0 controls
-     * because it strips what a URL parser strips. Neither is a reading of the
-     * source.
-     *
      * @var string
      */
     public const WHITESPACE_CHARS = " \t\r\n";
@@ -67,21 +47,6 @@ final class StringUtil
 
     /**
      * PART 7's `whitespace` terminal, as a test on ONE character.
-     *
-     * NOT `ctype_space()`, which is what the delimiter-flanking gates and the
-     * attribute separator used to ask. PHP's `ctype_space()` takes a VERTICAL
-     * TAB (U+000B) and a FORM FEED (U+000C) on top of these four, so `/<VT>a/`
-     * was not emphasis while `/!a/` was - one class deciding two ways on which
-     * character the author typed (markup-carve/carve#963).
-     *
-     * The three classes PHP offers are wrong in DIFFERENT directions, which is
-     * why fixing one spelling does not fix the next: `ctype_space()` and PCRE
-     * `\s` both take the vertical tab AND the form feed, while PHP's default
-     * `trim()` charlist takes the vertical tab and NOT the form feed.
-     *
-     * BYTE-level on purpose, like NON_WHITESPACE_CLASS above: it is handed one
-     * byte at a time by scanners walking a string with `$text[$i]`, and no
-     * continuation byte of a multi-byte character equals any of the four.
      *
      * @param string $char
      *
