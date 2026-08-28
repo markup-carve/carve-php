@@ -83,15 +83,9 @@ class ListItem extends BlockNode
     /**
      * The authored state, when it is not the default for the box (PART 11 6g).
      *
-     * A checked box records nothing: 'X' folds to 'x', so recording the case
-     * would make two spellings of one state two documents.
-     *
-     * ONLY THE ENUMERATED STATES. This constructor takes any character, and its
-     * own docblock names markers the language does not spell ('/', '.', '='), so
-     * a hand-built item can hold one. Publishing it would put a value on the
-     * wire the schema refuses, and writing it would emit `- [/] x`, which the
-     * reader does not read back as a task at all. Such an item keeps the
-     * default box it already rendered.
+     * Only PART 2's states: this constructor takes any character, and a marker
+     * the language does not spell would write `- [/] x`, which reads back as a
+     * paragraph.
      */
     public function getAuthoredTaskState(): ?string
     {

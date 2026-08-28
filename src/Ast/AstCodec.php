@@ -2077,10 +2077,7 @@ class AstCodec
         }
 
         if ($node instanceof ListItem && array_key_exists('checked', $data)) {
-            // The state the payload spells, or the default for the box - which
-            // is what a tree built by hand and every payload written before the
-            // field carry. The pair is validated before this runs, so a state
-            // here already agrees with `checked`.
+            // Validated against `checked` before this runs.
             $state = is_string($data['taskState'] ?? null) ? $data['taskState'] : null;
             self::writeProperty($node, 'taskMarker', $state ?? ($data['checked'] === true ? 'x' : ' '));
 
