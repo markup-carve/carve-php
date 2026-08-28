@@ -152,7 +152,9 @@ final class ReferenceShape
         // round trip - the authored form PART 11 §6 preserves. carve-js and
         // carve-rs both publish it (carve-php#711).
         'list' => ['listType'],
-        // `checked` carries this; a non-task item simply has no `checked`.
+        // The RAW marker stays internal - it holds `X` and the default `[ ]`,
+        // neither of which the wire spells. What the author chose rides as
+        // `taskState`, published by the codec (carve#1866).
         'list_item' => ['taskMarker'],
         'table_cell' => ['isHeader', 'rowspan', 'colspan', 'hasExplicitAlignment', 'hasExplicitVerticalAlignment'],
         'table_row' => ['isHeader'],

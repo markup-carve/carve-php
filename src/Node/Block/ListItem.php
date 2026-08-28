@@ -80,6 +80,28 @@ class ListItem extends BlockNode
         return $this->taskMarker !== null && strtolower($this->taskMarker) === 'x';
     }
 
+    /**
+     * The authored state, when it is not the default for the box (PART 11 6g).
+     *
+     * A checked box records nothing: 'X' folds to 'x', so recording the case
+     * would make two spellings of one state two documents.
+     *
+     * ONLY THE ENUMERATED STATES. This constructor takes any character, and its
+     * own docblock names markers the language does not spell ('/', '.', '='), so
+     * a hand-built item can hold one. Publishing it would put a value on the
+     * wire the schema refuses, and writing it would emit `- [/] x`, which the
+     * reader does not read back as a task at all. Such an item keeps the
+     * default box it already rendered.
+     */
+    public function getAuthoredTaskState(): ?string
+    {
+        if ($this->taskMarker === null || $this->isCompleted()) {
+            return null;
+        }
+
+        return in_array($this->taskMarker, ['-', '_', '>', '?'], true) ? $this->taskMarker : null;
+    }
+
     public function getType(): string
     {
         return 'list_item';

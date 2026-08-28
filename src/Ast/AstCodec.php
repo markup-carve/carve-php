@@ -109,7 +109,7 @@ class AstCodec
         // the schema requires it on every figure, beside `target`.
         'figure' => ['target', 'caption'],
         'list' => ['ordered', 'delim'],
-        'list_item' => ['checked'],
+        'list_item' => ['checked', 'taskState'],
         'mention' => ['user'],
         'table_cell' => ['header'],
         'tag' => ['name'],
@@ -1955,7 +1955,16 @@ class AstCodec
         }
 
         if ($node instanceof ListItem) {
-            return $node->isTask() ? ['checked' => $node->isCompleted()] : [];
+            if (!$node->isTask()) {
+                return [];
+            }
+            $fields = ['checked' => $node->isCompleted()];
+            $state = $node->getAuthoredTaskState();
+            if ($state !== null) {
+                $fields['taskState'] = $state;
+            }
+
+            return $fields;
         }
 
         if ($node instanceof TableCell) {
@@ -2068,7 +2077,12 @@ class AstCodec
         }
 
         if ($node instanceof ListItem && array_key_exists('checked', $data)) {
-            self::writeProperty($node, 'taskMarker', $data['checked'] === true ? 'x' : ' ');
+            // The state the payload spells, or the default for the box - which
+            // is what a tree built by hand and every payload written before the
+            // field carry. The pair is validated before this runs, so a state
+            // here already agrees with `checked`.
+            $state = is_string($data['taskState'] ?? null) ? $data['taskState'] : null;
+            self::writeProperty($node, 'taskMarker', $state ?? ($data['checked'] === true ? 'x' : ' '));
 
             return;
         }

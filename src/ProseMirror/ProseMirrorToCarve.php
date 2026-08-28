@@ -1368,7 +1368,8 @@ class ProseMirrorToCarve
         } elseif ($node instanceof ListItem && $proseMirrorName === 'taskItem') {
             $itemAttrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
             $checked = self::asBool($itemAttrs['checked'] ?? false);
-            $this->setState($node, 'taskMarker', $checked ? 'x' : ' ');
+            $state = self::taskStateAttr($itemAttrs, $checked);
+            $this->setState($node, 'taskMarker', $state ?? ($checked ? 'x' : ' '));
         } elseif ($node instanceof Mention && $proseMirrorName === 'carveTag') {
             // The name is the only place the flavor survives: the map resolves
             // carveTag back to `mention`, and a Mention with no class reads as a
@@ -1564,7 +1565,7 @@ class ProseMirrorToCarve
                     && !array_key_exists('label', $attrs) => $this->addMentionLabel($node, self::asString($value)),
                 ($node instanceof Image || $node instanceof Link) && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
                 // Editor bookkeeping that has no Carve meaning.
-                in_array($key, ['checked', 'languageRaw'], true) => true,
+                in_array($key, ['checked', 'carveTaskState', 'languageRaw'], true) => true,
                 default => false,
             };
         }
@@ -1766,6 +1767,28 @@ class ProseMirrorToCarve
     private static function asInt(mixed $value): int
     {
         return is_numeric($value) ? (int)$value : 0;
+    }
+
+    /**
+     * The authored task state an editor sent back, when it agrees with the box.
+     *
+     * A payload is an editor's, not a parser's: it can carry any pair. One that
+     * contradicts `checked` is dropped rather than trusted, because `checked`
+     * is the attribute tiptap itself maintains.
+     *
+     * @param array<string, mixed> $attrs
+     * @param bool $checked
+     *
+     * @return string|null
+     */
+    private static function taskStateAttr(array $attrs, bool $checked): ?string
+    {
+        $state = $attrs['carveTaskState'] ?? null;
+        if (!is_string($state) || !in_array($state, [' ', 'x', '-', '_', '>', '?'], true)) {
+            return null;
+        }
+
+        return ($state === 'x') === $checked ? $state : null;
     }
 
     private static function asBool(mixed $value): bool
