@@ -1482,3 +1482,47 @@ Constructor options:
 $converter->addExtension(new TabNormalizeExtension());          // 2 spaces
 $converter->addExtension(new TabNormalizeExtension(width: 4));  // 4 spaces
 ~~~
+
+## Extension Matchers
+
+Carve-PHP supports parse-stage extension matchers alongside render hooks and
+document transforms. Matchers are tried only where core syntax declines, so
+core parsing always wins first.
+
+~~~ php
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Parser\MatcherContext;
+
+$converter = new CarveConverter();
+
+$converter->getParser()->getInlineParser()->addInlineMatcher(
+    function (string $text, int $pos, MatcherContext $ctx): ?array {
+        if (!preg_match('/\G\{\{([a-z]+)\}\}/', $text, $m, 0, $pos)) {
+            return null;
+        }
+
+        return ['node' => new Text('VAR:' . $m[1]), 'end' => $pos + strlen($m[0])];
+    },
+    priority: 0,
+    triggerChars: '{', // only run this matcher at a `{`
+);
+~~~
+
+`MatcherContext` exposes definition tables (`getReference()`, `hasFootnote()`,
+`getAbbreviation()`) and recursive parse helpers (`parseInlines()`,
+`parseBlocks()`). Matchers run by descending `priority`, then registration
+order. `addInlinePattern()` and `addBlockPattern()` remain available as regex
+sugar over the same matcher contract.
+
+For a raw-closure `addInlineMatcher()`, pass `triggerChars` (the literal first
+bytes the matcher can ever fire on, e.g. `'{'` above) so the parser only invokes
+it at those positions. Without it, the matcher runs at **every** scan position
+and disables the per-character fast path for the whole document — a measurable
+slowdown on long inputs. A matcher registered through `addInlinePattern()`
+derives its trigger bytes from the pattern automatically.
+
+The normative extension contract lives in
+[`carve/docs/extensions.md`](https://github.com/markup-carve/carve/blob/main/docs/extensions.md).
+Extensions bundled with this package (such as `PlusBulletExtension`) are
+documented above.
