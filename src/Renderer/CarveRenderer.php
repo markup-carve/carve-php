@@ -1169,6 +1169,17 @@ class CarveRenderer implements RendererInterface
             && $a->getStyle() === $b->getStyle();
     }
 
+    /**
+     * The task marker, with the state the author chose (PART 11 6g).
+     *
+     * An item with no recorded state takes the default for its box, which is
+     * what a hand-built tree and every document written before the field carry.
+     */
+    protected static function taskMarker(ListItem $item): string
+    {
+        return '[' . ($item->getAuthoredTaskState() ?? ($item->isCompleted() ? 'x' : ' ')) . ']';
+    }
+
     protected static function indentLines(string $text, int $columns): string
     {
         $pad = str_repeat(' ', $columns);
@@ -1655,7 +1666,7 @@ class CarveRenderer implements RendererInterface
                         : $this->orderedMarker($counter, $node->getStyle()) . $delim . ' ';
                     $counter++;
                 } elseif ($item->isTask()) {
-                    $prefix = $bullet . ' [' . ($item->isCompleted() ? 'x' : ' ') . '] ';
+                    $prefix = $bullet . ' ' . self::taskMarker($item) . ' ';
                 } else {
                     $prefix = $bullet . ' ';
                 }
@@ -1665,7 +1676,7 @@ class CarveRenderer implements RendererInterface
                 if ($itemAttrs !== '') {
                     $prefix = $node->getListType() === ListBlock::TYPE_ORDERED
                         ? rtrim($prefix) . $itemAttrs . ' '
-                        : $bullet . $itemAttrs . ($item->isTask() ? ' [' . ($item->isCompleted() ? 'x' : ' ') . '] ' : ' ');
+                        : $bullet . $itemAttrs . ($item->isTask() ? ' ' . self::taskMarker($item) . ' ' : ' ');
                 }
 
                 $content = $this->trimNonNbsp($this->renderListItem($item, $node->isTight()));

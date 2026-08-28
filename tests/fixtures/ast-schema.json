@@ -272,7 +272,8 @@
   },
   "list_item": {
     "fields": [
-      "checked"
+      "checked",
+      "taskState"
     ],
     "required": []
   },

@@ -705,6 +705,14 @@ class ProseMirrorRenderer
         } elseif ($node instanceof ListItem) {
             if ($node->isTask()) {
                 $attrs['checked'] = $node->isCompleted();
+                // tiptap's taskItem has a ticked box and nothing else, so the
+                // four extended states would cross the bridge as `[ ]`
+                // (carve#1866). The prefixed attribute carries what `checked`
+                // cannot, the way `carveLoose` does above.
+                $state = $node->getAuthoredTaskState();
+                if ($state !== null) {
+                    $attrs['carveTaskState'] = $state;
+                }
             }
         } elseif ($node instanceof TableCell) {
             // The cell's OWN marker, not the one it inherits from the column.
