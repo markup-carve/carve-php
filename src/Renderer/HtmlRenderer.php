@@ -1473,6 +1473,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderListItem(ListItem $node, bool $tight = true): string
     {
         $attrs = $this->renderAttributes($node);
+        // PART 10 section 11. Structural, so it leads the authored attributes.
+        $state = $node->getAuthoredTaskState();
+        if ($state !== null) {
+            $attrs = ' data-task-state="' . $this->escapeAttribute($state) . '"' . $attrs;
+        }
 
         // Render the item's direct children individually so paragraph
         // tightness can be applied per child. In a TIGHT item every top-level

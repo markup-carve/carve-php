@@ -5654,12 +5654,16 @@ class HtmlToCarve
                 // direct <input checked> (rendered form) or from data-checked
                 // (TipTap form, where the input is nested in a <label>).
                 $checkbox = '';
+                // Reset per item: a PHP loop variable survives its iteration.
+                $authoredState = null;
                 $checkboxInput = $this->getDirectCheckboxInput($child);
                 if ($isTaskList || $checkboxInput !== null) {
                     $isChecked = $child->hasAttribute('data-checked')
                         ? $child->getAttribute('data-checked') === 'true'
                         : ($checkboxInput?->hasAttribute('checked') ?? false);
-                    $checkbox = $isChecked ? '[x] ' : '[ ] ';
+                    // PART 10 section 11: the box cannot show these four.
+                    $authoredState = $this->readableTaskState($child, $isChecked);
+                    $checkbox = '[' . ($authoredState ?? ($isChecked ? 'x' : ' ')) . '] ';
 
                     // THE POINT OF CONSUMPTION, which is the only place that
                     // knows WHICH input became this marker (carve-php#1705).
@@ -5682,6 +5686,10 @@ class HtmlToCarve
                 }
 
                 $liSkipAttrs = $isTaskList ? ['data-type', 'data-checked'] : [];
+                // Consumed, not dropped as derived - it is half of the state.
+                if ($authoredState !== null) {
+                    $liSkipAttrs[] = 'data-task-state';
+                }
                 $liAttrs = $this->getElementAttributes($child, $liSkipAttrs);
                 $attrToken = $liAttrs !== '' ? '{' . $liAttrs . '}' : '';
 
@@ -6259,6 +6267,20 @@ class HtmlToCarve
         }
 
         return null;
+    }
+
+    /**
+     * The authored task state, where the attribute IS that state: one PART 10
+     * section 11 writes, on an empty box. Anything else is the author's.
+     */
+    protected function readableTaskState(DOMElement $li, bool $isChecked): ?string
+    {
+        if ($isChecked || !$li->hasAttribute('data-task-state')) {
+            return null;
+        }
+        $state = $li->getAttribute('data-task-state');
+
+        return in_array($state, ['-', '_', '>', '?'], true) ? $state : null;
     }
 
     /**
