@@ -1772,9 +1772,8 @@ class ProseMirrorToCarve
     /**
      * The authored task state an editor sent back, when it agrees with the box.
      *
-     * A payload is an editor's, not a parser's: it can carry any pair. One that
-     * contradicts `checked` is dropped rather than trusted, because `checked`
-     * is the attribute tiptap itself maintains.
+     * An editor payload can carry any pair; `checked` is the one tiptap itself
+     * maintains, so a state contradicting it is dropped rather than trusted.
      *
      * @param array<string, mixed> $attrs
      * @param bool $checked

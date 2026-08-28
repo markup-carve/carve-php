@@ -1170,10 +1170,7 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * The task marker, with the state the author chose (PART 11 6g).
-     *
-     * An item with no recorded state takes the default for its box, which is
-     * what a hand-built tree and every document written before the field carry.
+     * PART 11 6g. An item with no recorded state takes the default for its box.
      */
     protected static function taskMarker(ListItem $item): string
     {
