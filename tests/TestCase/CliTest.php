@@ -72,20 +72,37 @@ class CliTest extends TestCase
 
     /**
      * The provenance marker `carve fmt --stamp` writes carries LIB_VERSION, so a
-     * README example spelling a different version documents output the tool does
-     * not produce. That second home for the value is how the constant sat three
-     * releases behind without anyone noticing.
+     * documented example spelling a different version documents output the tool
+     * does not produce. That second home for the value is how the constant sat
+     * three releases behind without anyone noticing.
+     *
+     * EVERY shipped page is read, not just the README. The examples lived in the
+     * README when this was written and now live in docs/, and a guard that names
+     * one file stops guarding the moment its subject moves - which is exactly
+     * what happened: this test failed on the move rather than following it.
      */
     public function testDocumentedStampExamplesCarryTheCurrentVersion(): void
     {
-        $readme = file_get_contents(dirname(__DIR__, 2) . '/README.md');
-        $this->assertIsString($readme);
+        $root = dirname(__DIR__, 2);
+        $pages = array_merge([$root . '/README.md'], glob($root . '/docs/*.md') ?: []);
 
-        $found = preg_match_all('/carve-php (\d+\.\d+\.\d+)/', $readme, $matches);
-        $this->assertGreaterThan(0, $found, 'README documents no stamp version to check.');
+        $versions = [];
+        foreach ($pages as $page) {
+            $text = file_get_contents($page);
+            $this->assertIsString($text);
+
+            if (preg_match_all('/carve-php (\d+\.\d+\.\d+)/', $text, $matches) > 0) {
+                $versions = array_merge($versions, $matches[1]);
+            }
+        }
+
+        $this->assertNotEmpty(
+            $versions,
+            'No shipped page documents a stamp version to check.',
+        );
         $this->assertSame(
             [CarveConverter::LIB_VERSION],
-            array_values(array_unique($matches[1])),
+            array_values(array_unique($versions)),
         );
     }
 
