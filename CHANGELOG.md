@@ -9,6 +9,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A link or image destination title occupies the HTML `title` slot instead of being emitted beside a duplicate authored attribute.
+
+### Fixed
+
 - Djot migration preserves Carve table continuation rows instead of rewriting their `+` marker as a bullet.
 
 ### Fixed
