@@ -2106,9 +2106,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return $this->escape($rawRef);
         }
 
-        $attrs = $this->renderAttributesExcluding($node, ['href']);
         $href = $node->getDestination();
         $title = $node->getTitle();
+        $attrs = $this->renderAttributesExcluding($node, $title === null ? ['href'] : ['href', 'title']);
 
         // Always-on baseline: blank dangerous URL schemes (independent of safe
         // mode). Safe mode may then apply stricter (allowlist) URL policy.
@@ -2175,10 +2175,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return $this->escape($rawRef);
         }
 
-        $attrs = $this->renderAttributesExcluding($node, ['src']);
         $alt = $this->escapeAttribute($node->getAlt());
         $src = $node->getSource();
         $title = $node->getTitle();
+        $attrs = $this->renderAttributesExcluding($node, $title === null ? ['src'] : ['src', 'title']);
 
         // Always-on baseline; safe mode may add stricter URL policy.
         $src = $this->sanitizeUrlBaseline($src);
