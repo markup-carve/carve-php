@@ -257,9 +257,15 @@ class BlockParser
     /**
      * A definition body: its separator run, then its content.
      *
+     * MARKER REQUIRES CONTENT ignores TRAILING WHITESPACE, and NO TRAILING
+     * WHITESPACE spells whitespace as space or tab here, so a body of nothing
+     * but tabs is a trailing run and opens no description. The separator run is
+     * SPACES ONLY, so a body may still START with a tab: `: <TAB>text` opens
+     * with the tab as content (markup-carve/carve#1836).
+     *
      * @var string
      */
-    protected const DEFINITION_BODY_PATTERN = '/^:( +)([^ ].*)$/';
+    protected const DEFINITION_BODY_PATTERN = '/^:( +)(?=.*[^ \t])([^ ].*)$/';
 
     /**
      * A definition BODY marker, where the caller checks only that the line
@@ -273,7 +279,7 @@ class BlockParser
      *
      * @var string
      */
-    protected const DEFINITION_BODY_LINE_PREFIX = '/^: +(?=[^ ])/';
+    protected const DEFINITION_BODY_LINE_PREFIX = '/^: +(?=[^ ])(?=.*[^ \t])/';
 
     /**
      * The width of the `:` marker the separator run follows.
