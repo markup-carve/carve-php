@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
+use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
 
 /**
  * Converts Djot markup to Carve markup.
@@ -254,14 +257,44 @@ class DjotToCarve
     {
         $lines = explode("\n", $source);
         $maskedLines = explode("\n", $masked);
+        $continuationLines = preg_match('/^[ \t]*\+[ \t][^\n]*\|/m', $masked)
+            ? $this->tableContinuationLines($source)
+            : [];
         foreach ($lines as $i => $line) {
             if (!isset($maskedLines[$i]) || !preg_match('/^(\s*)\+(\s)/', $maskedLines[$i])) {
+                continue;
+            }
+            if (isset($continuationLines[$i + 1])) {
                 continue;
             }
             $lines[$i] = preg_replace('/^(\s*)\+(\s)/', '$1-$2', $line) ?? $line;
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @return array<int, true> One-based lines consumed after a table row's opener
+     */
+    private function tableContinuationLines(string $source): array
+    {
+        $lines = [];
+        $visit = function (Node $node) use (&$visit, &$lines): void {
+            if ($node instanceof TableRow) {
+                $pos = $node->getPos();
+                if ($pos !== null) {
+                    for ($line = $pos->startLine + 1; $line <= $pos->endLine; $line++) {
+                        $lines[$line] = true;
+                    }
+                }
+            }
+            foreach ($node->getChildren() as $child) {
+                $visit($child);
+            }
+        };
+        $visit((new BlockParser(trackPositions: true))->parse($source));
+
+        return $lines;
     }
 
     /**

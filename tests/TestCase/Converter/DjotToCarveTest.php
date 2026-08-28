@@ -63,6 +63,20 @@ class DjotToCarveTest extends TestCase
         $this->assertSame($input, $this->converter->convert($input));
     }
 
+    public function testTableContinuationRowsAreNotConvertedToBullets(): void
+    {
+        $input = "| a | b |\n|---|---|\n| one | x |\n+ continues here | y |\n";
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testAPlusBulletContainingAPipeIsStillConverted(): void
+    {
+        $this->assertSame(
+            "A paragraph.\n\n- a bullet with a | pipe\n",
+            $this->converter->convert("A paragraph.\n\n+ a bullet with a | pipe\n"),
+        );
+    }
+
     public function testFootnoteDefinitionLineIsUntouched(): void
     {
         $input = "[^a]: first\n[^b]: second";
