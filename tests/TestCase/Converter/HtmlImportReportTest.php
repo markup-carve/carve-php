@@ -274,4 +274,29 @@ class HtmlImportReportTest extends TestCase
         $this->expectException(HtmlImportLimitException::class);
         (new HtmlToCarve(maxDiagnostics: 0))->convertWithReport('<p onclick="x()">x</p>');
     }
+
+    public function testCaptionDiagnosticsUseTheSameLimitAsTheMainPass(): void
+    {
+        $html = '<p onclick="a">x</p><p onclick="b">y</p>'
+            . '<figure><img src="/i" alt="x"><figcaption><p>one</p><p>two</p></figcaption></figure>';
+
+        foreach ([1, 2, 3] as $maximum) {
+            $converter = new HtmlToCarve(maxDiagnostics: $maximum);
+            try {
+                $converter->convertWithReport($html);
+                $this->fail('Expected the diagnostic limit at ' . $maximum);
+            } catch (HtmlImportLimitException) {
+                $this->addToAssertionCount(1);
+            }
+            $this->assertSame([], $converter->convertWithReport('<p>reusable</p>')->diagnostics);
+        }
+
+        foreach ([4, 5] as $maximum) {
+            $result = (new HtmlToCarve(maxDiagnostics: $maximum))->convertWithReport($html);
+            $this->assertSame(
+                ['attribute-dropped', 'attribute-dropped', 'element-unwrapped', 'element-unwrapped'],
+                array_column($result->report()['diagnostics'], 'code'),
+            );
+        }
+    }
 }

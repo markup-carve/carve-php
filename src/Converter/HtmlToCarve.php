@@ -359,10 +359,13 @@ class HtmlToCarve
         try {
             $diagnostics = $this->inspectImportLoss($html);
             foreach ($this->captionFlattenDiagnostics as $diagnostic) {
-                if (count($diagnostics) >= $this->maxDiagnostics) {
-                    break;
-                }
-                $diagnostics[] = $diagnostic;
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    $diagnostic->code,
+                    $diagnostic->message,
+                    $diagnostic->severity,
+                    $diagnostic->path ?? '',
+                );
             }
         } finally {
             $this->inspectedCarve = null;
