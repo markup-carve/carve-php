@@ -2904,8 +2904,8 @@ class HtmlToCarve
             // the CONVERSION and read by the INSPECTION, and a path that
             // disagrees drops the row silently, which is the exact failure the
             // rows keyed this way exist to prevent. Every row on the record -
-            // `structure-split`, the dropped `<dd>` and the lone-image
-            // paragraph - was missing on a document with a non-empty `<head>`.
+            // the dropped `<dd>` and the lone-image paragraph - was missing on
+            // a document with a non-empty `<head>`.
             $parentTag = strtolower($parent->tagName);
             if (
                 in_array($parentTag, ['head', 'body'], true)

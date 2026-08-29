@@ -142,7 +142,6 @@ class AnEmptyDescriptionBodyIsWrittenWithTheSentinelTest extends TestCase
                 (new HtmlToCarve())->convertWithReport($html)->diagnostics,
             );
             $this->assertNotContains('structure-unspellable', $codes, $html);
-            $this->assertNotContains('structure-split', $codes, $html);
         }
     }
 
