@@ -1511,7 +1511,14 @@ class BlockParser
         $candidate = substr($candidate, 0, $at) . 'probe';
         $cost = strlen(implode("\n", $before)) * 2 + strlen($candidate);
         if ($cost > $this->definitionProbeBudget) {
-            return true;
+            // OUT OF BUDGET IS NOT AN ANSWER (PART 9R R1a, carve#1881).
+            // Answering "it opens a block" collected a definition from a line
+            // this had established nothing about, so a document that grew past
+            // the allowance started resolving references its smaller self left
+            // literal. The fallback is conservative: it collects nothing, which
+            // can decline a definition an affordable probe would have taken,
+            // and never removes a character the author typed.
+            return false;
         }
         $this->definitionProbeBudget -= $cost;
 
