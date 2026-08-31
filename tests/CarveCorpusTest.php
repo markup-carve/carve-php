@@ -815,6 +815,9 @@ class CarveCorpusTest extends TestCase
         // markup-carve/carve#1832 - a colon with only whitespace after it opens
         // no description.
         'a-colon-followed-by-only-whitespace-is-not-a-description',
+        // markup-carve/carve#1887 - a raw block hands its payload through
+        // unread, so the attribute the importer refuses survives verbatim.
+        'a-raw-block-passes-its-attributes-through-untouched',
     ];
 
     /**
