@@ -160,8 +160,9 @@ class HtmlImportReportTest extends TestCase
                 // TREE and the two exits' agreement below still run: only the
                 // report moved.
                 $expectedReport['diagnostics'] = [];
+                $matched = [];
             } else {
-                $this->assertSame($expectedCodes, array_column($actual, 'code'), basename($fixture));
+                $matched = self::matchDiagnostics($expectedCodes, array_column($actual, 'code'), basename($fixture));
             }
 
             // The fixtures state a `message`, a `severity` and - for one of
@@ -176,12 +177,16 @@ class HtmlImportReportTest extends TestCase
             // unchecked column is what lets the next one start.
             foreach ($expectedReport['diagnostics'] as $index => $diagnostic) {
                 $where = basename($fixture) . ' #' . $index;
-                $this->assertArrayHasKey($index, $actual, $where);
+                // The ROW THIS ONE MATCHED, not the row at the same offset: a
+                // fixture's rows are a subsequence, so an engine that splits an
+                // earlier one shifts every index after it (carve#1884).
+                $at = $matched[$index] ?? $index;
+                $this->assertArrayHasKey($at, $actual, $where);
                 foreach (['message', 'severity', 'path'] as $field) {
                     if (!array_key_exists($field, $diagnostic)) {
                         continue;
                     }
-                    $this->assertSame($diagnostic[$field], $actual[$index][$field] ?? null, $where . ' ' . $field);
+                    $this->assertSame($diagnostic[$field], $actual[$at][$field] ?? null, $where . ' ' . $field);
                 }
             }
 
@@ -208,6 +213,51 @@ class HtmlImportReportTest extends TestCase
      * @param mixed $actual
      * @param string $path
      */
+
+    /**
+     * The actual row each fixture row matched, or a failure naming what is off.
+     *
+     * HOW MANY ROWS ONE LOSS TAKES IS ENGINE-DEFINED (carve#1884, and the
+     * `html-import` page says so). A table whose `<thead>` sits between two
+     * `<tbody>` runs is one degradation, and this engine itemizes the distinct
+     * losses where carve-js coalesces them - same code, same path, same
+     * severity, two rows against one. Comparing the arrays element for element
+     * pinned whichever granularity the fixture's author generated.
+     *
+     * So the fixture's codes must appear IN ORDER as a subsequence, and no row
+     * may carry a code the fixture does not name. An engine may split a row; it
+     * may not invent a code, drop one, or reorder them.
+     *
+     * @param list<string> $expected
+     * @param list<string> $actual
+     * @param string $where
+     *
+     * @return list<int>
+     */
+    private static function matchDiagnostics(array $expected, array $actual, string $where): array
+    {
+        $allowed = array_unique($expected);
+        $unexpected = array_values(array_diff(array_unique($actual), $allowed));
+        self::assertSame([], $unexpected, $where . ': report adds code(s) the fixture does not name');
+
+        $matched = [];
+        $at = 0;
+        foreach ($actual as $index => $code) {
+            if ($at < count($expected) && $code === $expected[$at]) {
+                $matched[$at] = $index;
+                $at++;
+            }
+        }
+        self::assertCount(
+            count($expected),
+            $matched,
+            $where . ': fixture rows [' . implode(', ', $expected) . '] are not a subsequence of ['
+                . implode(', ', $actual) . ']',
+        );
+
+        return $matched;
+    }
+
     private static function astDifference(mixed $expected, mixed $actual, string $path = '$'): ?string
     {
         if (!is_array($expected)) {
