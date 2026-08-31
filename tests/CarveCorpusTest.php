@@ -84,6 +84,7 @@ class CarveCorpusTest extends TestCase
         'a-line-block-s-last-body-line-keeps-its-backslash',
         'a-marker-line-link-definition-is-collected-where-no-paragraph-is-open',
         'a-raw-block-keeps-the-blank-line-at-the-end-of-its-payload-too',
+        'a-raw-block-passes-its-attributes-through-untouched',
         'a-reference-definition-cannot-take-its-destination-from-the-next-line',
         'a-resumed-lazy-run-belongs-to-the-innermost-marker-line-item',
         'a-tab-after-a-fence-or-a-frontmatter-opener-depends-on-where-it-sits',
