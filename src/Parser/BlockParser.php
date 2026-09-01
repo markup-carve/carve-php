@@ -1556,7 +1556,16 @@ class BlockParser
         while (true) {
             $blocks = array_values(array_filter(
                 $node->getChildren(),
-                static fn (Node $child): bool => $child instanceof BlockNode,
+                // A COLLECTED DEFINITION IS NOT BLOCK STRUCTURE (carve-php#1849).
+                // These kinds are hoisted to document level and hold no blocks,
+                // so one of them is always the last child and the walk stopped
+                // there - never reaching the container the candidate changed.
+                // The second marker-led definition in a run was invisible for
+                // that reason, because the first one created the masking node.
+                static fn (Node $child): bool => $child instanceof BlockNode
+                    && !$child instanceof LinkReferenceDefinition
+                    && !$child instanceof Footnote
+                    && !$child instanceof AbbreviationDefinition,
             ));
             $chain[] = count($blocks);
             if ($blocks === []) {
