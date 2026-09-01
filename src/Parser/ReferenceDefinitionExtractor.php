@@ -95,6 +95,7 @@ class ReferenceDefinitionExtractor
         // document, so the author's line rendered nowhere AND defined nothing
         // (carve#664). carve-js tracks the same state for the same reason.
         $inFootnoteBody = false;
+        $previousNonBlank = '';
         $abbreviationLayout = $collectAbbreviations ? new AbbreviationLayoutTracker($lines) : null;
 
         while ($i < $count) {
@@ -242,7 +243,19 @@ class ReferenceDefinitionExtractor
                 $inFootnoteBody = false;
             }
 
-            $referenceLine = $this->referenceLineView($line, $reachedCol, $lines[$i - 1] ?? '');
+            // THE PREVIOUS NON-BLANK LINE, because a blank between description
+            // entries does not end the list - it only makes it loose, and the
+            // parser reads `:  a` over a blank over `:  b` exactly as it reads
+            // them adjacent. Asking the immediately preceding line meant a
+            // description marker after a blank went unstripped, so a definition
+            // written as that description's body was consumed by the parser and
+            // collected by nobody (carve-php#1843). A blank that really ends the
+            // list still refuses: the previous non-blank line is then the prose
+            // that ended it, and that is no description marker.
+            $referenceLine = $this->referenceLineView($line, $reachedCol, $previousNonBlank);
+            if (!IndentationHelper::isBlankLine($line)) {
+                $previousNonBlank = $line;
+            }
             $bare = $referenceLine['line'];
             if (
                 $referenceLine['inList']
