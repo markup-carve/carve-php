@@ -46,6 +46,14 @@ class ListContentColumns
     protected bool $previousWasBlank = true;
 
     /**
+     * A definition list STARTS only on a `::` term, so a single-colon `: body`
+     * line is a description marker only once one has been seen. Ungated,
+     * `: term` in ordinary prose pushed a content column the parser never
+     * opens, and a visibly literal definition registered against it.
+     */
+    protected bool $sawTermMarker = false;
+
+    /**
      * Feed the next raw source line and return the content column that applies.
      *
      * @param string $line The raw line, container prefixes still attached.
@@ -113,7 +121,14 @@ class ListContentColumns
             return $this->current();
         }
 
-        if (preg_match('/^([ \t]*): +(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/', $rest, $descMatch) === 1) {
+        if (preg_match('/^([ \t]*)::(?!:)[ \t]/', $rest) === 1) {
+            $this->sawTermMarker = true;
+        }
+
+        if (
+            $this->sawTermMarker
+            && preg_match('/^([ \t]*): +(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/', $rest, $descMatch) === 1
+        ) {
             $this->popDeeperThan($consumed + strlen($descMatch[1]));
             $this->columns[] = [
                 'column' => $consumed + strlen($descMatch[0]),
@@ -127,7 +142,14 @@ class ListContentColumns
         // sits outside of. Lazy text has not: it belongs to the item above it
         // whatever column it sits at, which is why this is gated on a blank
         // line before it or on the line being a block opener itself.
-        if ($rawTrimmed !== '' && ($wasPreviousBlank || $startsBlock)) {
+        //
+        // EMPTINESS IS MEASURED PAST THE PREFIXES the loop above just walked,
+        // not on the raw line. A quote-marked empty line (`>`) is not blank as
+        // written, so it read as a block opener at column 0 and popped the item
+        // column its own quote still held open; the definition below it then
+        // registered nowhere while the block parser consumed it as a definition
+        // (markup-carve/carve-php#1840).
+        if (trim($rest) !== '' && ($wasPreviousBlank || $startsBlock)) {
             $this->popUnreachedBy($line);
         }
 
