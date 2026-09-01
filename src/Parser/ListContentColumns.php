@@ -69,6 +69,26 @@ class ListContentColumns
             return $this->current();
         }
 
+        // A BLANK ENDS EVERY OPEN QUOTE, so every column opened inside one dies
+        // with it. A later line that writes the marker again opens a NEW quote
+        // and inherits nothing (PART 0, A NEW MARKER DOES NOT REACH A DEAD
+        // CONTAINER'S COLUMN; carve#1892). The quoteDepth above distinguishes
+        // the two container sequences that reach the same number, but a
+        // re-marked line reaches the SAME depth, so depth alone let the dead
+        // item's column survive: the definition below registered document-wide
+        // while the page printed it as ordinary text, which I5 permits under
+        // neither reading. Only a BARE blank does this - a quote-marked empty
+        // line does not end its own quote (carve-php#1840).
+        if (IndentationHelper::isBlankLine($line)) {
+            foreach ($this->columns as $at => $column) {
+                if ($column['quoteDepth'] > 0) {
+                    $this->columns = array_slice($this->columns, 0, $at);
+
+                    break;
+                }
+            }
+        }
+
         $rawTrimmed = trim($line);
         $startsBlock = preg_match('/^#{1,6}([ \t]|$)/', $rawTrimmed) === 1
             || str_starts_with($rawTrimmed, '>')
