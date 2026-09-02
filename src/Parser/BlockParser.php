@@ -8262,6 +8262,10 @@ class BlockParser
                 $bodyStateCursor = 0;
                 /** @var array<int, true> $bodyLazy Body indexes collected BELOW the content column. */
                 $bodyLazy = [];
+                /** @var array<int, true> $bodyDefinition Body indexes holding a definition written PAST the content column. */
+                $bodyDefinition = [];
+                $bodyNestedState = self::INITIAL_TRAILING_BLOCK_STATE;
+                $bodyNestedCursor = 0;
                 $bodyAttributeThrough = -1;
                 $bodyEndsWithAttribute = false;
                 while ($i < $count) {
@@ -8384,10 +8388,61 @@ class BlockParser
                     }
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= $continuationColumn) {
                         $formABlockOpen = true;
-                        $body[] = IndentationHelper::stripLeadingColumns(
+                        $entry = IndentationHelper::stripLeadingColumns(
                             $contLine,
                             $continuationColumn,
                         );
+                        $nestedColumn = $definitionPastTheColumn
+                            ? $this->descriptionBodyNestedColumn(
+                                $bodyNestedState,
+                                $bodyNestedCursor,
+                                $body,
+                                $bodyLazy,
+                            )
+                            : 0;
+                        // NOT UNDER AN OPAQUE BLOCK. Inside a code fence or a
+                        // div the line is verbatim content and its indentation
+                        // is part of it, so nothing here may read it as a
+                        // definition. The nested column cannot say so on its
+                        // own - a fence opens no content column - and without
+                        // this the erasure below ate a leading space out of a
+                        // code block (raised by codex review).
+                        if (
+                            $definitionPastTheColumn
+                            && !$bodyNestedState['inFence']
+                            && !$bodyNestedState['inDiv']
+                            && !$bodyNestedState['absorbingFence']
+                        ) {
+                            // §10 I5 HAS IT INTERRUPT WHATEVER PARAGRAPH IS
+                            // OPEN, so the body carries no open paragraph over
+                            // this entry whichever container the definition
+                            // registered against. Without this a nested item
+                            // swallowed the flush-left line below the entry,
+                            // because the tracker reports the item's own state
+                            // and the item is still collecting (carve-php#1872).
+                            $bodyDefinition[count($body)] = true;
+                            // AND THE RESIDUAL COLUMN GOES WITH IT, but only
+                            // where the line reaches no container open INSIDE
+                            // the body. `CARVE-P0-020` answers the definition
+                            // against the innermost open container the line
+                            // REACHES: below that container's column the line
+                            // is the body's, and the indentation left after the
+                            // body's own column is the body's indentation, so
+                            // the entry has to arrive at the body's column or
+                            // the nested container collects it as prose. At or
+                            // past that column the line is the container's own
+                            // and its collector reads it there.
+                            // MEASURED ON THE ENTRY, because `$indent` is
+                            // capped one past the body's own column and cannot
+                            // count further in.
+                            if (
+                                $nestedColumn === 0
+                                || IndentationHelper::getLeadingColumns($entry, $nestedColumn) < $nestedColumn
+                            ) {
+                                $entry = ltrim($entry, " \t");
+                            }
+                        }
+                        $body[] = $entry;
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
 
@@ -8434,6 +8489,9 @@ class BlockParser
                             $bodyStateCursor,
                             !isset($bodyLazy[$bodyStateCursor]),
                         );
+                        if (isset($bodyDefinition[$bodyStateCursor])) {
+                            $bodyState['openParagraph'] = false;
+                        }
                         // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER,
                         // and the tracker above cannot say so: it reads one line,
                         // and `{.k` is a block-attribute line only once a later
@@ -12795,6 +12853,49 @@ class BlockParser
             self::lastInteriorNewline($line),
             $atContentColumn,
         );
+    }
+
+    /**
+     * The shallowest content column open INSIDE a description body, counted
+     * from the body's own content column, or 0 when nothing is open there.
+     *
+     * ITS OWN RUNNING FOLD over the body's entries, carried in `$state` and
+     * `$cursor` and advanced only forward. Walking the collected entries afresh
+     * per call is the same answer and was the first spelling; it made a body of
+     * N definitions cost N squared tracker steps, which at 8000 lines was 174
+     * seconds against 0.5 before the change (raised by codex review). The fold
+     * the collector's own tracker keeps cannot be reused: it is advanced only
+     * where the body stops collecting, and it carries the attribute bookkeeping
+     * that walk owns.
+     *
+     * `$bodyLazy` mirrors the collector so both folds read the same entries the
+     * same way. Only the two invisible branches read it and neither writes
+     * `nestedColumn`, so it cannot move this answer on its own.
+     *
+     * NO CLOSER LOOKAHEAD, unlike the collector's own fold. The body it can see
+     * is the part collected so far, so a fence whose closer is still ahead
+     * looks unterminated and arms nothing - and the caller reads `inFence` to
+     * refuse the whole question. Asked without the lookahead a fence-shaped
+     * line always arms it, which errs towards leaving the line alone; that is
+     * the safe direction here, because the only thing this answer can do is
+     * take indentation off a line (raised by codex review).
+     *
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
+     * @param int $cursor
+     * @param array<string> $body
+     * @param array<int, true> $bodyLazy
+     */
+    private function descriptionBodyNestedColumn(array &$state, int &$cursor, array $body, array $bodyLazy): int
+    {
+        for ($n = count($body); $cursor < $n; $cursor++) {
+            $state = $this->advanceTrailingBlockState(
+                $state,
+                explode("\n", $body[$cursor], 2)[0],
+                !isset($bodyLazy[$cursor]),
+            );
+        }
+
+        return $state['nestedColumn'];
     }
 
     /**

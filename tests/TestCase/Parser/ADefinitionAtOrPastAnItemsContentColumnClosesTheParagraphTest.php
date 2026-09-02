@@ -244,10 +244,12 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
      * carve-php#1868 was measured, and carve-php#1870 flipped them.
      *
      * Rows 0 to 3 match all four readings. Rows 4 and 5 match carve-js and
-     * carve-rs, and the executable spec keeps `tail` inside the body there
-     * instead - a divergence filed as markup-carve/carve#1911, because the
-     * oracle contradicts itself: a COMMENT and a HEADING past the same column
-     * end the body in it, and only a definition does not.
+     * carve-rs; the executable spec kept `tail` inside the body there when this
+     * was written, filed as markup-carve/carve#1911 because the oracle
+     * contradicted itself - a COMMENT and a HEADING past the same column ended
+     * the body in it, and only a definition did not. That is ruled now and the
+     * spec at `main` ends the body; the revision `tests/spec` is pinned to
+     * predates the ruling.
      *
      * @return array<string, array{0: int, 1: string}>
      */
