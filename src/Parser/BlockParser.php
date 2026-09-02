@@ -12753,10 +12753,11 @@ class BlockParser
      *
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $state
      * @param string $line Collected line, stripped to content-relative indentation.
-     * @param bool $atContentColumn Whether the line sits AT the container's
-     *   content column rather than below it. Only the comment branch reads it:
-     *   an invisible block at the column ends the paragraph, while the same
-     *   line collected lazily adds no block at all.
+     * @param bool $atContentColumn Whether the line REACHED the container's
+     *   content column - at it or past it (PART 9 §24 C3) - rather than sitting
+     *   below it. Only the comment branch reads it: an invisible block that
+     *   reached the column ends the paragraph, while the same line collected
+     *   lazily adds no block at all (carve-php#1866).
      *
      * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}
      */
