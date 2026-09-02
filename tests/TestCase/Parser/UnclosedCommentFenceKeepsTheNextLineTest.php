@@ -42,10 +42,13 @@ class UnclosedCommentFenceKeepsTheNextLineTest extends TestCase
 
     public function testTheSameOneNestingLevelIn(): void
     {
+        // `# h` at column 3 reaches the OUTER item's content column, so it
+        // opens a heading there (markup-carve/carve#1896). What this test was
+        // added for is unchanged: the fence stays invisible and the author's
+        // line survives it.
         $html = $this->html("- - a\n    %%% x\n   # h\n");
 
-        $this->assertStringContainsString('# h', $html, "the author's line vanished");
-        $this->assertStringNotContainsString('<h1', $html);
+        $this->assertStringContainsString('<h1 id="h">h</h1>', $html, "the author's line vanished");
         $this->assertStringNotContainsString('%%%', $html);
     }
 
