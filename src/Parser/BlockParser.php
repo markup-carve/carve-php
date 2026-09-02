@@ -8342,16 +8342,34 @@ class BlockParser
                     $lastBodyKey = $body === [] ? null : array_key_last($body);
                     $lastBodyEntry = $lastBodyKey === null ? '' : $body[$lastBodyKey];
                     $lastBodyOpener = strtok($lastBodyEntry, "\n");
+                    // A DEFINITION PAST THE BODY'S COLUMN IS STILL A DEFINITION.
+                    // PART 0's `CARVE-P0-020` AT OR PAST MEANS THE DEEPEST
+                    // COLUMN THE LINE REACHES (markup-carve/carve#1896) reads
+                    // the test against the innermost open container the line
+                    // REACHES, and the grammar's DEFINITION BODIES FOLLOW THE
+                    // SAME CONTAINER REACH RULE (markup-carve/carve#956) makes
+                    // this the third such container - so past its column what
+                    // is left is the body's own indentation, and §10 I5 has the
+                    // definition interrupt the paragraph rather than fold into
+                    // it (carve-php#1870). `lineOpensBlockForLooseness()` cannot
+                    // answer it: it is asked with `invisibleArms: false` here,
+                    // which is what keeps a definition BELOW the column folding
+                    // as §24 C3 requires.
+                    $trimmedCont = ltrim($contLine, " \t");
+                    $definitionPastTheColumn = $indent > $continuationColumn
+                        && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
+                        && $this->isReferenceDefinitionLine($trimmedCont);
                     if (
                         !IndentationHelper::isBlankLine($contLine)
                         && $indent > 0
                         && $indent !== $continuationColumn
+                        && !$definitionPastTheColumn
                         && !$formABlockOpen
                         && $lastBodyKey !== null
                         && $lastBodyEntry !== ''
                         && $lastBodyOpener !== false
                         && !$this->lineOpensBlockForLooseness(
-                            ltrim($contLine, " \t"),
+                            $trimmedCont,
                             true,
                             invisibleArms: false,
                         )
@@ -8359,7 +8377,7 @@ class BlockParser
                         && $this->listParser->parseListItemMarker($lastBodyOpener) === null
                         && !$this->isInvisibleOrAttributeLine($lastBodyOpener, false)
                     ) {
-                        $body[$lastBodyKey] .= "\n" . ltrim($contLine, " \t");
+                        $body[$lastBodyKey] .= "\n" . $trimmedCont;
                         $i++;
 
                         continue;

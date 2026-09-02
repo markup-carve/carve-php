@@ -235,19 +235,18 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     }
 
     /**
-     * THE CONTROL THAT MUST NOT MOVE, TWO. The definition-description host takes
-     * the same payload through a different collector, and this fix is scoped to
-     * the three list-item collectors that tell the tracker their line reached a
-     * content column. Every row here is byte-identical before and after.
+     * THE SAME BAND ON THE DESCRIPTION-BODY HOST. A two-space separator after
+     * the description marker puts the body's content column at 3, and carve#956
+     * DEFINITION BODIES FOLLOW THE SAME CONTAINER REACH RULE makes it the third
+     * indented-block collector - so the band answers the same way the item's
+     * does. Columns 4 and 5 were pinned here as a KNOWN DIVERGENCE while
+     * carve-php#1868 was measured, and carve-php#1870 flipped them.
      *
-     * A two-space separator after the description marker puts the body's
-     * content column at 3. Columns 4 and 5 PIN A KNOWN DIVERGENCE
-     * (carve-php#1870): the line is at or past the column there, so it is a
-     * definition in all three other readings, and this engine alone still writes
-     * it out as text. It is the same rule one host over, and it fails loudly
-     * when that lands.
-     *
-     * Rows 0 to 3 match all four readings.
+     * Rows 0 to 3 match all four readings. Rows 4 and 5 match carve-js and
+     * carve-rs, and the executable spec keeps `tail` inside the body there
+     * instead - a divergence filed as markup-carve/carve#1911, because the
+     * oracle contradicts itself: a COMMENT and a HEADING past the same column
+     * end the body in it, and only a definition does not.
      *
      * @return array<string, array{0: int, 1: string}>
      */
@@ -261,13 +260,13 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
             'below the column, 1' => [1, $folded],
             'below the column, 2' => [2, $folded],
             'at the column' => [3, $ended],
-            'one past the column, a known divergence' => [4, $folded],
-            'two past the column, a known divergence' => [5, $folded],
+            'one past the column' => [4, $ended],
+            'two past the column' => [5, $ended],
         ];
     }
 
     #[DataProvider('descriptionHostProvider')]
-    public function testTheDescriptionHostIsUnchanged(int $column, string $expected): void
+    public function testTheDescriptionHostEndsTheBodyToo(int $column, string $expected): void
     {
         $html = $this->converter->convert(":: t\n:  a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
