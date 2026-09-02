@@ -22,6 +22,9 @@ use PHPUnit\Framework\TestCase;
  */
 class ACaptionSlotSurvivesUntilResolutionTest extends TestCase
 {
+    /**
+     * @var string
+     */
     private const FIGURE = "<figure>\n  <img src=\"/a.png\" alt=\"a\">\n  <figcaption>cap</figcaption>\n</figure>";
 
     protected CarveConverter $converter;

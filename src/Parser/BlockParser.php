@@ -341,7 +341,7 @@ class BlockParser
      * Caption slots consumed for a reference image whose definition had not
      * been seen yet, settled once resolution has run (carve-php#1851).
      *
-     * @var array<int, array{parent: Node, index: int, paragraph: Paragraph, image: Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>}>
+     * @var array<int, array{parent: \MarkupCarve\Carve\Node\Node, index: int, paragraph: \MarkupCarve\Carve\Node\Block\Paragraph, image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>}>
      */
     private array $deferredImageCaptions = [];
 
@@ -1360,7 +1360,11 @@ class BlockParser
                 $deferred['captionText'],
                 $deferred['start'],
                 true,
-                $this->captionSourceMap($deferred['start'], $deferred['captionLines'], $deferred['markerWidth']),
+                $this->captionSourceMap(
+                    $deferred['start'],
+                    array_values($deferred['captionLines']),
+                    $deferred['markerWidth'],
+                ),
             );
 
             $figure->appendChild($image);
