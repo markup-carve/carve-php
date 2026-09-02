@@ -1072,9 +1072,18 @@ class BlockParser
             // reach. Without this a single typo'd reference in a document full
             // of top-level headings would pay for a second parse that changes
             // nothing, since those headings resolved in pass 1 anyway.
+            // An explicit definition beats the implicit heading, so a heading
+            // whose label is also DEFINED is not worth seeding a reparse for.
+            // Folded the way the collector folds: a heading-reference key is
+            // `mb_strtolower`ed, a definition key only collapses whitespace.
+            $definedFolded = [];
+            foreach (array_keys($this->references) as $label) {
+                $definedFolded[mb_strtolower((string)$label, 'UTF-8')] = true;
+            }
             $headingReferences = array_filter(
                 $headingReferences,
-                fn (string $folded): bool => !isset($this->headingReferencesByFoldedLabel[$folded]),
+                fn (string $folded): bool => !isset($this->headingReferencesByFoldedLabel[$folded])
+                    && !isset($definedFolded[$folded]),
                 ARRAY_FILTER_USE_KEY,
             );
             if ($headingReferences !== []) {
@@ -1306,22 +1315,19 @@ class BlockParser
         if ($kinds === 0) {
             return;
         }
-        // One specialized collector is cheaper than integrated bookkeeping.
-        // The structural path wins when it replaces two or three independent
-        // state machines; keeping this adaptive path also protects ordinary
-        // reference-only core documents.
-        if ($kinds === 1) {
-            if ($hasReferences) {
-                $this->extractReferences($lines);
-            } elseif ($hasFootnotes) {
-                $this->extractFootnotes($lines);
-            } else {
-                $this->extractAbbreviations($lines);
-            }
-
-            return;
-        }
-
+        // ONE KIND TAKES THE STRUCTURAL PATH TOO (markup-carve/carve#1895).
+        // The specialized collectors cannot see whether a paragraph is open, so
+        // they ask by reparsing the run once per candidate - quadratic work
+        // against a budget that grows linearly with the source. It ran out
+        // after nine marker-led definitions and then, conforming to PART 9R
+        // R1a's fallback, collected nothing: a list of ten link definitions
+        // stopped resolving, and ten is an ordinary document.
+        //
+        // The structural walk never asks, because a definition line only
+        // reaches it when no paragraph is open. This was kept as a cost
+        // optimization and is the opposite of one on that shape: 800 marker-led
+        // definitions take 39ms through this path against 706ms through the
+        // probe, which spends the time reparsing and then declines to answer.
         $this->integratedDefinitionPass = true;
     }
 
@@ -1475,6 +1481,33 @@ class BlockParser
                     $child->resolveReference($definition->url, $definition->title);
                     $this->applyDeferredReferenceAttributes($child, $definition->attributes);
                     $this->markReferenceUsed($label, 0);
+                    $this->trackAnchorOfResolvedLink($child, $definition->url);
+                }
+            } elseif ($child instanceof Link && $child->isFromHeadingReference()) {
+                // AN EXPLICIT DEFINITION BEATS THE IMPLICIT HEADING IT ALREADY
+                // RESOLVED TO (corpus 173, corpus 275). getCollapsedReference()
+                // states that precedence - definitions first, heading index
+                // second - but it is asked during inline parsing, and on this
+                // path a definition written BELOW its use is not collected yet.
+                // So `[Defined][]` took `#Defined` from the heading index while
+                // `[Defined]: /wins` was still to come.
+                //
+                // The AUTHORED label is what a definition is keyed by, and it
+                // is not the label the heading index answered with: the index
+                // matches a heading's RENDERED text, so `[*bold* heading][]`
+                // came back as `bold heading` while its definition is written
+                // `[*bold* heading]: /x`. Looking the definition up by the
+                // resolved label finds nothing, so the raw label is used and
+                // both labels are restored when it wins.
+                $rawLabel = self::collapsedLabelOf($child->getRawReferenceLabel());
+                $definition = $rawLabel !== null ? $this->getReference($rawLabel) : null;
+                if ($definition !== null) {
+                    $child->setReferenceLabel($rawLabel);
+                    $child->setFromHeadingReference(false);
+                    $child->resolveReference($definition->url, $definition->title);
+                    $this->applyDeferredReferenceAttributes($child, $definition->attributes);
+                    $this->markReferenceUsed($rawLabel, 0);
+                    $this->trackAnchorOfResolvedLink($child, $definition->url);
                 }
             } elseif ($child instanceof Image && UnresolvedReference::sourceOf($child) !== null) {
                 $label = $child->getReferenceLabel();
@@ -1494,6 +1527,52 @@ class BlockParser
         if ($depth === 0 && $this->abbreviations !== []) {
             $this->inlineParser->expandLateAbbreviations($node, $this->abbreviations);
         }
+    }
+
+    /**
+     * The AUTHORED label inside a reference's raw source.
+     *
+     * `[label][]` collapsed, `[text][label]` full. Returns null for anything
+     * else, so a caller falls back rather than guessing.
+     *
+     * @param string|null $raw
+     */
+    private static function collapsedLabelOf(?string $raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+        if (preg_match('/^\\[(.*)\\]\\[\\]$/s', $raw, $match) === 1) {
+            return $match[1];
+        }
+        if (preg_match('/^\\[.*\\]\\[(.+)\\]$/s', $raw, $match) === 1) {
+            return $match[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * A reference resolving HERE owes what one resolving inline already did.
+     *
+     * `InlineParser` tracks a `#fragment` destination for anchor validation at
+     * the moment it resolves a reference. A reference whose definition sits
+     * BELOW its use does not resolve there - it resolves in this pass - and the
+     * anchor went untracked, so a broken `[ref]: #nowhere` warned when the
+     * definition was written above the link and said nothing when it was
+     * written below (carve-php#1853).
+     *
+     * @param \MarkupCarve\Carve\Node\Inline\Link $link
+     * @param string $url
+     */
+    private function trackAnchorOfResolvedLink(Link $link, string $url): void
+    {
+        if (preg_match('/^#(.+)$/', $url, $anchorMatch) !== 1) {
+            return;
+        }
+
+        $pos = $link->getPos();
+        $this->trackAnchorLink($anchorMatch[1], $pos->startLine ?? 0, $pos->startColumn ?? 0);
     }
 
     /**
