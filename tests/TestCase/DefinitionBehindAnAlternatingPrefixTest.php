@@ -185,23 +185,17 @@ class DefinitionBehindAnAlternatingPrefixTest extends TestCase
 
     public function testTheColumnIsStillExact(): void
     {
-        // THE ENGINES DISAGREE ON THIS ONE SHAPE, and this asserted the other
-        // side of it until carve-php#1853. carve-js registers the definition
-        // here; carve-rs folds the line into the open paragraph and registers
-        // nothing. This engine answered BOTH ways - the line pre-pass agreed
-        // with carve-js and the structural walk agrees with carve-rs - so which
-        // answer a document got depended on whether an unrelated second
-        // definition kind appeared elsewhere in it.
-        //
-        // Retiring the pre-pass settles this engine on carve-rs's answer. The
-        // normative question is markup-carve/carve#1896; there is no corpus row
-        // for the shape, which is why the divergence went unnoticed. What is
-        // asserted here is only that the line STAYS VISIBLE either way, which
-        // is the property this test was added for and the one both answers
-        // share.
+        // THE SHAPE THE ENGINES DISAGREED ON, asserted both ways here before
+        // markup-carve/carve#1896 ruled it. The quote hands down `   [r]: /url`
+        // at column 3, which is past the outer item's content column and below
+        // the inner one; the ruling reads "at or past the deepest one" as the
+        // deepest column the LINE REACHES, so the definition registers against
+        // the outer item. carve-php#1854 relaxed this to "the line stays
+        // visible" while the question was open - the exact assertion is back.
         $html = $this->converter->convert("- > - - x\n  >    [r]: /url\n\nSee [r][].\n");
 
-        $this->assertStringContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('<a href="/url">r</a>', $html);
+        $this->assertStringNotContainsString('[r]: /url', $html);
     }
 
     public function testIndentationAloneIsStillNotAQuote(): void
