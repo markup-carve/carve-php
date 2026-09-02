@@ -34,10 +34,11 @@ use PHPUnit\Framework\TestCase;
  * match - a cross-engine claim without a revision beside it is a claim nobody
  * can re-check.
  *
- * Measured against the executable spec at markup-carve/carve `f59cc880`, which
- * answers every row below identically to `86569bd`, the revision `tests/spec`
- * is pinned to; against carve-js `6be9f3c`; and against the carve-rs release
- * binary that reproduces corpus `441-*` byte for byte.
+ * Measured against the executable spec at markup-carve/carve `95fc3a0`, the
+ * revision `tests/spec` is pinned to, which answers every row below identically
+ * to `f59cc880`, `caec9ff` and `86569bd` before it; against carve-js `6be9f3c`;
+ * and against the carve-rs release binary that reproduces corpus `441-*` byte
+ * for byte.
  */
 class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest extends TestCase
 {

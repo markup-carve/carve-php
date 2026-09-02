@@ -23,11 +23,12 @@ use PHPUnit\Framework\TestCase;
  * column flag, while a definition is classified from the line's own bytes with
  * a pattern anchored at offset 0, which the residual column defeated.
  *
- * Measured against the executable spec at markup-carve/carve `caec9ff`, which
- * answers every row below identically to `86569bd`, the revision `tests/spec`
- * is pinned to; and against carve-js `c552d9f` and carve-rs `eb7091c`. Every
- * provider says which of the four readings its rows match - a cross-engine
- * claim without a revision beside it is a claim nobody can re-check.
+ * Measured against the executable spec at markup-carve/carve `95fc3a0`, the
+ * revision `tests/spec` is pinned to, which answers every row below identically
+ * to `f59cc880`, `caec9ff` and `86569bd` before it; and against carve-js
+ * `c552d9f` and carve-rs `eb7091c`. Every provider says which of the four
+ * readings its rows match - a cross-engine claim without a revision beside it
+ * is a claim nobody can re-check.
  */
 class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCase
 {
