@@ -27,13 +27,19 @@ class DefinitionPrepassGateTest extends TestCase
         $this->assertSame(0, $parser->referenceCollectors);
     }
 
-    public function testOneDefinitionFamilyKeepsItsCheaperCollector(): void
+    public function testOneDefinitionFamilySharesTheAuthoritativeWalkToo(): void
     {
+        // This asserted `referenceCollectors === 1` until carve-php#1853. The
+        // specialized collector was kept for one-kind documents as a cost
+        // optimization, and it is the only code carrying the reparse probe:
+        // quadratic work under a linear budget, which ran out after nine
+        // marker-led definitions and then collected nothing. The structural
+        // walk answers the same documents correctly at any size and faster.
         $parser = $this->parser();
         $parser->parse("[ref]: /url\n\n[link][ref]\n");
 
         $this->assertSame(1, $parser->topLevelWalks);
-        $this->assertSame(1, $parser->referenceCollectors);
+        $this->assertSame(0, $parser->referenceCollectors);
     }
 
     private function parser(): BlockParser
