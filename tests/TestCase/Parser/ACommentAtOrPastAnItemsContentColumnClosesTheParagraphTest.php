@@ -22,7 +22,10 @@ use PHPUnit\Framework\TestCase;
  * reaches the question at all: "A COMMENT IS COLUMN-EXEMPT ... Below a
  * container's content column a comment is still invisible and still closes the
  * paragraph. The other four kinds are ordinary text there". The definition
- * control at the bottom is the other half of that sentence and does NOT move.
+ * control at the bottom is the other half of that sentence: BELOW the column it
+ * still folds as text, which is where comment and definition part company. AT
+ * OR PAST the column they answer alike - a definition is a block there too, and
+ * carve-php#1868 is where this engine caught up.
  *
  * Measured against the executable spec at markup-carve/carve `caec9ff`,
  * carve-js at `c552d9f` and carve-rs at `eb7091c`. Every row below states which
@@ -198,17 +201,15 @@ class ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCas
     }
 
     /**
-     * PINS A KNOWN DIVERGENCE (carve-php#1868). One column PAST the item's
-     * content column the definition is still a block position, and the
-     * executable spec, carve-js and carve-rs all end the item there; this engine
-     * keeps the paragraph open. The comment reaches that answer through §10 I5's
-     * exemption, which is why carve-php#1866 moved it and left this behind: the
-     * other four kinds are classified from the line's own bytes, and the
-     * residual column defeats the match.
+     * PAST the column it is a block as well, and this is the row carve-php#1868
+     * moved. The engine used to keep the paragraph open here while the other
+     * three readings ended the item, because the comment reaches its answer
+     * through §10 I5's exemption while a definition is classified from the
+     * line's own bytes - and the residual column defeated the match.
      *
-     * The bytes below are therefore this engine's answer and nothing else's,
-     * kept so the divergence is measured rather than untested. It fails loudly
-     * when carve-php#1868 lands.
+     * Now matches all four readings, at the revisions named on the class.
+     * `ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest` carries
+     * the rest of that band, nesting included.
      *
      * @return array<string, array{0: int}>
      */
@@ -221,10 +222,10 @@ class ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCas
     }
 
     #[DataProvider('definitionPastTheColumnProvider')]
-    public function testADefinitionPastTheColumnStillFoldsHere(int $column): void
+    public function testADefinitionPastTheColumnEndsTheItem(int $column): void
     {
         $html = $this->converter->convert("- a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
-        $this->assertSame("<ul>\n  <li>a\n    tail\n  </li>\n</ul>", trim($html));
+        $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", trim($html));
     }
 }

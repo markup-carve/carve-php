@@ -100,9 +100,9 @@ class BlockParser
      * is exactly that shape, and the old default made the empty item swallow
      * `tail` (corpus 326-5). See advanceTrailingBlockState().
      *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}
+     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
      */
-    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'afterComment' => false, 'inFootnoteBody' => false, 'quotedTable' => false, 'quoteParagraph' => false];
+    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'afterComment' => false, 'inFootnoteBody' => false, 'quotedTable' => false, 'quoteParagraph' => false, 'nestedColumn' => 0];
 
     /**
      * Abbreviation definitions use a space-free alphanumeric term and require
@@ -7439,7 +7439,7 @@ class BlockParser
      * @param string $line
      * @param array<string> $lines
      * @param int $index
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $trailingState
      */
     protected function attachedBlockHasEnded(string $kind, string $line, array $lines, int $index, array $trailingState): bool
     {
@@ -7563,11 +7563,11 @@ class BlockParser
      * @param int $contentIndent The item's content column.
      * @param array<string> $itemLines Collected item lines, appended in place.
      * @param array<int, int> $itemLineMap Source-line map, appended in place.
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $trailingState
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $trailingState
      * @param bool $leadIsBareContinuationMarker
      * @param array<int, true> $authoredBaseEligible
      *
-     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}}
+     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}}
      */
     protected function collectPlainListItemContinuation(
         array $lines,
@@ -12751,15 +12751,17 @@ class BlockParser
      * paragraph" only for a trailing fenced code block or table, leaving every
      * other shape to the existing lazy-continuation behavior.
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param string $line Collected line, stripped to content-relative indentation.
      * @param bool $atContentColumn Whether the line REACHED the container's
      *   content column - at it or past it (PART 9 §24 C3) - rather than sitting
-     *   below it. Only the comment branch reads it: an invisible block that
-     *   reached the column ends the paragraph, while the same line collected
-     *   lazily adds no block at all (carve-php#1866).
+     *   below it. A line collected lazily adds no block at all, so the two
+     *   branches that can write one read this first: the comment
+     *   (carve-php#1866) and the definition (carve-php#1868). Past the column
+     *   the definition also has to reach no container nested inside this one,
+     *   which is what `nestedColumn` in the state answers.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
      */
     protected function advanceTrailingBlockState(
         array $state,
@@ -12786,14 +12788,14 @@ class BlockParser
      * whether a closer exists, so container collectors that own the remaining
      * lines ask here before arming `inFence` (carve#1414, corpus 367).
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param string $line
      * @param array<string> $lines
      * @param int $index
      * @param bool $atContentColumn
      * @param int $stripColumns
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
      */
     protected function advanceTrailingBlockStateWithFenceLookahead(
         array $state,
@@ -12851,7 +12853,7 @@ class BlockParser
      * twice ({@see \MarkupCarve\Carve\Parser\ContainerPrefix} states why that
      * matters here).
      *
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool} $state
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param string $line The whole line the walk is reading.
      * @param int $at Byte offset the walk has reached.
      * @param int $end One past the last byte of the SUBJECT - `strlen($line)`
@@ -12861,7 +12863,7 @@ class BlockParser
      * @param int $lastInteriorNewline {@see self::lastInteriorNewline()}.
      * @param bool $atContentColumn {@see self::advanceTrailingBlockState()}.
      *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool}
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
      */
     private function advanceTrailingBlockStateAt(
         array $state,
@@ -12914,6 +12916,23 @@ class BlockParser
         // being the container's own prose.
         $wasInFootnoteBody = $state['inFootnoteBody'];
         $state['inFootnoteBody'] = false;
+        // THE SHALLOWEST CONTAINER OPEN INSIDE THIS ONE, in bytes from $at, or
+        // 0 for none. PART 0's AT OR PAST MEANS THE DEEPEST COLUMN THE LINE
+        // REACHES (markup-carve/carve#1896) answers a definition against the
+        // innermost open container the line reaches, so this container may only
+        // claim one that stays BELOW that column - past it the line is the
+        // nested container's, and its own collector reads it there. A line at
+        // or past the column is inside that container and leaves it open; one
+        // below it ends the container, and a blank line ends nothing.
+        $nestedColumn = $state['nestedColumn'];
+        if (
+            $nestedColumn > 0
+            && !IndentationHelper::isBlankFrom($line, $at)
+            && IndentationHelper::pastLeadingWhitespace($line, $at) - $at < $nestedColumn
+        ) {
+            $nestedColumn = 0;
+        }
+        $state['nestedColumn'] = $nestedColumn;
 
         if ($state['inFence']) {
             // Inside a fenced code block: stay code (no open paragraph) until
@@ -13130,6 +13149,7 @@ class BlockParser
             $state['openParagraph'] = $inner['openParagraph'];
             $state['quoteParagraph'] = $inner['openParagraph'];
             $state['quotedTable'] = $inner['inTable'];
+            $state['nestedColumn'] = $quoteWidth;
 
             return $state;
         }
@@ -13210,11 +13230,28 @@ class BlockParser
         // at column 0 and an indented line belongs to something nested inside
         // it. The existing branches already read the line that way - a code
         // fence opener and a table row are tested unindented.
+        //
+        // A DEFINITION IS READ PAST IT, and only where the caller says the line
+        // REACHED a content column. PART 0's AT OR PAST MEANS THE DEEPEST
+        // COLUMN THE LINE REACHES (markup-carve/carve#1896) measures the test
+        // against the innermost open container the line reaches, and the item
+        // erased that column's worth of indentation to get here - so what is
+        // left is the body's own indentation, and a definition written there is
+        // still a definition (carve-php#1868). The other kinds in this branch
+        // stay column-exact: the three engines give three answers for them and
+        // no clause covers that yet.
+        $definitionAt = $at;
+        if ($atContentColumn) {
+            $past = IndentationHelper::pastLeadingWhitespace($line, $at);
+            if ($nestedColumn === 0 || $past - $at < $nestedColumn) {
+                $definitionAt = $past;
+            }
+        }
         if (
             preg_match('/([-*_])\1{2,}[ \t]*$/A', $line, $ignored, 0, $at) === 1
             || (
-                ReferenceDefinitionExtractor::isDefinitionHead($line, $at)
-                && $this->isReferenceDefinitionLine(self::subjectFrom($line, $at, $end))
+                ReferenceDefinitionExtractor::isDefinitionHead($line, $definitionAt)
+                && $this->isReferenceDefinitionLine(self::subjectFrom($line, $definitionAt, $end))
             )
             || (
                 self::isBlockAttributeHead($line, $at)
@@ -13234,7 +13271,7 @@ class BlockParser
             // one line, and the indented line under it is the container's own
             // prose that a flush-left line still folds into (corpus 357-6) -
             // reading it as a body ended the item there.
-            $state['inFootnoteBody'] = preg_match(self::FOOTNOTE_DEFINITION_PATTERN, self::subjectFrom($line, $at, $end)) === 1;
+            $state['inFootnoteBody'] = preg_match(self::FOOTNOTE_DEFINITION_PATTERN, self::subjectFrom($line, $definitionAt, $end)) === 1;
 
             return $state;
         }
@@ -13294,6 +13331,12 @@ class BlockParser
             // below, so this falls through to it.
             if (!$inner['inFence'] && !$inner['inDiv'] && !$inner['absorbingFence']) {
                 $state['openParagraph'] = $inner['openParagraph'];
+                // THE FIRST MARKER'S COLUMN, not the walk's innermost. `- - a`
+                // opens two containers, and the shallower one is already deeper
+                // than this container - a line reaching it registers there, so
+                // it is the column this container's claim stops at.
+                $firstMarker = $this->listParser->markerContentOffset($line, $at);
+                $state['nestedColumn'] = $firstMarker === null ? 0 : $firstMarker - $at;
 
                 return $state;
             }
