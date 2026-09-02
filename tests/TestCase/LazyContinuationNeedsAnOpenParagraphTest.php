@@ -17,10 +17,21 @@ use PHPUnit\Framework\TestCase;
  *   the residue in the surviving context."
  *
  * This engine kept the quote open after three constructs that leave no
- * paragraph behind: a heading, a definition term and a footnote definition.
- * carve-rs applies the condition in every case; carve-js shares two of the
- * three (carve-js#554). The majority was wrong here, which is why these assert
- * against S4 rather than against the other engines (carve-php#652).
+ * paragraph behind: a heading, a definition term and a footnote definition. The
+ * assertions are against S4 rather than against another engine, which is what
+ * carve-php#652 settled when the majority read it the other way.
+ *
+ * REMEASURED (carve-php#1863). The cross-engine split that sentence described -
+ * carve-rs applying the condition in every case and carve-js in two of the three
+ * (carve-js#554) - no longer holds: all three engines and the executable spec
+ * now render all three of these documents identically. The claim was true when
+ * it was written and had aged into a false statement about the current engines,
+ * so it is recorded as history rather than as a live comparison.
+ *
+ * Every cross-engine claim in this class was measured against carve-js at
+ * 3eb0277, carve-rs at e6cac0d, and the executable spec at the revision
+ * `tests/spec` is pinned to. A claim without a revision beside it is a claim
+ * nobody can re-check.
  */
 class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
 {
@@ -148,9 +159,10 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
 
     public function testAClosedFenceAlreadyClosedTheQuote(): void
     {
-        // Already correct in every engine; here so a fix that reached for
-        // "always close" instead of "close when no paragraph is open" does not
-        // pass by accident.
+        // Already correct in every engine - CONFIRMED, all three engines and
+        // the executable spec agree byte for byte. Here so a fix that reached
+        // for "always close" instead of "close when no paragraph is open" does
+        // not pass by accident.
         $html = $this->squash($this->converter->convert("> ```\n> x\n> ```\nb\n"));
 
         $this->assertStringContainsString('</blockquote> <p>b</p>', $html);
@@ -278,9 +290,24 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
      * sees, so it has not read the block it would report on. Reporting anyway
      * changed what the item CONTAINS and not just where the lazy line went: the
      * div row below turned a literal `::: note` into a real admonition and moved
-     * `b` out of the item. Both rows match carve-js and carve-rs, and both
-     * matched before this rule reached depth 2 - they are the half a wider fix
-     * takes away.
+     * `b` out of the item. Both rows matched before this rule reached depth 2 -
+     * they are the half a wider fix takes away.
+     *
+     * WHAT THE ROWS ACTUALLY AGREE WITH (measured for carve-php#1863; the
+     * previous claim here was "Both rows match carve-js and carve-rs", and
+     * neither row does):
+     *
+     *   - `div opener` matches carve-js AND the executable spec. carve-rs is
+     *     the outlier - it reads the opener as a real admonition and publishes
+     *     `b` at document level. Same family as markup-carve/carve-rs#1510.
+     *   - `code fence` matches carve-js and NOTHING else. The executable spec
+     *     gives the fence its body and keeps the flush-left closer as body
+     *     text; carve-rs gives a third answer. The bytes pinned below are
+     *     damaged on their own terms whichever way it is ruled - the
+     *     `<pre><code>` is EMPTY, the body has leaked into the outer item, and
+     *     the closer has come back as a stray inline `code`. Filed as
+     *     markup-carve/carve#1900; this row is pinned as the ENGINE'S CURRENT
+     *     ANSWER awaiting that ruling, not as a shape anything endorses.
      *
      * @return array<string, array{string, string}>
      */
