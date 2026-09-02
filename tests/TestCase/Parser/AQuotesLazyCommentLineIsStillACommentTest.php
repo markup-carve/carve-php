@@ -20,21 +20,23 @@ use PHPUnit\Framework\TestCase;
  * the one invisible shape that survives the trip as itself, and the definition
  * control below is the other half of the same sentence.
  *
- * MEASURED, BECAUSE THE OBVIOUS ORACLE DISAGREES. `tests/spec`'s executable
- * spec renders `> x` over `%% c` as `<blockquote><p>x\n%% c</p></blockquote>`,
- * reading the line under PART 0 §4 alone. carve-js, carve-rs and this engine
- * all render it as a comment, and over a 4496-document sweep of container
- * prefixes, payload shapes and columns, all 562 documents carrying a `%% c`
- * payload are byte-identical across the three engines - none of them diverges
- * from either other engine anywhere in that family. The oracle says of itself
- * that it is a DERIVED CHECKER and has been the outlier before
- * (markup-carve/carve#1561, markup-carve/carve#1562, both named in that repo's
- * `resources/oracle-divergence.txt`). Inside the oracle only its QUOTE host
- * lacks the exemption; its item and definition-description hosts apply it.
+ * THE ORACLE HAS SINCE AGREED - the pins stay, the reason has moved. When they
+ * were written the executable spec rendered `> x` over `%% c` as
+ * `<blockquote><p>x\n%% c</p></blockquote>`, reading the line under PART 0 §4
+ * alone, and only its QUOTE host lacked the exemption its item and
+ * definition-description hosts already applied. That was filed as
+ * markup-carve/carve#1899 and fixed by markup-carve/carve#1902: at
+ * markup-carve/carve `caec9ff` the oracle answers that document
+ * `<blockquote><p>x</p></blockquote>`, which is what the three engines always
+ * answered.
  *
- * The oracle side is filed as markup-carve/carve#1899. This class pins the
- * engine's side of it, so a later change toward the oracle's reading cannot
- * land here silently.
+ * So these no longer pin an engine-versus-oracle divergence - there is none
+ * left. Over a 4496-document sweep of container prefixes, payload shapes and
+ * columns, all 562 documents carrying a `%% c` payload are byte-identical
+ * across carve-js `c552d9f`, carve-rs `eb7091c` and this engine, and all 562
+ * match the oracle at `caec9ff`. What they pin is the CLAUSE: §10 I5 names the
+ * comment as the one column-exempt kind, and a reading that folds it back into
+ * the paragraph is the shape that was wrong once and would be wrong again.
  */
 class AQuotesLazyCommentLineIsStillACommentTest extends TestCase
 {
@@ -137,8 +139,9 @@ class AQuotesLazyCommentLineIsStillACommentTest extends TestCase
     }
 
     /**
-     * The two hosts the oracle already agrees on, pinned beside the quote so
-     * the exemption is stated over containers rather than over quotes.
+     * The item and description hosts, pinned beside the quote so the exemption
+     * is stated over containers rather than over quotes. All four readings
+     * agree on both, at markup-carve/carve caec9ff.
      *
      * @return array<string, array{0: string, 1: string}>
      */
