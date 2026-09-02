@@ -338,6 +338,14 @@ class BlockParser
     private int $definitionProbeBudget = 0;
 
     /**
+     * Caption slots consumed for a reference image whose definition had not
+     * been seen yet, settled once resolution has run (carve-php#1851).
+     *
+     * @var array<int, array{parent: \MarkupCarve\Carve\Node\Node, index: int, paragraph: \MarkupCarve\Carve\Node\Block\Paragraph, image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>}>
+     */
+    private array $deferredImageCaptions = [];
+
+    /**
      * A probe's scratch parser fails open instead of recursively probing.
      */
     private bool $probingDefinitionMarker = false;
@@ -1318,6 +1326,56 @@ class BlockParser
     }
 
     /**
+     * Bind or hand back the caption slots held during the walk, now that every
+     * definition is known (carve-php#1851).
+     *
+     * A reference image that resolved becomes the same figure the pre-pass
+     * path builds directly. One that did not gets ALL of its slot's source
+     * lines back as paragraph text, which is what they would have folded into
+     * had the slot never been held.
+     */
+    private function settleDeferredImageCaptions(): void
+    {
+        foreach ($this->deferredImageCaptions as $deferred) {
+            $paragraph = $deferred['paragraph'];
+            $image = $deferred['image'];
+
+            if (UnresolvedReference::sourceOf($image) !== null) {
+                foreach ($deferred['rawLines'] as $rawLine) {
+                    $paragraph->appendChild(new SoftBreak());
+                    $paragraph->appendChild(new Text($rawLine));
+                }
+
+                continue;
+            }
+
+            $figure = new Figure();
+            foreach ($paragraph->getAttributes() as $key => $value) {
+                $figure->setAttribute($key, $value);
+            }
+
+            $caption = new Caption();
+            $this->inlineParser->parse(
+                $caption,
+                $deferred['captionText'],
+                $deferred['start'],
+                true,
+                $this->captionSourceMap(
+                    $deferred['start'],
+                    array_values($deferred['captionLines']),
+                    $deferred['markerWidth'],
+                ),
+            );
+
+            $figure->appendChild($image);
+            $figure->appendChild($caption);
+            $deferred['parent']->replaceChild($deferred['index'], $figure);
+        }
+
+        $this->deferredImageCaptions = [];
+    }
+
+    /**
      * Parse definition-owned bodies after the document walk exposed every
      * global definition, then resolve references that appeared before their
      * definitions without rebuilding the block tree.
@@ -1381,6 +1439,7 @@ class BlockParser
         foreach ($this->footnotes as $footnote) {
             $this->resolveForwardReferences($footnote);
         }
+        $this->settleDeferredImageCaptions();
         $this->warnings = array_values(array_filter(
             $this->warnings,
             function (ParseWarning $warning): bool {
@@ -11628,6 +11687,21 @@ class BlockParser
         // promotion does keeps the two answers from disagreeing: a paragraph
         // the caption cannot attach to must not be split by it.
         if ($children[0] instanceof Image) {
+            // ON THE INTEGRATED PATH THE ANSWER IS NOT KNOWN YET
+            // (carve-php#1851). Definitions are collected during this same
+            // walk, so a reference defined BELOW the image is still unresolved
+            // here and this gate would fold the caption line into the
+            // paragraph - a decision nothing later can take back, because the
+            // line stops being a separate line at all.
+            //
+            // A lone image paragraph is therefore captionable either way, and
+            // the caption becomes the UNBOUND SLOT that PART 9R R7 describes.
+            // settleDeferredImageCaptions() binds it where the reference
+            // resolved and hands every source line back where it did not.
+            if ($this->integratedDefinitionPass) {
+                return true;
+            }
+
             return UnresolvedReference::sourceOf($children[0]) === null;
         }
 
@@ -12024,9 +12098,30 @@ class BlockParser
                 // text, which carve-js and carve-rs both decline
                 // (carve-php#751). PART 12 §3a keeps the node with `ref` and
                 // `rawRef` precisely so it can be recognized here.
-                && UnresolvedReference::sourceOf($paragraphChildren[0]) === null
+                && (
+                    UnresolvedReference::sourceOf($paragraphChildren[0]) === null
+                    || $this->integratedDefinitionPass
+                )
             ) {
                 $image = $paragraphChildren[0];
+
+                // Hold the slot rather than binding it: whether this is a
+                // figure is not decided until every definition is known.
+                if (UnresolvedReference::sourceOf($image) !== null) {
+                    $this->deferredImageCaptions[] = [
+                        'parent' => $parent,
+                        'index' => count($children) - 1,
+                        'paragraph' => $lastChild,
+                        'image' => $image,
+                        'captionText' => $captionText,
+                        'captionLines' => $captionLines,
+                        'start' => $start,
+                        'markerWidth' => $markerWidth,
+                        'rawLines' => array_slice($lines, $start, $linesConsumed),
+                    ];
+
+                    return $linesConsumed;
+                }
 
                 $figure = new Figure();
 
