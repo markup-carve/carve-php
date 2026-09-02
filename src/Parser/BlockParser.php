@@ -5686,7 +5686,12 @@ class BlockParser
                             $subEligible[count($subLines)] = true;
                             $subLines[] = $stripped;
                             $subLineMap[] = $this->sourceLineFor($i);
-                            $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $stripped);
+                            // AT OR PAST the item's content column, exactly as
+                            // in collectPlainListItemContinuation(): an
+                            // invisible block here ends the paragraph under it
+                            // rather than folding a flush-left line in
+                            // (carve-php#1866).
+                            $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $stripped, true);
                             $sawBlankLine = false;
                             $i++;
                         } elseif ($lineIndent === $baseIndent) {
@@ -7688,17 +7693,22 @@ class BlockParser
                 $itemLines[] = $contentLine;
                 $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $contentLine);
                 $itemLineMap[] = $this->sourceLineFor($i);
-                // AT the item's content column - the line was dedented BY that
-                // column to get here - so an invisible block on it ends the
-                // paragraph (markup-carve/carve#1350, corpus 357-2). The lazy
-                // branch below leaves the flag off, which is what keeps corpus
-                // 183 and 214-2 folding a comment written BELOW the column.
+                // AT OR PAST the item's content column - the branch guard is
+                // `>=` and the line was dedented BY that column to get here -
+                // so an invisible block on it ends the paragraph
+                // (markup-carve/carve#1350, carve#1896, corpus 357-2). Past the
+                // column the line sits at the item body's own column 1, which
+                // is still a block position inside the body; asking for the
+                // column EXACTLY left every deeper column folding
+                // (carve-php#1866). The lazy branch below leaves the flag off,
+                // which is what keeps corpus 183 and 214-2 folding a comment
+                // written BELOW the column.
                 $trailingState = $this->advanceTrailingBlockStateWithFenceLookahead(
                     $trailingState,
                     $contentLine,
                     $lines,
                     $i,
-                    $nextIndent === $contentIndent,
+                    true,
                     $contentIndent,
                 );
                 if ($wrappedAttributeLinesRemaining > 0) {
@@ -8033,7 +8043,10 @@ class BlockParser
             $authoredBaseEligible[count($itemLines)] = true;
             $itemLines[] = $stripped;
             $itemLineMap[] = $this->sourceLineFor($i);
-            $trailingState = $this->advanceTrailingBlockState($trailingState, $stripped);
+            // AT OR PAST the content column, the same reading the plain-lead
+            // collector uses: an invisible block here ends the paragraph under
+            // it (carve-php#1866).
+            $trailingState = $this->advanceTrailingBlockState($trailingState, $stripped, true);
             $i++;
         }
 

@@ -21,21 +21,18 @@ use PHPUnit\Framework\TestCase;
  *
  * MEASURED PER MEMBER, NOT PER CLASS (carve-php#1863). The claim here used to
  * be a blanket "Matches carve-rs and the executable spec", and it covered a
- * member the measurement does not reach. What holds:
+ * member the measurement does not reach. All eleven documents asserted below
+ * now agree byte for byte across the executable spec, carve-js and carve-rs -
+ * carve-js was not named before and belongs in the list.
  *
- *   - The twelve methods below assert eleven distinct documents. Ten of those
- *     eleven agree byte for byte across the executable spec, carve-js and
- *     carve-rs. carve-js was not named before and belongs in the list.
- *   - `testACommentPastTheContentColumnDoesNotCloseTheItem` does NOT. The
- *     executable spec, carve-js and carve-rs all end the item there and this
- *     engine alone keeps the paragraph open, so the bytes it pins are this
- *     engine's own answer and nothing else's. Filed as carve-php#1866; the
- *     expectation stays until that lands so the divergence is visible rather
- *     than untested.
+ * The eleventh joined them with carve-php#1866: at a column PAST the item's
+ * content column the other three ended the item and this engine alone kept the
+ * paragraph open. The band it belongs to is pinned in full by
+ * `Parser\ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest`.
  *
- * Measured against carve-js at 3eb0277, carve-rs at e6cac0d, and the executable
- * spec at the revision `tests/spec` is pinned to. A claim without a revision
- * beside it is a claim nobody can re-check.
+ * Measured against carve-js at c552d9f, carve-rs at eb7091c, and the executable
+ * spec at markup-carve/carve caec9ff. A claim without a revision beside it is a
+ * claim nobody can re-check.
  */
 class BelowColumnDefinitionFoldsTest extends TestCase
 {
@@ -143,22 +140,17 @@ class BelowColumnDefinitionFoldsTest extends TestCase
         $this->assertSame("<ul>\n  <li>a\n    b\n  </li>\n</ul>", trim($html));
     }
 
-    public function testACommentPastTheContentColumnDoesNotCloseTheItem(): void
+    public function testACommentPastTheContentColumnClosesTheItem(): void
     {
-        // PINS A KNOWN DIVERGENCE (carve-php#1866). At column 3 the comment is
-        // PAST the item's content column 2, so it sits at the item body's own
-        // column 1 - a block position, where PART 9 §24 C3 ends the paragraph
-        // under it and `tail` becomes a document paragraph. The executable
-        // spec, carve-js and carve-rs all do that; this engine keeps the
-        // paragraph open and folds `tail` in, and it does so at every column
-        // that is not exactly a content column.
-        //
-        // The expectation below is therefore this engine's answer, NOT the
-        // agreed one. Kept so the divergence stays measured instead of
-        // untested; it moves with the fix.
+        // At column 3 the comment is PAST the item's content column 2, so it
+        // sits at the item body's own column 1 - a block position, where PART 9
+        // §24 C3 ends the paragraph under it and `tail` becomes a document
+        // paragraph. This method pinned the opposite bytes as a KNOWN
+        // DIVERGENCE until carve-php#1866 landed; it now matches the executable
+        // spec, carve-js and carve-rs.
         $html = $this->converter->convert("- a\n   %% c\ntail");
 
-        $this->assertSame("<ul>\n  <li>a\n    tail\n  </li>\n</ul>", trim($html));
+        $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", trim($html));
     }
 
     public function testALazyCommentDoesNotEraseTheInvisibleBlockBeforeIt(): void
