@@ -28,7 +28,10 @@ use PHPUnit\Framework\TestCase;
  * markup-carve/carve#1899 and fixed by markup-carve/carve#1902: at
  * markup-carve/carve `caec9ff` the oracle answers that document
  * `<blockquote><p>x</p></blockquote>`, which is what the three engines always
- * answered.
+ * answered. The PINNED oracle carries it too since carve-php#1859 moved
+ * `tests/spec` to `95fc3a0`; until then the divergence was still live against
+ * the revision this repo actually gates on, which is why the paragraph above
+ * had to name two revisions to be true.
  *
  * So these no longer pin an engine-versus-oracle divergence - there is none
  * left. Over a 4496-document sweep of container prefixes, payload shapes and
@@ -141,7 +144,9 @@ class AQuotesLazyCommentLineIsStillACommentTest extends TestCase
     /**
      * The item and description hosts, pinned beside the quote so the exemption
      * is stated over containers rather than over quotes. All four readings
-     * agree on both, at markup-carve/carve caec9ff.
+     * agree on both, at markup-carve/carve 95fc3a0 - the revision tests/spec
+     * is pinned to - which answers them identically to f59cc880, caec9ff and
+     * 86569bd before it.
      *
      * @return array<string, array{0: string, 1: string}>
      */

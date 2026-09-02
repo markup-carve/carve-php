@@ -819,6 +819,21 @@ class CarveCorpusTest extends TestCase
         // markup-carve/carve#1887 - a raw block hands its payload through
         // unread, so the attribute the importer refuses survives verbatim.
         'a-raw-block-passes-its-attributes-through-untouched',
+        // Arrived with the bump to carve 95fc3a0. Three categories, 23
+        // documents, every one of them rendered and compared against its pinned
+        // HTML before the entry was written - all byte-exact, so each arrives
+        // IMPLEMENTED rather than deferred and KNOWN_GAPS stays empty.
+        //
+        // markup-carve/carve#1897 - a definition between two open content
+        // columns registers against the outer one.
+        'a-definition-between-two-open-content-columns-reaches-the-outer-one',
+        // markup-carve/carve#1910 - a marker folds into the item only strictly
+        // between its base and its content column, at both edges and both
+        // marker widths.
+        'a-marker-folds-only-strictly-between-the-item-s-base-and-content-column',
+        // markup-carve/carve#1915 - an unterminated comment fence inside a list
+        // item is the line form, across the band.
+        'an-unterminated-comment-fence-in-a-list-item-is-the-line-form',
     ];
 
     /**
