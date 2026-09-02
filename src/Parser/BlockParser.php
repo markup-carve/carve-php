@@ -7761,8 +7761,7 @@ class BlockParser
                 )
             ) {
                 $lastEntry = $itemLines[count($itemLines) - 1];
-                $afterComment = $this->isCommentLineOrFence($lastEntry);
-                if ($afterComment) {
+                if ($this->isCommentLineOrFence($lastEntry) || $this->entryOpensContainer($lastEntry)) {
                     $itemLines[] = ' ' . $nextTrimmed;
                     $itemLineMap[] = $this->sourceLineFor($i);
                 } else {
@@ -11705,6 +11704,32 @@ class BlockParser
         // crossed a container prefix can ask without cutting the tail out of the
         // line to ask it (markup-carve/carve-php#1437).
         return preg_match('/[ \t]*%%/A', $line, $ignored, 0, $at) === 1;
+    }
+
+    /**
+     * Does a collected item entry OPEN A CONTAINER?
+     *
+     * A container's body is re-read LINE BY LINE from the entry it opened on,
+     * so a lazy line folded into that entry with an embedded newline never
+     * arrives as a line of its own: `- > - x` over an indented `[r]: /url`
+     * handed the quote one "line" holding `> - x\n[r]: /url`, and the sub-list
+     * inside the quote was lost with its marker back as literal text
+     * (markup-carve/carve-php#1858). Such a line is pushed as its OWN entry
+     * instead, one column in - the same move
+     * {@see self::isCommentLineOrFence()} already earns for an entry that
+     * renders nothing.
+     *
+     * @param string $entry
+     */
+    private function entryOpensContainer(string $entry): bool
+    {
+        $first = strstr($entry, "\n", true);
+        if ($first === false) {
+            $first = $entry;
+        }
+
+        return $this->blockQuoteLineContent($first) !== null
+            || $this->listParser->parseListItemMarker($first) !== null;
     }
 
     /**
