@@ -6009,6 +6009,7 @@ class BlockParser
                     $contentIndent,
                     $itemLines,
                     $itemLineMap,
+                    $authoredBaseEligible,
                 );
                 // A blank line between this item's blocks loosens the list, and a
                 // sub-list lead is no exception: the item still holds two blocks,
@@ -6022,7 +6023,7 @@ class BlockParser
                     $list->setTight(false);
                 }
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
-                $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
+                $this->parseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
                 $list->appendChild($listItem);
 
                 continue;
@@ -6047,12 +6048,13 @@ class BlockParser
                     $contentIndent,
                     $itemLines,
                     $itemLineMap,
+                    $authoredBaseEligible,
                 );
                 if ($this->subContentHasLooseningBlank($itemLines, true)) {
                     $list->setTight(false);
                 }
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
-                $this->parseItemBlocks($listItem, $itemLines, $itemLineMap);
+                $this->parseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
                 $list->appendChild($listItem);
 
                 continue;
@@ -6278,6 +6280,42 @@ class BlockParser
     }
 
     /**
+     * Does a line BELOW the innermost open nested column still reach a column
+     * the authored-base pass owns?
+     *
+     * A collector that dedents a line by its item's content column proves the
+     * line REACHED that column; a line that reached nothing is folded at one
+     * residual column instead, and by the time both arrive here they look
+     * identical. `$eligible` is that proof, recorded at the fold site. Column 0
+     * is the frame's own minimum and needs no proof.
+     *
+     * PART 9 §24 C3 as ruled in markup-carve/carve#1896: "at or past the
+     * deepest one" is the deepest column the LINE REACHES, not the deepest
+     * container left open, so a block opener written between two open content
+     * columns registers against the one it reaches.
+     *
+     * @param array<int, true>|null $eligible
+     * @param int $index
+     * @param int $base
+     * @param string $line
+     */
+    private function authoredBaseReachesEnclosingColumn(
+        ?array $eligible,
+        int $index,
+        int $base,
+        string $line,
+    ): bool {
+        if ($base > 0 && ($eligible === null || !isset($eligible[$index]))) {
+            return false;
+        }
+
+        return $this->lineOpensBlockForLooseness(
+            IndentationHelper::stripLeadingColumns($line, $base),
+            true,
+        );
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -6331,7 +6369,12 @@ class BlockParser
                 continue;
             }
             $base = IndentationHelper::getLeadingColumns($line);
-            if (!$probeAfterBlank && $probeNestedColumns !== [] && $base < end($probeNestedColumns)) {
+            if (
+                !$probeAfterBlank
+                && $probeNestedColumns !== []
+                && $base < end($probeNestedColumns)
+                && !$this->authoredBaseReachesEnclosingColumn($eligible, $index, $base, $line)
+            ) {
                 continue;
             }
             while ($probeNestedColumns !== [] && $base < end($probeNestedColumns)) {
@@ -6388,11 +6431,13 @@ class BlockParser
                 continue;
             }
             $base = IndentationHelper::getLeadingColumns($line);
-            if (!$afterBlank && $nestedColumns !== [] && $base < end($nestedColumns)) {
-                $local = IndentationHelper::stripLeadingColumns($line, $base);
-                if ($base > 0 || !$this->lineOpensBlockForLooseness($local, true)) {
-                    continue;
-                }
+            if (
+                !$afterBlank
+                && $nestedColumns !== []
+                && $base < end($nestedColumns)
+                && !$this->authoredBaseReachesEnclosingColumn($eligible, $i, $base, $line)
+            ) {
+                continue;
             }
             while ($nestedColumns !== [] && $base < end($nestedColumns)) {
                 array_pop($nestedColumns);
@@ -7855,6 +7900,7 @@ class BlockParser
      * @param int $contentIndent The item's content column.
      * @param array<string> $itemLines Collected stream (lead marker line already present); appended in place.
      * @param array<int, int> $itemLineMap Source-line map for $itemLines; appended in place.
+     * @param array<int, true> $authoredBaseEligible Entries this collector DEDENTED, by index; filled in place.
      *
      * @return int The index of the first line NOT consumed.
      */
@@ -7866,6 +7912,7 @@ class BlockParser
         int $contentIndent,
         array &$itemLines,
         array &$itemLineMap,
+        array &$authoredBaseEligible = [],
     ): int {
         // Trailing-block state over the stream, seeded with the lead marker line
         // the caller already put there. A dedented line folds only where this
@@ -7898,7 +7945,15 @@ class BlockParser
             }
 
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
-            if ($nextIndent < $contentIndent) {
+            // A LAZY QUOTE LINE REACHES NO CONTENT COLUMN. It carries no `>`,
+            // so it extends an open paragraph and nothing else; the quote hands
+            // it down unstripped, which is the only reason its own indentation
+            // looks like it reaches this item. The plain-lead collector already
+            // asks this before dedenting - without it here, `> - - x` over an
+            // indented block opener opened the block inside the item where
+            // every other engine folds it.
+            $isBlockQuoteLazyLine = isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
+            if ($nextIndent < $contentIndent || $isBlockQuoteLazyLine) {
                 $nextTrimmed = ltrim($nextLine, " \t");
                 // A sibling marker or a block opener at the base column belongs
                 // to the caller's loop, and a stream ending in a closed block
@@ -7930,6 +7985,19 @@ class BlockParser
                 ) {
                     break;
                 }
+                // A DEFINITION AT THE FRAME'S BASE BELONGS TO THE ENCLOSING
+                // ITEM, exactly as it does on the plain-lead path. It is not a
+                // block element start, so neither dedent gate above ends the
+                // item over it, and folding it left `- - x` hiding a definition
+                // that `- x` hands out (markup-carve/carve#1896).
+                if (
+                    $nextIndent === 0
+                    && !$this->isBlockElementStart($nextTrimmed)
+                    && !$this->startsNewBlock($nextTrimmed)
+                    && $this->isDefinitionLineForEnclosingItem($nextTrimmed)
+                ) {
+                    break;
+                }
                 // Lazy continuation of the stream's own last paragraph. The
                 // line carries exactly ONE column instead of being dedented by
                 // the content column it never reached: below the sub-list's
@@ -7947,7 +8015,13 @@ class BlockParser
                 continue;
             }
 
+            // The line REACHED this item's content column and was dedented by
+            // it, which is the only thing that distinguishes it from a line
+            // that reached no column at all once both arrive as one residual
+            // column. Recorded so the authored-base pass can tell them apart
+            // (markup-carve/carve#1896).
             $stripped = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $authoredBaseEligible[count($itemLines)] = true;
             $itemLines[] = $stripped;
             $itemLineMap[] = $this->sourceLineFor($i);
             $trailingState = $this->advanceTrailingBlockState($trailingState, $stripped);
