@@ -6562,6 +6562,21 @@ class BlockParser
                 }
             } elseif ($comment !== null) {
                 $width = strlen($comment['fence']);
+                // A DEGRADED FENCE CLAIMS NO EXTENT. §28 gives an opener with
+                // no matching closer ahead no block at all, so the run below it
+                // is not its payload and the authored base is the opener's own
+                // line. Without this the run was rebased along with the opener
+                // and arrived at the item's column 0, where `# y` opened a
+                // heading and the `%% z` spelling of the same document folds it
+                // as text (carve-php#1877).
+                //
+                // The CLOSED half moves no measured byte - a terminated fence's
+                // payload renders nothing, so no document can show whether it
+                // was rebased - but writing the rollback unconditionally would
+                // say a terminated fence owns no payload, which is false.
+                // Walked and rolled back rather than pre-scanned so the dedent
+                // rule that ends the walk stays in one place.
+                $closed = false;
                 for ($j = $i + 1; $j < $count; $j++) {
                     $candidate = $lines[$j];
                     if (
@@ -6575,8 +6590,13 @@ class BlockParser
                         ? ''
                         : IndentationHelper::stripLeadingColumns($candidate, $base);
                     if ($this->fencedBlockParser->isFencedCommentCloser($local, $width)) {
+                        $closed = true;
+
                         break;
                     }
+                }
+                if (!$closed) {
+                    $end = $i;
                 }
             } elseif ($colon !== null) {
                 $stack = [$colon['length']];
@@ -12604,12 +12624,12 @@ class BlockParser
             return true;
         }
 
-        // Fenced comments `%%%` can always interrupt paragraphs
-        // Comments should be invisible and not require extra formatting
-        if ($line[0] === '%' && isset($line[1], $line[2]) && $line[1] === '%' && $line[2] === '%') {
-            return true;
-        }
-
+        // NO `%%%` ARM HERE. One used to return true for any line opening
+        // `%%%`, which shadowed the `%` case in `startsInterruptingBlock()`
+        // below - the case that asks §28's closer question - and made a
+        // DEGRADED fence interrupt where the `%%` line form does not
+        // (carve-php#1877, markup-carve/carve#1903). Removing it is what lets
+        // that case answer, and it had never been reached before.
         return $this->startsInterruptingBlock($line, $lines, $index);
     }
 
@@ -14066,9 +14086,14 @@ class BlockParser
             return true;
         }
 
-        // Comment fences (%%%)
+        // Comment fences (%%%). Only a fence with an exact-width closer ahead
+        // opens a block; §28 degrades an unterminated one to the LINE form, and
+        // markup-carve/carve#1903 makes that classification total, ownership
+        // included - so it leaves a container's frame open exactly as `%%`
+        // does. The same rule already lives in `startsInterruptingBlock()`, and
+        // for a long time only that copy had it (carve-php#1877).
         if ($this->fencedBlockParser->parseFencedCommentOpener($line) !== null) {
-            return true;
+            return $this->hasClosingCommentFenceAhead($line, $lines, $index);
         }
 
         // Thematic breaks (---, ***, ___): a contiguous col-0 run of >= 3
