@@ -8363,11 +8363,24 @@ class BlockParser
                     $definitionPastTheColumn = $indent > $continuationColumn
                         && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
                         && $this->isReferenceDefinitionLine($trimmedCont);
+                    // AN ATTRIBUTE BLOCK PAST THE COLUMN IS THE OTHER HALF OF
+                    // THE SAME §10 I5 CLAUSE (markup-carve/carve#1911). A
+                    // visible opener already reaches the push branch, because
+                    // `lineOpensBlockForLooseness()` reports it even with
+                    // `invisibleArms: false`; a comment reaches it through that
+                    // parameter's own `%%` arm; and carve-php#1873 sent the
+                    // definition there. An attribute line was the one spelling
+                    // left folding into the paragraph one column past the
+                    // body's own, while the same line AT the column ended it
+                    // (corpus `444-*-7` against `444-*-8`).
+                    $attributePastTheColumn = $indent > $continuationColumn
+                        && $this->isBlockAttributeLine($trimmedCont);
                     if (
                         !IndentationHelper::isBlankLine($contLine)
                         && $indent > 0
                         && $indent !== $continuationColumn
                         && !$definitionPastTheColumn
+                        && !$attributePastTheColumn
                         && !$formABlockOpen
                         && $lastBodyKey !== null
                         && $lastBodyEntry !== ''
@@ -8481,7 +8494,11 @@ class BlockParser
                         break;
                     }
                     for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
-                        $bodyLine = explode("\n", $body[$bodyStateCursor], 2)[0];
+                        $bodyLine = $this->descriptionBodyEntryAsRead(
+                            $bodyState,
+                            $body,
+                            $bodyStateCursor,
+                        );
                         $bodyState = $this->advanceTrailingBlockStateWithFenceLookahead(
                             $bodyState,
                             $bodyLine,
@@ -12896,6 +12913,78 @@ class BlockParser
         }
 
         return $state['nestedColumn'];
+    }
+
+    /**
+     * A collected description-body entry as the BODY will read it.
+     *
+     * The collector strips the body's own content column and keeps whatever is
+     * left, so an opener written PAST that column arrives here still indented -
+     * ` # H` rather than `# H`. carve#1729 gives such an opener an AUTHORED
+     * LOCAL BASE, and `rebaseOverindentedItemBlocks()` applies it before
+     * `parseBlocks()` reads the body, so the body reads a heading there. The
+     * tracker read the authored line instead and saw prose, which is why an
+     * opener at the body's column ended its paragraph and the same opener one
+     * column further in did not (carve-php#1874, markup-carve/carve#1911).
+     *
+     * ONLY WHERE THE REBASE WOULD REACH IT. Inside a code fence or a div the
+     * indentation is content rather than a base, so there is no opener to see.
+     * `divDepth` is asked as well as `inDiv` because the div tracker clears
+     * `inDiv` on the FIRST closer while only decrementing the depth, so a
+     * nested pair leaves an outer div open with `inDiv` false (raised by codex
+     * review); it moves no bytes across the sweeps, and it is what makes the
+     * refusal mean what it says.
+     *
+     * An ABSORBING colon fence is not such a place, though it looked like one:
+     * `:::note` opens nothing, so `rebaseOverindentedItemBlocks()` does rebase
+     * the opener under it, and refusing the read there left eight documents
+     * answering against every other reading.
+     *
+     * AND ONLY WHERE NOTHING IS OPEN INSIDE THE BODY. Once the body has opened
+     * a container of its own, every line above that container's column belongs
+     * to it and its collector is what reads them; the body has no opener of its
+     * own there. `inFootnoteBody` is asked alongside the column because a
+     * footnote body is the one such container the state carries WITHOUT a
+     * nested column, so the column alone answered "nothing is open" for it
+     * (raised by codex review). MEASURED, not assumed: spelled the way
+     * carve-php#1878 spells the same guard at the push branch - where the
+     * question is which container the ENTRY arrives in, so "below the nested
+     * column" is the right test - a heading between a body's column and a
+     * nested item's closed the body, where all four readings fold the whole run
+     * into the item. That was 64 documents right to wrong over an
+     * 8370-document sweep of bodies that open a container; refusing the read
+     * outright leaves 0.
+     *
+     * NOT A SECOND REBASE PASS. Running the authored-base pass over the
+     * collected entries per line would be quadratic; this answers the one
+     * question the tracker asks, off the state it already carries.
+     *
+     * TWO CONDITIONS HERE MOVE NO BYTES and are kept anyway, which is worth
+     * saying rather than leaving for the next reader to rediscover. `$base ===
+     * 0` is a fast path: at column 0 both branches return the same string, so
+     * it only skips the opener test. And the opener test itself moved nothing
+     * over 14451 swept documents - the tracker answers "prose" for a
+     * non-opener whether or not it is indented - but it is the same gate
+     * `rebaseOverindentedItemBlocks()` applies, and dropping it would have the
+     * tracker read a base that pass would not apply.
+     *
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
+     * @param array<string> $body
+     * @param int $index
+     */
+    private function descriptionBodyEntryAsRead(array $state, array $body, int $index): string
+    {
+        $line = explode("\n", $body[$index], 2)[0];
+        if ($state['inFence'] || $state['inDiv'] || $state['divDepth'] > 0) {
+            return $line;
+        }
+        $base = IndentationHelper::getLeadingColumns($line);
+        if ($base === 0 || $state['nestedColumn'] > 0 || $state['inFootnoteBody']) {
+            return $line;
+        }
+        $opener = IndentationHelper::stripLeadingColumns($line, $base);
+
+        return $this->lineOpensBlockForLooseness($opener, true) ? $opener : $line;
     }
 
     /**
