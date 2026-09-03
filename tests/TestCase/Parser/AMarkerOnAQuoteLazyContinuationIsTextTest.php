@@ -100,6 +100,30 @@ class AMarkerOnAQuoteLazyContinuationIsTextTest extends TestCase
     }
 
     /**
+     * INTERVENING PROSE DOES NOT ESCAPE THE QUOTE (markup-carve/carve#1905,
+     * ported as carve-php#1882). This row used to sit in `sublistProvider()`
+     * on the reading that one line of prose after the quote makes the
+     * paragraph this item's again - §10 I6, carve-js#1200. The ruling reverses
+     * it: `p` is itself the quote's lazy continuation, so it is still the
+     * QUOTE'S paragraph and the marker below folds into it too. Corpus
+     * `448-*-3` pins the same shape with a quoted LIST instead of a quoted
+     * paragraph, and this is that document's twin.
+     *
+     * A BLANK LINE REMAINS THE ONLY EXIT. `sublistProvider()` keeps six rows
+     * and every one still opens the sub-list: five where the quote ended on a
+     * block leaving no open paragraph, plus `a second marker below the folded
+     * one`, which is a different rule - the folded marker line is itself a
+     * marker line, so it leaves the quote holding nothing for the next one.
+     */
+    public function testInterveningProseStaysInTheQuote(): void
+    {
+        $this->assertSame(
+            '<ul> <li> <blockquote><p>q p - s tail</p></blockquote> </li> </ul>',
+            $this->html("- > q\n  p\n  - s\ntail\n"),
+        );
+    }
+
+    /**
      * THE NEAR MISS carve-js#1200 names. Where the quote ends on a block that
      * leaves no open paragraph there is nothing to fold into, so the marker
      * reaches the item body and §24 C3 opens the sub-list. A fix written against
@@ -130,13 +154,6 @@ class AMarkerOnAQuoteLazyContinuationIsTextTest extends TestCase
             'an empty quote' => [
                 "- >\n  - s\ntail\n",
                 '<ul> <li> <blockquote> </blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
-            ],
-            // The paragraph the marker would fold into has to be the QUOTE'S. One
-            // line of prose after the quote makes it this item's again, and §24
-            // C3 has it.
-            'a prose line after the quote' => [
-                "- > q\n  p\n  - s\ntail\n",
-                '<ul> <li> <blockquote><p>q p</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
             ],
             // ONE MARKER, NOT EVERY MARKER. The folded marker line is itself a
             // marker line, so it leaves the quote holding nothing for the next
