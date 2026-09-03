@@ -6519,81 +6519,6 @@ class BlockParser
 
                         continue;
                     }
-                    // A QUOTE OR A DIV AT THE MINIMUM OWNS WHAT IS WRITTEN
-                    // UNDER IT. `containerContentColumn()` answers only for a
-                    // list marker and a definition body, so neither of these
-                    // reached the branch above and the run below them was read
-                    // as an AUTHORED BASE and flattened to the minimum - which
-                    // turned a line the container renders as text into a
-                    // definition of the enclosing body (carve-php#1885,
-                    // carve-php#1886).
-                    //
-                    // `01-layout.ebnf:330`, NORMATIVE: A QUOTE IS REACHED BY
-                    // ITS MARKER, AND A COLUMN NEVER REACHES INTO ONE - so an
-                    // indented line under a quote is its lazy continuation, not
-                    // a block one container out. PART 9 §12 makes a div's
-                    // content the div's own. Both match the top-level twins,
-                    // which this engine and carve-js already answer alike.
-                    //
-                    // THE TWO EXTENTS ARE NOT THE SAME SHAPE, which is the
-                    // whole reason they are separate arms. A DIV is delimited -
-                    // it owns everything to its closer, including visible
-                    // blocks, so `::: note` over `# h` over ` [r]: /url` keeps
-                    // the definition inside it (raised by codex review). A
-                    // QUOTE's lazy run is delimited by what continues a
-                    // paragraph, so it stops at a visible opener: carve#1729
-                    // still gives a real block written below one an authored
-                    // base, and `QuoteFenceLinterTest` reads that div as a
-                    // sibling of the quote. A definition opens nothing a reader
-                    // sees, so it stays the quote's.
-                    $div = $this->fencedBlockParser->parseDivFenceOpener($line);
-                    if ($div !== null) {
-                        // THROUGH THE SAME READER THE PARSER USES. A closer
-                        // matches the opener's EXACT width, a nested pair keeps
-                        // its own, and a bare run inside a code or comment fence
-                        // is payload rather than a closer - `colonFenceEnd()`
-                        // already answers all three. Spelled here as a
-                        // `:{3,}` scan it took a bare `:::` inside a `::::` div
-                        // for the closer and handed the rest back (raised by
-                        // codex review). An unterminated div owns the remainder,
-                        // which is what `-1` means here.
-                        /** @var int $length */
-                        $length = $div['length'];
-                        $closer = $this->colonFenceEnd($lines, $i, $length, $count, null);
-                        $i = $closer === -1 ? $count - 1 : $closer;
-                        $afterBlank = false;
-
-                        continue;
-                    }
-                    if ($this->blockQuoteLineContent($line) !== null) {
-                        // THE WHOLE LAZY RUN, NOT ONLY THE INDENTED PART. A
-                        // column-0 line under a quote is still its continuation
-                        // - `> q` over `p` over ` [r]: /url` folds all three at
-                        // the top level - so an indentation bound here left the
-                        // definition below a flush line reachable again. That
-                        // bound was written first and removed against the twin.
-                        //
-                        // THE BLANK STOP MOVES NO BYTES and is kept anyway.
-                        // Over 1678 documents plus a probe written to exercise
-                        // it, removing it changes nothing - a blank opens no
-                        // block, so the run would continue over it. It is kept
-                        // because a blank ENDS lazy continuation: without it
-                        // this skip means something its name does not.
-                        while (
-                            $i + 1 < $count
-                            && !IndentationHelper::isBlankLine($lines[$i + 1])
-                            && !$this->lineOpensBlockForLooseness(
-                                ltrim($lines[$i + 1], " \t"),
-                                true,
-                                false,
-                            )
-                        ) {
-                            $i++;
-                        }
-                        $afterBlank = false;
-
-                        continue;
-                    }
                 }
                 $afterBlank = false;
 
@@ -13074,16 +12999,6 @@ class BlockParser
                 // earlier rounds named a geometry the rebase had already
                 // flattened, where `$base > 0` excludes the line anyway).
                 && !$state['inFootnoteBody']
-                // AND NOT UNDER A QUOTE. `01-layout.ebnf:330`, NORMATIVE: A
-                // QUOTE IS REACHED BY ITS MARKER, AND A COLUMN NEVER REACHES
-                // INTO ONE - so a line writing no `>` is in no quote, and the
-                // quote's width is not a container column this rule may measure
-                // against. The tracker still records it as `nestedColumn`,
-                // which made a definition below it look like one reaching the
-                // NOTE; it is the quote's lazy continuation and stays text,
-                // exactly as the top-level twin `> q` over ` [r]: /url` already
-                // answers (carve-php#1886).
-                && !$state['quoteParagraph']
             ) {
                 $trimmed = ltrim($opener, " \t");
                 $nested = $state['nestedColumn'];
