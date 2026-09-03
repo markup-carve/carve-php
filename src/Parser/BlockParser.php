@@ -1404,9 +1404,11 @@ class BlockParser
                 $finishedFootnoteBodies[$label] = true;
                 $found = true;
                 $this->discoveringDefinitions = true;
-                $body['lines'] = $this->rebaseOverindentedItemBlocks(
-                    $body['lines'],
-                    includeSublists: true,
+                $body['lines'] = $this->footnoteBodyDefinitionReach(
+                    $this->rebaseOverindentedItemBlocks(
+                        $body['lines'],
+                        includeSublists: true,
+                    ),
                 );
                 // The document walk has already finished. Its pending block
                 // attributes belong after the document, not before this
@@ -12921,6 +12923,77 @@ class BlockParser
             self::lastInteriorNewline($line),
             $atContentColumn,
         );
+    }
+
+    /**
+     * Bring a definition written PAST a footnote body's column back to it.
+     *
+     * PART 9 §16 puts a note body's content column at 2 and the collector keeps
+     * whatever is left past it, so a definition written one column further in
+     * arrives still carrying one. markup-carve/carve#1921 has list items,
+     * definition bodies and footnote bodies apply ONE reach rule, so
+     * `CARVE-P0-020` answers such a line against the innermost open container
+     * it REACHES - the reading carve-php#1878 gave the description body. Below
+     * the column of anything the note has opened, the line is the NOTE's and
+     * the residual indentation is the note's own, so it has to arrive at the
+     * note's column; a nested item otherwise collects a definition bound for
+     * the note as its own prose (carve-php#1879, corpus `447-*-7`).
+     *
+     * AFTER THE AUTHORED-BASE REBASE, WHICH IS WHY THIS IS NOT IN THE
+     * COLLECTOR. carve#1729 gives an over-indented body an authored local base,
+     * and `rebaseOverindentedItemBlocks()` reads that base off the collected
+     * lines as a group. Taking one line's indentation off before it runs
+     * changes the base it computes: corpus `417-*-4` writes its whole body at
+     * column 5, and erasing the definition there left the base unrecoverable
+     * and dropped the rest of the body. Past the rebase a uniform body is
+     * already flush, so this sees nothing to do and only a line that really is
+     * indented relative to its siblings is touched.
+     *
+     * AT OR PAST A NESTED COLUMN THE LINE IS THAT CONTAINER'S OWN and its
+     * collector reads it there, so the indentation stays - erasing it would end
+     * the nested list and take its later content with it.
+     *
+     * NOT UNDER AN OPAQUE BLOCK. Inside a code fence or a div the indentation
+     * is content rather than a base. `divDepth` is asked as well as `inDiv`
+     * because the div tracker clears `inDiv` on the first closer while only
+     * decrementing the depth, so a nested pair leaves an outer div open with
+     * `inDiv` false.
+     *
+     * BOTH DEFINITION SPELLINGS, matching the band carve-php#1878 pins for the
+     * `dd` host: a nested `[^g]: x` between the note's column and an item's
+     * reaches the note and becomes a sibling note, exactly as `[r]: /url` does.
+     *
+     * ONE CALLER, NOT TWO. `extractFootnotes()` rebases a body the same way and
+     * looks like the sibling site, but carve-php#1854 retired that pre-pass and
+     * it now has no production caller - only a test reaches it. Wiring it there
+     * would ship a call no document can execute.
+     *
+     * @param array<string> $lines Body lines, already rebased.
+     *
+     * @return array<string>
+     */
+    private function footnoteBodyDefinitionReach(array $lines): array
+    {
+        $state = self::INITIAL_TRAILING_BLOCK_STATE;
+        foreach ($lines as $index => $line) {
+            $opener = explode("\n", $line, 2)[0];
+            $base = IndentationHelper::getLeadingColumns($opener);
+            if ($base > 0 && !$state['inFence'] && !$state['inDiv'] && $state['divDepth'] === 0 && !$state['absorbingFence']) {
+                $trimmed = ltrim($opener, " \t");
+                $nested = $state['nestedColumn'];
+                if (
+                    ReferenceDefinitionExtractor::isDefinitionHead($trimmed)
+                    && $this->isReferenceDefinitionLine($trimmed)
+                    && ($nested === 0 || $base < $nested)
+                ) {
+                    $lines[$index] = $trimmed . substr($line, strlen($opener));
+                    $opener = $trimmed;
+                }
+            }
+            $state = $this->advanceTrailingBlockState($state, $opener, true);
+        }
+
+        return $lines;
     }
 
     /**
