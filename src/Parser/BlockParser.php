@@ -7682,7 +7682,10 @@ class BlockParser
                 break;
             }
 
-            if ($this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
+            if (
+                !$isBlockQuoteLazyLine
+                && $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
+            ) {
                 break;
             }
 
@@ -13251,7 +13254,13 @@ class BlockParser
         // the quote branch below, so any other line answers no: it is the
         // QUOTE'S paragraph that claims a marker line, and one line of prose
         // after the quote makes the paragraph this container's again (PART 9
-        // §10 I6, markup-carve/carve-js#1200).
+        // §10 I6, markup-carve/carve-js#1200) - EXCEPT where that prose is
+        // itself the quote's lazy continuation, which markup-carve/carve#1905
+        // rules stays in the quote: `> - x` / `p` / `- m` folds both lines, and
+        // a blank line is the only exit (carve-php#1882). Re-armed for that one
+        // case at the prose fallback below, so every line that ENDS a paragraph
+        // still clears it here.
+        $wasQuoteParagraph = $state['quoteParagraph'];
         $state['quoteParagraph'] = false;
         // AN INVISIBLE BLOCK ENDS THE PARAGRAPH WITHOUT ENDING THE CONTAINER,
         // which are two questions one flag used to answer
@@ -13713,6 +13722,21 @@ class BlockParser
             || preg_match('/[ \t]*([-*_])\1{2,}[ \t]*$/A', $line, $ignored, 0, $at) === 1;
         $state['absorbingFence'] = $wasAbsorbing && !$endsTheParagraph;
         $state['openParagraph'] = true;
+        // PROSE INSIDE A QUOTE'S LAZY RUN IS STILL THE QUOTE'S PARAGRAPH
+        // (markup-carve/carve#1905). A blank line cleared the flag above and
+        // never arrives here, which is what leaves the blank-line escape the
+        // one way out, and a heading or a fence AT A CONTAINER'S CONTENT COLUMN
+        // returns from its own branch with the paragraph closed - so `> q` over
+        // `# h` over `- m` still opens the item, in this engine and in carve-js.
+        //
+        // ASKED WITHOUT `$endsTheParagraph`, deliberately. That test is live
+        // here - 9 of 1623 corpus documents reach this line with it true - but
+        // never with `quoteParagraph` already set, so qualifying the re-arm with
+        // it moved no bytes over 1678 documents. Left off rather than carried as
+        // a condition nothing can exercise; if a document is ever found that
+        // reaches here inside a quote's lazy run on a heading, this is the line
+        // that decides it.
+        $state['quoteParagraph'] = $wasQuoteParagraph;
 
         return $state;
     }
