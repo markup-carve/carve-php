@@ -8560,17 +8560,48 @@ class BlockParser
                         break;
                     }
                     if (
-                        $indent === 0
+                        (
+                            $indent === 0
+                            || (
+                                $bodyState['nestedColumn'] > 0
+                                && !$this->lineOpensBlockForLooseness($trimmedCont, true, invisibleArms: false)
+                            )
+                        )
                         && !IndentationHelper::isBlankLine($contLine)
-                        && !$this->isBlockAttributeLine($contLine)
+                        && !$this->isBlockAttributeLine($trimmedCont)
                         && $this->wrappedBlockAttributeLength($lines, $i) === null
-                        && !$this->isCommentLineOrFence($contLine)
-                        && !$this->startsInterruptingBlock($contLine, $lines, $i)
+                        && !$this->isCommentLineOrFence($trimmedCont)
+                        && !$this->startsInterruptingBlock($trimmedCont, $lines, $i)
                     ) {
                         // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
                         // block: the tracker must read it as the lazy line it
                         // is rather than as content at the column
                         // {@see self::advanceTrailingBlockState()}.
+                        //
+                        // AND NOT ONLY AT COLUMN 0. §24 C3's A NON-OPENER STILL
+                        // FOLDS is asked of the innermost container the line
+                        // REACHES, so a body that has opened one of its own has
+                        // a column deeper than its own for the line to be below
+                        // - and every column under the BODY's is then the
+                        // container's to fold, not the body's to end on. The
+                        // bare body gets this from the appending branch above,
+                        // which refuses a body whose last entry opens a block,
+                        // so this is where that body has to be answered
+                        // (carve-php#1875).
+                        //
+                        // NO COLUMN BOUND IS SPELLED because none can fire: the
+                        // push branch above takes every line at or past the
+                        // content column, so the only lines that reach here are
+                        // already below it.
+                        //
+                        // THE PREDICATE IS THE CLAUSE'S OWN. It has to be
+                        // `lineOpensBlockForLooseness()` and not the
+                        // interruption test beside it: a sibling marker
+                        // deliberately does not interrupt a paragraph (§10) and
+                        // a code fence's closer does not match when it is
+                        // indented, so the interruption test reports false for
+                        // both and folded 210 and 36 documents that every other
+                        // reading keeps outside.
                         $bodyLazy[count($body)] = true;
                         $body[] = $contLine;
                         $bodyMap[] = $this->sourceLineFor($i);
