@@ -12978,7 +12978,25 @@ class BlockParser
         foreach ($lines as $index => $line) {
             $opener = explode("\n", $line, 2)[0];
             $base = IndentationHelper::getLeadingColumns($opener);
-            if ($base > 0 && !$state['inFence'] && !$state['inDiv'] && $state['divDepth'] === 0 && !$state['absorbingFence']) {
+            if (
+                $base > 0
+                && !$state['inFence']
+                && !$state['inDiv']
+                && $state['divDepth'] === 0
+                && !$state['absorbingFence']
+                // AND NOT INSIDE A NESTED NOTE. A footnote body is the one
+                // container the tracker carries WITHOUT a nested column, so
+                // `nestedColumn` answers 0 for it and the reach test below
+                // would take a definition that belongs to the INNER note. Its
+                // own body then ends early and the rest of it lands in the
+                // outer note - `[^f]: outer` over `   [^g]: inner` over
+                // `     [r]: /url` moved `See [r][].` out of `[^g]`.
+                // `descriptionBodyEntryAsRead()` asks the same question for the
+                // same reason (raised by codex review, third round; the two
+                // earlier rounds named a geometry the rebase had already
+                // flattened, where `$base > 0` excludes the line anyway).
+                && !$state['inFootnoteBody']
+            ) {
                 $trimmed = ltrim($opener, " \t");
                 $nested = $state['nestedColumn'];
                 if (

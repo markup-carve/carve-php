@@ -179,6 +179,24 @@ class ADefinitionBetweenAFootnoteBodysColumnAndANestedItemsReachesTheNoteTest ex
     }
 
     /**
+     * A NESTED NOTE IS A CONTAINER THE COLUMN CANNOT SEE. A footnote body is
+     * the one container the tracker carries WITHOUT a nested column, so the
+     * reach test reads 0 for it and would take a definition belonging to the
+     * INNER note - ending its body early and moving the rest into the outer
+     * one. This is the shape that says the `inFootnoteBody` guard is doing
+     * work; carve-js `4627270e` keeps `See [r][]` out of the outer note too.
+     */
+    public function testANestedNotesOwnDefinitionStaysInIt(): void
+    {
+        $html = $this->converter->convert(
+            "[^f]: outer\n\n   [^g]: inner\n\n     [r]: /url\n\n     See [r][].\n\nx[^f]",
+        );
+
+        $this->assertStringNotContainsString('See <a href="/url">r</a>', $html);
+        $this->assertStringContainsString('<p>outer<a href="#fnref1"', $html);
+    }
+
+    /**
      * NOT UNDER AN OPAQUE BLOCK. Inside a code fence the indentation is content
      * rather than a base, so the definition stays where it was written and is
      * never read as one.
