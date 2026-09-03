@@ -197,6 +197,70 @@ class ADefinitionBetweenAFootnoteBodysColumnAndANestedItemsReachesTheNoteTest ex
     }
 
     /**
+     * A NESTED NOTE IS REACHED BY ITS OWN BODY COLUMN, not by being a note.
+     *
+     * markup-carve/carve#1921 answers a definition against the innermost open
+     * container the line REACHES, and a nested note is a container like any
+     * other: BELOW its body column the line reaches the OUTER note and
+     * registers there; at or past it the line is the inner note's own.
+     *
+     * `[^g]: inner` written three columns in arrives at the outer body's base 0
+     * after the authored-base rebase, so its own body column is 2. Column 1 is
+     * the band this pins - carve-php#1887 refused the whole body with a boolean
+     * `inFootnoteBody` and left that column reading as text (carve-php#1889).
+     *
+     * Column 1 of the SOURCE is absent: it is below the outer note's own column
+     * and leaves the note entirely, which `testBelowTheNotesColumnEndsTheBody`
+     * already covers for the flat case.
+     *
+     * @return array<string, array{0: int}>
+     */
+    public static function nestedNoteBandProvider(): array
+    {
+        return [
+            'column 0' => [0],
+            'at the outer body column' => [2],
+            'at the nested note marker' => [3],
+            'below the nested body column' => [4],
+            'at the nested body column' => [5],
+            'one past it' => [6],
+            'two past it' => [7],
+        ];
+    }
+
+    #[DataProvider('nestedNoteBandProvider')]
+    public function testANestedNoteIsReachedByItsBodyColumn(int $column): void
+    {
+        $html = $this->converter->convert(
+            "[^f]: outer\n\n   [^g]: inner\n\n" . str_repeat(' ', $column) . "[r]: /url\n\nx[^f] [^g] [t][r]",
+        );
+
+        $this->assertStringNotContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('href="/url"', $html);
+    }
+
+    /**
+     * EVERY LEVEL GETS ITS OWN COLUMN. `inFootnoteBody` stays true while any
+     * body is open, so a note opened INSIDE another never raises it again; read
+     * off the flag, the innermost note would keep its parent's column. The
+     * columns are therefore a stack, armed off each definition line itself.
+     *
+     * Three levels, and the band that separates them: with `[^g]` at 3 and
+     * `[^h]` at 6, column 4 reaches only `[^f]`, column 7 only `[^g]`, and
+     * column 8 reaches `[^h]`. All three resolve; what differs is which body
+     * holds the trailing line, which is what this asserts.
+     */
+    public function testEachNestedLevelKeepsItsOwnColumn(): void
+    {
+        $html = $this->converter->convert(
+            "[^f]: outer\n\n   [^g]: mid\n\n      [^h]: inner\n\n    [r]: /url\n\nx[^f] [^g] [^h] [t][r]",
+        );
+
+        $this->assertStringNotContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('href="/url"', $html);
+    }
+
+    /**
      * NOT UNDER AN OPAQUE BLOCK. Inside a code fence the indentation is content
      * rather than a base, so the definition stays where it was written and is
      * never read as one.

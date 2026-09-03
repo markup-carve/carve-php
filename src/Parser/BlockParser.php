@@ -12978,6 +12978,17 @@ class BlockParser
     private function footnoteBodyDefinitionReach(array $lines): array
     {
         $state = self::INITIAL_TRAILING_BLOCK_STATE;
+        // A NESTED NOTE'S OWN BODY COLUMN, or null when none is open. A footnote
+        // body is the one container the tracker carries WITHOUT a nested column
+        // - `nestedColumn` answers 0 for it - so the reach test cannot see it
+        // and would take a line that belongs to the INNER note. carve-php#1887
+        // asked the boolean `inFootnoteBody` instead, which refuses the whole
+        // body; markup-carve/carve#1921 wants the COLUMN, because a definition
+        // BELOW the nested note's body column reaches the outer one exactly as
+        // it does past any other container (carve-php#1889). PART 9 §16 puts a
+        // note's body two columns past its own base, which is what makes the
+        // column computable here.
+        $noteColumns = [];
         foreach ($lines as $index => $line) {
             $opener = explode("\n", $line, 2)[0];
             $base = IndentationHelper::getLeadingColumns($opener);
@@ -12987,18 +12998,7 @@ class BlockParser
                 && !$state['inDiv']
                 && $state['divDepth'] === 0
                 && !$state['absorbingFence']
-                // AND NOT INSIDE A NESTED NOTE. A footnote body is the one
-                // container the tracker carries WITHOUT a nested column, so
-                // `nestedColumn` answers 0 for it and the reach test below
-                // would take a definition that belongs to the INNER note. Its
-                // own body then ends early and the rest of it lands in the
-                // outer note - `[^f]: outer` over `   [^g]: inner` over
-                // `     [r]: /url` moved `See [r][].` out of `[^g]`.
-                // `descriptionBodyEntryAsRead()` asks the same question for the
-                // same reason (raised by codex review, third round; the two
-                // earlier rounds named a geometry the rebase had already
-                // flattened, where `$base > 0` excludes the line anyway).
-                && !$state['inFootnoteBody']
+                && ($noteColumns === [] || $base < end($noteColumns))
             ) {
                 $trimmed = ltrim($opener, " \t");
                 $nested = $state['nestedColumn'];
@@ -13009,6 +13009,27 @@ class BlockParser
                 ) {
                     $lines[$index] = $trimmed . substr($line, strlen($opener));
                     $opener = $trimmed;
+                }
+            }
+            // ARMED OFF THE DEFINITION LINE ITSELF, not off the tracker's
+            // rising edge. `inFootnoteBody` stays true while a body is open, so
+            // a note opened INSIDE another never raises it again and the
+            // innermost column would keep the outer one's value (raised by
+            // codex review). Reading the line directly gives every level its
+            // own column; the stack pops back to the enclosing note when a line
+            // dedents out of the inner one.
+            $local = ltrim($opener, " \t");
+            if (preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $local) === 1) {
+                // A NOTE AT OR ABOVE AN OPEN ONE'S BASE CLOSES IT FIRST.
+                while ($noteColumns !== [] && $base <= end($noteColumns) - self::FOOTNOTE_BODY_COLUMN) {
+                    array_pop($noteColumns);
+                }
+                $noteColumns[] = $base + self::FOOTNOTE_BODY_COLUMN;
+            } elseif (!IndentationHelper::isBlankLine($opener)) {
+                // A LINE BELOW A BODY'S COLUMN LEFT IT. Blanks are skipped: a
+                // note body survives one.
+                while ($noteColumns !== [] && $base < end($noteColumns)) {
+                    array_pop($noteColumns);
                 }
             }
             $state = $this->advanceTrailingBlockState($state, $opener, true);
