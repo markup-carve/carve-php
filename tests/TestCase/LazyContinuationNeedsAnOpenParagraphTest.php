@@ -284,14 +284,15 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
     }
 
     /**
-     * AN UNFINISHED OPENER ON THE NESTED LEAD IS STILL PROSE.
+     * AN UNFINISHED `:::` OPENER ON THE NESTED LEAD IS STILL PROSE - AND A
+     * FENCE IS NOT.
      *
-     * A code fence or a `:::` opener continues onto lines the nested walk never
-     * sees, so it has not read the block it would report on. Reporting anyway
-     * changed what the item CONTAINS and not just where the lazy line went: the
-     * div row below turned a literal `::: note` into a real admonition and moved
-     * `b` out of the item. Both rows matched before this rule reached depth 2 -
-     * they are the half a wider fix takes away.
+     * A `:::` opener continues onto lines the nested walk never sees, so the
+     * walk has not read the block it would report on. Reporting anyway changed
+     * what the item CONTAINS and not just where the lazy line went: the div row
+     * below turned a literal `::: note` into a real admonition and moved `b`
+     * out of the item. A CODE FENCE is the opposite case and is ruled the other
+     * way - see the `code fence` note below.
      *
      * WHAT THE ROWS ACTUALLY AGREE WITH (measured for carve-php#1863; the
      * previous claim here was "Both rows match carve-js and carve-rs", and
@@ -300,14 +301,15 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
      *   - `div opener` matches carve-js AND the executable spec. carve-rs is
      *     the outlier - it reads the opener as a real admonition and publishes
      *     `b` at document level. Same family as markup-carve/carve-rs#1510.
-     *   - `code fence` matches carve-js and NOTHING else. The executable spec
-     *     gives the fence its body and keeps the flush-left closer as body
-     *     text; carve-rs gives a third answer. The bytes pinned below are
-     *     damaged on their own terms whichever way it is ruled - the
-     *     `<pre><code>` is EMPTY, the body has leaked into the outer item, and
-     *     the closer has come back as a stray inline `code`. Filed as
-     *     markup-carve/carve#1900; this row is pinned as the ENGINE'S CURRENT
-     *     ANSWER awaiting that ruling, not as a shape anything endorses.
+     *   - `code fence` was pinned here as the engine's own answer awaiting a
+     *     ruling, and markup-carve/carve#1900 has since given one: the fence
+     *     OWNS the flush-left lines below it and the closing run is body text,
+     *     because a fence's content is not re-scanned for structure. The row
+     *     now holds the executable spec's bytes, which is also what the
+     *     abandoned shape never was - the `pre` is no longer EMPTY, the body no
+     *     longer leaks into the outer item, and the closer is no longer a stray
+     *     inline `code`. See markup-carve/carve-php#1900 and
+     *     UnfinishedFenceOnANestedLeadOwnsItsBodyTest, which covers the family.
      *
      * @return array<string, array{string, string}>
      */
@@ -316,7 +318,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         return [
             'code fence' => [
                 "- - ``` x\ncode\n```\n- lazy\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">\n</code></pre>\n      </li>\n    </ul>\n    code\n<code></code>\n  </li>\n  <li>lazy</li>\n</ul>\n",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n  <li>lazy</li>\n</ul>\n",
             ],
             'div opener' => [
                 "- - ::: note\nb\n:::\nlazy\n",
