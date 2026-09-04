@@ -105,6 +105,21 @@ class BlockParser
     protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'afterComment' => false, 'inFootnoteBody' => false, 'quotedTable' => false, 'quoteParagraph' => false, 'nestedColumn' => 0];
 
     /**
+     * Marks a line an enclosing container folded in BELOW its content column
+     * (markup-carve/carve-php#1900). Its first character is not whitespace, so
+     * the line stands at column 0 and matches no opener and no closer - which
+     * is the whole difference from the one-column clamp beside it, since that
+     * clamp still lets a fence closer close the fence it was written inside.
+     * The executable spec spells the same frame `LAZY` in `layout.mjs`.
+     *
+     * Unforgeable rather than merely unlikely: every U+0000 in the source is
+     * replaced with U+FFFD before the first line is read.
+     *
+     * @var string
+     */
+    protected const LAZY_FRAME = "\x00L\x00";
+
+    /**
      * Abbreviation definitions use a space-free alphanumeric term and require
      * one space after the colon.
      *
@@ -4082,6 +4097,7 @@ class BlockParser
 
             // Remove indent from content lines (up to the same amount as opening fence)
             $currentLine = $this->fencedBlockParser->removeIndent($currentLine, $indentLen);
+            $currentLine = self::stripLazyFrame($currentLine);
 
             $content .= $currentLine . "\n";
             $i++;
@@ -4255,7 +4271,7 @@ class BlockParser
                 break;
             }
 
-            $content .= $currentLine . "\n";
+            $content .= self::stripLazyFrame($currentLine) . "\n";
             $i++;
         }
 
@@ -6874,6 +6890,43 @@ class BlockParser
     }
 
     /**
+     * Does the marker lead's BOTTOM BLOCK open a code or raw fence?
+     *
+     * Asked of the same text {@see self::leadBottomIsContinuationMarker()} asks
+     * of - the lead with every nested marker peeled off - because that is the
+     * block the lines below the column would join. `- ``` x` opens a fence for
+     * the INNER item, and a fence test anchored at column 0 of the whole lead
+     * cannot see it past the marker.
+     *
+     * No closer lookahead: a fence at an item's block start opens
+     * unconditionally and runs to the end of its container.
+     */
+    protected function leadBottomOpensFence(string $content): bool
+    {
+        $rest = $content;
+        while (($offset = $this->listParser->markerContentOffset($rest)) !== null) {
+            $rest = substr($rest, $offset);
+        }
+
+        if ($rest !== ltrim($rest, " \t")) {
+            return false;
+        }
+
+        return $this->fencedBlockParser->parseCodeFenceOpener($rest) !== null
+            || $this->fencedBlockParser->parseRawBlockOpener($rest) !== null;
+    }
+
+    /**
+     * The line with a {@see self::LAZY_FRAME} removed, if it carries one.
+     */
+    protected static function stripLazyFrame(string $line): string
+    {
+        return str_starts_with($line, self::LAZY_FRAME)
+            ? substr($line, strlen(self::LAZY_FRAME))
+            : $line;
+    }
+
+    /**
      * Did a continuation marker attach nothing BECAUSE OF THE COLUMN RULE?
      *
      * Distinguishes the two ways an attach comes back empty. Nothing following
@@ -7792,6 +7845,36 @@ class BlockParser
                 continue;
             }
 
+            // A FRAMED LINE IS THE OPEN FENCE'S BODY, not the end of the item
+            // (markup-carve/carve-php#1900). The frame says an ENCLOSING
+            // container already folded this line in below its own column, so it
+            // is inside this item's container and the fence opened on the lead
+            // reaches it. Nothing else can carry that fact, because the fold
+            // normalizes every below-column line to one residual column, and a
+            // line the AUTHOR wrote at that column must still end the item -
+            // which is what the outermost spelling of the same document does,
+            // in every reader. A quote's lazy line carries the same fact by
+            // another route: it supplies no `>`, so it is the quote's content
+            // at no column and reached this item by the fold too.
+            if (
+                ($isBlockQuoteLazyLine || str_starts_with($nextLine, self::LAZY_FRAME))
+                && $trailingState['inFence']
+            ) {
+                $framed = str_starts_with($nextLine, self::LAZY_FRAME)
+                    ? $nextLine
+                    : self::LAZY_FRAME . $nextTrimmed;
+                $itemLines[] = $framed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                // Tracked as the FRAMED line, for the same reason it is pushed
+                // as one: a closing run among these lines is body text, and a
+                // tracker fed the source line shut the fence at it and let the
+                // run below leave the item.
+                $trailingState = $this->advanceTrailingBlockState($trailingState, $framed);
+                $i++;
+
+                continue;
+            }
+
             if (
                 !$trailingState['openParagraph']
                 && ($nextIndent === 0 || !$trailingState['afterComment'])
@@ -8096,9 +8179,32 @@ class BlockParser
                 // indentation is not enough - two columns in reached the nested
                 // list's content column and opened a list there (carve#603) -
                 // and one column can reach no content column at all.
-                $itemLines[] = ' ' . $nextTrimmed;
+                //
+                // AN UNFINISHED FENCE ON THE LEAD OWNS THESE LINES INSTEAD
+                // (markup-carve/carve-php#1900, ruled on markup-carve/carve#1900).
+                // A fence at an item's block start runs to the end of its
+                // container, so a line this container folds in is the fence's
+                // body, and a closing run among them is body text because a
+                // fence's content is not re-scanned for structure. The clamp
+                // cannot say that: it leaves the line re-classifying at column
+                // 1, where the closer still closed and the body came back as a
+                // paragraph of the item ABOVE. Framed ONCE however many
+                // containers fold it, so the single strip in the body suffices.
+                $folded = str_starts_with($nextTrimmed, self::LAZY_FRAME)
+                    ? $nextTrimmed
+                    : ($this->leadBottomOpensFence((string)($itemLines[0] ?? ''))
+                        ? self::LAZY_FRAME . $nextTrimmed
+                        : ' ' . $nextTrimmed);
+                $itemLines[] = $folded;
                 $itemLineMap[] = $this->sourceLineFor($i);
-                $trailingState = $this->advanceTrailingBlockState($trailingState, $nextLine);
+                // Tracked as the line the item RECEIVED, not as the source line.
+                // A framed closing run is body text, so it must not close the
+                // tracker's fence either - fed the source line, the tracker shut
+                // the fence at the closer and the run below it left the item.
+                $trailingState = $this->advanceTrailingBlockState(
+                    $trailingState,
+                    str_starts_with($folded, self::LAZY_FRAME) ? $folded : $nextLine,
+                );
                 $i++;
 
                 continue;
