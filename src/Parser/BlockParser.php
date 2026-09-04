@@ -6666,9 +6666,15 @@ class BlockParser
                     // This engine already answers the same documents correctly
                     // at the TOP level, and both spec revisions agree there, so
                     // the container path is the odd one (carve-php#1892).
-                    $div = !$includeSublists
-                        ? $this->fencedBlockParser->parseDivFenceOpener($line)
-                        : null;
+                    //
+                    // AT EVERY HOST, NOT ONLY AN ITEM (carve-php#1898). These
+                    // arms were bounded to the item because the DESCRIPTION and
+                    // FOOTNOTE bodies want the other answer for a DEFINITION,
+                    // and a whole-arm bound was the only discriminator to hand.
+                    // The bound now sits where the difference actually is -
+                    // `containerExtentBeforeADefinition()` below - so the two
+                    // bodies get the container reading for everything else.
+                    $div = $this->fencedBlockParser->parseDivFenceOpener($line);
                     if ($div !== null) {
                         // A DIV'S EXTENT IS ITS FENCES, blank lines included -
                         // it stays open across one, so a run stopping at the
@@ -6682,17 +6688,23 @@ class BlockParser
                         /** @var int $length */
                         $length = $div['length'];
                         $closer = $this->colonFenceEnd($lines, $i, $length, $count, null);
-                        $i = $closer === -1 ? $count - 1 : $closer;
+                        $end = $closer === -1 ? $count - 1 : $closer;
+                        $i = $includeSublists
+                            ? $this->containerExtentBeforeADefinition($lines, $i, $end)
+                            : $end;
                         $afterBlank = false;
 
                         continue;
                     }
-                    if (!$includeSublists && $this->blockQuoteLineContent($line) !== null) {
+                    if ($this->blockQuoteLineContent($line) !== null) {
                         // A QUOTE'S EXTENT IS ITS LAZY RUN, which a blank ENDS -
                         // that is the difference from the div above, and why
                         // these are two arms rather than one loop. A lazy line
                         // needs an open paragraph (carve-php#1897).
-                        $i = $this->blockQuoteLazyExtentEnd($lines, $i);
+                        $end = $this->blockQuoteLazyExtentEnd($lines, $i);
+                        $i = $includeSublists
+                            ? $this->containerExtentBeforeADefinition($lines, $i, $end)
+                            : $end;
                         $afterBlank = false;
 
                         continue;
@@ -12133,6 +12145,52 @@ class BlockParser
         }
 
         return null;
+    }
+
+    /**
+     * A container's extent, cut short before an invisible DEFINITION in it.
+     *
+     * A definition is classified before block ownership, so in a body host it
+     * still reaches the rebase and is consumed. The ITEM host is the other
+     * answer and does not ask - there the definition stays the container's
+     * text, which is what the reverted carve-php#1890 got wrong the other way
+     * round (markup-carve/carve-php#1898).
+     *
+     * A VERBATIM BODY INSIDE THE CONTAINER IS SKIPPED, because a definition
+     * written in one is payload and not a definition at all. Without that the
+     * scan cut a div's extent at its own code content (raised by codex review).
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $end
+     */
+    protected function containerExtentBeforeADefinition(array $lines, int $start, int $end): int
+    {
+        $fence = null;
+        for ($j = $start + 1; $j <= $end; $j++) {
+            $content = ltrim($lines[$j], " \t");
+            if ($fence !== null) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($content, $fence[0], $fence[1])) {
+                    $fence = null;
+                }
+
+                continue;
+            }
+
+            $opener = $this->fencedBlockParser->parseCodeFenceOpener($content)
+                ?? $this->fencedBlockParser->parseRawBlockOpener($content);
+            if ($opener !== null) {
+                $fence = [((string)$opener['fence'])[0], (int)$opener['length']];
+
+                continue;
+            }
+
+            if ($this->isDefinitionLineForEnclosingItem($content)) {
+                return $j - 1;
+            }
+        }
+
+        return $end;
     }
 
     /**

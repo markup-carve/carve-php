@@ -53,11 +53,33 @@ class QuoteFenceLinterTest extends TestCase
 
     public function testReportsItWhereverTheContentColumnSits(): void
     {
-        // Container, list item and footnote body: the same mistake at three
-        // columns, which is why the pass reads siblings rather than lines.
+        // Container and list item: the same mistake at two columns, which is
+        // why the pass reads siblings rather than lines.
         $this->assertCount(1, $this->reports(":::: note\n> a\n::: >\nb\n:::\n::::\n"));
         $this->assertCount(1, $this->reports("- > a\n  ::: >\n  b\n  :::\n"));
-        $this->assertCount(1, $this->reports("[^a]: > q\n      ::: >\n      b\n      :::\n\nsee[^a]\n"));
+    }
+
+    /**
+     * IN A FOOTNOTE BODY THIS SHAPE IS NOT THE MISTAKE, and the pass is right
+     * to stay quiet: the quote has an open paragraph and the lines below it
+     * carry no marker, so they are its lazy continuation and the opener never
+     * becomes a sibling. Both spec revisions render one blockquote holding
+     * `::: >` as text.
+     *
+     * This row asserted a warning until markup-carve/carve-php#1898, because
+     * the engine published two sibling quotes here where the spec publishes
+     * one - the warning was true about the engine's own output and false about
+     * the language.
+     */
+    public function testSaysNothingWhereTheOpenerIsTheQuotesOwnLazyText(): void
+    {
+        $source = "[^a]: > q\n      ::: >\n      b\n      :::\n\nsee[^a]\n";
+
+        $this->assertStringContainsString(
+            "<blockquote><p>q\n::: &gt;\nb\n:::</p></blockquote>",
+            (new CarveConverter())->convert($source),
+        );
+        $this->assertSame([], $this->reports($source));
     }
 
     public function testSaysNothingAboutTheNestedSpellingWhichNeedsTheMarker(): void
