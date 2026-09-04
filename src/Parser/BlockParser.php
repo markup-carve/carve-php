@@ -8330,6 +8330,9 @@ class BlockParser
                 // stays correct when the last entry is appended to in place.
                 $bodyState = self::INITIAL_TRAILING_BLOCK_STATE;
                 $bodyStateCursor = 0;
+                // Authored base of the block the body tracker has open.
+                /** @var int|null $bodyOpenerBase */
+                $bodyOpenerBase = null;
                 /** @var array<int, true> $bodyLazy Body indexes collected BELOW the content column. */
                 $bodyLazy = [];
                 /** @var array<int, true> $bodyDefinition Body indexes holding a definition written PAST the content column. */
@@ -8568,6 +8571,7 @@ class BlockParser
                             $bodyState,
                             $body,
                             $bodyStateCursor,
+                            $bodyOpenerBase,
                         );
                         $bodyState = $this->advanceTrailingBlockStateWithFenceLookahead(
                             $bodyState,
@@ -8575,6 +8579,14 @@ class BlockParser
                             $body,
                             $bodyStateCursor,
                             !isset($bodyLazy[$bodyStateCursor]),
+                            // THE CLOSER LOOKAHEAD READS AT THE SAME BASE. The
+                            // opener was rebased above, so a closer written at
+                            // the same authored base is only visible to §10's
+                            // lookahead once it is stripped too - otherwise the
+                            // fence looks unterminated, arms nothing, and the
+                            // body reports a paragraph a closed fence does not
+                            // leave (markup-carve/carve#1930, carve-php#1899).
+                            $bodyOpenerBase ?? 0,
                         );
                         if (isset($bodyDefinition[$bodyStateCursor])) {
                             $bodyState['openParagraph'] = false;
@@ -13182,20 +13194,46 @@ class BlockParser
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param array<string> $body
      * @param int $index
+     * @param int|null $openerBase Base the OPEN block's opener was rebased by,
+     *   carried so its closer - and section 10's closer lookahead - read at the
+     *   same column. Null while nothing is open.
      */
-    private function descriptionBodyEntryAsRead(array $state, array $body, int $index): string
-    {
+    private function descriptionBodyEntryAsRead(
+        array $state,
+        array $body,
+        int $index,
+        ?int &$openerBase = null,
+    ): string {
         $line = explode("\n", $body[$index], 2)[0];
         if ($state['inFence'] || $state['inDiv'] || $state['divDepth'] > 0) {
-            return $line;
+            // THE CLOSER IS READ AT THE OPENER'S BASE. An opener written past
+            // the body's column is rebased below, so the block the tracker
+            // opened sits at column 0 in its view - but its CLOSER is not an
+            // opener, so without carrying the base it arrived still indented
+            // and matched nothing. The block then never closed, the body
+            // reported a paragraph it does not have, and a flush-left line
+            // below folded into the `dd` instead of ending it
+            // (markup-carve/carve#1930, carve-php#1899).
+            //
+            // Only the base the OPENER was rebased by, so a body that took no
+            // authored base is untouched: at the body's own column the opener
+            // is already flush and `$openerBase` stays null.
+            return $openerBase === null || $openerBase === 0
+                ? $line
+                : IndentationHelper::stripLeadingColumns($line, $openerBase);
         }
+        $openerBase = null;
         $base = IndentationHelper::getLeadingColumns($line);
         if ($base === 0 || $state['nestedColumn'] > 0 || $state['inFootnoteBody']) {
             return $line;
         }
         $opener = IndentationHelper::stripLeadingColumns($line, $base);
+        if (!$this->lineOpensBlockForLooseness($opener, true)) {
+            return $line;
+        }
+        $openerBase = $base;
 
-        return $this->lineOpensBlockForLooseness($opener, true) ? $opener : $line;
+        return $opener;
     }
 
     /**
