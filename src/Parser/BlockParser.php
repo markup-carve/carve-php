@@ -4896,6 +4896,97 @@ class BlockParser
     }
 
     /**
+     * Return the index of the last line owned by the quote at `$start`.
+     *
+     * The quote takes every further `>` line, and a line WITHOUT one only as a
+     * lazy continuation - which needs an open paragraph and nothing else
+     * (PART 1 S4, markup-carve/carve-php#1897).
+     *
+     * A FENCE INSIDE THE QUOTE LEAVES THE PARAGRAPH WHERE IT WAS. Measured over
+     * seven quote endings by two openings: after `> q` the line below is the
+     * quote's whether the fence below `q` closes or not, and after the same
+     * fence with no paragraph above it the line is the item's. So the fence
+     * decides nothing here and a heading, a table row, a thematic break or a
+     * bare `>` decides everything, which is why the flag is carried across the
+     * fence rather than recomputed inside it. Tracked locally because
+     * `advanceTrailingBlockState()` does not carry a QUOTED fence between
+     * lines - it reads each `>` line through a fresh inner state.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     */
+    protected function blockQuoteLazyExtentEnd(array $lines, int $start): int
+    {
+        $state = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, $lines[$start]);
+        $paragraphOpen = $state['quoteParagraph'];
+        $end = $start;
+        $count = count($lines);
+        $fence = $this->quotedFenceOpenedBy($lines[$start], null);
+
+        for ($j = $start + 1; $j < $count; $j++) {
+            $line = $lines[$j];
+            if (IndentationHelper::isBlankLine($line)) {
+                break;
+            }
+
+            $quoteContent = $this->blockQuoteLineContent($line);
+            if (IndentationHelper::getLeadingColumns($line) === 0 && $quoteContent === null) {
+                break;
+            }
+
+            if ($quoteContent !== null) {
+                $next = $this->quotedFenceOpenedBy($line, $fence);
+                if ($fence === null && $next === null) {
+                    $state = $this->advanceTrailingBlockState($state, $line);
+                    $paragraphOpen = $state['quoteParagraph'];
+                }
+                $fence = $next;
+                $end = $j;
+
+                continue;
+            }
+
+            if (!$paragraphOpen || $this->endsBlockQuote($line, true, $lines, $j)) {
+                break;
+            }
+
+            $end = $j;
+        }
+
+        return $end;
+    }
+
+    /**
+     * The verbatim fence open after this quoted line, given the one open before
+     * it: `[char, length]` while a fence is open, null otherwise.
+     *
+     * @param string $line
+     * @param array{0: string, 1: int}|null $open
+     *
+     * @return array{0: string, 1: int}|null
+     */
+    protected function quotedFenceOpenedBy(string $line, ?array $open): ?array
+    {
+        $content = $this->blockQuoteLineContent($line);
+        if ($content === null) {
+            return $open;
+        }
+
+        if ($open !== null) {
+            return $this->fencedBlockParser->isCodeFenceCloser($content, $open[0], $open[1])
+                ? null
+                : $open;
+        }
+
+        $opener = $this->fencedBlockParser->parseCodeFenceOpener($content)
+            ?? $this->fencedBlockParser->parseRawBlockOpener($content);
+
+        return $opener === null
+            ? null
+            : [((string)$opener['fence'])[0], (int)$opener['length']];
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
@@ -6416,7 +6507,11 @@ class BlockParser
         $hasCandidate = false;
         $probeNestedColumns = $leadNestedColumn === null ? [] : [$leadNestedColumn];
         $probeAfterBlank = false;
+        $skipUntil = -1;
         foreach ($lines as $index => $line) {
+            if ($index <= $skipUntil) {
+                continue;
+            }
             if (IndentationHelper::isBlankLine($line)) {
                 $probeAfterBlank = true;
 
@@ -6451,7 +6546,13 @@ class BlockParser
                 continue;
             }
             if (!$hasBlank && $index > 0 && $base === 0 && $this->blockQuoteLineContent($local) !== null) {
-                return $lines;
+                if ($includeSublists) {
+                    return $lines;
+                }
+                $skipUntil = $this->blockQuoteLazyExtentEnd($lines, $index);
+                $probeAfterBlank = false;
+
+                continue;
             }
             if ($probeNestedColumns !== [] && $base >= end($probeNestedColumns)) {
                 continue;
@@ -6589,14 +6690,9 @@ class BlockParser
                     if (!$includeSublists && $this->blockQuoteLineContent($line) !== null) {
                         // A QUOTE'S EXTENT IS ITS LAZY RUN, which a blank ENDS -
                         // that is the difference from the div above, and why
-                        // these are two arms rather than one loop.
-                        while (
-                            $i + 1 < $count
-                            && !IndentationHelper::isBlankLine($lines[$i + 1])
-                            && IndentationHelper::getLeadingColumns($lines[$i + 1]) > 0
-                        ) {
-                            $i++;
-                        }
+                        // these are two arms rather than one loop. A lazy line
+                        // needs an open paragraph (carve-php#1897).
+                        $i = $this->blockQuoteLazyExtentEnd($lines, $i);
                         $afterBlank = false;
 
                         continue;
