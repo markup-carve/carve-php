@@ -6519,6 +6519,51 @@ class BlockParser
 
                         continue;
                     }
+                    // A QUOTE OR A DIV OWNS ITS OWN INDENTED CONTENT.
+                    // `containerContentColumn()` answers for a list marker and
+                    // a definition body only, so neither reached the branch
+                    // above and the run under them was read as an AUTHORED BASE
+                    // and flattened - which opened a heading, or consumed a
+                    // definition, out of a container that renders it as text.
+                    // This engine already answers the same documents correctly
+                    // at the TOP level, and both spec revisions agree there, so
+                    // the container path is the odd one (carve-php#1892).
+                    $div = !$includeSublists
+                        ? $this->fencedBlockParser->parseDivFenceOpener($line)
+                        : null;
+                    if ($div !== null) {
+                        // A DIV'S EXTENT IS ITS FENCES, blank lines included -
+                        // it stays open across one, so a run stopping at the
+                        // first blank handed the rest back and opened a heading
+                        // inside it (raised by codex review). Read through
+                        // `colonFenceEnd()`, which is what the parser itself
+                        // uses: the closer matches the opener's EXACT width, a
+                        // nested pair keeps its own, and a bare run inside a
+                        // code or comment fence is payload. An unterminated div
+                        // owns the remainder, which is what `-1` means.
+                        /** @var int $length */
+                        $length = $div['length'];
+                        $closer = $this->colonFenceEnd($lines, $i, $length, $count, null);
+                        $i = $closer === -1 ? $count - 1 : $closer;
+                        $afterBlank = false;
+
+                        continue;
+                    }
+                    if (!$includeSublists && $this->blockQuoteLineContent($line) !== null) {
+                        // A QUOTE'S EXTENT IS ITS LAZY RUN, which a blank ENDS -
+                        // that is the difference from the div above, and why
+                        // these are two arms rather than one loop.
+                        while (
+                            $i + 1 < $count
+                            && !IndentationHelper::isBlankLine($lines[$i + 1])
+                            && IndentationHelper::getLeadingColumns($lines[$i + 1]) > 0
+                        ) {
+                            $i++;
+                        }
+                        $afterBlank = false;
+
+                        continue;
+                    }
                 }
                 $afterBlank = false;
 
