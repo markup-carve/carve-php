@@ -6582,7 +6582,23 @@ class BlockParser
 
                 continue;
             }
-            if ($eligible !== null && !isset($eligible[$i])) {
+            // A CODE-FENCE OPENER AT THE ITEM'S CONTENT COLUMN IS ALWAYS
+            // WALKED, even when it is not an authored-base candidate, so the
+            // fence-body scan below runs and the closer-column check keeps an
+            // over-indented closer as body (carve-php#1906). Skipped here, the
+            // fence never opened for the scan and the closer's extra column was
+            // stripped as an authored base, ending the fence a column too soon.
+            if (
+                $eligible !== null
+                && !isset($eligible[$i])
+                && (
+                    IndentationHelper::getLeadingColumns($line) !== 0
+                    || (
+                        $this->fencedBlockParser->parseCodeFenceOpener($line) === null
+                        && $this->fencedBlockParser->parseRawBlockOpener($line) === null
+                    )
+                )
+            ) {
                 continue;
             }
             $base = IndentationHelper::getLeadingColumns($line);
@@ -6748,7 +6764,14 @@ class BlockParser
                     $local = IndentationHelper::isBlankLine($candidate)
                         ? ''
                         : IndentationHelper::stripLeadingColumns($candidate, $base);
-                    if ($this->fencedBlockParser->isCodeFenceCloser($local, $fence[0], strlen($fence))) {
+                    // A CLOSER SITS AT THE OPENER'S COLUMN, NOT PAST IT
+                    // (carve-php#1906). A run indented further is verbatim body,
+                    // so the fence stays open and owns it - the same rule the
+                    // top level already applies. `$base` is the opener's column.
+                    if (
+                        IndentationHelper::getLeadingColumns($candidate) === $base
+                        && $this->fencedBlockParser->isCodeFenceCloser($local, $fence[0], strlen($fence))
+                    ) {
                         break;
                     }
                 }
