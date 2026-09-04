@@ -4729,6 +4729,27 @@ class BlockParser
         return $count;
     }
 
+    /**
+     * Does any non-blank line follow `$index` in this stream?
+     *
+     * The stream, not the document: a container hands its own dedented body
+     * lines to the paragraph reader, so the same run is followed by a body at
+     * document level and by nothing inside a container.
+     *
+     * @param array<string> $lines
+     * @param int $index
+     */
+    protected function hasNonBlankLineAfter(array $lines, int $index): bool
+    {
+        for ($j = $index + 1, $count = count($lines); $j < $count; $j++) {
+            if (!IndentationHelper::isBlankLine($lines[$j])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected function isBareColonFence(string $line, ?int &$length = null): bool
     {
         if (preg_match('/^(:+)[ \t]*$/', $line, $m) !== 1 || strlen($m[1]) < 3) {
@@ -11922,7 +11943,19 @@ class BlockParser
             return $this->isCaptionableParagraphContent(implode("\n", $contentLines), $sourceLine);
         }
 
-        if ($this->isBareColonFence($line) && $hasUnclaimedColonFenceLine) {
+        // A BARE COLON RUN INTERRUPTS ONLY WITH A BODY BELOW IT (PART 9 §12).
+        // Written with no info string the line is closer-shaped, and §12 lets
+        // one open a block only when a non-blank line follows it in the stream
+        // it was read from - which is why the SAME three lines answer two ways
+        // at two hosts: at document level `after` follows the run, and in a
+        // container body the run is the last line the container holds. Asking
+        // only whether the paragraph already carries an unclaimed opener left
+        // the container case opening an empty div and ending a paragraph the
+        // run belongs to (markup-carve/carve-php#1893).
+        if (
+            $this->isBareColonFence($line)
+            && ($hasUnclaimedColonFenceLine || !$this->hasNonBlankLineAfter($lines, $i))
+        ) {
             return false;
         }
 
