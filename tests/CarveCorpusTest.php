@@ -46,6 +46,20 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (spec 5bc9c5fb). The
+        // engine work landed in carve-php#1901, #1902, #1903, #1904 and #1905;
+        // each of these categories renders byte-identically to its corpus HTML
+        // on this engine, verified per document. Category 451 is byte-exact on
+        // seven of its nine documents; the other two are deferred in KNOWN_GAPS
+        // below (carve-php#1908).
+        'a-closed-fence-in-a-description-body-ends-it',
+        'a-comment-below-a-description-body-s-column-ends-the-body',
+        'a-container-in-a-host-body-owns-a-line-past-its-own-content-column',
+        'a-degraded-comment-fence-at-a-container-s-column-0-keeps-the-follower-in-the-item',
+        'a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does',
+        'a-marker-folds-into-a-quote-below-it',
+        'an-opener-at-or-past-a-description-body-s-column-closes-its-paragraph',
+        'the-host-does-not-change-which-column-a-definition-reaches',
         'an-item-s-attribute-block-moves-its-content-column-its-checkbox-does-not',
         'an-attribute-line-below-a-list-item-interrupts-it',
         'an-attributed-cell-keeps-its-attributes-and-its-literal-marker',
@@ -855,7 +869,14 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        // Two documents in category 451 where a reference definition indented
+        // past a container inside a host body is not consumed as the spec
+        // requires - a quote in a list item, and a div in a quote. The other
+        // seven documents in the category are byte-exact. carve-php#1908.
+        '451-a-container-in-a-host-body-owns-a-line-past-its-own-content-column-5' => 'carve-php#1908: definition in a quote in a list item is not consumed',
+        '451-a-container-in-a-host-body-owns-a-line-past-its-own-content-column-9' => 'carve-php#1908: div in a quote splits the lazy paragraph at the closer',
+    ];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
