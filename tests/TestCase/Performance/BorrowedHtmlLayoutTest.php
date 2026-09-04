@@ -72,13 +72,13 @@ CRV;
             $this->assertSame($converter->convert($source), $attempt['html'], basename($path));
         }
 
-        // 48 since the bump to carve d0b6c92, which added
-        // `406-a-heading-s-marker-separator-is-a-run-and-none-of-it-is-content`
-        // - the one newly accepted document, measured by diffing the
-        // accepted set across the two pins. Its parity assertion above
-        // passes, so the fast path renders it exactly as the authoritative
-        // renderer does; the count moved with the corpus, not the routing.
-        $this->assertSame(48, $accepted, 'A fast-path routing change needs explicit review.');
+        // 49 since the bump to carve 5bc9c5f, which added
+        // `448-a-marker-folds-into-a-quote-below-it-6` - the one newly accepted
+        // document, measured by diffing the accepted set across the two pins.
+        // Its parity assertion above passes, so the fast path renders it exactly
+        // as the authoritative renderer does; the count moved with the corpus,
+        // not the routing.
+        $this->assertSame(49, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void
