@@ -49,15 +49,33 @@ class TableParser
             return false;
         }
 
-        if ($lineWithoutRowAttrs === '||') {
-            return false;
-        }
+        // A row whose every cell is blank is a paragraph, regardless of its
+        // cell count (markup-carve/carve#1950). Attributes and alignment/valign
+        // markers are authored constructs and keep a cell non-blank; a
+        // header-only `=` does not. A cell's content is trimmed of SPACES only,
+        // matching the spec's `padTrim`: a TAB is significant content, so a
+        // tab-filled cell keeps the table.
+        $allCellsBlank = true;
+        foreach ($this->parseTableCellsWithAttributes($lineWithoutRowAttrs) as $cell) {
+            if ($cell['attributes'] !== '') {
+                $allCellsBlank = false;
 
-        // A single cell containing only padding is still an empty one-cell
-        // row, and therefore not a table. `|||` remains the distinct valid
-        // two-empty-cell spelling.
-        $interior = substr($lineWithoutRowAttrs, 1, -1);
-        if (!str_contains($interior, '|') && trim($interior, " \t") === '') {
+                break;
+            }
+
+            $runLength = $this->cellMarkerRunLength($cell['content']);
+            $marker = substr($cell['content'], 0, $runLength);
+            $headerLength = str_starts_with($marker, '=') ? 1 : 0;
+            if (
+                strlen($marker) > $headerLength
+                || trim(substr($cell['content'], $runLength), ' ') !== ''
+            ) {
+                $allCellsBlank = false;
+
+                break;
+            }
+        }
+        if ($allCellsBlank) {
             return false;
         }
 
