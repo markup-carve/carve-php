@@ -8923,7 +8923,20 @@ class BlockParser
                         // both and folded 210 and 36 documents that every other
                         // reading keeps outside.
                         $bodyLazy[count($body)] = true;
-                        $body[] = $contLine;
+                        // AN UNFINISHED FENCE ON THE DESCRIPTION BODY'S NESTED
+                        // LEAD OWNS THESE LINES (markup-carve/carve-php#1913,
+                        // ruled on markup-carve/carve#1958). When the body's own
+                        // lead is a list marker whose bottom opens a fence, a
+                        // line this body folds in is the fence's verbatim body
+                        // and a flush-left closer among them is text - the same
+                        // frame carve-php#1902 gives the LIST-ITEM host, ported
+                        // to the description-body collector. Framed once, the
+                        // strip in the verbatim body suffices.
+                        $body[] = (!str_starts_with($contLine, self::LAZY_FRAME)
+                            && $this->listParser->markerContentOffset((string)($body[0] ?? '')) !== null
+                            && $this->leadBottomOpensFence((string)($body[0] ?? '')))
+                            ? self::LAZY_FRAME . $contLine
+                            : $contLine;
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
 
