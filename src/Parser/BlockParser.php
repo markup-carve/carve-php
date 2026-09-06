@@ -13378,11 +13378,16 @@ class BlockParser
         foreach ($lines as $index => $line) {
             $opener = explode("\n", $line, 2)[0];
             $base = IndentationHelper::getLeadingColumns($opener);
+            // A DIV DOES NOT SHIELD THE DEFINITION. A footnote body consumes a
+            // container-nested definition exactly as a description body does, so
+            // a definition written inside a div here still reaches the note and
+            // is hoisted, leaving the div empty (markup-carve/carve-php#1914,
+            // ruled in markup-carve/carve#1948). Only a VERBATIM fence keeps it,
+            // where it is payload and not a definition at all - `inFence` still
+            // refuses that, and `absorbingFence` the raw-block form.
             if (
                 $base > 0
                 && !$state['inFence']
-                && !$state['inDiv']
-                && $state['divDepth'] === 0
                 && !$state['absorbingFence']
                 && ($noteColumns === [] || $base < end($noteColumns))
             ) {
