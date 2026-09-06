@@ -846,6 +846,18 @@ class CarveCorpusTest extends TestCase
         // markup-carve/carve#1915 - an unterminated comment fence inside a list
         // item is the line form, across the band.
         'an-unterminated-comment-fence-in-a-list-item-is-the-line-form',
+        // ARRIVED WITH THE PIN BUMP TO carve 1b27b68. The engine work landed
+        // in carve-php#1911 (452), #1915 (453), #1908 (454, 456), #1916 (455),
+        // #1914 (457) and #1912/#1962 (458); each category renders
+        // byte-identically to its corpus HTML on this engine, verified per
+        // document.
+        'an-empty-unterminated-container-ends-at-a-flush-left-line',
+        'a-row-whose-every-cell-is-blank-is-not-a-table',
+        'a-block-opener-past-a-nested-footnote-definition-opens-in-the-item',
+        'an-unterminated-fence-on-a-nested-lead-in-a-description-body-owns-its-body',
+        'a-definition-nested-past-a-footnote-body-is-a-note-and-a-reference-below-it-resolves',
+        'a-container-closer-closes-its-container-in-a-footnote-body-too',
+        'a-wrapped-attribute-block-ends-at-its-quote-and-reaches-no-line-below-it',
     ];
 
     /**
@@ -867,7 +879,16 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        // A wrapped attribute block reaching past a quote's closing boundary is
+        // the newest ruling on carve main (markup-carve/carve#1962, the tip of
+        // the 1b27b68 pin): the block ends at the quote and a flush-left line
+        // below it is a top-level paragraph, not the block's target. This
+        // engine still applies the block to that line and keeps it in the quote.
+        // The other two documents in the category render byte-identically.
+        '458-a-wrapped-attribute-block-ends-at-its-quote-and-reaches-no-line-below-it'
+            => 'markup-carve/carve#1962: a wrapped attribute block must not reach past a quote closing boundary',
+    ];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
