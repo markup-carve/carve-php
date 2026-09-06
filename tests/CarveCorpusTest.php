@@ -49,9 +49,7 @@ class CarveCorpusTest extends TestCase
         // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (spec 5bc9c5fb). The
         // engine work landed in carve-php#1901, #1902, #1903, #1904 and #1905;
         // each of these categories renders byte-identically to its corpus HTML
-        // on this engine, verified per document. Category 451 is byte-exact on
-        // seven of its nine documents; the other two are deferred in KNOWN_GAPS
-        // below (carve-php#1908).
+        // on this engine, verified per document.
         'a-closed-fence-in-a-description-body-ends-it',
         'a-comment-below-a-description-body-s-column-ends-the-body',
         'a-container-in-a-host-body-owns-a-line-past-its-own-content-column',
@@ -869,14 +867,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        // Two documents in category 451 where a reference definition indented
-        // past a container inside a host body is not consumed as the spec
-        // requires - a quote in a list item, and a div in a quote. The other
-        // seven documents in the category are byte-exact. carve-php#1908.
-        '451-a-container-in-a-host-body-owns-a-line-past-its-own-content-column-5' => 'carve-php#1908: definition in a quote in a list item is not consumed',
-        '451-a-container-in-a-host-body-owns-a-line-past-its-own-content-column-9' => 'carve-php#1908: div in a quote splits the lazy paragraph at the closer',
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
@@ -1041,8 +1032,9 @@ class CarveCorpusTest extends TestCase
     #[DataProvider('corpusProvider')]
     public function testCorpus(string $slug, string $crv, string $html): void
     {
-        if (isset(self::KNOWN_GAPS[$slug])) {
-            $this->markTestIncomplete(self::KNOWN_GAPS[$slug]);
+        $knownGap = self::knownGap($slug);
+        if ($knownGap !== null) {
+            $this->markTestIncomplete($knownGap);
         }
 
         // A corpus category that is neither IMPLEMENTED nor an explicit
@@ -1058,8 +1050,8 @@ class CarveCorpusTest extends TestCase
 
         $actual = $this->converter->convert($crv);
 
-        if (isset(self::AHEAD_OF_PIN[$slug])) {
-            $ahead = self::AHEAD_OF_PIN[$slug];
+        $ahead = self::valueForSlug(static::AHEAD_OF_PIN, $slug);
+        if ($ahead !== null) {
             $this->assertSame(
                 $this->normalize($ahead['html']),
                 $this->normalize($actual),
@@ -1079,6 +1071,24 @@ class CarveCorpusTest extends TestCase
             $this->normalize($actual),
             'Corpus mismatch for ' . $slug,
         );
+    }
+
+    private static function knownGap(string $slug): ?string
+    {
+        return self::valueForSlug(static::KNOWN_GAPS, $slug);
+    }
+
+    /**
+     * @template T
+     *
+     * @param array<string, T> $values
+     * @param string $slug
+     *
+     * @return T|null
+     */
+    private static function valueForSlug(array $values, string $slug): mixed
+    {
+        return $values[$slug] ?? null;
     }
 
     protected function normalize(string $s): string

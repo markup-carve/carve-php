@@ -4957,6 +4957,26 @@ class BlockParser
     }
 
     /**
+     * Include the definition that terminates a quote's otherwise-lazy run.
+     *
+     * Classification precedes ownership, so the host rebase must see that
+     * terminating line before it can release it (carve-php#1908).
+     *
+     * @param array<string> $lines
+     * @param int $start
+     */
+    private function blockQuoteExtentThroughDefinition(array $lines, int $start): int
+    {
+        $end = $this->blockQuoteLazyExtentEnd($lines, $start);
+        $next = $end + 1;
+        if (isset($lines[$next]) && $this->isDefinitionLineForEnclosingItem(ltrim($lines[$next], " \t"))) {
+            return $next;
+        }
+
+        return $end;
+    }
+
+    /**
      * The verbatim fence open after this quoted line, given the one open before
      * it: `[char, length]` while a fence is open, null otherwise.
      *
@@ -5199,6 +5219,16 @@ class BlockParser
                     // quote's own last block, and what ends is the nested run.
                     $state['paragraphOpen'] = $paragraphOpen;
                 }
+            }
+
+            // A definition in a quote's open lazy paragraph stays
+            // paragraph text and leaves the run open (carve-php#1908, S4).
+            if (
+                $state['paragraphOpen']
+                && isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($sourceIndex)])
+                && $this->isReferenceDefinitionLine(ltrim($content, " \t"))
+            ) {
+                return;
             }
 
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
@@ -6497,7 +6527,21 @@ class BlockParser
             }
         }
         if ($leadNestedColumn !== null && !$hasBlank) {
-            return $lines;
+            $quoteReleasesDefinition = false;
+            foreach ($lines as $index => $line) {
+                if (IndentationHelper::getLeadingColumns($line) !== 0 || $this->blockQuoteLineContent($line) === null) {
+                    continue;
+                }
+                $end = $this->blockQuoteExtentThroughDefinition($lines, $index);
+                if ($this->containerExtentBeforeADefinition($lines, $index, $end) < $end) {
+                    $quoteReleasesDefinition = true;
+
+                    break;
+                }
+            }
+            if (!$quoteReleasesDefinition) {
+                return $lines;
+            }
         }
 
         // Most item chunks contain prose and/or sub-list markers only. Reject
@@ -6549,7 +6593,13 @@ class BlockParser
                 if ($includeSublists) {
                     return $lines;
                 }
-                $skipUntil = $this->blockQuoteLazyExtentEnd($lines, $index);
+                $end = $this->blockQuoteExtentThroughDefinition($lines, $index);
+                if ($this->containerExtentBeforeADefinition($lines, $index, $end) < $end) {
+                    $hasCandidate = true;
+
+                    break;
+                }
+                $skipUntil = $end;
                 $probeAfterBlank = false;
 
                 continue;
@@ -6717,10 +6767,11 @@ class BlockParser
                         // that is the difference from the div above, and why
                         // these are two arms rather than one loop. A lazy line
                         // needs an open paragraph (carve-php#1897).
-                        $end = $this->blockQuoteLazyExtentEnd($lines, $i);
-                        $i = $includeSublists
-                            ? $this->containerExtentBeforeADefinition($lines, $i, $end)
-                            : $end;
+                        $end = $this->blockQuoteExtentThroughDefinition($lines, $i);
+                        // A definition in a quote's lazy run is classified
+                        // before its block owner, including in an item host
+                        // (carve-php#1908). Divs retain the item-only contrast.
+                        $i = $this->containerExtentBeforeADefinition($lines, $i, $end);
                         $afterBlank = false;
 
                         continue;
@@ -10686,6 +10737,12 @@ class BlockParser
     {
         $line = $lines[$start];
 
+        // A definition-shaped lazy line in a quote remains the open
+        // paragraph's text (carve-php#1908, PART 1 S4).
+        if (isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($start)])) {
+            return null;
+        }
+
         // ONE SPELLING. This pass CONSUMES a line the first-pass collector
         // registered, so it has to accept exactly what the collector accepts: a
         // line it consumes and the collector refused renders nothing and
@@ -12073,6 +12130,15 @@ class BlockParser
     ): bool {
         $line = $lines[$i];
 
+        // A definition-shaped lazy line in a quote is paragraph
+        // text, so it cannot break the run (carve-php#1908, PART 1 S4).
+        if (
+            isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($i)])
+            && $this->isReferenceDefinitionLine(ltrim($line, " \t"))
+        ) {
+            return false;
+        }
+
         if (
             $itemBody
             && $line !== ''
@@ -12187,10 +12253,8 @@ class BlockParser
      * A container's extent, cut short before an invisible DEFINITION in it.
      *
      * A definition is classified before block ownership, so in a body host it
-     * still reaches the rebase and is consumed. The ITEM host is the other
-     * answer and does not ask - there the definition stays the container's
-     * text, which is what the reverted carve-php#1890 got wrong the other way
-     * round (markup-carve/carve-php#1898).
+     * still reaches the rebase and is consumed. In an ITEM host a DIV keeps the
+     * definition as text, while a QUOTE releases it under carve-php#1908.
      *
      * A VERBATIM BODY INSIDE THE CONTAINER IS SKIPPED, because a definition
      * written in one is payload and not a definition at all. Without that the

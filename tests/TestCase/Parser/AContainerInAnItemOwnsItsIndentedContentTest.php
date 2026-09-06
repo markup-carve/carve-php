@@ -143,16 +143,19 @@ class AContainerInAnItemOwnsItsIndentedContentTest extends TestCase
     }
 
     /**
-     * A QUOTE IN AN ITEM IS DELIBERATELY ABSENT from the provider. Its answer
-     * moved in markup-carve/carve#1921, so this engine tracks the PINNED
-     * revision and differs from spec `main` there; it is a pin bump, not a
-     * defect, and asserting either answer here would pin the wrong one.
+     * A QUOTE IN AN ITEM RELEASES ITS DEFINITION. The answer moved in
+     * markup-carve/carve#1921, and the pin has since advanced to `5bc9c5fb`,
+     * where a definition in a quote's lazy run is classified before ownership
+     * and consumed wherever the quote sits - the item host included, the same
+     * as spec `main`. carve#1921's earlier divergence has closed, so this is a
+     * defect the pin now agrees on, not a pin bump (markup-carve/carve-php#1908).
      */
-    public function testAQuoteInAnItemIsLeftToTheSpecPin(): void
+    public function testAQuoteInAnItemConsumesItsDefinition(): void
     {
         $html = $this->converter->convert("- a\n  > q\n   [r]: /url\n\nSee [r][].");
 
-        $this->assertStringContainsString('[r]: /url', $html);
+        $this->assertStringNotContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('href="/url"', $html);
     }
 
     /**
