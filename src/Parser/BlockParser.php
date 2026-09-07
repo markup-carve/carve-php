@@ -4153,15 +4153,45 @@ class BlockParser
             $comment = new Comment(trim(substr(ltrim($line, " \t"), 2)));
             $sourceLine = $this->sourceLineFor($start);
             $sourceText = $this->sourceLines[$sourceLine] ?? '';
-            if (strlen($sourceText) - strlen(ltrim($sourceText, " \t")) === 1) {
-                $comment->setPos($this->spanForLineMap([$sourceLine], 0));
-            }
+            // A comment is a LEAF, so its span begins at the `%` markup, not in
+            // the leading indentation or a container marker it follows - the
+            // latitude a container keeps was withdrawn from leaves by
+            // markup-carve/carve#1928.
+            $markerColumn = $this->commentMarkerColumn($sourceText, $line);
+            $comment->setPos($this->spanForLineMap([$sourceLine], $markerColumn));
             $parent->appendChild($comment);
 
             return 1;
         }
 
         return null;
+    }
+
+    /**
+     * The column the comment markup opens on, measured in bytes from the source
+     * line start.
+     *
+     * A comment is a leaf, so its span begins at the `%` - past any leading
+     * indentation AND any container marker it sits behind (`- `, `> `, `: `),
+     * not at column 1 (markup-carve/carve#1928). The parser sees the comment
+     * line with its container prefix already cut off, and that stripped line is
+     * a SUFFIX of the source line, so the prefix width plus the stripped line's
+     * own leading run is where the `%%` opens. A whole-line `strpos('%%')`
+     * would instead match a `%%` inside the prefix - a `[^%%]:` footnote label -
+     * and start the span there.
+     */
+    private function commentMarkerColumn(string $sourceText, string $strippedLine): int
+    {
+        $prefix = strlen($sourceText) - strlen($strippedLine);
+        if ($prefix >= 0 && substr($sourceText, $prefix) === $strippedLine) {
+            return $prefix + (strlen($strippedLine) - strlen(ltrim($strippedLine, " \t")));
+        }
+
+        // The line was rewritten rather than merely un-prefixed (the suffix
+        // relation the rest of this file trusts does not hold), so the prefix
+        // width is unknown - fall back to the source line's own leading run,
+        // never worse than the whole-line default this replaced.
+        return strlen($sourceText) - strlen(ltrim($sourceText, " \t"));
     }
 
     /**
@@ -4223,10 +4253,12 @@ class BlockParser
         $comment = new Comment($content, $fenceLength);
         $sourceLine = $this->sourceLineFor($start);
         $sourceText = $this->sourceLines[$sourceLine] ?? '';
-        if (strlen($sourceText) - strlen(ltrim($sourceText, " \t")) === 1) {
-            $lastSourceLine = $this->sourceLineFor(max($start, $i - 1));
-            $comment->setPos($this->wholeLinesSpan($sourceLine, $lastSourceLine, 0));
-        }
+        // A comment fence is a LEAF too: its span begins at the opening `%` run,
+        // not in the leading indentation or a container marker it follows
+        // (markup-carve/carve#1928).
+        $markerColumn = $this->commentMarkerColumn($sourceText, $line);
+        $lastSourceLine = $this->sourceLineFor(max($start, $i - 1));
+        $comment->setPos($this->spanForLineMap([$sourceLine, $lastSourceLine], $markerColumn));
         $parent->appendChild($comment);
 
         return $i - $start;
