@@ -98,6 +98,35 @@ class SpanBeginsAtTheOpeningMarkupTest extends TestCase
                 2,
                 '#',
             ],
+            // A ONE-SPACE-INDENTED comment absorbed by an item is the case a
+            // guarded offset branch used to pull back to column 1 (it fired
+            // only when the leading run was exactly one space, so every case
+            // above - 2+ spaces or a marker prefix - could not see it). The
+            // comment is a LEAF, so its `%` opens the span (markup-carve/carve
+            // #1963: corpus 183, 189, 187).
+            'one-space absorbed line comment' => ["- a\n %% c\nb\n", 'children.0.items.0.children.1', 5, '%'],
+            'one-space comment under a nested item' => [
+                "- - a\n %% c\n b\n",
+                'children.0.items.0.children.0.items.0.children.1',
+                7,
+                '%',
+            ],
+            'one-space absorbed comment fence' => [
+                "- a\n %%% n\n x\n %%%\n tail\n",
+                'children.0.items.0.children.1',
+                5,
+                '%',
+            ],
+            // The comment opener is found past the container PREFIX, not by the
+            // first `%%` on the line: a footnote label may itself hold a `%%`,
+            // and the span must open on the comment's own `%` at byte 7, not
+            // inside `[^%%]`.
+            'comment after a percent-bearing footnote label' => [
+                "[^%%]: %% c\n",
+                'children.0.children.0',
+                7,
+                '%',
+            ],
             // CONTROLS. Nothing outside a container moves, and a list item
             // still opens at its own marker rather than at its content.
             'heading at top level' => ["# h\n", 'children.0', 0, '#'],
