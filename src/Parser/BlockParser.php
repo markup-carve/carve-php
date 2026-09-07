@@ -6455,6 +6455,49 @@ class BlockParser
     }
 
     /**
+     * The last line index of a nested footnote definition's body.
+     *
+     * A note body is the definition line plus the lines that reach its content
+     * column, which PART 9 §16 puts at two columns past the definition
+     * ({@see self::FOOTNOTE_BODY_COLUMN}); a blank run continues it only when it
+     * resumes below. The authored-base walk skips this span so a block opener in
+     * the note body is collected by the note rather than rebased into the host
+     * (carve-php#1907).
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     */
+    private function footnoteDefinitionBodyExtent(array $lines, int $start, int $count): int
+    {
+        $end = $start;
+        for ($j = $start + 1; $j < $count; $j++) {
+            $candidate = $lines[$j];
+            if (IndentationHelper::isBlankLine($candidate)) {
+                $resumes = $this->footnoteBodyResumesAfter(
+                    $lines,
+                    $j,
+                    $count,
+                    self::FOOTNOTE_BODY_COLUMN,
+                    false,
+                );
+                if ($resumes === null) {
+                    break;
+                }
+                $j = $resumes - 1;
+
+                continue;
+            }
+            if (IndentationHelper::getLeadingColumns($candidate, self::FOOTNOTE_BODY_COLUMN) < self::FOOTNOTE_BODY_COLUMN) {
+                break;
+            }
+            $end = $j;
+        }
+
+        return $end;
+    }
+
+    /**
      * Does a line BELOW the innermost open nested column still reach a column
      * the authored-base pass owns?
      *
@@ -6624,6 +6667,20 @@ class BlockParser
 
         $count = count($lines);
         $nestedColumns = $leadNestedColumn === null ? [] : [$leadNestedColumn];
+        // The first non-blank line is the chunk's own authored-base lead. A
+        // footnote definition THERE is a body-lead form where carve-js and
+        // carve-rs themselves diverge and this engine's answer is pinned
+        // (ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest);
+        // only a note reached AFTER the body's own content is the convergent
+        // case the note-body absorption below applies to (carve-php#1907).
+        $firstContentLine = null;
+        foreach ($lines as $lineIndex => $chunkLine) {
+            if (!IndentationHelper::isBlankLine($chunkLine)) {
+                $firstContentLine = $lineIndex;
+
+                break;
+            }
+        }
         $afterBlank = false;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
@@ -6719,6 +6776,28 @@ class BlockParser
                         || preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) === 1
                     ) {
                         $i = $this->innermostContainerExtent($lines, $i, $count);
+                        $afterBlank = false;
+
+                        continue;
+                    }
+                    // A NESTED FOOTNOTE DEFINITION OWNS ITS OWN INDENTED BODY.
+                    // Like the quote and div arms below (carve-php#1892,
+                    // carve-php#1898), a footnote definition is an invisible
+                    // inner container: its body reaches PART 9 §16's two columns
+                    // past the definition, so a block opener there is note
+                    // content, not the host's authored base. Left to the
+                    // authored-base walk it was flattened to the host's minimum
+                    // and published as the host's own block, which is the one
+                    // inner container the earlier fixes did not reach
+                    // (carve-php#1907). A line ONE column past stays below the
+                    // body column and is untouched here, so the host keeps it
+                    // (carve#1957).
+                    if (
+                        $firstContentLine !== null
+                        && $i > $firstContentLine
+                        && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
+                    ) {
+                        $i = $this->footnoteDefinitionBodyExtent($lines, $i, $count);
                         $afterBlank = false;
 
                         continue;
