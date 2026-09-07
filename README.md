@@ -42,6 +42,10 @@ Besides HTML the converter renders Markdown, plain text and ANSI. The
 Markdown writer's options are in [docs/markdown-output.md](https://github.com/markup-carve/carve-php/blob/main/docs/markdown-output.md),
 and every node can carry its source line - [docs/source-lines.md](https://github.com/markup-carve/carve-php/blob/main/docs/source-lines.md).
 
+Source-aware tools can prepare stale-safe structured formatting changes through
+`CarveConverter::toCarvePatch()`; see the
+[source-preserving patch guide](https://github.com/markup-carve/carve-php/blob/main/docs/source-patches.md).
+
 ## CLI
 
 ~~~ sh
@@ -87,6 +91,7 @@ the author intended. The rules and options are in [docs/lint.md](https://github.
 - [Linting](https://github.com/markup-carve/carve-php/blob/main/docs/lint.md) - the lint rules and options.
 - [Markdown output](https://github.com/markup-carve/carve-php/blob/main/docs/markdown-output.md) - the Markdown writer's options.
 - [Source-line tracking](https://github.com/markup-carve/carve-php/blob/main/docs/source-lines.md) - carrying source positions on the AST.
+- [Source-preserving patches](https://github.com/markup-carve/carve-php/blob/main/docs/source-patches.md) - stale-safe UTF-8 edits.
 - [Stored documents](https://github.com/markup-carve/carve-php/blob/main/docs/stored-documents.md) - spec versions and stored content.
 - [ProseMirror / Tiptap](https://github.com/markup-carve/carve-php/blob/main/docs/prosemirror.md) - editor interchange.
 - [AST JSON](https://github.com/markup-carve/carve-php/blob/main/docs/ast-json.md) - the interchange format.
