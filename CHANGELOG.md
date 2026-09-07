@@ -7,28 +7,54 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-07
+
 ### Added
 
 - Source-preserving UTF-8 patch creation, application, and canonical-format
-  APIs with stale-source preconditions and the shared wire shape.
+  APIs with stale-source preconditions and the shared wire shape (#1922).
+- Extended task-list states are published on the AST and named in the rendered
+  HTML, and `carve fmt` writes the authored state back (#1828, #1829).
 
 ### Fixed
 
 - The HTML import diagnostic cap now throws consistently when caption-flatten
   diagnostics exhaust it instead of returning a silently incomplete report
   (#1832).
-- A link or image destination title occupies the HTML `title` slot instead of being emitted beside a duplicate authored attribute.
-
-### Fixed
-
-- Djot migration preserves Carve table continuation rows instead of rewriting their `+` marker as a bullet.
-
-### Fixed
-
+- A link or image destination title occupies the HTML `title` slot instead of
+  being emitted beside a duplicate authored attribute (#1826).
+- Djot migration preserves Carve table continuation rows instead of rewriting
+  their `+` marker as a bullet (#1825).
 - **An empty external-link target omits the `target` attribute** (#1823).
   External-link `rel` policy can now be applied without emitting the meaningless
   `target=""`, in both the authoritative renderer and borrowed-HTML fast path.
-- **A soft-wrapped caption keeps its AST positions** (#1819). A caption that wraps across lines published every inline unplaced, and the figure, table or figure group it attached to ended at the host instead of at the end of the caption. The rendered HTML was never affected; this reaches AST consumers only.
+- **A soft-wrapped caption keeps its AST positions** (#1819). A caption that
+  wraps across lines published every inline unplaced, and the figure, table or
+  figure group it attached to ended at the host instead of at the end of the
+  caption. The rendered HTML was never affected; this reaches AST consumers only.
+- A block opener at or past a container's content column is attributed to the
+  right owner: a definition or comment at or past a list item's or a description
+  body's content column closes the open paragraph, a definition folds into the
+  container whose column it reaches, a quote no longer owns a line it leaves no
+  open paragraph for, and an opener registers against the column it actually
+  reaches below an item's lead (#1845, #1857, #1862, #1864, #1869, #1871, #1873,
+  #1878, #1880, #1883, #1884, #1887, #1888, #1894, #1904, #1908, #1918).
+- A container body owns its own indented content: a quote, a div, or an
+  unfinished or closed fence inside a list item, a description body or a footnote
+  body keeps and ends its body correctly, and a nested footnote definition's
+  block body is absorbed by its description host (#1896, #1901, #1902, #1905,
+  #1911, #1914, #1916, #1917, #1920).
+- A bare colon run interrupts a paragraph only when a body follows it, a colon
+  followed by a space and a tab opens no description, a quote-marked blank keeps
+  the item's content column, and a new marker does not reach a dead container's
+  column (#1831, #1844, #1848, #1903).
+- Definition collection is correct under the probe budget: an unaffordable probe
+  collects nothing, a collected definition no longer hides a later one, and a
+  caption slot survives until its reference resolves (#1836, #1850, #1852, #1854).
+- A comment's span begins at its opening markup even when indented by one space,
+  a wrapped attribute block is scoped to its quote, and a degraded comment fence
+  at a container's column 0 keeps the line that follows it (#1881, #1921, #1923).
+- A table row whose every cell is blank is no longer parsed as a table (#1915).
 
 ## [0.1.6] - 2026-08-27
 
@@ -2514,7 +2540,9 @@ Composer: `composer require markup-carve/carve-php`.
 - `HtmlToCarve` `data-djot-src` XSS closed (P0); `trustedRoundTrip` default-off
 - Output-byte budgets on all reverse converters against amplification DoS
 
-[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.5...HEAD
+[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.7...HEAD
+[0.1.7]: https://github.com/markup-carve/carve-php/compare/0.1.6...0.1.7
+[0.1.6]: https://github.com/markup-carve/carve-php/compare/0.1.5...0.1.6
 [0.1.5]: https://github.com/markup-carve/carve-php/compare/0.1.4...0.1.5
 [0.1.4]: https://github.com/markup-carve/carve-php/compare/0.1.3...0.1.4
 [0.1.3]: https://github.com/markup-carve/carve-php/compare/0.1.2...0.1.3
