@@ -198,6 +198,14 @@ class CarveConverter
     }
 
     /**
+     * Prepare canonical formatting as a stale-safe patch without changing source.
+     */
+    public static function toCarvePatch(string $source): SourcePatch
+    {
+        return SourcePatch::create($source, self::toCarve($source), 'formatting', 'canonical-format');
+    }
+
+    /**
      * Append or replace the deterministic provenance marker on formatted Carve.
      */
     public static function stampCarve(string $formatted, string $generatedBy, string $form = 'line'): string

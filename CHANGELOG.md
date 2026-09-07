@@ -7,6 +7,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Source-preserving UTF-8 patch creation, application, and canonical-format
+  APIs with stale-source preconditions and the shared wire shape.
+
 ### Fixed
 
 - The HTML import diagnostic cap now throws consistently when caption-flatten
