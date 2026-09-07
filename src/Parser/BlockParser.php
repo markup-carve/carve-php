@@ -3839,6 +3839,66 @@ class BlockParser
     }
 
     /**
+     * Does this line OPEN a wrapped block-attribute block that has not closed on
+     * its own line?
+     *
+     * Section 15 A5 lets a block-attribute block wrap, and one block is one
+     * block however many lines it takes. `isBlockAttributeLine()` answers only
+     * the single-line form - all a tracker handed one line at a time could see -
+     * so a quote body ending `{.k` / `#x}` read as two lines of prose and the
+     * braces reached the page (markup-carve/carve#1962). Flush-left only, like
+     * `isBlockAttributeLine`: an indented brace is lazy paragraph text under the
+     * strict column-0 rule.
+     */
+    private function opensWrappedAttributeBlock(string $content): bool
+    {
+        return str_starts_with($content, '{') && !str_contains($content, '}');
+    }
+
+    /**
+     * Advance a lazy-state tracker's wrapped-attribute run by one line, and say
+     * whether that line CLOSED one as real attributes.
+     *
+     * ALONGSIDE THE CLASSIFIERS, NEVER INSTEAD OF THEM: a `{` with no `}` after
+     * it anywhere is not a block at all, and a streaming tracker cannot know
+     * which it is until a `}` arrives. So the run only ever OVERRIDES, and only
+     * when it closes as real attributes, at which point the container holds no
+     * open paragraph (section 15 A5, markup-carve/carve#1962). A blank
+     * abandons it: a blank inside an open brace is not a block.
+     *
+     * The run is collected LINE BY LINE and joined only when a `}` arrives, so a
+     * `{` opener followed by many lines that never close stays LINEAR rather
+     * than copying the growing run on every line (raised by codex review).
+     *
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null} $state Mutated in place.
+     * @param string $content
+     */
+    private function trackWrappedAttributeRun(array &$state, string $content): bool
+    {
+        if ($state['attrRun'] !== null) {
+            if (IndentationHelper::isBlankLine($content)) {
+                // A blank inside an open brace is not a block: abandon the run.
+                $state['attrRun'] = null;
+
+                return false;
+            }
+            $state['attrRun'][] = $content;
+            if (!str_contains($content, '}')) {
+                return false;
+            }
+            $lines = $state['attrRun'];
+            $state['attrRun'] = null;
+
+            return $this->wrappedBlockAttributeLength($lines, 0) === count($lines);
+        }
+        if ($this->opensWrappedAttributeBlock($content)) {
+            $state['attrRun'] = [$content];
+        }
+
+        return false;
+    }
+
+    /**
      * Settle the attached run's kind for this line, or stay undecided.
      *
      * Shared by the two collectors so the "still pending" bookkeeping - which
@@ -5189,7 +5249,7 @@ class BlockParser
     /**
      * A quote's lazy tracker before it has read a line.
      *
-     * @return array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int}
+     * @return array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null}
      */
     private static function initialBlockQuoteLazyState(): array
     {
@@ -5204,12 +5264,13 @@ class BlockParser
             'absorbingFence' => false,
             'inTable' => false,
             'innerDepth' => 0,
+            'attrRun' => null,
         ];
     }
 
     /**
      * @param string $content Inner content line (after the "> " marker is stripped).
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int} $state
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null} $state
      *     Running state, mutated in place.
      * @param array<string> $sourceLines
      * @param int $sourceIndex
@@ -5294,6 +5355,9 @@ class BlockParser
             }
 
             if (IndentationHelper::isBlankLine($content)) {
+                // A blank abandons any open wrapped block-attribute run: a blank
+                // inside an open brace is not a block (markup-carve/carve#1962).
+                $state['attrRun'] = null;
                 $state['paragraphOpen'] = false;
 
                 return;
@@ -5461,6 +5525,19 @@ class BlockParser
                 $nested = true;
 
                 continue;
+            }
+
+            // A WRAPPED block-attribute block, tracked ALONGSIDE the classifiers
+            // rather than instead of them (markup-carve/carve#1962). Read on the
+            // INNERMOST content, past every `> ` marker, so a run opened at depth
+            // is not fed the marker of the level above it. When it closes as real
+            // attributes the block renders nothing and floats forward, so the
+            // quote holds no open paragraph and a flush-left line below ends it -
+            // the container kind is not a parameter (carve#920).
+            if ($this->trackWrappedAttributeRun($state, $content)) {
+                $state['paragraphOpen'] = false;
+
+                return;
             }
 
             $trimmed = ltrim($content, " \t");

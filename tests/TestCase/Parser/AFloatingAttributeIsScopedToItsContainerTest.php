@@ -104,16 +104,37 @@ class AFloatingAttributeIsScopedToItsContainerTest extends TestCase
     }
 
     /**
-     * A WRAPPED BLOCK IS AN ATTRIBUTE INSIDE A QUOTE TOO, which is the row that
-     * separates "the top level only" from "wherever it is written". §15 carves
-     * out no container.
+     * A WRAPPED BLOCK-ATTRIBUTE BLOCK IS SCOPED TO ITS QUOTE, exactly as the
+     * single-line spelling is. An attribute block at the end of a quote ends
+     * where the quote ends; the flush-left line below carries no quote marker,
+     * so it is not the block's target - the block reaches nothing, is dropped,
+     * and the line is a top-level paragraph (markup-carve/carve#1962). The
+     * quote's incremental tracker used to miss the wrapped block's boundary -
+     * its final line does not begin with a brace - and pulled the line inside
+     * the quote with the attributes on it.
      */
-    public function testAWrappedAttributeInAQuoteAttributesTheBlockAfterIt(): void
+    public function testAWrappedAttributeAtAQuoteEndDoesNotReachTheLineBelow(): void
     {
         $html = $this->html("> q\n> {.k\n> #x}\ntail\n");
 
-        $this->assertStringContainsString('<p class="k" id="x">tail</p>', $html, $html);
-        $this->assertStringNotContainsString('{.k', $html, $html);
+        $this->assertSame("<blockquote><p>q</p></blockquote>\n<p>tail</p>\n", $html, $html);
+    }
+
+    /**
+     * AT EVERY QUOTE DEPTH, not just the outermost: the run is read on the
+     * INNERMOST content, past every `> ` marker, so a nested `> > {.k` / `> > #x}`
+     * ends the inner quote AND leaves the outer one holding no open paragraph -
+     * the flush-left line reaches neither (markup-carve/carve#1962, corpus 458).
+     */
+    public function testAWrappedAttributeEndsAQuoteAtEveryDepth(): void
+    {
+        $html = $this->html("> > q\n> > {.k\n> > #x}\ntail\n");
+
+        $this->assertSame(
+            "<blockquote>\n  <blockquote><p>q</p></blockquote>\n</blockquote>\n<p>tail</p>\n",
+            $html,
+            $html,
+        );
     }
 
     /**
