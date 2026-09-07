@@ -879,16 +879,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        // A wrapped attribute block reaching past a quote's closing boundary is
-        // the newest ruling on carve main (markup-carve/carve#1962, the tip of
-        // the 1b27b68 pin): the block ends at the quote and a flush-left line
-        // below it is a top-level paragraph, not the block's target. This
-        // engine still applies the block to that line and keeps it in the quote.
-        // The other two documents in the category render byte-identically.
-        '458-a-wrapped-attribute-block-ends-at-its-quote-and-reaches-no-line-below-it'
-            => 'markup-carve/carve#1962: a wrapped attribute block must not reach past a quote closing boundary',
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
