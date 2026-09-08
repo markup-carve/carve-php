@@ -7,6 +7,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- A bare colon-fence opener with no body interrupts a paragraph and opens an
+  empty container, matching the spec (grammar §12) and the other engines; this
+  overturns the fold behavior of #1893 / #1903, which was calibrated to the
+  derived executable checker rather than the engines (markup-carve/carve#1970).
+
 ## [0.1.7] - 2026-09-07
 
 ### Added
