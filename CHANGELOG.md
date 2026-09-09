@@ -9,6 +9,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A line following a consumed definition inside a nested note is placed by
+  column-reach: it now lands in the innermost note whose body column its own
+  indentation reaches, so a line in the band between the mid and inner notes
+  reaches the MID note instead of falling through to the outer one. Applies the
+  existing owner-selection rule (markup-carve/carve#1921) unchanged (#1895).
 - A bare colon-fence opener with no body interrupts a paragraph and opens an
   empty container, matching the spec (grammar §12) and the other engines; this
   overturns the fold behavior of #1893 / #1903, which was calibrated to the

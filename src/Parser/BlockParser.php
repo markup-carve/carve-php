@@ -13624,8 +13624,25 @@ class BlockParser
                     && $this->isReferenceDefinitionLine($trimmed)
                     && ($nested === 0 || $base < $nested)
                 ) {
-                    $lines[$index] = $trimmed . substr($line, strlen($opener));
-                    $opener = $trimmed;
+                    // DEDENT TO THE NOTE IT REACHES, not flush to the outer
+                    // body. By [CARVE-P0-004] the line belongs to the innermost
+                    // ENCLOSING note whose body content column it still reaches
+                    // (markup-carve/carve#1921 owner selection). Trimming flush
+                    // had only two sinks and no mid tier, so a definition - and
+                    // the run below a consumed one - in the band between the mid
+                    // and inner body columns landed in the OUTER note
+                    // (markup-carve/carve-php#1895). Leaving exactly the reached
+                    // note's body column keeps it there for the re-collect; no
+                    // note reached means column 0, the original flush.
+                    $target = 0;
+                    foreach ($noteColumns as $column) {
+                        if ($column <= $base && $column > $target) {
+                            $target = $column;
+                        }
+                    }
+                    $reached = IndentationHelper::stripLeadingColumns($opener, $base - $target);
+                    $lines[$index] = $reached . substr($line, strlen($opener));
+                    $opener = $reached;
                 }
             }
             // ARMED OFF THE DEFINITION LINE ITSELF, not off the tracker's
