@@ -13654,8 +13654,15 @@ class BlockParser
             // dedents out of the inner one.
             $local = ltrim($opener, " \t");
             if (preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $local) === 1) {
-                // A NOTE AT OR ABOVE AN OPEN ONE'S BASE CLOSES IT FIRST.
-                while ($noteColumns !== [] && $base <= end($noteColumns) - self::FOOTNOTE_BODY_COLUMN) {
+                // A NOTE THAT DOES NOT REACH THE OPEN ONE'S BODY COLUMN CLOSES
+                // IT FIRST. A note nests in another only when its marker reaches
+                // that note's body content column (marker + 2); a marker one
+                // column shy of it is a SIBLING, not a child, so the enclosing
+                // note closes (carve-js#1664, markup-carve/carve#1946). Popping
+                // at the enclosing MARKER instead kept a shy note nested and let
+                // it - and the consumed definition below it - over-reach a
+                // trailing line that belongs to the ancestor (carve-php#1895).
+                while ($noteColumns !== [] && $base < end($noteColumns)) {
                     array_pop($noteColumns);
                 }
                 $noteColumns[] = $base + self::FOOTNOTE_BODY_COLUMN;

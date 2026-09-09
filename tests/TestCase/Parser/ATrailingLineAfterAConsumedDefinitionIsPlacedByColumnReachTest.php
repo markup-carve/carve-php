@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -26,8 +27,9 @@ use PHPUnit\Framework\TestCase;
  * The defect this pins (markup-carve/carve-php#1895): the reach machinery had
  * only two sinks - leave the line in the inner note, or lift it flush to the
  * outer one - so a line in the band [Bm, Bi) landed in the OUTER note instead
- * of the MID note it reaches. Every canonical check below is byte-identical to
- * carve-js `ac5e6902` rendered through the same inputs.
+ * of the MID note it reaches. Every check below is byte-identical to carve-js
+ * `72760e6b0` (#1664, which measures a note body column from its own marker)
+ * rendered through the same inputs.
  */
 class ATrailingLineAfterAConsumedDefinitionIsPlacedByColumnReachTest extends TestCase
 {
@@ -162,5 +164,54 @@ class ATrailingLineAfterAConsumedDefinitionIsPlacedByColumnReachTest extends Tes
         $this->assertStringContainsString("<p>[r]: /url\nTAILWORD</p>", $html);
         $this->assertStringContainsString('[t][r]', $html);
         $this->assertStringNotContainsString('href="/url"', $html);
+    }
+
+    /**
+     * The degenerate `i = m + 1` stack: the inner marker sits one column shy of
+     * the mid note's body column, and the payload at `i + 1` reaches the mid
+     * note's body column but NOT the inner note's own content column
+     * (marker + 2). By [CARVE-P0-004] measured from each note's own marker, the
+     * inner note must not claim the line - it falls to the surviving OUTER note,
+     * exactly as the two-sink form dropped it there for the wrong reason.
+     *
+     * All four rows render the identical placement (outer holds TAILWORD, mid
+     * and inner are single paragraphs), byte-identical to carve-js `72760e6b0`
+     * (#1664) through the same inputs.
+     *
+     * @return array<string, array{int, int, int}>
+     */
+    public static function degenerateCells(): array
+    {
+        return [
+            'mid 3, inner 4, payload 5' => [3, 4, 5],
+            'mid 4, inner 5, payload 6' => [4, 5, 6],
+            'mid 5, inner 6, payload 7' => [5, 6, 7],
+            'mid 6, inner 7, payload 8' => [6, 7, 8],
+        ];
+    }
+
+    #[DataProvider('degenerateCells')]
+    public function testDegenerateInnerDoesNotOverReachToTheOuterNote(int $mid, int $inner, int $payload): void
+    {
+        $html = trim($this->converter->convert($this->document($mid, $inner, $payload)));
+
+        $expected = "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> <a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a> <a id=\"fnref3\" href=\"#fn3\" role=\"doc-noteref\"><sup>3</sup></a> <a href=\"/url\">t</a></p>\n"
+            . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n"
+            . "  <hr>\n"
+            . "  <ol>\n"
+            . "    <li id=\"fn1\">\n"
+            . "      <p>outer</p>\n"
+            . "      <p>TAILWORD<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
+            . "    </li>\n"
+            . "    <li id=\"fn2\">\n"
+            . "      <p>mid<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
+            . "    </li>\n"
+            . "    <li id=\"fn3\">\n"
+            . "      <p>inner<a href=\"#fnref3\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
+            . "    </li>\n"
+            . "  </ol>\n"
+            . '</section>';
+
+        $this->assertSame($expected, $html);
     }
 }
