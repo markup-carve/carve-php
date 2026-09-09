@@ -13624,8 +13624,25 @@ class BlockParser
                     && $this->isReferenceDefinitionLine($trimmed)
                     && ($nested === 0 || $base < $nested)
                 ) {
-                    $lines[$index] = $trimmed . substr($line, strlen($opener));
-                    $opener = $trimmed;
+                    // DEDENT TO THE NOTE IT REACHES, not flush to the outer
+                    // body. By [CARVE-P0-004] the line belongs to the innermost
+                    // ENCLOSING note whose body content column it still reaches
+                    // (markup-carve/carve#1921 owner selection). Trimming flush
+                    // had only two sinks and no mid tier, so a definition - and
+                    // the run below a consumed one - in the band between the mid
+                    // and inner body columns landed in the OUTER note
+                    // (markup-carve/carve-php#1895). Leaving exactly the reached
+                    // note's body column keeps it there for the re-collect; no
+                    // note reached means column 0, the original flush.
+                    $target = 0;
+                    foreach ($noteColumns as $column) {
+                        if ($column <= $base && $column > $target) {
+                            $target = $column;
+                        }
+                    }
+                    $reached = IndentationHelper::stripLeadingColumns($opener, $base - $target);
+                    $lines[$index] = $reached . substr($line, strlen($opener));
+                    $opener = $reached;
                 }
             }
             // ARMED OFF THE DEFINITION LINE ITSELF, not off the tracker's
@@ -13637,8 +13654,15 @@ class BlockParser
             // dedents out of the inner one.
             $local = ltrim($opener, " \t");
             if (preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $local) === 1) {
-                // A NOTE AT OR ABOVE AN OPEN ONE'S BASE CLOSES IT FIRST.
-                while ($noteColumns !== [] && $base <= end($noteColumns) - self::FOOTNOTE_BODY_COLUMN) {
+                // A NOTE THAT DOES NOT REACH THE OPEN ONE'S BODY COLUMN CLOSES
+                // IT FIRST. A note nests in another only when its marker reaches
+                // that note's body content column (marker + 2); a marker one
+                // column shy of it is a SIBLING, not a child, so the enclosing
+                // note closes (carve-js#1664, markup-carve/carve#1946). Popping
+                // at the enclosing MARKER instead kept a shy note nested and let
+                // it - and the consumed definition below it - over-reach a
+                // trailing line that belongs to the ancestor (carve-php#1895).
+                while ($noteColumns !== [] && $base < end($noteColumns)) {
                     array_pop($noteColumns);
                 }
                 $noteColumns[] = $base + self::FOOTNOTE_BODY_COLUMN;
