@@ -9,6 +9,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A block opener at a description-hosted note's floor (the note marker column
+  plus two, grammar PART 9 §16) is owned by the note, matching a plain
+  continuation line: the note takes the opener and, being unreferenced here,
+  drops with it, so the description is left empty. Previously the opener was
+  given a fresh description-level base and stayed a child of the description
+  (markup-carve/carve#1974, #1929).
 - A line following a consumed definition inside a nested note is placed by
   column-reach: it now lands in the innermost note whose body column its own
   indentation reaches, so a line in the band between the mid and inner notes
