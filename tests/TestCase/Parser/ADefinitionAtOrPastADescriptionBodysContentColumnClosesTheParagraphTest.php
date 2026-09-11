@@ -670,40 +670,47 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     }
 
     /**
-     * A FOOTNOTE BODY IS A CONTAINER THE COLUMN CANNOT SEE. The tracker carries
-     * an open footnote body in `inFootnoteBody` and leaves `nestedColumn` at 0,
-     * so a refusal written on the column alone answered "nothing is open
-     * inside the body" for it and read the footnote body's own content as the
-     * description's opener (raised by codex review). Byte-identical before and
-     * after this change at every column with the refusal asking both.
+     * A BLOCK OPENER AT A DESCRIPTION-HOSTED NOTE'S FLOOR IS THE NOTE'S,
+     * ruled on markup-carve/carve#1974. The `dd`'s content column is 3, so the
+     * lead note `[^f]` stands at 3 and PART 9 §16 puts its body floor at 5. An
+     * opener at or past 5 reaches the note body exactly as a plain continuation
+     * line does; below it the opener is a `dd` child of its own.
      *
-     * These rows pin THIS ENGINE'S answer, not an agreement: the executable
-     * spec at `35148309` and carve-js `3ca6d8c` both read the whole run as the
-     * footnote's body and `tail` as the description, which carve-php does at no
-     * column. That is a separate defect about a footnote definition written as
-     * a description body, and it is unchanged here.
+     * `[^f]` is never referenced, so a note that takes the list swallows it and
+     * both drop, leaving the `dd` empty. That is the shape the earlier revision
+     * of this class pinned as a KNOWN DIVERGENCE - the note was the chunk's own
+     * lead, where the authored-base walk flattened the opener to the host's
+     * minimum and published it as the `dd`'s own list. carve#1974 rules it the
+     * other way, matching carve-js `6b050a68` and `@djot/djot` on the
+     * absorption: both read the whole run as the note's body.
      *
-     * @return array<string, array{0: int, 1: bool}>
+     * The Q1 absorption is what moved here. Where `tail` lands (Q2) is
+     * carve-php's own answer and carve#1974 leaves it: at column 0 `tail` is
+     * below the `dd`'s base, so PART 0's owner-selection table gives it to the
+     * document. carve-js keeps it in the `dd` on this input; that half is not
+     * this ruling and is not adopted.
+     *
+     * @return array<string, array{0: int, 1: string}>
      */
     public static function footnoteBodyInTheBodyProvider(): array
     {
+        $child = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>nested\ntail</li>\n    </ul>\n  </dd>\n</dl>";
+        $absorbed = "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>tail</p>";
+
         return [
-            'at the body column' => [3, true],
-            'one past the body column' => [4, true],
-            'at the footnote body column' => [5, false],
-            'one past it' => [6, false],
-            'two past it' => [7, false],
+            'at the dd body column, below the note floor' => [3, $child],
+            'one past the dd body column, still below the floor' => [4, $child],
+            'at the footnote body floor' => [5, $absorbed],
+            'one past the floor' => [6, $absorbed],
+            'two past the floor' => [7, $absorbed],
         ];
     }
 
     #[DataProvider('footnoteBodyInTheBodyProvider')]
-    public function testAFootnoteBodyInsideTheBodyKeepsItsContent(int $column, bool $inside): void
+    public function testAFootnoteBodyInsideTheBodyKeepsItsContent(int $column, string $expected): void
     {
         $html = $this->converter->convert(":: t\n:  [^f]: note\n" . str_repeat(' ', $column) . "- nested\ntail");
 
-        $expected = $inside
-            ? "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>nested\ntail</li>\n    </ul>\n  </dd>\n</dl>"
-            : "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>nested</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>";
         $this->assertSame($expected, trim($html));
     }
 }

@@ -6689,6 +6689,14 @@ class BlockParser
      * @param bool $includeSublists
      * @param bool $skipOpaqueAtMinimum
      * @param bool $skipOnlyClosedOpaqueAtMinimum
+     * @param bool $absorbLeadNoteBody When the chunk's own LEAD is a footnote
+     *   definition, its body owns a block opener at PART 9 §16's floor too, so
+     *   the opener is absorbed by the note rather than rebased into the host.
+     *   Only the description-body host passes this: markup-carve/carve#1974
+     *   rules the opener-at-a-dd-hosted-note's-floor corner to match a plain
+     *   continuation line, which this engine already owns to the note. A note
+     *   reached AFTER other content is the `$i > $firstContentLine` case the
+     *   walk already handles for every host.
      *
      * @return array<string>
      */
@@ -6699,6 +6707,7 @@ class BlockParser
         bool $includeSublists = false,
         bool $skipOpaqueAtMinimum = true,
         bool $skipOnlyClosedOpaqueAtMinimum = false,
+        bool $absorbLeadNoteBody = false,
     ): array {
         // An uninterrupted marker-line descendant owns the entire chunk. Its
         // own recursive item parse will see any opener that reaches that item's
@@ -6936,9 +6945,21 @@ class BlockParser
                     // (carve-php#1907). A line ONE column past stays below the
                     // body column and is untouched here, so the host keeps it
                     // (carve#1957).
+                    //
+                    // A NOTE THAT IS THE CHUNK'S OWN LEAD OWNS ITS BODY TOO,
+                    // but only where the host asks it (markup-carve/carve#1974).
+                    // The lead-note form is where carve-js and carve-rs diverge,
+                    // so it stayed pinned to `$i > $firstContentLine` for every
+                    // host; carve#1974 rules it for the description body, where
+                    // an opener at the note's §16 floor is the note's exactly as
+                    // a plain continuation line already is - and the description
+                    // collector is the one caller that passes the flag.
                     if (
                         $firstContentLine !== null
-                        && $i > $firstContentLine
+                        && (
+                            $i > $firstContentLine
+                            || ($absorbLeadNoteBody && $i === $firstContentLine)
+                        )
                         && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
                     ) {
                         $i = $this->footnoteDefinitionBodyExtent($lines, $i, $count);
@@ -9223,6 +9244,10 @@ class BlockParser
                     $body,
                     includeSublists: true,
                     skipOnlyClosedOpaqueAtMinimum: true,
+                    // A block opener at a description-hosted note's §16 floor is
+                    // owned by the note, not rebased into the `dd` as its own
+                    // block (markup-carve/carve#1974).
+                    absorbLeadNoteBody: true,
                 );
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
