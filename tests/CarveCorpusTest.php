@@ -46,6 +46,14 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (spec 95a72c8c). Both
+        // categories are nested-note column-reach rulings this engine already
+        // answers: carve-php#1926 placed the trailing line by reach, and
+        // carve-php#1928 measured the nested floor at its own marker. All five
+        // documents render byte-identically to their corpus HTML here, verified
+        // per document.
+        'a-trailing-line-after-a-consumed-definition-is-placed-by-column-reach',
+        'a-nested-note-s-floor-is-two-columns-past-its-own-marker',
         // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (spec 5bc9c5fb). The
         // engine work landed in carve-php#1901, #1902, #1903, #1904 and #1905;
         // each of these categories renders byte-identically to its corpus HTML
