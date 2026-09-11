@@ -215,6 +215,17 @@ class BlockParser
     private const FOOTNOTE_BODY_COLUMN = 2;
 
     /**
+     * How many footnote bodies the current parse is inside.
+     *
+     * Only a note nested in another note's body needs its floor measured on the
+     * authored source; a note in a list item or a description body is placed by
+     * the host's own content column and has always been read correctly from
+     * this coordinate system. carve-js#1666 draws the same line with its
+     * `hostIsFootnoteBody` parameter.
+     */
+    private int $footnoteBodyDepth = 0;
+
+    /**
      * @var int
      */
     public const MAX_NESTING_DEPTH = 200;
@@ -1433,9 +1444,11 @@ class BlockParser
                 $outerPendingAttributeOrder = $this->pendingAttributeOrder;
                 $this->pendingAttributes = [];
                 $this->pendingAttributeOrder = [];
+                $this->footnoteBodyDepth++;
                 try {
                     $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
                 } finally {
+                    $this->footnoteBodyDepth--;
                     $this->discoveringDefinitions = false;
                     $this->pendingAttributes = $outerPendingAttributes;
                     $this->pendingAttributeOrder = $outerPendingAttributeOrder;
@@ -2127,9 +2140,11 @@ class BlockParser
             $outerPendingAttributeOrder = $this->pendingAttributeOrder;
             $this->pendingAttributes = [];
             $this->pendingAttributeOrder = [];
+            $this->footnoteBodyDepth++;
             try {
                 $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
             } finally {
+                $this->footnoteBodyDepth--;
                 $this->pendingAttributes = $outerPendingAttributes;
                 $this->pendingAttributeOrder = $outerPendingAttributeOrder;
             }
@@ -3415,6 +3430,47 @@ class BlockParser
             );
             $i += $consumed;
         }
+    }
+
+    /**
+     * The column `$line`'s content occupies in the AUTHORED source, or null
+     * when this parse cannot place it there.
+     *
+     * Not the authored line's leading whitespace: the first line of a container
+     * body still carries the opener that introduced it, so a note written into
+     * a description body measures as column 0 while its marker stands at the
+     * column the `:` left it in. The body line is the authored line's tail, so
+     * the columns the prefix occupies are the answer, whatever the prefix is
+     * made of.
+     */
+    private function authoredColumnOf(int $index, string $line): ?int
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $authored = $this->sourceLines[$sourceLine] ?? null;
+        if ($authored === null) {
+            return null;
+        }
+
+        $content = ltrim($line, " \t");
+        if ($content === '' || !str_ends_with($authored, $content)) {
+            return IndentationHelper::getLeadingColumns($authored);
+        }
+
+        $prefix = substr($authored, 0, strlen($authored) - strlen($content));
+
+        return IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
+    }
+
+    /**
+     * A note's body floor on the AUTHORED source: two columns past the column
+     * its `[^label]:` marker was written at. Null when the mapping is absent, so
+     * the caller keeps the coordinate-system floor it used before.
+     */
+    private function authoredFootnoteBodyFloor(int $definitionIndex, string $definitionLine): ?int
+    {
+        $marker = $this->authoredColumnOf($definitionIndex, $definitionLine);
+
+        return $marker === null ? null : $marker + self::FOOTNOTE_BODY_COLUMN;
     }
 
     private function sourceLineFor(int $index): int
@@ -10854,7 +10910,25 @@ class BlockParser
 
                 continue;
             }
-            if (IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN) {
+            // TWO COLUMNS PAST THE NOTE'S OWN MARKER, measured on the AUTHORED
+            // source rather than on this coordinate system. A nested note is
+            // handed here already dedented to the column it reaches, so its
+            // marker reads as flush and a fixed floor of two let the note claim
+            // a trailing line BELOW its own content column - which PART 0's
+            // owner-selection table gives to the nearest surviving ancestor
+            // (markup-carve/carve#1971). The authored columns are still on
+            // `sourceLines`, so the comparison is made there and the dedent that
+            // placement depends on is left alone. carve-js#1666 and
+            // carve-rs#1575 measure the same floor from the marker they were
+            // written at.
+            $authoredFloor = $this->footnoteBodyDepth > 0
+                ? $this->authoredFootnoteBodyFloor($start, $lines[$start])
+                : null;
+            $authoredNext = $this->authoredColumnOf($i, $nextLine);
+            $reaches = $authoredFloor === null || $authoredNext === null
+                ? IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
+                : $authoredNext >= $authoredFloor;
+            if ($reaches) {
                 $bodyLines[] = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $i++;
