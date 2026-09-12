@@ -63,6 +63,72 @@ class DjotToCarveTest extends TestCase
         $this->assertSame($input, $this->converter->convert($input));
     }
 
+    public function testSiteFrontmatterIsOutsideDjotDelimiterConversion(): void
+    {
+        $input = "---\nkey: my_long_value\n---\n\nBody.";
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testMultipleFootnoteReferencesAndDefinitionsAreUntouched(): void
+    {
+        $input = "One.[^foo] Two.[^bar]\n\n[^foo]: First.\n\n[^bar]: Second.";
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testDjotDefinitionItemsBecomeCarveDefinitionItems(): void
+    {
+        $input = ": orange\n\n  A citrus fruit.\n\n: apple\n\n  A pome.\n\n  A second paragraph.";
+        $expected = "{loose}\n:: orange\n\n:  A citrus fruit.\n\n:: apple\n\n:  A pome.\n\n   A second paragraph.";
+        $carve = $this->converter->convert($input);
+        $this->assertSame($expected, $carve);
+        $this->assertStringContainsString('<dl>', CarveConverter::create()->convert($carve));
+    }
+
+    public function testAColonLineDoesNotInterruptADjotParagraph(): void
+    {
+        $input = "Paragraph\n: still paragraph";
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testDefinitionBodiesKeepTabsFencesAndNestedLists(): void
+    {
+        foreach (
+            [
+                ": term\n\n\tTabbed body." => 'Tabbed body.',
+                ": term\n\n  ```\n  code\n  ```" => '<pre><code>code',
+                ": outer\n\n  : inner\n\n    Inner body." => '<dl>',
+            ] as $input => $needle
+        ) {
+            $html = CarveConverter::create()->convert($this->converter->convert($input));
+            $this->assertStringContainsString($needle, $html, $input);
+        }
+    }
+
+    public function testFrontmatterKeepsItsAuthoredEnvelopeAndSeparator(): void
+    {
+        foreach (
+            [
+                "--- yaml\ntitle: a_b_c\n---\n\nBody.",
+                "---\ntitle: a_b_c\n---  \nBody.",
+                "---\nkey: value\n---",
+            ] as $input
+        ) {
+            $this->assertSame($input, $this->converter->convert($input));
+        }
+    }
+
+    public function testAnEmptyFrontmatterEnvelopeStillSeparatesTheDjotBody(): void
+    {
+        $html = CarveConverter::create()->convert($this->converter->convert("---\n---\n: term\n\n  body"));
+        $this->assertStringContainsString('<dl>', $html);
+    }
+
+    public function testATightDjotTermContinuationStaysInTheTerm(): void
+    {
+        $html = CarveConverter::create()->convert($this->converter->convert(": fruit\n  A thing."));
+        $this->assertMatchesRegularExpression('/<dt>fruit\s+A thing\.<\/dt>/', $html);
+    }
+
     public function testTableContinuationRowsAreNotConvertedToBullets(): void
     {
         $input = "| a | b |\n|---|---|\n| one | x |\n+ continues here | y |\n";

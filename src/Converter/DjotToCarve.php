@@ -148,6 +148,9 @@ class DjotToCarve
     public function convert(string $djot): string
     {
         $source = str_replace(["\r\n", "\r"], "\n", $djot);
+        [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
+        $source = $this->convertDefinitionLists($source);
+        $djotBody = $source;
         $masked = $this->maskCodeAndDestinations($source);
         $source = $this->escapePlainDjotText($source, $masked);
         $masked = $this->maskCode($source);
@@ -209,7 +212,161 @@ class DjotToCarve
 
         $carve = $this->collapseFalseListBoundaries($this->normalizePlusBullets($source, $masked));
 
-        return $this->applyHeadingIdPreservation($carve, $djot);
+        $carve = $this->applyHeadingIdPreservation($carve, $djotBody);
+
+        return $frontmatter === '' ? $carve : $frontmatter . $separator . $carve;
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function splitSiteFrontmatter(string $source): array
+    {
+        $lines = explode("\n", $source);
+        if (!preg_match('/^--- ?\w*[ \t]*$/', $lines[0])) {
+            return ['', '', $source];
+        }
+        for ($i = 1, $count = count($lines); $i < $count; $i++) {
+            if (preg_match('/^---[ \t]*$/', $lines[$i])) {
+                $frontmatter = implode("\n", array_slice($lines, 0, $i + 1));
+                $offset = strlen($frontmatter);
+                $separator = str_starts_with(substr($source, $offset), "\n\n")
+                    ? "\n\n"
+                    : (str_starts_with(substr($source, $offset), "\n") ? "\n" : '');
+
+                return [$frontmatter, $separator, substr($source, $offset + strlen($separator))];
+            }
+        }
+
+        return ['', '', $source];
+    }
+
+    /**
+     * Translate Djot's list-item definition shape to Carve's term/body markers.
+     */
+    private function convertDefinitionLists(string $source): string
+    {
+        $lines = explode("\n", $source);
+        $maskedLines = explode("\n", $this->maskCode($source));
+        /** @var list<array{source: int, target: int, body: bool, ready: bool}> $stack */
+        $stack = [];
+
+        foreach ($lines as $i => $line) {
+            $masked = $maskedLines[$i] ?? $line;
+            if (preg_match('/^([ \t]*):[ \t]+(\S.*)$/', $masked, $term, PREG_OFFSET_CAPTURE)) {
+                [$indent] = $this->leadingIndent($term[1][0]);
+                while ($stack !== [] && $indent < $stack[array_key_last($stack)]['source']) {
+                    array_pop($stack);
+                }
+                $top = $stack === [] ? null : $stack[array_key_last($stack)];
+                $mayStart = $top !== null || $i === 0 || trim($lines[$i - 1]) === '';
+                if ($mayStart) {
+                    $termText = substr($line, $term[2][1]);
+                    if ($top === null || $indent === $top['source']) {
+                        $target = $top['target'] ?? $indent;
+                        $startsList = $top === null;
+                        if ($top === null) {
+                            $stack[] = ['source' => $indent, 'target' => $target, 'body' => false, 'ready' => false];
+                        } else {
+                            $stack[array_key_last($stack)] = [
+                                'source' => $top['source'],
+                                'target' => $top['target'],
+                                'body' => false,
+                                'ready' => false,
+                            ];
+                        }
+                        $prefix = str_repeat(' ', $target);
+                        $lines[$i] = ($startsList ? $prefix . "{loose}\n" : '') . $prefix . ':: ' . $termText;
+
+                        continue;
+                    }
+                    if ($top['ready'] && $indent >= $top['source'] + 2) {
+                        $target = $top['target'] + 3;
+                        $parentIndex = array_key_last($stack);
+                        $lead = $top['body'] ? str_repeat(' ', $target) : str_repeat(' ', $top['target']) . ':  ';
+                        $stack[$parentIndex] = [
+                            'source' => $top['source'],
+                            'target' => $top['target'],
+                            'body' => true,
+                            'ready' => $top['ready'],
+                        ];
+                        $lines[$i] = $lead . "{loose}\n" . str_repeat(' ', $target) . ':: ' . $termText;
+                        $stack[] = ['source' => $indent, 'target' => $target, 'body' => false, 'ready' => false];
+
+                        continue;
+                    }
+                }
+            }
+            if ($stack === []) {
+                continue;
+            }
+            if (trim($line) === '') {
+                $currentIndex = array_key_last($stack);
+                $current = $stack[$currentIndex];
+                $stack[$currentIndex] = [
+                    'source' => $current['source'],
+                    'target' => $current['target'],
+                    'body' => $current['body'],
+                    'ready' => true,
+                ];
+
+                continue;
+            }
+            if (!$stack[array_key_last($stack)]['ready']) {
+                continue;
+            }
+            [$indent] = $this->leadingIndent($line);
+            while ($stack !== [] && $indent < $stack[array_key_last($stack)]['source'] + 2) {
+                array_pop($stack);
+            }
+            if ($stack === []) {
+                continue;
+            }
+            $contextIndex = array_key_last($stack);
+            $context = $stack[$contextIndex];
+            $payload = substr($line, $this->bytesThroughColumns($line, $context['source'] + 2));
+            $extra = max(0, $indent - ($context['source'] + 2));
+            $lines[$i] = $context['body']
+                ? str_repeat(' ', $context['target'] + 3 + $extra) . $payload
+                : str_repeat(' ', $context['target']) . ':  ' . str_repeat(' ', $extra) . $payload;
+            $stack[$contextIndex] = [
+                'source' => $context['source'],
+                'target' => $context['target'],
+                'body' => true,
+                'ready' => $context['ready'],
+            ];
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @return array{0: int, 1: int} visual columns and bytes
+     */
+    private function leadingIndent(string $line): array
+    {
+        $columns = 0;
+        $bytes = 0;
+        $length = strlen($line);
+        while ($bytes < $length && ($line[$bytes] === ' ' || $line[$bytes] === "\t")) {
+            $columns = $line[$bytes] === "\t" ? $columns + (4 - ($columns % 4)) : $columns + 1;
+            $bytes++;
+        }
+
+        return [$columns, $bytes];
+    }
+
+    private function bytesThroughColumns(string $line, int $wanted): int
+    {
+        $columns = 0;
+        $bytes = 0;
+        $length = strlen($line);
+        while ($bytes < $length && $columns < $wanted && ($line[$bytes] === ' ' || $line[$bytes] === "\t")) {
+            $columns = $line[$bytes] === "\t" ? $columns + (4 - ($columns % 4)) : $columns + 1;
+            $bytes++;
+        }
+
+        return $bytes;
     }
 
     protected function escapePlainDjotText(string $source, string $masked): string
