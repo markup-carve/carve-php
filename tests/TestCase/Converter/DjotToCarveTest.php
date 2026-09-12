@@ -704,6 +704,29 @@ class DjotToCarveTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($djot));
     }
 
+    #[DataProvider('djotBlockMarkerProvider')]
+    public function testDjotOnlyBlockMarkersKeepTheirStructure(string $source, string $needle): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert($source));
+        $this->assertStringContainsString($needle, $html);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function djotBlockMarkerProvider(): iterable
+    {
+        yield 'spaced star rule' => ['* * *', '<hr>'];
+        yield 'spaced dash rule' => ["-  -\t-", '<hr>'];
+        yield 'indented rule' => ['      * * * *', '<hr>'];
+        yield 'quoted rule' => ['> * * *', '<hr>'];
+        yield 'rule in list' => ["- item\n\n  * * *", '<hr>'];
+        yield 'decimal parenthesized list' => ["(1) one\n(2) two", '<ol>'];
+        yield 'alpha parenthesized list' => ["(a) one\n(b) two", '<ol type="a">'];
+        yield 'roman parenthesized list' => ["(i) one\n(ii) two", '<ol type="i">'];
+        yield 'quoted parenthesized list' => ["> (1) one\n> (2) two", '<ol>'];
+    }
+
     /**
      * Performance guard: the same-family overlap check is O(n log n), not the
      * old O(n^2) linear scan over every prior match. A large emphasis-heavy
