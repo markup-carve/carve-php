@@ -2425,7 +2425,16 @@ class CarveRenderer implements RendererInterface
                     $written = $collected instanceof Footnote
                         ? $this->renderFootnote($collected)
                         : $this->renderLinkReferenceDefinition($collected);
-                    $out[] = self::DEFINITION_BODY_MARKER . $written;
+                    // A note's own continuation lines move right by the marker
+                    // too. Left at the note's standalone column they fell one
+                    // marker short of the description body, so on re-parse the
+                    // line dropped out of the note and the empty `dd` filled
+                    // back in (carve#1980).
+                    $writtenLines = explode("\n", $written);
+                    $out[] = self::DEFINITION_BODY_MARKER . array_shift($writtenLines);
+                    foreach ($writtenLines as $writtenLine) {
+                        $out[] = $this->indentContinuationLine($writtenLine, self::DEFINITION_BODY_INDENT);
+                    }
 
                     continue;
                 }
