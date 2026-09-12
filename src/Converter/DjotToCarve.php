@@ -149,6 +149,7 @@ class DjotToCarve
     {
         $source = str_replace(["\r\n", "\r"], "\n", $djot);
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
+        $source = $this->convertDjotBlockMarkers($source);
         $source = $this->convertDefinitionLists($source);
         $djotBody = $source;
         $masked = $this->maskCodeAndDestinations($source);
@@ -239,6 +240,69 @@ class DjotToCarve
         }
 
         return ['', '', $source];
+    }
+
+    /**
+     * Rewrite Djot block spellings that Carve does not recognize.
+     */
+    private function convertDjotBlockMarkers(string $source): string
+    {
+        $lines = explode("\n", $source);
+        $maskedLines = explode("\n", $this->maskCodeAndDestinations($source));
+        foreach ($lines as $i => $line) {
+            $masked = $maskedLines[$i] ?? $line;
+            if (trim($masked) === '') {
+                continue;
+            }
+            if (preg_match('/^((?:[ \t]*>[ \t]*)*)([ \t]*)\(([0-9A-Za-z]+)\)([ \t]+\S.*)$/', $masked, $match)) {
+                if (!preg_match('/^((?:[ \t]*>[ \t]*)*)([ \t]*)\(([0-9A-Za-z]+)\)([ \t]+\S.*)$/', $line, $authored)) {
+                    continue;
+                }
+                [$columns] = $this->leadingIndent($match[2]);
+                $indent = $this->isNestedBlock($maskedLines, $i, $match[1], $columns) ? $authored[2] : '';
+                $lines[$i] = $authored[1] . $indent . $authored[3] . '.' . $authored[4];
+
+                continue;
+            }
+            if (!preg_match('/^((?:[ \t]*>[ \t]*)*)([ \t]*)([*-])(?:[ \t]*\3){2,}[ \t]*$/', $masked, $rule)) {
+                continue;
+            }
+            [$columns] = $this->leadingIndent($rule[2]);
+            $indent = $this->isNestedBlock($maskedLines, $i, $rule[1], $columns) ? $rule[2] : '';
+            $lines[$i] = $rule[1] . $indent . '***';
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param list<string> $lines
+     * @param int $line
+     * @param string $quote
+     * @param int $columns
+     */
+    private function isNestedBlock(array $lines, int $line, string $quote, int $columns): bool
+    {
+        for ($i = $line - 1; $i >= 0; $i--) {
+            if (!str_starts_with($lines[$i], $quote)) {
+                break;
+            }
+            $candidate = substr($lines[$i], strlen($quote));
+            if (trim($candidate) === '') {
+                continue;
+            }
+            [$candidateColumns] = $this->leadingIndent($candidate);
+            if ($candidateColumns >= $columns) {
+                continue;
+            }
+            if (preg_match('/^(?:([*-])[ \t]*){3,}$/', trim($candidate))) {
+                return false;
+            }
+
+            return (bool)preg_match('/^(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+\S/', ltrim($candidate));
+        }
+
+        return false;
     }
 
     /**
