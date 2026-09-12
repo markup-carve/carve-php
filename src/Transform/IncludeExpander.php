@@ -33,6 +33,19 @@ class IncludeExpander implements TransformerInterface
     private const DEFAULT_MIN_BYTE_BUDGET = 1048576;
 
     /**
+     * Resolver calls allowed for one document, counted across the whole
+     * recursive expansion. The byte budget bounds how much expanded source a
+     * document may produce; it does NOT bound how much work the pass does to
+     * get there, because a refused directive is still resolved first. A
+     * document is free to carry one directive per dozen bytes, so without this
+     * a megabyte of directives is tens of thousands of resolver calls - and a
+     * filesystem resolver reads its whole target on every one of them.
+     *
+     * @var int
+     */
+    private const DEFAULT_RESOLVER_CALL_LIMIT = 1000;
+
+    /**
      * @var string
      */
     private const DIRECTIVE_SCAN = '/\{\{ [^{}]*? \}\}/s';
@@ -110,11 +123,29 @@ class IncludeExpander implements TransformerInterface
     public const RULE_UNKNOWN_OPTION = 'include-unknown-option';
 
     /**
+     * @var string
+     */
+    public const RULE_CALL_LIMIT = 'include-call-limit';
+
+    /**
      * @var list<\MarkupCarve\Carve\Exception\ParseWarning>
      */
     protected array $warnings = [];
 
     protected int $bytesUsed = 0;
+
+    protected int $resolverCalls = 0;
+
+    /**
+     * Rule id of the first guard to refuse on a whole-document resource - the
+     * byte budget or the resolver-call limit - or null while both have room.
+     * Both are totals that only ever grow, so once either is spent no later
+     * directive can succeed. Latching stops the pass from resolving the rest
+     * of the document only to refuse each directive individually: the refusal
+     * is already decided, and resolving to reach it is what turns a megabyte
+     * of directives into tens of thousands of file reads.
+     */
+    protected ?string $resourcesSpent = null;
 
     /**
      * @var array<int, string>
@@ -153,6 +184,9 @@ class IncludeExpander implements TransformerInterface
      * @param string|null $source Parsed source of the document, when the host
      *   still has it. Supplying it lets the pass skip its AST walk entirely
      *   for documents that cannot contain a directive.
+     * @param int $resolverCallLimit Resolver calls allowed for one document.
+     *   Bounds the pass's own work - reads, lookups - which the byte budget
+     *   does not, since a directive is resolved before it can be refused.
      */
     public function __construct(
         protected ?IncludeResolverInterface $resolver = null,
@@ -160,6 +194,7 @@ class IncludeExpander implements TransformerInterface
         protected int $depthLimit = self::DEFAULT_DEPTH_LIMIT,
         protected ?int $byteBudget = null,
         protected ?string $source = null,
+        protected int $resolverCallLimit = self::DEFAULT_RESOLVER_CALL_LIMIT,
     ) {
     }
 
@@ -167,6 +202,8 @@ class IncludeExpander implements TransformerInterface
     {
         $this->warnings = [];
         $this->bytesUsed = 0;
+        $this->resolverCalls = 0;
+        $this->resourcesSpent = null;
         $this->scopeByObjectId = [];
         $this->dependencies = [];
         $this->scopeSeq = 0;
@@ -478,6 +515,28 @@ class IncludeExpander implements TransformerInterface
             return null;
         }
 
+        // A document-wide resource is already spent, so this directive cannot
+        // expand whatever it resolves to. Refuse it WITHOUT resolving: the
+        // target is never read, and the dependency is recorded unresolved
+        // because it genuinely was not.
+        $spent = $this->resourcesSpent;
+        if ($spent !== null) {
+            $this->recordDependency($directive['path'], false);
+            $this->warn($this->spentMessage($spent, $directive['path']), $spent);
+
+            return null;
+        }
+
+        if ($this->resolverCalls >= $this->resolverCallLimit) {
+            $this->resourcesSpent = self::RULE_CALL_LIMIT;
+            $this->recordDependency($directive['path'], false);
+            $this->warn($this->spentMessage(self::RULE_CALL_LIMIT, $directive['path']), self::RULE_CALL_LIMIT);
+
+            return null;
+        }
+
+        $this->resolverCalls++;
+
         try {
             $resolved = $this->resolver?->resolve(
                 $directive['path'],
@@ -534,7 +593,8 @@ class IncludeExpander implements TransformerInterface
 
         $bytes = strlen($source);
         if ($this->bytesUsed + $bytes > $budget) {
-            $this->warn("Include size budget exceeded for '{$directive['path']}'", self::RULE_BUDGET);
+            $this->resourcesSpent = self::RULE_BUDGET;
+            $this->warn($this->spentMessage(self::RULE_BUDGET, $directive['path']), self::RULE_BUDGET);
 
             return null;
         }
@@ -648,6 +708,15 @@ class IncludeExpander implements TransformerInterface
     protected function textLikeContent(array $nodes): string
     {
         return IncludeDirectiveSyntax::textLikeContent($nodes);
+    }
+
+    protected function spentMessage(string $rule, string $path): string
+    {
+        if ($rule === self::RULE_CALL_LIMIT) {
+            return "Include resolver call limit exceeded for '{$path}'";
+        }
+
+        return "Include size budget exceeded for '{$path}'";
     }
 
     protected function sliceLines(string $source, int $start, int $end): string

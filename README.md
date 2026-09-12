@@ -91,8 +91,26 @@ deterministic order, including missing, denied, binary, cycle-broken, and
 budget-blocked attempts; each entry reports its target and whether it resolved.
 Resolver configuration is the security boundary: hosts must opt in and enforce
 path containment. `FilesystemIncludeResolver` canonicalizes targets with
-`realpath()`, rejects absolute paths by default, and rejects targets outside the
-configured root.
+`realpath()`, rejects absolute paths by default, rejects targets outside the
+configured root, and refuses any target over `maxFileBytes` (4 MiB; pass `null`
+to lift the cap).
+
+Three limits bound what one document may cost, all overridable:
+
+| Limit | Default | Bounds |
+|---|---|---|
+| `depthLimit` | 16 | Nesting depth |
+| `byteBudget` | `max(1 MiB, 8x input)` | Total expanded source |
+| `resolverCallLimit` | 1000 | Resolver calls, so reads and lookups |
+
+The byte budget alone does not bound the pass's own work: a directive is
+resolved before it can be refused, and a document may carry one directive per
+dozen bytes. `resolverCallLimit` bounds that, and once either total is spent the
+remaining directives degrade to literal without being resolved at all.
+
+For untrusted input, set `byteBudget` to an absolute value rather than leaving
+the default, which scales with the input and so lets the input raise its own
+ceiling.
 
 ### Source-line tracking
 

@@ -11,11 +11,28 @@ use RuntimeException;
  */
 class FilesystemIncludeResolver implements IncludeResolverInterface
 {
+    /**
+     * @var int
+     */
+    public const DEFAULT_MAX_FILE_BYTES = 4194304;
+
     protected string $root;
 
+    /**
+     * @param string $root
+     * @param bool $allowAbsolutePaths
+     * @param int|null $maxFileBytes Largest target this resolver will read, or
+     *   null for no cap. The expander's byte budget cannot stand in for this:
+     *   it charges a target only once the source is in hand, so without a cap
+     *   here one oversized file is read into memory in full before expansion
+     *   is refused.
+     *
+     * @throws \RuntimeException
+     */
     public function __construct(
         string $root,
         protected bool $allowAbsolutePaths = false,
+        protected ?int $maxFileBytes = self::DEFAULT_MAX_FILE_BYTES,
     ) {
         $realRoot = realpath($root);
         if ($realRoot === false || !is_dir($realRoot)) {
@@ -59,6 +76,13 @@ class FilesystemIncludeResolver implements IncludeResolverInterface
 
         if ($real !== $this->root && !str_starts_with($real, $this->root . DIRECTORY_SEPARATOR)) {
             throw new RuntimeException("Include target escapes configured root: {$path}");
+        }
+
+        if ($this->maxFileBytes !== null) {
+            $size = filesize($real);
+            if ($size === false || $size > $this->maxFileBytes) {
+                throw new RuntimeException("Include target exceeds the size cap: {$path}");
+            }
         }
 
         $source = file_get_contents($real);

@@ -448,6 +448,109 @@ class IncludeExpanderTest extends TestCase
         new FilesystemIncludeResolver(sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'carve-absent-' . uniqid());
     }
 
+    public function testBudgetExhaustionStopsResolvingLaterDirectives(): void
+    {
+        $converter = new CarveConverter();
+        $resolver = $this->countingResolver(['a.crv' => '1234567890', 'b.crv' => 'x']);
+        $document = $converter->parse("{{ a.crv }}\n\n{{ b.crv }}\n\n{{ b.crv }}\n");
+        $expander = new IncludeExpander($resolver, byteBudget: 4);
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        // 'b.crv' is one byte and would fit the remaining budget, but the pass
+        // stops resolving once a document-wide total is spent: the refusal is
+        // already decided, and resolving to reach it is the amplification.
+        $this->assertSame(['a.crv'], $resolver->calls);
+        $this->assertStringNotContainsString('1234567890', $html);
+        $this->assertCount(3, $expander->getWarnings());
+        foreach ($expander->getWarnings() as $warning) {
+            $this->assertSame(IncludeExpander::RULE_BUDGET, $warning->getRule());
+        }
+    }
+
+    public function testResolverCallLimitRefusesFurtherDirectivesWithoutResolving(): void
+    {
+        $converter = new CarveConverter();
+        $resolver = $this->countingResolver(['a.crv' => 'One.', 'b.crv' => 'Two.']);
+        $document = $converter->parse("{{ a.crv }}\n\n{{ b.crv }}\n\n{{ a.crv }}\n\n{{ b.crv }}\n");
+        $expander = new IncludeExpander($resolver, resolverCallLimit: 2);
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame(['a.crv', 'b.crv'], $resolver->calls);
+        $this->assertStringContainsString('One.', $html);
+        $this->assertStringContainsString('{{ a.crv }}', $html);
+        $this->assertCount(2, $expander->getWarnings());
+        foreach ($expander->getWarnings() as $warning) {
+            $this->assertSame(IncludeExpander::RULE_CALL_LIMIT, $warning->getRule());
+            $this->assertStringContainsString('resolver call limit', $warning->getMessage());
+        }
+    }
+
+    public function testResolverCallLimitCountsNestedResolves(): void
+    {
+        $converter = new CarveConverter();
+        $resolver = $this->countingResolver([
+            'a.crv' => '{{ b.crv }}',
+            'b.crv' => '{{ c.crv }}',
+            'c.crv' => 'Deep.',
+        ]);
+        $document = $converter->parse("{{ a.crv }}\n");
+        $expander = new IncludeExpander($resolver, resolverCallLimit: 2);
+
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame(['a.crv', 'b.crv'], $resolver->calls);
+        $this->assertStringNotContainsString('Deep.', $html);
+        $this->assertSame(IncludeExpander::RULE_CALL_LIMIT, $expander->getWarnings()[0]->getRule());
+    }
+
+    public function testSkippedDirectivesAreRecordedUnresolved(): void
+    {
+        $converter = new CarveConverter();
+        $resolver = $this->countingResolver(['a.crv' => 'One.', 'b.crv' => 'Two.']);
+        $document = $converter->parse("{{ a.crv }}\n\n{{ b.crv }}\n");
+        $expander = new IncludeExpander($resolver, resolverCallLimit: 1);
+
+        $converter->transform($document, $expander);
+
+        $this->assertSame(
+            [
+                ['target' => 'a.crv', 'resolved' => true],
+                ['target' => 'b.crv', 'resolved' => false],
+            ],
+            $this->dependencyRows($expander->getDependencies()),
+        );
+    }
+
+    public function testFilesystemResolverRejectsTargetsOverTheSizeCap(): void
+    {
+        $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'carve-cap-' . uniqid();
+        mkdir($root, 0777, true);
+        $file = $root . DIRECTORY_SEPARATOR . 'big.crv';
+        file_put_contents($file, str_repeat('x', 64));
+
+        try {
+            $context = new IncludeContext(null, null, [], 0);
+
+            try {
+                (new FilesystemIncludeResolver($root, maxFileBytes: 32))->resolve('big.crv', $context);
+                $this->fail('Expected the size cap to reject the target');
+            } catch (RuntimeException $exception) {
+                $this->assertStringContainsString('exceeds the size cap', $exception->getMessage());
+            }
+
+            $uncapped = new FilesystemIncludeResolver($root, maxFileBytes: null);
+            $this->assertSame(64, strlen($uncapped->resolve('big.crv', $context)->getSource()));
+
+            $default = new FilesystemIncludeResolver($root);
+            $this->assertSame(64, strlen($default->resolve('big.crv', $context)->getSource()));
+        } finally {
+            @unlink($file);
+            @rmdir($root);
+        }
+    }
+
     public function testIncludeContextExposesItsFields(): void
     {
         $context = new IncludeContext('parent.crv', 'current.crv', ['a.crv'], 2);
