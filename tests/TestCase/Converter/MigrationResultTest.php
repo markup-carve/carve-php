@@ -31,4 +31,23 @@ final class MigrationResultTest extends TestCase
             }
         }
     }
+
+    public function testImportersWithoutConstructEvidenceFailClosed(): void
+    {
+        $results = [
+            (new MarkdownToCarve())->convertWithFidelityReport('plain text'),
+            (new DjotToCarve())->convertWithFidelityReport('plain text'),
+            (new BbcodeToCarve())->convertWithFidelityReport('plain text'),
+        ];
+
+        foreach ($results as $result) {
+            self::assertSame([
+                'code' => 'fidelity-unverified',
+                'message' => 'The ' . $result->sourceFormat . ' importer does not yet provide construct-level fidelity evidence',
+                'severity' => 'warning',
+                'fidelity' => 'dropped',
+                'confidence' => 'fallback',
+            ], $result->diagnostics[0]->toArray());
+        }
+    }
 }

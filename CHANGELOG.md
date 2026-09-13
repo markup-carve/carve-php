@@ -11,7 +11,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - HTML, Markdown, Djot and BBCode importers expose a shared version 2 migration
   result through `convertWithFidelityReport()`, classifying diagnostics as
-  preserved, normalized, degraded or dropped with explicit confidence.
+  preserved, normalized, degraded or dropped with explicit confidence. Importers
+  without construct-level evidence fail closed as dropped with fallback confidence.
 
 ### Fixed
 

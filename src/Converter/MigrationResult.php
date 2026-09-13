@@ -9,7 +9,7 @@ final readonly class MigrationResult
     /**
      * @param string $value
      * @param string $sourceFormat
-@param list<\MarkupCarve\Carve\Converter\MigrationDiagnostic> $diagnostics
+     * @param list<\MarkupCarve\Carve\Converter\MigrationDiagnostic> $diagnostics
      */
     public function __construct(
         public string $value,

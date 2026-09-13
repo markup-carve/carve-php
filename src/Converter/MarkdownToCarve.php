@@ -536,7 +536,7 @@ class MarkdownToCarve
 
     public function convertWithFidelityReport(string $markdown): MigrationResult
     {
-        return $this->normalizedMigrationResult($markdown, $this->convert($markdown), 'markdown');
+        return $this->unverifiedMigrationResult($this->convert($markdown), 'markdown');
     }
 
     /**

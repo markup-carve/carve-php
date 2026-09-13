@@ -6,14 +6,15 @@ namespace MarkupCarve\Carve\Converter;
 
 trait ReportsMigrationFidelity
 {
-    protected function normalizedMigrationResult(string $source, string $value, string $format): MigrationResult
+    protected function unverifiedMigrationResult(string $value, string $format): MigrationResult
     {
-        $diagnostics = $source === $value ? [] : [
+        $diagnostics = [
             new MigrationDiagnostic(
-                'syntax-normalized',
-                'Converted ' . $format . ' syntax to canonical Carve source',
-                'info',
-                'normalized',
+                'fidelity-unverified',
+                'The ' . $format . ' importer does not yet provide construct-level fidelity evidence',
+                'warning',
+                'dropped',
+                'fallback',
             ),
         ];
 
@@ -25,7 +26,7 @@ trait ReportsMigrationFidelity
         $diagnostics = array_map(static function (HtmlImportDiagnostic $diagnostic): MigrationDiagnostic {
             $fidelity = match ($diagnostic->code) {
                 'element-dropped', 'attribute-dropped', 'structure-unspellable' => 'dropped',
-                'element-unwrapped' => 'normalized',
+                'element-unwrapped' => 'degraded',
                 'style-unmapped', 'table-degraded', 'encoding-assumed', 'diagnostics-truncated' => 'degraded',
                 default => 'preserved',
             };
@@ -35,7 +36,11 @@ trait ReportsMigrationFidelity
                 $diagnostic->message,
                 $diagnostic->severity,
                 $fidelity,
-                $diagnostic->code === 'encoding-assumed' ? 'inferred' : 'exact',
+                match ($diagnostic->code) {
+                    'encoding-assumed' => 'inferred',
+                    'diagnostics-truncated' => 'fallback',
+                    default => 'exact',
+                },
                 $diagnostic->path,
             );
         }, $result->diagnostics);
