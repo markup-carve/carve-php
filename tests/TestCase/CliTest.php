@@ -583,6 +583,31 @@ class CliTest extends TestCase
         $this->assertSame('dropped', $report['diagnostics'][0]['fidelity']);
     }
 
+    public function testMigrateReportsHtmlDiagnosticLimitAsAUsageError(): void
+    {
+        $source = str_repeat('<p onclick="x()">x</p>', 1100);
+        $result = $this->runCliInput(['migrate', '--from', 'html', '--check-loss'], $source);
+
+        $this->assertSame(2, $result['exit']);
+        $this->assertSame('', $result['out']);
+        $this->assertStringContainsString('HTML import diagnostics limit exceeded', $result['err']);
+    }
+
+    public function testMigrateLossCheckPassesForPreservedHtmlFindings(): void
+    {
+        $result = $this->runCliInput(
+            ['migrate', '--from', 'html', '--mode', 'roundtrip', '--check-loss', '--report', '-'],
+            '<fieldset id="f"><p>a</p></fieldset>',
+        );
+
+        $this->assertSame(0, $result['exit']);
+        $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
+        $this->assertNotSame([], $report['diagnostics']);
+        foreach ($report['diagnostics'] as $diagnostic) {
+            $this->assertSame('preserved', $diagnostic['fidelity']);
+        }
+    }
+
     public function testRenderLossWarningDoesNotContaminateStdout(): void
     {
         $result = $this->runCliInput(['--html'], "`x`{=latex}\n");

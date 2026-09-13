@@ -72,6 +72,18 @@ final class MigrationResultTest extends TestCase
         new MigrationDiagnostic('code', 'message', 'warning', 'lossless', 'exact');
     }
 
+    public function testDiagnosticSeverityIsValidated(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new MigrationDiagnostic('code', 'message', 'fatal', 'dropped', 'exact');
+    }
+
+    public function testDiagnosticConfidenceIsValidated(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new MigrationDiagnostic('code', 'message', 'warning', 'dropped', 'certain');
+    }
+
     public function testUnknownHtmlDiagnosticFailsClosed(): void
     {
         $converter = new class extends HtmlToCarve {
@@ -89,5 +101,45 @@ final class MigrationResultTest extends TestCase
 
         self::assertSame('dropped', $result->diagnostics[0]->fidelity);
         self::assertSame('fallback', $result->diagnostics[0]->confidence);
+    }
+
+    public function testEveryHtmlDiagnosticCodeHasAnExplicitFidelityMapping(): void
+    {
+        $converter = new class extends HtmlToCarve {
+            public function mapReport(HtmlImportResult $result): MigrationResult
+            {
+                return $this->htmlMigrationResult($result);
+            }
+        };
+        $codes = [
+            'element-dropped',
+            'attribute-dropped',
+            'structure-unspellable',
+            'element-unwrapped',
+            'style-unmapped',
+            'table-degraded',
+            'encoding-assumed',
+            'diagnostics-truncated',
+            'attribute-preserved',
+            'raw-preserved',
+        ];
+        $result = $converter->mapReport(new HtmlImportResult(
+            'value',
+            'safe',
+            'generic',
+            array_map(
+                static fn (string $code): HtmlImportDiagnostic => new HtmlImportDiagnostic($code, $code, 'warning'),
+                $codes,
+            ),
+        ));
+
+        self::assertSame(
+            ['dropped', 'dropped', 'dropped', 'degraded', 'degraded', 'degraded', 'degraded', 'degraded', 'preserved', 'preserved'],
+            array_map(static fn (MigrationDiagnostic $diagnostic): string => $diagnostic->fidelity, $result->diagnostics),
+        );
+        self::assertSame(
+            ['exact', 'exact', 'exact', 'exact', 'exact', 'exact', 'inferred', 'fallback', 'exact', 'exact'],
+            array_map(static fn (MigrationDiagnostic $diagnostic): string => $diagnostic->confidence, $result->diagnostics),
+        );
     }
 }
