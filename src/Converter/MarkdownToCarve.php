@@ -35,6 +35,7 @@ use RuntimeException;
  */
 class MarkdownToCarve
 {
+    use ReportsMigrationFidelity;
     use EscapesCarveConstructs;
     use PreservesHeadingIds;
 
@@ -531,6 +532,11 @@ class MarkdownToCarve
         $prefix = implode("\n", $frontmatter);
 
         return $carve === '' ? $prefix : $prefix . "\n" . $carve;
+    }
+
+    public function convertWithFidelityReport(string $markdown): MigrationResult
+    {
+        return $this->normalizedMigrationResult($markdown, $this->convert($markdown), 'markdown');
     }
 
     /**

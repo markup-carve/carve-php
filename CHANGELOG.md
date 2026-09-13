@@ -7,6 +7,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- HTML, Markdown, Djot and BBCode importers expose a shared version 2 migration
+  result through `convertWithFidelityReport()`, classifying diagnostics as
+  preserved, normalized, degraded or dropped with explicit confidence.
+
 ### Fixed
 
 - A block opener at a description-hosted note's floor (the note marker column

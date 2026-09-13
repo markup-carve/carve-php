@@ -43,6 +43,7 @@ class DjotToCarve
 {
     use EscapesCarveConstructs;
     use PreservesHeadingIds;
+    use ReportsMigrationFidelity;
 
     /**
      * @var array<array{id: string, family: string, pattern: string, open: string, close: string}>
@@ -216,6 +217,11 @@ class DjotToCarve
         $carve = $this->applyHeadingIdPreservation($carve, $djotBody);
 
         return $frontmatter === '' ? $carve : $frontmatter . $separator . $carve;
+    }
+
+    public function convertWithFidelityReport(string $djot): MigrationResult
+    {
+        return $this->normalizedMigrationResult($djot, $this->convert($djot), 'djot');
     }
 
     /**
