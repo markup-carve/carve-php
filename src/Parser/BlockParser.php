@@ -15344,9 +15344,38 @@ class BlockParser
 
         $document = new Document();
         $this->extractDefinitions($lines, $this->normalizedSource);
+        // ARMED THE SAME WAY parse() ARMS IT. `extractDefinitions()` only sets
+        // the flag; the definitions themselves are collected by the structural
+        // walk below, and only while discovery is on. The first pass turns it
+        // OFF before finishing, so without this the second walk collected no
+        // definitions at all and every reference in the rebuilt tree was
+        // unresolvable (carve-php#1937).
+        if ($this->integratedDefinitionPass) {
+            $this->discoveringDefinitions = true;
+        }
         $this->extractHeadingReferences($lines);
         $this->seedHeadingReferences($headingReferences);
         $this->parseBlocks($document, $lines, 0, topLevel: true);
+        // THE SECOND PASS HAS TO FINISH THE SAME WAY THE FIRST ONE DOES.
+        //
+        // Inline parsing resolves a reference against the definitions
+        // collected SO FAR, so a definition written below its use is still
+        // missing when the link is built. `parse()` repairs that afterwards by
+        // running this same block - but on the tree the FIRST pass produced,
+        // which this pass has just replaced. So the rebuilt tree kept every
+        // forward reference unresolved and rendered it as its source text:
+        // `[text][ref]` written above `[ref]: /target` came out literally
+        // (carve-php#1937).
+        //
+        // Calling the whole finish rather than the forward-reference walk
+        // alone is deliberate: `extractDefinitions()` above re-arms the
+        // integrated pass, and the work it defers - footnote bodies discovered
+        // mid-walk, caption slots, the collected definitions themselves - has
+        // to land before anything can be resolved against it.
+        if ($this->integratedDefinitionPass) {
+            $this->discoveringDefinitions = false;
+            $this->finishIntegratedDefinitionPass($document, $lines);
+        }
         $document->setSourceLength($sourceLength);
 
         return $document;
