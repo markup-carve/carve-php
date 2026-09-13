@@ -52,6 +52,7 @@ use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Converter\HtmlImportLimitException;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
@@ -229,22 +230,19 @@ function runMigrateCommand(array $argv): never
         exit(2);
     }
     $source = (string)$source;
-    // Only the HTML importer reports what it could not carry across, because
-    // only it drops anything: the other three parse their source whole. So
-    // --mode, --adapter, --report and --check-loss are HTML's alone, and are
-    // silently unused here rather than rejected.
-    if ($from !== 'html') {
-        $converter = match ($from) {
-            'markdown', 'md' => new MarkdownToCarve(),
-            'djot' => new DjotToCarve(),
-            default => new BbcodeToCarve(),
-        };
-        fwrite(STDOUT, $converter->convert($source));
-        exit(0);
-    }
     try {
-        $result = (new HtmlToCarve(importMode: $mode, importAdapter: $adapter))->convertWithReport($source);
-    } catch (InvalidArgumentException $exception) {
+        if ($from === 'html') {
+            $result = (new HtmlToCarve(importMode: $mode, importAdapter: $adapter))
+                ->convertWithFidelityReport($source);
+        } else {
+            $converter = match ($from) {
+                'markdown', 'md' => new MarkdownToCarve(),
+                'djot' => new DjotToCarve(),
+                default => new BbcodeToCarve(),
+            };
+            $result = $converter->convertWithFidelityReport($source);
+        }
+    } catch (InvalidArgumentException | HtmlImportLimitException $exception) {
         fwrite(STDERR, 'carve migrate: ' . $exception->getMessage() . "\n");
         exit(2);
     }
@@ -256,7 +254,15 @@ function runMigrateCommand(array $argv): never
         fwrite(STDERR, "carve migrate: cannot write report $report\n");
         exit(2);
     }
-    exit($checkLoss && $result->diagnostics !== [] ? 1 : 0);
+    $hasLoss = false;
+    foreach ($result->diagnostics as $diagnostic) {
+        if (in_array($diagnostic->fidelity, ['degraded', 'dropped'], true)) {
+            $hasLoss = true;
+
+            break;
+        }
+    }
+    exit($checkLoss && $hasLoss ? 1 : 0);
 }
 
 /**
@@ -548,8 +554,8 @@ Migration (other markup to Carve, on stdout):
                           (roundtrip is for trusted input only: it reads the
                           source back out of the sidecar attributes)
   migrate --adapter NAME  HTML only: the source generator (default generic)
-  migrate --report FILE   HTML only: write the loss report as JSON (- is stderr)
-  migrate --check-loss    HTML only: exit 1 when anything was dropped
+  migrate --report FILE   write the v2 fidelity report as JSON (- is stderr)
+  migrate --check-loss    exit 1 for degraded or dropped content
 
 Options:
   -o, --output FILE   Write output to FILE instead of stdout

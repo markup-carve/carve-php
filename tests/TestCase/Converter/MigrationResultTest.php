@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use InvalidArgumentException;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Converter\HtmlImportDiagnostic;
+use MarkupCarve\Carve\Converter\HtmlImportResult;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Converter\MigrationDiagnostic;
+use MarkupCarve\Carve\Converter\MigrationResult;
 use PHPUnit\Framework\TestCase;
 
 final class MigrationResultTest extends TestCase
@@ -49,5 +54,40 @@ final class MigrationResultTest extends TestCase
                 'confidence' => 'fallback',
             ], $result->diagnostics[0]->toArray());
         }
+    }
+
+    public function testHtmlReportRetainsModeAndAdapter(): void
+    {
+        $report = (new HtmlToCarve(importMode: 'safe', importAdapter: 'tiptap'))
+            ->convertWithFidelityReport('<p>x</p>')
+            ->report();
+
+        self::assertSame('safe', $report['mode']);
+        self::assertSame('tiptap', $report['adapter']);
+    }
+
+    public function testDiagnosticVocabularyIsValidated(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new MigrationDiagnostic('code', 'message', 'warning', 'lossless', 'exact');
+    }
+
+    public function testUnknownHtmlDiagnosticFailsClosed(): void
+    {
+        $converter = new class extends HtmlToCarve {
+            public function mapReport(HtmlImportResult $result): MigrationResult
+            {
+                return $this->htmlMigrationResult($result);
+            }
+        };
+        $result = $converter->mapReport(new HtmlImportResult(
+            'value',
+            'safe',
+            'generic',
+            [new HtmlImportDiagnostic('future-loss', 'Unknown future diagnostic', 'error')],
+        ));
+
+        self::assertSame('dropped', $result->diagnostics[0]->fidelity);
+        self::assertSame('fallback', $result->diagnostics[0]->confidence);
     }
 }

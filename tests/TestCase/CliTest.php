@@ -558,20 +558,29 @@ class CliTest extends TestCase
         $this->assertSame($accepted, $advertised);
     }
 
-    /**
-     * The loss report is the HTML importer's alone - the other three parse
-     * their source whole - so a non-HTML migration ignores it rather than
-     * failing on it.
-     */
-    public function testMigrateIgnoresTheHtmlOnlyOptionsForOtherFormats(): void
+    public function testMigrateFailsClosedForAnUnverifiedImporter(): void
     {
         $result = $this->runCliInput(
             ['migrate', '--from', 'markdown', '--mode', 'raw', '--check-loss'],
             "**bold**\n",
         );
 
-        $this->assertSame(0, $result['exit']);
+        $this->assertSame(1, $result['exit']);
         $this->assertSame("*bold*\n", $result['out']);
+    }
+
+    public function testMigrateWritesTheVersionedReportForEveryImporter(): void
+    {
+        $result = $this->runCliInput(
+            ['migrate', '--from', 'markdown', '--report', '-'],
+            "**bold**\n",
+        );
+
+        $this->assertSame(0, $result['exit']);
+        $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(2, $report['schemaVersion']);
+        $this->assertSame('markdown', $report['sourceFormat']);
+        $this->assertSame('dropped', $report['diagnostics'][0]['fidelity']);
     }
 
     public function testRenderLossWarningDoesNotContaminateStdout(): void

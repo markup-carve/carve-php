@@ -28,7 +28,8 @@ trait ReportsMigrationFidelity
                 'element-dropped', 'attribute-dropped', 'structure-unspellable' => 'dropped',
                 'element-unwrapped' => 'degraded',
                 'style-unmapped', 'table-degraded', 'encoding-assumed', 'diagnostics-truncated' => 'degraded',
-                default => 'preserved',
+                'attribute-preserved', 'raw-preserved' => 'preserved',
+                default => 'dropped',
             };
 
             return new MigrationDiagnostic(
@@ -39,12 +40,21 @@ trait ReportsMigrationFidelity
                 match ($diagnostic->code) {
                     'encoding-assumed' => 'inferred',
                     'diagnostics-truncated' => 'fallback',
-                    default => 'exact',
+                    'element-dropped', 'attribute-dropped', 'structure-unspellable',
+                    'element-unwrapped', 'style-unmapped', 'table-degraded',
+                    'attribute-preserved', 'raw-preserved' => 'exact',
+                    default => 'fallback',
                 },
                 $diagnostic->path,
             );
         }, $result->diagnostics);
 
-        return new MigrationResult($result->value, 'html', $diagnostics);
+        return new MigrationResult(
+            $result->value,
+            'html',
+            $diagnostics,
+            $result->mode,
+            $result->adapter,
+        );
     }
 }
