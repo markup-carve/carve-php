@@ -64,6 +64,11 @@ class FootnoteRef extends InlineNode
         $this->number = $number;
     }
 
+    public function setLabel(string $label): void
+    {
+        $this->label = $label;
+    }
+
     public function getType(): string
     {
         return 'footnote_ref';

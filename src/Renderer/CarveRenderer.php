@@ -74,6 +74,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
 use ReflectionObject;
 use Throwable;
@@ -2814,6 +2815,13 @@ class CarveRenderer implements RendererInterface
 
                     continue;
                 }
+                $directive = $this->matchIncludeDirective($nodes, $i);
+                if ($directive !== null) {
+                    $out .= $directive['source'];
+                    $i = $directive['end'];
+
+                    continue;
+                }
                 if ($node instanceof InlineNode) {
                     $out .= $this->renderInline(
                         $node,
@@ -2887,6 +2895,164 @@ class CarveRenderer implements RendererInterface
         $line = $lineStart === false ? $out : substr($out, $lineStart + 1);
 
         return (self::verseLineNeedsBackslash($line) ? '\\' : '') . "\n";
+    }
+
+    /**
+     * Match the include directives in the run of literal-text nodes starting at
+     * $start, and return the run's source form plus the index of its last node.
+     *
+     * The core never parses a directive as a node of its own (spec section 19
+     * makes it unreachable from block/inline), so it arrives here as ordinary
+     * text and would otherwise be escaped like any other punctuation-bearing
+     * text - turning `{{ chapter.crv }}` into `\{\{ chapter\.crv \}\}` and
+     * silently breaking every include in a formatted document. A well-formed
+     * directive is therefore emitted verbatim.
+     *
+     * The test is SHAPE-well-formedness, not validity: the run must open `{{`,
+     * close `}}` and carry a non-empty path token. Section and option validity
+     * are NOT required, because they are diagnostics the expander reports at
+     * expansion time (I7) - escaping a shape-valid run over a bad option would
+     * convert a fixable typo into permanent literal text AND destroy the very
+     * warning that would have explained it. A run that is not shape-well-formed
+     * (`{{ oops` with no close, or an empty path) stays ordinary text and is
+     * escaped as before.
+     *
+     * Every directive in the run is preserved, not just the first: prose splits
+     * a paragraph into one text-like run, so `a {{ x.crv }} b {{ y.crv }} c` is
+     * a single run holding two directives, and stopping after the first escaped
+     * the rest.
+     *
+     * A serializer cannot tell an authored literal `{{` from a directive - both
+     * parse to the same text - which is accepted, because an author who needs a
+     * guaranteed literal writes it in code, where a directive is inert by
+     * construction (I9).
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes Positionally indexed,
+     *   exactly as the surrounding renderInlines() loop already assumes.
+     * @param int $start
+     *
+     * @return array{source: string, end: int}|null
+     */
+    protected function matchIncludeDirective(array $nodes, int $start): ?array
+    {
+        if (!IncludeDirectiveSyntax::isTextLike($nodes[$start])) {
+            return null;
+        }
+
+        $count = count($nodes);
+        $run = [];
+        for ($i = $start; $i < $count && IncludeDirectiveSyntax::isTextLike($nodes[$i]); $i++) {
+            $run[] = $nodes[$i];
+        }
+        $last = $i - 1;
+        $text = IncludeDirectiveSyntax::textLikeContent($run);
+
+        // One run can hold ANY number of directives with prose between them, so
+        // the whole run is scanned: every shape-well-formed span is collected
+        // and the gaps around them are escaped as ordinary text. Handling only
+        // the first span - and escaping the remainder wholesale - destroyed
+        // every directive after the first.
+        $spans = [];
+        $cursor = 0;
+        $length = strlen($text);
+        while (
+            $cursor < $length
+            && preg_match('/\{\{ [^{}]*? \}\}/s', $text, $match, PREG_OFFSET_CAPTURE, $cursor) === 1
+        ) {
+            $span = $match[0][0];
+            $offset = (int)$match[0][1];
+            // A span that is not shape-well-formed is prose, not a reason to
+            // stop: scanning resumes after it so a valid directive later in the
+            // same run is still preserved.
+            if (IncludeDirectiveSyntax::parse($span) !== null) {
+                $spans[] = ['offset' => $offset, 'length' => strlen($span), 'source' => $this->emitDirective($span)];
+            }
+            // Each span is at least '{{  }}', so the cursor always advances.
+            $cursor = $offset + strlen($span);
+        }
+
+        if ($spans === []) {
+            return null;
+        }
+
+        $out = '';
+        $position = 0;
+        foreach ($spans as $span) {
+            $out .= $this->emitDirectiveGap($run, $text, $position, $span['offset']) . $span['source'];
+            $position = $span['offset'] + $span['length'];
+        }
+
+        return [
+            'source' => $out . $this->emitDirectiveGap($run, $text, $position, strlen($text)),
+            'end' => $last,
+        ];
+    }
+
+    /**
+     * Serialize the prose BETWEEN two preserved directives, per node.
+     *
+     * The run was reassembled in SOURCE form so the grammar could match it, and
+     * for some nodes that form is already escaped: an EscapedText contributes
+     * its backslash, a smart-punctuation node the author's own run. Escaping
+     * the reassembled slice wholesale therefore escapes those a second time -
+     * `here\.` came back out as `here\\.`. Only a Text node carries PARSED
+     * content that still needs escaping, so the gap is emitted node by node.
+     *
+     * A directive span always opens `{{` and closes `}}` in plain text, so a
+     * gap boundary can only fall inside a Text node; every other node kind is
+     * either wholly inside the gap or wholly inside a directive.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $run
+     * @param int $to
+     * @param int $from
+     * @param string $text
+     */
+    protected function emitDirectiveGap(array $run, string $text, int $from, int $to): string
+    {
+        if ($from >= $to) {
+            return '';
+        }
+
+        $out = '';
+        $offset = 0;
+        foreach ($run as $node) {
+            $piece = IncludeDirectiveSyntax::textLikeContent([$node]);
+            $start = $offset;
+            $end = $offset + strlen($piece);
+            $offset = $end;
+            if ($end <= $from || $start >= $to) {
+                continue;
+            }
+            if (!$node instanceof Text) {
+                // Already source form; emitting it again is the round trip.
+                $out .= $piece;
+
+                continue;
+            }
+            $out .= $this->escapeText(substr($piece, max($from, $start) - $start, min($to, $end) - max($from, $start)));
+        }
+
+        return $out;
+    }
+
+    /**
+     * Serialize one preserved directive.
+     *
+     * Verbatim, because the run was reassembled from each node's AUTHOR text: a
+     * quoted path reaches the writer as SmartPunctuation nodes whose content is
+     * the `"` the author typed, not the `“` the parser resolved it to. So
+     * the source spelling is still in hand here and needs neither un-curling nor
+     * escaping.
+     *
+     * Escaping the quotes would be actively wrong: a backslash-escaped quote is
+     * not the directive grammar's quoted path, so a formatted document would
+     * stop resolving. The round trip is safe without it - the next parse curls
+     * the delimiters again for rendering while recognition keeps reading the
+     * author's run.
+     */
+    protected function emitDirective(string $raw): string
+    {
+        return $raw;
     }
 
     /**

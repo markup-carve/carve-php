@@ -40,6 +40,11 @@ class HeadingRef extends InlineNode
         $this->href = $href;
     }
 
+    public function setTargetId(string $targetId): void
+    {
+        $this->targetId = $targetId;
+    }
+
     public function getType(): string
     {
         return 'heading_ref';

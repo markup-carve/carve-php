@@ -49,6 +49,10 @@ Besides HTML the converter renders Markdown, plain text and ANSI. The
 Markdown writer's options are in [docs/markdown-output.md](https://github.com/markup-carve/carve-php/blob/main/docs/markdown-output.md),
 and every node can carry its source line - [docs/source-lines.md](https://github.com/markup-carve/carve-php/blob/main/docs/source-lines.md).
 
+A document can pull in other files with `{{ chapter.crv }}`. It is opt-in and
+off by default - the core parser performs no file I/O - and the resolver you
+supply is the security boundary: [docs/includes.md](https://github.com/markup-carve/carve-php/blob/main/docs/includes.md).
+
 Source-aware tools can prepare stale-safe structured formatting changes through
 `CarveConverter::toCarvePatch()`; see the
 [source-preserving patch guide](https://github.com/markup-carve/carve-php/blob/main/docs/source-patches.md).

@@ -52,6 +52,20 @@ namespace MarkupCarve\Carve\Ast;
  */
 final class SourceSpan
 {
+    /**
+     * @param int $startLine
+     * @param int $endLine
+     * @param int $startColumn
+     * @param int $endColumn
+     * @param int $startOffset
+     * @param int $endOffset
+     * @param string|null $file Identity of the file these coordinates are
+     *   measured in, when that is NOT the document being parsed: the canonical
+     *   id of the file an include pulled the node in from (PART 9 §19). Null
+     *   for the top-level document, which leaves every include-free tree
+     *   unchanged - and unlike the six coordinates it is genuinely optional,
+     *   because a document with no includes has nothing to name.
+     */
     public function __construct(
         public readonly int $startLine,
         public readonly int $endLine,
@@ -59,10 +73,34 @@ final class SourceSpan
         public readonly int $endColumn,
         public readonly int $startOffset,
         public readonly int $endOffset,
+        public readonly ?string $file = null,
     ) {
     }
 
     /**
+     * The same span, measured in the named file.
+     */
+    public function withFile(string $file): self
+    {
+        return new self(
+            $this->startLine,
+            $this->endLine,
+            $this->startColumn,
+            $this->endColumn,
+            $this->startOffset,
+            $this->endOffset,
+            $file,
+        );
+    }
+
+    /**
+     * The six coordinates, and only those.
+     *
+     * `file` is deliberately absent: several internal span tables are typed
+     * `array<string, int>`, and widening them all so one serializer can read a
+     * string would spread the wider type across the parser. Use
+     * {@see toWireArray()} where the file matters.
+     *
      * @return array{startLine: int, endLine: int, startColumn: int, endColumn: int, startOffset: int, endOffset: int}
      */
     public function toArray(): array
@@ -75,6 +113,22 @@ final class SourceSpan
             'startOffset' => $this->startOffset,
             'endOffset' => $this->endOffset,
         ];
+    }
+
+    /**
+     * The serialized form: the six coordinates plus `file` when the node came
+     * from an included document (PART 9 §19).
+     *
+     * @return array<string, int|string>
+     */
+    public function toWireArray(): array
+    {
+        $out = $this->toArray();
+        if ($this->file !== null) {
+            $out['file'] = $this->file;
+        }
+
+        return $out;
     }
 
     /**
@@ -91,6 +145,8 @@ final class SourceSpan
             }
         }
 
+        $file = $data['file'] ?? null;
+
         /** @var array{startLine: int, endLine: int, startColumn: int, endColumn: int, startOffset: int, endOffset: int} $data */
         return new self(
             $data['startLine'],
@@ -99,6 +155,7 @@ final class SourceSpan
             $data['endColumn'],
             $data['startOffset'],
             $data['endOffset'],
+            is_string($file) ? $file : null,
         );
     }
 }
