@@ -53,6 +53,34 @@ class CliTest extends TestCase
         return ['out' => (string)$out, 'err' => (string)$err, 'exit' => $exit];
     }
 
+    public function testADocumentThatRendersToNothingStillEndsInOneNewline(): void
+    {
+        // carve-js and carve-rs both do this, and the difference is not
+        // cosmetic: a tool that emits zero bytes leaves the next shell prompt
+        // glued to the command, and a fixture comparison differed by a byte
+        // depending on which engine produced it (#1940).
+        $result = $this->runCliInput([], "%% comment only\n");
+
+        $this->assertSame("\n", $result['out']);
+        $this->assertSame(0, $result['exit']);
+    }
+
+    public function testAnEmptyInputAlsoEndsInOneNewline(): void
+    {
+        $result = $this->runCliInput([], '');
+
+        $this->assertSame("\n", $result['out']);
+    }
+
+    public function testOrdinaryOutputKeepsExactlyOneTrailingNewline(): void
+    {
+        // The other half of the rule: the newline is ENSURED, not appended, so
+        // output that already ends in one does not gain a second.
+        $result = $this->runCliInput([], "x\n");
+
+        $this->assertSame("<p>x</p>\n", $result['out']);
+    }
+
     /**
      * That `--version` prints the constant is this test's whole subject. Whether
      * the constant is the version that actually shipped is ReleaseVersionTest's,
