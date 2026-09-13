@@ -53,6 +53,30 @@ its OWN file and names that file in `SourceSpan::$file`. A node from the
 document being parsed has none. Without it an included span is ambiguous: a
 child's first paragraph and the parent's first paragraph both report line 1.
 
+## From the command line
+
+`bin/carve` is a host like any other, so it supplies a resolver itself. A FILE
+input expands includes with the containment root defaulting to the document's
+own directory:
+
+~~~ bash
+bin/carve book/main.crv                  # root defaults to book/
+bin/carve --include-root . book/main.crv # widen the root to the project
+bin/carve --include-root ./book < main.crv
+~~~
+
+The root is never the process working directory, which is arbitrary with respect
+to the document. Stdin has no path context and therefore no inferable root, so a
+directive stays literal there unless `--include-root` names one.
+
+`--carve` is excluded: that target writes the document back as Carve, and
+inlining every child would hand back a different document than the author wrote.
+`--from-json` is excluded too, since its input is a tree rather than source.
+
+Include warnings print on stderr without `--warnings`. A refused directive
+renders as the literal text it is, which reads exactly like prose somebody
+typed, so silence would hide a real error behind something that looks normal.
+
 ## Security
 
 **Resolver configuration is the security boundary.** Hosts must opt in, and the
