@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Transform;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
@@ -220,6 +221,13 @@ class IncludeExpander implements TransformerInterface
      *   Bounds the pass's own work - reads, lookups - which the byte budget
      *   does not, since a directive is resolved before it can be refused.
      */
+    /**
+     * Lazily built in parseChild(); see there for why it is not the host's.
+     *
+     * @var \MarkupCarve\Carve\CarveConverter|null
+     */
+    protected ?CarveConverter $childConverter = null;
+
     public function __construct(
         protected ?IncludeResolverInterface $resolver = null,
         protected ?string $currentPath = null,
@@ -665,7 +673,7 @@ class IncludeExpander implements TransformerInterface
             $source = $this->sliceLines($source, $directive['lines']['start'], $directive['lines']['end']);
         }
 
-        $document = (new BlockParser(trackPositions: $this->trackPositions))->parse($source);
+        $document = $this->parseChild($source);
         if ($directive['section'] !== null) {
             $document = $this->selectSection($document, $directive['section']);
             if ($document === null) {
@@ -715,6 +723,35 @@ class IncludeExpander implements TransformerInterface
         $this->warn("Inline include resolved to block content for '{$directive['path']}'", self::RULE_BLOCK_IN_INLINE);
 
         return null;
+    }
+
+    /**
+     * Parse one included file AS ITS OWN DOCUMENT (spec I4).
+     *
+     * Through a converter rather than a bare `BlockParser`, because in this
+     * engine two pieces of the LANGUAGE are carried by default extensions:
+     * frontmatter (a leading `--- … ---` block is metadata, not a thematic
+     * break) and mentions / tags. A bare parser has neither, so an included
+     * chapter rendered its own frontmatter as a thematic break plus a
+     * paragraph, and `@alice` in a child stayed plain text where the same
+     * child rendered on its own - or by carve-js and carve-rs, where both are
+     * core - produced a mention.
+     *
+     * A FRESH converter, not the host's: its extensions apply to the assembled
+     * document after expansion, so running them on the child as well would
+     * apply them twice. What the child needs is what any document gets before
+     * a host adds anything.
+     *
+     * @param string $source
+     * @return \MarkupCarve\Carve\Node\Document
+     */
+    protected function parseChild(string $source): Document
+    {
+        $this->childConverter ??= CarveConverter::create(
+            new BlockParser(trackPositions: $this->trackPositions),
+        );
+
+        return $this->childConverter->parse($source);
     }
 
     /**
