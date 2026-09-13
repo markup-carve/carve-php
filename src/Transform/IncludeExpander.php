@@ -231,6 +231,31 @@ class IncludeExpander implements TransformerInterface
     ) {
     }
 
+    /**
+     * Whether the include pass runs for a given output format (spec I15).
+     *
+     * Only Carve source opts out, and the reason is not performance: that
+     * target writes the document back as Carve, and expanding first returns a
+     * DIFFERENT document, with every child inlined and the directives gone. The
+     * writer already preserves a directive verbatim (I12); expanding before it
+     * runs takes that away by another route.
+     *
+     * The JSON / AST dump is NOT Carve source - it publishes a tree - so it
+     * expands, matching carve-js and carve-rs.
+     *
+     * Lives here rather than in `bin/carve` so the rule has one home, read by
+     * the CLI and by the include-conformance suite alike. carve-js kept it
+     * inline in its CLI and inlined every child on `render --carve` as a result.
+     *
+     * @param string $format The CLI output format (`html`, `carve`, `json`, ...).
+     *
+     * @return bool
+     */
+    public static function expandsForFormat(string $format): bool
+    {
+        return $format !== 'carve';
+    }
+
     public function transform(Document $document): Document
     {
         $this->warnings = [];

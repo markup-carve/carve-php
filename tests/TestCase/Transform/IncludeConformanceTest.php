@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Transform;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
 use MarkupCarve\Carve\Transform\IncludeContext;
 use MarkupCarve\Carve\Transform\IncludeExpander;
@@ -98,6 +99,14 @@ class IncludeConformanceTest extends TestCase
             "{$name}: html mismatch",
         );
         $this->assertSame($expected['fmt'], $result['fmt'], "{$name}: fmt mismatch");
+        if (isset($expected['carveTarget'])) {
+            $this->assertArrayHasKey('carveTarget', $result, "{$name}: no carveTarget produced");
+            $this->assertSame(
+                $expected['carveTarget'],
+                $result['carveTarget'],
+                "{$name}: the carve target expanded (I15)",
+            );
+        }
         $this->assertSame($expected['warnings'], $result['warnings'], "{$name}: warnings mismatch");
         $this->assertSame($expected['dependencies'], $result['dependencies'], "{$name}: dependencies mismatch");
 
@@ -173,6 +182,20 @@ class IncludeConformanceTest extends TestCase
                 'rawWarningMessages' => $run['rawWarningMessages'],
             ];
 
+            if (!empty($vector['checkCarveTarget'])) {
+                // I15, routed through the predicate the CLI reads rather than
+                // spelled here. Serializing the entry directly would assert the
+                // writer twice and never see the pipeline decision, which is
+                // the half this vector exists for.
+                $document = IncludeExpander::expandsForFormat('carve')
+                    ? $this->expandDocument($entry, $resolver, $currentPath, $options)
+                    : (new CarveConverter())->parse($entry);
+                $out['carveTarget'] = $this->foldTmp(
+                    CarveConverter::carve()->render($document),
+                    $baseReal,
+                );
+            }
+
             if (!empty($vector['checkFmtExpandEquivalence']) && ($vector['mode'] ?? 'virtual') !== 'filesystem') {
                 $formatted = $out['fmt'];
                 $frun = $this->expand($formatted, $resolver, $currentPath, $options, $baseReal);
@@ -202,6 +225,34 @@ class IncludeConformanceTest extends TestCase
      *
      * @return array{html: string, warnings: list<array{rule: string, file?: string}>, dependencies: list<array{id: string, resolved: bool}>, rawWarningMessages: list<string>}
      */
+
+    /**
+     * The expanded DOCUMENT for one entry, with the same options `expand()`
+     * uses. Split out so the I15 check can ask for the tree rather than the
+     * rendered HTML.
+     *
+     * @param string $entry
+     * @param \MarkupCarve\Carve\Transform\IncludeResolverInterface|null $resolver
+     * @param string|null $currentPath
+     * @param array<string, mixed> $options
+     *
+     * @return \MarkupCarve\Carve\Node\Document
+     */
+    protected function expandDocument(
+        string $entry,
+        ?IncludeResolverInterface $resolver,
+        ?string $currentPath,
+        array $options,
+    ): Document {
+        $depthLimit = isset($options['maxDepth']) ? (int)$options['maxDepth'] : 16;
+        $byteBudget = isset($options['maxBytes']) ? (int)$options['maxBytes'] : null;
+
+        $converter = CarveConverter::create();
+        $expander = new IncludeExpander($resolver, $currentPath, $depthLimit, $byteBudget, $entry);
+
+        return $converter->transform($converter->parse($entry), $expander);
+    }
+
     protected function expand(
         string $entry,
         ?IncludeResolverInterface $resolver,

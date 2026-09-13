@@ -899,7 +899,7 @@ if ($includeRoot === null && $inputFile !== null) {
 }
 $wantIncludes = $includeRoot !== null
     && !$options['fromJson']
-    && $options['format'] !== 'carve'
+    && IncludeExpander::expandsForFormat((string)$options['format'])
     && ($options['includeRoot'] !== null || str_contains($input, '{{'));
 
 if ($wantIncludes) {
