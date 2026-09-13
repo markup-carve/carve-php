@@ -12,8 +12,8 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
-use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -377,6 +377,7 @@ class IncludeExpander implements TransformerInterface
      * a run a directive could sit in.
      *
      * @param \MarkupCarve\Carve\Node\Node $node
+     *
      * @return bool
      */
     protected function holdsInlineContent(Node $node): bool
@@ -774,6 +775,7 @@ class IncludeExpander implements TransformerInterface
      * a host adds anything.
      *
      * @param string $source
+     *
      * @return \MarkupCarve\Carve\Node\Document
      */
     protected function parseChild(string $source): Document
@@ -794,7 +796,7 @@ class IncludeExpander implements TransformerInterface
         $blocks = $document->getChildren();
         $kept = array_values(array_filter(
             $blocks,
-            static fn($block): bool => !($block instanceof Frontmatter),
+            static fn ($block): bool => !($block instanceof Frontmatter),
         ));
         if (count($kept) !== count($blocks)) {
             $document->setChildren($kept);
@@ -1064,6 +1066,7 @@ class IncludeExpander implements TransformerInterface
      * (PART 11 section 1).
      *
      * @param \MarkupCarve\Carve\Node\Document $document
+     *
      * @return void
      */
     protected function collectIncludedFootnoteDefinitions(Document $document): void
@@ -1092,6 +1095,7 @@ class IncludeExpander implements TransformerInterface
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<int, \MarkupCarve\Carve\Node\Block\Footnote> $remove
+     *
      * @return void
      */
     protected function removeNodes(Node $node, array $remove): void
@@ -1123,6 +1127,7 @@ class IncludeExpander implements TransformerInterface
      * actually survived.
      *
      * @param \MarkupCarve\Carve\Node\Document $document
+     *
      * @return void
      */
     protected function rebindFootnoteRefs(Document $document): void
