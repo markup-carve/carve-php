@@ -77,6 +77,25 @@ Include warnings print on stderr without `--warnings`. A refused directive
 renders as the literal text it is, which reads exactly like prose somebody
 typed, so silence would hide a real error behind something that looks normal.
 
+### One self-contained file
+
+`bin/carve flatten` writes the document back as Carve with every include
+expanded in place - the deliberate opposite of `fmt`, which leaves directives
+alone so formatting returns the author's document. Flattening is for handing the
+document to something with no filesystem behind it: a web editor, a paste box, a
+colleague.
+
+~~~ bash
+bin/carve flatten book/main.crv > one-file.crv
+bin/carve flatten --include-root ./book < main.crv
+~~~
+
+Two things it changes beyond inlining, both reported on stderr: the output is
+canonical Carve, so formatting is normalized rather than preserved, and
+colliding explicit ids and footnote labels are renamed. The renames are written
+into the source, so the flattened file renders exactly like the expanded
+original.
+
 ## Security
 
 **Resolver configuration is the security boundary.** Hosts must opt in, and the

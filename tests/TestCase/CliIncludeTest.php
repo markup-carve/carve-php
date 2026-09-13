@@ -113,6 +113,72 @@ class CliIncludeTest extends TestCase
         $this->assertStringNotContainsString('Chapter body.', $result['out']);
     }
 
+    public function testFlattenInlinesEveryIncludeIntoOneDocument(): void
+    {
+        $result = $this->runCli(['flatten', $this->root . '/main.crv']);
+
+        $this->assertStringContainsString('Chapter body.', $result['out']);
+        $this->assertStringNotContainsString('{{', $result['out']);
+        $this->assertSame(0, $result['exit']);
+    }
+
+    public function testFlattenIsTheOnlyCarveOutputThatExpands(): void
+    {
+        // The pair that says why both commands exist: fmt round-trips the
+        // author's document (I15), flatten asks for the other one.
+        $fmt = $this->runCli(['fmt', $this->root . '/main.crv']);
+        $this->assertStringContainsString('{{ chapters/one.crv }}', $fmt['out']);
+
+        $flat = $this->runCli(['flatten', $this->root . '/main.crv']);
+        $this->assertStringContainsString('Chapter body.', $flat['out']);
+    }
+
+    public function testAFlattenedDocumentRendersLikeTheExpandedOriginal(): void
+    {
+        // The invariant that makes flattening safe to paste, and it is not
+        // free: expansion renames colliding explicit ids and footnote labels
+        // (I5), so the renames have to survive into the SOURCE or the
+        // flattened file resolves its own references differently.
+        mkdir($this->root . '/ch');
+        file_put_contents(
+            $this->root . '/main.crv',
+            "Parent [^note].\n\n[^note]: Parent note.\n\n{{ ch/a.crv }}\n\n{{ ch/b.crv }}\n",
+        );
+        file_put_contents($this->root . '/ch/a.crv', "{#intro}\n# A\n\nChild a [^note].\n\n[^note]: A note.\n");
+        file_put_contents($this->root . '/ch/b.crv', "{#intro}\n# B\n\nChild b [^note].\n\n[^note]: B note.\n");
+
+        $expanded = $this->runCli([$this->root . '/main.crv']);
+        $flat = $this->runCli(['flatten', $this->root . '/main.crv']);
+        file_put_contents($this->root . '/flat.crv', $flat['out']);
+        $rendered = $this->runCli([$this->root . '/flat.crv']);
+
+        $this->assertSame($expanded['out'], $rendered['out']);
+        $this->assertStringContainsString('[^note-2]', $flat['out']);
+        $this->assertStringContainsString('{#intro-2}', $flat['out']);
+
+        unlink($this->root . '/flat.crv');
+        unlink($this->root . '/ch/a.crv');
+        unlink($this->root . '/ch/b.crv');
+        rmdir($this->root . '/ch');
+    }
+
+    public function testFlattenRefusesStdinWithNoRoot(): void
+    {
+        // "Flatten this" with nothing to resolve against cannot be honoured,
+        // and echoing the document back would look like it had no includes.
+        $result = $this->runCli(['flatten'], "{{ child.crv }}\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('--include-root', $result['err']);
+    }
+
+    public function testFlattenTakesAnExplicitRootForStdin(): void
+    {
+        $result = $this->runCli(['flatten', '--include-root', $this->root], "{{ chapters/one.crv }}\n");
+
+        $this->assertStringContainsString('Chapter body.', $result['out']);
+    }
+
     public function testAnUnusableExplicitRootIsFatal(): void
     {
         // An explicit root is a user request, so a bad one fails loudly rather

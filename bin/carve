@@ -116,6 +116,96 @@ function writeRendered(string $output, ?string $file): void
 }
 
 /**
+ * `carve flatten` - write the document back as ONE self-contained Carve file,
+ * with every include expanded in place.
+ *
+ * The deliberate opposite of `carve fmt`, and the reason both exist. Formatting
+ * round-trips the author's document, so it leaves directives alone (spec I15);
+ * flattening asks for the OTHER document, the one with the children merged in,
+ * because that is what can be handed to something with no filesystem behind it.
+ *
+ * Two effects beyond inlining, both reported on stderr rather than left to be
+ * discovered in a published page: the output is CANONICAL Carve, so formatting
+ * is normalized rather than preserved, and colliding heading ids and footnote
+ * labels are renamed (I5). The renames are written into the source, so the
+ * flattened file renders exactly like the expanded original.
+ *
+ * @param array<int, string> $argv
+ */
+function runFlattenCommand(array $argv): never
+{
+    $includeRoot = null;
+    $input = null;
+    $argc = count($argv);
+    for ($i = 2; $i < $argc; $i++) {
+        $arg = $argv[$i];
+        if ($arg === '--include-root') {
+            if (!isset($argv[$i + 1])) {
+                fwrite(STDERR, "Error: --include-root requires a directory\n");
+                exit(1);
+            }
+            $includeRoot = $argv[++$i];
+        } elseif ($arg === '-h' || $arg === '--help') {
+            showHelp();
+            exit(0);
+        } elseif (str_starts_with($arg, '-') && $arg !== '-') {
+            fwrite(STDERR, "Error: Unknown option: $arg\n");
+            exit(1);
+        } elseif ($input !== null) {
+            fwrite(STDERR, "Error: Multiple input files specified\n");
+            exit(1);
+        } else {
+            $input = $arg;
+        }
+    }
+
+    if ($input !== null && $input !== '-') {
+        if (!is_readable($input)) {
+            fwrite(STDERR, "Error: Cannot read file: $input\n");
+            exit(1);
+        }
+        $source = (string)file_get_contents($input);
+        $sourcePath = realpath($input) ?: $input;
+    } else {
+        $source = (string)stream_get_contents(STDIN);
+        $sourcePath = null;
+    }
+
+    $root = $includeRoot ?? ($sourcePath === null ? null : dirname($sourcePath));
+    if ($root === null) {
+        // "Flatten this" with nothing to resolve against cannot be honoured,
+        // and echoing the document back would look like it had no includes.
+        fwrite(
+            STDERR,
+            "Error: stdin has no directory to resolve includes against; pass --include-root DIR\n",
+        );
+        exit(1);
+    }
+
+    try {
+        $resolver = new FilesystemIncludeResolver($root);
+    } catch (RuntimeException $exception) {
+        fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
+        exit(1);
+    }
+
+    $converter = CarveConverter::create();
+    $expander = new IncludeExpander(resolver: $resolver, currentPath: $sourcePath);
+    $document = $converter->transform($converter->parse($source), $expander);
+
+    foreach ($expander->getWarnings() as $warning) {
+        fwrite(STDERR, 'carve: ' . $warning->getMessage() . ' [' . ($warning->getRule() ?? 'include') . "]\n");
+    }
+    $suppressed = $expander->getSuppressedWarnings();
+    if ($suppressed > 0) {
+        fwrite(STDERR, "carve: $suppressed further include warning(s) suppressed\n");
+    }
+
+    echo CarveConverter::carve()->render($document);
+    exit(0);
+ }
+
+/**
  * @param array<int, string> $argv
  */
 function runMergeCommand(array $argv): never
@@ -516,6 +606,7 @@ Carve - Render Carve markup
 
 Usage:
   carve fmt [options] [files...]
+  carve flatten [--include-root DIR] [file]
   carve merge [--json] base.crv ours.crv theirs.crv
   carve [options] [input-file]
   cat file.crv | carve [options]
@@ -555,6 +646,12 @@ Formatter:
   fmt --check         Exit non-zero if any file is not formatted
   fmt --stamp         Append/replace a one-line provenance marker
   fmt --stamp-block   Append/replace a block provenance marker
+  flatten             Write the document as ONE self-contained file, every
+                      include expanded in place. The opposite of fmt, which
+                      leaves directives alone so formatting returns the
+                      author's document. Output is canonical Carve and
+                      colliding explicit ids / footnote labels are renamed;
+                      both are reported on stderr.
 
 Migration (other markup to Carve, on stdout):
   migrate --from FORMAT   html, markdown (md), djot or bbcode
@@ -589,6 +686,7 @@ Examples:
   carve --ansi document.crv             Render colored terminal output
   carve book/main.crv                   Expand includes against book/
   carve --include-root . book/main.crv  Widen the include root to the project
+  carve flatten book/main.crv           Write it as ONE self-contained file
   carve --markdown document.crv         Render Markdown
   carve --carve document.crv            Render canonical Carve source
   carve fmt -w document.crv             Format file in place
@@ -605,6 +703,9 @@ function showVersion(): void
 }
 
 // Main
+if (($argv[1] ?? null) === 'flatten') {
+    runFlattenCommand($argv);
+}
 if (($argv[1] ?? null) === 'merge') {
     runMergeCommand($argv);
 }
