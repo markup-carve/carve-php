@@ -99,6 +99,10 @@ class IncludeConformanceTest extends TestCase
             "{$name}: html mismatch",
         );
         $this->assertSame($expected['fmt'], $result['fmt'], "{$name}: fmt mismatch");
+        if (isset($expected['flattened'])) {
+            $this->assertArrayHasKey('flattened', $result, "{$name}: no flattened output produced");
+            $this->assertSame($expected['flattened'], $result['flattened'], "{$name}: flattened mismatch");
+        }
         if (isset($expected['carveTarget'])) {
             $this->assertArrayHasKey('carveTarget', $result, "{$name}: no carveTarget produced");
             $this->assertSame(
@@ -182,6 +186,18 @@ class IncludeConformanceTest extends TestCase
                 'rawWarningMessages' => $run['rawWarningMessages'],
             ];
 
+            if (!empty($vector['checkFlattened'])) {
+                // The EXPANDED document through the writer - what `flatten`
+                // emits. The html golden cannot see the assembled tree's shape:
+                // footnotes are collected globally at render time either way.
+                $out['flattened'] = $this->foldTmp(
+                    CarveConverter::carve()->render(
+                        $this->expandDocument($entry, $resolver, $currentPath, $options),
+                    ),
+                    $baseReal,
+                );
+            }
+
             if (!empty($vector['checkCarveTarget'])) {
                 // I15, routed through the predicate the CLI reads rather than
                 // spelled here. Serializing the entry directly would assert the
@@ -247,7 +263,10 @@ class IncludeConformanceTest extends TestCase
         $depthLimit = isset($options['maxDepth']) ? (int)$options['maxDepth'] : 16;
         $byteBudget = isset($options['maxBytes']) ? (int)$options['maxBytes'] : null;
 
-        $converter = CarveConverter::create();
+        // POSITIONS ON, like the reference runner: the writer orders collected
+        // definitions by source position, so a document parsed without them
+        // publishes a merged child's footnote definitions in label order.
+        $converter = CarveConverter::carve();
         $expander = new IncludeExpander($resolver, $currentPath, $depthLimit, $byteBudget, $entry);
 
         return $converter->transform($converter->parse($entry), $expander);

@@ -1021,7 +1021,14 @@ class CarveRenderer implements RendererInterface
             // BOTH collected kinds, because the author can write either on a
             // description line: a link reference definition or a footnote.
             if ($child instanceof LinkReferenceDefinition || $child instanceof Footnote) {
-                $line = $child->getPos()?->startLine;
+                // ONLY a definition authored in THIS file is written back where
+                // it was authored. A definition an include brought in carries
+                // its own file's line numbers (`pos.file` names which file),
+                // and those coordinates mean nothing here - indexing by them
+                // wrote a merged child's footnote into the middle of the parent
+                // instead of hoisting it with the rest.
+                $pos = $child->getPos();
+                $line = $pos?->file === null ? $pos?->startLine : null;
                 // First writer wins for a line, which cannot normally collide:
                 // two definitions on one line is not a shape the parser builds.
                 if ($line !== null && !isset($this->definitionsByLine[$line])) {

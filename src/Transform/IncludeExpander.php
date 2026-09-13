@@ -6,11 +6,13 @@ namespace MarkupCarve\Carve\Transform;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\ParseWarning;
+use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -355,8 +357,37 @@ class IncludeExpander implements TransformerInterface
                 continue;
             }
 
+            // ANY node holding inline content directly, not a list of block
+            // kinds: a directive is recognized wherever inline content is (I2),
+            // and a table cell reaches that content without a paragraph in
+            // between. Enumerating block classes missed cells, which rendered
+            // the literal `{{ ... }}` where carve-js and carve-rs expanded it.
+            if ($this->holdsInlineContent($child)) {
+                $this->expandInlineRuns($child, $currentPath, $stack, $depth, $budget);
+
+                continue;
+            }
+
             $this->expandChildren($child, $currentPath, $stack, $depth, $budget);
         }
+    }
+
+    /**
+     * Whether this node's own children are inline nodes, i.e. whether it holds
+     * a run a directive could sit in.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @return bool
+     */
+    protected function holdsInlineContent(Node $node): bool
+    {
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof InlineNode) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -751,7 +782,25 @@ class IncludeExpander implements TransformerInterface
             new BlockParser(trackPositions: $this->trackPositions),
         );
 
-        return $this->childConverter->parse($source);
+        $document = $this->childConverter->parse($source);
+
+        // THE CHILD'S FRONTMATTER IS THE CHILD'S. It is metadata about the file
+        // that was pulled in, not about the document being assembled, and the
+        // assembled document already has (or has not) its own. Parsing the
+        // child as a whole document is what makes it frontmatter rather than a
+        // thematic break; dropping the node here is what keeps it from being
+        // written back out in the middle of the parent when the assembled
+        // document is serialized.
+        $blocks = $document->getChildren();
+        $kept = array_values(array_filter(
+            $blocks,
+            static fn($block): bool => !($block instanceof Frontmatter),
+        ));
+        if (count($kept) !== count($blocks)) {
+            $document->setChildren($kept);
+        }
+
+        return $document;
     }
 
     /**
@@ -995,6 +1044,102 @@ class IncludeExpander implements TransformerInterface
     {
         $this->resolveFootnoteCollisions($document);
         $this->resolveExplicitHeadingCollisions($document);
+        $this->rebindFootnoteRefs($document);
+        $this->collectIncludedFootnoteDefinitions($document);
+    }
+
+    /**
+     * Move footnote definitions an include brought in to the end of the
+     * document, which is where parsing the equivalent flat file puts them.
+     *
+     * A definition written mid-document is already collected to the end by an
+     * ordinary parse in every engine. A merged child's definition never went
+     * through that, so it stayed wherever the child had it - interleaved
+     * between the parent's blocks - and the tree, and the Carve the writer
+     * produced from it, disagreed with the same document written by hand.
+     *
+     * ONLY definitions carrying a file identity move: those are the ones an
+     * include brought in. A definition the author wrote in THIS file keeps the
+     * position it was authored at, which is a round-trip requirement of its own
+     * (PART 11 section 1).
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @return void
+     */
+    protected function collectIncludedFootnoteDefinitions(Document $document): void
+    {
+        $included = [];
+        foreach ($this->collect($document, Footnote::class) as $footnote) {
+            if ($footnote->getPos()?->file !== null) {
+                $included[spl_object_id($footnote)] = $footnote;
+            }
+        }
+        if ($included === []) {
+            return;
+        }
+
+        $this->removeNodes($document, $included);
+
+        $children = $document->getChildren();
+        foreach ($included as $footnote) {
+            $children[] = $footnote;
+        }
+        $document->setChildren($children);
+    }
+
+    /**
+     * Detach the given nodes wherever they sit in the tree.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<int, \MarkupCarve\Carve\Node\Block\Footnote> $remove
+     * @return void
+     */
+    protected function removeNodes(Node $node, array $remove): void
+    {
+        $children = $node->getChildren();
+        $kept = [];
+        foreach ($children as $child) {
+            if (isset($remove[spl_object_id($child)])) {
+                continue;
+            }
+            $this->removeNodes($child, $remove);
+            $kept[] = $child;
+        }
+        if (count($kept) !== count($children)) {
+            $node->setChildren($kept);
+        }
+    }
+
+    /**
+     * Re-bind footnote references across the include boundary.
+     *
+     * A reference is marked unresolved at PARSE time, when only its own file is
+     * in hand - so a child referring to a note the parent defines, or a parent
+     * referring to one a child brings in, was frozen as literal text before the
+     * two halves ever met. Footnotes are collected and numbered globally in the
+     * ASSEMBLED document (I5), so the question is only answerable here.
+     *
+     * Runs after collision renaming, so it binds against the labels that
+     * actually survived.
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @return void
+     */
+    protected function rebindFootnoteRefs(Document $document): void
+    {
+        $defined = [];
+        foreach ($this->collect($document, Footnote::class) as $footnote) {
+            $defined[$footnote->getLabel()] = true;
+        }
+        if ($defined === []) {
+            return;
+        }
+
+        foreach ($this->collect($document, FootnoteRef::class) as $ref) {
+            if ($ref->isUnresolved() && isset($defined[$ref->getLabel()])) {
+                $ref->setUnresolved(false);
+            }
+        }
     }
 
     protected function resolveFootnoteCollisions(Document $document): void

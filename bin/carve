@@ -189,7 +189,12 @@ function runFlattenCommand(array $argv): never
         exit(1);
     }
 
-    $converter = CarveConverter::create();
+    // POSITIONS ON, via the writer's own factory: the expander collects a
+    // merged child's footnote definitions by their file identity (`pos.file`),
+    // and the writer orders collected definitions by the spans positions carry.
+    // Parsed without them, every merged definition reported no span, so they
+    // stayed interleaved between the parent's blocks where the child had them.
+    $converter = CarveConverter::carve();
     $expander = new IncludeExpander(resolver: $resolver, currentPath: $sourcePath);
     $document = $converter->transform($converter->parse($source), $expander);
 
@@ -201,7 +206,7 @@ function runFlattenCommand(array $argv): never
         fwrite(STDERR, "carve: $suppressed further include warning(s) suppressed\n");
     }
 
-    echo CarveConverter::carve()->render($document);
+    echo $converter->render($document);
     exit(0);
  }
 

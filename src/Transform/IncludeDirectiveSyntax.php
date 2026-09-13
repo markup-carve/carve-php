@@ -115,7 +115,14 @@ class IncludeDirectiveSyntax
      */
     public static function parse(string $text): ?array
     {
-        if (!preg_match('/^\{\{ (.+) \}\}$/s', $text, $match)) {
+        // The padding is a RUN of whitespace, not one space (grammar PART 6).
+        // At least one character is required on each side - `{{c.crv}}` and
+        // `{{ c.crv}}` are literal text - but beyond the first, more changes
+        // nothing: a bare path stops at the first space anyway. Refusing the
+        // extra turned an ALIGNED directive into prose with no warning, which
+        // is the failure mode section 19's error rules exist to avoid, and it
+        // is what carve-js and carve-rs already accepted.
+        if (!preg_match('/^\{\{[ \t]+(.+?)[ \t]+\}\}$/s', $text, $match)) {
             return null;
         }
 
