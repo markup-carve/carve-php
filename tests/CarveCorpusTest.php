@@ -83,6 +83,8 @@ class CarveCorpusTest extends TestCase
         'a-bracketed-construct-spanning-a-line-boundary',
         'a-bracketed-construct-spanning-a-verse-boundary',
         'a-closed-inline-construct-spanning-a-verse-boundary',
+        // Added by spec 7ecfb35c after the engine fix in carve-php#1929.
+        'a-column-0-line-after-a-description-hosted-note-is-a-document-sibling',
         'a-column-0-line-after-a-container-s-last-block-when-that-block-left-no-paragraph-open',
         'a-comment-fence-reached-through-a-quote-registers-nothing-either',
         'a-container-whose-table-ends-on-a-continuation-row',
