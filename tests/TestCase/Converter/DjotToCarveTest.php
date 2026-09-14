@@ -63,6 +63,72 @@ class DjotToCarveTest extends TestCase
         $this->assertSame($input, $this->converter->convert($input));
     }
 
+    public function testSiteFrontmatterIsOutsideDjotDelimiterConversion(): void
+    {
+        $input = "---\nkey: my_long_value\n---\n\nBody.";
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testMultipleFootnoteReferencesAndDefinitionsAreUntouched(): void
+    {
+        $input = "One.[^foo] Two.[^bar]\n\n[^foo]: First.\n\n[^bar]: Second.";
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testDjotDefinitionItemsBecomeCarveDefinitionItems(): void
+    {
+        $input = ": orange\n\n  A citrus fruit.\n\n: apple\n\n  A pome.\n\n  A second paragraph.";
+        $expected = "{loose}\n:: orange\n\n:  A citrus fruit.\n\n:: apple\n\n:  A pome.\n\n   A second paragraph.";
+        $carve = $this->converter->convert($input);
+        $this->assertSame($expected, $carve);
+        $this->assertStringContainsString('<dl>', CarveConverter::create()->convert($carve));
+    }
+
+    public function testAColonLineDoesNotInterruptADjotParagraph(): void
+    {
+        $input = "Paragraph\n: still paragraph";
+        $this->assertSame($input, $this->converter->convert($input));
+    }
+
+    public function testDefinitionBodiesKeepTabsFencesAndNestedLists(): void
+    {
+        foreach (
+            [
+                ": term\n\n\tTabbed body." => 'Tabbed body.',
+                ": term\n\n  ```\n  code\n  ```" => '<pre><code>code',
+                ": outer\n\n  : inner\n\n    Inner body." => '<dl>',
+            ] as $input => $needle
+        ) {
+            $html = CarveConverter::create()->convert($this->converter->convert($input));
+            $this->assertStringContainsString($needle, $html, $input);
+        }
+    }
+
+    public function testFrontmatterKeepsItsAuthoredEnvelopeAndSeparator(): void
+    {
+        foreach (
+            [
+                "--- yaml\ntitle: a_b_c\n---\n\nBody.",
+                "---\ntitle: a_b_c\n---  \nBody.",
+                "---\nkey: value\n---",
+            ] as $input
+        ) {
+            $this->assertSame($input, $this->converter->convert($input));
+        }
+    }
+
+    public function testAnEmptyFrontmatterEnvelopeStillSeparatesTheDjotBody(): void
+    {
+        $html = CarveConverter::create()->convert($this->converter->convert("---\n---\n: term\n\n  body"));
+        $this->assertStringContainsString('<dl>', $html);
+    }
+
+    public function testATightDjotTermContinuationStaysInTheTerm(): void
+    {
+        $html = CarveConverter::create()->convert($this->converter->convert(": fruit\n  A thing."));
+        $this->assertMatchesRegularExpression('/<dt>fruit\s+A thing\.<\/dt>/', $html);
+    }
+
     public function testTableContinuationRowsAreNotConvertedToBullets(): void
     {
         $input = "| a | b |\n|---|---|\n| one | x |\n+ continues here | y |\n";
@@ -636,6 +702,29 @@ class DjotToCarveTest extends TestCase
         CARVE;
 
         $this->assertSame($expected, $this->converter->convert($djot));
+    }
+
+    #[DataProvider('djotBlockMarkerProvider')]
+    public function testDjotOnlyBlockMarkersKeepTheirStructure(string $source, string $needle): void
+    {
+        $html = (new CarveConverter())->convert($this->converter->convert($source));
+        $this->assertStringContainsString($needle, $html);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function djotBlockMarkerProvider(): iterable
+    {
+        yield 'spaced star rule' => ['* * *', '<hr>'];
+        yield 'spaced dash rule' => ["-  -\t-", '<hr>'];
+        yield 'indented rule' => ['      * * * *', '<hr>'];
+        yield 'quoted rule' => ['> * * *', '<hr>'];
+        yield 'rule in list' => ["- item\n\n  * * *", '<hr>'];
+        yield 'decimal parenthesized list' => ["(1) one\n(2) two", '<ol>'];
+        yield 'alpha parenthesized list' => ["(a) one\n(b) two", '<ol type="a">'];
+        yield 'roman parenthesized list' => ["(i) one\n(ii) two", '<ol type="i">'];
+        yield 'quoted parenthesized list' => ["> (1) one\n> (2) two", '<ol>'];
     }
 
     /**

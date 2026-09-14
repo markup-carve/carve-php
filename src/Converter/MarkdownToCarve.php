@@ -82,6 +82,8 @@ class MarkdownToCarve
      */
     protected bool $convertAttributes = false;
 
+    protected bool $convertRawHtml = true;
+
     public function __construct(
         bool $convertMath = false,
         bool $convertHighlight = false,
@@ -89,6 +91,7 @@ class MarkdownToCarve
         bool $convertAbbreviations = false,
         bool $convertFencedDivs = false,
         bool $convertAttributes = false,
+        bool $convertRawHtml = true,
     ) {
         $this->convertMath = $convertMath;
         $this->convertHighlight = $convertHighlight;
@@ -96,6 +99,7 @@ class MarkdownToCarve
         $this->convertAbbreviations = $convertAbbreviations;
         $this->convertFencedDivs = $convertFencedDivs;
         $this->convertAttributes = $convertAttributes;
+        $this->convertRawHtml = $convertRawHtml;
     }
 
     /**
@@ -264,6 +268,26 @@ class MarkdownToCarve
                 && !($prevLineType === 'text' && $ordered !== null && (int)$ordered[1] !== 1);
 
             $contentCol = $listCols === [] ? 0 : (int)end($listCols);
+
+            if ($this->convertRawHtml) {
+                $htmlBlock = $this->collectPairedHtmlBlock($lines, $i, $contentCol);
+                if ($htmlBlock !== null) {
+                    if ($prevLineType !== 'blank' && $result !== []) {
+                        $result[] = $this->containerSeparator($line, $contentCol);
+                    }
+                    foreach ($htmlBlock['lines'] as $htmlLine) {
+                        $result[] = $htmlLine;
+                    }
+                    $i = $htmlBlock['end'];
+                    if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
+                        $result[] = $this->containerSeparator($line, $contentCol);
+                    }
+                    $prevLineType = 'text';
+                    $bulletRunBroken = true;
+
+                    continue;
+                }
+            }
 
             // A block-level HTML element is a BLOCK wherever it stands, and
             // CommonMark's start conditions apply inside a container exactly as
@@ -752,6 +776,82 @@ class MarkdownToCarve
     }
 
     /**
+     * Collect a well-balanced multiline HTML element at a block position.
+     *
+     * CommonMark treats the whole run as raw HTML. Feeding it to HtmlToCarve
+     * in one piece is important: converting child tags line by line loses the
+     * outer element and lets markup-looking text inside it escape the audited
+     * importer. Container prefixes are removed before DOM parsing and restored
+     * on every emitted Carve line.
+     *
+     * @param array<int, string> $lines
+     * @param int $contentCol
+     * @param int $start
+     *
+     * @return array{lines: array<int, string>, end: int}|null
+     */
+    protected function collectPairedHtmlBlock(array $lines, int $start, int $contentCol): ?array
+    {
+        $first = $this->stripContainerPrefix($lines[$start], $contentCol);
+        $markerPrefix = null;
+        if (
+            $first === null
+            && preg_match('/^([ \t]*(?:[-*+]|[0-9]+[.)])[ \t]+)(<.*)$/', $lines[$start], $marker) === 1
+        ) {
+            $markerPrefix = $marker[1];
+            $first = $marker[2];
+        }
+        if (
+            $first === null
+            || preg_match('/^<([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+[^<>]*?)?>[ \t]*$/', $first, $open) !== 1
+        ) {
+            return null;
+        }
+        $tag = $open[1];
+        $parts = [$first];
+        $end = null;
+        $container = $this->containerKey($lines[$start], $contentCol);
+        for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
+            if ($this->containerKey($lines[$i], $contentCol) !== $container) {
+                break;
+            }
+            $rest = $this->stripContainerPrefix($lines[$i], $contentCol);
+            if ($rest === null) {
+                break;
+            }
+            $parts[] = $rest;
+            if (preg_match('/<\/' . preg_quote($tag, '/') . '>[ \t]*$/i', $rest) === 1) {
+                $end = $i;
+
+                break;
+            }
+        }
+        if ($end === null) {
+            return null;
+        }
+
+        $converted = rtrim((new HtmlToCarve())->convert(implode("\n", $parts)), "\n");
+        $prefix = $markerPrefix ?? $this->htmlContainerPrefix($lines[$start], $first);
+        $continuation = $markerPrefix === null ? $prefix : str_repeat(' ', $contentCol);
+        $output = [];
+        foreach (explode("\n", $converted) as $index => $convertedLine) {
+            $linePrefix = $index === 0 ? $prefix : $continuation;
+            $output[] = $convertedLine === '' ? rtrim($linePrefix) : $linePrefix . $convertedLine;
+        }
+
+        return ['lines' => $output, 'end' => $end];
+    }
+
+    protected function htmlContainerPrefix(string $line, string $rest): string
+    {
+        // stripContainerPrefix() always returns a suffix. Use the byte-length
+        // delta rather than searching for its contents: the same text may also
+        // occur inside the prefix, and tabs make byte offsets differ from the
+        // content-column count used to decide ownership.
+        return substr($line, 0, strlen($line) - strlen($rest));
+    }
+
+    /**
      * Width of a line's leading whitespace in columns, tabs advancing to the
      * next four-column stop as CommonMark counts them.
      */
@@ -1078,6 +1178,45 @@ class MarkdownToCarve
 
         $line = preg_replace_callback('/\\\\[^A-Za-z0-9\s]/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         $line = preg_replace_callback('/<code>([^<]+)<\/code>/i', fn (array $match): string => $protect('`' . $match[1] . '`'), $line) ?? $line;
+        if ($this->convertRawHtml) {
+            // The small set below already has exact Markdown-to-Carve spellings
+            // later in this method. Everything else goes through HtmlToCarve,
+            // so recognition, sanitization and declared-loss behavior stay in
+            // one importer instead of growing a second tag implementation.
+            $nativeInline = 'code|mark|ins|del|s|sup|sub|strong|b|em|i';
+            $line = preg_replace_callback(
+                '/(?:<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
+                fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
+                $line,
+            ) ?? $line;
+            $line = preg_replace_callback(
+                '/<(?!' . $nativeInline . '\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+[^<>]*?)?>[\s\S]*?<\/\1[ \t]*>/i',
+                fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
+                $line,
+            ) ?? $line;
+            $line = preg_replace_callback(
+                '/<br(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
+                fn (array $match): string => $protect((new HtmlToCarve())->convert($match[0])),
+                $line,
+            ) ?? $line;
+            $line = preg_replace_callback(
+                '/<(?:area|base|col|embed|hr|img|input|link|meta|param|source|track|wbr)(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
+                fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
+                $line,
+            ) ?? $line;
+        }
+        $line = preg_replace_callback(
+            '/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
+            function (array $match) use ($protect): string {
+                $decoded = html_entity_decode($match[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                if ($decoded === $match[0]) {
+                    return $match[0];
+                }
+
+                return $protect($this->escapeDecodedCharacterReference($decoded));
+            },
+            $line,
+        ) ?? $line;
 
         $encodeDest = static function (string $paren): string {
             $inner = substr($paren, 1, -1);
@@ -1193,6 +1332,19 @@ class MarkdownToCarve
         } while ($line !== $previous);
 
         return $line;
+    }
+
+    /**
+     * Make decoded HTML-reference text inert in Carve source.
+     *
+     * A reference is text even when it decodes to punctuation that could open
+     * Carve markup. Escaping those ASCII punctuation characters before the
+     * protected span is restored keeps `&ast;x&ast;` as literal `*x*` while
+     * leaving ordinary Unicode references such as `&copy;` untouched.
+     */
+    protected function escapeDecodedCharacterReference(string $text): string
+    {
+        return preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-])/', '\\\\$1', $text) ?? $text;
     }
 
     /**

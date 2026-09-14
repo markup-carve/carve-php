@@ -79,6 +79,41 @@ use MarkupCarve\Carve\RenderResult;
 use MarkupCarve\Carve\Stamp;
 
 /**
+ * Write rendered output, ending in exactly one newline.
+ *
+ * A document that renders to NOTHING still produces a line. carve-js and
+ * carve-rs both do this - carve-rs spells the same rule as "append a newline
+ * unless the output already ends with one" - and the difference is not
+ * cosmetic: a tool that emits zero bytes leaves the next shell prompt glued to
+ * the command, and `$(carve doc.crv)` compared against a fixture differed by a
+ * byte depending on which engine produced it.
+ *
+ * The same bytes go to a file as to stdout: `-o` is a redirect, not a different
+ * format.
+ *
+ * @param string $output
+ * @param string|null $file
+ * @return void
+ */
+function writeRendered(string $output, ?string $file): void
+{
+    if (!str_ends_with($output, "\n")) {
+        $output .= "\n";
+    }
+
+    if ($file === null) {
+        echo $output;
+
+        return;
+    }
+
+    if (file_put_contents($file, $output) === false) {
+        fwrite(STDERR, "Error: Failed to write to: {$file}\n");
+        exit(1);
+    }
+}
+
+/**
  * @param array<int, string> $argv
  */
 function runMergeCommand(array $argv): never
@@ -880,14 +915,6 @@ if ($options['warnings'] || $options['strict']) {
 }
 
 // Write output
-if ($options['output'] !== null) {
-    $result = file_put_contents($options['output'], $output);
-    if ($result === false) {
-        fwrite(STDERR, "Error: Failed to write to: {$options['output']}\n");
-        exit(1);
-    }
-} else {
-    echo $output;
-}
+writeRendered($output, $options['output'] !== null ? (string)$options['output'] : null);
 
 exit($exitCode);

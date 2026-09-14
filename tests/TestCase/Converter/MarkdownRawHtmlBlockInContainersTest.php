@@ -59,7 +59,10 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->converter = new MarkdownToCarve();
+        // This suite isolates CommonMark's raw-block boundary recognition.
+        // Structural HTML import has its own assertions; disabling it here
+        // keeps these expectations about separators and ownership observable.
+        $this->converter = new MarkdownToCarve(convertRawHtml: false);
     }
 
     public function testTheColumnFixturesStillCarryTheirSignificantSpaces(): void
