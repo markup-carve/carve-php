@@ -56,6 +56,18 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
 
     private MarkdownToCarve $converter;
 
+    private static function rawBlock(string $html, string $prefix = ''): string
+    {
+        $body = implode("\n", array_map(static fn (string $line): string => $prefix . $line, explode("\n", $html)));
+
+        return $prefix . "```=html\n" . $body . "\n" . $prefix . "```\n";
+    }
+
+    private static function rawInline(string $html): string
+    {
+        return '`' . $html . '`{=html}';
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -82,11 +94,12 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // run. Without this the dedented element stayed attached to the quote
         // it had already left.
         $this->assertSame(
-            "> <div>\n> x\n\n<footer>y</footer>\n",
+            self::rawBlock("<div>\nx", '> ') . "\n" . self::rawBlock('<footer>y</footer>'),
             $this->converter->convert("> <div>\n> x\n<footer>y</footer>\n"),
         );
         $this->assertSame(
-            "- <div>\n" . self::COLUMN_2 . "x\n\n<footer>y</footer>\n",
+            '- ' . self::rawInline('<div>') . "\n" . self::COLUMN_2 . "x\n\n"
+                . self::rawBlock('<footer>y</footer>'),
             $this->converter->convert("- <div>\n" . self::COLUMN_2 . "x\n<footer>y</footer>\n"),
         );
     }
@@ -97,27 +110,27 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // own terminator with blanks inside it, so a break inserted in the
         // middle would change the script's contents.
         $this->assertSame(
-            "<script>\n\nprose\n<footer>x</footer>\n</script>\n",
+            self::rawBlock("<script>\n\nprose\n<footer>x</footer>\n</script>"),
             $this->converter->convert("<script>\n\nprose\n<footer>x</footer>\n</script>\n"),
         );
         $this->assertSame(
-            "<!--\n\nprose\n<footer>x</footer>\n-->\n\nafter\n",
+            self::rawBlock("<!--\n\nprose\n<footer>x</footer>\n-->") . "\nafter\n",
             $this->converter->convert("<!--\n\nprose\n<footer>x</footer>\n-->\nafter\n"),
         );
     }
 
-    public function testAConditionOneCloserNeedNotMatchItsOpener(): void
+    public function testAConditionOneBlockClosesOnlyOnItsOwnEndTag(): void
     {
-        // Deliberate, and easy to mistake for a bug: the spec's end condition
-        // for `<script>`, `<pre>`, `<style>` and `<textarea>` is any one of
-        // those four end tags, "it need not match the start tag". `commonmark`
-        // 0.31.2 closes a `<script>` block on `</pre>`, so this engine does too.
+        // carve-js closes a `<script>` block on `</script>` only, not on a
+        // mismatched `</pre>`, so a non-matching end tag leaves the block open
+        // and it runs to the next blank line or EOF. The trailing `after` is
+        // therefore inside the block, and carve-php matches that.
         $this->assertSame(
-            "<script>\n</pre>\n\nafter\n",
+            "```=html\n<script>\n</pre>\nafter\n\n```",
             $this->converter->convert("<script>\n</pre>\nafter\n"),
         );
         $this->assertSame(
-            "<pre>\n</textarea>\n\nafter\n",
+            "```=html\n<pre>\n</textarea>\nafter\n\n```",
             $this->converter->convert("<pre>\n</textarea>\nafter\n"),
         );
     }
@@ -128,7 +141,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // opens nothing - both readers keep it as paragraph text. Treating it as
         // a block suppressed the genuine opener two lines below it.
         $this->assertSame(
-            "<x foo=>\nprose\n\n<footer>y</footer>\n",
+            self::rawBlock("<x foo=>\nprose\n<footer>y</footer>"),
             $this->converter->convert("<x foo=>\nprose\n<footer>y</footer>\n"),
         );
 
@@ -141,7 +154,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
                 "</x>\nprose\n<footer>y</footer>\n",
             ] as $markdown
         ) {
-            $this->assertSame($markdown, $this->converter->convert($markdown));
+            $this->assertSame(self::rawBlock(rtrim($markdown, "\n")), $this->converter->convert($markdown));
         }
     }
 
@@ -185,39 +198,39 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         return [
             'document level' => [
                 "prose line\n<footer>x</footer>\n",
-                "prose line\n\n<footer>x</footer>\n",
+                "prose line\n\n" . self::rawBlock('<footer>x</footer>'),
             ],
             'block quote' => [
                 "> prose line\n> <footer>x</footer>\n",
-                "> prose line\n>\n> <footer>x</footer>\n",
+                "> prose line\n" . self::rawBlock('<footer>x</footer>', '> '),
             ],
             'nested block quote' => [
                 "> > prose line\n> > <footer>x</footer>\n",
-                "> > prose line\n> >\n> > <footer>x</footer>\n",
+                "> > prose line\n" . self::rawBlock('<footer>x</footer>', '> > '),
             ],
             'block quote indented one column' => [
                 " > prose line\n > <footer>x</footer>\n",
-                "> prose line\n>\n> <footer>x</footer>\n",
+                "> prose line\n" . self::rawBlock('<footer>x</footer>', '> '),
             ],
             'bullet item' => [
                 "- prose line\n  <footer>x</footer>\n",
-                "- prose line\n\n  <footer>x</footer>\n",
+                "- prose line\n" . self::rawBlock('<footer>x</footer>', self::COLUMN_2),
             ],
             'ordered item' => [
                 "1. prose line\n   <footer>x</footer>\n",
-                "1. prose line\n\n   <footer>x</footer>\n",
+                "1. prose line\n" . self::rawBlock('<footer>x</footer>', '   '),
             ],
             'nested bullet item' => [
                 "  - prose line\n    <footer>x</footer>\n",
-                "  - prose line\n\n    <footer>x</footer>\n",
+                "  - prose line\n" . self::rawBlock('<footer>x</footer>', self::COLUMN_4),
             ],
             'item inside a quote' => [
                 "> - prose line\n>   <footer>x</footer>\n",
-                "> - prose line\n>\n>   <footer>x</footer>\n",
+                "> - prose line\n" . self::rawBlock('<footer>x</footer>', '>   '),
             ],
             'quote inside an item' => [
                 "- > prose line\n  > <footer>x</footer>\n",
-                "- > prose line\n  >\n  > <footer>x</footer>\n",
+                "- > prose line\n  > " . self::rawInline('<footer>x</footer>') . "\n",
             ],
         ];
     }
@@ -264,14 +277,17 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
     #[DataProvider('startConditionProvider')]
     public function testEveryInterruptingStartConditionOpensABlock(string $opener, bool $interrupts): void
     {
+        $inline = str_contains($opener, '@') || str_starts_with($opener, '<https://')
+            ? $opener
+            : self::rawInline($opener);
         $expected = $interrupts
-            ? "prose line\n\n" . $opener . "\n"
-            : "prose line\n" . $opener . "\n";
+            ? "prose line\n\n" . self::rawBlock($opener)
+            : "prose line\n" . $inline . "\n";
         $this->assertSame($expected, $this->converter->convert("prose line\n" . $opener . "\n"));
 
         $quoted = $interrupts
-            ? "> prose line\n>\n> " . $opener . "\n"
-            : "> prose line\n> " . $opener . "\n";
+            ? "> prose line\n" . self::rawBlock($opener, '> ')
+            : "> prose line\n> " . $inline . "\n";
         $this->assertSame($quoted, $this->converter->convert("> prose line\n> " . $opener . "\n"));
     }
 
@@ -281,21 +297,21 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // territory, and indented code interrupts nothing - the line is lazy
         // paragraph continuation, which is what both readers report.
         $this->assertSame(
-            "prose line\n" . self::COLUMN_4 . "<footer>x</footer>\n",
+            "prose line\n" . self::COLUMN_4 . self::rawInline('<footer>x</footer>') . "\n",
             $this->converter->convert("prose line\n" . self::COLUMN_4 . "<footer>x</footer>\n"),
         );
         $this->assertSame(
-            "- prose line\n" . self::COLUMN_4 . self::COLUMN_2 . "<footer>x</footer>\n",
+            "- prose line\n" . self::COLUMN_4 . self::COLUMN_2 . self::rawInline('<footer>x</footer>') . "\n",
             $this->converter->convert("- prose line\n" . self::COLUMN_4 . self::COLUMN_2 . "<footer>x</footer>\n"),
         );
 
         // Three columns past it still opens a block, in both places.
         $this->assertSame(
-            "prose line\n\n   <footer>x</footer>\n",
+            "prose line\n\n```=html\n   <footer>x</footer>\n```\n",
             $this->converter->convert("prose line\n   <footer>x</footer>\n"),
         );
         $this->assertSame(
-            "- prose line\n\n     <footer>x</footer>\n",
+            "- prose line\n" . self::rawBlock('<footer>x</footer>', '     '),
             $this->converter->convert("- prose line\n     <footer>x</footer>\n"),
         );
     }
@@ -308,17 +324,18 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         $out = $this->converter->convert($markdown);
 
         $this->assertSame(
-            "- outer\n" . self::COLUMN_2 . "- inner\n\n" . self::COLUMN_4 . "<footer>x</footer>\n",
+            "- outer\n" . self::COLUMN_2 . "- inner\n\n"
+                . self::rawBlock('<footer>x</footer>', self::COLUMN_4),
             $out,
         );
-        $this->assertStringNotContainsString('```', $out);
+        $this->assertStringContainsString('```=html', $out);
 
         // Placement is the defect, so order and column are asserted rather than
         // containment: the element must come AFTER the item that holds it, and
         // stand at that item's content column.
         $lines = explode("\n", $out);
         $inner = array_search(self::COLUMN_2 . '- inner', $lines, true);
-        $element = array_search(self::COLUMN_4 . '<footer>x</footer>', $lines, true);
+        $element = array_search(self::COLUMN_4 . '```=html', $lines, true);
         $this->assertIsInt($inner);
         $this->assertIsInt($element);
         $this->assertGreaterThan($inner, $element);
@@ -335,7 +352,8 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             $this->converter->convert("1. item\n\n     more prose\n"),
         );
         $this->assertSame(
-            "- a\n" . self::COLUMN_2 . "- b\n" . self::COLUMN_4 . "- c\n\n      <footer>x</footer>\n",
+            "- a\n" . self::COLUMN_2 . "- b\n" . self::COLUMN_4 . "- c\n\n"
+                . self::rawBlock('<footer>x</footer>', '      '),
             $this->converter->convert(
                 "- a\n" . self::COLUMN_2 . "- b\n" . self::COLUMN_4 . "- c\n\n      <footer>x</footer>\n",
             ),
@@ -370,19 +388,19 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // Conditions 1 to 5 close on their terminator, so a line below them is
         // a new block even with no blank line between.
         $this->assertSame(
-            "<script>var a = 1;</script>\n\nafter\n",
+            self::rawBlock('<script>var a = 1;</script>') . "\nafter\n",
             $this->converter->convert("<script>var a = 1;</script>\nafter\n"),
         );
         $this->assertSame(
-            "<!-- a note -->\n\nafter\n",
+            self::rawBlock('<!-- a note -->') . "\nafter\n",
             $this->converter->convert("<!-- a note -->\nafter\n"),
         );
         $this->assertSame(
-            "<!--\nnote\n-->\n\nafter\n",
+            self::rawBlock("<!--\nnote\n-->") . "\nafter\n",
             $this->converter->convert("<!--\nnote\n-->\nafter\n"),
         );
         $this->assertSame(
-            "> <!-- a note -->\n>\n> after\n",
+            self::rawBlock('<!-- a note -->', '> ') . "> after\n",
             $this->converter->convert("> <!-- a note -->\n> after\n"),
         );
     }
@@ -393,11 +411,11 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // opens another block - the closing tag is part of the element, not a
         // new one. Without this the importer inserted a break before `</div>`.
         $this->assertSame(
-            "<div>\na\n</div>\nafter\n",
+            self::rawBlock("<div>\na\n</div>\nafter"),
             $this->converter->convert("<div>\na\n</div>\nafter\n"),
         );
         $this->assertSame(
-            "> quoted\n>\n> <div>\n> line two\n> </div>\n",
+            "> quoted\n" . self::rawBlock("<div>\nline two\n</div>", '> '),
             $this->converter->convert("> quoted\n> <div>\n> line two\n> </div>\n"),
         );
     }
@@ -407,11 +425,11 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // An opener is not a lazy continuation line, so the container closes and
         // the element is its sibling, not its child.
         $this->assertSame(
-            "- prose line\n\n<footer>x</footer>\n",
+            "- prose line\n\n" . self::rawBlock('<footer>x</footer>'),
             $this->converter->convert("- prose line\n<footer>x</footer>\n"),
         );
         $this->assertSame(
-            "> prose line\n\n<footer>x</footer>\n",
+            "> prose line\n\n" . self::rawBlock('<footer>x</footer>'),
             $this->converter->convert("> prose line\n<footer>x</footer>\n"),
         );
     }
@@ -423,8 +441,14 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // normalization has always written, which is why those two expectations
         // differ from their input by that one byte.
         $pairs = [
-            ["> quoted\n>\n> <footer>x</footer>\n", "> quoted\n>\x20\n> <footer>x</footer>\n"],
-            ["> - item\n>\n>   <footer>x</footer>\n", "> - item\n>\x20\n>   <footer>x</footer>\n"],
+            [
+                "> quoted\n>\n> <footer>x</footer>\n",
+                "> quoted\n>\n" . self::rawBlock('<footer>x</footer>', '> '),
+            ],
+            [
+                "> - item\n>\n>   <footer>x</footer>\n",
+                "> - item\n>\n" . self::rawBlock('<footer>x</footer>', '>   '),
+            ],
         ];
         foreach ($pairs as [$markdown, $expected]) {
             $this->assertSame($expected, $this->converter->convert($markdown));
@@ -432,13 +456,13 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
 
         foreach (
             [
-                "- item\n\n" . self::COLUMN_2 . "<footer>x</footer>\n",
-                "1. item\n\n   <footer>x</footer>\n",
-                "  - item\n\n" . self::COLUMN_4 . "<footer>x</footer>\n",
-                "<footer>standalone</footer>\n",
-            ] as $carve
+                ["- item\n\n" . self::COLUMN_2 . "<footer>x</footer>\n", "- item\n\n" . self::rawBlock('<footer>x</footer>', self::COLUMN_2)],
+                ["1. item\n\n   <footer>x</footer>\n", "1. item\n\n" . self::rawBlock('<footer>x</footer>', '   ')],
+                ["  - item\n\n" . self::COLUMN_4 . "<footer>x</footer>\n", "  - item\n\n" . self::rawBlock('<footer>x</footer>', self::COLUMN_4)],
+                ["<footer>standalone</footer>\n", self::rawBlock('<footer>standalone</footer>')],
+            ] as [$markdown, $expected]
         ) {
-            $this->assertSame($carve, $this->converter->convert($carve));
+            $this->assertSame($expected, $this->converter->convert($markdown));
         }
     }
 
@@ -454,7 +478,12 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
                 "prose line\na < b and c > d\n",
             ] as $markdown
         ) {
-            $this->assertSame($markdown, $this->converter->convert($markdown));
+            $expected = preg_replace_callback(
+                '/<span>[^<]*<\/span>/',
+                static fn (array $match): string => self::rawInline($match[0]),
+                $markdown,
+            ) ?? $markdown;
+            $this->assertSame($expected, $this->converter->convert($markdown));
         }
     }
 }

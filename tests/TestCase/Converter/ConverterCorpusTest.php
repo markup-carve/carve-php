@@ -51,10 +51,7 @@ class ConverterCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const DECLARED_DRIFT = [
-        '43-markdown-raw-html-uses-the-html-importer'
-            => 'markup-carve/carve-php#1943: Markdown raw HTML is imported through HtmlToCarve rather than preserved verbatim',
-    ];
+    protected const DECLARED_DRIFT = [];
 
     /**
      * @throws \RuntimeException
@@ -112,6 +109,7 @@ class ConverterCorpusTest extends TestCase
      */
     public function testEveryDeclaredDriftStillDiverges(): void
     {
+        $this->addToAssertionCount(1);
         $cases = self::corpusProvider();
         foreach (self::DECLARED_DRIFT as $slug => $reason) {
             $this->assertArrayHasKey($slug, $cases, "Declared drift names no corpus case: {$slug}");

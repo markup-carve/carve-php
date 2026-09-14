@@ -15,7 +15,7 @@ class MarkdownToCarveTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->converter = new MarkdownToCarve();
+        $this->converter = new MarkdownToCarve(convertRawHtml: true);
     }
 
     /**
