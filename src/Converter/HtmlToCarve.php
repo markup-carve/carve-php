@@ -43,6 +43,7 @@ use Throwable;
  */
 class HtmlToCarve
 {
+    use ReportsMigrationFidelity;
     use EscapesCarveConstructs;
 
     /**
@@ -377,6 +378,11 @@ class HtmlToCarve
             $this->importAdapter,
             $diagnostics,
         );
+    }
+
+    public function convertWithFidelityReport(string $html): MigrationResult
+    {
+        return $this->htmlMigrationResult($this->convertWithReport($html));
     }
 
     /**

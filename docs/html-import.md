@@ -6,13 +6,18 @@ The loss report, the diagnostic `path` locator, and the import modes.
 ~~~ php
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 
-$result = (new HtmlToCarve(importMode: 'safe'))->convertWithReport($html);
+$result = (new HtmlToCarve(importMode: 'safe'))->convertWithFidelityReport($html);
 $carve = $result->value;
 $report = $result->report();
 ~~~
 
-The existing `convert()` API remains unchanged. The CLI equivalent is
-`carve migrate --from html --report report.json input.html`.
+The existing `convert()` and detailed `convertWithReport()` APIs remain
+unchanged. `convertWithFidelityReport()` returns the shared version 2 envelope,
+including `sourceFormat`, import `mode` and `adapter`, plus `fidelity` and
+`confidence` for every diagnostic. The CLI equivalent is
+`carve migrate --from html --report report.json input.html`; `--check-loss`
+exits with status 1 only for degraded or dropped findings. Imports exceeding
+resource limits throw `HtmlImportLimitException` (reported by the CLI as status 2).
 
 Each diagnostic carries a `path` locating what was lost. It is a human-readable
 locator that all three engines spell the same way, and although it borrows
@@ -62,9 +67,10 @@ carve migrate --from djot notes.dj
 cat post.txt | carve migrate --from bbcode
 ~~~
 
-`--mode`, `--adapter`, `--report` and `--check-loss` are the HTML importer's
-alone: the other three parse their source whole, so they have nothing to report
-as lost. `MarkdownToCarve` reads CommonMark plus GFM by default; its two
+`--mode` and `--adapter` are HTML-only. `--report` and `--check-loss` apply to
+every importer; Markdown, Djot and BBCode fail closed until they provide
+construct-level fidelity evidence. `MarkdownToCarve` reads CommonMark plus GFM
+by default; its two
 constructor flags opt in to the `$math$` and `==highlight==` extensions that
 neither dialect defines.
 
