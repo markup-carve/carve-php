@@ -2850,7 +2850,19 @@ class CarveRenderer implements RendererInterface
                     $captionCanOpen = false;
                     $lineEndsInComment = false;
                 } elseif ($node instanceof Comment) {
-                    $body = $node->getContent() === '' ? '%%' : '%% ' . $node->getContent();
+                    $content = $node->getContent();
+                    // THE UNIT IS THE OPENER (PART 11 §2a [CARVE-P11-008]). A
+                    // percent-leading content joins the marker, so `%%%` is not
+                    // written back as `%% %` - an opener run split into an
+                    // opener plus a stray character (carve#581, carve#544). The
+                    // BLOCK arm must NOT copy this: there a run of three is a
+                    // comment FENCE (PART 9 §28) and joining swallows the body
+                    // between two of them (carve-js#1675).
+                    $body = match (true) {
+                        $content === '' => '%%',
+                        str_starts_with($content, '%') => '%%' . $content,
+                        default => '%% ' . $content,
+                    };
 
                     // IN VERSE THAT IS WHAT PUTS THE COMMENT BACK ON THE LINE
                     // IT EMPTIED. PART 9 §23 removes a comment-only body line
