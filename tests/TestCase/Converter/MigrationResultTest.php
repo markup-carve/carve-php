@@ -134,7 +134,7 @@ final class MigrationResultTest extends TestCase
         ));
 
         self::assertSame(
-            ['dropped', 'dropped', 'dropped', 'degraded', 'degraded', 'degraded', 'degraded', 'degraded', 'preserved', 'preserved'],
+            ['dropped', 'dropped', 'dropped', 'degraded', 'degraded', 'degraded', 'degraded', 'dropped', 'preserved', 'degraded'],
             array_map(static fn (MigrationDiagnostic $diagnostic): string => $diagnostic->fidelity, $result->diagnostics),
         );
         self::assertSame(

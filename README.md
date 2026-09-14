@@ -42,6 +42,8 @@ Until Markdown, Djot and BBCode provide construct-level evidence, their reports
 fail closed with a `dropped` / `fallback` `fidelity-unverified` diagnostic.
 The migration CLI writes this envelope with `--report FILE` (or `--report -`
 for stderr), and `--check-loss` exits non-zero for degraded or dropped content.
+Opaque raw HTML is degraded even when its bytes survive because it is not
+modeled or editable by the importer.
 
 Besides HTML the converter renders Markdown, plain text and ANSI. The
 Markdown writer's options are in [docs/markdown-output.md](https://github.com/markup-carve/carve-php/blob/main/docs/markdown-output.md),

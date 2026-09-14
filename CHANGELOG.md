@@ -17,8 +17,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - `carve migrate --check-loss` now exits with status 1 for unverified Markdown,
-  Djot and BBCode imports. HTML checks fail only for degraded or dropped findings,
-  not diagnostics that explicitly preserve raw source or attributes.
+  Djot and BBCode imports. Opaque `raw-preserved` HTML is classified as degraded
+  because it cannot be structurally edited; explicitly preserved attributes
+  remain lossless.
 - `carve migrate --report` now writes version 2 fidelity reports for Markdown,
   Djot and BBCode instead of ignoring the option.
 - HTML `--report` now uses the version 2 envelope, adding `schemaVersion`,

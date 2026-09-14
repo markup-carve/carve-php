@@ -25,10 +25,10 @@ trait ReportsMigrationFidelity
     {
         $diagnostics = array_map(static function (HtmlImportDiagnostic $diagnostic): MigrationDiagnostic {
             $fidelity = match ($diagnostic->code) {
-                'element-dropped', 'attribute-dropped', 'structure-unspellable' => 'dropped',
+                'element-dropped', 'attribute-dropped', 'structure-unspellable', 'diagnostics-truncated' => 'dropped',
                 'element-unwrapped' => 'degraded',
-                'style-unmapped', 'table-degraded', 'encoding-assumed', 'diagnostics-truncated' => 'degraded',
-                'attribute-preserved', 'raw-preserved' => 'preserved',
+                'style-unmapped', 'table-degraded', 'encoding-assumed', 'raw-preserved' => 'degraded',
+                'attribute-preserved' => 'preserved',
                 default => 'dropped',
             };
 

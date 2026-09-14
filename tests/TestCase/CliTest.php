@@ -593,19 +593,20 @@ class CliTest extends TestCase
         $this->assertStringContainsString('HTML import diagnostics limit exceeded', $result['err']);
     }
 
-    public function testMigrateLossCheckPassesForPreservedHtmlFindings(): void
+    public function testMigrateLossCheckFailsForOpaquePreservedHtml(): void
     {
         $result = $this->runCliInput(
             ['migrate', '--from', 'html', '--mode', 'roundtrip', '--check-loss', '--report', '-'],
             '<fieldset id="f"><p>a</p></fieldset>',
         );
 
-        $this->assertSame(0, $result['exit']);
+        $this->assertSame(1, $result['exit']);
         $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
         $this->assertNotSame([], $report['diagnostics']);
         foreach ($report['diagnostics'] as $diagnostic) {
-            $this->assertSame('preserved', $diagnostic['fidelity']);
+            $this->assertContains($diagnostic['fidelity'], ['preserved', 'degraded']);
         }
+        $this->assertContains('degraded', array_column($report['diagnostics'], 'fidelity'));
     }
 
     public function testRenderLossWarningDoesNotContaminateStdout(): void

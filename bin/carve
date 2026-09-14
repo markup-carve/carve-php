@@ -52,7 +52,6 @@ use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
-use MarkupCarve\Carve\Converter\HtmlImportLimitException;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
@@ -242,7 +241,7 @@ function runMigrateCommand(array $argv): never
             };
             $result = $converter->convertWithFidelityReport($source);
         }
-    } catch (InvalidArgumentException | HtmlImportLimitException $exception) {
+    } catch (Throwable $exception) {
         fwrite(STDERR, 'carve migrate: ' . $exception->getMessage() . "\n");
         exit(2);
     }
