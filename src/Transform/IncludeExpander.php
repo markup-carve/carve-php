@@ -933,6 +933,7 @@ class IncludeExpander implements TransformerInterface
                 if ($child === $heading && $id === $section) {
                     $start = (int)$index;
                     $level = $heading->getLevel();
+
                     break 2;
                 }
             }
