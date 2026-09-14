@@ -175,6 +175,12 @@ class HtmlImportReportTest extends TestCase
             // three engines each spelled it their own way, which is exactly how
             // the disagreement survived (`markup-carve/carve#1257`); an
             // unchecked column is what lets the next one start.
+            //
+            // `fidelity` and `confidence` joined the fixtures with importer
+            // fidelity v2 (`markup-carve/carve#1985`) and are read here for
+            // that reason: the classification is the shared contract's answer
+            // per diagnostic code, so an engine answering it alone is the same
+            // shape of drift one field over.
             foreach ($expectedReport['diagnostics'] as $index => $diagnostic) {
                 $where = basename($fixture) . ' #' . $index;
                 // The ROW THIS ONE MATCHED, not the row at the same offset: a
@@ -182,7 +188,7 @@ class HtmlImportReportTest extends TestCase
                 // earlier one shifts every index after it (carve#1884).
                 $at = $matched[$index] ?? $index;
                 $this->assertArrayHasKey($at, $actual, $where);
-                foreach (['message', 'severity', 'path'] as $field) {
+                foreach (['message', 'severity', 'path', 'fidelity', 'confidence'] as $field) {
                     if (!array_key_exists($field, $diagnostic)) {
                         continue;
                     }
