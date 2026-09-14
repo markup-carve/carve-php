@@ -558,20 +558,55 @@ class CliTest extends TestCase
         $this->assertSame($accepted, $advertised);
     }
 
-    /**
-     * The loss report is the HTML importer's alone - the other three parse
-     * their source whole - so a non-HTML migration ignores it rather than
-     * failing on it.
-     */
-    public function testMigrateIgnoresTheHtmlOnlyOptionsForOtherFormats(): void
+    public function testMigrateFailsClosedForAnUnverifiedImporter(): void
     {
         $result = $this->runCliInput(
             ['migrate', '--from', 'markdown', '--mode', 'raw', '--check-loss'],
             "**bold**\n",
         );
 
-        $this->assertSame(0, $result['exit']);
+        $this->assertSame(1, $result['exit']);
         $this->assertSame("*bold*\n", $result['out']);
+    }
+
+    public function testMigrateWritesTheVersionedReportForEveryImporter(): void
+    {
+        $result = $this->runCliInput(
+            ['migrate', '--from', 'markdown', '--report', '-'],
+            "**bold**\n",
+        );
+
+        $this->assertSame(0, $result['exit']);
+        $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(2, $report['schemaVersion']);
+        $this->assertSame('markdown', $report['sourceFormat']);
+        $this->assertSame('dropped', $report['diagnostics'][0]['fidelity']);
+    }
+
+    public function testMigrateReportsHtmlDiagnosticLimitAsAUsageError(): void
+    {
+        $source = str_repeat('<p onclick="x()">x</p>', 1100);
+        $result = $this->runCliInput(['migrate', '--from', 'html', '--check-loss'], $source);
+
+        $this->assertSame(2, $result['exit']);
+        $this->assertSame('', $result['out']);
+        $this->assertStringContainsString('HTML import diagnostics limit exceeded', $result['err']);
+    }
+
+    public function testMigrateLossCheckFailsForOpaquePreservedHtml(): void
+    {
+        $result = $this->runCliInput(
+            ['migrate', '--from', 'html', '--mode', 'roundtrip', '--check-loss', '--report', '-'],
+            '<fieldset id="f"><p>a</p></fieldset>',
+        );
+
+        $this->assertSame(1, $result['exit']);
+        $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
+        $this->assertNotSame([], $report['diagnostics']);
+        foreach ($report['diagnostics'] as $diagnostic) {
+            $this->assertContains($diagnostic['fidelity'], ['preserved', 'degraded']);
+        }
+        $this->assertContains('degraded', array_column($report['diagnostics'], 'fidelity'));
     }
 
     public function testRenderLossWarningDoesNotContaminateStdout(): void

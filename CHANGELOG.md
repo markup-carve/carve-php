@@ -7,8 +7,29 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- HTML, Markdown, Djot and BBCode importers expose a shared version 2 migration
+  result through `convertWithFidelityReport()`, classifying diagnostics as
+  preserved, normalized, degraded or dropped with explicit confidence. Importers
+  without construct-level evidence fail closed as dropped with fallback confidence.
+
+### Changed
+
+- `carve migrate --check-loss` now exits with status 1 for unverified Markdown,
+  Djot and BBCode imports. Opaque `raw-preserved` HTML is classified as degraded
+  because it cannot be structurally edited; explicitly preserved attributes
+  remain lossless.
+- `carve migrate --report` now writes version 2 fidelity reports for Markdown,
+  Djot and BBCode instead of ignoring the option.
+- HTML `--report` now uses the version 2 envelope, adding `schemaVersion`,
+  `sourceFormat`, and per-diagnostic `fidelity` and `confidence` fields while
+  retaining the existing report fields.
+
 ### Fixed
 
+- HTML migrations that exceed the diagnostic limit now print a clean CLI error
+  and exit with status 2 instead of terminating with an uncaught exception.
 - A block opener at a description-hosted note's floor (the note marker column
   plus two, grammar PART 9 §16) is owned by the note, matching a plain
   continuation line: the note takes the opener and, being unreferenced here,

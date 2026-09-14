@@ -1,6 +1,5 @@
 # Command line
 
-
 The package ships a `bin/carve` executable that reads Carve from a file or
 stdin and writes the rendered output to stdout. HTML is the default; pass a
 format flag for another output:
@@ -13,6 +12,19 @@ bin/carve --ansi README.crv          # ANSI-colored terminal text
 echo '# Hello' | bin/carve           # render from stdin
 bin/carve merge base.crv ours.crv theirs.crv # structural three-way merge
 ~~~
+
+## Import migration gate
+
+`carve migrate --from html|markdown|djot|bbcode` can write the shared version 2
+fidelity envelope with `--report FILE`, or to stderr with `--report -`. The
+report classifies findings as `preserved`, `normalized`, `degraded`, or
+`dropped`, with explicit confidence. `--check-loss` exits with status 1 when
+the report contains degraded or dropped content.
+
+Markdown, Djot, and BBCode currently fail closed as `dropped` with `fallback`
+confidence because those importers do not yet produce construct-level evidence.
+HTML reports its import `mode` and `adapter`; its resource-limit exceptions are
+reported as command errors rather than partial migration reports.
 
 `AstMerge::merge()` exposes the same conservative merge to applications: it
 combines independent field edits, insertions, deletions, and moves, and returns

@@ -33,10 +33,17 @@ $converter = new CarveConverter();
 $html = $converter->convert('# Hello /Carve/');
 ~~~
 
-HTML migration can include an explicit loss report:
-HTML, Markdown, Djot and BBCode convert in as well. Only the HTML importer
-drops anything, and only it takes a mode and a loss report -
-see [docs/html-import.md](https://github.com/markup-carve/carve-php/blob/main/docs/html-import.md).
+HTML, Markdown, Djot and BBCode can return a versioned migration-fidelity report
+through each converter's `convertWithFidelityReport()` method. It uses one
+`preserved`, `normalized`, `degraded`, and `dropped` vocabulary while retaining
+format-specific diagnostic codes. HTML also has its detailed import report; see
+[docs/html-import.md](https://github.com/markup-carve/carve-php/blob/main/docs/html-import.md).
+Until Markdown, Djot and BBCode provide construct-level evidence, their reports
+fail closed with a `dropped` / `fallback` `fidelity-unverified` diagnostic.
+The migration CLI writes this envelope with `--report FILE` (or `--report -`
+for stderr), and `--check-loss` exits non-zero for degraded or dropped content.
+Opaque raw HTML is degraded even when its bytes survive because it is not
+modeled or editable by the importer.
 
 Besides HTML the converter renders Markdown, plain text and ANSI. The
 Markdown writer's options are in [docs/markdown-output.md](https://github.com/markup-carve/carve-php/blob/main/docs/markdown-output.md),

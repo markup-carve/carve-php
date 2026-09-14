@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
  */
 class BbcodeToCarve
 {
+    use ReportsMigrationFidelity;
     use EscapesCarveConstructs;
 
     /**
@@ -135,6 +136,11 @@ class BbcodeToCarve
         $djot = $this->restoreCodeContent($djot, $codeStash);
 
         return $djot;
+    }
+
+    public function convertWithFidelityReport(string $bbcode): MigrationResult
+    {
+        return $this->unverifiedMigrationResult($this->convert($bbcode), 'bbcode');
     }
 
     /**
