@@ -28,6 +28,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The Markdown renderer moves emphasis padding outside the delimiters, so content that begins or ends with whitespace still reads as emphasis rather than literal text; content that is only whitespace falls back to inline HTML (markup-carve/carve-js#1683).
 - HTML migrations that exceed the diagnostic limit now print a clean CLI error
   and exit with status 2 instead of terminating with an uncaught exception.
 - A block opener at a description-hosted note's floor (the note marker column
