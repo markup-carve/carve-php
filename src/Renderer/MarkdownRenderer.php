@@ -1366,12 +1366,33 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderEmphasis(Emphasis $node): string
     {
-        return '*' . $this->renderChildren($node) . '*';
+        return $this->padOutside($this->renderChildren($node), '*', '<em>', '</em>');
     }
 
     protected function renderStrong(Strong $node): string
     {
-        return '**' . $this->renderChildren($node) . '**';
+        return $this->padOutside($this->renderChildren($node), '**', '<strong>', '</strong>');
+    }
+
+    /**
+     * A delimiter run only opens emphasis while it is left-flanking, which a
+     * run followed by whitespace never is (CommonMark 6.2), so `** x**` reads
+     * back as literal text. The padding is content, so it moves outside the
+     * delimiters rather than being trimmed away. Content that is only padding
+     * has no delimiter form at all and falls back to inline HTML, the way this
+     * renderer already spells underline, sub, super and highlight.
+     */
+    protected function padOutside(string $inner, string $delimiter, string $openTag, string $closeTag): string
+    {
+        $core = trim($inner, StringUtil::TRIMMABLE_WHITESPACE);
+        if ($core === '') {
+            return $inner === '' ? '' : $openTag . $inner . $closeTag;
+        }
+
+        $lead = substr($inner, 0, strlen($inner) - strlen(ltrim($inner, StringUtil::TRIMMABLE_WHITESPACE)));
+        $trail = substr($inner, strlen(rtrim($inner, StringUtil::TRIMMABLE_WHITESPACE)));
+
+        return $lead . $delimiter . $core . $delimiter . $trail;
     }
 
     protected function renderCode(Code $node): string
@@ -1535,7 +1556,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderStrike(Strike $node): string
     {
-        return '~~' . $this->renderChildren($node) . '~~';
+        return $this->padOutside($this->renderChildren($node), '~~', '<del>', '</del>');
     }
 
     /**
