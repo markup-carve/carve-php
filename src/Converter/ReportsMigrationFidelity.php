@@ -23,31 +23,19 @@ trait ReportsMigrationFidelity
 
     protected function htmlMigrationResult(HtmlImportResult $result): MigrationResult
     {
-        $diagnostics = array_map(static function (HtmlImportDiagnostic $diagnostic): MigrationDiagnostic {
-            $fidelity = match ($diagnostic->code) {
-                'element-dropped', 'attribute-dropped', 'structure-unspellable', 'diagnostics-truncated' => 'dropped',
-                'element-unwrapped' => 'degraded',
-                'style-unmapped', 'table-degraded', 'encoding-assumed', 'raw-preserved' => 'degraded',
-                'attribute-preserved' => 'preserved',
-                default => 'dropped',
-            };
-
-            return new MigrationDiagnostic(
-                $diagnostic->code,
-                $diagnostic->message,
-                $diagnostic->severity,
-                $fidelity,
-                match ($diagnostic->code) {
-                    'encoding-assumed' => 'inferred',
-                    'diagnostics-truncated' => 'fallback',
-                    'element-dropped', 'attribute-dropped', 'structure-unspellable',
-                    'element-unwrapped', 'style-unmapped', 'table-degraded',
-                    'attribute-preserved', 'raw-preserved' => 'exact',
-                    default => 'fallback',
-                },
-                $diagnostic->path,
-            );
-        }, $result->diagnostics);
+        // The DIAGNOSTIC answers both questions now, so this carries them rather
+        // than deriving a second copy. The two used to be computed here alone,
+        // which is why the plain import report - what the shared fixtures
+        // compare - reported neither, and why the copies could disagree about a
+        // code with nothing to catch it.
+        $diagnostics = array_map(static fn (HtmlImportDiagnostic $diagnostic): MigrationDiagnostic => new MigrationDiagnostic(
+            $diagnostic->code,
+            $diagnostic->message,
+            $diagnostic->severity,
+            $diagnostic->fidelity(),
+            $diagnostic->confidence(),
+            $diagnostic->path,
+        ), $result->diagnostics);
 
         return new MigrationResult(
             $result->value,

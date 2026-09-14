@@ -56,7 +56,7 @@ class AFigureCaptionAndATableCaptionBothSurviveTest extends TestCase
     }
 
     /**
-     * @return list<array{code: string, message: string, severity: string, path: string}>
+     * @return list<array{code: string, message: string, severity: string, fidelity: string, confidence: string, path: string}>
      */
     protected function rows(string $html, string $mode): array
     {
@@ -65,6 +65,8 @@ class AFigureCaptionAndATableCaptionBothSurviveTest extends TestCase
                 'code' => $diagnostic->code,
                 'message' => $diagnostic->message,
                 'severity' => $diagnostic->severity,
+                'fidelity' => $diagnostic->fidelity(),
+                'confidence' => $diagnostic->confidence(),
                 'path' => $diagnostic->path,
             ],
             (new HtmlToCarve(importMode: $mode))->convertWithReport($html)->diagnostics,
@@ -147,6 +149,8 @@ class AFigureCaptionAndATableCaptionBothSurviveTest extends TestCase
                     'code' => 'element-unwrapped',
                     'message' => self::DETACHED,
                     'severity' => 'warning',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/figure[1]/figcaption[2]',
                 ],
             ],

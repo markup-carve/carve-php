@@ -46,6 +46,12 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        // ARRIVED WITH THIS PIN BUMP (spec c4012ca, markup-carve/carve#291).
+        // A directive with NO resolver configured is ordinary text, which is
+        // what this engine renders whether or not it knows the construct
+        // exists - the category pins exactly that, and it is the one corpus
+        // row PART 9 section 19 contributes.
+        'include-directive-with-no-resolver-renders-literal',
         // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (spec 95a72c8c). Both
         // categories are nested-note column-reach rulings this engine already
         // answers: carve-php#1926 placed the trailing line by reach, and

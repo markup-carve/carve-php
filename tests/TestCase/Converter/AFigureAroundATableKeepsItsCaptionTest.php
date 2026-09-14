@@ -43,7 +43,7 @@ class AFigureAroundATableKeepsItsCaptionTest extends TestCase
         . 'the caption is written on the table, which renders <caption> inside it';
 
     /**
-     * @return list<array{code: string, message: string, severity: string, path: string}>
+     * @return list<array{code: string, message: string, severity: string, fidelity: string, confidence: string, path: string}>
      */
     protected function rows(string $html, string $mode = 'roundtrip'): array
     {
@@ -52,6 +52,8 @@ class AFigureAroundATableKeepsItsCaptionTest extends TestCase
                 'code' => $diagnostic->code,
                 'message' => $diagnostic->message,
                 'severity' => $diagnostic->severity,
+                'fidelity' => $diagnostic->fidelity(),
+                'confidence' => $diagnostic->confidence(),
                 'path' => $diagnostic->path,
             ],
             (new HtmlToCarve(importMode: $mode))->convertWithReport($html)->diagnostics,
@@ -78,6 +80,8 @@ class AFigureAroundATableKeepsItsCaptionTest extends TestCase
                     'code' => 'structure-unspellable',
                     'message' => self::MESSAGE,
                     'severity' => 'warning',
+                    'fidelity' => 'dropped',
+                    'confidence' => 'exact',
                     'path' => '/figure[1]',
                 ],
             ],

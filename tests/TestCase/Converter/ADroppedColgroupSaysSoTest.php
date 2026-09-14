@@ -52,7 +52,7 @@ class ADroppedColgroupSaysSoTest extends TestCase
     /**
      * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
      *
-     * @return list<array{code: string, message: string, severity: string, path: string}>
+     * @return list<array{code: string, message: string, severity: string, fidelity: string, confidence: string, path: string}>
      */
     protected function rows(array $diagnostics): array
     {
@@ -61,6 +61,8 @@ class ADroppedColgroupSaysSoTest extends TestCase
                 'code' => $diagnostic->code,
                 'message' => $diagnostic->message,
                 'severity' => $diagnostic->severity,
+                'fidelity' => $diagnostic->fidelity(),
+                'confidence' => $diagnostic->confidence(),
                 'path' => $diagnostic->path,
             ],
             $diagnostics,
@@ -93,6 +95,8 @@ class ADroppedColgroupSaysSoTest extends TestCase
                     'code' => 'element-dropped',
                     'message' => self::MESSAGE,
                     'severity' => 'warning',
+                    'fidelity' => 'dropped',
+                    'confidence' => 'exact',
                     'path' => '/table[1]/colgroup[1]',
                 ],
             ],

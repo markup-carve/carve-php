@@ -919,7 +919,7 @@ class AstCodec
      */
     private const SCHEMA_NAMED_SLOTS = [
         'attrs' => ['id', 'classes', 'keyValues', 'order'],
-        'pos' => ['startLine', 'endLine', 'startColumn', 'endColumn', 'startOffset', 'endOffset'],
+        'pos' => ['startLine', 'endLine', 'startColumn', 'endColumn', 'startOffset', 'endOffset', 'file'],
     ];
 
     /**
