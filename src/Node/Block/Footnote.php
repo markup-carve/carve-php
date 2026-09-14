@@ -18,6 +18,11 @@ class Footnote extends BlockNode
         return $this->label;
     }
 
+    public function setLabel(string $label): void
+    {
+        $this->label = $label;
+    }
+
     public function getType(): string
     {
         return 'footnote';

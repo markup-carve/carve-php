@@ -54,6 +54,12 @@ jobs:
       # another; paratest schedules them across the runner's cores. The
       # sequential `composer test` stays the local default - a single process
       # gives a clearer failure, and this is a CI trade, not a repo-wide one.
+      #
+      # Runs the full PHPUnit suite, which includes the cross-engine
+      # include-conformance GATE (tests/TestCase/Transform/IncludeConformanceTest.php).
+      # That gate reads the vendored vectors under tests/spec/tests/include-conformance/,
+      # so `submodules: recursive` above is REQUIRED - without it the runner fails
+      # loudly rather than skipping.
       - name: Run tests
         run: composer test-parallel
 

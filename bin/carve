@@ -77,6 +77,8 @@ use MarkupCarve\Carve\Renderer\RenderMode;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 use MarkupCarve\Carve\RenderResult;
 use MarkupCarve\Carve\Stamp;
+use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
+use MarkupCarve\Carve\Transform\IncludeExpander;
 
 /**
  * Write rendered output, ending in exactly one newline.
@@ -111,6 +113,101 @@ function writeRendered(string $output, ?string $file): void
         fwrite(STDERR, "Error: Failed to write to: {$file}\n");
         exit(1);
     }
+}
+
+/**
+ * `carve flatten` - write the document back as ONE self-contained Carve file,
+ * with every include expanded in place.
+ *
+ * The deliberate opposite of `carve fmt`, and the reason both exist. Formatting
+ * round-trips the author's document, so it leaves directives alone (spec I15);
+ * flattening asks for the OTHER document, the one with the children merged in,
+ * because that is what can be handed to something with no filesystem behind it.
+ *
+ * Two effects beyond inlining, both reported on stderr rather than left to be
+ * discovered in a published page: the output is CANONICAL Carve, so formatting
+ * is normalized rather than preserved, and colliding heading ids and footnote
+ * labels are renamed (I5). The renames are written into the source, so the
+ * flattened file renders exactly like the expanded original.
+ *
+ * @param array<int, string> $argv
+ */
+function runFlattenCommand(array $argv): never
+{
+    $includeRoot = null;
+    $input = null;
+    $argc = count($argv);
+    for ($i = 2; $i < $argc; $i++) {
+        $arg = $argv[$i];
+        if ($arg === '--include-root') {
+            if (!isset($argv[$i + 1])) {
+                fwrite(STDERR, "Error: --include-root requires a directory\n");
+                exit(1);
+            }
+            $includeRoot = $argv[++$i];
+        } elseif ($arg === '-h' || $arg === '--help') {
+            showHelp();
+            exit(0);
+        } elseif (str_starts_with($arg, '-') && $arg !== '-') {
+            fwrite(STDERR, "Error: Unknown option: $arg\n");
+            exit(1);
+        } elseif ($input !== null) {
+            fwrite(STDERR, "Error: Multiple input files specified\n");
+            exit(1);
+        } else {
+            $input = $arg;
+        }
+    }
+
+    if ($input !== null && $input !== '-') {
+        if (!is_readable($input)) {
+            fwrite(STDERR, "Error: Cannot read file: $input\n");
+            exit(1);
+        }
+        $source = (string)file_get_contents($input);
+        $sourcePath = realpath($input) ?: $input;
+    } else {
+        $source = (string)stream_get_contents(STDIN);
+        $sourcePath = null;
+    }
+
+    $root = $includeRoot ?? ($sourcePath === null ? null : dirname($sourcePath));
+    if ($root === null) {
+        // "Flatten this" with nothing to resolve against cannot be honoured,
+        // and echoing the document back would look like it had no includes.
+        fwrite(
+            STDERR,
+            "Error: stdin has no directory to resolve includes against; pass --include-root DIR\n",
+        );
+        exit(1);
+    }
+
+    try {
+        $resolver = new FilesystemIncludeResolver($root);
+    } catch (RuntimeException $exception) {
+        fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
+        exit(1);
+    }
+
+    // POSITIONS ON, via the writer's own factory: the expander collects a
+    // merged child's footnote definitions by their file identity (`pos.file`),
+    // and the writer orders collected definitions by the spans positions carry.
+    // Parsed without them, every merged definition reported no span, so they
+    // stayed interleaved between the parent's blocks where the child had them.
+    $converter = CarveConverter::carve();
+    $expander = new IncludeExpander(resolver: $resolver, currentPath: $sourcePath);
+    $document = $converter->transform($converter->parse($source), $expander);
+
+    foreach ($expander->getWarnings() as $warning) {
+        fwrite(STDERR, 'carve: ' . $warning->getMessage() . ' [' . ($warning->getRule() ?? 'include') . "]\n");
+    }
+    $suppressed = $expander->getSuppressedWarnings();
+    if ($suppressed > 0) {
+        fwrite(STDERR, "carve: $suppressed further include warning(s) suppressed\n");
+    }
+
+    echo $converter->render($document);
+    exit(0);
 }
 
 /**
@@ -286,6 +383,8 @@ function parseArgs(array $argv): array
         'reportLosses' => null,
         'allowLoss' => false,
         'maxRenderLosses' => 100,
+        'includeRoot' => null,
+        'noIncludes' => false,
         'help' => false,
         'version' => false,
     ];
@@ -327,6 +426,9 @@ function parseArgs(array $argv): array
             $options['xhtml'] = true;
         } elseif ($arg === '-s' || $arg === '--safe') {
             $options['safe'] = true;
+            $options['noIncludes'] = true;
+        } elseif ($arg === '--no-includes') {
+            $options['noIncludes'] = true;
         } elseif ($arg === '--static') {
             $options['static'] = true;
         } elseif ($arg === '-w' || $arg === '--warnings') {
@@ -371,6 +473,12 @@ function parseArgs(array $argv): array
                 exit(1);
             }
             $options['smartTypography'] = $mode;
+        } elseif ($arg === '--include-root') {
+            if (!isset($argv[$i + 1])) {
+                fwrite(STDERR, "Error: --include-root requires a directory\n");
+                exit(1);
+            }
+            $options['includeRoot'] = $argv[++$i];
         } elseif ($arg === '-o' || $arg === '--output') {
             if (!isset($argv[$i + 1])) {
                 fwrite(STDERR, "Error: --output requires a filename\n");
@@ -507,6 +615,7 @@ Carve - Render Carve markup
 
 Usage:
   carve fmt [options] [files...]
+  carve flatten [--include-root DIR] [file]
   carve merge [--json] base.crv ours.crv theirs.crv
   carve [options] [input-file]
   cat file.crv | carve [options]
@@ -546,6 +655,12 @@ Formatter:
   fmt --check         Exit non-zero if any file is not formatted
   fmt --stamp         Append/replace a one-line provenance marker
   fmt --stamp-block   Append/replace a block provenance marker
+  flatten             Write the document as ONE self-contained file, every
+                      include expanded in place. The opposite of fmt, which
+                      leaves directives alone so formatting returns the
+                      author's document. Output is canonical Carve and
+                      colliding explicit ids / footnote labels are renamed;
+                      both are reported on stderr.
 
 Migration (other markup to Carve, on stdout):
   migrate --from FORMAT   html, markdown (md), djot or bbcode
@@ -560,11 +675,16 @@ Options:
   -o, --output FILE   Write output to FILE instead of stdout
   -x, --xhtml         Use XHTML-compatible output (self-closing tags; HTML only)
   -s, --safe          Enable safe mode (sanitize dangerous HTML; HTML only)
+  --no-includes       Leave include directives literal (--safe implies this)
   --static            Render in static mode: flatten interactive constructs
                       (tabs / code-group to labeled sections, mermaid / math to
                       source) so the HTML needs no client scripts. HTML only;
                       the bundled interactive extensions are auto-registered for
                       the HTML format so the difference is visible.
+  --include-root DIR  Containment root for {{ path }} include directives.
+                      A file input already defaults to the document's own
+                      directory; this widens it, and it is the only way to
+                      enable includes on stdin, which has no path context.
   -w, --warnings      Show parse warnings on stderr
   --strict            Exit with error code 1 if warnings are generated
   -h, --help          Show this help message
@@ -574,6 +694,9 @@ Examples:
   carve document.crv                    Render file to stdout (HTML)
   carve --static document.crv           Render self-contained static HTML
   carve --ansi document.crv             Render colored terminal output
+  carve book/main.crv                   Expand includes against book/
+  carve --include-root . book/main.crv  Widen the include root to the project
+  carve flatten book/main.crv           Write it as ONE self-contained file
   carve --markdown document.crv         Render Markdown
   carve --carve document.crv            Render canonical Carve source
   carve fmt -w document.crv             Format file in place
@@ -590,6 +713,9 @@ function showVersion(): void
 }
 
 // Main
+if (($argv[1] ?? null) === 'flatten') {
+    runFlattenCommand($argv);
+}
 if (($argv[1] ?? null) === 'merge') {
     runMergeCommand($argv);
 }
@@ -860,6 +986,67 @@ try {
     fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
 
     exit(1);
+}
+
+// File inclusion (PART 9 section 19). Opt-in by construction: the parser never
+// touches the filesystem, so a directive is literal text until a host supplies
+// a resolver - and here the host is this CLI.
+//
+// The containment root is an explicit --include-root, otherwise the DIRECTORY
+// OF THE INPUT DOCUMENT. Never the process working directory, which is
+// arbitrary with respect to the document and may be `/` or a home directory.
+// Stdin has no path context and therefore no inferable root, so directives stay
+// literal there unless --include-root names one.
+//
+// --carve is excluded on purpose: that target WRITES the document back as
+// Carve, and inlining every child into it would hand back a different document
+// than the one the author wrote. The writer preserves a directive verbatim for
+// the same reason. --from-json is excluded because its input is a tree rather
+// than source, with no path context to resolve against.
+$includeRoot = $options['includeRoot'];
+if ($includeRoot === null && $inputFile !== null) {
+    $realInput = realpath($inputFile);
+    $includeRoot = $realInput === false ? null : dirname($realInput);
+}
+$wantIncludes = $includeRoot !== null
+    && !$options['noIncludes']
+    && !$options['fromJson']
+    && IncludeExpander::expandsForFormat((string)$options['format'])
+    && ($options['includeRoot'] !== null || str_contains($input, '{{'));
+
+if ($wantIncludes) {
+    try {
+        $resolver = new FilesystemIncludeResolver($includeRoot);
+    } catch (RuntimeException $exception) {
+        // An explicit root is a user request, so a bad one is fatal. An
+        // INFERRED one is reachable without the user asking for includes at
+        // all (a deleted parent directory, say), so it degrades to the plain
+        // render rather than failing a render nobody asked to change.
+        if ($options['includeRoot'] !== null) {
+            fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
+            exit(1);
+        }
+        $resolver = null;
+    }
+
+    if ($resolver !== null) {
+        $expander = new IncludeExpander(
+            resolver: $resolver,
+            currentPath: $inputFile === null ? null : (realpath($inputFile) ?: $inputFile),
+        );
+        $document = $expander->transform($converter->parse($input));
+        // Include warnings are NOT behind --warnings. A refused directive stays
+        // literal, which looks exactly like prose the author typed, so staying
+        // quiet about it hides a real error behind something that reads as
+        // normal text (spec I7).
+        foreach ($expander->getWarnings() as $warning) {
+            fwrite(STDERR, 'carve: ' . $warning->getMessage() . ' [' . ($warning->getRule() ?? 'include') . "]\n");
+        }
+        $suppressed = $expander->getSuppressedWarnings();
+        if ($suppressed > 0) {
+            fwrite(STDERR, "carve: $suppressed further include warning(s) suppressed\n");
+        }
+    }
 }
 
 try {

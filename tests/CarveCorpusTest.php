@@ -874,6 +874,13 @@ class CarveCorpusTest extends TestCase
         'a-definition-nested-past-a-footnote-body-is-a-note-and-a-reference-below-it-resolves',
         'a-container-closer-closes-its-container-in-a-footnote-body-too',
         'a-wrapped-attribute-block-ends-at-its-quote-and-reaches-no-line-below-it',
+        // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES. The column-reach
+        // ruling is one this engine already answers, and the include example
+        // is the core pin that a directive with no resolver stays literal.
+        // Both render byte-identically to their corpus HTML here, verified per
+        // document by this test.
+        'a-column-0-line-after-a-description-hosted-note-is-a-document-sibling',
+        'include-directive-with-no-resolver-renders-literal',
     ];
 
     /**

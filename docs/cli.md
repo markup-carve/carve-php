@@ -26,6 +26,11 @@ confidence because those importers do not yet produce construct-level evidence.
 HTML reports its import `mode` and `adapter`; its resource-limit exceptions are
 reported as command errors rather than partial migration reports.
 
+ `--include-root DIR` sets the containment root for `{{ path }}` include
+ directives. A file input already defaults to the document's own directory, so
+ the flag is for widening that root or for enabling includes on stdin, which has
+ no path context of its own. See [File inclusion](includes.md).
+
 `AstMerge::merge()` exposes the same conservative merge to applications: it
 combines independent field edits, insertions, deletions, and moves, and returns
 explicit JSON-Pointer conflicts instead of choosing an ambiguous winner.

@@ -1683,7 +1683,7 @@ class AstCodec
         // hiding the whole feature behind an encoder that drops it.
         $span = $node->getPos();
         if ($span !== null && !$node instanceof Document) {
-            $encoded['pos'] = $span->toArray();
+            $encoded['pos'] = $span->toWireArray();
         }
 
         $children = $node->getChildren();
