@@ -32,7 +32,7 @@ use PHPUnit\Framework\TestCase;
 class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
 {
     /**
-     * @return list<array{code: string, message: string, severity: string, path: string}>
+     * @return list<array{code: string, message: string, severity: string, fidelity: string, confidence: string, path: string}>
      */
     protected function rows(string $html): array
     {
@@ -41,6 +41,8 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
                 'code' => $diagnostic->code,
                 'message' => $diagnostic->message,
                 'severity' => $diagnostic->severity,
+                'fidelity' => $diagnostic->fidelity(),
+                'confidence' => $diagnostic->confidence(),
                 'path' => $diagnostic->path,
             ],
             (new HtmlToCarve())->convertWithReport($html)->diagnostics,
@@ -69,6 +71,8 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
                     'message' => 'A <div> inside <ul> kept its content but not its place among the items:'
                         . ' it is emitted as blocks ahead of the list',
                     'severity' => 'warning',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/ul[1]/div[1]',
                 ],
             ],
@@ -92,6 +96,8 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
                     'message' => 'Text directly inside <ul> kept its content but not its place among the items:'
                         . ' it is emitted as a paragraph ahead of the list',
                     'severity' => 'warning',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/ul[1]/text()[1]',
                 ],
             ],
@@ -117,6 +123,8 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
                     'code' => 'element-dropped',
                     'message' => 'Dropped active <script> element',
                     'severity' => 'warning',
+                    'fidelity' => 'dropped',
+                    'confidence' => 'exact',
                     'path' => '/ul[1]/script[1]',
                 ],
             ],
@@ -152,6 +160,8 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
                     'message' => 'An HTML comment directly inside <ul> kept its text but not its place among the items:'
                         . ' it is emitted as a comment ahead of the list',
                     'severity' => 'info',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/ul[1]/comment()[2]',
                 ],
             ],
@@ -175,6 +185,8 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
                     'message' => 'A <p> inside <ol> kept its content but not its place among the items:'
                         . ' it is emitted as blocks ahead of the list',
                     'severity' => 'warning',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/ol[1]/p[2]',
                 ],
             ],
@@ -206,6 +218,8 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
                     'message' => 'A <p> inside <ul> kept its content but not its place among the items:'
                         . ' it is emitted as blocks ahead of the list',
                     'severity' => 'warning',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/ul[1]/li[1]/ul[2]/p[1]',
                 ],
             ],

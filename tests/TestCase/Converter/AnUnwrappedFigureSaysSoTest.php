@@ -51,7 +51,7 @@ class AnUnwrappedFigureSaysSoTest extends TestCase
     protected const MESSAGE = 'Unwrapped unsupported <figure> element';
 
     /**
-     * @return list<array{code: string, message: string, severity: string, path: string}>
+     * @return list<array{code: string, message: string, severity: string, fidelity: string, confidence: string, path: string}>
      */
     protected function rows(string $html, string $mode = 'roundtrip'): array
     {
@@ -60,6 +60,8 @@ class AnUnwrappedFigureSaysSoTest extends TestCase
                 'code' => $diagnostic->code,
                 'message' => $diagnostic->message,
                 'severity' => $diagnostic->severity,
+                'fidelity' => $diagnostic->fidelity(),
+                'confidence' => $diagnostic->confidence(),
                 'path' => $diagnostic->path,
             ],
             (new HtmlToCarve(importMode: $mode))->convertWithReport($html)->diagnostics,
@@ -86,6 +88,8 @@ class AnUnwrappedFigureSaysSoTest extends TestCase
                     'code' => 'element-unwrapped',
                     'message' => self::MESSAGE,
                     'severity' => 'info',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/figure[1]',
                 ],
             ],
@@ -117,7 +121,17 @@ class AnUnwrappedFigureSaysSoTest extends TestCase
     {
         $this->assertSame($expected, $this->carve($html));
         $this->assertSame(
-            [['code' => 'element-unwrapped', 'message' => self::MESSAGE, 'severity' => 'info', 'path' => '/figure[1]']],
+            [
+                [
+
+                    'code' => 'element-unwrapped',
+                    'message' => self::MESSAGE,
+                    'severity' => 'info',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
+                    'path' => '/figure[1]',
+                ],
+            ],
             $this->rows($html),
         );
     }
@@ -236,6 +250,8 @@ class AnUnwrappedFigureSaysSoTest extends TestCase
                     'code' => 'element-unwrapped',
                     'message' => self::MESSAGE,
                     'severity' => 'info',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/figure[1]/figure[1]',
                 ],
             ],
@@ -353,7 +369,17 @@ class AnUnwrappedFigureSaysSoTest extends TestCase
     {
         foreach (['safe', 'semantic'] as $mode) {
             $this->assertSame(
-                [['code' => 'element-unwrapped', 'message' => self::MESSAGE, 'severity' => 'info', 'path' => '/figure[1]']],
+                [
+                    [
+
+                        'code' => 'element-unwrapped',
+                        'message' => self::MESSAGE,
+                        'severity' => 'info',
+                        'fidelity' => 'degraded',
+                        'confidence' => 'exact',
+                        'path' => '/figure[1]',
+                    ],
+                ],
                 $this->rows($html, $mode),
             );
         }

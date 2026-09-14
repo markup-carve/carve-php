@@ -40,7 +40,7 @@ use PHPUnit\Framework\TestCase;
 class AnUnwrappedElementSaysSoBeforeItsAttributesDoTest extends TestCase
 {
     /**
-     * @return list<array{code: string, message: string, severity: string, path: string}>
+     * @return list<array{code: string, message: string, severity: string, fidelity: string, confidence: string, path: string}>
      */
     protected function rows(string $html, string $mode = 'safe'): array
     {
@@ -49,6 +49,8 @@ class AnUnwrappedElementSaysSoBeforeItsAttributesDoTest extends TestCase
                 'code' => $diagnostic->code,
                 'message' => $diagnostic->message,
                 'severity' => $diagnostic->severity,
+                'fidelity' => $diagnostic->fidelity(),
+                'confidence' => $diagnostic->confidence(),
                 'path' => $diagnostic->path,
             ],
             (new HtmlToCarve(importMode: $mode))->convertWithReport($html)->diagnostics,
@@ -75,18 +77,24 @@ class AnUnwrappedElementSaysSoBeforeItsAttributesDoTest extends TestCase
                     'code' => 'element-unwrapped',
                     'message' => 'Unwrapped unsupported <section> element',
                     'severity' => 'info',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/section[1]',
                 ],
                 [
                     'code' => 'attribute-dropped',
                     'message' => 'Dropped unsupported attribute id on <section>',
                     'severity' => 'info',
+                    'fidelity' => 'dropped',
+                    'confidence' => 'exact',
                     'path' => '/section[1]',
                 ],
                 [
                     'code' => 'attribute-dropped',
                     'message' => 'Dropped unsupported attribute class on <section>',
                     'severity' => 'info',
+                    'fidelity' => 'dropped',
+                    'confidence' => 'exact',
                     'path' => '/section[1]',
                 ],
             ],
@@ -109,6 +117,8 @@ class AnUnwrappedElementSaysSoBeforeItsAttributesDoTest extends TestCase
                     'code' => 'element-unwrapped',
                     'message' => 'Unwrapped unsupported <section> element',
                     'severity' => 'info',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/section[1]',
                 ],
             ],
@@ -174,6 +184,8 @@ class AnUnwrappedElementSaysSoBeforeItsAttributesDoTest extends TestCase
                     'code' => 'element-unwrapped',
                     'message' => 'Unwrapped unsupported <section> element',
                     'severity' => 'info',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/section[1]',
                 ],
             ],
@@ -233,18 +245,24 @@ class AnUnwrappedElementSaysSoBeforeItsAttributesDoTest extends TestCase
                     'code' => 'element-unwrapped',
                     'message' => 'Replaced unsupported <video> element with Carve span metadata',
                     'severity' => 'info',
+                    'fidelity' => 'degraded',
+                    'confidence' => 'exact',
                     'path' => '/video[1]',
                 ],
                 [
                     'code' => 'attribute-dropped',
                     'message' => 'Dropped unsupported attribute src on <video>',
                     'severity' => 'info',
+                    'fidelity' => 'dropped',
+                    'confidence' => 'exact',
                     'path' => '/video[1]',
                 ],
                 [
                     'code' => 'attribute-dropped',
                     'message' => 'Dropped unsupported attribute class on <video>',
                     'severity' => 'info',
+                    'fidelity' => 'dropped',
+                    'confidence' => 'exact',
                     'path' => '/video[1]',
                 ],
             ],
