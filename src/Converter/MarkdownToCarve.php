@@ -83,7 +83,7 @@ class MarkdownToCarve
      */
     protected bool $convertAttributes = false;
 
-    protected bool $convertRawHtml = true;
+    protected bool $convertRawHtml = false;
 
     public function __construct(
         bool $convertMath = false,
@@ -92,7 +92,7 @@ class MarkdownToCarve
         bool $convertAbbreviations = false,
         bool $convertFencedDivs = false,
         bool $convertAttributes = false,
-        bool $convertRawHtml = true,
+        bool $convertRawHtml = false,
     ) {
         $this->convertMath = $convertMath;
         $this->convertHighlight = $convertHighlight;
@@ -270,6 +270,41 @@ class MarkdownToCarve
 
             $contentCol = $listCols === [] ? 0 : (int)end($listCols);
 
+            if (!$this->convertRawHtml) {
+                $htmlBlock = $this->collectVerbatimHtmlBlock(
+                    $lines,
+                    $i,
+                    $contentCol,
+                    in_array($prevLineType, ['text', 'list', 'blockquote'], true),
+                );
+                if ($htmlBlock !== null) {
+                    $container = $this->containerKey($line, $contentCol);
+                    $previousWasContainerBlank = $i > 0
+                        && $this->containerKey($lines[$i - 1], $contentCol) === $container
+                        && $this->stripContainerPrefix($lines[$i - 1], $contentCol) === '';
+                    $lastResultKey = array_key_last($result);
+                    if ($previousWasContainerBlank && $lastResultKey !== null) {
+                        $result[$lastResultKey] = rtrim($result[$lastResultKey] ?? '');
+                    }
+                    if ($container === '0|0' && !$previousWasContainerBlank && $prevLineType !== 'blank' && $result !== []) {
+                        $result[] = '';
+                    }
+                    foreach ($htmlBlock['lines'] as $htmlLine) {
+                        $result[] = $htmlLine;
+                    }
+                    $i = $htmlBlock['end'];
+                    if ($container === '0|0' && $i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
+                        $result[] = '';
+                    }
+                    $prevLineType = $container === '0|0'
+                        ? 'code_fence'
+                        : (str_ends_with($container, '|0') ? 'list' : 'blockquote');
+                    $bulletRunBroken = true;
+
+                    continue;
+                }
+            }
+
             if ($this->convertRawHtml) {
                 $htmlBlock = $this->collectPairedHtmlBlock($lines, $i, $contentCol);
                 if ($htmlBlock !== null) {
@@ -308,17 +343,19 @@ class MarkdownToCarve
                     || ($isBlockquote && $prevLineType !== 'blank' && $prevLineType !== 'blockquote')
                     || ($isList && $prevLineType !== 'list' && $prevLineType !== 'blank')
                 );
-            $separator = $this->rawHtmlBlockSeparator(
-                $line,
-                $contentCol,
-                in_array($prevLineType, ['text', 'list', 'blockquote'], true),
-                $isBlank,
-                $htmlCloser,
-                $htmlBreakOwed,
-                $htmlBlockOpen,
-                $htmlPrevHadContent,
-                $htmlContainer,
-            );
+            $separator = $this->convertRawHtml
+                ? $this->rawHtmlBlockSeparator(
+                    $line,
+                    $contentCol,
+                    in_array($prevLineType, ['text', 'list', 'blockquote'], true),
+                    $isBlank,
+                    $htmlCloser,
+                    $htmlBreakOwed,
+                    $htmlBlockOpen,
+                    $htmlPrevHadContent,
+                    $htmlContainer,
+                )
+                : null;
             if ($separator !== null && !$separatedByCaller) {
                 $result[] = $separator;
             }
@@ -759,11 +796,12 @@ class MarkdownToCarve
      */
     protected function htmlBlockCloser(string $rest): ?string
     {
-        if (preg_match('/^<(?:script|pre|style|textarea)(?:[ \t>]|$)/i', $rest) === 1) {
-            // Any one of the four end tags closes any one of the four openers -
-            // the spec says outright that it "need not match the start tag",
-            // and `commonmark` 0.31.2 ends a `<script>` block on `</pre>`.
-            return '/<\/(?:script|pre|style|textarea)>/i';
+        if (preg_match('/^<(script|pre|style|textarea)(?:[ \t>]|$)/i', $rest, $tag) === 1) {
+            // The block ends on its OWN end tag. carve-js closes a `<script>`
+            // block on `</script>` only, not on `</pre>`, so a mismatched end
+            // tag leaves the block open and it runs to the next blank line or
+            // EOF - this engine matches that.
+            return '/<\/' . strtolower($tag[1]) . '>/i';
         }
         if (str_starts_with($rest, '<!--')) {
             return '/-->/';
@@ -779,6 +817,97 @@ class MarkdownToCarve
         }
 
         return null;
+    }
+
+    /**
+     * Collect one CommonMark raw-HTML block and wrap its bytes in a Carve raw block.
+     *
+     * @param array<int, string> $lines
+     * @param int $start
+     * @param int $contentCol
+     * @param bool $paragraphOpen
+     *
+     * @return array{lines: array<int, string>, end: int}|null
+     */
+    protected function collectVerbatimHtmlBlock(
+        array $lines,
+        int $start,
+        int $contentCol,
+        bool $paragraphOpen,
+    ): ?array {
+        $first = $this->stripContainerPrefix($lines[$start], $contentCol);
+        if ($first === null) {
+            return null;
+        }
+
+        $container = $this->containerKey($lines[$start], $contentCol);
+        if ($paragraphOpen && $contentCol > 0 && !str_ends_with($container, '|0')) {
+            return null;
+        }
+
+        $closer = $this->htmlBlockCloser($first);
+        if ($closer === null && !$this->htmlBlockInterrupts($first)) {
+            // Not a condition 1-5 or 6 opener, so only condition 7 can start a
+            // block here: the line must be a SINGLE tag ending at its first `>`
+            // with nothing after it. `[^>]*` (not `.*`) is what draws the line
+            // between `<x foo=>` (one tag alone - opens a block, matching
+            // carve-js even though the attribute is malformed) and
+            // `<span>a b c</span>` (tag, content, tag - stays inline).
+            if ($paragraphOpen || preg_match('/^<[^>]*>[ \t]*$/', $first) !== 1) {
+                return null;
+            }
+        }
+
+        $parts = [$first];
+        $end = $start;
+        $container = $this->containerKey($lines[$start], $contentCol);
+        if ($closer === null || preg_match($closer, $first) !== 1) {
+            for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
+                if ($this->containerKey($lines[$i], $contentCol) !== $container) {
+                    break;
+                }
+                $rest = $this->stripContainerPrefix($lines[$i], $contentCol);
+                if ($rest === null || ($closer === null && $rest === '')) {
+                    break;
+                }
+                $parts[] = $rest;
+                $end = $i;
+                // CommonMark conditions 1-5 end on the FIRST line that contains
+                // the closer (the whole line is included); content on later
+                // lines starts a new block.
+                if ($closer !== null && preg_match($closer, $rest) === 1) {
+                    break;
+                }
+            }
+        }
+
+        $sourcePrefix = $this->htmlContainerPrefix($lines[$start], $first);
+        if (str_contains($sourcePrefix, '>')) {
+            $prefix = $contentCol === 0 ? ltrim($sourcePrefix, " \t") : $sourcePrefix;
+            $continuation = $prefix;
+        } elseif ($contentCol > 0) {
+            $prefix = $sourcePrefix;
+            $continuation = $sourcePrefix;
+        } else {
+            $prefix = '';
+            $continuation = $sourcePrefix;
+        }
+        $fenceLength = 3;
+        foreach ($parts as $part) {
+            if (preg_match_all('/`+/', $part, $runs) > 0) {
+                foreach ($runs[0] as $run) {
+                    $fenceLength = max($fenceLength, strlen($run) + 1);
+                }
+            }
+        }
+        $fence = str_repeat('`', $fenceLength);
+        $output = [$prefix . $fence . '=html'];
+        foreach ($parts as $part) {
+            $output[] = $continuation . $part;
+        }
+        $output[] = $prefix . $fence;
+
+        return ['lines' => $output, 'end' => $end];
     }
 
     /**
@@ -1183,13 +1312,17 @@ class MarkdownToCarve
         $line = $this->protectCodeSpans($line, $protect);
 
         $line = preg_replace_callback('/\\\\[^A-Za-z0-9\s]/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
+        // `<code>x</code>` becomes a Carve code span in BOTH modes - carve-js
+        // does this unconditionally, ahead of any raw-HTML handling, so verbatim
+        // mode must not emit it as `<code>...</code>`{=html}.
         $line = preg_replace_callback('/<code>([^<]+)<\/code>/i', fn (array $match): string => $protect('`' . $match[1] . '`'), $line) ?? $line;
+        // Native inline tags with an exact Carve spelling. They are converted by
+        // `$htmlRules` later in this method in BOTH modes, so neither the
+        // HtmlToCarve import path nor the verbatim raw-HTML path may swallow
+        // them first - carve-js converts `<b>`/`<em>`/`<sup>`/... to Carve even
+        // when other raw HTML passes through verbatim.
+        $nativeInline = 'code|mark|ins|del|s|sup|sub|strong|b|em|i';
         if ($this->convertRawHtml) {
-            // The small set below already has exact Markdown-to-Carve spellings
-            // later in this method. Everything else goes through HtmlToCarve,
-            // so recognition, sanitization and declared-loss behavior stay in
-            // one importer instead of growing a second tag implementation.
-            $nativeInline = 'code|mark|ins|del|s|sup|sub|strong|b|em|i';
             $line = preg_replace_callback(
                 '/(?:<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
                 fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
@@ -1208,6 +1341,23 @@ class MarkdownToCarve
             $line = preg_replace_callback(
                 '/<(?:area|base|col|embed|hr|img|input|link|meta|param|source|track|wbr)(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
                 fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
+                $line,
+            ) ?? $line;
+        } else {
+            $rawInline = fn (array $match): string => $protect($this->verbatimHtmlInline($match[0]));
+            $line = preg_replace_callback(
+                '/(?:<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
+                $rawInline,
+                $line,
+            ) ?? $line;
+            $line = preg_replace_callback(
+                '/<(?!(?:' . $nativeInline . ')\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+[^<>]*?)?>[\s\S]*?<\/\1[ \t]*>/i',
+                $rawInline,
+                $line,
+            ) ?? $line;
+            $line = preg_replace_callback(
+                '/<\/?(?!(?:' . $nativeInline . ')\b)[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
+                $rawInline,
                 $line,
             ) ?? $line;
         }
@@ -1306,6 +1456,17 @@ class MarkdownToCarve
         // Highlight/super/subscript use the forced brace forms: an HTML tag can
         // sit intraword (e.g. H<sub>2</sub>O), where a bare ,2, / ^2^ / =2= is
         // literal in Carve; the {,x,} / {^x^} / {=x=} forms render anywhere.
+        // Highlight is the one of these with a bare Carve form (`=x=`, like
+        // emphasis). In verbatim mode carve-js emits it bare, bracing only when a
+        // word character sits directly against either delimiter - where a bare
+        // `=` would be literal (`a=x=b`). The opt-in HtmlToCarve mode keeps the
+        // always-braced form. The others below have no bare form and are always
+        // braced (sup/sub/ins) or always bare (del/s).
+        if (!$this->convertRawHtml) {
+            $line = preg_replace('/(?<=\w)<mark>([^<]+)<\/mark>/i', '{=$1=}', $line) ?? $line;
+            $line = preg_replace('/<mark>([^<]+)<\/mark>(?=\w)/i', '{=$1=}', $line) ?? $line;
+            $line = preg_replace('/<mark>([^<]+)<\/mark>/i', '=$1=', $line) ?? $line;
+        }
         $htmlRules = [
             '/<mark>([^<]+)<\/mark>/i' => '{=$1=}',
             '/<ins>([^<]+)<\/ins>/i' => '{+$1+}',
@@ -1338,6 +1499,19 @@ class MarkdownToCarve
         } while ($line !== $previous);
 
         return $line;
+    }
+
+    protected function verbatimHtmlInline(string $html): string
+    {
+        $delimiterLength = 1;
+        if (preg_match_all('/`+/', $html, $runs) > 0) {
+            foreach ($runs[0] as $run) {
+                $delimiterLength = max($delimiterLength, strlen($run) + 1);
+            }
+        }
+        $delimiter = str_repeat('`', $delimiterLength);
+
+        return $delimiter . $html . $delimiter . '{=html}';
     }
 
     /**
