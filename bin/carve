@@ -208,7 +208,7 @@ function runFlattenCommand(array $argv): never
 
     echo $converter->render($document);
     exit(0);
- }
+}
 
 /**
  * @param array<int, string> $argv
