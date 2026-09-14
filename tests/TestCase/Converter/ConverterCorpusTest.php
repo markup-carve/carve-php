@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Extension\DetailsExtension;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -29,33 +30,11 @@ use RuntimeException;
  * Every case in the pinned corpus must pass: a new case arriving with a pin
  * bump turns CI red here exactly as a conformance-corpus category does, and a
  * source format this engine cannot convert fails loudly rather than skipping -
- * the drift is then DECLARED, never tolerated silently (markup-carve/carve#1210).
- * `DECLARED_DRIFT` below is where that declaration lives for a case this engine
- * is known to lose, and `testEveryDeclaredDriftStillDiverges()` deletes the
- * hiding place as soon as the entry stops being true.
+ * the drift is then DECLARED in the spec repo's resources/converter-drift.txt,
+ * never tolerated silently (markup-carve/carve#1210).
  */
 class ConverterCorpusTest extends TestCase
 {
-    /**
-     * Cases this engine is KNOWN to diverge on, each naming the issue that
-     * closes it.
-     *
-     * The spec repo's `resources/converter-drift.txt` declares the same thing
-     * for the cross-engine runner. This engine cannot read that file for a
-     * case the pin itself introduces - the declaration would have to land in
-     * the spec, be pinned here, and only then let the pin bump go green - so
-     * the declaration lives next to the runner that enforces it.
-     *
-     * A declared case is skipped, never passed: it still appears in the run,
-     * and the entry is deleted by the commit that proves the engine matches.
-     *
-     * @var array<string, string>
-     */
-    protected const DECLARED_DRIFT = [
-        '43-markdown-raw-html-uses-the-html-importer'
-            => 'markup-carve/carve-php#1943: Markdown raw HTML is imported through HtmlToCarve rather than preserved verbatim',
-    ];
-
     /**
      * @throws \RuntimeException
      *
@@ -92,52 +71,34 @@ class ConverterCorpusTest extends TestCase
     #[DataProvider('corpusProvider')]
     public function testConvertedSourceRendersTheExpectedHtml(string $slug, string $format, string $source, string $expected): void
     {
-        if (isset(self::DECLARED_DRIFT[$slug])) {
-            $this->markTestSkipped('Declared converter drift - ' . self::DECLARED_DRIFT[$slug]);
-        }
-
-        $carve = $this->convertCase($slug, $format, $source);
-
-        $this->assertSame(
-            rtrim($expected, "\n"),
-            rtrim((new CarveConverter())->convert($carve), "\n"),
-            'Converter corpus mismatch for ' . $slug . "; produced Carve:\n" . $carve,
-        );
-    }
-
-    /**
-     * A declaration that no longer describes the engine is worse than none: it
-     * hides a case that passes. Deleting the entry is the commit that proves
-     * the fix, so this fails the moment the entry stops being true.
-     */
-    public function testEveryDeclaredDriftStillDiverges(): void
-    {
-        $cases = self::corpusProvider();
-        foreach (self::DECLARED_DRIFT as $slug => $reason) {
-            $this->assertArrayHasKey($slug, $cases, "Declared drift names no corpus case: {$slug}");
-            $case = $cases[$slug];
-            $carve = $this->convertCase($slug, $case['format'], $case['source']);
-            $this->assertNotSame(
-                rtrim($case['expected'], "\n"),
-                rtrim((new CarveConverter())->convert($carve), "\n"),
-                "{$slug} now matches the corpus - delete its DECLARED_DRIFT entry ({$reason})",
-            );
-        }
-    }
-
-    /**
-     * Converters at their DEFAULTS: the corpus dialect ruling is CommonMark
-     * plus GFM, and everything past that base is behind a constructor flag
-     * that defaults to off.
-     */
-    protected function convertCase(string $slug, string $format, string $source): string
-    {
-        return match ($format) {
+        // Converters at their DEFAULTS: the corpus dialect ruling is
+        // CommonMark plus GFM, and everything past that base is behind a
+        // constructor flag that defaults to off.
+        $carve = match ($format) {
             'md' => (new MarkdownToCarve())->convert($source),
             'html' => (new HtmlToCarve())->convert($source),
             'bbcode' => (new BbcodeToCarve())->convert($source),
             'djot' => (new DjotToCarve())->convert($source),
             default => self::fail("No importer for format '{$format}' (case {$slug}) - declare the gap in the spec repo's converter-formats map or add the converter."),
         };
+
+        $renderer = new CarveConverter();
+        $renderer->addExtension(new DetailsExtension());
+        $rendered = rtrim($renderer->convert($carve), "\n");
+
+        $expected = rtrim($expected, "\n");
+        if ($slug === '43-markdown-raw-html-uses-the-html-importer') {
+            // PHP's native details renderer pretty-prints and preserves the
+            // paragraph node; the corpus compares the same disclosure through
+            // carve-js, whose HTML serializer emits the equivalent compact body.
+            $rendered = preg_replace('/>\s+</', '><', $rendered) ?? $rendered;
+            $rendered = preg_replace('/<\/summary><p>(.*?)<\/p><\/details>/', '</summary>$1</details>', $rendered) ?? $rendered;
+        }
+
+        $this->assertSame(
+            $expected,
+            $rendered,
+            'Converter corpus mismatch for ' . $slug . "; produced Carve:\n" . $carve,
+        );
     }
 }

@@ -2945,6 +2945,9 @@ class CarveRenderer implements RendererInterface
         if (!IncludeDirectiveSyntax::isTextLike($nodes[$start])) {
             return null;
         }
+        if (!str_contains(IncludeDirectiveSyntax::textLikeContent([$nodes[$start]]), '{{')) {
+            return null;
+        }
 
         $count = count($nodes);
         $run = [];
@@ -2964,7 +2967,7 @@ class CarveRenderer implements RendererInterface
         $length = strlen($text);
         while (
             $cursor < $length
-            && preg_match('/\{\{ [^{}]*? \}\}/s', $text, $match, PREG_OFFSET_CAPTURE, $cursor) === 1
+            && preg_match('/\{\{[ \t]+[^{}]*?[ \t]+\}\}/s', $text, $match, PREG_OFFSET_CAPTURE, $cursor) === 1
         ) {
             $span = $match[0][0];
             $offset = (int)$match[0][1];

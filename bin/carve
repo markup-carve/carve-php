@@ -384,6 +384,7 @@ function parseArgs(array $argv): array
         'allowLoss' => false,
         'maxRenderLosses' => 100,
         'includeRoot' => null,
+        'noIncludes' => false,
         'help' => false,
         'version' => false,
     ];
@@ -425,6 +426,9 @@ function parseArgs(array $argv): array
             $options['xhtml'] = true;
         } elseif ($arg === '-s' || $arg === '--safe') {
             $options['safe'] = true;
+            $options['noIncludes'] = true;
+        } elseif ($arg === '--no-includes') {
+            $options['noIncludes'] = true;
         } elseif ($arg === '--static') {
             $options['static'] = true;
         } elseif ($arg === '-w' || $arg === '--warnings') {
@@ -671,6 +675,7 @@ Options:
   -o, --output FILE   Write output to FILE instead of stdout
   -x, --xhtml         Use XHTML-compatible output (self-closing tags; HTML only)
   -s, --safe          Enable safe mode (sanitize dangerous HTML; HTML only)
+  --no-includes       Leave include directives literal (--safe implies this)
   --static            Render in static mode: flatten interactive constructs
                       (tabs / code-group to labeled sections, mermaid / math to
                       source) so the HTML needs no client scripts. HTML only;
@@ -1004,6 +1009,7 @@ if ($includeRoot === null && $inputFile !== null) {
     $includeRoot = $realInput === false ? null : dirname($realInput);
 }
 $wantIncludes = $includeRoot !== null
+    && !$options['noIncludes']
     && !$options['fromJson']
     && IncludeExpander::expandsForFormat((string)$options['format'])
     && ($options['includeRoot'] !== null || str_contains($input, '{{'));

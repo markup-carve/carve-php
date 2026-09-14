@@ -63,7 +63,7 @@ class IncludeExpander implements TransformerInterface
     /**
      * @var string
      */
-    private const DIRECTIVE_SCAN = '/\{\{ [^{}]*? \}\}/s';
+    private const DIRECTIVE_SCAN = '/\{\{[ \t]+[^{}]*?[ \t]+\}\}/s';
 
     /**
      * Loose directive shape: one whole-paragraph token, valid options or not.
@@ -460,9 +460,13 @@ class IncludeExpander implements TransformerInterface
 
             $replaced = $this->expandRun($node, $run, $currentPath, $stack, $depth, $budget);
             if ($replaced) {
+                $oldCount = $count;
                 $children = array_values($node->getChildren());
                 $count = count($children);
-                $i = 0;
+                // The inserted nodes were expanded in the child's scope before
+                // splicing. Resume after them instead of resolving them again
+                // in the parent (which can starve later inline includes).
+                $i += $count - $oldCount + ($j - $i);
 
                 continue;
             }
@@ -922,16 +926,15 @@ class IncludeExpander implements TransformerInterface
         $level = null;
 
         foreach ($children as $index => $child) {
-            if (!$child instanceof Heading) {
-                continue;
-            }
-
-            $id = $tracker->getIdForHeading($child);
-            if ($id === $section) {
-                $start = (int)$index;
-                $level = $child->getLevel();
-
-                break;
+            $headings = $child instanceof Heading ? [$child] : [];
+            $headings = [...$headings, ...$this->collect($child, Heading::class)];
+            foreach ($headings as $heading) {
+                $id = $tracker->getIdForHeading($heading);
+                if ($child === $heading && $id === $section) {
+                    $start = (int)$index;
+                    $level = $heading->getLevel();
+                    break 2;
+                }
             }
         }
 
@@ -1073,7 +1076,7 @@ class IncludeExpander implements TransformerInterface
     {
         $included = [];
         foreach ($this->collect($document, Footnote::class) as $footnote) {
-            if ($footnote->getPos()?->file !== null) {
+            if ($this->scopeOf($footnote) !== null) {
                 $included[spl_object_id($footnote)] = $footnote;
             }
         }
