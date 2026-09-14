@@ -23,16 +23,19 @@ trait ReportsMigrationFidelity
 
     protected function htmlMigrationResult(HtmlImportResult $result): MigrationResult
     {
-        $diagnostics = array_map(static function (HtmlImportDiagnostic $diagnostic): MigrationDiagnostic {
-            return new MigrationDiagnostic(
-                $diagnostic->code,
-                $diagnostic->message,
-                $diagnostic->severity,
-                $diagnostic->fidelity,
-                $diagnostic->confidence,
-                $diagnostic->path,
-            );
-        }, $result->diagnostics);
+        // The DIAGNOSTIC answers both questions now, so this carries them rather
+        // than deriving a second copy. The two used to be computed here alone,
+        // which is why the plain import report - what the shared fixtures
+        // compare - reported neither, and why the copies could disagree about a
+        // code with nothing to catch it.
+        $diagnostics = array_map(static fn (HtmlImportDiagnostic $diagnostic): MigrationDiagnostic => new MigrationDiagnostic(
+            $diagnostic->code,
+            $diagnostic->message,
+            $diagnostic->severity,
+            $diagnostic->fidelity(),
+            $diagnostic->confidence(),
+            $diagnostic->path,
+        ), $result->diagnostics);
 
         return new MigrationResult(
             $result->value,
