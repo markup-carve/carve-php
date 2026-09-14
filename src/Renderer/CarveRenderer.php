@@ -1845,6 +1845,24 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
+     * Whether this block's WRITTEN form is a bare `%%` line.
+     *
+     * The predicate is about the block BELOW a sub-list, not about the
+     * sub-list: leavesAParagraphOpen() answers the neighbouring question for
+     * the paragraph-shaped blocks and is the wrong tool here, because a comment
+     * does not fold into an open paragraph - it is re-owned by an open LIST.
+     * The fence form (`%%%`) and the delimited form are excluded: a fence
+     * opener closes the sub-list above it on its own.
+     */
+    protected function isALineComment(Node $node): bool
+    {
+        return $node instanceof Comment
+            && !$node->isDelimited()
+            && $node->getFenceLength() === null
+            && !str_contains($node->getContent(), "\n");
+    }
+
+    /**
      * Whether the WRITTEN form of a block opens with a block-attributes line.
      */
     protected function opensWithAnAttributeLine(string $rendered): bool
@@ -1984,6 +2002,17 @@ class CarveRenderer implements RendererInterface
                     $atMarkerColumn = true;
 
                     continue;
+                }
+                // A line comment opens no container of its own, so at the
+                // item's content column - which IS the marker column of a
+                // sub-list standing above it - a re-parse reads it into that
+                // sub-list's last item instead of into this one, and the next
+                // writer pass spells it at the deeper column. The blank line
+                // closes the sub-list; a comment spells no paragraph for the
+                // blank to part, so the item stays tight and the HTML is
+                // unchanged (carve-php#1948).
+                if (!$separated && $previousEmitted instanceof ListBlock && $this->isALineComment($child)) {
+                    $out .= "\n";
                 }
                 $previous = $child;
                 $previousEmitted = $child;
