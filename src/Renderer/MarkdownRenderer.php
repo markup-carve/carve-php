@@ -1102,15 +1102,21 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             if ($piece === null) {
                 continue;
             }
+            $character = $piece['delimiter'][0];
             $before = $piece['lead'] !== ''
                 ? $this->lastCharacter($piece['lead'])
                 : $this->neighbourBefore($parts, $index);
             $after = $piece['trail'] !== ''
                 ? $this->firstCharacter($piece['trail'])
                 : $this->neighbourAfter($parts, $index);
+            // The INSIDE character is the one past everything the merged run
+            // swallowed. A child's delimiter at the edge of the core is part of
+            // the run the reader lexes, not content beside it, so reading it as
+            // the inside character calls `a***x***b` unable to flank when it
+            // flanks perfectly well.
             if (
-                $this->flanks($this->firstCharacter($piece['core']), $before)
-                && $this->flanks($this->lastCharacter($piece['core']), $after)
+                $this->flanks($this->afterRunInCore($piece['core'], $character), $before)
+                && $this->flanks($this->beforeRunInCore($piece['core'], $character), $after)
             ) {
                 continue;
             }
