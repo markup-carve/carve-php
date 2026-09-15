@@ -7,10 +7,16 @@ namespace MarkupCarve\Carve\Test\TestCase\Transform;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
 use MarkupCarve\Carve\Transform\IncludeExpander;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
-class ABlankIncludeRootConfiguresNoRootTest extends TestCase
+/**
+ * The rule is ABSOLUTENESS, not emptiness after trimming (markup-carve/carve#2004).
+ * Blank and whitespace-only specs fall out of it rather than needing a rule of
+ * their own, so they stay pinned here beside the relative ones.
+ */
+class ANonAbsoluteIncludeRootConfiguresNoRootTest extends TestCase
 {
     /**
      * @var string
@@ -70,6 +76,71 @@ class ABlankIncludeRootConfiguresNoRootTest extends TestCase
         } finally {
             $this->removeTree($base);
         }
+    }
+
+    /**
+     * The vector a trim-and-compare spelling cannot pass: `.` is not blank
+     * after trimming, and only an absoluteness test refuses it.
+     *
+     * Every row MATERIALIZES the target where the spec would land it, and runs
+     * from a working directory the spec resolves against, so a resolver that
+     * canonicalizes the spec instead of refusing it finds the child and the
+     * marker appears. Without that the row would go green because the root did
+     * not exist - the right answer for the wrong reason.
+     *
+     * @param string $spec
+     * @param string $where
+     *
+     * @return void
+     */
+    #[DataProvider('nonAbsoluteRootSpecs')]
+    public function testANonAbsoluteRootLeavesTheDirectiveLiteral(string $spec, string $where): void
+    {
+        $base = $this->tempDir();
+
+        try {
+            $dir = $base . ($where === '' ? '' : DIRECTORY_SEPARATOR . $where);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0777, true);
+            }
+            file_put_contents($dir . DIRECTORY_SEPARATOR . 'child.crv', self::CHILD_MARKER . "\n");
+
+            $result = $this->expandFrom($base, $spec);
+
+            $this->assertSame("<p>{{ child.crv }}</p>\n", $result['html']);
+            $this->assertStringNotContainsString(self::CHILD_MARKER, $result['html']);
+            $this->assertSame([], $result['dependencies']);
+            $this->assertSame([], $result['warnings']);
+        } finally {
+            $this->removeTree($base);
+        }
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function nonAbsoluteRootSpecs(): array
+    {
+        return [
+            'a single dot' => ['.', ''],
+            'a bare relative name' => ['sub', 'sub'],
+            'an explicitly relative name' => ['./sub', 'sub'],
+            'a relative name with a trailing separator' => ['sub/', 'sub'],
+        ];
+    }
+
+    /**
+     * The refusal names absoluteness, because that is the rule the corpus
+     * reads back as the `no-root` denial class.
+     *
+     * @return void
+     */
+    public function testTheRefusalNamesAbsoluteness(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('The include root must be an absolute path');
+
+        new FilesystemIncludeResolver('.');
     }
 
     public function testAnAbsoluteRootIsStillHonoredFromAnUnrelatedWorkingDirectory(): void

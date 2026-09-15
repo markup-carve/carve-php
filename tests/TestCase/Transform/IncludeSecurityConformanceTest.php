@@ -149,7 +149,7 @@ class IncludeSecurityConformanceTest extends TestCase
         // Thrown by the root-configuration seam, before any resolver exists.
         // A value that names no root is not a denial the resolver issued; the
         // resolver was never built, so nothing was asked of it.
-        'The include root must be supplied explicitly' => 'no-root',
+        'The include root must be an absolute path' => 'no-root',
     ];
 
     /**
@@ -203,7 +203,7 @@ class IncludeSecurityConformanceTest extends TestCase
 
     public function testPinsTheVectorCountSoAnAdditionCannotBeSkippedUnnoticed(): void
     {
-        self::assertCount(19, self::corpus()['vectors']);
+        self::assertCount(23, self::corpus()['vectors']);
     }
 
     public function testAnswersEveryRequirementTheCorpusStates(): void
