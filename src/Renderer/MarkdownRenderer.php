@@ -501,6 +501,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // candidate shifts its position in `$line` two bytes left. carve-js can
         // reuse the offset directly because its sentinel is one UTF-16 unit
         // exactly like the character it replaces; here it cannot.
+        $pairs = str_contains($line, '_') ? $this->pairableUnderscores($line) : [];
+
         $out = '';
         $read = 0;
         foreach ($matches[0] as $index => [$sentinel, $offset]) {
@@ -520,7 +522,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $keep = isset($kept[$sentinel])
                 || (isset($authored[$sentinel])
                     ? $this->opensAnAtxHeading($line, $at)
-                    : $this->adjacentToLiveDelimiter($line, $at, $char));
+                    : $this->adjacentToLiveDelimiter($line, $at, $char)
+                        || ($char === '_' && isset($pairs[$at])));
 
             $out .= substr($markdown, $read, $offset - $read);
             $out .= $keep ? '\\' . $char : $char;
@@ -723,6 +726,136 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $backslashes % 2 === 0;
+    }
+
+    /**
+     * Every live `_` on the line a reader could pair into emphasis, by
+     * CommonMark 6.2 read for the underscore: a run that flanks on both sides
+     * can neither open nor close, which is what leaves `company_id` alone.
+     *
+     * ONE SCAN FOR THE WHOLE LINE, taken by the caller before it walks the
+     * candidates. Asking per candidate costs a walk of the line each time, and a
+     * memo keyed on the line only moves that cost into the comparison.
+     *
+     * @param string $line
+     *
+     * @return array<int, bool>
+     */
+    protected function pairableUnderscores(string $line): array
+    {
+        $open = [];
+        $close = [];
+        $length = strlen($line);
+        for ($i = 0; $i < $length; $i++) {
+            if ($line[$i] !== '_' || !$this->isLiveAt($line, $i)) {
+                continue;
+            }
+            $before = $this->characterBefore($line, $i);
+            $after = $this->characterAfter($line, $i);
+            $beforeSpace = $before === '' || $this->isFlankingWhitespace($before);
+            $afterSpace = $after === '' || $this->isFlankingWhitespace($after);
+            $beforePunctuation = $this->isFlankingPunctuation($before);
+            $afterPunctuation = $this->isFlankingPunctuation($after);
+            $left = !$afterSpace && (!$afterPunctuation || $beforeSpace || $beforePunctuation);
+            $right = !$beforeSpace && (!$beforePunctuation || $afterSpace || $afterPunctuation);
+            if ($left && (!$right || $beforePunctuation)) {
+                $open[] = $i;
+            }
+            if ($right && (!$left || $afterPunctuation)) {
+                $close[] = $i;
+            }
+        }
+
+        // A pair needs an opener BEFORE a closer, so `x_ _y` has none: its closer
+        // stands first. The two bounds are what decides it.
+        $pairs = [];
+        $firstOpen = $open !== [] ? $open[0] : PHP_INT_MAX;
+        $lastClose = $close !== [] ? $close[count($close) - 1] : PHP_INT_MIN;
+        foreach ($open as $i) {
+            if ($i < $lastClose) {
+                $pairs[$i] = true;
+            }
+        }
+        foreach ($close as $i) {
+            if ($i > $firstOpen) {
+                $pairs[$i] = true;
+            }
+        }
+
+        return $pairs;
+    }
+
+    /**
+     * Whether the character at $offset is not covered by an odd run of
+     * backslashes.
+     *
+     * @param string $line
+     * @param int $offset
+     *
+     * @return bool
+     */
+    protected function isLiveAt(string $line, int $offset): bool
+    {
+        $backslashes = 0;
+        for ($i = $offset - 1; $i >= 0 && $line[$i] === '\\'; $i--) {
+            $backslashes++;
+        }
+
+        return $backslashes % 2 === 0;
+    }
+
+    /**
+     * The whole UTF-8 character ending immediately before $offset.
+     *
+     * @param string $line
+     * @param int $offset
+     *
+     * @return string
+     */
+    protected function characterBefore(string $line, int $offset): string
+    {
+        if ($offset <= 0) {
+            return '';
+        }
+        $start = $offset - 1;
+        while ($start > 0 && (ord($line[$start]) & 0xC0) === 0x80) {
+            $start--;
+        }
+
+        return substr($line, $start, $offset - $start);
+    }
+
+    /**
+     * The whole UTF-8 character beginning immediately after $offset.
+     *
+     * @param string $line
+     * @param int $offset
+     *
+     * @return string
+     */
+    protected function characterAfter(string $line, int $offset): string
+    {
+        $length = strlen($line);
+        $start = $offset + 1;
+        if ($start >= $length) {
+            return '';
+        }
+        $end = $start + 1;
+        while ($end < $length && (ord($line[$end]) & 0xC0) === 0x80) {
+            $end++;
+        }
+
+        return substr($line, $start, $end - $start);
+    }
+
+    /**
+     * @param string $character
+     *
+     * @return bool
+     */
+    protected function isFlankingWhitespace(string $character): bool
+    {
+        return preg_match('/^' . static::FLANKING_WHITESPACE . '$/u', $character) === 1;
     }
 
     protected function renderNode(Node $node): string
