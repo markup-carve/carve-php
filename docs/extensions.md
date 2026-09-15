@@ -785,11 +785,11 @@ Input:
 ~~~
 ::: code-group
 ``` php [Installation]
-composer require php-collective/djot
+composer require markup-carve/carve-php
 ```
 
 ``` bash [NPM]
-npm install @example/djot
+npm install @markup-carve/carve
 ```
 :::
 ~~~
@@ -1082,8 +1082,7 @@ $converter->convert("::: spoiler \"Ending\"\nEveryone lives.\n:::");
 // </details>
 ~~~
 
-Carve emits only the marker; the blur + reveal is the host's CSS (like
-`MermaidExtension`). Author attributes merge onto the output element - the
+Author attributes merge onto the output element - the
 `spoiler` base class ahead of author classes, then id / key-values - with the
 always-on hardening (`HtmlRenderer::sanitizeAttributes()`) plus safe-mode name
 filtering and value escaping, so a `{onclick="…"}` can never reach the output.
@@ -1521,5 +1520,6 @@ derives its trigger bytes from the pattern automatically.
 
 The normative extension contract lives in
 [`carve/docs/extensions.md`](https://github.com/markup-carve/carve/blob/main/docs/extensions.md).
-Extensions bundled with this package (such as `PlusBulletExtension`) are
-documented above.
+Most extensions bundled with this package (such as `PlusBulletExtension`) are
+documented above; `CitationsExtension`, `ImgFenceExtension`,
+`LowercaseHeadingIdsExtension` and `TocPlacementExtension` have no section yet.

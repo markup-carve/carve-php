@@ -1,25 +1,32 @@
 # Linting
 
-Three passes report constructs that parse cleanly but almost certainly do not
+Seven passes report constructs that parse cleanly but almost certainly do not
 mean what the author intended. Every finding is a `LintWarning` carrying `line`,
 `column`, `rule`, `message`, `start` and `end`, mirroring the carve-js shape so
 the two engines report the same finding in the same terms. Offsets are byte
 offsets into the source you passed.
 
-`MarkdownHabitLinter` reads the **source**; `SemanticAttributeLinter` and
-`RetiredSpellingLinter` parse and walk the **AST**. They are separate classes
-because they answer separate questions, and none can be expressed in another's
-terms.
+`MarkdownHabitLinter` and `TableColumnLinter` read the **source**; the other
+five parse and walk the **AST**. They are separate classes because they answer
+separate questions, and none can be expressed in another's terms.
 
 ```php
+use MarkupCarve\Carve\Lint\FigureGroupLinter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
+use MarkupCarve\Carve\Lint\QuoteFenceLinter;
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
 use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
+use MarkupCarve\Carve\Lint\TableColumnLinter;
+use MarkupCarve\Carve\Lint\TemplateSourceLinter;
 
 $warnings = array_merge(
     (new MarkdownHabitLinter())->lint($source),
     (new SemanticAttributeLinter())->lint($source),
     (new RetiredSpellingLinter())->lint($source),
+    (new TableColumnLinter())->lint($source),
+    (new TemplateSourceLinter())->lint($source),
+    (new FigureGroupLinter())->lint($source),
+    (new QuoteFenceLinter())->lint($source),
 );
 ```
 
@@ -27,7 +34,17 @@ $warnings = array_merge(
 carve lint doc.crv
 ```
 
-`carve lint` runs all three and exits non-zero when anything is reported.
+`carve lint` runs all seven and exits non-zero when anything is reported.
+
+Three passes have no section below. `TableColumnLinter` reports a table cell
+alignment run with no terminating space, `aligns` / `valigns` / `widths`
+attributes that cover fewer columns than the table, `widths` totaling over 100%,
+and an `aligns` / `valigns` axis the table's own `|=` markers already set.
+`TemplateSourceLinter` reports a braced comment holding a template tag (`raw`,
+`if`, `for`, `block` or a closer), a sign that Liquid, Nunjucks or Twig source
+reached Carve before template rendering. `QuoteFenceLinter` reports a `::: >`
+opener at the column of the quote above it, which ends that quote instead of
+nesting inside it.
 
 ## Markdown habits
 
