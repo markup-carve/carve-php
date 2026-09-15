@@ -501,7 +501,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // candidate shifts its position in `$line` two bytes left. carve-js can
         // reuse the offset directly because its sentinel is one UTF-16 unit
         // exactly like the character it replaces; here it cannot.
-        $pairs = str_contains($line, '_') ? $this->pairableUnderscores($line) : [];
+        $pairs = str_contains($line, '_') ? $this->pairableUnderscoresPerBlock($line) : [];
 
         $out = '';
         $read = 0;
@@ -726,6 +726,29 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $backslashes % 2 === 0;
+    }
+
+    /**
+     * M1b's pair condition is asked over the inline content the underscore is
+     * emitted in, so a blank line ends the scan: a reader pairs emphasis across
+     * a soft break and never across a paragraph boundary
+     * (markup-carve/carve#2046).
+     *
+     * @return array<int, bool>
+     */
+    protected function pairableUnderscoresPerBlock(string $line): array
+    {
+        $pairs = [];
+        // A blank line inside a quote carries the marker, so the separator
+        // between two paragraphs there is `>` rather than nothing.
+        $blocks = preg_split('/\n[ \t>]*\n/', $line, -1, PREG_SPLIT_OFFSET_CAPTURE);
+        foreach ($blocks === false ? [] : $blocks as [$block, $start]) {
+            foreach ($this->pairableUnderscores($block) as $offset => $_) {
+                $pairs[$start + $offset] = true;
+            }
+        }
+
+        return $pairs;
     }
 
     /**
