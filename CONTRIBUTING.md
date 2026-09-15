@@ -125,7 +125,7 @@ public function testHeadingRendersAsH1(): void
 }
 ```
 
-Two conventions worth knowing:
+Three conventions worth knowing:
 
 - Prefer `assertSame()` over `assertEquals()` for rendered strings.
 - **Make the test able to fail.** Revert the fix and watch it go red before you

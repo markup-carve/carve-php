@@ -109,9 +109,9 @@ Current state, and both numbers are ratchets:
 
 | | count |
 |---|---|
-| corpus documents | 1053 |
-| fully covered, byte-identical HTML | 791 |
-| surviving the round trip, covered or not | 1014 |
+| corpus documents | 1695 |
+| fully covered, byte-identical HTML | 1317 |
+| surviving the round trip, covered or not | 1662 |
 | fully covered but differing (each one a bug worth fixing) | 0 |
 | threw | 0 |
 

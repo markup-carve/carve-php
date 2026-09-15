@@ -35,8 +35,8 @@ stderr and exits 1.
 
 Until now the AST was reachable only as PHP objects, so anything that is not
 "source to HTML" had to render HTML and re-parse it. That is why a
-ProseMirror/Tiptap serializer only exists in JavaScript, why `HtmlToCarve` has to
-be as large as it is, and why an editor bridge is a design project rather than a
+ProseMirror/Tiptap serializer existed only in JavaScript, why `HtmlToCarve` has to
+be as large as it is, and why an editor bridge was a design project rather than a
 mapping. The tree is what editors, linters, structural diffing and
 cross-implementation conformance want.
 

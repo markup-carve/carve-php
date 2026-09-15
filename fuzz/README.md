@@ -1,6 +1,6 @@
 # Fuzz Testing
 
-This directory contains fuzz testing infrastructure for the djot-php parser using [nikic/php-fuzzer](https://github.com/nikic/PHP-Fuzzer).
+This directory contains fuzz testing infrastructure for the carve-php parser using [nikic/php-fuzzer](https://github.com/nikic/PHP-Fuzzer).
 
 ## Setup
 
