@@ -1125,7 +1125,19 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
         foreach (array_keys($parts) as $index) {
             $piece = $this->delimiterPiece($children, $parts, $index);
-            if ($piece !== null && $this->seamMergesRun($children, $parts, $index, $piece)) {
+            if ($piece === null || !$this->seamMergesRun($children, $parts, $index, $piece)) {
+                continue;
+            }
+            // ONE SEAM, ONE FALLBACK, AND IT IS THE RUN ON THE RIGHT that takes
+            // it (markup-carve/carve#2045). A tilde seam is decided from both
+            // sides and already reports against the right-hand strike, so only
+            // the asterisk seam, which looks right only, moves its fallback
+            // across.
+            $next = $piece['delimiter'][0] === '~' ? -1 : $this->nextRendered($parts, $index);
+            $right = $next < 0 ? null : $this->delimiterPiece($children, $parts, $next);
+            if ($right !== null && $right['delimiter'][0] === $piece['delimiter'][0]) {
+                array_splice($parts, $next, 1, [$this->spellAsHtml($right)]);
+            } else {
                 $parts[$index] = $this->spellAsHtml($piece);
             }
         }
