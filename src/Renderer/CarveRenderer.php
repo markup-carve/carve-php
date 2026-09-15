@@ -2895,9 +2895,12 @@ class CarveRenderer implements RendererInterface
                     continue;
                 }
                 if ($node instanceof InlineNode) {
+                    $prevChar = $this->lastBoundary($nodes[$i - 1] ?? null);
                     $out .= $this->renderInline(
                         $node,
-                        $this->lastBoundary($nodes[$i - 1] ?? null),
+                        // A span leaves no boundary character of its own, so the
+                        // one it WROTE (its closer) is what the next opener sits against.
+                        $prevChar === '' ? substr($out, -1) : $prevChar,
                         $this->firstBoundary($nodes[$i + 1] ?? null),
                         $captionCanOpen,
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
@@ -3617,7 +3620,10 @@ class CarveRenderer implements RendererInterface
 
     protected function renderEmphasis(string $delimiter, string $content, string $prevChar, string $nextChar): string
     {
+        // The characters `bare_opener` refuses before a marker (CARVE-P3-013).
         $needsForced = preg_match('/[A-Za-z0-9_]/', $prevChar) === 1
+            || $prevChar === $delimiter
+            || ($prevChar === '/' && ($delimiter === '/' || $delimiter === '_'))
             || preg_match('/[A-Za-z0-9_]/', $nextChar) === 1
             || str_starts_with($content, $delimiter)
             || str_ends_with($content, $delimiter)
