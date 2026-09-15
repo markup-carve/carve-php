@@ -106,6 +106,12 @@ absolute paths by default, rejects any target outside the configured root
 (symlink escapes and `..` traversal alike), rejects URI schemes, and refuses
 any target over `maxFileBytes` (4 MiB; pass `null` to lift the cap).
 
+The root itself must be named explicitly. A blank or whitespace-only value is
+refused rather than canonicalized, because `realpath('')` answers with the
+process working directory - the one default the spec forbids - and `is_dir()`
+then accepts it. A host with no root leaves inclusion disabled and directives
+literal.
+
 Inclusion is a source merge, not a privilege boundary: included content is
 parsed under the same sanitization as any other content, so a child carrying a
 raw-HTML block puts raw HTML in the parent's output. Render in safe mode if the
