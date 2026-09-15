@@ -199,6 +199,13 @@ class IncludeExpander implements TransformerInterface
     protected int $scopeSeq = 0;
 
     /**
+     * Lazily built in parseChild(); see there for why it is not the host's.
+     *
+     * @var \MarkupCarve\Carve\CarveConverter|null
+     */
+    protected ?CarveConverter $childConverter = null;
+
+    /**
      * @param \MarkupCarve\Carve\Transform\IncludeResolverInterface|null $resolver
      * @param string|null $currentPath
      * @param int $depthLimit
@@ -210,14 +217,11 @@ class IncludeExpander implements TransformerInterface
      * @param int $warningLimit
      *   Bounds the pass's own work - reads, lookups - which the byte budget
      *   does not, since a directive is resolved before it can be refused.
+     * @param array<\MarkupCarve\Carve\Extension\ExtensionInterface> $extensions
+     *   Extensions a child is parsed with. Pass the parent converter's
+     *   `getExtensions()`: the same text has to mean the same thing whichever
+     *   file it sits in.
      */
-    /**
-     * Lazily built in parseChild(); see there for why it is not the host's.
-     *
-     * @var \MarkupCarve\Carve\CarveConverter|null
-     */
-    protected ?CarveConverter $childConverter = null;
-
     public function __construct(
         protected ?IncludeResolverInterface $resolver = null,
         protected ?string $currentPath = null,
@@ -226,6 +230,7 @@ class IncludeExpander implements TransformerInterface
         protected ?string $source = null,
         protected int $resolverCallLimit = self::DEFAULT_RESOLVER_CALL_LIMIT,
         protected int $warningLimit = self::DEFAULT_WARNING_LIMIT,
+        protected array $extensions = [],
     ) {
     }
 
@@ -772,10 +777,9 @@ class IncludeExpander implements TransformerInterface
      * child rendered on its own - or by carve-js and carve-rs, where both are
      * core - produced a mention.
      *
-     * A FRESH converter, not the host's: its extensions apply to the assembled
-     * document after expansion, so running them on the child as well would
-     * apply them twice. What the child needs is what any document gets before
-     * a host adds anything.
+     * A FRESH converter, not the host's, holding a CLONE of each extension the
+     * caller passed. An extension resets its own state in `afterParse()`, so a
+     * shared instance would drop what it collected from the parent.
      *
      * @param string $source
      *
@@ -783,9 +787,14 @@ class IncludeExpander implements TransformerInterface
      */
     protected function parseChild(string $source): Document
     {
-        $this->childConverter ??= CarveConverter::create(
-            new BlockParser(trackPositions: $this->trackPositions),
-        );
+        if ($this->childConverter === null) {
+            $this->childConverter = CarveConverter::create(
+                new BlockParser(trackPositions: $this->trackPositions),
+            );
+            foreach ($this->extensions as $extension) {
+                $this->childConverter->addExtension(clone $extension);
+            }
+        }
 
         $document = $this->childConverter->parse($source);
 
