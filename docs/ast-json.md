@@ -348,13 +348,9 @@ does. An unregistered type fails loudly rather than silently dropping content.
   ([carve#1387](https://github.com/markup-carve/carve/issues/1387)), and this
   engine has not landed that yet.
 
-  This bullet used to say the opposite - "positions do not exist yet",
-  "carve-php's nodes carry no positions", and a stderr note warning that the
-  output was not conformant. Each was true when written; none outlived
-  [carve-php#478](https://github.com/markup-carve/carve-php/issues/478), which
-  is closed. The bullet above it already said positions were recorded, so the
-  page contradicted itself in two adjacent paragraphs
-  ([carve#1323](https://github.com/markup-carve/carve/issues/1323)).
+  `bin/carve --json` writes no conformance note to stderr: positions are part
+  of its default output
+  ([carve-php#478](https://github.com/markup-carve/carve-php/issues/478)).
 - **Abbreviation definitions are nodes.** As in the reference, they are
   `abbreviation_def` nodes among the document's children, placed where they
   were written, so their position is structural in both.

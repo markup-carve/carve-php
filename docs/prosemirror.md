@@ -101,11 +101,11 @@ editor that grew a node nobody mapped is exactly where silent loss is worst.
 ## Fidelity
 
 `ProseMirrorCorpusTest` sweeps the whole spec corpus. The strict gate is narrow on
-purpose: a document whose types the editor model fully covers must round-trip to
-**byte-identical HTML**. Documents that lose something are allowed to differ,
-because they must.
+purpose: a document whose types the editor model fully covers, with nothing
+dropped and nothing degraded, must come back as **byte-identical canonical
+Carve**. Documents that lose something are allowed to differ, because they must.
 
-Current state, and both numbers are ratchets:
+Measured at the pinned spec:
 
 | | count |
 |---|---|
@@ -115,11 +115,16 @@ Current state, and both numbers are ratchets:
 | fully covered but differing (each one a bug worth fixing) | 0 |
 | threw | 0 |
 
-The first number FELL when the renderer began reporting two losses it always
-had - the authored order of an attribute run, and a soft break, whose text now
-round-trips as a newline while the node is still gone. Neither document lost
-anything it used to carry. The second number is the one that guards fidelity,
-and it rose by 131.
+The test fails when a count moves the wrong way. The population must equal the
+number of `::: compare` blocks in the pinned spec's examples, so a partial
+checkout cannot pass on a smaller corpus. The fully-covered count has the floor
+`MINIMUM_LOSSLESS` (809) and the surviving count has `MINIMUM_SURVIVING` (1024).
+The surviving count is the one that guards fidelity: a document leaves the
+fully-covered row when the renderer starts reporting a loss it used to hide,
+even though its round trip did not change. The differing row has the ceiling
+`MAXIMUM_COVERED_BUT_DIFFERING` (0), and no document may throw. Both floors sit
+several hundred documents below the measurement, so they catch a large
+regression rather than a single document.
 
 ## Application node types
 

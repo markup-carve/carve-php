@@ -254,14 +254,46 @@ $converter->addExtension(new MentionsExtension(
 ));
 ~~~
 
+### CitationsExtension
+
+Parses bracketed citations (`[@smith2020]`, `[@smith2020, p. 33]`,
+`[@a; @b]`) and resolves them against `[@key]: entry` definition lines. The
+references list goes at the end of the document, or inside a `::: references`
+block when the document has one. A citation group with an undefined key renders
+as its source text.
+
+Constructor options:
+
+- `mode` (`string`, default `'numbered'`) - `'numbered'` renders `[1]` and an
+  `<ol class="references">`; `'author-date'` renders `(Smith 2020)` from the
+  definition's `author` and `year` attributes and a `<ul class="references">`.
+- `bibliography` (`?array`, default null) - a parsed CSL-JSON array. Its entries
+  supply keys the document does not define, and the references list links back
+  to each citation. The extension reads no files: the host parses the file and
+  passes the array.
+
+~~~ php
+$converter->addExtension(new CitationsExtension());
+
+$converter->convert("As shown [@smith2020, p. 33].\n\n[@smith2020]: Smith, J. *Title*. 2020.\n");
+// <p>As shown [<a data-cite-key="smith2020" data-locator-label="page" data-locator="33" href="#ref-smith2020">1</a>, p. 33].</p>
+// <ol class="references">
+//   <li id="ref-smith2020">Smith, J. <strong>Title</strong>. 2020.</li>
+// </ol>
+
+// Author-date style instead:
+$converter->addExtension(new CitationsExtension(mode: 'author-date'));
+~~~
+
 ## Headings
 
 ### AsciiHeadingIdsExtension
 
 Folds auto-generated heading ids to ASCII (opt-in). By default Carve heading ids
-are lowercased but keep non-ASCII characters verbatim (`# Über uns` ->
-`über-uns`). This extension transliterates the slug to ASCII before lowercasing
-(`# Über uns` -> `uber-uns`), useful for share-safe URL fragments. Unmapped
+keep their case and their non-ASCII characters (`# Über uns` -> `Über-uns`).
+This extension transliterates the slug to ASCII (`# Über uns` -> `Uber-uns`),
+useful for share-safe URL fragments; combined with
+`LowercaseHeadingIdsExtension` it yields `uber-uns`. Unmapped
 scripts (CJK, Arabic, Greek) still pass through unchanged; attach an explicit
 `{#id}` for those. The same transform is applied to the parse-time tracker so
 implicit `[Heading][]` references resolve to the folded ids.
@@ -273,6 +305,17 @@ Constructor options:
 
 ~~~ php
 $converter->addExtension(new AsciiHeadingIdsExtension());
+~~~
+
+### LowercaseHeadingIdsExtension
+
+Lowercases auto-generated heading ids (opt-in), for GitHub-style anchors:
+`# Getting Started` gets `id="getting-started"` instead of `Getting-Started`.
+Lowercasing is per code point, and implicit `[Heading][]` references resolve to
+the lowercased ids. No constructor options.
+
+~~~ php
+$converter->addExtension(new LowercaseHeadingIdsExtension());
 ~~~
 
 ### HeadingLevelShiftExtension
@@ -384,13 +427,74 @@ $tocHtml = $toc->getTocHtml();        // nested list HTML
 $tocData = $toc->getToc();            // [['level' => 1, 'text' => '...', 'id' => '...'], ...]
 ~~~
 
+### TocPlacementExtension
+
+Renders a table of contents where the author writes a `::: toc` block, so a
+document can place it after an intro instead of at the top or bottom. HTML
+output only. `{depth=N}` on the block limits the list to levels 1 to N, and
+`{from=X to=Y}` selects a range, taking precedence over `depth`. The nav gets
+the same `aria-label` as `TableOfContentsExtension`. No constructor options.
+
+~~~ php
+$converter->addExtension(new TocPlacementExtension());
+~~~
+
+Input:
+
+~~~
+Intro.
+
+{depth=2}
+::: toc
+:::
+
+# One
+
+## Two
+
+### Three
+~~~
+
+The block becomes (the headings follow unchanged):
+
+~~~ html
+<p>Intro.</p>
+<nav class="toc" aria-label="Table of contents">
+<ul>
+<li><a href="#One">One</a>
+<ul>
+<li><a href="#Two">Two</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+~~~
+
+### HeadingNumbersExtension
+
+Auto-numbers sections and rewrites auto-filled `</#id>` cross-references
+(issue #198). Each numbered heading gains a `<span class="section-number">1.2</span>`
+inside its `<h*>` (gap-free dotted counter; the id stays on the `<section>`), and a
+`</#id>` cross-reference to a numbered heading renders `Section 1.2 - Title`.
+Skips blockquote-quoted and `{.unnumbered}` headings; ordinary `[text](#id)`
+links and implicit `[label][]` references keep their text. Options: `minLevel`
+(default 1; set 2 when `#` is the doc title), `label` (default `Section`),
+`crossref` (`number` | `number-title` | `title`). Opt-in, Tier-3, not
+corpus-pinned.
+
+~~~ php
+$converter->addExtension(new HeadingNumbersExtension(minLevel: 2));
+~~~
+
 ## Blocks and divs
 
 ### AdmonitionExtension
 
 Turns standard Carve divs (`::: note`, `::: warning`, etc.) into semantic
 admonition markup with accessibility roles. `warning` and `danger` get
-`role="alert"`. A `{title="..."}` attribute overrides the heading.
+`role="alert"`. A quoted header (`::: warning "Watch Out!"`) overrides the
+heading; a `{title="..."}` attribute does not, it stays an HTML `title`
+attribute.
 
 For disclosure/collapsible widgets use the separate `DetailsExtension`
 (`::: details "title"`). This extension does not produce `<details>`; any
@@ -420,8 +524,7 @@ Input:
 This is a note.
 :::
 
-{title="Watch Out!"}
-::: warning
+::: warning "Watch Out!"
 Be careful here.
 :::
 ~~~
@@ -708,7 +811,8 @@ $converter->addExtension(new TabsExtension()); // CSS-only
 $converter->addExtension(new TabsExtension(mode: 'aria'));
 ~~~
 
-Input (the outer container uses `::::` so it can hold nested `:::` divs):
+Input (the longer outer fence is optional: a `:::` closes only on a bare fence
+of its exact length, so equal-length fences nest too):
 
 ~~~
 :::: tabs
@@ -1007,6 +1111,49 @@ set `cssClass` when the wrapper class should differ from the first word.
 > regardless of safe mode, then safe mode strips any additional names (e.g.
 > `style` under strict). Values are HTML-escaped so a quote cannot break out. So
 > a `{onclick="..."}` on the fence can never reach the output.
+
+### ImgFenceExtension
+
+Renders a fenced block tagged `img` (or `image`) as an SVG image instead of
+code. The body is sanitized first, which removes scripts and event handlers. By
+default the result is an `<img>` holding a `data:image/svg+xml` URI, with `alt`
+taken from an `{alt="..."}` attribute or else the SVG's `<title>`. A body the
+sanitizer rejects falls back to `<pre><code class="language-img">`. `svg` and
+`xml` fences are not claimed, so SVG source can still be shown as code.
+
+Constructor options:
+
+- `language` (`array<string>|string|null`, default `['img', 'image']`) - fence
+  words to claim; an empty list throws `InvalidArgumentException`.
+- `allowStyle` (`bool`, default `false`) - keep `style` attributes, with their
+  values scrubbed.
+- `allowLinks` (`bool`, default `false`) - keep `<a>` and external
+  `href`/`xlink:href`.
+- `allowAnimation` (`bool`, default `false`) - keep SMIL animation elements.
+- `allowExternalImages` (`bool`, default `false`) - keep `<image>` and its
+  external raster `href`.
+- `allowInline` (`bool`, default `false`) - render a fence that carries
+  `{inline}` as inline `<svg>`. Without it `{inline}` is ignored, so an author
+  cannot leave the sandbox.
+
+~~~ php
+$converter->addExtension(new ImgFenceExtension());
+~~~
+
+Input:
+
+~~~~
+{alt="A dot"}
+``` img
+<svg xmlns="http://www.w3.org/2000/svg"><circle r="4"/></svg>
+```
+~~~~
+
+Output:
+
+~~~ html
+<img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20r%3D%224%22%2F%3E%3C%2Fsvg%3E" alt="A dot">
+~~~
 
 ### MathBlockExtension
 
@@ -1326,6 +1473,16 @@ Constructor options:
   `closeSingleQuote` (`?string`, default null) - explicit overrides that take
   precedence over the locale.
 
+~~~ php
+$converter->addExtension(new SmartQuotesExtension(locale: 'de'));
+
+// Or explicit characters:
+$converter->addExtension(new SmartQuotesExtension(
+    openDoubleQuote: "\u{00AB}",
+    closeDoubleQuote: "\u{00BB}",
+));
+~~~
+
 ### How smart typography is represented
 
 Smart typography is not a substitution into the text: each transform becomes a
@@ -1349,16 +1506,6 @@ dots and formats back to `a\.\.\.b`.
 Quote glyphs are locale-dependent, so a quote node carries the character the
 smart-quotes configuration resolved during parsing; every other kind resolves
 through a shared table (`SmartPunctuation::GLYPHS`).
-
-~~~ php
-$converter->addExtension(new SmartQuotesExtension(locale: 'de'));
-
-// Or explicit characters:
-$converter->addExtension(new SmartQuotesExtension(
-    openDoubleQuote: "\u{00AB}",
-    closeDoubleQuote: "\u{00BB}",
-));
-~~~
 
 ## Lists
 
@@ -1417,24 +1564,6 @@ inert, and with no markers `::: index` stays a plain `<div class="index">`.
 
 ~~~ php
 $converter->addExtension(new IndexExtension());
-~~~
-
-## Headings
-
-### HeadingNumbersExtension
-
-Auto-numbers sections and rewrites auto-filled `</#id>` cross-references
-(issue #198). Each numbered heading gains a `<span class="section-number">1.2</span>`
-inside its `<h*>` (gap-free dotted counter; the id stays on the `<section>`), and a
-`</#id>` cross-reference to a numbered heading renders `Section 1.2 - Title`.
-Skips blockquote-quoted and `{.unnumbered}` headings; ordinary `[text](#id)`
-links and implicit `[label][]` references keep their text. Options: `minLevel`
-(default 1; set 2 when `#` is the doc title), `label` (default `Section`),
-`crossref` (`number` | `number-title` | `title`). Opt-in, Tier-3, not
-corpus-pinned.
-
-~~~ php
-$converter->addExtension(new HeadingNumbersExtension(minLevel: 2));
 ~~~
 
 ## Output post-processing
@@ -1520,6 +1649,4 @@ derives its trigger bytes from the pattern automatically.
 
 The normative extension contract lives in
 [`carve/docs/extensions.md`](https://github.com/markup-carve/carve/blob/main/docs/extensions.md).
-Most extensions bundled with this package (such as `PlusBulletExtension`) are
-documented above; `CitationsExtension`, `ImgFenceExtension`,
-`LowercaseHeadingIdsExtension` and `TocPlacementExtension` have no section yet.
+The extensions bundled with this package are documented above.

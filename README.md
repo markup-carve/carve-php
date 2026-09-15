@@ -106,5 +106,5 @@ the author intended. The rules and options are in [docs/lint.md](https://github.
 - [Stored documents](https://github.com/markup-carve/carve-php/blob/main/docs/stored-documents.md) - spec versions and stored content.
 - [ProseMirror / Tiptap](https://github.com/markup-carve/carve-php/blob/main/docs/prosemirror.md) - editor interchange.
 - [AST JSON](https://github.com/markup-carve/carve-php/blob/main/docs/ast-json.md) - the interchange format.
-- [Integrated definition layout](https://github.com/markup-carve/carve-php/blob/main/docs/integrated-definition-layout.md) - the definition-list layout.
+- [Integrated definition layout](https://github.com/markup-carve/carve-php/blob/main/docs/integrated-definition-layout.md) - collecting and resolving reference, footnote and abbreviation definitions.
 - [Configured conversion fast path](https://github.com/markup-carve/carve-php/blob/main/docs/configured-conversion-fast-path.md) - reusing a configured converter.

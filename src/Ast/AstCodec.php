@@ -1676,11 +1676,10 @@ class AstCodec
         }
 
         // PART 12 §4. Emitted when the parser recorded one, omitted when it
-        // could not place the node honestly - §4 forbids inventing a position,
-        // and forbids omitting one SILENTLY, which is why `--json` prints a
-        // note saying the output is not yet conformant. Publishing what exists
-        // makes the remaining gaps visible as "missing pos on X" rather than
-        // hiding the whole feature behind an encoder that drops it.
+        // could not place the node accurately - §4 forbids inventing a position.
+        // Publishing what exists makes the remaining gaps visible as "missing
+        // pos on X" rather than hiding the whole feature behind an encoder that
+        // drops it.
         $span = $node->getPos();
         if ($span !== null && !$node instanceof Document) {
             $encoded['pos'] = $span->toWireArray();
