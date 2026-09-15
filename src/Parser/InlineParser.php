@@ -204,7 +204,7 @@ class InlineParser
     /**
      * Memo for the closing-paren guard: the text last scanned and the position
      * of its LAST `)` (strrpos, or false when none). The link-destination scans
-     * in parseLink() / findLinkDestinationEnd() run char-by-char to end-of-text
+     * in parseLink() run char-by-char to end-of-text
      * looking for `)`. When a `[`/`(` run has no closing paren at all, each `[`
      * would re-scan the whole tail -- O(n^2) for input like `[a](` repeated.
      * strrpos is a C-level scan computed once per text (the same string instance
@@ -218,16 +218,6 @@ class InlineParser
     protected ?string $lastCloseParenText = null;
 
     /**
-     * Memo for matchingCloseParen: maps each `(` position in the current text
-     * to the `)` that balances it.
-     *
-     * @var array<int, int>
-     */
-    protected array $matchingCloseParen = [];
-
-    protected ?string $matchingCloseParenText = null;
-
-    /**
      * Memo for the emphasis-opener forward scan in parseDelimited(). Each `_`,
      * `*`, `~`, `=`, `/` opener scans toward end-of-text for a matching closer.
      * When the tail holds no valid closer for a delimiter (e.g. every candidate
@@ -238,7 +228,7 @@ class InlineParser
      * from which no closer exists; any opener at or after it bails in O(1).
      *
      * The scan is monotonic: a later opener sees the same structural skips
-     * (code spans, attribute blocks, autolinks, link destinations, escapes) and
+     * (code spans, braced inlines, comments, escapes) and
      * the same position-only closer rejections (space-before, `}`-after,
      * alnum-after). The only opener-dependent rejection is the empty-content
      * check, which fires solely for a closer immediately after the opener -- a
@@ -266,21 +256,6 @@ class InlineParser
     protected array $closerLastPos = [];
 
     protected ?string $closerLastText = null;
-
-    /**
-     * Memo for findLinkDestinationEnd: for the current text, `next[$p]` is the
-     * index of the first UNESCAPED `)` at or after `$p` (or -1 when none). The
-     * emphasis-close scan skips a link destination `](...)` by jumping to its
-     * `)`; when many openers each reach a `](` whose only closer is one far `)`
-     * (input `_a](` repeated + a trailing `)`), a char-by-char walk re-scans the
-     * same tail per opener -> O(n^2). The table answers each jump in O(1). Null
-     * when the text holds no `)` at all.
-     *
-     * @var array<int, int>|null
-     */
-    protected ?array $unescCloseParen = null;
-
-    protected ?string $unescCloseParenText = null;
 
     /**
      * Memo for findAttributeEnd's closer-supply check: for the current text,
@@ -639,11 +614,16 @@ class InlineParser
             return;
         }
 
+        // A nested parse must not wipe the enclosing text's no-closer memo.
+        $outerNoCloseText = $this->emphNoCloseText;
+        $outerNoCloseFrom = $this->emphNoCloseFrom;
         $this->inlineDepth++;
         try {
             $this->parseInlinesImpl($parent, $text, $footnoteRecognitionEnabled);
         } finally {
             $this->inlineDepth--;
+            $this->emphNoCloseText = $outerNoCloseText;
+            $this->emphNoCloseFrom = $outerNoCloseFrom;
         }
     }
 
@@ -3003,12 +2983,10 @@ class InlineParser
             return null;
         }
 
-        // Whether this scan jumped over any region (attribute block, code span,
-        // autolink, link destination, escape). The no-closer memo below is only
-        // sound for a pure left-to-right walk: a skipped region may hold a `_x_`
-        // that the MAIN loop still parses as emphasis (e.g. bare `](...)`/`{...}`
-        // with no matching `[`/no attachable node), so a later opener inside that
-        // region must not be short-circuited. See $emphNoCloseFrom.
+        // Whether this scan jumped over any region (braced inline, comment, code
+        // span, escape). The no-closer memo below is only sound for a pure
+        // left-to-right walk: a later opener inside a skipped region must not be
+        // short-circuited. See $emphNoCloseFrom.
         $scanSkipped = false;
 
         $searchPos = $searchStart;
@@ -3027,21 +3005,24 @@ class InlineParser
                 }
             }
 
-            // Skip over attribute blocks {....} respecting quotes
+            // Only the constructs E2a names are opaque (markup-carve/carve#2027).
             if ($char === '{') {
-                $attrEnd = $this->findAttributeEnd($text, $searchPos);
-                if ($attrEnd !== null) {
-                    $searchPos = $attrEnd + 1;
+                $bracedEnd = $this->bracedInlineEnd($text, $searchPos);
+                if ($bracedEnd !== null) {
+                    $searchPos = $bracedEnd;
                     $scanSkipped = true;
 
                     continue;
                 }
             }
 
-            // Skip over code spans `...`
             if ($char === '`') {
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
+                    // A raw inline's `{=format}` belongs to it, not to a `{=` highlight.
+                    if (preg_match('/\G\{=[a-zA-Z0-9-]+\}/', $text, $rawFormat, 0, $codeEnd) === 1) {
+                        $codeEnd += strlen($rawFormat[0]);
+                    }
                     $searchPos = $codeEnd;
                     $scanSkipped = true;
 
@@ -3062,30 +3043,6 @@ class InlineParser
                 }
 
                 return null;
-            }
-
-            // Skip over autolinks <...>
-            if ($char === '<') {
-                $autolinkEnd = $this->findAutolinkEnd($text, $searchPos);
-                if ($autolinkEnd !== null) {
-                    $searchPos = $autolinkEnd;
-                    $scanSkipped = true;
-
-                    continue;
-                }
-            }
-
-            // Skip over link destinations ](...)
-            // This prevents emphasis delimiters inside URLs from closing emphasis
-            // that started before the link. e.g. _[link](url_bar)_ should work.
-            if ($char === ']' && $searchPos + 1 < $length && $text[$searchPos + 1] === '(') {
-                $destEnd = $this->findLinkDestinationEnd($text, $searchPos + 1);
-                if ($destEnd !== null) {
-                    $searchPos = $destEnd;
-                    $scanSkipped = true;
-
-                    continue;
-                }
             }
 
             // Skip escape sequences
@@ -4128,56 +4085,42 @@ class InlineParser
     }
 
     /**
-     * Find the end of a link destination starting at $pos (which points to '(').
-     *
-     * This is a simpler version that only handles the destination part,
-     * not the full link syntax. Used to skip over URL content when scanning
-     * for emphasis closers.
-     *
-     * @return int|null Position after the closing ), or null if not found
+     * End (exclusive) of the braced inline the main loop builds at $pos, or null.
+     * Mirrors parseEditorialComment() and parseBracedInline() without building
+     * nodes; a trailing attribute block is not part of it.
      */
-    protected function findLinkDestinationEnd(string $text, int $pos): ?int
+    protected function bracedInlineEnd(string $text, int $pos): ?int
     {
-        $length = strlen($text);
-        if ($pos >= $length || $text[$pos] !== '(') {
+        $marker = $text[$pos + 1] ?? '';
+        if ($marker === '#') {
+            if (!$this->closerExistsFrom($text, '#}', $pos + 2)) {
+                return null;
+            }
+            $close = strpos($text, '#}', $pos + 2);
+
+            return $close === false || $close === $pos + 2 ? null : $close + 2;
+        }
+
+        if ($marker === '' || !str_contains('+-/~^_*,=', $marker)) {
             return null;
         }
-
-        // Short-circuit when no `)` lies at or after the destination start: the
-        // scan could only run to end-of-text and return null. The last-paren
-        // position is memoized per text (strrpos runs once), so this stays O(1)
-        // and avoids building the jump table when no `)` can follow.
-        $lastCloseParen = $this->lastCloseParenPos($text);
-        if ($lastCloseParen === false || $lastCloseParen < $pos + 1) {
+        if (!$this->closerExistsFrom($text, $marker . '}', $pos + 2)) {
             return null;
         }
-
-        // A `)` lies ahead: resolve the one that BALANCES this `(` in O(1) via
-        // the per-text match table. Without a table, a run of openers each
-        // reaching a `](` whose only closer is one far `)` (input `_a](`
-        // repeated + `)`) would re-walk the same tail per opener -> O(n^2).
-        // Matching rather than taking the first unescaped `)` is what keeps
-        // this agreeing with the destination scan in parseLink, which balances.
-        $close = $this->matchingCloseParen($text, $pos);
-        if ($close === false) {
-            // Nothing balances this `(`, so it opens no destination and there is
-            // no link here to skip. The first unescaped `)` is still a sound
-            // place to resume from -- it is what this returned before
-            // destinations balanced -- and taking it keeps the skip O(1). Left
-            // to walk instead, a run of openers whose only closer is one far `)`
-            // (input `_a](` repeated + `)`) re-walks the same tail per opener,
-            // which is the quadratic case the tables above exist to prevent.
-            $close = $this->nextUnescapedCloseParen($text, $pos + 1);
+        // An empty pair such as `{//}` or `{--}` builds no span.
+        if (($text[$pos + 2] ?? '') === $marker && ($text[$pos + 3] ?? '') === '}') {
+            return null;
         }
+        $close = strpos($text, $marker . '}', $pos + 2);
 
-        return $close === false ? null : $close + 1;
+        return $close === false ? null : $close + 2;
     }
 
     /**
      * Position of the last `)` in $text (strrpos), or false when there is none.
      *
      * Memoized per text: the same string instance is compared pointer-cheap, so
-     * repeated link-destination scans over one text pay the C-level strrpos once.
+     * repeated destination scans over one text pay the C-level strrpos once.
      *
      * @return int|false
      */
@@ -4233,137 +4176,6 @@ class InlineParser
         }
 
         return $this->braceCloseSuffix[$from] ?? 0;
-    }
-
-    /**
-     * Index of the `)` that balances the `(` at $pos, or false when there is
-     * none.
-     *
-     * Backed by a per-text table built in one left-to-right pass with a stack,
-     * so every destination skip over the same text is an O(1) lookup rather
-     * than its own walk. An escaped character neither opens nor closes a level,
-     * matching the destination scan in parseLink.
-     *
-     * @return int|false
-     */
-    protected function matchingCloseParen(string $text, int $pos): int|false
-    {
-        if ($text !== $this->matchingCloseParenText) {
-            $this->matchingCloseParenText = $text;
-            $length = strlen($text);
-            $match = [];
-            $openers = [];
-            for ($p = 0; $p < $length; $p++) {
-                $char = $text[$p];
-                if ($char === '\\') {
-                    $p++;
-
-                    continue;
-                }
-                if ($char === '(') {
-                    $openers[] = $p;
-                } elseif ($char === ')' && $openers !== []) {
-                    $match[array_pop($openers)] = $p;
-                }
-            }
-            $this->matchingCloseParen = $match;
-        }
-
-        return $this->matchingCloseParen[$pos] ?? false;
-    }
-
-    /**
-     * Index of the first UNESCAPED `)` at or after $from, or false when none.
-     *
-     * Backed by a per-text jump table (see $unescCloseParen) so repeated
-     * link-destination skips over one text never re-walk the same tail. A `)`
-     * is escaped when the char before it was consumed by a backslash under a
-     * left-to-right walk; findLinkDestinationEnd only starts scanning right
-     * after a `(` (a clean, non-backslash boundary), so the global escape parse
-     * matches what a fresh walk from that start would compute.
-     *
-     * @return int|false
-     */
-    protected function nextUnescapedCloseParen(string $text, int $from): int|false
-    {
-        if ($text !== $this->unescCloseParenText) {
-            $this->unescCloseParenText = $text;
-            $this->unescCloseParen = $this->buildUnescapedCloseParenTable($text);
-        }
-        if ($this->unescCloseParen === null) {
-            return false;
-        }
-        $pos = $this->unescCloseParen[$from] ?? -1;
-
-        return $pos < 0 ? false : $pos;
-    }
-
-    /**
-     * Build the next-unescaped-`)` table for $text: `next[$p]` is the smallest
-     * index >= $p holding an unescaped `)`, or -1 when none follows. Returns
-     * null when the text contains no `)` at all (nothing to look up).
-     *
-     * @return array<int, int>|null
-     */
-    protected function buildUnescapedCloseParenTable(string $text): ?array
-    {
-        if (strrpos($text, ')') === false) {
-            return null;
-        }
-
-        $length = strlen($text);
-        // Standard escape parse: a backslash consumes (escapes) the next char.
-        $escaped = array_fill(0, $length, false);
-        $i = 0;
-        while ($i < $length) {
-            if ($text[$i] === '\\' && $i + 1 < $length) {
-                $escaped[$i + 1] = true;
-                $i += 2;
-
-                continue;
-            }
-            $i++;
-        }
-
-        $next = array_fill(0, $length + 1, -1);
-        for ($p = $length - 1; $p >= 0; $p--) {
-            $next[$p] = ($text[$p] === ')' && !$escaped[$p]) ? $p : $next[$p + 1];
-        }
-
-        return $next;
-    }
-
-    /**
-     * Find the end of an autolink starting at $pos
-     *
-     * @return int|null Position after the closing >, or null if not a valid autolink
-     */
-    protected function findAutolinkEnd(string $text, int $pos): ?int
-    {
-        $length = strlen($text);
-
-        if ($pos >= $length || $text[$pos] !== '<') {
-            return null;
-        }
-
-        $end = strpos($text, '>', $pos);
-        if ($end === false) {
-            return null;
-        }
-
-        $content = substr($text, $pos + 1, $end - $pos - 1);
-
-        // Check if it's a valid URL autolink (same url_char body as parseAutolink).
-        if (self::isUrlAutolinkBody($content)) {
-            return $end + 1;
-        }
-
-        // Check if it's a valid email autolink (same email_char body as parseAutolink).
-        if (preg_match('/^[A-Za-z0-9._+-]+@[A-Za-z0-9._+-]+\.[A-Za-z]+$/', $content)) {
-            return $end + 1;
-        }
-
-        return null;
     }
 
     /**

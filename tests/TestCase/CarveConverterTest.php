@@ -1023,39 +1023,23 @@ DJOT;
     }
 
     /**
-     * Test that attributes inside emphasis don't break delimiter matching
-     *
-     * Regression test: Special characters like * inside quoted attribute values
-     * should not be treated as emphasis delimiters.
+     * An attribute block is not opaque to a bare closer (E2a,
+     * markup-carve/carve#2027), so the `*` in the quoted value closes the span.
      */
     public function testAttributesInsideEmphasis(): void
     {
-        // The * inside key="*" should not close the strong
-        $djot = 'a *b{#id key="*"}*';
-        $result = $this->converter->convert($djot);
-
-        $this->assertStringContainsString('<strong>', $result);
-        $this->assertStringContainsString('</strong>', $result);
-        $this->assertStringContainsString('b{<span class="tag"><strong>#id</strong></span> key=“*”}', $result);
-        $this->assertStringNotContainsString('id="id"', $result);
-        $this->assertStringNotContainsString('key="*"', $result);
+        $this->assertSame(
+            "<p>a <strong>b{<span class=\"tag\"><strong>#id</strong></span> key=“</strong>”}*</p>\n",
+            $this->converter->convert('a *b{#id key="*"}*'),
+        );
     }
 
-    /**
-     * Test that unclosed emphasis with an attribute-shaped literal stays literal
-     *
-     * When emphasis cannot close because the only potential closer is inside
-     * attribute-shaped literal text, the block is not consumed as attributes.
-     */
-    public function testAttributesWithDelimiterInValueNoClose(): void
+    public function testAttributesInsideEmphasisWithoutATrailingCloser(): void
     {
-        $djot = 'a *b{#id key="*"}o';
-        $result = $this->converter->convert($djot);
-
-        // No closing * so *b and the brace block stay literal.
-        $this->assertStringContainsString('*b{<span class="tag"><strong>#id</strong></span> key=“*”}o', $result);
-        $this->assertStringNotContainsString('id="id"', $result);
-        $this->assertStringNotContainsString('key="*"', $result);
+        $this->assertSame(
+            "<p>a <strong>b{<span class=\"tag\"><strong>#id</strong></span> key=“</strong>”}o</p>\n",
+            $this->converter->convert('a *b{#id key="*"}o'),
+        );
     }
 
     public function testEscapedUnderscore(): void
