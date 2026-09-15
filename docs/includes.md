@@ -16,12 +16,20 @@ $document = $converter->parse("Intro.\n\n{{ chapters/one.crv @shift:1 }}\n");
 $expander = new IncludeExpander(
     resolver: new FilesystemIncludeResolver(__DIR__ . '/docs'),
     currentPath: 'index.crv',
+    extensions: $converter->getExtensions(),
 );
 
 $html = $converter->render($converter->transform($document, $expander));
 $warnings = $expander->getWarnings();
 $dependencies = $expander->getDependencies();
 ~~~
+
+## Extensions
+
+A child is parsed as a document of its own, with the extensions passed as
+`extensions`. Pass the parent converter's, or syntax an extension adds (a
+`[[Page]]` wikilink, a citation) works in the parent and stays literal in the
+child. Each one is cloned for the child's parse.
 
 ## The resolver contract
 
