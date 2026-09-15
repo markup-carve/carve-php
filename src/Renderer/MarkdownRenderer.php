@@ -926,12 +926,203 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderChildren(Node $node): string
     {
-        $output = '';
-        foreach ($node->getChildren() as $child) {
-            $output .= $this->renderNode($child);
+        $children = array_values($node->getChildren());
+        $parts = [];
+        foreach ($children as $child) {
+            $parts[] = $this->renderNode($child);
         }
 
-        return $output;
+        if (count($parts) < 2) {
+            return implode('', $parts);
+        }
+
+        return $this->reflankRuns($children, $parts);
+    }
+
+    /**
+     * Whether a delimiter run can flank is a property of the SEAM, not of the
+     * emphasis node, so it cannot be answered where the run is built: the
+     * character that settles it belongs to the sibling on the other side. Here
+     * is the one place both neighbours are known, so a run that can neither
+     * open nor close where it stands is re-spelled as inline HTML - the same
+     * fallback every inline this renderer cannot spell with delimiters already
+     * takes (carve-php#1971).
+     *
+     * The neighbour is read off the parts as they stand, so a part already
+     * re-spelled on this pass contributes its `>` or `<`. That only ever makes
+     * a later run MORE able to flank, so the pass needs no second round.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $children
+     * @param list<string> $parts
+     */
+    protected function reflankRuns(array $children, array $parts): string
+    {
+        foreach ($parts as $index => $part) {
+            $child = $children[$index];
+            if (!$child instanceof Emphasis && !$child instanceof Strong && !$child instanceof Strike) {
+                continue;
+            }
+            [$delimiter, $openTag, $closeTag] = $this->delimiterRun($child);
+            $piece = $this->splitDelimitedRun($part, $delimiter);
+            if ($piece === null) {
+                continue;
+            }
+            [$lead, $core, $trail] = $piece;
+            $before = $lead !== '' ? $this->lastCharacter($lead) : $this->neighbourBefore($parts, $index);
+            $after = $trail !== '' ? $this->firstCharacter($trail) : $this->neighbourAfter($parts, $index);
+            if (
+                $this->flanks($this->firstCharacter($core), $before)
+                && $this->flanks($this->lastCharacter($core), $after)
+            ) {
+                continue;
+            }
+
+            $parts[$index] = $lead . $openTag . $core . $closeTag . $trail;
+        }
+
+        return implode('', $parts);
+    }
+
+    /**
+     * The delimiter and the inline-HTML fallback for the three inlines this
+     * renderer spells with a run. The three render arms read the same table, so
+     * the seam pass can always recognise its own output.
+     *
+     * @return array{string, string, string}
+     */
+    protected function delimiterRun(Emphasis|Strong|Strike $node): array
+    {
+        return match (true) {
+            $node instanceof Emphasis => ['*', '<em>', '</em>'],
+            $node instanceof Strong => ['**', '<strong>', '</strong>'],
+            default => ['~~', '<del>', '</del>'],
+        };
+    }
+
+    /**
+     * Take a rendered part back apart into the pieces padOutside() built it
+     * from, or null when it is not a delimiter run at all - an empty render, the
+     * inline-HTML form padOutside() falls back to for whitespace-only content,
+     * or a run whose content ends in the backslash of a hard break, which
+     * padOutside() moved out with the newline it belongs to.
+     *
+     * @return array{string, string, string}|null
+     */
+    protected function splitDelimitedRun(string $part, string $delimiter): ?array
+    {
+        $lead = $this->flankingRunAtStart($part);
+        $rest = substr($part, strlen($lead));
+        $trail = $this->flankingRunAtEnd($rest);
+        $body = substr($rest, 0, strlen($rest) - strlen($trail));
+        $width = strlen($delimiter);
+        if (strlen($body) <= $width * 2) {
+            return null;
+        }
+        if (!str_starts_with($body, $delimiter) || !str_ends_with($body, $delimiter)) {
+            return null;
+        }
+
+        return [$lead, substr($body, $width, -$width), $trail];
+    }
+
+    /**
+     * One side of CommonMark 6.2, and it really is ONE side: left-flanking and
+     * right-flanking are the same test read in opposite directions. A run is
+     * left-flanking when the character INSIDE it is not whitespace and, if that
+     * character is punctuation, the character OUTSIDE is whitespace or
+     * punctuation; right-flanking swaps which end is inside. padOutside() has
+     * already moved every space out of the run, so the inside character is never
+     * whitespace and only the punctuation clause is left to decide.
+     *
+     * No neighbour at all counts as whitespace: the enclosing text either starts
+     * or ends the line, or it is a delimiter, a bracket or a tag belonging to
+     * whatever encloses the run - punctuation in every case this renderer can
+     * produce.
+     */
+    protected function flanks(string $inside, string $outside): bool
+    {
+        if (!$this->isFlankingPunctuation($this->flankCharacter($inside))) {
+            return true;
+        }
+
+        $outer = $this->flankCharacter($outside);
+        if ($outer === '') {
+            return true;
+        }
+
+        return preg_match('/^' . static::FLANKING_WHITESPACE . '$/u', $outer) === 1
+            || $this->isFlankingPunctuation($outer);
+    }
+
+    /**
+     * CommonMark 0.31 punctuation: ASCII punctuation plus the Unicode P* and S*
+     * categories. The S* half is the reason to spell it out - 0.30 left the
+     * symbol categories out, so a reader on either version agrees about `!` and
+     * disagrees about `(c)`, and taking the WIDER class is the answer that is
+     * right under both: it can only move a construct to inline HTML, which every
+     * reader reads the same way.
+     */
+    protected function isFlankingPunctuation(string $character): bool
+    {
+        return $character !== '' && preg_match('/^[\p{P}\p{S}]$/u', $character) === 1;
+    }
+
+    /**
+     * A sentinel stands for `_`, `#` or `[`, all three of them punctuation, and
+     * it is a private-use code point that no punctuation property matches. The
+     * flanking test therefore has to ask about the character the reader will
+     * see, not the carrier standing in for it until the escapes resolve.
+     */
+    protected function flankCharacter(string $character): string
+    {
+        foreach ([$this->narrowedSentinels, $this->authoredSentinels, $this->authoredKeptSentinels] as $map) {
+            $found = array_search($character, $map, true);
+            if ($found !== false) {
+                return (string)$found;
+            }
+        }
+
+        return $character;
+    }
+
+    /**
+     * @param list<string> $parts
+     * @param int $index
+     */
+    protected function neighbourBefore(array $parts, int $index): string
+    {
+        for ($i = $index - 1; $i >= 0; $i--) {
+            if ($parts[$i] !== '') {
+                return $this->lastCharacter($parts[$i]);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param list<string> $parts
+     * @param int $index
+     */
+    protected function neighbourAfter(array $parts, int $index): string
+    {
+        for ($i = $index + 1, $count = count($parts); $i < $count; $i++) {
+            if ($parts[$i] !== '') {
+                return $this->firstCharacter($parts[$i]);
+            }
+        }
+
+        return '';
+    }
+
+    protected function firstCharacter(string $text): string
+    {
+        return preg_match('/^./us', $text, $matches) === 1 ? $matches[0] : '';
+    }
+
+    protected function lastCharacter(string $text): string
+    {
+        return preg_match('/.$/usD', $text, $matches) === 1 ? $matches[0] : '';
     }
 
     protected function renderParagraph(Paragraph $node): string
@@ -1236,21 +1427,47 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function renderTitleInlineNodes(array $nodes): string
     {
-        $output = '';
-        foreach ($nodes as $node) {
-            $output .= $this->renderTitleInlineNode($node);
+        $flat = $this->unwrapTitleStrong($nodes);
+        $parts = [];
+        foreach ($flat as $node) {
+            $parts[] = $this->renderNode($node);
         }
 
-        return $output;
+        if (count($parts) < 2) {
+            return implode('', $parts);
+        }
+
+        return $this->reflankRuns($flat, $parts);
     }
 
-    protected function renderTitleInlineNode(Node $node): string
+    /**
+     * The title's own siblings, with the strong wrappers taken off.
+     *
+     * Unwrapping the NODES rather than concatenating their rendered strings is
+     * what lets the title share the seam pass in reflankRuns(): the pass needs a
+     * node and its rendered part side by side, and a strong rendered through
+     * renderTitleInlineNodes() is not a delimiter run at all.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function unwrapTitleStrong(array $nodes): array
     {
-        if ($node instanceof Strong) {
-            return $this->renderTitleInlineNodes($node->getChildren());
+        $flat = [];
+        foreach ($nodes as $node) {
+            if ($node instanceof Strong) {
+                foreach ($this->unwrapTitleStrong(array_values($node->getChildren())) as $inner) {
+                    $flat[] = $inner;
+                }
+
+                continue;
+            }
+
+            $flat[] = $node;
         }
 
-        return $this->renderNode($node);
+        return $flat;
     }
 
     protected function renderTable(Table $node): string
@@ -1376,12 +1593,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderEmphasis(Emphasis $node): string
     {
-        return $this->padOutside($this->renderChildren($node), '*', '<em>', '</em>');
+        [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
+
+        return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
     }
 
     protected function renderStrong(Strong $node): string
     {
-        return $this->padOutside($this->renderChildren($node), '**', '<strong>', '</strong>');
+        [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
+
+        return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
     }
 
     /**
@@ -1653,7 +1874,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderStrike(Strike $node): string
     {
-        return $this->padOutside($this->renderChildren($node), '~~', '<del>', '</del>');
+        [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
+
+        return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
     }
 
     /**
