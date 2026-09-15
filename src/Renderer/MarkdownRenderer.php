@@ -1265,28 +1265,35 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             return false;
         }
 
-        return !$this->commutes($piece, $node);
+        return !$this->edgeChildNests($piece, $node);
     }
 
     /**
-     * The round-trip normalization list, PART 11 section 10k: nested emphasis of
-     * DIFFERENT strengths, where the child spans the whole parent, may commute.
-     * `***x***` comes back with the emphasis outside either way, and the two
-     * nestings are the same document. EQUAL strengths do not commute - the runs
-     * collapse into one element of the wrong kind, which is a different
-     * document.
+     * Whether every run the CONTENT adds at an edge belongs to a nested child of
+     * a different strength, which the reader re-pairs as the nesting the
+     * document has: `*italic **bold***` comes back as an emphasis holding a
+     * strong.
+     *
+     * EQUAL strengths do not nest - the runs collapse into one element of the
+     * wrong kind - and a run that is not a child's delimiter at all, a literal
+     * the renderer did not escape, reaches the reader as part of the renderer's
+     * own run. Both take the inline-HTML spelling instead.
+     *
+     * `***x***`, where the child spans the whole parent, is the case PART 11
+     * section 10k's round-trip normalization list already allowed: the emphasis
+     * comes back outside either way, and the two nestings are the same document.
      *
      * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
      * @param \MarkupCarve\Carve\Node\Node $node
      */
-    protected function commutes(array $piece, Node $node): bool
+    protected function edgeChildNests(array $piece, Node $node): bool
     {
         if ($piece['delimiter'][0] !== '*') {
             return false;
         }
         // The padding text nodes are not content: the renderer has already moved
-        // them outside the delimiters, so the child still spans everything
-        // between them.
+        // them outside the delimiters, so a child at an edge of the core is
+        // still the node whose delimiter stands there.
         $kids = [];
         foreach ($node->getChildren() as $kid) {
             if ($kid instanceof Text && trim($kid->getContent()) === '') {
@@ -1294,15 +1301,25 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             }
             $kids[] = $kid;
         }
-        if (count($kids) !== 1) {
-            return false;
-        }
-        $child = $kids[0];
-        if (!$child instanceof Emphasis && !$child instanceof Strong) {
+        if ($this->runAtStart($piece['core'], '*') > 0 && !$this->nestsInside($piece, $kids[0] ?? null)) {
             return false;
         }
 
-        return strlen($this->delimiterRun($child)[0]) !== strlen($piece['delimiter']);
+        return $this->runAtEnd($piece['core'], '*') === 0
+            || $this->nestsInside($piece, $kids !== [] ? $kids[count($kids) - 1] : null);
+    }
+
+    /**
+     * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     * @param \MarkupCarve\Carve\Node\Node|null $kid
+     */
+    protected function nestsInside(array $piece, ?Node $kid): bool
+    {
+        if (!$kid instanceof Emphasis && !$kid instanceof Strong) {
+            return false;
+        }
+
+        return strlen($this->delimiterRun($kid)[0]) !== strlen($piece['delimiter']);
     }
 
     /**
