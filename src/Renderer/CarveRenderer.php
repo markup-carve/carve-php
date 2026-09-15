@@ -1988,7 +1988,19 @@ class CarveRenderer implements RendererInterface
                 }
                 if (
                     $atMarkerColumn
-                    || ($next !== null && $this->adjacentBlocksMerge($child, $next))
+                    // `+` CONTINUES the marker line; it is not a block of its
+                    // own. Looking ahead at a mergeable next sibling is right
+                    // only once something stands there to continue - as the
+                    // item's FIRST child the `+` becomes the item's whole
+                    // content and both halves of the pair are written at column
+                    // 0, escaping the item (carve-php#1950).
+                    || ($out !== '' && $next !== null && $this->adjacentBlocksMerge($child, $next))
+                    // The pair still has to be parted when it opens the item,
+                    // so that half of the question asks about the PRECEDING
+                    // sibling - which by then IS on the marker line. Below any
+                    // other child this adds nothing: the lookahead above has
+                    // already latched $atMarkerColumn.
+                    || ($previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child))
                     || (
                         !$separated
                         && $previous instanceof Paragraph
