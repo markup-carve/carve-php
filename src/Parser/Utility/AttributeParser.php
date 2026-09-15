@@ -8,7 +8,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
- * Shared utility for parsing djot attribute strings.
+ * Shared utility for parsing Carve attribute strings.
  *
  * Handles parsing of attribute syntax: {.class #id key="value" boolean}
  */

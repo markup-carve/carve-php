@@ -18,7 +18,7 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  * Tier-3 extension opts into the native disclosure widget: the quoted title
  * becomes the `<summary>`.
  *
- * Input djot:
+ * Input:
  * ```
  * ::: details "More info"
  * Hidden until the reader expands it.

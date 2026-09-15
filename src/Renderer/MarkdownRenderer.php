@@ -1581,7 +1581,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             if ($child instanceof ListItem) {
                 if ($node->getListType() === ListBlock::TYPE_ORDERED) {
                     // Normalize to standard Markdown: numeric with . or )
-                    // Roman/alpha styles and (n) format are Djot-specific
+                    // Roman/alpha styles and (n) format are Carve-specific
                     $marker = $node->getMarker();
                     if ($marker === '()' || $marker === null) {
                         $marker = '.';

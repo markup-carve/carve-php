@@ -111,7 +111,7 @@ class Profile
      * Create an article profile suitable for blog posts and articles
      *
      * Disables raw HTML to prevent XSS while allowing all formatting features.
-     * Authors can use all djot features except embedding raw HTML/JS.
+     * Authors can use all Carve features except embedding raw HTML/JS.
      */
     public static function article(): self
     {
@@ -123,8 +123,8 @@ class Profile
             ->denyInline([NodeType::RAW_INLINE]);
 
         $profile->featureReasons = [
-            NodeType::RAW_BLOCK => 'Raw HTML blocks are disabled to prevent XSS attacks. Use djot markup instead.',
-            NodeType::RAW_INLINE => 'Raw HTML is disabled to prevent XSS attacks. Use djot markup instead.',
+            NodeType::RAW_BLOCK => 'Raw HTML blocks are disabled to prevent XSS attacks. Use Carve markup instead.',
+            NodeType::RAW_INLINE => 'Raw HTML is disabled to prevent XSS attacks. Use Carve markup instead.',
         ];
 
         return $profile;

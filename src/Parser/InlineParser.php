@@ -44,7 +44,7 @@ use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
- * Inline parser for Djot
+ * Inline parser for Carve
  *
  * Handles emphasis, strong, links, images, code spans, etc.
  */
@@ -2242,8 +2242,8 @@ class InlineParser
         while ($searchPos < $length) {
             $closePos = strpos($text, str_repeat('`', $openBackticks), $searchPos);
             if ($closePos === false) {
-                // No closing backticks found - in djot, unclosed code spans
-                // extend to end of paragraph content
+                // No closing backticks found - an unclosed code span extends
+                // to the end of the paragraph content
                 $remaining = substr($text, $contentStart);
 
                 return [
@@ -2962,7 +2962,7 @@ class InlineParser
             return null;
         }
 
-        // Can't open if followed by } (closer marker in djot)
+        // Can't open if followed by } (a closer marker)
         if ($nextChar === '}') {
             return null;
         }

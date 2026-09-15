@@ -24,16 +24,16 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Converts HTML to Djot markup
+ * Converts HTML to Carve markup
  *
  * Useful for importing HTML content from CMS systems, WYSIWYG editors,
- * or web scraping into Djot format.
+ * or web scraping into Carve format.
  *
- * Key Djot requirements handled:
+ * Key Carve requirements handled:
  * - Blank lines required around block elements (headings, code blocks, lists)
  * - Nested lists require blank line before the nested portion
  *
- * SECURITY: this converter is NOT a sanitizer. Its output is Djot/Carve markup
+ * SECURITY: this converter is NOT a sanitizer. Its output is Carve markup
  * that may still contain content derived from the input; render untrusted input
  * with safe mode enabled on the downstream renderer. By default the converter
  * IGNORES any `data-djot-src` round-trip attribute on the input (it would
@@ -2381,7 +2381,7 @@ class HtmlToCarve
     /**
      * Collected abbreviation definitions for round-trip support
      *
-     * Stores complete definition lines in Djot format: "*[ABBR]: Definition"
+     * Stores complete definition lines in Carve format: "*[ABBR]: Definition"
      *
      * @var array<string>
      */
@@ -2395,12 +2395,12 @@ class HtmlToCarve
     protected array $abbreviationMap = [];
 
     /**
-     * Attributes to skip when converting (these don't translate well to Djot)
+     * Attributes to skip when converting (these don't translate well to Carve)
      *
      * @var array<string>
      */
     protected array $skipAttributes = [
-        'style', // CSS doesn't map to Djot
+        'style', // CSS doesn't map to Carve
         'xmlns', // XML namespace
         'role', // ARIA (could be kept, but often noise)
     ];
@@ -2427,7 +2427,7 @@ class HtmlToCarve
     }
 
     /**
-     * Convert HTML to Djot markup
+     * Convert HTML to Carve markup
      */
     public function convert(string $html): string
     {
@@ -2537,7 +2537,7 @@ class HtmlToCarve
     }
 
     /**
-     * Convert an HTML file to Djot
+     * Convert an HTML file to Carve
      *
      * @throws \RuntimeException If file cannot be read
      */
@@ -7756,7 +7756,7 @@ class HtmlToCarve
         // Use getElementAttributes to get all attributes including data-*
         $attrs = $this->getElementAttributes($node);
 
-        // If span has any attributes, convert to Djot span syntax
+        // If span has any attributes, convert to Carve span syntax
         if ($attrs !== '') {
             return '[' . $this->escapeNoteReferenceLabel($content) . ']{' . $attrs . '}';
         }
@@ -7902,9 +7902,9 @@ class HtmlToCarve
     }
 
     /**
-     * Process semantic HTML elements to Djot span syntax
+     * Process semantic HTML elements to Carve span syntax
      *
-     * Converts semantic HTML inline elements to Djot span syntax
+     * Converts semantic HTML inline elements to Carve span syntax
      * for round-trip support with SemanticSpanExtension.
      *
      * @param \DOMElement $node The semantic element
@@ -7967,7 +7967,7 @@ class HtmlToCarve
     }
 
     /**
-     * Process inline quote element to Djot
+     * Process inline quote element to Carve
      *
      * Converts <q> to quoted text. If the q element has a cite attribute,
      * it's preserved as an attribute on a span.
@@ -8589,14 +8589,14 @@ class HtmlToCarve
     protected const ATTR_SLOT_CLASS = '.class';
 
     /**
-     * Format element attributes as Djot block attribute syntax.
+     * Format element attributes as Carve block attribute syntax.
      * Returns empty string if no relevant attributes.
      *
      * @param \DOMElement $node The element to extract attributes from
      * @param array<string> $skipAttrs Additional attributes to skip for this element
      * @param bool $elementSlotOrder Take the slot order from the element's own attribute order
      *
-     * @return string Djot attribute block like "{#id .class key=value}\n" or ""
+     * @return string Carve attribute block like "{#id .class key=value}\n" or ""
      */
     protected function formatBlockAttributes(DOMElement $node, array $skipAttrs = [], bool $elementSlotOrder = false): string
     {
@@ -8617,13 +8617,13 @@ class HtmlToCarve
     }
 
     /**
-     * Format element attributes as Djot inline attribute syntax.
+     * Format element attributes as Carve inline attribute syntax.
      * Returns empty string if no relevant attributes.
      *
      * @param \DOMElement $node The element to extract attributes from
      * @param array<string> $skipAttrs Additional attributes to skip for this element
      *
-     * @return string Djot inline attributes like "{#id .class}" or ""
+     * @return string Carve inline attributes like "{#id .class}" or ""
      */
     protected function formatInlineAttributes(DOMElement $node, array $skipAttrs = []): string
     {

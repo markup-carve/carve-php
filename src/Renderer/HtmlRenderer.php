@@ -109,8 +109,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected ?int $codeBlockTabWidth = null;
 
     /**
-     * Round-trip mode adds data attributes to preserve Djot-specific information
-     * for perfect HTML→Djot conversion (e.g., list markers, thematic break characters)
+     * Round-trip mode adds data attributes to preserve Carve-specific information
+     * for perfect HTML→Carve conversion (e.g., list markers, thematic break characters)
      */
     protected bool $roundTripMode = false;
 
@@ -361,13 +361,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * Enable round-trip mode to preserve Djot-specific information in HTML output
+     * Enable round-trip mode to preserve Carve-specific information in HTML output
      *
      * When enabled, adds data attributes for:
      * - List markers (data-marker for non-default markers like *, +, or ))
      * - Thematic break characters (data-char for non-default like * or _)
      *
-     * This allows HtmlToCarve to reconstruct the original Djot syntax perfectly.
+     * This allows HtmlToCarve to reconstruct the original Carve syntax perfectly.
      */
     public function setRoundTripMode(bool $enabled): self
     {
@@ -532,7 +532,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $number = $context->footnoteCounter;
 
         // Use a synthetic label that cannot collide with user-supplied labels.
-        // Djot footnote labels cannot contain ']', so including it here ensures uniqueness.
+        // Carve footnote labels cannot contain ']', so including it here ensures uniqueness.
         $label = '_inline_]' . $number;
         $context->footnoteNumbers[$label] = $number;
         $context->footnoteRefCounts[$label] = 1;
@@ -1197,7 +1197,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * Reconstruct the original Djot source for a code block
+     * Reconstruct the original Carve source for a code block
      */
     public function reconstructCodeBlockSource(CodeBlock $node): string
     {
