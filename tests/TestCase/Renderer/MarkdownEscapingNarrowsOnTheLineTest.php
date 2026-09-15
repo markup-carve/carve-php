@@ -86,6 +86,64 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
     }
 
     /**
+     * M1b's SECOND CONDITION for the underscore: a pair the emitted line would
+     * read as emphasis is escaped even where neither half stands beside a
+     * delimiter.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function underscorePairProvider(): array
+    {
+        return [
+            'a pair of text underscores' => ['/x/_y_', '*x*\\_y\\_'],
+            'a pair beside an identifier' => ['/x/_y_ and company_id', '*x*\\_y\\_ and company_id'],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param string $expected
+     *
+     * @return void
+     */
+    #[DataProvider('underscorePairProvider')]
+    public function testAnUnderscorePairTheLineWouldReadAsEmphasisIsEscaped(string $source, string $expected): void
+    {
+        $this->assertSame($expected, $this->md($source));
+    }
+
+    /**
+     * The condition is a PAIR, so an underscore no second one can pair with
+     * stays bare: the closer stands before the opener in the first, and the only
+     * run that could open in the second is intraword.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function unpairedProvider(): array
+    {
+        return [
+            'a closer before an opener' => ['x_ _y'],
+            'an intraword opener' => ['foo_bar_ baz'],
+        ];
+    }
+
+    /**
+     * @param string $source
+     *
+     * @return void
+     */
+    #[DataProvider('unpairedProvider')]
+    public function testAnUnderscoreNoSecondOneCanPairWithStaysBare(string $source): void
+    {
+        $this->assertSame($source, $this->md($source));
+    }
+
+    public function testAnAuthoredEscapeDoesNotSupplyHalfOfAPair(): void
+    {
+        $this->assertSame('a \\_b c_', $this->md('a \\_b c_'));
+    }
+
+    /**
      * M1b, the ADJACENT half. Unescaping would MERGE THE TWO INTO ONE RUN, which
      * every reader this target answers to resolves by run length - so both
      * escapes are kept.
