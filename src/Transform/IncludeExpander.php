@@ -696,14 +696,25 @@ class IncludeExpander implements TransformerInterface
             return null;
         }
 
+        // CHARGED BEFORE THE CHECK, because by this line the target has been
+        // READ: PART 9 §19 says a processor cannot do otherwise - the budget
+        // "does not bound the WORK a processor does to produce it, because a
+        // target is resolved before its size is known". Charging only what was
+        // admitted made bytesUsed unable to tell "read nothing" from "read a
+        // file and refused it", and reported 0 for a target the resolver had
+        // just handed over in full (carve-php#1953).
+        //
+        // Nothing else moves: the counter still latches resourcesSpent on the
+        // same directive, so every later one is refused WITHOUT being resolved
+        // exactly as before, which is what §19 requires of a spent budget.
         $bytes = strlen($source);
-        if ($this->bytesUsed + $bytes > $budget) {
+        $this->bytesUsed += $bytes;
+        if ($this->bytesUsed > $budget) {
             $this->resourcesSpent = self::RULE_BUDGET;
             $this->warn($this->spentMessage(self::RULE_BUDGET, $directive['path']), self::RULE_BUDGET);
 
             return null;
         }
-        $this->bytesUsed += $bytes;
 
         if ($directive['lines'] !== null) {
             $source = $this->sliceLines($source, $directive['lines']['start'], $directive['lines']['end']);

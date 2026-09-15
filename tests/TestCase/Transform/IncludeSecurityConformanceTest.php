@@ -161,19 +161,15 @@ class IncludeSecurityConformanceTest extends TestCase
      * testNoDeclaredDivergenceIsStale fails if one stops diverging at all. A
      * declaration that cannot expire is how a corpus stops being a gate.
      *
-     * All three are one defect - carve-php#1953: the target whose read pushed
-     * past the byte budget is refused WITHOUT being charged, so `bytesUsed`
-     * counts bytes ADMITTED rather than bytes READ and cannot tell "read
-     * nothing" from "read a file and refused it". The resolver had the source
-     * in hand in every one of these rows.
+     * Empty, and kept: the three `chargedBytes` entries that were here were one
+     * defect - carve-php#1953, a target refused by the byte budget without
+     * being charged for the read that produced it - and the engine now agrees
+     * with the corpus on all three, so leaving them would fail
+     * testNoDeclaredDivergenceIsStale. That is the handoff working.
      *
      * @var array<string, array<string, int>>
      */
-    protected const DIVERGENCES = [
-        'transitive-byte-budget' => ['chargedBytes' => 7],
-        'repeated-target-charged-per-occurrence' => ['chargedBytes' => 8],
-        'budget-exhaustion-skips-later-resolver' => ['chargedBytes' => 0],
-    ];
+    protected const DIVERGENCES = [];
 
     /**
      * @var array<string, array<string, mixed>>
