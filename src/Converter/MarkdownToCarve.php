@@ -1350,13 +1350,18 @@ class MarkdownToCarve
                 $rawInline,
                 $line,
             ) ?? $line;
+            // The `>` (not `\b`) in the native lookahead is what keeps ONLY a
+            // BARE native tag out of the raw wrap: `<b>` is left for `$htmlRules`
+            // to convert, while an attributed `<b class="x">` is wrapped raw so
+            // its attributes survive - matching carve-js, which never converts
+            // an attributed tag.
             $line = preg_replace_callback(
-                '/<(?!(?:' . $nativeInline . ')\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+[^<>]*?)?>[\s\S]*?<\/\1[ \t]*>/i',
+                '/<(?!(?:' . $nativeInline . ')>)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+[^<>]*?)?>[\s\S]*?<\/\1[ \t]*>/i',
                 $rawInline,
                 $line,
             ) ?? $line;
             $line = preg_replace_callback(
-                '/<\/?(?!(?:' . $nativeInline . ')\b)[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
+                '/<\/?(?!(?:' . $nativeInline . ')>)[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
                 $rawInline,
                 $line,
             ) ?? $line;
@@ -1481,6 +1486,18 @@ class MarkdownToCarve
         ];
         foreach ($htmlRules as $pattern => $replacement) {
             $line = preg_replace($pattern, $replacement, $line) ?? $line;
+        }
+
+        if (!$this->convertRawHtml) {
+            // A bare native tag still standing is unpaired - the paired ones
+            // converted above. carve-js keeps an unpaired `<b>` or `</b>` as an
+            // inline raw span rather than letting it fall through to literal
+            // text that renders escaped.
+            $line = preg_replace_callback(
+                '/<\/?(?:' . $nativeInline . ')>/i',
+                fn (array $match): string => $protect($this->verbatimHtmlInline($match[0])),
+                $line,
+            ) ?? $line;
         }
 
         $line = $this->escapeCarveConstructsSpelledLikeText($line, $protected);
