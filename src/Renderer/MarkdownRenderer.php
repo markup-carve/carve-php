@@ -960,7 +960,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // has to run twice, and a later pass never undoes an earlier one.
         foreach (array_keys($parts) as $index) {
             $piece = $this->delimiterPiece($children, $parts, $index);
-            if ($piece !== null && $this->contentGrowsRun($piece)) {
+            if ($piece !== null && $this->contentGrowsRun($piece, $children[$index])) {
                 $parts[$index] = $this->spellAsHtml($piece);
             }
         }
@@ -1093,24 +1093,65 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * length, and the length is what decides what that run can do - so adjacency
      * is not the question, and no flanking test can answer it (carve-php#1974).
      *
-     * This half is what the content contributes. The renderer escapes an
-     * asterisk it means literally, so an asterisk at the edge of the core is a
-     * nested run's delimiter and seamMergesRun() weighs it with the rule of 3. A
-     * tilde it does not escape, so a tilde at the edge of the core is a literal,
-     * and the reader takes the odd tilde off the run and leaves it OUTSIDE the
-     * strike - which is not where the renderer put it. At the start of a line
-     * the same three-tilde run is not a delimiter at all but a fenced code
-     * block, and the rest of the document becomes its content.
+     * This half is what the CONTENT contributes: a child's own delimiter, or a
+     * literal the renderer did not escape. The reader re-pairs the merged run by
+     * its own rule rather than by the nesting the document had - `***x***` comes
+     * back emphasis outside strong whichever way it was written - so the parent
+     * takes the inline-HTML spelling and the child keeps its delimiters. An
+     * ESCAPED character at the edge reaches nothing, because a backslash breaks
+     * a run rather than lengthening it.
      *
      * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     * @param \MarkupCarve\Carve\Node\Node $node
      */
-    protected function contentGrowsRun(array $piece): bool
+    protected function contentGrowsRun(array $piece, Node $node): bool
     {
-        if ($piece['delimiter'][0] !== '~') {
+        $character = $piece['delimiter'][0];
+        if (
+            $this->runAtStart($piece['core'], $character) === 0
+            && $this->runAtEnd($piece['core'], $character) === 0
+        ) {
             return false;
         }
 
-        return $this->runAtStart($piece['core'], '~') > 0 || $this->runAtEnd($piece['core'], '~') > 0;
+        return !$this->commutes($piece, $node);
+    }
+
+    /**
+     * The round-trip normalization list, PART 11 section 10k: nested emphasis of
+     * DIFFERENT strengths, where the child spans the whole parent, may commute.
+     * `***x***` comes back with the emphasis outside either way, and the two
+     * nestings are the same document. EQUAL strengths do not commute - the runs
+     * collapse into one element of the wrong kind, which is a different
+     * document.
+     *
+     * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     * @param \MarkupCarve\Carve\Node\Node $node
+     */
+    protected function commutes(array $piece, Node $node): bool
+    {
+        if ($piece['delimiter'][0] !== '*') {
+            return false;
+        }
+        // The padding text nodes are not content: the renderer has already moved
+        // them outside the delimiters, so the child still spans everything
+        // between them.
+        $kids = [];
+        foreach ($node->getChildren() as $kid) {
+            if ($kid instanceof Text && trim($kid->getContent()) === '') {
+                continue;
+            }
+            $kids[] = $kid;
+        }
+        if (count($kids) !== 1) {
+            return false;
+        }
+        $child = $kids[0];
+        if (!$child instanceof Emphasis && !$child instanceof Strong) {
+            return false;
+        }
+
+        return strlen($this->delimiterRun($child)[0]) !== strlen($piece['delimiter']);
     }
 
     /**
