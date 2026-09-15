@@ -11,11 +11,11 @@ use PHPUnit\Framework\TestCase;
  * PART 9R R7: block-image status is a property of the RESOLVED tree, and one
  * phase settles it after reference resolution.
  *
- * Definitions are collected during the document walk when a document holds two
- * or more definition KINDS, so a reference defined below its image is still
- * unresolved when the caption line is read. The captionable gate asked about
- * resolution there and folded the caption into the paragraph - which nothing
- * later could take back, because the line had stopped being a separate line.
+ * Definitions are collected during the document walk, so a reference defined
+ * below its image is still unresolved when the caption line is read. The
+ * captionable gate asked about resolution there and folded the caption into the
+ * paragraph - which nothing later could take back, because the line had stopped
+ * being a separate line.
  *
  * The effect was that an unrelated footnote elsewhere in the document decided
  * whether an image was a figure (carve-php#1851).

@@ -17,12 +17,13 @@ use Throwable;
  * Sweeps the whole spec corpus through the bridge.
  *
  * The strict gate is deliberately narrow: a document whose types the editor
- * model fully covers - nothing dropped, nothing degraded to text - must return
- * byte-identical HTML. Documents that do lose something are allowed to differ,
- * because they must: a soft break becomes a space, a comment is gone. What is
- * NOT allowed is an exception, or a silent loss the renderer failed to report.
+ * model fully covers - nothing dropped, nothing degraded to text - must come
+ * back as the same canonical Carve. Documents that do lose something are
+ * allowed to differ, because they must: a soft break becomes a space, a comment
+ * is gone. What is NOT allowed is an exception, or a silent loss the renderer
+ * failed to report.
  *
- * The two ceilings below are ratchets. They may fall, and a rise means the bridge
+ * The two floors below are ratchets. They may rise, and a fall means the bridge
  * regressed.
  */
 class ProseMirrorCorpusTest extends TestCase

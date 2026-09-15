@@ -51,5 +51,5 @@ explicit test review. The authoritative parser remains the oracle.
 Documents outside the borrowed envelope still benefit from the integrated
 definition pass described in `integrated-definition-layout.md`. The two are
 complementary: configured source-to-HTML avoids materializing an AST where
-exact events suffice, while the authoritative fallback avoids a duplicate
-mixed-definition structural scan.
+exact events suffice, while the authoritative fallback collects definitions in
+the same walk that builds the blocks.
