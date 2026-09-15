@@ -29,6 +29,52 @@ use MarkupCarve\Carve\Node\Node;
 class IncludeDirectiveSyntax
 {
     /**
+     * Scan for directive spans inside a reassembled run.
+     *
+     * THE CLOSER IS THE FIRST `}}` OUTSIDE ANY QUOTED RUN. A quoted path or a
+     * quoted option value may carry the pair, so the body is WALKED - quoted
+     * run by quoted run - instead of searched for a closer: one alternative
+     * consumes a complete quoted run in a single step, the other one non-brace
+     * character, which leaves exactly one position where both fail. That
+     * position is the closer, so it is matched rather than looked for.
+     *
+     * Every quantifier is possessive, so no character can be handed back and
+     * the walk cannot re-enter. The one alternation - a `"` either opens a run
+     * or is ordinary text - is decided in place: the quoted form is tried
+     * first, and with no closing quote on the line it fails and the `"` is
+     * taken as ordinary text. That IS the spec's "an unterminated quote does
+     * not open a run", which is why the fallback keeps the first-`}}` reading
+     * for a malformed directive.
+     *
+     * The whitespace required before the closer is a fixed-width LOOKBEHIND,
+     * not a trailing `[ \t]+`: a trailing quantifier would have to take that
+     * whitespace back off the body walk, and that give-back is the re-entry
+     * this formulation exists to avoid.
+     *
+     * @var string
+     */
+    public const SCAN = '/\{\{[ \t]++(?:"(?:\\\\.|[^"\\\\\n])*+"|[^{}])*+(?<=[ \t])\}\}/s';
+
+    /**
+     * Loose directive shape: one whole token, valid options or not. Same body
+     * alphabet as SCAN - a quoted run may hold the pair - anchored rather than
+     * scanned.
+     *
+     * @var string
+     */
+    public const SHAPE = '/^\{\{(?:"(?:\\\\.|[^"\\\\\n])*+"|[^{}])*+\}\}$/s';
+
+    /**
+     * Split the option slot into tokens, keeping a quoted value whole.
+     * Splitting on whitespace tore `@label:"a b"` into three, so a value's own
+     * `#` reached the section slot and a diagnostic named a token that is
+     * nowhere in the source.
+     *
+     * @var string
+     */
+    private const OPTION_TOKENS = '/(?:"(?:\\\\.|[^"\\\\\n])*+"|[^\s])++/';
+
+    /**
      * @var string
      */
     public const ERROR_UNKNOWN_OPTION = 'unknown-option';
@@ -152,7 +198,8 @@ class IncludeDirectiveSyntax
         $error = null;
         $errorPart = null;
         if ($rest !== '') {
-            foreach (preg_split('/\s+/', $rest) ?: [] as $part) {
+            preg_match_all(self::OPTION_TOKENS, $rest, $tokens);
+            foreach ($tokens[0] as $part) {
                 if (preg_match('/^#([A-Za-z_][A-Za-z0-9_-]*)$/', $part, $sectionMatch)) {
                     $section = $sectionMatch[1];
 

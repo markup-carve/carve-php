@@ -3020,7 +3020,7 @@ class CarveRenderer implements RendererInterface
         $length = strlen($text);
         while (
             $cursor < $length
-            && preg_match('/\{\{[ \t]+[^{}]*?[ \t]+\}\}/s', $text, $match, PREG_OFFSET_CAPTURE, $cursor) === 1
+            && preg_match(IncludeDirectiveSyntax::SCAN, $text, $match, PREG_OFFSET_CAPTURE, $cursor) === 1
         ) {
             $span = $match[0][0];
             $offset = (int)$match[0][1];
@@ -3030,7 +3030,7 @@ class CarveRenderer implements RendererInterface
             if (IncludeDirectiveSyntax::parse($span) !== null) {
                 $spans[] = ['offset' => $offset, 'length' => strlen($span), 'source' => $this->emitDirective($span)];
             }
-            // Each span is at least '{{  }}', so the cursor always advances.
+            // Every span opens `{{` and closes `}}`, so the cursor always advances.
             $cursor = $offset + strlen($span);
         }
 
