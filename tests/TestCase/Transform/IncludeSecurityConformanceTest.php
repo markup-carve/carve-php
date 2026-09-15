@@ -203,7 +203,7 @@ class IncludeSecurityConformanceTest extends TestCase
 
     public function testPinsTheVectorCountSoAnAdditionCannotBeSkippedUnnoticed(): void
     {
-        self::assertCount(23, self::corpus()['vectors']);
+        self::assertCount(25, self::corpus()['vectors']);
     }
 
     public function testAnswersEveryRequirementTheCorpusStates(): void
