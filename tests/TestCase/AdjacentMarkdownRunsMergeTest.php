@@ -27,39 +27,52 @@ class AdjacentMarkdownRunsMergeTest extends TestCase
         return CarveConverter::markdown()->convert($carve);
     }
 
+    /**
+     * The content tilde no longer REACHES the run: carve-php#1976 made M1 escape
+     * a literal tilde in text, and an escaped character is not part of a
+     * delimiter run. The fence these rows exist for is what matters and it is
+     * still not openable, so they stay - only the mechanism under them changed.
+     */
     public function testATildeInTheContentDoesNotOpenACodeFenceAtTheStartOfALine(): void
     {
-        $this->assertSame("<del>~x</del>\n", $this->md("{~~x~}\n"));
+        $this->assertSame("~~\\~x~~\n", $this->md("{~~x~}\n"));
     }
 
     public function testATildeAtTheEndOfTheContentIsAnsweredTheSameWay(): void
     {
-        $this->assertSame("<del>x~</del>\n", $this->md("{~x~~}\n"));
+        $this->assertSame("~~x\\~~~\n", $this->md("{~x~~}\n"));
     }
 
     public function testTheSameRunMidLineWhereItIsNotAFence(): void
     {
-        $this->assertSame("a <del>~x</del>b\n", $this->md("a {~~x~}b\n"));
+        $this->assertSame("a ~~\\~x~~b\n", $this->md("a {~~x~}b\n"));
     }
 
     public function testTheDecisionIsTakenWithNoSiblingToTakeItAgainst(): void
     {
-        $this->assertSame("<del>~x</del>\n", $this->md('{~~x~}'));
+        $this->assertSame("~~\\~x~~\n", $this->md('{~~x~}'));
     }
 
+    /**
+     * The text tilde is escaped now, so the run cannot form. The seam pass still
+     * re-spells on the OPENING side, where it reads the escaped tilde off the
+     * end of the neighbouring part without looking at the backslash in front of
+     * it. That is conservative rather than wrong - inline HTML where delimiters
+     * would have done - and is filed as carve-php#1980.
+     */
     public function testTwoTextTildesDoNotOpenACodeFenceWithTheStrikesOwnTwo(): void
     {
-        $this->assertSame("~~<del>x</del>\n", $this->md("~~{~x~}\n"));
+        $this->assertSame("\\~\\~<del>x</del>\n", $this->md("~~{~x~}\n"));
     }
 
-    public function testASingleTextTildeReachingTheRunRespellsTheStrike(): void
+    public function testASingleTextTildeReachingTheRunIsEscaped(): void
     {
-        $this->assertSame("a~<del>x</del>\n", $this->md("a~{~x~}\n"));
+        $this->assertSame("a\\~<del>x</del>\n", $this->md("a~{~x~}\n"));
     }
 
-    public function testATextTildeOnTheClosingSideAnswersTheSameWay(): void
+    public function testATextTildeOnTheClosingSideLeavesTheStrikeSpelled(): void
     {
-        $this->assertSame("<del>x</del>~b\n", $this->md("{~x~}~b\n"));
+        $this->assertSame("~~x~~\\~b\n", $this->md("{~x~}~b\n"));
     }
 
     public function testTwoAdjacentEmphasesCannotBothResolve(): void
@@ -124,12 +137,12 @@ class AdjacentMarkdownRunsMergeTest extends TestCase
 
     public function testASpaceSeparatesAStrikeFromATextTilde(): void
     {
-        $this->assertSame("~~x~~ ~y\n", $this->md("{~x ~}~y\n"));
+        $this->assertSame("~~x~~ \\~y\n", $this->md("{~x ~}~y\n"));
     }
 
     public function testTheSameSpaceOnTheOpeningSide(): void
     {
-        $this->assertSame("y~ ~~x~~\n", $this->md("y~{~ x~}\n"));
+        $this->assertSame("y\\~ ~~x~~\n", $this->md("y~{~ x~}\n"));
     }
 
     /**
@@ -144,12 +157,12 @@ class AdjacentMarkdownRunsMergeTest extends TestCase
 
     public function testAnEscapedAsteriskIsNotCountedAsPartOfTheRun(): void
     {
-        $this->assertSame("<em>x\\*</em>*~y*\n", $this->md("{/x*/}{/~y/}\n"));
+        $this->assertSame("<em>x\\*</em>*\\~y*\n", $this->md("{/x*/}{/~y/}\n"));
     }
 
     public function testTheMergedRunFlanksAgainstTheSiblingsContent(): void
     {
-        $this->assertSame("<em>x~</em>**y**\n", $this->md("{/x~/}{*y*}\n"));
+        $this->assertSame("<em>x\\~</em>**y**\n", $this->md("{/x~/}{*y*}\n"));
     }
 
     public function testTheSameFlankingReadOnATildeSeam(): void

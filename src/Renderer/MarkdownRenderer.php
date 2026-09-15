@@ -2411,8 +2411,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // PART 11 §8a M1b decides those three on the EMITTED LINE, which only
         // resolveNarrowedEscapes() can see. `*` keeps M1 unconditionally (M1a),
         // and every other metacharacter keeps M1 as written (M1c).
+        //
+        // `~` IS ONE OF THEM. GFM's strikethrough extension pairs a run of ONE
+        // OR TWO tildes, so a literal tilde in text is a Markdown
+        // metacharacter, and §8a narrows only `_`, `#`, `[` and `<` - M1d
+        // leaves every other one on M1. Unescaped, two literal tildes anywhere
+        // in one paragraph pair across whatever markup stands between them and
+        // the tags interleave (carve-php#1976); a single one pairs the same way
+        // for a reader that takes the one-tilde form, which pulldown-cmark does.
         $escaped = preg_replace_callback(
-            '/([\\\\`*_\[\]#])/',
+            '/([\\\\`*_~\[\]#])/',
             fn (array $m): string => $this->narrowedSentinels[$m[1]] ?? '\\' . $m[1],
             $text,
         ) ?? $text;
