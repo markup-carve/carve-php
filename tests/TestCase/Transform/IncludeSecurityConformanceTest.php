@@ -57,7 +57,7 @@ class IncludeSecurityConformanceTest extends TestCase
      */
     protected const KNOWN_KEYS = [
         'name', 'description', 'requirement', 'kind',
-        'entry', 'files', 'tree', 'root', 'from', 'request',
+        'entry', 'files', 'tree', 'root', 'rootSpec', 'from', 'request',
         'trusted', 'enabled', 'allowAbsolute', 'allowedRemoteHosts',
         'maxDepth', 'maxBytes', 'maxResolverCalls',
         'expected',
@@ -78,6 +78,44 @@ class IncludeSecurityConformanceTest extends TestCase
         'S6-post-budget-no-read',
         'S7-call-bound',
         'S8-post-call-bound-no-read',
+        'S9-root-configuration',
+    ];
+
+    /**
+     * The observables the adapter knows how to answer. The provider yields one
+     * case per expected field, so a field this adapter never produces is
+     * compared against `null` and goes red only where the corpus happens to
+     * want something else; this names the unanswered observable directly.
+     *
+     * @var array<string>
+     */
+    protected const OBSERVABLES = [
+        'status',
+        'denial',
+        'canonicalId',
+        'resolverCalls',
+        'remoteFetches',
+        'maxVisitedDepth',
+        'chargedBytes',
+    ];
+
+    /**
+     * Every denial class the corpus asserts, as a SET. A class this adapter
+     * cannot produce is a refusal it reports as some OTHER class, which reads
+     * as agreement: `not-found` arrived with carve#2001 and `no-root` with
+     * carve#2005, and both would otherwise have been answered by whichever
+     * branch matched first.
+     *
+     * @var array<string>
+     */
+    protected const DENIAL_CLASSES = [
+        'budget',
+        'depth',
+        'no-root',
+        'not-found',
+        'outside-root',
+        'remote-not-allowed',
+        'resolver-calls',
     ];
 
     /**
@@ -107,6 +145,11 @@ class IncludeSecurityConformanceTest extends TestCase
         'Include target escapes configured root' => 'outside-root',
         'Absolute include paths are not allowed' => 'outside-root',
         'Include URI schemes are not allowed' => 'remote-not-allowed',
+        'Include target not found' => 'not-found',
+        // Thrown by the root-configuration seam, before any resolver exists.
+        // A value that names no root is not a denial the resolver issued; the
+        // resolver was never built, so nothing was asked of it.
+        'The include root must be supplied explicitly' => 'no-root',
     ];
 
     /**
@@ -164,7 +207,7 @@ class IncludeSecurityConformanceTest extends TestCase
 
     public function testPinsTheVectorCountSoAnAdditionCannotBeSkippedUnnoticed(): void
     {
-        self::assertCount(14, self::corpus()['vectors']);
+        self::assertCount(19, self::corpus()['vectors']);
     }
 
     public function testAnswersEveryRequirementTheCorpusStates(): void
@@ -185,6 +228,50 @@ class IncludeSecurityConformanceTest extends TestCase
         $unread = array_values(array_diff(array_unique($seen), self::KNOWN_KEYS));
         sort($unread);
         self::assertSame([], $unread);
+    }
+
+    public function testAnswersEveryObservableTheCorpusExpects(): void
+    {
+        $stated = [];
+        foreach (self::corpus()['vectors'] as $vector) {
+            $stated = array_merge($stated, array_keys($vector['expected']));
+        }
+        $unanswered = array_values(array_diff(array_unique($stated), self::OBSERVABLES));
+        sort($unanswered);
+        self::assertSame([], $unanswered);
+    }
+
+    public function testAnswersEveryDenialClassTheCorpusAsserts(): void
+    {
+        $stated = [];
+        foreach (self::corpus()['vectors'] as $vector) {
+            $class = $vector['expected']['denial'] ?? null;
+            if ($class !== null) {
+                $stated[] = $class;
+            }
+        }
+        $stated = array_values(array_unique($stated));
+        sort($stated);
+        $pinned = self::DENIAL_CLASSES;
+        sort($pinned);
+        self::assertSame($pinned, $stated);
+    }
+
+    /**
+     * `root` and `rootSpec` answer different questions - one is materialized
+     * here, the other is the host's configured value - so a vector that named
+     * both would be driven two ways at once. The corpus schema refuses it; so
+     * does this, rather than silently preferring one.
+     */
+    public function testNoVectorNamesTheRootBothWays(): void
+    {
+        $both = [];
+        foreach (self::corpus()['vectors'] as $vector) {
+            if (array_key_exists('root', $vector) && array_key_exists('rootSpec', $vector)) {
+                $both[] = $vector['name'];
+            }
+        }
+        self::assertSame([], $both);
     }
 
     public function testDrivesEveryKindTheCorpusStates(): void
@@ -354,25 +441,52 @@ class IncludeSecurityConformanceTest extends TestCase
      */
     protected function runPath(array $vector): array
     {
-        $dir = $this->materialize($vector['tree'] ?? ['root/main.crv' => '']);
-        $root = realpath($dir . '/' . ($vector['root'] ?? 'root'));
-        if ($root === false) {
-            throw new RuntimeException('the vector tree has no root directory');
+        if (array_key_exists('root', $vector) && array_key_exists('rootSpec', $vector)) {
+            throw new RuntimeException("a vector names the root one way only: {$vector['name']}");
         }
-        $resolver = new FilesystemIncludeResolver($root, $vector['allowAbsolute'] ?? false);
-        $request = (string)preg_replace_callback(
-            '/^<ABS:([^>]+)>$/',
-            fn (array $m): string => $dir . '/' . $m[1],
-            (string)($vector['request'] ?? ''),
-        );
+        $dir = $this->materialize($vector['tree'] ?? ['root/main.crv' => '']);
+
+        // `root` is the ADAPTER's: a directory in the temporary tree, already
+        // canonical, so containment is the only question the vector asks.
+        // `rootSpec` is the value the HOST was configured with, and what THIS
+        // engine's root-configuration seam - the FilesystemIncludeResolver
+        // constructor - makes of it is the behavior under test. So it goes in
+        // UNCHANGED. Canonicalizing it here first would answer the vector with
+        // the adapter's own `realpath()`, and `realpath('')` is the process
+        // working directory: the one root §19 forbids by name, which is
+        // precisely the defect `blank-root-spec-configures-no-root` exists for.
+        // Expanding `<ABS:>` is the corpus naming its own temporary tree, not
+        // a canonicalization.
+        if (array_key_exists('rootSpec', $vector)) {
+            $rootSpec = $this->expandTreePath((string)$vector['rootSpec'], $dir);
+        } else {
+            $materialized = realpath($dir . '/' . ($vector['root'] ?? 'root'));
+            if ($materialized === false) {
+                throw new RuntimeException('the vector tree has no root directory');
+            }
+            $rootSpec = $materialized;
+        }
+
+        $calls = [];
+        $resolver = null;
+        $failure = null;
+        try {
+            $resolver = new FilesystemIncludeResolver($rootSpec, $vector['allowAbsolute'] ?? false);
+        } catch (Throwable $exception) {
+            $failure = $exception->getMessage();
+        }
+
+        $request = $this->expandTreePath((string)($vector['request'] ?? ''), $dir);
         $from = isset($vector['from']) ? realpath($dir . '/' . $vector['from']) : null;
 
         $id = null;
-        $failure = null;
-        try {
-            $id = $resolver->resolve($request, new IncludeContext($from === false ? null : $from))->getId();
-        } catch (Throwable $exception) {
-            $failure = $exception->getMessage();
+        if ($resolver !== null) {
+            $calls[] = $request;
+            try {
+                $id = $resolver->resolve($request, new IncludeContext($from === false ? null : $from))->getId();
+            } catch (Throwable $exception) {
+                $failure = $exception->getMessage();
+            }
         }
 
         if ($vector['kind'] === 'remote') {
@@ -386,14 +500,40 @@ class IncludeSecurityConformanceTest extends TestCase
                     : (($vector['allowedRemoteHosts'] ?? []) === [] ? 'denied' : 'unsupported'),
                 'denial' => $failure === null ? null : $this->denialFor($failure),
                 'remoteFetches' => [],
+                'resolverCalls' => $calls,
             ];
         }
 
         if ($failure !== null) {
-            return ['status' => 'denied', 'denial' => $this->denialFor($failure)];
+            // A root-configuration refusal leaves `$calls` empty because no
+            // resolver was ever built - which is what makes "inclusion stays
+            // disabled" observable rather than merely asserted.
+            return ['status' => 'denied', 'denial' => $this->denialFor($failure), 'resolverCalls' => $calls];
         }
 
-        return ['status' => 'allowed', 'canonicalId' => str_replace($root, '<ROOT>', (string)$id)];
+        // The engine's own canonical root, read back only to spell the id the
+        // corpus compares. It is not what was handed to the seam.
+        $canonicalRoot = (string)realpath($rootSpec);
+
+        return [
+            'status' => 'allowed',
+            'canonicalId' => str_replace($canonicalRoot, '<ROOT>', (string)$id),
+            'resolverCalls' => $calls,
+        ];
+    }
+
+    /**
+     * The corpus names a path inside its own temporary tree as `<ABS:path>`.
+     * Expanding it is the corpus spelling out where it put the tree; it is not
+     * a canonicalization of the value under test.
+     */
+    protected function expandTreePath(string $value, string $dir): string
+    {
+        return (string)preg_replace_callback(
+            '/^<ABS:([^>]+)>$/',
+            fn (array $m): string => $dir . '/' . $m[1],
+            $value,
+        );
     }
 
     protected function denialFor(string $message): string
