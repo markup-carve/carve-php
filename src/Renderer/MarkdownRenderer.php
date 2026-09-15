@@ -1129,12 +1129,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * because a run whose inner character is `~` needs an outer character that
      * is not alphanumeric.
      *
-     * A tilde run is not governed by the rule of 3 at all - GFM strikethrough
-     * pairs tildes - and the one merged length that survives is four, two
-     * strikes' own delimiters meeting. Any other tilde reaching the run, from
-     * text or from a third strike, leaves a length whose surplus the reader
-     * places by its own pairing rule rather than by CommonMark, so the renderer
-     * does not spell it.
+     * A tilde run is not governed by the rule of 3 at all, and the readers do
+     * not agree on it either: markdown-it pairs `~~` and splits a run of four,
+     * while pulldown-cmark matches the run and does not. So no merged length
+     * survives - any LIVE tilde reaching the run re-spells the strike as
+     * inline HTML.
      *
      * @param list<\MarkupCarve\Carve\Node\Node> $children
      * @param list<string> $parts
@@ -1187,25 +1186,21 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($other < 0) {
             return false;
         }
-        $edge = $direction < 0 ? $this->lastCharacter($parts[$other]) : $this->firstCharacter($parts[$other]);
-        if ($edge !== '~') {
+        // A backslash in front of the neighbour's last tilde makes it a literal,
+        // which breaks the run rather than lengthening it; a tilde the neighbour
+        // PRESENTS first is never escaped, because the backslash stands there.
+        if ($direction < 0) {
+            return $this->runAtEnd($parts[$other], '~') > 0;
+        }
+        if ($this->firstCharacter($parts[$other]) !== '~') {
             return false;
         }
+        // One seam needs one fallback, and the strike on the right takes it: it
+        // reaches the same seam from its own side, so leaving it there keeps the
+        // left node in delimiters.
         $piece2 = $this->delimiterPiece($children, $parts, $other);
-        if ($piece2 === null || $piece2['delimiter'] !== '~~') {
-            return true;
-        }
-        if (($direction < 0 ? $piece2['trail'] : $piece2['lead']) !== '') {
-            return true;
-        }
-        $inner = $direction < 0
-            ? $this->afterRunInCore($piece['core'], '~')
-            : $this->beforeRunInCore($piece['core'], '~');
-        $outer = $direction < 0
-            ? $this->beforeRunInCore($piece2['core'], '~')
-            : $this->afterRunInCore($piece2['core'], '~');
 
-        return $inner === '' || $outer === '' || !$this->mergedRunFlanks($inner, $outer);
+        return !($piece2 !== null && $piece2['delimiter'] === '~~' && $piece2['lead'] === '');
     }
 
     /**
