@@ -43,6 +43,7 @@ class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
             'a link destination holding the only closer' => ["~[a](b~) c\n", "<p>~<a href=\"b~\">a</a> c</p>\n"],
             'a link title' => ["~see [a](b \"t~\") now~\n", "<p><s>see <a href=\"b\" title=\"t~\">a</a> now</s></p>\n"],
             'an image destination' => ["~see ![a](b~) now~\n", "<p><s>see <img src=\"b~\" alt=\"a\"> now</s></p>\n"],
+            'a destination after an escaped caret' => ["~see \\^[a](b~) now~\n", "<p><s>see ^<a href=\"b~\">a</a> now</s></p>\n"],
             'an autolink' => ["/see <http://a.b/c> now/\n", "<p><em>see <a href=\"http://a.b/c\">http://a.b/c</a> now</em></p>\n"],
             'an autolink holding the only closer' => ["~<http://x/a~>\n", "<p>~<a href=\"http://x/a~\">http://x/a~</a></p>\n"],
         ];
