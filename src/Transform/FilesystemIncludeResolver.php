@@ -19,7 +19,8 @@ class FilesystemIncludeResolver implements IncludeResolverInterface
     protected string $root;
 
     /**
-     * @param string $root
+     * @param string $root Containment root. Must be named explicitly: a blank
+     *   or whitespace-only value is refused rather than canonicalized.
      * @param bool $allowAbsolutePaths
      * @param int|null $maxFileBytes Largest target this resolver will read, or
      *   null for no cap. The expander's byte budget cannot stand in for this:
@@ -34,6 +35,17 @@ class FilesystemIncludeResolver implements IncludeResolverInterface
         protected bool $allowAbsolutePaths = false,
         protected ?int $maxFileBytes = self::DEFAULT_MAX_FILE_BYTES,
     ) {
+        // PART 9 section 19: the root MUST NOT default to the process working
+        // directory, and `realpath('')` answers with exactly that - which
+        // `is_dir()` then accepts, so the guard below never sees it. An unset
+        // configuration value is not a root, so it configures none at all. A
+        // whitespace-only value is the same unset value even though it is a
+        // legal directory name; such a directory stays reachable by its
+        // absolute path.
+        if (trim($root) === '') {
+            throw new RuntimeException('The include root must be supplied explicitly: a blank value is not a root.');
+        }
+
         $realRoot = realpath($root);
         if ($realRoot === false || !is_dir($realRoot)) {
             throw new RuntimeException("Include root does not exist: {$root}");
