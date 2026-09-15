@@ -38,7 +38,7 @@ Until now the AST was reachable only as PHP objects, so anything that is not
 ProseMirror/Tiptap serializer only exists in JavaScript, why `HtmlToCarve` has to
 be as large as it is, and why an editor bridge is a design project rather than a
 mapping. The tree is what editors, linters, structural diffing and
-cross-implementation conformance actually want.
+cross-implementation conformance want.
 
 ## Shape
 
@@ -277,7 +277,7 @@ spelling it found and names this helper. An application node type registered
 with `AstCodec::register()` is left alone, subtree included - register the class
 before running the migration, or its own fields are read as nodes.
 
-One caveat, and only one. `raw_text` existed so the writer could reproduce
+One caveat. `raw_text` existed so the writer could reproduce
 markup the parser declined, verbatim; it becomes a `text` node, and a `text`
 node is escaped on the way back out. That is not a loss the upgrade introduces -
 the node was already off the wire, so the second save of such a document
@@ -302,8 +302,8 @@ does. An unregistered type fails loudly rather than silently dropping content.
   asserts both over the whole corpus, so it is a standing gate rather than a
   claim.
 
-  Comparing HTML alone is not enough, and that is not theoretical - it passed
-  while three constructs were being corrupted. An autolink decoded as a plain
+  Comparing HTML alone is not enough: it passed while three constructs were
+  being corrupted. An autolink decoded as a plain
   link renders the same HTML but writes back as `[url](url)`. A task list
   decoded as a bullet list renders the same checkboxes, because the item marker
   drives them, but writes back without `[x]`. A titled admonition rendered the
@@ -315,7 +315,7 @@ does. An unregistered type fails loudly rather than silently dropping content.
   returns a `SourceSpan` (all six PART 12 §4 fields) or `null`.
 
   Null is a real answer, not a gap: §4 forbids emitting a span with invented
-  values, so a node the parser cannot place honestly carries none. Two
+  values, so a node the parser cannot place accurately carries none. Two
   invariants are enforced over the whole corpus - a text node's span selects
   exactly its own bytes, and a child's span never falls outside its parent's.
 
@@ -355,11 +355,9 @@ does. An unregistered type fails loudly rather than silently dropping content.
   is closed. The bullet above it already said positions were recorded, so the
   page contradicted itself in two adjacent paragraphs
   ([carve#1323](https://github.com/markup-carve/carve/issues/1323)).
-- **Abbreviation definitions are nodes.** They used to live in an
-  `abbreviations` field on the document here, where the reference emits
-  `abbreviation_def` nodes among the document's children. They are nodes here
-  too now, placed where they were written, so their position is structural in
-  both.
+- **Abbreviation definitions are nodes.** As in the reference, they are
+  `abbreviation_def` nodes among the document's children, placed where they
+  were written, so their position is structural in both.
 - **A foreign tree is rejected, not decoded wrongly.** The decoder re-encodes what
   it built and compares against the input, so a field it did not understand is an
   error naming the field rather than silent loss. Every such refusal throws

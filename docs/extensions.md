@@ -127,11 +127,9 @@ output:
 asks the renderer for the mode directly and appends `open`, because the page
 calls a disclosure a special case that is **kept, not flattened**.
 
-This paragraph used to read "`DetailsExtension` and `SpoilerExtension` already
-degrade natively ... so they need no separate static path". That was false for
-the spoiler, and it is why the gap stood: a `<details>` carrying no `open`
-renders COLLAPSED in a print engine, so the body never reaches the page. The
-disclosure escapes that only because it forces `open`.
+A `<details>` carrying no `open` renders COLLAPSED in a print engine, so the
+body never reaches the page. The disclosure escapes that only because it forces
+`open`.
 
 The `ListTableExtension`, citations and heading-permalink extensions are already
 static and render identically in both modes (resolution step 2).
@@ -362,9 +360,9 @@ wins and nothing is added beside it - the attribute name is matched
 case-insensitively, and the author's own spelling is what renders. Set the map
 entry to `''` to emit no name at all.
 
-The `summary` string below is not this name wearing a second hat: the disclosure
-shape has no `<nav>` at all, so one is a landmark's accessible name and the
-other visible text in a widget, and they never appear together.
+The `summary` string below is not this name: the disclosure shape has no `<nav>`
+at all, so one is a landmark's accessible name and the other visible text in a
+widget, and they never appear together.
 
 When `collapsible` is on, the heading list sits directly inside the disclosure:
 
@@ -671,7 +669,7 @@ An unknown `mode` value throws rather than falling back, so a typo cannot become
 silently different output.
 
 The wrapper carries `role` and an accessible name: `group` in CSS mode - which
-has no tab/panel roles to associate, so a plain grouping is all it can honestly
+has no tab/panel roles to associate, so a plain grouping is all it can accurately
 claim - and `tablist` in ARIA mode. An `aria-label` or `aria-labelledby` the
 author wrote on the block wins over the engine's, and an authored `role` stands;
 both attributes are appended, so naming the set never moves an attribute the
@@ -690,7 +688,7 @@ anonymous. In `aria` mode it is bound instead of named - `role="tabpanel"` plus
 Extensions §13.
 
 The `aria`-mode control is a `<button type="button">`. Without the `type` a
-`<button>` is a submit button, so a tab set inside a `<form>` submitted the form
+`<button>` is a submit button, so a tab set inside a `<form>` would submit the form
 instead of switching panels (Extensions §13.3). `css` mode is unaffected: its
 control is an `<input type="radio">`.
 
@@ -1337,9 +1335,8 @@ Smart typography is not a substitution into the text: each transform becomes a
 run (`...`, `---`, `->`, `"`).
 
 Presentation renderers (HTML, Markdown, plain text, ANSI) resolve the kind to a
-glyph, so their output is what it has always been. The Carve renderer emits the
-source run instead, which is what makes `fmt` reproduce the document rather than
-normalize it:
+glyph. The Carve renderer emits the source run instead, which is what makes
+`fmt` reproduce the document rather than normalize it:
 
 ~~~
 input      He said "hello" and it's fine... a--b
@@ -1518,7 +1515,7 @@ sugar over the same matcher contract.
 For a raw-closure `addInlineMatcher()`, pass `triggerChars` (the literal first
 bytes the matcher can ever fire on, e.g. `'{'` above) so the parser only invokes
 it at those positions. Without it, the matcher runs at **every** scan position
-and disables the per-character fast path for the whole document — a measurable
+and disables the per-character fast path for the whole document, a measurable
 slowdown on long inputs. A matcher registered through `addInlinePattern()`
 derives its trigger bytes from the pattern automatically.
 

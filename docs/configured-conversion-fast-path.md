@@ -1,8 +1,8 @@
 # Configured conversion fast path
 
 `CarveConverter::convert()` has a conservative source-to-HTML path for documents
-that do not require the public owned AST. Configuring extensions no longer
-disables that path by itself. Instead, `BorrowedExtensionPlan` compiles the
+that do not require the public owned AST. Configuring extensions does not
+disable that path by itself: `BorrowedExtensionPlan` compiles the
 registered built-in stack for the current source before `BorrowedHtmlLayout`
 attempts the document.
 
@@ -27,7 +27,7 @@ permalink placement and presentation, internal hosts, link target/`rel`,
 transformer and therefore deliberately remains authoritative; manual TOC data is
 committed only after the complete borrowed document succeeds.
 
-The existing facade limits remain deliberate: at most 64 KiB, ASCII input, HTML
+The facade limits are deliberate: at most 64 KiB, ASCII input, HTML
 output, and the already accepted unambiguous block/inline subset. Ascii heading
 IDs are therefore inert on an accepted document. Unsupported syntax falls back;
 the fast path does not weaken or approximate it.
@@ -49,7 +49,7 @@ explicit test review. The authoritative parser remains the oracle.
 ## Relationship to integrated definition layout
 
 Documents outside the borrowed envelope still benefit from the integrated
-definition pass described in `integrated-definition-layout.md`. The two changes
-are complementary: configured source-to-HTML avoids materializing an AST where
-exact events suffice, while the authoritative fallback avoids its former
-duplicate mixed-definition structural scan.
+definition pass described in `integrated-definition-layout.md`. The two are
+complementary: configured source-to-HTML avoids materializing an AST where
+exact events suffice, while the authoritative fallback avoids a duplicate
+mixed-definition structural scan.
