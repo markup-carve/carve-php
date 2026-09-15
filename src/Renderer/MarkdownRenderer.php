@@ -2074,17 +2074,15 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * is what an authored `\ ` carries until resolveEscapes swaps it for
      * U+00A0 at the very end of render(), long after this test has run.
      *
-     * U+2028, U+2029, U+0085 and the VERTICAL TAB are deliberately OUT. They
-     * are not Zs and CommonMark does not count them, so a run beside one is
-     * left-flanking and the character belongs INSIDE the delimiters; padding
-     * there would move author content out of the emphasis it was written in.
-     * (league/commonmark blocks flanking at the first three anyway - that is
-     * that reader diverging from the spec, not a class this writer follows.)
+     * The class is the Unicode White_Space property rather than CommonMark
+     * 2.1's narrower one, because the READER decides whether a run flanks:
+     * pulldown-cmark counts U+000B, U+2028 and U+2029 as whitespace, so a run
+     * left beside one never opens (markup-carve/carve#2023).
      *
      * @var string
      */
     protected const FLANKING_WHITESPACE =
-        '(?:[ \t\n\f\r]|\x{00A0}|\x{1680}|[\x{2000}-\x{200A}]|\x{202F}|\x{205F}|\x{3000}|\x{E000})';
+        '(?:[ \t\n\x{000B}\f\r]|\x{0085}|\x{00A0}|\x{1680}|[\x{2000}-\x{200A}]|\x{2028}|\x{2029}|\x{202F}|\x{205F}|\x{3000}|\x{E000})';
 
     /**
      * A delimiter run only opens emphasis while it is left-flanking, which a

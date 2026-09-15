@@ -51,6 +51,9 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
         yield 'a narrow nbsp before a strong run' => ["a{*\u{202F}b*}c\n", "a\u{202F}**b**c\n"];
         yield 'a medium mathematical space before a strong run' => ["a{*\u{205F}b*}c\n", "a\u{205F}**b**c\n"];
         yield 'an ideographic space before a strong run' => ["a{*\u{3000}b*}c\n", "a\u{3000}**b**c\n"];
+        yield 'a line separator before a strong run' => ["a{*\u{2028}b*}c\n", "a\u{2028}**b**c\n"];
+        yield 'a paragraph separator before a strong run' => ["a{*\u{2029}b*}c\n", "a\u{2029}**b**c\n"];
+        yield 'a vertical tab before a strong run' => ["a{*\u{000B}b*}c\n", "a\u{000B}**b**c\n"];
     }
 
     /**
@@ -150,21 +153,14 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
     }
 
     /**
-     * The class is CommonMark's, not PHP's `\s` and not "anything space-like".
+     * The class is the Unicode White_Space property, not PHP's `\s` and not
+     * "anything space-like" (markup-carve/carve#2023).
      *
      * ZERO WIDTH SPACE and BYTE ORDER MARK are not whitespace to a reader, so a
      * run beside one IS left-flanking and the character is author content that
      * belongs inside the emphasis it was written in. They are the control
      * against the rejected wider class: `\s`-style matching would pad here and
      * silently move a character out of the run.
-     *
-     * LINE SEPARATOR and VERTICAL TAB are the same call one step harder.
-     * league/commonmark blocks flanking at both; CommonMark 2.1 counts neither
-     * (Zl is not Zs, and the list of non-Zs additions is tab, line feed, form
-     * feed, carriage return - VT is absent while FF is present, which is why
-     * the two are split above and here). Padding for them would write output
-     * no reader is owed, against the spec, and would diverge from carve-js,
-     * which dropped exactly these when it settled the same question.
      *
      * A hard break in the MIDDLE of a run is the fourth control: nothing is at
      * an edge, so nothing moves, and it is what says the backslash rule fires
@@ -176,8 +172,6 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
     {
         yield 'a zero width space' => ["a{*\u{200B}b*}c\n", "a**\u{200B}b**c\n"];
         yield 'a byte order mark' => ["a{*\u{FEFF}b*}c\n", "a**\u{FEFF}b**c\n"];
-        yield 'a line separator' => ["a{*\u{2028}b*}c\n", "a**\u{2028}b**c\n"];
-        yield 'a vertical tab' => ["a{*\u{000B}b*}c\n", "a**\u{000B}b**c\n"];
         yield 'an ordinary letter' => ["a{*b*}c\n", "a**b**c\n"];
         yield 'a hard break inside a strong run' => ["{*a\\\nb*}\n", "**a\\\nb**\n"];
     }
@@ -201,7 +195,7 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
      * begins or ends with a character the reader counts as whitespace.
      *
      * The controls ride along here on purpose. A wider class would pad at the
-     * zero width space and the line separator, and this property would still
+     * zero width space and the byte order mark, and this property would still
      * pass; only the byte expectations above catch that, which is why both
      * tests take the same rows.
      */
@@ -260,7 +254,7 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
      * @var string
      */
     private const READER_WHITESPACE =
-        '(?:[ \t\n\f\r]|\x{00A0}|\x{1680}|[\x{2000}-\x{200A}]|\x{202F}|\x{205F}|\x{3000}|\x{E000})';
+        '(?:[ \t\n\x{000B}\f\r]|\x{0085}|\x{00A0}|\x{1680}|[\x{2000}-\x{200A}]|\x{2028}|\x{2029}|\x{202F}|\x{205F}|\x{3000}|\x{E000})';
 
     private function markdown(string $source): string
     {
