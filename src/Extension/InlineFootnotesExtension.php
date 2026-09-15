@@ -24,8 +24,8 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  * ```
  *
  * The footnote content supports full inline formatting:
- * ```djot
- * Text[A footnote with _emphasis_ and `code`]{.fn} here.
+ * ```carve
+ * Text[A footnote with /emphasis/ and `code`]{.fn} here.
  * ```
  *
  * Inline footnotes integrate seamlessly with regular footnotes - they share

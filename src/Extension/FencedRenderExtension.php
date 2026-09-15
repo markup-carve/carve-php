@@ -328,7 +328,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         // source order (the `mermaid` base class merged into the class value), so
         // static output never loses authored metadata and matches carve-js/rs.
         // Round-trip mode carries the same data-djot-src the interactive openTag()
-        // emits, so Djot -> static HTML -> Djot still reconstructs the fence.
+        // emits, so Carve -> static HTML -> Carve still reconstructs the fence.
         $source = $node->getContent();
         $build = $renderer->getStaticRenderer($this->cssClass);
         $defaults = [];
@@ -479,7 +479,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
     }
 
     /**
-     * Reconstruct the original Djot source for a claimed code block (round-trip).
+     * Reconstruct the original Carve source for a claimed code block (round-trip).
      */
     protected function reconstructCodeBlockSource(CodeBlock $node): string
     {

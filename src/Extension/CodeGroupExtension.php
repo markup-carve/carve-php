@@ -34,32 +34,32 @@ use MarkupCarve\Carve\Util\StringUtil;
  * ));
  * ```
  *
- * Input djot:
- * ```
+ * Input:
+ * ````
  * ::: code-group
  * ``` php [Installation]
- * composer require php-collective/djot
+ * composer require markup-carve/carve-php
  * ```
  *
  * ``` bash [NPM]
- * npm install @example/djot
+ * npm install @example/carve
  * ```
  * :::
- * ```
+ * ````
  *
  * Output HTML:
  * ```html
- * <div class="code-group">
- *   <input type="radio" name="codegroup-1" id="codegroup-1-tab-1" class="code-group-radio" checked>
- *   <label for="codegroup-1-tab-1" class="code-group-label">Installation</label>
- *   <input type="radio" name="codegroup-1" id="codegroup-1-tab-2" class="code-group-radio">
- *   <label for="codegroup-1-tab-2" class="code-group-label">NPM</label>
- *   <div class="code-group-panel">
- *     <pre><code class="language-php">composer require php-collective/djot</code></pre>
- *   </div>
- *   <div class="code-group-panel">
- *     <pre><code class="language-bash">npm install @example/djot</code></pre>
- *   </div>
+ * <div class="code-group" role="group" aria-label="Code examples">
+ * <input type="radio" name="codegroup-1" id="codegroup-1-tab-1" class="code-group-radio" checked>
+ * <label for="codegroup-1-tab-1" class="code-group-label">Installation</label>
+ * <input type="radio" name="codegroup-1" id="codegroup-1-tab-2" class="code-group-radio">
+ * <label for="codegroup-1-tab-2" class="code-group-label">NPM</label>
+ * <div class="code-group-panel" role="group" aria-label="Installation"><pre><code class="language-php">composer require markup-carve/carve-php
+ * </code></pre>
+ * </div>
+ * <div class="code-group-panel" role="group" aria-label="NPM"><pre><code class="language-bash">npm install @example/carve
+ * </code></pre>
+ * </div>
  * </div>
  * ```
  *
@@ -299,7 +299,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             $position++;
             $metadata = $this->parseLanguageMetadata($child->getLanguage(), $child->getLabel(), $position);
 
-            // Check for selected attribute on preceding paragraph (djot attribute syntax)
+            // Check for selected attribute on preceding paragraph (Carve attribute syntax)
             $selected = $child->hasAttribute('selected');
 
             $blocks[] = [
@@ -510,7 +510,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
     }
 
     /**
-     * Reconstruct the original Djot source for round-trip support
+     * Reconstruct the original Carve source for round-trip support
      *
      * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
      * @param array<array{block: \MarkupCarve\Carve\Node\Block\CodeBlock, language: string|null, label: string, selected: bool}> $codeBlocks

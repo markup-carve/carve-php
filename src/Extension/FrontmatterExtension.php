@@ -27,7 +27,7 @@ use MarkupCarve\Carve\Node\Document;
  * # Document content starts here
  * ```
  *
- * Block attributes are placed above (standard djot style):
+ * Block attributes are placed above (standard Carve style):
  * ```
  * {.meta #frontmatter}
  * ---yaml
@@ -175,7 +175,7 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
 
                 $frontmatter = new Frontmatter($content, $format);
 
-                // Apply block attributes from preceding line (standard djot style)
+                // Apply block attributes from preceding line (standard Carve style)
                 $attrs = $blockParser->consumePendingAttributes();
                 if ($attrs !== []) {
                     $frontmatter->setAttributes($attrs);

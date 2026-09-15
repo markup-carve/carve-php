@@ -13,7 +13,7 @@ use MarkupCarve\Carve\Util\StringUtil;
 /**
  * Transforms divs with admonition type classes into semantic admonition markup
  *
- * This extension converts standard djot divs (`::: note`, `::: warning`, etc.) into
+ * This extension converts standard Carve divs (`::: note`, `::: warning`, etc.) into
  * semantic admonition HTML with proper accessibility attributes.
  *
  * Example:
@@ -38,14 +38,13 @@ use MarkupCarve\Carve\Util\StringUtil;
  * ));
  * ```
  *
- * Input djot:
+ * Input:
  * ```
  * ::: note
  * This is a note.
  * :::
  *
- * {title="Watch Out!"}
- * ::: warning
+ * ::: warning "Watch Out!"
  * Be careful here.
  * :::
  * ```
@@ -53,13 +52,12 @@ use MarkupCarve\Carve\Util\StringUtil;
  * Output HTML (with icons: true):
  * ```html
  * <div class="admonition note" role="note">
- *   <p class="admonition-title"><span class="admonition-icon">ℹ️</span> Note</p>
- *   <p>This is a note.</p>
+ * <p class="admonition-title"><span class="admonition-icon">📝</span> Note</p>
+ * <p>This is a note.</p>
  * </div>
- *
  * <div class="admonition warning" role="alert">
- *   <p class="admonition-title"><span class="admonition-icon">⚠️</span> Watch Out!</p>
- *   <p>Be careful here.</p>
+ * <p class="admonition-title"><span class="admonition-icon">⚠️</span> Watch Out!</p>
+ * <p>Be careful here.</p>
  * </div>
  * ```
  *

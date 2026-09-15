@@ -37,7 +37,8 @@ use MarkupCarve\Carve\Util\StringUtil;
  * $converter->addExtension(new TabsExtension(mode: 'aria'));
  * ```
  *
- * Input djot (note: outer container uses `::::` to allow nested `:::` divs):
+ * Input (the longer outer fence is optional: a `:::` closes only on a bare
+ * fence of its exact length, so equal-length fences nest too):
  * ```
  * :::: tabs
  *
@@ -80,13 +81,17 @@ use MarkupCarve\Carve\Util\StringUtil;
  * Uses radio inputs and CSS sibling selectors. No JavaScript required.
  *
  * ```html
- * <div class="tabs">
- *   <input type="radio" name="tabset-1" id="tabset-1-tab-1" checked class="tabs-radio">
- *   <label for="tabset-1-tab-1" class="tabs-label">First Tab</label>
- *   <input type="radio" name="tabset-1" id="tabset-1-tab-2" class="tabs-radio">
- *   <label for="tabset-1-tab-2" class="tabs-label">Second Tab</label>
- *   <div class="tabs-panel">Content for the first tab.</div>
- *   <div class="tabs-panel">Content for the second tab.</div>
+ * <div class="tabs" role="group" aria-label="Tabs">
+ * <input type="radio" name="tabset-1" id="tabset-1-tab-1" class="tabs-radio" checked>
+ * <label for="tabset-1-tab-1" class="tabs-label">First Tab</label>
+ * <input type="radio" name="tabset-1" id="tabset-1-tab-2" class="tabs-radio">
+ * <label for="tabset-1-tab-2" class="tabs-label">Second Tab</label>
+ * <div class="tabs-panel" role="group" aria-label="First Tab">
+ * <p>Content for the first tab.</p>
+ * </div>
+ * <div class="tabs-panel" role="group" aria-label="Second Tab">
+ * <p>Content for the second tab.</p>
+ * </div>
  * </div>
  * ```
  *
@@ -141,15 +146,15 @@ use MarkupCarve\Carve\Util\StringUtil;
  * Uses semantic ARIA roles with button/tabpanel structure. Requires JavaScript.
  *
  * ```html
- * <div class="tabs" role="tablist">
- *   <button type="button" role="tab" id="tabset-1-tab-1" aria-selected="true"
- *           aria-controls="tabset-1-panel-1" class="tabs-tab">First Tab</button>
- *   <button type="button" role="tab" id="tabset-1-tab-2" aria-selected="false"
- *           aria-controls="tabset-1-panel-2" class="tabs-tab" tabindex="-1">Second Tab</button>
- *   <div role="tabpanel" id="tabset-1-panel-1" aria-labelledby="tabset-1-tab-1"
- *        class="tabs-panel">Content for the first tab.</div>
- *   <div role="tabpanel" id="tabset-1-panel-2" aria-labelledby="tabset-1-tab-2"
- *        class="tabs-panel" hidden>Content for the second tab.</div>
+ * <div class="tabs" role="tablist" aria-label="Tabs">
+ * <button type="button" role="tab" id="tabset-1-tab-1" aria-selected="true" aria-controls="tabset-1-panel-1" class="tabs-label">First Tab</button>
+ * <button type="button" role="tab" id="tabset-1-tab-2" aria-selected="false" aria-controls="tabset-1-panel-2" class="tabs-label" tabindex="-1">Second Tab</button>
+ * <div role="tabpanel" id="tabset-1-panel-1" aria-labelledby="tabset-1-tab-1" class="tabs-panel">
+ * <p>Content for the first tab.</p>
+ * </div>
+ * <div role="tabpanel" id="tabset-1-panel-2" aria-labelledby="tabset-1-tab-2" class="tabs-panel" hidden>
+ * <p>Content for the second tab.</p>
+ * </div>
  * </div>
  * ```
  *
@@ -631,7 +636,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
     }
 
     /**
-     * Reconstruct the original Djot source for round-trip support
+     * Reconstruct the original Carve source for round-trip support
      *
      * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
      * @param array<array{label: string, content: string, selected: bool, id: string|null, node: \MarkupCarve\Carve\Node\Block\Div}> $tabs

@@ -7,7 +7,7 @@ namespace MarkupCarve\Carve\Extension;
 use MarkupCarve\Carve\CarveConverter;
 
 /**
- * Interface for Djot extensions
+ * Interface for Carve extensions
  *
  * Extensions provide a way to bundle related customizations together:
  * - Custom inline patterns (e.g., @mentions, [[wiki-links]])

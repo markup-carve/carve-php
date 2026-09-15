@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser\Utility;
 
 /**
- * Helper class for handling indentation in djot documents.
+ * Helper class for handling indentation in Carve documents.
  *
- * In djot, tabs are treated as equivalent to 2 spaces for indentation purposes.
+ * A tab counts as TAB_WIDTH (2) spaces of indentation.
  * This class provides utilities for counting and stripping indentation.
  */
 class IndentationHelper

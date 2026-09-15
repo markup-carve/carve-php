@@ -54,7 +54,7 @@ use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
- * Block-level parser for Djot
+ * Block-level parser for Carve
  */
 class BlockParser
 {
@@ -6129,7 +6129,7 @@ class BlockParser
                     if ($subLines !== []) {
                         $this->parseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible);
                     }
-                    // In djot, blank lines within nested content don't make the parent list loose
+                    // Blank lines within nested content don't make the parent list loose
                     // The list is only loose if there's a blank line directly after item content
                     // (before nested content starts), which is already handled elsewhere
                     // Only reset if we didn't break to handle content at parent level

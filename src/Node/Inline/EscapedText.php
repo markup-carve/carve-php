@@ -9,7 +9,7 @@ use MarkupCarve\Carve\Node\ContentNodeInterface;
 /**
  * Escaped text node for round-trip support
  *
- * Represents text that was escaped in the original Djot source (e.g., \* -> *)
+ * Represents text that was escaped in the original Carve source (e.g., \* -> *)
  * This allows preserving the escape during round-trip conversion.
  */
 class EscapedText extends InlineNode implements ContentNodeInterface

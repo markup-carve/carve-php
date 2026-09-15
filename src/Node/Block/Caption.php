@@ -7,7 +7,7 @@ namespace MarkupCarve\Carve\Node\Block;
 /**
  * Caption block for images, tables, and blockquotes.
  *
- * In Djot syntax: `^ Caption text`
+ * In Carve syntax: `^ Caption text`
  *
  * The caption applies to the immediately preceding block (image, table, or blockquote).
  */

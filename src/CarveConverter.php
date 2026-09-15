@@ -44,7 +44,7 @@ use RuntimeException;
 use WeakMap;
 
 /**
- * Main Djot to HTML converter
+ * Main Carve to HTML converter
  */
 class CarveConverter
 {
@@ -226,7 +226,7 @@ class CarveConverter
      * @param \MarkupCarve\Carve\Profile|null $profile Profile for feature restriction (null = all features allowed)
      * @param \MarkupCarve\Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks that remain inside a paragraph (HTML renderer only). For local visible line breaks, use `::: \` or a trailing backslash.
      * @param \MarkupCarve\Carve\Renderer\SmartTypographyMode|bool|null $smartTypography Whether smart typography resolves to glyphs. Passing false keeps the author's source runs, so two hyphens stay two hyphens; true and null are the default. Unlike the options above, this one is NOT HTML-only - it reaches a renderer passed in $renderer too.
-     * @param bool $roundTripMode Add data attributes for Djot→HTML→Djot round-trips (HTML renderer only)
+     * @param bool $roundTripMode Add data attributes for Carve→HTML→Carve round-trips (HTML renderer only)
      * @param string $mode Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC (HTML renderer only)
      * @param array<string, \Closure(string): string> $renderers Build-time renderers for client-script extensions (math/mermaid/chart), source-to-string, used in static mode
      * @param array<string, string> $symbols Trusted HTML replacements for `:name:` symbols (HTML renderer only)
@@ -464,7 +464,7 @@ class CarveConverter
     }
 
     /**
-     * Convert Djot markup to HTML
+     * Convert Carve markup to HTML
      */
     public function convert(string $djot): string
     {
@@ -515,7 +515,7 @@ class CarveConverter
     }
 
     /**
-     * Convert a Djot file to HTML
+     * Convert a Carve file to HTML
      *
      * @throws \RuntimeException
      */
@@ -534,7 +534,7 @@ class CarveConverter
     }
 
     /**
-     * Parse Djot markup into an AST
+     * Parse Carve markup into an AST
      */
     public function parse(string $djot): Document
     {
@@ -583,7 +583,7 @@ class CarveConverter
     }
 
     /**
-     * Parse a Djot file into an AST
+     * Parse a Carve file into an AST
      *
      * @throws \RuntimeException If the file cannot be read
      */

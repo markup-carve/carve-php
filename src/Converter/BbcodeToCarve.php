@@ -9,9 +9,9 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 
 /**
- * Converts BBCode markup to Djot
+ * Converts BBCode markup to Carve
  *
- * Useful for migrating forum content to Djot format.
+ * Useful for migrating forum content to Carve format.
  */
 class BbcodeToCarve
 {
@@ -66,7 +66,7 @@ class BbcodeToCarve
     protected string $listBoundary = '';
 
     /**
-     * Convert BBCode to Djot markup
+     * Convert BBCode to Carve markup
      *
      * @throws \InvalidArgumentException when the input exceeds MAX_INPUT_LENGTH bytes
      */
@@ -536,7 +536,7 @@ class BbcodeToCarve
     }
 
     /**
-     * Format content as a Djot blockquote.
+     * Format content as a Carve blockquote.
      */
     protected function formatAsBlockquote(string $content, ?string $author): string
     {
@@ -548,7 +548,7 @@ class BbcodeToCarve
         // content rather than layout.
         $quoted = array_map(fn ($line) => $line === '' ? '>' : '> ' . $line, $lines);
 
-        // Ensure blank line before blockquote for proper Djot block separation
+        // Ensure blank line before blockquote for proper Carve block separation
         $output = "\n\n" . implode("\n", $quoted) . "\n";
 
         if ($author !== null && $author !== '') {
