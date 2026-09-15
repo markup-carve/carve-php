@@ -228,7 +228,8 @@ class InlineParser
      * from which no closer exists; any opener at or after it bails in O(1).
      *
      * The scan is monotonic: a later opener sees the same structural skips
-     * (code spans, braced inlines, comments, escapes) and
+     * (code spans, braced inlines, comments, link destinations, autolinks,
+     * escapes) and
      * the same position-only closer rejections (space-before, `}`-after,
      * alnum-after). The only opener-dependent rejection is the empty-content
      * check, which fires solely for a closer immediately after the opener -- a
@@ -240,6 +241,22 @@ class InlineParser
     protected array $emphNoCloseFrom = [];
 
     protected ?string $emphNoCloseText = null;
+
+    /**
+     * Memo for linkDestinationSkip(), per label `[` position in the current text.
+     *
+     * @var array<int, array{int, int}|null>
+     */
+    protected array $destinationSkips = [];
+
+    /**
+     * Memo for scanInlineDestination(), per `(` content start in the same text.
+     *
+     * @var array<int, array{end: int, url: string|null, title: string|null}|null>
+     */
+    protected array $destinationScans = [];
+
+    protected ?string $destinationSkipText = null;
 
     /**
      * Memo for the fixed-closer tail scanners (attribute `}`, critic `+}` /
@@ -614,9 +631,12 @@ class InlineParser
             return;
         }
 
-        // A nested parse must not wipe the enclosing text's no-closer memo.
+        // A nested parse must not wipe the enclosing text's scan memos.
         $outerNoCloseText = $this->emphNoCloseText;
         $outerNoCloseFrom = $this->emphNoCloseFrom;
+        $outerSkipText = $this->destinationSkipText;
+        $outerSkips = $this->destinationSkips;
+        $outerScans = $this->destinationScans;
         $this->inlineDepth++;
         try {
             $this->parseInlinesImpl($parent, $text, $footnoteRecognitionEnabled);
@@ -624,6 +644,9 @@ class InlineParser
             $this->inlineDepth--;
             $this->emphNoCloseText = $outerNoCloseText;
             $this->emphNoCloseFrom = $outerNoCloseFrom;
+            $this->destinationSkipText = $outerSkipText;
+            $this->destinationSkips = $outerSkips;
+            $this->destinationScans = $outerScans;
         }
     }
 
@@ -2354,15 +2377,11 @@ class InlineParser
         // Inline link: [text](url) or [text](url){.class}
         if ($afterBracket < $length && $text[$afterBracket] === '(') {
             $urlStart = $afterBracket + 1;
-            $urlEnd = $urlStart;
-
-            // Short-circuit when no `)` lies at or after the destination start:
-            // the char scan below could only run to end-of-text and fall through
-            // to the unclosed-link result. Skipping it keeps a `)`-less run like
-            // `[a](` repeated at O(n) instead of O(n^2). The last-paren position
-            // is memoized per text (strrpos runs once), so this guard is O(1).
-            $lastCloseParen = $this->lastCloseParenPos($text);
-            if ($lastCloseParen === false || $urlStart > $lastCloseParen) {
+            $destination = $this->scanInlineDestination($text, $urlStart);
+            if ($destination === null) {
+                // Unclosed parenthesis - not a valid link
+                // Parse [text] as isolated inline content, then continue from after (
+                // This prevents emphasis from crossing the [text]( boundary
                 return [
                     'unclosed_link' => true,
                     'link_text' => $linkText,
@@ -2370,98 +2389,10 @@ class InlineParser
                 ];
             }
 
-            // A destination's parentheses BALANCE: the scan ends at the first
-            // `)` with no opener left to pair with, so a URL carrying a
-            // parenthesis (Wikipedia, MDN) is written plainly. Djot and
-            // CommonMark both balance the same way. An escaped character never
-            // opens or closes a level.
-            $depth = 0;
-            while ($urlEnd < $length) {
-                $char = $text[$urlEnd];
-                if ($char === '\\' && $urlEnd + 1 < $length) {
-                    $urlEnd += 2;
-
-                    continue;
-                }
-                if ($char === '(') {
-                    $depth++;
-                } elseif ($char === ')') {
-                    if ($depth === 0) {
-                        break;
-                    }
-                    $depth--;
-                }
-                $urlEnd++;
-            }
-
-            if ($urlEnd < $length && $text[$urlEnd] === ')') {
-                $raw = substr($text, $urlStart, $urlEnd - $urlStart);
-                if ($raw !== trim($raw)) {
-                    return null;
-                }
-
-                // Optional title after the destination, separated by
-                // whitespace (a soft line break counts): "title",
-                // 'title', or (title). A double/single quote delimiter may
-                // be backslash-escaped INSIDE the title and is kept as a
-                // literal quote (CommonMark-style; grammar.ebnf link_title,
-                // decision D). This escape applies to inline-link titles
-                // only -- reference-definition titles deliberately do not
-                // honor it (see ref-def parsing / grammar known divergence).
-                // EXACTLY ONE SPACE, not a run. `link_title = space, ('"' …)`
-                // spells the slot `space`, and PART 7's cardinality paragraph
-                // holds the production right against the four artifacts that
-                // accepted a run (carve#912): a second space at this slot is
-                // not padding. The slot does not match, the quoted run is left
-                // unconsumed, the destination then carries a space and fails
-                // its own `unicode_url_char` test below - so `[t](/u  "T")` is
-                // not a link at all and every character survives as text.
-                //
-                // `([\s\S]*?)` is lazy and would otherwise absorb the extra
-                // space itself, which is why narrowing ` +` to ` ` is enough
-                // here only in company with the destination's whitespace
-                // check: the run has to end up INSIDE the destination for the
-                // link to fail.
-                $title = null;
-                if (
-                    preg_match('/^([\s\S]*?) "((?:\\\\"|[^"])*)"$/', $raw, $tm)
-                    || preg_match('/^([\s\S]*?) \'((?:\\\\\'|[^\'])*)\'$/', $raw, $tm)
-                    || preg_match('/^([\s\S]*?) \(([^()]*)\)$/', $raw, $tm)
-                ) {
-                    $raw = $tm[1];
-                    // Unescape any backslash + ASCII-punctuation inside the
-                    // title (`\"` -> `"`, `\.` -> `.`); a backslash before a
-                    // non-punctuation char is kept. Matches the canonical
-                    // carve-js unescapeAttrValue / carve-rs unescape_title.
-                    $title = AttributeParser::processEscapes($tm[2]);
-                }
-
-                // The destination (what remains after splitting off any
-                // title) ends at the first whitespace; a newline counts as
-                // whitespace too, so `[t](url` / `more)` is NOT a link and
-                // stays literal (grammar.ebnf link_destination, decision B).
-                $url = $raw;
-                // UNICODE whitespace, not just ASCII: `unicode_url_char` is
-                // "any non-whitespace, non-ASCII Unicode character", with no
-                // qualifier, so a narrow no-break space is not a destination
-                // character either. `\s` is byte-based and let one through, so
-                // `[x](<U+202F>https://e.com)` linked with the invisible
-                // character sitting in the href (carve#404).
-                if (
-                    $url === ''
-                    || preg_match('/[\p{Z}\x{0009}-\x{000D}\x{0085}]/u', $url)
-                    || (str_starts_with($url, '<') && str_ends_with($url, '>'))
-                ) {
-                    return null;
-                }
-
-                // An escaped parenthesis, and an escaped backslash, are the only
-                // escapes a destination has -- they carry the unbalanced case,
-                // which balancing alone cannot express. A backslash before
-                // anything else is an ordinary URL character (grammar
-                // url_char) kept verbatim, matching carve-js / carve-rs, so
-                // `[t](a\b)` still links to `a\b`.
-                $url = strtr($url, ['\\(' => '(', '\\)' => ')', '\\\\' => '\\']);
+            if ($destination['url'] !== null) {
+                $url = $destination['url'];
+                $title = $destination['title'];
+                $urlEnd = $destination['end'];
 
                 $link = new Link($url, $title);
                 $this->parseInlinesAt($link, $linkText, $pos + 1);
@@ -2485,14 +2416,7 @@ class InlineParser
                 ];
             }
 
-            // Unclosed parenthesis - not a valid link
-            // Parse [text] as isolated inline content, then continue from after (
-            // This prevents emphasis from crossing the [text]( boundary
-            return [
-                'unclosed_link' => true,
-                'link_text' => $linkText,
-                'continue_pos' => $urlStart, // Position after (
-            ];
+            return null;
         }
 
         // Reference link: [text][ref] or [text][]{.class}
@@ -2984,14 +2908,42 @@ class InlineParser
         }
 
         // Whether this scan jumped over any region (braced inline, comment, code
-        // span, escape). The no-closer memo below is only sound for a pure
+        // span, link destination, autolink, escape). The no-closer memo below is only sound for a pure
         // left-to-right walk: a later opener inside a skipped region must not be
         // short-circuited. See $emphNoCloseFrom.
         $scanSkipped = false;
 
+        // Only the constructs E2a names are opaque (markup-carve/carve#2027).
+        // Link destinations met so far, by `(` index.
+        $destinationEnds = [];
+
         $searchPos = $searchStart;
         while ($searchPos < $length) {
             $char = $text[$searchPos];
+
+            if (isset($destinationEnds[$searchPos])) {
+                $searchPos = $destinationEnds[$searchPos];
+                $scanSkipped = true;
+
+                continue;
+            }
+
+            if ($char === '[') {
+                $skip = $this->linkDestinationSkip($text, $searchPos);
+                if ($skip !== null) {
+                    $destinationEnds[$skip[0]] = $skip[1];
+                }
+            }
+
+            if ($char === '<') {
+                $autolinkEnd = $this->findAutolinkEnd($text, $searchPos);
+                if ($autolinkEnd !== null) {
+                    $searchPos = $autolinkEnd;
+                    $scanSkipped = true;
+
+                    continue;
+                }
+            }
 
             // A delimited comment is transparent to the surrounding span: a
             // delimiter in its body cannot close the span that contains it.
@@ -3005,7 +2957,6 @@ class InlineParser
                 }
             }
 
-            // Only the constructs E2a names are opaque (markup-carve/carve#2027).
             if ($char === '{') {
                 $bracedEnd = $this->bracedInlineEnd($text, $searchPos);
                 if ($bracedEnd !== null) {
@@ -4114,6 +4065,208 @@ class InlineParser
         $close = strpos($text, $marker . '}', $pos + 2);
 
         return $close === false ? null : $close + 2;
+    }
+
+    /**
+     * The inline destination whose `(` sits just before $urlStart: the index of
+     * its `)`, and a null url when the run is not a destination. Null when no
+     * `)` closes it.
+     *
+     * @return array{end: int, url: string|null, title: string|null}|null
+     */
+    protected function scanInlineDestination(string $text, int $urlStart): ?array
+    {
+        if ($text !== $this->destinationSkipText) {
+            $this->destinationSkipText = $text;
+            $this->destinationSkips = [];
+            $this->destinationScans = [];
+        }
+        if (array_key_exists($urlStart, $this->destinationScans)) {
+            return $this->destinationScans[$urlStart];
+        }
+
+        // Short-circuit when no `)` lies at or after the destination start:
+        // the char scan below could only run to end-of-text and fall through
+        // to the unclosed-link result. Skipping it keeps a `)`-less run like
+        // `[a](` repeated at O(n) instead of O(n^2). The last-paren position
+        // is memoized per text (strrpos runs once), so this guard is O(1).
+        $lastCloseParen = $this->lastCloseParenPos($text);
+        if ($lastCloseParen === false || $urlStart > $lastCloseParen) {
+            return $this->destinationScans[$urlStart] = null;
+        }
+
+        // A destination's parentheses BALANCE: the scan ends at the first
+        // `)` with no opener left to pair with, so a URL carrying a
+        // parenthesis (Wikipedia, MDN) is written plainly. Djot and
+        // CommonMark both balance the same way. An escaped character never
+        // opens or closes a level.
+        $length = strlen($text);
+        $urlEnd = $urlStart;
+        $depth = 0;
+        while ($urlEnd < $length) {
+            $char = $text[$urlEnd];
+            if ($char === '\\' && $urlEnd + 1 < $length) {
+                $urlEnd += 2;
+
+                continue;
+            }
+            if ($char === '(') {
+                $depth++;
+            } elseif ($char === ')') {
+                if ($depth === 0) {
+                    break;
+                }
+                $depth--;
+            }
+            $urlEnd++;
+        }
+
+        if ($urlEnd >= $length || $text[$urlEnd] !== ')') {
+            return $this->destinationScans[$urlStart] = null;
+        }
+        $notADestination = ['end' => $urlEnd, 'url' => null, 'title' => null];
+
+        $raw = substr($text, $urlStart, $urlEnd - $urlStart);
+        if ($raw !== trim($raw)) {
+            return $this->destinationScans[$urlStart] = $notADestination;
+        }
+
+        // Optional title after the destination, separated by
+        // whitespace (a soft line break counts): "title",
+        // 'title', or (title). A double/single quote delimiter may
+        // be backslash-escaped INSIDE the title and is kept as a
+        // literal quote (CommonMark-style; grammar.ebnf link_title,
+        // decision D). This escape applies to inline-link titles
+        // only -- reference-definition titles deliberately do not
+        // honor it (see ref-def parsing / grammar known divergence).
+        // EXACTLY ONE SPACE, not a run. `link_title = space, ('"' …)`
+        // spells the slot `space`, and PART 7's cardinality paragraph
+        // holds the production right against the four artifacts that
+        // accepted a run (carve#912): a second space at this slot is
+        // not padding. The slot does not match, the quoted run is left
+        // unconsumed, the destination then carries a space and fails
+        // its own `unicode_url_char` test below - so `[t](/u  "T")` is
+        // not a link at all and every character survives as text.
+        //
+        // `([\s\S]*?)` is lazy and would otherwise absorb the extra
+        // space itself, which is why narrowing ` +` to ` ` is enough
+        // here only in company with the destination's whitespace
+        // check: the run has to end up INSIDE the destination for the
+        // link to fail.
+        $title = null;
+        if (
+            preg_match('/^([\s\S]*?) "((?:\\\\"|[^"])*)"$/', $raw, $tm)
+            || preg_match('/^([\s\S]*?) \'((?:\\\\\'|[^\'])*)\'$/', $raw, $tm)
+            || preg_match('/^([\s\S]*?) \(([^()]*)\)$/', $raw, $tm)
+        ) {
+            $raw = $tm[1];
+            // Unescape any backslash + ASCII-punctuation inside the
+            // title (`\"` -> `"`, `\.` -> `.`); a backslash before a
+            // non-punctuation char is kept. Matches the canonical
+            // carve-js unescapeAttrValue / carve-rs unescape_title.
+            $title = AttributeParser::processEscapes($tm[2]);
+        }
+
+        // The destination (what remains after splitting off any
+        // title) ends at the first whitespace; a newline counts as
+        // whitespace too, so `[t](url` / `more)` is NOT a link and
+        // stays literal (grammar.ebnf link_destination, decision B).
+        $url = $raw;
+        // UNICODE whitespace, not just ASCII: `unicode_url_char` is
+        // "any non-whitespace, non-ASCII Unicode character", with no
+        // qualifier, so a narrow no-break space is not a destination
+        // character either. `\s` is byte-based and let one through, so
+        // `[x](<U+202F>https://e.com)` linked with the invisible
+        // character sitting in the href (carve#404).
+        if (
+            $url === ''
+            || preg_match('/[\p{Z}\x{0009}-\x{000D}\x{0085}]/u', $url)
+            || (str_starts_with($url, '<') && str_ends_with($url, '>'))
+        ) {
+            return $this->destinationScans[$urlStart] = $notADestination;
+        }
+
+        // An escaped parenthesis, and an escaped backslash, are the only
+        // escapes a destination has -- they carry the unbalanced case,
+        // which balancing alone cannot express. A backslash before
+        // anything else is an ordinary URL character (grammar
+        // url_char) kept verbatim, matching carve-js / carve-rs, so
+        // `[t](a\b)` still links to `a\b`.
+        $url = strtr($url, ['\\(' => '(', '\\)' => ')', '\\\\' => '\\']);
+
+        return $this->destinationScans[$urlStart] = ['end' => $urlEnd, 'url' => $url, 'title' => $title];
+    }
+
+    /**
+     * Where a bare closer scan jumps over the destination of the inline link or
+     * image whose label opens at $pos: [`(` index, index past `)`], or null.
+     *
+     * @return array{int, int}|null
+     */
+    protected function linkDestinationSkip(string $text, int $pos): ?array
+    {
+        if ($text !== $this->destinationSkipText) {
+            $this->destinationSkipText = $text;
+            $this->destinationSkips = [];
+            $this->destinationScans = [];
+        }
+        if (array_key_exists($pos, $this->destinationSkips)) {
+            return $this->destinationSkips[$pos];
+        }
+
+        $skip = null;
+        if ($this->closerExistsFrom($text, '](', $pos) && !$this->bracketOpensANote($text, $pos)) {
+            $labelEnd = $this->findBalancedBracketEnd($text, $pos);
+            if ($labelEnd !== null && ($text[$labelEnd + 1] ?? '') === '(') {
+                $destination = $this->scanInlineDestination($text, $labelEnd + 2);
+                if ($destination !== null && $destination['url'] !== null) {
+                    $skip = [$labelEnd + 1, $destination['end'] + 1];
+                }
+            }
+        }
+
+        return $this->destinationSkips[$pos] = $skip;
+    }
+
+    /**
+     * Whether a note reference `[^label]` or an inline footnote `^[...]` claims
+     * the `[` at $pos before a link can.
+     */
+    protected function bracketOpensANote(string $text, int $pos): bool
+    {
+        if (!$this->footnoteRecognitionEnabled) {
+            return false;
+        }
+        if (preg_match('/\G\[\^[^\]\r\n]+\]/', $text, $m, 0, $pos) === 1) {
+            return true;
+        }
+        if ($pos === 0 || $text[$pos - 1] !== '^' || $this->isEscapedAt($text, $pos - 1)) {
+            return false;
+        }
+        $close = $this->findBalancedBracketEnd($text, $pos);
+
+        return $close !== null
+            && trim(substr($text, $pos + 1, $close - $pos - 1), StringUtil::WHITESPACE_CHARS) !== '';
+    }
+
+    /**
+     * Find the end of an autolink starting at $pos
+     *
+     * @return int|null Position after the closing >, or null if not a valid autolink
+     */
+    protected function findAutolinkEnd(string $text, int $pos): ?int
+    {
+        $end = strpos($text, '>', $pos);
+        if ($end === false) {
+            return null;
+        }
+
+        $content = substr($text, $pos + 1, $end - $pos - 1);
+        if (self::isUrlAutolinkBody($content) || preg_match('/^[A-Za-z0-9._+-]+@[A-Za-z0-9._+-]+\.[A-Za-z]+$/', $content)) {
+            return $end + 1;
+        }
+
+        return null;
     }
 
     /**

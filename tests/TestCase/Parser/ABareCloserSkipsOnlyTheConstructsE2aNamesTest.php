@@ -10,8 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * PART 9 §9 E2a: a bare delimiter never pairs across a code span, raw inline,
- * inline math or braced inline. Every other construct is transparent to it
- * (markup-carve/carve#2027).
+ * inline math, braced inline, link destination or autolink. Every other
+ * construct is transparent to it (markup-carve/carve#2027).
  */
 class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
 {
@@ -39,6 +39,12 @@ class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
             'an editorial comment across a newline' => ["~a{#b\nc~#} d~\n", "<p><s>a<span class=\"critic-comment\">b\nc~</span> d</s></p>\n"],
             'a code span' => ["~`a~b`~\n", "<p><s><code>a~b</code></s></p>\n"],
             'a raw inline format is not a braced highlight' => ["=a `b`{=html} c= d=}\n", "<p><mark>a b c</mark> d=}</p>\n"],
+            'a link destination' => ["/see [x](http://a.b/c) now/\n", "<p><em>see <a href=\"http://a.b/c\">x</a> now</em></p>\n"],
+            'a link destination holding the only closer' => ["~[a](b~) c\n", "<p>~<a href=\"b~\">a</a> c</p>\n"],
+            'a link title' => ["~see [a](b \"t~\") now~\n", "<p><s>see <a href=\"b\" title=\"t~\">a</a> now</s></p>\n"],
+            'an image destination' => ["~see ![a](b~) now~\n", "<p><s>see <img src=\"b~\" alt=\"a\"> now</s></p>\n"],
+            'an autolink' => ["/see <http://a.b/c> now/\n", "<p><em>see <a href=\"http://a.b/c\">http://a.b/c</a> now</em></p>\n"],
+            'an autolink holding the only closer' => ["~<http://x/a~>\n", "<p>~<a href=\"http://x/a~\">http://x/a~</a></p>\n"],
         ];
     }
 
@@ -54,8 +60,10 @@ class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
     public static function transparentProvider(): array
     {
         return [
-            'a link destination' => ["~[a](b~) c\n", "<p><s>[a](b</s>) c</p>\n"],
-            'an autolink' => ["~<http://x/a~>\n", "<p><s>&lt;http://x/a</s>&gt;</p>\n"],
+            'a link label' => ["~[a~](b)\n", "<p><s>[a</s>](b)</p>\n"],
+            'parentheses after a bracket that opens no link' => ["~a](b~) c\n", "<p><s>a](b</s>) c</p>\n"],
+            'parentheses that are not a destination' => ["~[a](b c~) d~\n", "<p><s>[a](b c</s>) d~</p>\n"],
+            'parentheses after a note reference' => ["~[^n](b~) c~\n", "<p><s>[^n](b</s>) c~</p>\n"],
             'a plain brace group' => ["~a{b~}c\n", "<p><s>a{b</s>}c</p>\n"],
             'an attribute block' => ["~a{.c~} d\n", "<p><s>a{.c</s>} d</p>\n"],
             'an attribute block after a braced inline' => ["~{/a/}{.c~} d~\n", "<p><s><em>a</em>{.c</s>} d~</p>\n"],
@@ -67,5 +75,13 @@ class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
     public function testABareCloserClosesInside(string $source, string $expected): void
     {
         $this->assertSame($expected, $this->html($source));
+    }
+
+    public function testParenthesesAfterAnInlineFootnoteAreNotADestination(): void
+    {
+        $this->assertStringStartsWith(
+            "<p><s>see <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>(b</s>) now~</p>\n",
+            $this->html("~see ^[a](b~) now~\n"),
+        );
     }
 }
