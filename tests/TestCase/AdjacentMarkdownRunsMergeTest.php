@@ -54,20 +54,17 @@ class AdjacentMarkdownRunsMergeTest extends TestCase
     }
 
     /**
-     * The text tilde is escaped now, so the run cannot form. The seam pass still
-     * re-spells on the OPENING side, where it reads the escaped tilde off the
-     * end of the neighbouring part without looking at the backslash in front of
-     * it. That is conservative rather than wrong - inline HTML where delimiters
-     * would have done - and is filed as carve-php#1980.
+     * The text tilde is escaped, so it breaks the run rather than growing it,
+     * and the strike beside it keeps its delimiters on both sides.
      */
     public function testTwoTextTildesDoNotOpenACodeFenceWithTheStrikesOwnTwo(): void
     {
-        $this->assertSame("\\~\\~<del>x</del>\n", $this->md("~~{~x~}\n"));
+        $this->assertSame("\\~\\~~~x~~\n", $this->md("~~{~x~}\n"));
     }
 
     public function testASingleTextTildeReachingTheRunIsEscaped(): void
     {
-        $this->assertSame("a\\~<del>x</del>\n", $this->md("a~{~x~}\n"));
+        $this->assertSame("a\\~~~x~~\n", $this->md("a~{~x~}\n"));
     }
 
     public function testATextTildeOnTheClosingSideLeavesTheStrikeSpelled(): void
@@ -110,14 +107,14 @@ class AdjacentMarkdownRunsMergeTest extends TestCase
         $this->assertSame("a ***x****y*\n", $this->md("a {/{*x*}/}{/y/}\n"));
     }
 
-    public function testTwoStrikesStayBecauseAFourTildeRunSplitsTwoAndTwo(): void
+    public function testTheRightHandStrikeIsReSpelledBecauseTheReadersSplitFourTildesDifferently(): void
     {
-        $this->assertSame("a ~~x~~~~y~~\n", $this->md("a {~x~}{~y~}\n"));
+        $this->assertSame("a ~~x~~<del>y</del>\n", $this->md("a {~x~}{~y~}\n"));
     }
 
-    public function testAChainOfThreeStrikesStaysForTheSameReason(): void
+    public function testOneStrikeOfAChainOfThreeIsReSpelledWhichBreaksBothSeams(): void
     {
-        $this->assertSame("~~x~~~~y~~~~z~~\n", $this->md("{~x~}{~y~}{~z~}\n"));
+        $this->assertSame("~~x~~<del>y</del>~~z~~\n", $this->md("{~x~}{~y~}{~z~}\n"));
     }
 
     public function testASpaceBetweenTheSiblingsEndsTheRun(): void
@@ -165,8 +162,8 @@ class AdjacentMarkdownRunsMergeTest extends TestCase
         $this->assertSame("<em>x\\~</em>**y**\n", $this->md("{/x~/}{*y*}\n"));
     }
 
-    public function testTheSameFlankingReadOnATildeSeam(): void
+    public function testTheRightHandSideOfATildeSeamIsReSpelledWhateverTheContent(): void
     {
-        $this->assertSame("<del>x!</del>~~y~~\n", $this->md("{~x!~}{~y~}\n"));
+        $this->assertSame("~~x!~~<del>y</del>\n", $this->md("{~x!~}{~y~}\n"));
     }
 }
