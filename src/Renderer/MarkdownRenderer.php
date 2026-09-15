@@ -1173,7 +1173,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDefinitionTerm(DefinitionTerm $node): string
     {
-        return '**' . $this->renderChildren($node) . "**\n";
+        return $this->padOutsideOnItsOwnLine($this->renderChildren($node), '**', '<strong>', '</strong>') . "\n";
     }
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
@@ -1192,7 +1192,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $prefix = '';
         $title = $node->getHeader();
         if (is_string($title)) {
-            $prefix .= '**' . $this->renderTitleInlineNodes($node->getHeaderNodes()) . "**\n\n";
+            $prefix .= $this->padOutsideOnItsOwnLine(
+                $this->renderTitleInlineNodes($node->getHeaderNodes()),
+                '**',
+                '<strong>',
+                '</strong>',
+            ) . "\n\n";
         }
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
         // §12) is normally consumed by a group extension (e.g. tabs). When no
@@ -1201,7 +1206,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // label. Diverges from the current spec corpus pending adoption.
         $label = $node->getLabel();
         if ($label !== null && $label !== '') {
-            $prefix .= '**' . $this->escapeText($this->stripControls($label)) . "**\n\n";
+            $prefix .= $this->padOutsideOnItsOwnLine(
+                $this->escapeText($this->stripControls($label)),
+                '**',
+                '<strong>',
+                '</strong>',
+            ) . "\n\n";
         }
 
         if ($this->attributeFallback === AttributeFallback::Html) {
@@ -1375,6 +1385,32 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     }
 
     /**
+     * The whitespace a CommonMark READER counts when it decides flanking:
+     * general category Zs plus tab, line feed, form feed and carriage return
+     * (CommonMark 2.1), plus this renderer's own nbsp sentinel.
+     *
+     * NOT `StringUtil::TRIMMABLE_WHITESPACE`, which is the four ASCII bytes
+     * `trim()` can take as a charlist. That class misses every Zs above the
+     * ASCII range - a NO-BREAK SPACE most of all - so a run padded with one
+     * was written adjacent to its delimiters and read back as literal text.
+     *
+     * U+E000 is in the class because it IS a no-break space at this point: it
+     * is what an authored `\ ` carries until resolveEscapes swaps it for
+     * U+00A0 at the very end of render(), long after this test has run.
+     *
+     * U+2028, U+2029, U+0085 and the VERTICAL TAB are deliberately OUT. They
+     * are not Zs and CommonMark does not count them, so a run beside one is
+     * left-flanking and the character belongs INSIDE the delimiters; padding
+     * there would move author content out of the emphasis it was written in.
+     * (league/commonmark blocks flanking at the first three anyway - that is
+     * that reader diverging from the spec, not a class this writer follows.)
+     *
+     * @var string
+     */
+    protected const FLANKING_WHITESPACE =
+        '(?:[ \t\n\f\r]|\x{00A0}|\x{1680}|[\x{2000}-\x{200A}]|\x{202F}|\x{205F}|\x{3000}|\x{E000})';
+
+    /**
      * A delimiter run only opens emphasis while it is left-flanking, which a
      * run followed by whitespace never is (CommonMark 6.2), so `** x**` reads
      * back as literal text. The padding is content, so it moves outside the
@@ -1384,15 +1420,76 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function padOutside(string $inner, string $delimiter, string $openTag, string $closeTag): string
     {
-        $core = trim($inner, StringUtil::TRIMMABLE_WHITESPACE);
+        $lead = $this->flankingRunAtStart($inner);
+        $rest = substr($inner, strlen($lead));
+        $trail = $this->flankingRunAtEnd($rest);
+        $core = substr($rest, 0, strlen($rest) - strlen($trail));
+
+        // A hard break is a BACKSLASH then a newline. Moving the newline alone
+        // would leave the backslash against the closing delimiter, escaping it
+        // (`**a\**` reads back as a literal asterisk and a stray `<em>`), so
+        // the backslash travels with the newline it belongs to.
+        if ($trail !== '' && $trail[0] === "\n" && $this->endsInAnEscapingBackslash($core)) {
+            $trail = '\\' . $trail;
+            $core = substr($core, 0, -1);
+        }
+
         if ($core === '') {
             return $inner === '' ? '' : $openTag . $inner . $closeTag;
         }
 
-        $lead = substr($inner, 0, strlen($inner) - strlen(ltrim($inner, StringUtil::TRIMMABLE_WHITESPACE)));
-        $trail = substr($inner, strlen(rtrim($inner, StringUtil::TRIMMABLE_WHITESPACE)));
-
         return $lead . $delimiter . $core . $delimiter . $trail;
+    }
+
+    /**
+     * The same repair for the wrapper lines that spell a delimiter run
+     * themselves. Those sit on a line of their own, where outer ASCII padding
+     * is not content - and a line that ends in a space either means nothing or
+     * means a hard break nobody asked for.
+     */
+    protected function padOutsideOnItsOwnLine(string $inner, string $delimiter, string $openTag, string $closeTag): string
+    {
+        return trim($this->padOutside($inner, $delimiter, $openTag, $closeTag), StringUtil::TRIMMABLE_WHITESPACE);
+    }
+
+    protected function flankingRunAtStart(string $text): string
+    {
+        $matched = preg_match('/^' . static::FLANKING_WHITESPACE . '+/u', $text, $matches);
+        if ($matched === 1) {
+            return $matches[0];
+        }
+        if ($matched === false) {
+            // Malformed UTF-8 defeats a `/u` pattern outright. The ASCII half
+            // of the class still holds, and losing the padding repair is a far
+            // smaller failure than losing the run.
+            return substr($text, 0, strlen($text) - strlen(ltrim($text, StringUtil::TRIMMABLE_WHITESPACE)));
+        }
+
+        return '';
+    }
+
+    protected function flankingRunAtEnd(string $text): string
+    {
+        $matched = preg_match('/' . static::FLANKING_WHITESPACE . '+$/u', $text, $matches);
+        if ($matched === 1) {
+            return $matches[0];
+        }
+        if ($matched === false) {
+            return substr($text, strlen(rtrim($text, StringUtil::TRIMMABLE_WHITESPACE)));
+        }
+
+        return '';
+    }
+
+    /**
+     * True when the final backslash is an ESCAPE rather than an escaped
+     * backslash - i.e. the trailing run of backslashes has odd length.
+     */
+    protected function endsInAnEscapingBackslash(string $text): bool
+    {
+        $run = strlen($text) - strlen(rtrim($text, '\\'));
+
+        return $run % 2 === 1;
     }
 
     protected function renderCode(Code $node): string
@@ -1695,7 +1792,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 }
                 $output .= rtrim($host, StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
                 if ($panelCaption !== null) {
-                    $output .= '*' . trim($this->renderChildren($panelCaption), StringUtil::TRIMMABLE_WHITESPACE) . "*\n\n";
+                    $output .= $this->padOutsideOnItsOwnLine(
+                        $this->renderChildren($panelCaption),
+                        '*',
+                        '<em>',
+                        '</em>',
+                    ) . "\n\n";
                 }
             } else {
                 // A table panel keeps its caption inside its own degradation,
@@ -1706,7 +1808,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         $caption = $node->getCaption();
         if ($caption !== null) {
-            $output .= '**' . trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE) . "**\n\n";
+            $output .= $this->padOutsideOnItsOwnLine(
+                $this->renderChildren($caption),
+                '**',
+                '<strong>',
+                '</strong>',
+            ) . "\n\n";
         }
 
         return $output;
