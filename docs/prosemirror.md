@@ -23,10 +23,10 @@ runtime exists.
 
 ## This is the import route; the HTML path is the fallback
 
-Before this bridge existed, the way into an editor was to render Carve to HTML
-and let Tiptap's `parseHTML` re-derive the document. That still works and is
-still worth keeping - it is how you load content an extension understands but
-this engine has no node for. It is no longer the recommended route, for one
+The other way into an editor is to render Carve to HTML and let Tiptap's
+`parseHTML` re-derive the document. That works and is worth keeping - it is
+how you load content an extension understands but this engine has no node
+for. It is not the recommended route, for one
 reason: fidelity there is bounded by what each extension's `parseHTML` claims,
 so an attribute no extension declares is dropped **silently**. For a stored
 document format, silent attribute loss on load is the failure you cannot
@@ -75,9 +75,9 @@ $renderer->degradedTypes();   // ['soft_break' => 'a soft break is whitespace â€
 ```
 
 - **Dropped** - the content is gone: smart typography, and a caption NUMBER,
-  which is a resolution artifact rather than editor content. The list used to be
-  much longer - comments, figures with captions, frontmatter, cross-references,
-  line blocks, inline footnotes and raw passthrough are all carried now.
+  which is a resolution artifact rather than editor content. Comments, figures
+  with captions, frontmatter, cross-references, line blocks, inline footnotes
+  and raw passthrough are all carried.
 - **Degraded** - the node type is gone but the text survives: a soft break becomes
   a space, a smart quote becomes its glyph, an escaped character becomes the
   character. Dropping these instead would run words together or lose a character.
