@@ -61,18 +61,6 @@ class IncludeExpander implements TransformerInterface
     private const DEFAULT_WARNING_LIMIT = 100;
 
     /**
-     * @var string
-     */
-    private const DIRECTIVE_SCAN = '/\{\{[ \t]+[^{}]*?[ \t]+\}\}/s';
-
-    /**
-     * Loose directive shape: one whole-paragraph token, valid options or not.
-     *
-     * @var string
-     */
-    private const DIRECTIVE_SHAPE = '/^\{\{[^{}]*\}\}$/s';
-
-    /**
      * Stable, host-independent rule ids stamped on every include warning. They
      * are the machine-readable cross-engine contract (carve-js / carve-php /
      * carve-rs emit the SAME id for the same condition), asserted by the
@@ -422,7 +410,7 @@ class IncludeExpander implements TransformerInterface
 
             // A whole-paragraph directive that failed to parse was already
             // reported here; skip the inline scan so it is not warned twice.
-            if (preg_match(self::DIRECTIVE_SHAPE, trim($content)) === 1) {
+            if (preg_match(IncludeDirectiveSyntax::SHAPE, trim($content)) === 1) {
                 return;
             }
         }
@@ -502,7 +490,7 @@ class IncludeExpander implements TransformerInterface
             return false;
         }
 
-        if (preg_match_all(self::DIRECTIVE_SCAN, $full, $matches, PREG_OFFSET_CAPTURE) === false) {
+        if (preg_match_all(IncludeDirectiveSyntax::SCAN, $full, $matches, PREG_OFFSET_CAPTURE) === false) {
             return false;
         }
 
