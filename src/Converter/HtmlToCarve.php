@@ -6557,25 +6557,48 @@ class HtmlToCarve
         if ($headerRow !== null) {
             $colWidthsAttr = $node->getAttribute('data-djot-col-widths');
 
-            // Fall back to the separator form when the header has span markers
-            // (`<`/`^`), because `|= < |` is not valid Carve syntax for a
-            // colspan continuation. An attributed header cell no longer needs
-            // the fallback: T10 spells it as `|={#x} R |`.
-            $headerHasSpanMarkers = false;
-            foreach ($headerCells as $hc) {
+            // A colspan marker (`<`) is written as its own plain cell, so it
+            // absorbs into the `|=` header on its left: the header keeps the
+            // native form when its span markers form a TRAILING run of colspans
+            // after at least one real header cell. Fall back to the separator
+            // form for every other span shape - a leading span (no `|=` anchor),
+            // a real cell after a span (which would read as `|=< K`, an aligned
+            // header), and a trailing rowspan (`^`, which does not absorb left).
+            $firstSpan = -1;
+            foreach ($headerCells as $i => $hc) {
                 if ($hc === '<' || $hc === '^') {
-                    $headerHasSpanMarkers = true;
+                    $firstSpan = $i;
 
                     break;
                 }
             }
+            $headerNeedsDelimiter = false;
+            if ($firstSpan >= 0) {
+                $trailingColspansOnly = $firstSpan >= 1;
+                $headerCellCount = count($headerCells);
+                for ($span = $firstSpan; $span < $headerCellCount; $span++) {
+                    if ($headerCells[$span] !== '<') {
+                        $trailingColspansOnly = false;
 
-            if ($colWidthsAttr === '' && !$headerHasSpanMarkers) {
+                        break;
+                    }
+                }
+                $headerNeedsDelimiter = !$trailingColspansOnly;
+            }
+
+            if ($colWidthsAttr === '' && !$headerNeedsDelimiter) {
                 // Canonical Carve: `|=` header cells (alignment via `<`/`>`/`~`
                 // markers on the header cell), no separator row. Used unless the
                 // source was a GFM table (recorded via data-djot-col-widths).
                 $headerLine = '|';
                 foreach ($headerCells as $i => $cell) {
+                    if ($cell === '<') {
+                        // A trailing colspan marker is a plain cell that merges
+                        // into the `|=` header on its left, so it takes no `=`.
+                        $headerLine .= ' < |';
+
+                        continue;
+                    }
                     $marker = $this->tableCellMarkerRun(
                         $alignments[$i] ?? TableCell::ALIGN_DEFAULT,
                         $valignments[$i] ?? '',
