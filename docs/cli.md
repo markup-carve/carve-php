@@ -29,7 +29,9 @@ reported as command errors rather than partial migration reports.
  `--include-root DIR` sets the containment root for `{{ path }}` include
  directives. A file input already defaults to the document's own directory, so
  the flag is for widening that root or for enabling includes on stdin, which has
- no path context of its own. See [File inclusion](includes.md).
+ no path context of its own. A relative `DIR` is expanded against the working
+ directory here, in argument parsing; the resolver itself requires an absolute
+ root. See [File inclusion](includes.md).
 
 `AstMerge::merge()` exposes the same conservative merge to applications: it
 combines independent field edits, insertions, deletions, and moves, and returns

@@ -106,11 +106,23 @@ absolute paths by default, rejects any target outside the configured root
 (symlink escapes and `..` traversal alike), rejects URI schemes, and refuses
 any target over `maxFileBytes` (4 MiB; pass `null` to lift the cap).
 
-The root itself must be named explicitly. A blank or whitespace-only value is
-refused rather than canonicalized, because `realpath('')` answers with the
-process working directory - the one default the spec forbids - and `is_dir()`
-then accepts it. A host with no root leaves inclusion disabled and directives
+The root itself must be an ABSOLUTE path. A non-absolute spec is refused rather
+than canonicalized, because every canonicalizer resolves one against the process
+working directory - the one default the spec forbids - and `is_dir()` then
+accepts the result. Blank, whitespace-only and relative specs fall out of that
+one rule; a directory genuinely named with spaces stays reachable by its
+absolute path. A host with no root leaves inclusion disabled and directives
 literal.
+
+The spec constrains the root, not what a front end computes, so `carve
+--include-root .` keeps working: the CLI expands the flag against the working
+directory in its own argument parsing, before it builds a resolver.
+
+A refusal never reveals whether the target exists. Containment is decided on the
+canonical candidate - the longest existing prefix canonicalized, the remainder
+re-appended lexically - so a target outside the root is refused as an escape
+whether or not it is on disk, and only targets whose canonical result is inside
+the root can be reported as missing.
 
 Inclusion is a source merge, not a privilege boundary: included content is
 parsed under the same sanitization as any other content, so a child carrying a

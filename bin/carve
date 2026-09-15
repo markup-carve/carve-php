@@ -132,6 +132,17 @@ function writeRendered(string $output, ?string $file): void
  *
  * @param array<int, string> $argv
  */
+/**
+ * A user-supplied `--include-root` expanded against the working directory.
+ *
+ * An unreadable spec is handed on unchanged so the resolver reports it as the
+ * missing root it is, rather than this turning it into a relative-root refusal.
+ */
+function absoluteIncludeRoot(string $spec): string
+{
+    return realpath($spec) ?: $spec;
+}
+
 function runFlattenCommand(array $argv): never
 {
     $includeRoot = null;
@@ -144,7 +155,11 @@ function runFlattenCommand(array $argv): never
                 fwrite(STDERR, "Error: --include-root requires a directory\n");
                 exit(1);
             }
-            $includeRoot = $argv[++$i];
+            // The spec constrains the ROOT, not what a front end computes: a
+            // non-absolute spec is refused by the resolver, so `--include-root .`
+            // is expanded HERE, in argument parsing, where the working directory
+            // is the user's own choice rather than an accident of the library.
+            $includeRoot = absoluteIncludeRoot($argv[++$i]);
         } elseif ($arg === '-h' || $arg === '--help') {
             showHelp();
             exit(0);
@@ -478,7 +493,8 @@ function parseArgs(array $argv): array
                 fwrite(STDERR, "Error: --include-root requires a directory\n");
                 exit(1);
             }
-            $options['includeRoot'] = $argv[++$i];
+            // Expanded here for the same reason as in runFlattenCommand().
+            $options['includeRoot'] = absoluteIncludeRoot($argv[++$i]);
         } elseif ($arg === '-o' || $arg === '--output') {
             if (!isset($argv[$i + 1])) {
                 fwrite(STDERR, "Error: --output requires a filename\n");
