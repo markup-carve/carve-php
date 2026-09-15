@@ -932,10 +932,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $parts[] = $this->renderNode($child);
         }
 
-        if (count($parts) < 2) {
-            return implode('', $parts);
-        }
-
         return $this->reflankRuns($children, $parts);
     }
 
@@ -957,30 +953,318 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function reflankRuns(array $children, array $parts): string
     {
-        foreach ($parts as $index => $part) {
-            $child = $children[$index];
-            if (!$child instanceof Emphasis && !$child instanceof Strong && !$child instanceof Strike) {
-                continue;
+        // Three passes, because each one wants to see the parts the one before
+        // it settled. A part re-spelled as inline HTML contributes a `<` or a
+        // `>` where it used to contribute a delimiter, which can only make a
+        // later run MORE able to flank and can only REMOVE a merge - so no pass
+        // has to run twice, and a later pass never undoes an earlier one.
+        foreach (array_keys($parts) as $index) {
+            $piece = $this->delimiterPiece($children, $parts, $index);
+            if ($piece !== null && $this->contentGrowsRun($piece)) {
+                $parts[$index] = $this->spellAsHtml($piece);
             }
-            [$delimiter, $openTag, $closeTag] = $this->delimiterRun($child);
-            $piece = $this->splitDelimitedRun($part, $delimiter);
+        }
+        foreach (array_keys($parts) as $index) {
+            $piece = $this->delimiterPiece($children, $parts, $index);
             if ($piece === null) {
                 continue;
             }
-            [$lead, $core, $trail] = $piece;
-            $before = $lead !== '' ? $this->lastCharacter($lead) : $this->neighbourBefore($parts, $index);
-            $after = $trail !== '' ? $this->firstCharacter($trail) : $this->neighbourAfter($parts, $index);
+            $before = $piece['lead'] !== ''
+                ? $this->lastCharacter($piece['lead'])
+                : $this->neighbourBefore($parts, $index);
+            $after = $piece['trail'] !== ''
+                ? $this->firstCharacter($piece['trail'])
+                : $this->neighbourAfter($parts, $index);
             if (
-                $this->flanks($this->firstCharacter($core), $before)
-                && $this->flanks($this->lastCharacter($core), $after)
+                $this->flanks($this->firstCharacter($piece['core']), $before)
+                && $this->flanks($this->lastCharacter($piece['core']), $after)
             ) {
                 continue;
             }
 
-            $parts[$index] = $lead . $openTag . $core . $closeTag . $trail;
+            $parts[$index] = $this->spellAsHtml($piece);
+        }
+        foreach (array_keys($parts) as $index) {
+            $piece = $this->delimiterPiece($children, $parts, $index);
+            if ($piece !== null && $this->seamMergesRun($children, $parts, $index, $piece)) {
+                $parts[$index] = $this->spellAsHtml($piece);
+            }
         }
 
         return implode('', $parts);
+    }
+
+    /**
+     * The rendered part at $index taken back apart, or null when that node is
+     * not one this renderer spells with a delimiter run.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $children
+     * @param list<string> $parts
+     * @param int $index
+     *
+     * @return array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string}|null
+     */
+    protected function delimiterPiece(array $children, array $parts, int $index): ?array
+    {
+        $child = $children[$index];
+        if (!$child instanceof Emphasis && !$child instanceof Strong && !$child instanceof Strike) {
+            return null;
+        }
+        [$delimiter, $openTag, $closeTag] = $this->delimiterRun($child);
+        $piece = $this->splitDelimitedRun($parts[$index], $delimiter);
+        if ($piece === null) {
+            return null;
+        }
+        [$lead, $core, $trail] = $piece;
+
+        return [
+            'delimiter' => $delimiter,
+            'open' => $openTag,
+            'close' => $closeTag,
+            'lead' => $lead,
+            'core' => $core,
+            'trail' => $trail,
+        ];
+    }
+
+    /**
+     * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     */
+    protected function spellAsHtml(array $piece): string
+    {
+        return $piece['lead'] . $piece['open'] . $piece['core'] . $piece['close'] . $piece['trail'];
+    }
+
+    protected function runAtStart(string $text, string $character): int
+    {
+        $length = strlen($text);
+        $n = 0;
+        while ($n < $length && $text[$n] === $character) {
+            $n++;
+        }
+
+        return $n;
+    }
+
+    /**
+     * A backslash escape makes the character it covers a literal, and a literal
+     * breaks a delimiter run rather than lengthening it. The renderer escapes
+     * every asterisk it means literally, so counting raw characters would read
+     * the `*` of `x\*` as part of a run and get the summed length wrong by one.
+     */
+    protected function runAtEnd(string $text, string $character): int
+    {
+        $length = strlen($text);
+        $n = 0;
+        while ($n < $length && $text[$length - 1 - $n] === $character) {
+            $n++;
+        }
+        if ($n === 0) {
+            return 0;
+        }
+        $slashes = 0;
+        while ($n + $slashes < $length && $text[$length - 1 - $n - $slashes] === '\\') {
+            $slashes++;
+        }
+
+        return $slashes % 2 === 1 ? $n - 1 : $n;
+    }
+
+    /**
+     * CommonMark 6.2's rule of 3, as a permission rather than a prohibition:
+     * when a delimiter can both open and close, an opening run of $open and a
+     * closing run of $close may not match if their lengths sum to a multiple of
+     * three, unless both lengths are themselves multiples of three. A run this
+     * renderer joins at a seam has content on both sides of it, so it can always
+     * both open and close and the clause always applies.
+     */
+    protected function ruleOfThreeAllows(int $open, int $close): bool
+    {
+        if (($open + $close) % 3 !== 0) {
+            return true;
+        }
+
+        return $open % 3 === 0 && $close % 3 === 0;
+    }
+
+    /**
+     * Whether the run the renderer emitted is the run the READER lexes. Runs of
+     * the same character that TOUCH are one run to the reader, of their summed
+     * length, and the length is what decides what that run can do - so adjacency
+     * is not the question, and no flanking test can answer it (carve-php#1974).
+     *
+     * This half is what the content contributes. The renderer escapes an
+     * asterisk it means literally, so an asterisk at the edge of the core is a
+     * nested run's delimiter and seamMergesRun() weighs it with the rule of 3. A
+     * tilde it does not escape, so a tilde at the edge of the core is a literal,
+     * and the reader takes the odd tilde off the run and leaves it OUTSIDE the
+     * strike - which is not where the renderer put it. At the start of a line
+     * the same three-tilde run is not a delimiter at all but a fenced code
+     * block, and the rest of the document becomes its content.
+     *
+     * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     */
+    protected function contentGrowsRun(array $piece): bool
+    {
+        if ($piece['delimiter'][0] !== '~') {
+            return false;
+        }
+
+        return $this->runAtStart($piece['core'], '~') > 0 || $this->runAtEnd($piece['core'], '~') > 0;
+    }
+
+    /**
+     * And this half is what the SIBLING across the seam contributes.
+     *
+     * For an asterisk the only thing that can reach the run from outside is
+     * another run's delimiter, because a literal asterisk is escaped. Two
+     * delimiters that touch are one run of their summed length, and three
+     * questions decide whether the reader still resolves it the way the renderer
+     * meant: the merged run has to be able to close for the left node and open
+     * for the right one, which is CommonMark 6.2 read against the neighbours the
+     * MERGED run has rather than the ones either half was built with; and the
+     * rule of 3 has to allow both matches. `*x*` against `*y*` sums to two and
+     * the rule of 3 refuses it; `**x**` against `*y*` sums to three and it is
+     * allowed; `*x~*` against `**y**` also sums to three and still fails,
+     * because a run whose inner character is `~` needs an outer character that
+     * is not alphanumeric.
+     *
+     * A tilde run is not governed by the rule of 3 at all - GFM strikethrough
+     * pairs tildes - and the one merged length that survives is four, two
+     * strikes' own delimiters meeting. Any other tilde reaching the run, from
+     * text or from a third strike, leaves a length whose surplus the reader
+     * places by its own pairing rule rather than by CommonMark, so the renderer
+     * does not spell it.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $children
+     * @param list<string> $parts
+     * @param int $index
+     * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     */
+    protected function seamMergesRun(array $children, array $parts, int $index, array $piece): bool
+    {
+        $character = $piece['delimiter'][0];
+        if ($character === '~') {
+            return $this->tildeSeamMerges($children, $parts, $index, $piece, -1)
+                || $this->tildeSeamMerges($children, $parts, $index, $piece, 1);
+        }
+        if ($piece['trail'] !== '') {
+            return false;
+        }
+        $next = $this->nextRendered($parts, $index);
+        if ($next < 0 || $this->firstCharacter($parts[$next]) !== $character) {
+            return false;
+        }
+        $other = $this->delimiterPiece($children, $parts, $next);
+        if ($other === null || $other['delimiter'][0] !== $character || $other['lead'] !== '') {
+            return true;
+        }
+        $inner = $this->beforeRunInCore($piece['core'], $character);
+        $outer = $this->afterRunInCore($other['core'], $character);
+        if ($inner === '' || $outer === '' || !$this->mergedRunFlanks($inner, $outer)) {
+            return true;
+        }
+        $closing = $this->runAtEnd($piece['core'], $character) + strlen($piece['delimiter']);
+        $opening = strlen($other['delimiter']) + $this->runAtStart($other['core'], $character);
+        $merged = $closing + $opening;
+
+        return !($this->ruleOfThreeAllows($closing, $merged) && $this->ruleOfThreeAllows($merged, $opening));
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Node\Node> $children
+     * @param list<string> $parts
+     * @param int $index
+     * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     * @param int $direction
+     */
+    protected function tildeSeamMerges(array $children, array $parts, int $index, array $piece, int $direction): bool
+    {
+        if (($direction < 0 ? $piece['lead'] : $piece['trail']) !== '') {
+            return false;
+        }
+        $other = $direction < 0 ? $this->previousRendered($parts, $index) : $this->nextRendered($parts, $index);
+        if ($other < 0) {
+            return false;
+        }
+        $edge = $direction < 0 ? $this->lastCharacter($parts[$other]) : $this->firstCharacter($parts[$other]);
+        if ($edge !== '~') {
+            return false;
+        }
+        $piece2 = $this->delimiterPiece($children, $parts, $other);
+        if ($piece2 === null || $piece2['delimiter'] !== '~~') {
+            return true;
+        }
+        if (($direction < 0 ? $piece2['trail'] : $piece2['lead']) !== '') {
+            return true;
+        }
+        $inner = $direction < 0
+            ? $this->afterRunInCore($piece['core'], '~')
+            : $this->beforeRunInCore($piece['core'], '~');
+        $outer = $direction < 0
+            ? $this->beforeRunInCore($piece2['core'], '~')
+            : $this->afterRunInCore($piece2['core'], '~');
+
+        return $inner === '' || $outer === '' || !$this->mergedRunFlanks($inner, $outer);
+    }
+
+    /**
+     * The character on the far side of everything the merged run swallowed. The
+     * delimiter's own neighbour is no use here: for `***x***` against `*y*` it
+     * is another asterisk, which is INSIDE the merged run, and reading it as the
+     * outer neighbour would call a run unable to flank that flanks perfectly
+     * well.
+     */
+    protected function beforeRunInCore(string $core, string $character): string
+    {
+        return $this->lastCharacter(substr($core, 0, strlen($core) - $this->runAtEnd($core, $character)));
+    }
+
+    protected function afterRunInCore(string $core, string $character): string
+    {
+        return $this->firstCharacter(substr($core, $this->runAtStart($core, $character)));
+    }
+
+    /**
+     * CommonMark 6.2 read against the neighbours the MERGED run has. Each half
+     * was built against a neighbour that is no longer there: the character
+     * outside the merged run is the content of the sibling across the seam. The
+     * run has to be able to close for the node on its left and open for the node
+     * on its right, which is the same test in both directions.
+     */
+    protected function mergedRunFlanks(string $inner, string $outer): bool
+    {
+        return $this->flanks($inner, $outer) && $this->flanks($outer, $inner);
+    }
+
+    /**
+     * @param list<string> $parts
+     * @param int $index
+     */
+    protected function nextRendered(array $parts, int $index): int
+    {
+        for ($i = $index + 1, $count = count($parts); $i < $count; $i++) {
+            if ($parts[$i] !== '') {
+                return $i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * @param list<string> $parts
+     * @param int $index
+     */
+    protected function previousRendered(array $parts, int $index): int
+    {
+        for ($i = $index - 1; $i >= 0; $i--) {
+            if ($parts[$i] !== '') {
+                return $i;
+            }
+        }
+
+        return -1;
     }
 
     /**
@@ -1431,10 +1715,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $parts = [];
         foreach ($flat as $node) {
             $parts[] = $this->renderNode($node);
-        }
-
-        if (count($parts) < 2) {
-            return implode('', $parts);
         }
 
         return $this->reflankRuns($flat, $parts);
