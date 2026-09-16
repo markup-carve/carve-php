@@ -2251,7 +2251,7 @@ class InlineParser
                 // and a forced-span closer's where one bounds the run first
                 // (markup-carve/carve#2051); the strip is the run's own rule
                 // either way.
-                $remaining = rtrim(substr($text, $contentStart), " \t");
+                $remaining = substr($text, $contentStart);
 
                 return [
                     'node' => new Code($remaining),
