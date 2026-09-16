@@ -141,6 +141,8 @@ class MarkdownToCarve
         // Leading spaces to strip from the open fence's opener/body/closer, so
         // the migrated fence sits at its container's content column (see opener).
         $fenceStrip = 0;
+        // The list item content column an open fence sits in; 0 at top level.
+        $fenceItemCol = 0;
         // Stack of enclosing list items' content columns (outermost first), so
         // a fence is re-based to the DEEPEST item that still contains it.
         $listCols = [];
@@ -245,6 +247,7 @@ class MarkdownToCarve
                 $openerIndent = strlen($matches[1]);
                 $contentCol = $listCols === [] ? 0 : end($listCols);
                 $fenceStrip = max(0, $openerIndent - $contentCol);
+                $fenceItemCol = $contentCol;
                 $result[] = substr($matches[1], $fenceStrip) . $matches[2] . $info;
                 $prevLineType = 'code_fence';
                 $bulletRunBroken = true;
@@ -252,18 +255,37 @@ class MarkdownToCarve
                 continue;
             }
 
+            // A fence in a list item ends where the item does (CommonMark), so
+            // a dedented line closes it and is read again outside it.
+            if ($inCodeBlock && $fenceItemCol > 0 && trim($line) !== '' && $this->indentWidth($line) < $fenceItemCol) {
+                $result[] = str_repeat(' ', $fenceItemCol) . str_repeat($fenceChar, $fenceLength);
+                $inCodeBlock = false;
+                $fenceChar = '';
+                $fenceLength = 0;
+                $fenceStrip = 0;
+                $fenceItemCol = 0;
+                $i--;
+
+                continue;
+            }
+
             if ($inCodeBlock) {
                 $bulletRunBroken = true;
-                $pattern = '/^\s{0,3}' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/';
+                $closerIndent = $this->indentWidth($line);
                 $dedented = $fenceStrip > 0
                     ? preg_replace('/^ {0,' . $fenceStrip . '}/', '', $line)
                     : $line;
-                if (preg_match($pattern, $line)) {
+                if (
+                    $closerIndent <= $fenceItemCol + 3
+                    && preg_match('/^' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/', ltrim($line, " \t")) === 1
+                ) {
                     $inCodeBlock = false;
                     $fenceChar = '';
                     $fenceLength = 0;
                     $fenceStrip = 0;
-                    $result[] = $dedented;
+                    // An item's closer is written at the item column, whatever its tabs.
+                    $result[] = $fenceItemCol > 0 ? str_repeat(' ', $fenceItemCol) . rtrim(ltrim($line, " \t")) : $dedented;
+                    $fenceItemCol = 0;
                     if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
                         $result[] = '';
                     }
@@ -496,6 +518,22 @@ class MarkdownToCarve
             }
             if ($isBlockquote) {
                 $body = $this->normalizeBlockquoteMarkers($body);
+                $quoteFence = $this->collectQuotedFence($lines, $i, $body);
+                if ($quoteFence !== null) {
+                    $quotePrefix = rtrim($quoteFence['prefix']);
+                    if ($prevLineType === 'blockquote') {
+                        $result[] = $quotePrefix;
+                    }
+                    array_push($result, ...$quoteFence['lines']);
+                    $i = $quoteFence['end'];
+                    if ($i + 1 < $lineCount && str_starts_with(ltrim($lines[$i + 1]), '>') && trim(ltrim(ltrim($lines[$i + 1]), '> ')) !== '') {
+                        $result[] = $quotePrefix;
+                    }
+                    $prevLineType = 'blockquote';
+                    $bulletRunBroken = true;
+
+                    continue;
+                }
             }
             // Carve has only `-`/`*` bullets (no `+`, which is the
             // continuation marker), and two adjacent bullet lists must use
@@ -516,6 +554,31 @@ class MarkdownToCarve
                 $activeBulletMd = $mdMarker;
                 $activeBulletCarve = $carveMarker;
                 $bulletRunBroken = false;
+            }
+
+            // A fence opening a list item's first line: the rest of the item is
+            // its code, read by the fenced-code branch above.
+            if (
+                $isList
+                && preg_match('/^(\s*(?:[-*]|\d+[.)]) {1,4})(`{3,}|~{3,})(.*)$/', $body, $itemFence) === 1
+                && !($itemFence[2][0] === '`' && str_contains($itemFence[3], '`'))
+            ) {
+                $info = ltrim($itemFence[3]);
+                if (str_starts_with($info, '=')) {
+                    $info = ltrim(ltrim($info, '='));
+                }
+                $result[] = $itemFence[1] . $itemFence[2] . $info;
+                $inCodeBlock = true;
+                $fenceChar = $itemFence[2][0];
+                $fenceLength = strlen($itemFence[2]);
+                $fenceStrip = 0;
+                $fenceItemCol = $listCols === [] ? 0 : (int)end($listCols);
+                $prevLineType = 'code_fence';
+                if ($ordered !== null) {
+                    $bulletRunBroken = true;
+                }
+
+                continue;
             }
 
             $converted = $this->convertInlineFormatting($body);
@@ -1071,6 +1134,58 @@ class MarkdownToCarve
         }
 
         return substr($line, $i);
+    }
+
+    /**
+     * Collect a fenced code block opened inside a block quote, up to its closer
+     * or the end of its quote, which also ends it (CommonMark).
+     *
+     * @param array<int, string> $lines
+     * @param int $start
+     * @param string $opener The opening line with its markers normalized.
+     *
+     * @return array{lines: array<int, string>, end: int, prefix: string}|null
+     */
+    protected function collectQuotedFence(array $lines, int $start, string $opener): ?array
+    {
+        if (preg_match('/^((?:> )+)( {0,3})(`{3,}|~{3,})(.*)$/', $opener, $open) !== 1) {
+            return null;
+        }
+        [, $prefix, $indent, $fence, $info] = $open;
+        if ($fence[0] === '`' && str_contains($info, '`')) {
+            return null;
+        }
+        $info = ltrim($info);
+        if (str_starts_with($info, '=')) {
+            $info = ltrim(ltrim($info, '='));
+        }
+        $depth = substr_count($prefix, '>');
+        $output = [$prefix . $fence . $info];
+        $end = $start;
+        $closed = false;
+        for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
+            $rest = $lines[$i];
+            for ($level = 0; $level < $depth; $level++) {
+                if (preg_match('/^ {0,3}> ?/', $rest, $marker) !== 1) {
+                    break 2;
+                }
+                $rest = substr($rest, strlen($marker[0]));
+            }
+            $end = $i;
+            if (preg_match('/^ {0,3}' . preg_quote($fence[0], '/') . '{' . strlen($fence) . ',}[ \t]*$/', $rest) === 1) {
+                $output[] = $prefix . $fence;
+                $closed = true;
+
+                break;
+            }
+            $content = preg_replace('/^ {0,' . strlen($indent) . '}/', '', $rest) ?? $rest;
+            $output[] = $content === '' ? rtrim($prefix) : $prefix . $content;
+        }
+        if (!$closed) {
+            $output[] = $prefix . $fence;
+        }
+
+        return ['lines' => $output, 'end' => $end, 'prefix' => $prefix];
     }
 
     protected function normalizeBlockquoteMarkers(string $line): string

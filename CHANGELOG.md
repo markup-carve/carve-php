@@ -91,6 +91,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Markdown importer writes a pointy link destination bare** (#2073): `[k](</u v>)` becomes `[k](/u%20v)`, since Carve has no `<...>` destination and the brackets read as raw HTML.
 - **An empty list item is imported as `- +`** (#2087), the first-block form, instead of a bare marker that read back as text under the item above. The borrowed-HTML fast path renders an ordered `2. +` as an empty item, as the full parser does.
 - **The Markdown importer writes an empty list item as `- +`** (#2075), where it used to write a bare marker that Carve reads as text.
+- **The Markdown importer imports a fence in a block quote or on a list item's first line as code** (#2076). Its content is no longer converted as prose, and a fence left open closes where its quote or item ends.
 
 ## [0.1.7] - 2026-09-07
 
