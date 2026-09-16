@@ -292,6 +292,14 @@ class HtmlToCarve
     protected const TREE_BREAK = "\u{FDD0}";
 
     /**
+     * The attribute on a span standing in for an unwrapped formatting element
+     * in the AST exit, naming the node type it stands for.
+     *
+     * @var string
+     */
+    protected const TREE_KIND = 'data-carve-tree-kind';
+
+    /**
      * Writing for the AST exit rather than for source.
      */
     protected bool $treeExit = false;
@@ -373,7 +381,7 @@ class HtmlToCarve
 
         try {
             $diagnostics = $this->inspectImportLoss($html);
-            foreach ($this->captionFlattenDiagnostics as $diagnostic) {
+            foreach ([...$this->captionFlattenDiagnostics, ...$this->sameKindDiagnostics()] as $diagnostic) {
                 $this->addImportDiagnostic(
                     $diagnostics,
                     $diagnostic->code,
@@ -392,6 +400,24 @@ class HtmlToCarve
             $this->importAdapter,
             $diagnostics,
         );
+    }
+
+    /**
+     * @return array<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic>
+     */
+    protected function sameKindDiagnostics(): array
+    {
+        $diagnostics = [];
+        foreach ($this->unwrappedFormatting as $path) {
+            $diagnostics[] = new HtmlImportDiagnostic(
+                'structure-unspellable',
+                'Unwrapped a span inside a braced span of the same kind, which has no Carve spelling',
+                'warning',
+                $path,
+            );
+        }
+
+        return $diagnostics;
     }
 
     public function convertWithFidelityReport(string $html): MigrationResult
@@ -414,7 +440,9 @@ class HtmlToCarve
         // the source lost structure, a second conversion carries it in a
         // stand-in the parsed tree gives back.
         $source = $this->convertWithReport($html);
-        $treeBreaks = !str_contains($html, self::TREE_BREAK) && $this->reportsUnspellable($source->diagnostics);
+        $treeBreaks = !str_contains($html, self::TREE_BREAK)
+            && preg_match('/\s' . self::TREE_KIND . '\s*=/i', $html) !== 1
+            && $this->reportsUnspellable($source->diagnostics);
         $value = $source->value;
         if ($treeBreaks) {
             $this->treeExit = true;
@@ -507,7 +535,8 @@ class HtmlToCarve
     }
 
     /**
-     * Split each text entry at the tree exit's hard-break stand-in.
+     * Take the tree exit's stand-ins back out: a text entry splits at each
+     * hard-break stand-in, and a stand-in span becomes the node it names.
      *
      * @param array<int, mixed> $entries
      *
@@ -517,6 +546,28 @@ class HtmlToCarve
     {
         $out = [];
         foreach ($entries as $entry) {
+            if (is_array($entry) && ($entry['type'] ?? null) === 'span') {
+                $attrs = $entry['attrs'] ?? null;
+                $keyValues = is_array($attrs) ? $attrs['keyValues'] ?? null : null;
+                $kind = is_array($keyValues) ? $keyValues[self::TREE_KIND] ?? null : null;
+                if (is_string($kind)) {
+                    unset($keyValues[self::TREE_KIND]);
+                    $attrs['keyValues'] = $keyValues;
+                    if ($keyValues === []) {
+                        unset($attrs['keyValues']);
+                    }
+                    $order = is_array($attrs['order'] ?? null) ? $attrs['order'] : [];
+                    $attrs['order'] = array_values(array_filter($order, static fn (mixed $slot): bool => $slot !== self::TREE_KIND));
+                    $node = ['type' => $kind];
+                    if ($attrs['order'] !== []) {
+                        $node['attrs'] = $attrs;
+                    }
+                    $node['children'] = $entry['children'] ?? [];
+                    $out[] = $node;
+
+                    continue;
+                }
+            }
             $text = is_array($entry) && ($entry['type'] ?? null) === 'text' ? $entry['value'] ?? null : null;
             if (!is_string($text) || !str_contains($text, self::TREE_BREAK)) {
                 $out[] = $entry;
@@ -2527,6 +2578,22 @@ class HtmlToCarve
      */
     public function convert(string $html): string
     {
+        // A pass that marks a span for unwrapping changes its neighbors'
+        // spelling, so the document is written again until no mark is added.
+        $this->unwrappedFormatting = [];
+        do {
+            $marked = $this->unwrappedFormatting;
+            $carve = $this->convertPass($html);
+        } while ($this->unwrappedFormatting !== $marked);
+
+        return $carve;
+    }
+
+    /**
+     * @phpstan-impure
+     */
+    protected function convertPass(string $html): string
+    {
         // Reset state
         $this->listDepth = 0;
         $this->inPre = false;
@@ -2538,6 +2605,7 @@ class HtmlToCarve
         $this->abbreviationDefinitions = [];
         $this->abbreviationMap = [];
         $this->captionFlattenDiagnostics = [];
+        $this->bracedFormatting = [];
         $this->loneImageParagraphs = [];
         $this->consumedCheckboxInputs = [];
         $this->rawPreservedElements = [];
@@ -2907,6 +2975,21 @@ class HtmlToCarve
     protected bool $captionPendingBoundary = false;
 
     protected bool $captionPendingNeedsSeparator = false;
+
+    /**
+     * Node paths of the formatting elements written braced in this pass.
+     *
+     * @var array<string, true>
+     */
+    protected array $bracedFormatting = [];
+
+    /**
+     * Node paths of the formatting elements written as their content, mapped
+     * to the path a diagnostic reports. Kept across passes.
+     *
+     * @var array<string, string>
+     */
+    protected array $unwrappedFormatting = [];
 
     /**
      * @var list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic>
@@ -4923,6 +5006,9 @@ class HtmlToCarve
      */
     protected function processBareInlineFormatting(DOMElement $node, string $ch): string
     {
+        if (isset($this->unwrappedFormatting[(string)$node->getNodePath()])) {
+            return $this->writeUnwrappedFormatting($node);
+        }
         $content = trim($this->processChildren($node));
         if ($content === '') {
             return '';
@@ -4930,8 +5016,70 @@ class HtmlToCarve
         $content = $this->restoreTrailingHardBreak($content);
 
         [$open, $close] = $this->boundaryDelimiters($node, $ch, $content);
+        $this->recordFormatting($node, $ch, $open !== $ch);
 
         return $open . $content . $close . $this->formatInlineAttributes($node);
+    }
+
+    /**
+     * Record how a formatting element was written. A braced one marks each
+     * braced span of its kind inside it for unwrapping: PART 9 §9 E3 leaves
+     * that opener literal at any depth (PART 11 §1c).
+     */
+    protected function recordFormatting(DOMElement $node, string $kind, bool $braced): void
+    {
+        if ($braced) {
+            foreach ($node->getElementsByTagName('*') as $inner) {
+                $key = (string)$inner->getNodePath();
+                if ($this->formattingKind($inner) === $kind && isset($this->bracedFormatting[$key])) {
+                    $this->unwrappedFormatting[$key] = $this->conversionNodePath($inner);
+                }
+            }
+            $this->bracedFormatting[(string)$node->getNodePath()] = true;
+        }
+    }
+
+    /**
+     * A formatting element marked for unwrapping: its content, or for the AST
+     * exit a span carrying the node type it stands for.
+     */
+    protected function writeUnwrappedFormatting(DOMElement $node): string
+    {
+        if (!$this->treeExit) {
+            return $this->processChildren($node);
+        }
+        $type = match (strtolower($node->tagName)) {
+            'strong', 'b' => 'strong',
+            'em', 'i' => 'emphasis',
+            'u' => 'underline',
+            's', 'strike' => 'strike',
+            'mark' => 'highlight',
+            'ins' => 'insert',
+            'del' => 'delete',
+            'sup' => 'superscript',
+            default => 'subscript',
+        };
+
+        $attrs = $this->formatInlineAttributes($node);
+
+        return '[' . $this->escapeNoteReferenceLabel($this->buildLabelContent(fn (): string => $this->restoreTrailingHardBreak(trim($this->processChildren($node)))))
+            . ']{' . self::TREE_KIND . '=' . $type . ($attrs === '' ? '' : ' ' . substr($attrs, 1, -1)) . '}';
+    }
+
+    protected function formattingKind(DOMElement $node): ?string
+    {
+        return match (strtolower($node->tagName)) {
+            'strong', 'b' => '*',
+            'em', 'i' => '/',
+            'u' => '_',
+            's', 'strike' => '~',
+            'mark' => '=',
+            'ins' => '{+',
+            'del' => '{-',
+            'sup' => '{^',
+            'sub' => '{,',
+            default => null,
+        };
     }
 
     /**
@@ -4949,8 +5097,8 @@ class HtmlToCarve
     protected function boundaryDelimiters(DOMElement $node, string $ch, string $content = ''): array
     {
         $needsForced = $this->endsInEmptyCodeSpan($node)
-            || $this->isWordCharacter($this->boundaryCharacter($node->previousSibling, true))
-            || $this->isWordCharacter($this->boundaryCharacter($node->nextSibling, false))
+            || $this->isWordCharacter($this->adjacentBoundaryCharacter($node, true))
+            || $this->isWordCharacter($this->adjacentBoundaryCharacter($node, false))
             || str_starts_with($content, $ch)
             || str_ends_with($content, $ch)
             || str_ends_with($content, "\n")
@@ -4997,6 +5145,28 @@ class HtmlToCarve
      * a construct here - an attribute-less `<span>`, a wrapper the walk does
      * not know - flattens to its children, so the search descends into it.
      */
+
+    /**
+     * The character beside an element, read past the edge of an unwrapped
+     * formatting parent, whose content is written in its place.
+     */
+    protected function adjacentBoundaryCharacter(DOMElement $node, bool $trailing): string
+    {
+        $current = $node;
+        while (true) {
+            $sibling = $trailing ? $current->previousSibling : $current->nextSibling;
+            $parent = $current->parentNode;
+            if (
+                $sibling !== null
+                || !$parent instanceof DOMElement
+                || !isset($this->unwrappedFormatting[(string)$parent->getNodePath()])
+            ) {
+                return $this->boundaryCharacter($sibling, $trailing);
+            }
+            $current = $parent;
+        }
+    }
+
     protected function boundaryCharacter(?DOMNode $sibling, bool $trailing): string
     {
         // How many flattening wrappers the walk has stepped INTO, so it can
@@ -5034,7 +5204,10 @@ class HtmlToCarve
                         return $this->edgeCharacter($sibling->textContent, $trailing);
                     }
                 }
-                if (in_array($tag, static::BOUNDARY_OPAQUE_TAGS, true)) {
+                if (
+                    in_array($tag, static::BOUNDARY_OPAQUE_TAGS, true)
+                    && !isset($this->unwrappedFormatting[(string)$sibling->getNodePath()])
+                ) {
                     // An element with nothing in it renders nothing, so it is
                     // not in the tree the writer measures and the search keeps
                     // going. A link, a break and an image are nodes whatever
@@ -5095,12 +5268,16 @@ class HtmlToCarve
 
     protected function processInlineFormatting(DOMElement $node, string $open, string $close): string
     {
+        if (isset($this->unwrappedFormatting[(string)$node->getNodePath()])) {
+            return $this->writeUnwrappedFormatting($node);
+        }
         $content = trim($this->processChildren($node));
         if ($content === '') {
             return '';
         }
         $content = $this->restoreTrailingHardBreak($content);
 
+        $this->recordFormatting($node, $open, true);
         $attrs = $this->formatInlineAttributes($node);
 
         return $open . $content . $close . $attrs;

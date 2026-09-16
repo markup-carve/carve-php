@@ -86,6 +86,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Markdown importer writes a link or image with an empty destination as its text** (#2067), since Carve reads `[x]()` as literal text. An image becomes its plain alt text, and a title keeps a span.
 - **A hard break in a table cell is written as one space** (#2070), or as nothing at the cell's edge, in the HTML importer and the Carve writer. The importer reports `structure-unspellable` and its AST exit keeps the break.
 - **Text ending in `:name` before a link or span is escaped** (#2069), `x \:name[n](u)`, in the Carve writer and the HTML importer, so the pair no longer reads back as an inline extension. The HTML importer also escapes `:name[` inside one text run.
+- **A braced span inside a braced span of the same kind is unspellable** (#2071). The Carve writer throws `SourceUnspellableException` for the tree, and the HTML importer writes the inner span as its content, reports `structure-unspellable` and keeps the nesting in its AST exit.
 
 ## [0.1.7] - 2026-09-07
 

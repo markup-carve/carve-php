@@ -161,6 +161,13 @@ class CarveRenderer implements RendererInterface
     protected array $edgeCellBreaks = [];
 
     /**
+     * Object ids of the inline spans written in the braced form.
+     *
+     * @var array<int, true>
+     */
+    protected array $bracedSpans = [];
+
+    /**
      * Inside an inline note's content, where `^[` opens nothing.
      *
      * PART 9 §16: a note's content is parsed with footnote recognition
@@ -500,6 +507,7 @@ class CarveRenderer implements RendererInterface
         $this->verbatimSentinels = $this->pickVerbatimSentinels($this->collectStrings($document));
         $this->treeCacheSource = null;
         $this->treeCache = null;
+        $this->bracedSpans = [];
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
         if ($minimal === $conservative) {
@@ -3284,13 +3292,13 @@ class CarveRenderer implements RendererInterface
             // Strong, and W4 escalated the whole document to conservative
             // (carve#374).
             $node instanceof EscapedText => '\\' . $node->getContent(),
-            $node instanceof Emphasis => $withAttrs($this->renderEmphasis('/', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node))),
-            $node instanceof Strong => $withAttrs($this->renderStrongNode($node, $prevChar, $nextChar)),
-            $node instanceof Underline => $withAttrs($this->renderEmphasis('_', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node))),
-            $node instanceof Strike => $withAttrs($this->renderEmphasis('~', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node))),
-            $node instanceof Superscript => $withAttrs($this->renderForcedEmphasis('^', $this->renderInlines($node->getChildren()))),
-            $node instanceof Subscript => $withAttrs($this->renderForcedEmphasis(',', $this->renderInlines($node->getChildren()))),
-            $node instanceof Highlight => $withAttrs($this->renderEmphasis('=', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node))),
+            $node instanceof Emphasis => $withAttrs($this->spellSameKind($node, '/', $this->renderEmphasis('/', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Strong => $withAttrs($this->spellSameKind($node, '*', $this->renderStrongNode($node, $prevChar, $nextChar))),
+            $node instanceof Underline => $withAttrs($this->spellSameKind($node, '_', $this->renderEmphasis('_', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Strike => $withAttrs($this->spellSameKind($node, '~', $this->renderEmphasis('~', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Superscript => $withAttrs($this->spellSameKind($node, '^', $this->renderForcedEmphasis('^', $this->renderInlines($node->getChildren())))),
+            $node instanceof Subscript => $withAttrs($this->spellSameKind($node, ',', $this->renderForcedEmphasis(',', $this->renderInlines($node->getChildren())))),
+            $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
             $node instanceof Code => $node->getContent() === '' && !self::emptyCodeSpanIsSpellable($node)
                 ? throw new SourceUnspellableException('code', 'an empty code span has no Carve source spelling where its open run does not end')
                 : $withAttrs($this->renderCode($node->getContent())),
@@ -3318,8 +3326,8 @@ class CarveRenderer implements RendererInterface
             // (PART 11 §7c) - see verseLineBreak().
             // A pipe cell is one line and has no hard break: one space (PART 11 §1b).
             $node instanceof HardBreak => $this->tableCellDepth === 0 ? "\\\n" : (isset($this->edgeCellBreaks[spl_object_id($node)]) ? '' : ' '),
-            $node instanceof Insert => $withAttrs('{+' . $this->renderInlines($node->getChildren()) . '+}'),
-            $node instanceof Delete => $withAttrs('{-' . $this->renderInlines($node->getChildren()) . '-}'),
+            $node instanceof Insert => $withAttrs($this->spellSameKind($node, '+', '{+' . $this->renderInlines($node->getChildren()) . '+}')),
+            $node instanceof Delete => $withAttrs($this->spellSameKind($node, '-', '{-' . $this->renderInlines($node->getChildren()) . '-}')),
             $node instanceof Substitution => '{~' . $this->escapeCriticText($node->getOldText()) . '~>' . $this->escapeCriticText($node->getNewText()) . '~}',
             $node instanceof HeadingRef => '</#' . $this->escapeCrossrefTarget($node->getTargetId()) . '>',
             $node instanceof CaptionNumber => '#',
@@ -3335,6 +3343,35 @@ class CarveRenderer implements RendererInterface
         }
 
         return $node instanceof Math && $node->isDisplay();
+    }
+
+    /**
+     * Refuse a braced span holding a braced span of the same kind at any depth:
+     * PART 9 §9 E3 leaves the inner opener literal (PART 11 §1c).
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     */
+    protected function spellSameKind(Node $node, string $delimiter, string $written): string
+    {
+        $braced = str_starts_with($written, '{' . $delimiter);
+        if ($braced) {
+            $pending = $node->getChildren();
+            while ($pending !== []) {
+                $child = array_shift($pending);
+                if ($child::class === $node::class && isset($this->bracedSpans[spl_object_id($child)])) {
+                    throw new SourceUnspellableException(
+                        $node->getType(),
+                        'a braced span inside a braced span of the same kind has no Carve source spelling',
+                    );
+                }
+                array_push($pending, ...$child->getChildren());
+            }
+            $this->bracedSpans[spl_object_id($node)] = true;
+        } else {
+            unset($this->bracedSpans[spl_object_id($node)]);
+        }
+
+        return $written;
     }
 
     protected function renderStrongNode(Strong $node, string $prevChar, string $nextChar): string
