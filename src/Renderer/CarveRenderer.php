@@ -2896,7 +2896,7 @@ class CarveRenderer implements RendererInterface
                 }
                 if ($node instanceof InlineNode) {
                     $prevChar = $this->lastBoundary($nodes[$i - 1] ?? null);
-                    $out .= $this->renderInline(
+                    $rendered = $this->renderInline(
                         $node,
                         // A span leaves no boundary character of its own, so the
                         // one it WROTE (its closer) is what the next opener sits against.
@@ -2905,6 +2905,17 @@ class CarveRenderer implements RendererInterface
                         $captionCanOpen,
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
                     );
+                    // A bare caret the previous node ended on opens an inline
+                    // note against a `[` this node writes, in both passes.
+                    if (
+                        $this->inlineNoteDepth === 0
+                        && str_ends_with($out, '^')
+                        && self::backslashRunBefore($out, strlen($out) - 1) % 2 === 0
+                        && self::inlineNoteCouldOpen($rendered, 0)
+                    ) {
+                        $out = substr($out, 0, -1) . '\\^';
+                    }
+                    $out .= $rendered;
                     if ($node instanceof SoftBreak) {
                         $captionCanOpen = $isFirstInlineLine && $lineNodeCount === 1 && $lineHostsCaption;
                         $isFirstInlineLine = false;
@@ -4564,6 +4575,16 @@ class CarveRenderer implements RendererInterface
         } finally {
             $this->inlineNoteDepth--;
         }
+    }
+
+    private static function backslashRunBefore(string $text, int $offset): int
+    {
+        $run = 0;
+        while ($offset - $run > 0 && $text[$offset - $run - 1] === '\\') {
+            $run++;
+        }
+
+        return $run;
     }
 
     private static function caretOpensAConstruct(

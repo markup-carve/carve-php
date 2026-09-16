@@ -70,6 +70,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Djot importer keeps Djot-only block markers and document structures** (#1931, #1932).
 - **The HTML importer writes an empty code span only where its backtick run ends** (#2048). Anywhere else the span is dropped and reported as `structure-unspellable`.
 - **The Carve writer braces an emphasis that ends in an empty code span or wraps a strong** (#2043, #2015), and writes a `!` bare outside the channel it opens (#2018).
+- **The Carve writer escapes a caret that ends one node before a `[` that opens an inline note** (#2061), so a text node ending in `^` before a link or span no longer reads back as a note.
 - **An emphasis or link label ending in a hard break keeps its closer** in the Carve writer and the HTML importer (#2054).
 - **The HTML importer escapes a `<q>` element's content once** (#2057), so an escape its children wrote is no longer doubled.
 - **The HTML importer escapes a label's brackets in its text only** (#2056), so a code span or image inside a link or span keeps its brackets, and image alt text is written as authored where its run closes.
