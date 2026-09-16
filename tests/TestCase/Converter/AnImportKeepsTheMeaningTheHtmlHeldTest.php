@@ -191,35 +191,29 @@ class AnImportKeepsTheMeaningTheHtmlHeldTest extends TestCase
     }
 
     /**
-     * An empty `<ins>` or `<del>` is dropped, and the drop is observable.
+     * An empty `<ins>` or `<del>` is dropped, and reported as nothing, like
+     * every other empty inline element (ruled on markup-carve/carve-rs#1719).
      *
-     * Dropping is the right half of the answer - the other engine wrote an
-     * empty brace pair, which is not a construct - but a silent drop is still
-     * an element that left the document.
-     *
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string}>
      */
     public static function emptyChangeTrackingProvider(): array
     {
         return [
-            'an empty insertion' => ['<p><ins></ins></p>', '/p[1]/ins[1]'],
-            'an empty deletion' => ['<p><del></del></p>', '/p[1]/del[1]'],
-            'one between two runs of text' => ['<p>x<ins></ins>y</p>', '/p[1]/ins[2]'],
+            'an empty insertion' => ['<p><ins></ins></p>'],
+            'an empty deletion' => ['<p><del></del></p>'],
+            'one between two runs of text' => ['<p>x<ins></ins>y</p>'],
         ];
     }
 
     /**
      * @param string $html
-     * @param string $path
      */
     #[DataProvider('emptyChangeTrackingProvider')]
-    public function testAnEmptyChangeTrackingElementReportsItsDrop(string $html, string $path): void
+    public function testAnEmptyChangeTrackingElementIsDroppedSilently(string $html): void
     {
         $report = $this->converter->convertWithReport($html);
-        $codes = array_map(static fn ($row): string => $row->code, $report->diagnostics);
 
-        $this->assertSame(['element-dropped'], $codes);
-        $this->assertSame($path, $report->diagnostics[0]->path);
+        $this->assertSame([], array_map(static fn ($row): string => $row->code, $report->diagnostics));
     }
 
     /**

@@ -1036,23 +1036,6 @@ class HtmlToCarve
             );
         }
 
-        if (($tag === 'ins' || $tag === 'del') && !$this->hasImportContentToUnwrap($node)) {
-            // AN EMPTY ONE HAS NOTHING TO MARK, and Carve spells the pair
-            // AROUND its content, so there is no marker to write and the
-            // element is dropped. Dropping is the right half of the answer -
-            // the other engine wrote an empty brace pair, which is not a
-            // construct and renders as characters the HTML never held - but a
-            // silent drop is still an element that left the document, and
-            // `element-dropped` is what says so (carve-php#1615).
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'element-dropped',
-                'Dropped an empty <' . $tag . '>: Carve spells the pair around its content, and an empty brace pair is not a construct',
-                'warning',
-                $path,
-            );
-        }
-
         if ($tag === 'a' && $this->importDestinationIsEmpty($node->getAttribute('href'))) {
             // A LINK THAT COMES BACK AS PROSE IS A LOSSY DECISION, and this
             // page requires those to be observable. It is not the bare `<div>`'s
