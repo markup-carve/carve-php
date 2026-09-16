@@ -931,6 +931,17 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'code' && $this->emptyCodeSpanIsDropped($node)) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'Dropped an empty <code>: its backtick run is closed by the end of a block or by a forced '
+                    . 'span, and here the run would read what follows it as code instead',
+                'warning',
+                $path,
+            );
+        }
+
         $this->inspectImportChildren($node, $tag, $path, $diagnostics);
     }
 
@@ -4577,6 +4588,107 @@ class HtmlToCarve
     ];
 
     /**
+     * The inline kinds Carve spells with a forced `X}` closer, which is one of
+     * the two places an unclosed backtick run ends (PART 3, UNCLOSED RUN).
+     *
+     * @var array<int, string>
+     */
+    protected const EMPTY_CODE_CLOSING_TAGS = ['del', 'ins', 'sub', 'sup'];
+
+    /**
+     * The five bare kinds, whose closer {@see boundaryDelimiters()} braces when
+     * it has to end a run.
+     *
+     * @var array<int, string>
+     */
+    protected const EMPTY_CODE_BRACEABLE_TAGS = [
+        'b', 'em', 'i', 'mark', 's', 'strike', 'strong', 'u',
+    ];
+
+    /**
+     * The inline kinds that close with punctuation of their own - `](u)`, `"`,
+     * `]{cite}` - which an open run reads as content instead. An attributed
+     * `<span>` is one too.
+     *
+     * @var array<int, string>
+     */
+    protected const EMPTY_CODE_OPEN_RUN_TAGS = [
+        'a', 'abbr', 'cite', 'dfn', 'kbd', 'q', 'samp', 'time', 'var',
+    ];
+
+    /**
+     * Does this `<code>` leave the document rather than be written wrong?
+     *
+     * An empty verbatim span is a backtick run nothing closes, so it survives
+     * only where the run ITSELF ends: at the end of a block, or at the `X}`
+     * closing a forced span (PART 3, UNCLOSED RUN). Anywhere else the run reads
+     * what follows as its content, and PART 11 §1c makes that a declared
+     * ceiling - `structure-unspellable` - rather than a spelling.
+     */
+    protected function emptyCodeSpanIsDropped(DOMElement $node): bool
+    {
+        $parent = $node->parentNode;
+        if ($parent instanceof DOMElement && strtolower($parent->tagName) === 'pre') {
+            return false;
+        }
+
+        return $node->textContent === '' && !$this->emptyCodeSpanIsSpellable($node);
+    }
+
+    /**
+     * @see emptyCodeSpanIsDropped()
+     */
+    protected function emptyCodeSpanIsSpellable(DOMElement $node): bool
+    {
+        while ($this->endsItsImportInlineRun($node)) {
+            $parent = $node->parentNode;
+            if (!$parent instanceof DOMElement) {
+                return true;
+            }
+            $tag = strtolower($parent->tagName);
+            if (
+                in_array($tag, static::EMPTY_CODE_OPEN_RUN_TAGS, true)
+                || ($tag === 'span' && $parent->attributes->length > 0)
+            ) {
+                return false;
+            }
+            if (
+                in_array($tag, $this->blockElements, true)
+                || in_array($tag, static::BOUNDARY_BLOCK_TAGS, true)
+                || in_array($tag, static::EMPTY_CODE_CLOSING_TAGS, true)
+                || in_array($tag, static::EMPTY_CODE_BRACEABLE_TAGS, true)
+            ) {
+                return true;
+            }
+            // A wrapper with no spelling of its own flattens to its children,
+            // so the run ends wherever the wrapper's own position ends it.
+            $node = $parent;
+        }
+
+        return false;
+    }
+
+    /**
+     * Is there nothing after this node that its open run would swallow?
+     *
+     * Trailing whitespace is not something: every container this reaches trims
+     * it. A comment IS, because an inline comment's `#}` closer sits inside the
+     * run like any other.
+     */
+    protected function endsItsImportInlineRun(DOMNode $node): bool
+    {
+        for ($next = $node->nextSibling; $next !== null; $next = $next->nextSibling) {
+            if ($next instanceof DOMText && trim($next->textContent) === '') {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Convert one of the five single-character inline kinds, bare or braced.
      *
      * A bare delimiter opens and closes only away from a word character, which
@@ -4611,12 +4723,40 @@ class HtmlToCarve
      */
     protected function boundaryDelimiters(DOMElement $node, string $ch, string $content = ''): array
     {
-        $needsForced = $this->isWordCharacter($this->boundaryCharacter($node->previousSibling, true))
+        $needsForced = $this->endsInEmptyCodeSpan($node)
+            || $this->isWordCharacter($this->boundaryCharacter($node->previousSibling, true))
             || $this->isWordCharacter($this->boundaryCharacter($node->nextSibling, false))
             || str_starts_with($content, $ch)
-            || str_ends_with($content, $ch);
+            || str_ends_with($content, $ch)
+            // `/*` opens `bold_italic`, the writer's carve-php#2012 case.
+            || ($ch === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));
 
         return $needsForced ? ['{' . $ch, $ch . '}'] : [$ch, $ch];
+    }
+
+    /**
+     * Does this element end in the one span a bare closer cannot follow?
+     *
+     * The writer's test, `CarveRenderer::endsInEmptyCodeSpan()`: an empty
+     * verbatim span leaves its run open, and inside an emphasis only the braced
+     * `X}` ends it - a bare closer sits in the run and is read as content. The
+     * writer excludes an ATTRIBUTED span where this does not, because
+     * {@see processCode()} has already written this one without its attributes.
+     */
+    protected function endsInEmptyCodeSpan(DOMElement $node): bool
+    {
+        for ($last = $node->lastChild; $last !== null; $last = $last->previousSibling) {
+            if ($last instanceof DOMText && trim($last->textContent) === '') {
+                continue;
+            }
+
+            return $last instanceof DOMElement
+                && strtolower($last->tagName) === 'code'
+                && !$this->inPre
+                && $last->textContent === '';
+        }
+
+        return false;
     }
 
     /**
@@ -4744,6 +4884,13 @@ class HtmlToCarve
         }
 
         $content = $node->textContent;
+
+        if ($content === '') {
+            // An attribute block attaches to a CLOSING run, which an empty span
+            // has not got, so it is written bare and `attribute-dropped` carries
+            // what it lost.
+            return $this->emptyCodeSpanIsSpellable($node) ? '``' : '';
+        }
 
         $backticks = StringUtil::findSafeCodeFence($content, 1);
         $attrs = $this->formatInlineAttributes($node);

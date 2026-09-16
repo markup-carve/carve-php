@@ -57,6 +57,26 @@ TeX to give: `roundtrip` keeps it verbatim, while `safe` and `semantic` drop it
 with an `element-dropped` warning rather than concatenate its children, which
 would read `<mfrac><mn>1</mn><mn>2</mn></mfrac>` back as `12`.
 
+An empty `<code>` is a third. A verbatim span with nothing in it is a backtick
+run nothing closes, so Carve spells it only where the run itself ends: at the
+end of a block, or at the `X}` closing a forced span. Anywhere else the run
+reads what follows as code, so an empty `<code>` with a sibling behind it is
+dropped with a `structure-unspellable` warning. Where the run does end, the span
+survives and the emphasis around it takes the braced closer:
+
+~~~ html
+<p><s><code></code></s></p>
+~~~
+
+imports as
+
+~~~
+{~``~}
+~~~
+
+An attribute block attaches to a closing run, which such a span has not got, so
+it is written bare and what it carried is reported as `attribute-dropped`.
+
 Three more importers convert other markup to Carve, in the library as
 `MarkdownToCarve`, `DjotToCarve` and `BbcodeToCarve`, and on the command line
 as `carve migrate --from markdown|djot|bbcode`:
