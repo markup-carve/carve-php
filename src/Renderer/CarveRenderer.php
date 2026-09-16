@@ -2917,6 +2917,7 @@ class CarveRenderer implements RendererInterface
             $lineNodeCount = 0;
             $lineHostsCaption = false;
             $lineEndsInComment = false;
+            $previousRendered = '';
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
                 if ($node instanceof HardBreak && $this->inLineBlock > 0) {
@@ -2976,7 +2977,9 @@ class CarveRenderer implements RendererInterface
                             $out = substr($out, 0, $colon) . '\\' . substr($out, $colon);
                         }
                     }
+                    $this->refuseGluedMention($node, $nodes[$i - 1] ?? null, $out, $previousRendered, $rendered);
                     $out .= $rendered;
+                    $previousRendered = $rendered;
                     if ($node instanceof SoftBreak) {
                         $captionCanOpen = $isFirstInlineLine && $lineNodeCount === 1 && $lineHostsCaption;
                         $isFirstInlineLine = false;
@@ -4666,6 +4669,28 @@ class CarveRenderer implements RendererInterface
         } finally {
             $this->inlineNoteDepth--;
         }
+    }
+
+    /**
+     * A mention or tag opens only after a non-word character and its name runs
+     * to the last name character, so one written against a word has no
+     * spelling (markup-carve/carve-js#1807).
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     */
+    private function refuseGluedMention(Node $node, ?Node $previous, string $written, string $previousRendered, string $rendered): void
+    {
+        if ($node instanceof Mention && preg_match('/^([@#])/', $rendered, $sigil) === 1 && preg_match('/[A-Za-z0-9_]$/', $written) === 1) {
+            throw new SourceUnspellableException(self::sigilType($sigil[1]), 'it has no Carve source spelling after a word character');
+        }
+        if ($previous instanceof Mention && preg_match('/^([@#])/', $previousRendered, $sigil) === 1 && preg_match('/^\.?[A-Za-z0-9_-]/', $rendered) === 1) {
+            throw new SourceUnspellableException(self::sigilType($sigil[1]), 'it has no Carve source spelling before a name character');
+        }
+    }
+
+    private static function sigilType(string $sigil): string
+    {
+        return $sigil === '#' ? 'tag' : 'mention';
     }
 
     private static function backslashRunBefore(string $text, int $offset): int

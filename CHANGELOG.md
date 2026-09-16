@@ -87,6 +87,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A hard break in a table cell is written as one space** (#2070), or as nothing at the cell's edge, in the HTML importer and the Carve writer. The importer reports `structure-unspellable` and its AST exit keeps the break.
 - **Text ending in `:name` before a link or span is escaped** (#2069), `x \:name[n](u)`, in the Carve writer and the HTML importer, so the pair no longer reads back as an inline extension. The HTML importer also escapes `:name[` inside one text run.
 - **A braced span inside a braced span of the same kind is unspellable** (#2071). The Carve writer throws `SourceUnspellableException` for the tree, and the HTML importer writes the inner span as its content, reports `structure-unspellable` and keeps the nesting in its AST exit.
+- **The Carve writer refuses a mention or tag glued to a word character** (#2077): a letter, digit or `_` before the sigil, or a name character, or a dot and one, after the name. It throws `SourceUnspellableException`; no parse builds such a tree.
 
 ## [0.1.7] - 2026-09-07
 
