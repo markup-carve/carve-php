@@ -283,6 +283,19 @@ class HtmlToCarve
      */
     protected bool $listTableForBlockCells = false;
 
+    /**
+     * A noncharacter standing in for a hard break Carve source cannot hold,
+     * written only for the AST exit.
+     *
+     * @var string
+     */
+    protected const TREE_BREAK = "\u{FDD0}";
+
+    /**
+     * Writing for the AST exit rather than for source.
+     */
+    protected bool $treeExit = false;
+
     protected string $importMode = 'safe';
 
     protected string $importAdapter = 'generic';
@@ -396,15 +409,25 @@ class HtmlToCarve
      */
     public function convertToAstWithReport(string $html): HtmlImportAstResult
     {
-        // ONE CONVERSION FOR BOTH EXITS. Every shape this writer emits is
-        // spellable, so the tree read back from the source it wrote is the tree
-        // the document has - there is no stand-in for either exit to put in and
-        // take back out (markup-carve/carve#1827).
+        // The tree is read back from the source this writer emits
+        // (markup-carve/carve#1827). Where a `structure-unspellable` row says
+        // the source lost structure, a second conversion carries it in a
+        // stand-in the parsed tree gives back.
         $source = $this->convertWithReport($html);
-        $document = CarveConverter::create()->parse($source->value);
+        $treeBreaks = !str_contains($html, self::TREE_BREAK) && $this->reportsUnspellable($source->diagnostics);
+        $value = $source->value;
+        if ($treeBreaks) {
+            $this->treeExit = true;
+            try {
+                $value = $this->convert($html);
+            } finally {
+                $this->treeExit = false;
+            }
+        }
+        $document = CarveConverter::create()->parse($value);
 
         return new HtmlImportAstResult(
-            self::withoutTheWriter((new AstCodec())->encode($document)),
+            self::withoutTheWriter((new AstCodec())->encode($document), $treeBreaks),
             $source->mode,
             $source->adapter,
             $source->diagnostics,
@@ -413,13 +436,14 @@ class HtmlToCarve
 
     /**
      * @param array<string, mixed> $tree
+     * @param bool $treeBreaks
      *
      * @return array<string, mixed>
      */
-    private static function withoutTheWriter(array $tree): array
+    private static function withoutTheWriter(array $tree, bool $treeBreaks = false): array
     {
         foreach ($tree as $key => $value) {
-            $tree[$key] = self::asPublished($value);
+            $tree[$key] = self::asPublished($value, $treeBreaks);
         }
 
         return $tree;
@@ -435,10 +459,11 @@ class HtmlToCarve
      * same lines that reach a paragraph.
      *
      * @param mixed $value
+     * @param bool $treeBreaks
      *
      * @return mixed
      */
-    private static function asPublished(mixed $value): mixed
+    private static function asPublished(mixed $value, bool $treeBreaks): mixed
     {
         if (!is_array($value)) {
             return $value;
@@ -446,7 +471,7 @@ class HtmlToCarve
         if (array_is_list($value)) {
             $out = [];
             foreach ($value as $entry) {
-                $entry = self::asPublished($entry);
+                $entry = self::asPublished($entry, $treeBreaks);
                 if (is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
                     $escaped = $entry['value'] ?? '';
                     $entry = ['type' => 'text', 'value' => is_string($escaped) ? $escaped : ''];
@@ -472,13 +497,57 @@ class HtmlToCarve
                 $out[] = $entry;
             }
 
-            return $out;
+            return $treeBreaks ? self::withTreeBreaks($out) : $out;
         }
         foreach ($value as $key => $inner) {
-            $value[$key] = self::asPublished($inner);
+            $value[$key] = self::asPublished($inner, $treeBreaks);
         }
 
         return $value;
+    }
+
+    /**
+     * Split each text entry at the tree exit's hard-break stand-in.
+     *
+     * @param array<int, mixed> $entries
+     *
+     * @return array<int, mixed>
+     */
+    private static function withTreeBreaks(array $entries): array
+    {
+        $out = [];
+        foreach ($entries as $entry) {
+            $text = is_array($entry) && ($entry['type'] ?? null) === 'text' ? $entry['value'] ?? null : null;
+            if (!is_string($text) || !str_contains($text, self::TREE_BREAK)) {
+                $out[] = $entry;
+
+                continue;
+            }
+            foreach (explode(self::TREE_BREAK, $text) as $index => $part) {
+                if ($index > 0) {
+                    $out[] = ['type' => 'hard_break'];
+                }
+                if ($part !== '') {
+                    $out[] = ['type' => 'text', 'value' => $part];
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    private function reportsUnspellable(array $diagnostics): bool
+    {
+        foreach ($diagnostics as $diagnostic) {
+            if ($diagnostic->code === 'structure-unspellable') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -928,6 +997,16 @@ class HtmlToCarve
                 'element-unwrapped',
                 'Unwrapped <img> with no source',
                 'info',
+                $path,
+            );
+        }
+
+        if ($tag === 'br' && $this->hardBreakIsFlattened($node)) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'Wrote a <br> in a table cell as a space: a pipe-table cell is one line and has no hard break',
+                'warning',
                 $path,
             );
         }
@@ -2692,7 +2771,8 @@ class HtmlToCarve
             'pre' => $this->processPreBlock($node),
             'a' => $this->processLink($node),
             'img' => $this->processImage($node),
-            'br' => $this->inPre ? "\n" : "\\\n",
+            // A pipe cell is one line, so a break there flattens to a space (PART 11 §1b).
+            'br' => $this->inPre ? "\n" : ($this->tableCellDepth > 0 ? ($this->treeExit ? self::TREE_BREAK : ' ') : "\\\n"),
             'hr' => $this->processHr($node),
             'blockquote' => $this->processBlockquote($node),
             'ul', 'ol' => $this->processList($node),
@@ -4775,6 +4855,24 @@ class HtmlToCarve
         }
 
         return true;
+    }
+
+    /**
+     * Is this `<br>` in a pipe-table cell, where it is written as a space?
+     */
+    protected function hardBreakIsFlattened(DOMElement $node): bool
+    {
+        for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+            $tag = strtolower($ancestor->tagName);
+            if ($tag === 'pre') {
+                return false;
+            }
+            if ($tag === 'td' || $tag === 'th') {
+                return !$this->cellIsWrittenAsAListTableItem($ancestor);
+            }
+        }
+
+        return false;
     }
 
     protected function cellIsWrittenAsAListTableItem(DOMElement $cell): bool

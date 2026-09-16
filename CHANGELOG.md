@@ -84,6 +84,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The ProseMirror bridge keeps two abutting links apart** (#2027), and declares the boundary two abutting spans of one mark lose (#2016).
 - **The borrowed-HTML fast path does not open a marker right after a closer of the same marker** (#2019).
 - **The Markdown importer writes a link or image with an empty destination as its text** (#2067), since Carve reads `[x]()` as literal text. An image becomes its plain alt text, and a title keeps a span.
+- **A hard break in a table cell is written as one space** (#2070), or as nothing at the cell's edge, in the HTML importer and the Carve writer. The importer reports `structure-unspellable` and its AST exit keeps the break.
 
 ## [0.1.7] - 2026-09-07
 
