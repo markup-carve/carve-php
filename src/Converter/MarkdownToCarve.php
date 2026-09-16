@@ -1327,6 +1327,14 @@ class MarkdownToCarve
 
         $line = $this->protectCodeSpans($line, $protect);
 
+        // Carve has no pointy destination, so `<a b>` is written as `a%20b`
+        // before the angle brackets can read as raw HTML.
+        $line = preg_replace_callback(
+            '/(\]\([ \t]*|^ {0,3}\[[^\]\n]+\]:[ \t]*)<((?:[^<>\n\\\\]|\\\\.)+)>/',
+            fn (array $match): string => $match[1] . $this->bareDestination($match[2]),
+            $line,
+        ) ?? $line;
+
         $line = preg_replace_callback('/\\\\[^A-Za-z0-9\s]/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         // `<code>x</code>` becomes a Carve code span in BOTH modes - carve-js
         // does this unconditionally, ahead of any raw-HTML handling, so verbatim
@@ -1799,6 +1807,17 @@ class MarkdownToCarve
             },
             $label,
         ) ?? $label;
+    }
+
+    /**
+     * A pointy destination's content as a bare Carve destination: backslash
+     * escapes decoded, and each character a bare one cannot hold percent-encoded.
+     */
+    protected function bareDestination(string $pointy): string
+    {
+        $url = preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $pointy) ?? $pointy;
+
+        return preg_replace_callback('/[\s<>\\\\]/', static fn (array $match): string => rawurlencode($match[0]), $url) ?? $url;
     }
 
     protected function normalizeReferenceLabel(string $label): string
