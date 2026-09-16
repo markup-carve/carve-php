@@ -4502,6 +4502,9 @@ class InlineParser
             if ($content === '') {
                 return null;
             }
+            // A forced-span closer ends the run like the block end does, and
+            // strips its trailing spaces and tabs (markup-carve/carve#2051).
+            $content = rtrim($content, " \t");
 
             // THE REMAINDER, WHOLE. An unclosed run reaches the end of the
             // BLOCK (PART 2) and what it reaches is verbatim, so the trailing
@@ -4599,7 +4602,7 @@ class InlineParser
         $closed = $closePos !== false;
         $content = $closed
             ? $this->stripVerbatimPadding(substr($text, $contentStart, $closePos - $contentStart))
-            : substr($text, $contentStart);
+            : rtrim(substr($text, $contentStart), " \t");
 
         $node = new LiteralInline($content);
 
