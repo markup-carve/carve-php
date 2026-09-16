@@ -40,6 +40,22 @@ class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
     }
 
     /**
+     * An anchor with no destination writes its content bare, and an anchor the
+     * trusted round trip re-emits as raw HTML writes no label either, so in
+     * both the neighbor keeps the space.
+     */
+    public function testALinkThatWritesNoLabelLeavesTheSpaceToItsNeighbor(): void
+    {
+        $this->assertSame("x {* y*}\n", (new HtmlToCarve())->convert('<p><a href="">x </a><strong> y</strong></p>'));
+
+        $trusted = new HtmlToCarve(true);
+        $this->assertSame(
+            "`<a href=\"u\"><img src=\"i\" alt=\"a]b[\"> </a>`{=html}{* y*}\n",
+            $trusted->convert('<p><a href="u"><img src="i" alt="a]b["> </a><strong> y</strong></p>'),
+        );
+    }
+
+    /**
      * A note reference writes no label, so the space stays with its neighbor.
      * Its read-back is the rendered reference rather than the text, so it is
      * checked for bytes only.
