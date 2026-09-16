@@ -271,17 +271,21 @@ class MarkdownToCarve
 
             if ($inCodeBlock) {
                 $bulletRunBroken = true;
-                $pattern = '/^\s{' . $fenceItemCol . ',' . ($fenceItemCol + 3) . '}' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/';
+                $closerIndent = $this->indentWidth($line);
                 $dedented = $fenceStrip > 0
                     ? preg_replace('/^ {0,' . $fenceStrip . '}/', '', $line)
                     : $line;
-                if (preg_match($pattern, $line)) {
+                if (
+                    $closerIndent <= $fenceItemCol + 3
+                    && preg_match('/^' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/', ltrim($line, " \t")) === 1
+                ) {
                     $inCodeBlock = false;
                     $fenceChar = '';
                     $fenceLength = 0;
                     $fenceStrip = 0;
+                    // An item's closer is written at the item column, whatever its tabs.
+                    $result[] = $fenceItemCol > 0 ? str_repeat(' ', $fenceItemCol) . rtrim(ltrim($line, " \t")) : $dedented;
                     $fenceItemCol = 0;
-                    $result[] = $dedented;
                     if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
                         $result[] = '';
                     }
@@ -556,7 +560,7 @@ class MarkdownToCarve
             // its code, read by the fenced-code branch above.
             if (
                 $isList
-                && preg_match('/^(\s*(?:[-*]|\d+[.)])\s+)(`{3,}|~{3,})(.*)$/', $body, $itemFence) === 1
+                && preg_match('/^(\s*(?:[-*]|\d+[.)]) {1,4})(`{3,}|~{3,})(.*)$/', $body, $itemFence) === 1
                 && !($itemFence[2][0] === '`' && str_contains($itemFence[3], '`'))
             ) {
                 $info = ltrim($itemFence[3]);
