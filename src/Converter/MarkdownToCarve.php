@@ -276,6 +276,16 @@ class MarkdownToCarve
                 continue;
             }
 
+            // An empty item has no bare spelling in Carve (CARVE-P2-009), so
+            // it takes the first-block form. After text a bare `-` is a setext underline.
+            if (
+                $prevLineType !== 'text'
+                && ($listCols === [] || strspn($line, ' ') < (int)end($listCols))
+                && preg_match('/^([-*+]|\d{1,9}[.)])[ \t]*$/', $trimmed) === 1
+            ) {
+                $line = rtrim($line, " \t") . ' +';
+                $trimmed = $trimmed . ' +';
+            }
             $isBlank = $trimmed === '';
             $isHeading = (bool)preg_match('/^#{1,6}\s/', $trimmed);
             $indent = strlen($line) - strlen(ltrim($line));
