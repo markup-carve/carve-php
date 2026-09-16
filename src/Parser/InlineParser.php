@@ -2325,7 +2325,7 @@ class InlineParser
         // extends to the end of the block (grammar §712), matching carve-js /
         // carve-rs. Previously this returned null, making the opener literal and
         // emitting a spurious empty <code> (`` `a`` `` -> `` `a<code></code> ``).
-        $remaining = rtrim(substr($text, $contentStart), " \t");
+        $remaining = substr($text, $contentStart);
 
         return [
             'node' => new Code($remaining),
