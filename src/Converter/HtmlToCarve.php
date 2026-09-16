@@ -18,8 +18,10 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
@@ -2609,7 +2611,52 @@ class HtmlToCarve
             $carve = $this->convertPass($html);
         } while ($this->unwrappedFormatting !== $marked);
 
-        return $carve;
+        return $this->escapeSmartTypographyRuns($carve);
+    }
+
+    /**
+     * Escape every hyphen or dot run the output would read back as a dash or an
+     * ellipsis, as the writer does (markup-carve/carve-php#2101).
+     *
+     * HTML text holds those glyphs as characters already, so no such run in the
+     * output is intended. The parser decides which runs convert, because the
+     * flag rule depends on the inline slice a run lands in.
+     */
+    protected function escapeSmartTypographyRuns(string $carve): string
+    {
+        if (!str_contains($carve, '--') && !str_contains($carve, '...')) {
+            return $carve;
+        }
+
+        $escape = [];
+        $length = strlen($carve);
+        $walk = function (Node $node) use (&$walk, &$escape, $carve, $length): void {
+            $pos = $node->getPos();
+            if ($node instanceof SmartPunctuation && $pos !== null && in_array($node->getKind(), ['en_dash', 'em_dash', 'ellipsis'], true)) {
+                $char = $node->getKind() === 'ellipsis' ? '.' : '-';
+                // A braced dash's span starts at its `{`.
+                $start = (int)strpos($carve, $char, $pos->startOffset);
+                while ($start > 0 && $carve[$start - 1] === $char && !$this->isEscapedAt($carve, $start - 1)) {
+                    $start--;
+                }
+                for ($i = $start; $i < $length && $carve[$i] === $char; $i++) {
+                    $escape[$i] = true;
+                }
+            }
+            foreach ($node->getChildren() as $child) {
+                $walk($child);
+            }
+        };
+        $walk(CarveConverter::create(parser: new BlockParser(trackPositions: true))->parse($carve));
+        ksort($escape);
+        $out = '';
+        $from = 0;
+        foreach (array_keys($escape) as $offset) {
+            $out .= substr($carve, $from, $offset - $from) . '\\';
+            $from = $offset;
+        }
+
+        return $out . substr($carve, $from);
     }
 
     /**
