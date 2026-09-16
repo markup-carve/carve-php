@@ -5410,7 +5410,10 @@ class HtmlToCarve
     {
         $content = trim($raw);
         if ($content === '') {
-            return '';
+            // WHITESPACE IS CONTENT HERE. The element rendered a space, and the
+            // writer spells that tree `{* *}`; dropping it lost a space the
+            // reader saw (#2114).
+            return $raw === '' ? '' : ' ';
         }
         $withBreak = $this->restoreTrailingHardBreak($content);
         $lead = preg_match('/^\s/', $raw) === 1 && !str_starts_with($content, "\\\n") && $this->paddingIsLost($node, false) ? ' ' : '';
