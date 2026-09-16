@@ -38,6 +38,10 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
                 ['/p[1]/sup[1]/sup[1]/em[1]/sup[1]', '/p[1]/sup[1]/sup[1]', '/p[1]/sup[1]/sup[2]'],
             ],
             'an unwrapped sibling is read as its text' => ['<p><sup><em>a</em><sup>b</sup></sup></p>', "{^{/a/}b^}\n", ['/p[1]/sup[1]/sup[2]']],
+            // E3 refuses a same-kind opener whether either level is bare or braced (markup-carve/carve#2078).
+            'a bare inner level' => ['<p><strong><b>x</b></strong></p>', "*x*\n", ['/p[1]/strong[1]/b[1]']],
+            'a different kind between' => ['<p><strong><em><strong>x</strong></em></strong></p>', "*/x/*\n", ['/p[1]/strong[1]/em[1]/strong[1]']],
+            'a bare outer level' => ['<p>c <strong><b>x<br></b></strong> d</p>', "c {*x\\\n*} d\n", ['/p[1]/strong[2]/b[1]']],
             'two inner spans' => ['<p><sup>a<sup>x</sup>b<sup>y</sup></sup></p>', "{^axby^}\n", ['/p[1]/sup[1]/sup[2]', '/p[1]/sup[1]/sup[4]']],
         ];
     }
@@ -78,9 +82,6 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
     public static function spellable(): array
     {
         return [
-            'a bare inner level' => ['<p><strong><b>x</b></strong></p>', "{**x**}\n"],
-            'a different kind between' => ['<p><strong><em><strong>x</strong></em></strong></p>', "*{/*x*/}*\n"],
-            'a bare outer level' => ['<p>c <strong><b>x<br></b></strong> d</p>', "c *{*x\\\n*}* d\n"],
             'a different kind between, both braced' => ['<p>a<strong><em>x<br></em></strong>b</p>', "a{*{/x\\\n/}*}b\n"],
         ];
     }
@@ -162,7 +163,7 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
         $importer = new HtmlToCarve();
         $importer->convert('<p>q<strong><strong>x</strong>y</strong>q</p>');
 
-        $this->assertSame("q{**x**}q\n", $importer->convert('<p>q<strong><strong>x</strong></strong>q</p>'));
+        $this->assertSame("q{*/x/*}q\n", $importer->convert('<p>q<strong><em>x</em></strong>q</p>'));
     }
 
     public function testTheWriterRefusesTheTree(): void

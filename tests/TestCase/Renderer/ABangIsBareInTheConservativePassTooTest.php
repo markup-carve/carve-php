@@ -28,8 +28,8 @@ class ABangIsBareInTheConservativePassTooTest extends TestCase
     {
         return [
             'the reported shape' => ['a {*a {*!x*} b*} b', "a *a {\\*!x* b*} b\n"],
-            'a trailing bang' => ['a {*a {*x!*} b*} b', "a *a {*x!* b*\\} b\n"],
-            'a bang between letters' => ['a {*a {*p!q*} b*} b', "a *a {*p!q* b*\\} b\n"],
+            'a trailing bang' => ['a {*a {*x!*} b*} b', "a *a {*x!* b*} b\n"],
+            'a bang between letters' => ['a {*a {*p!q*} b*} b', "a *a {*p!q* b*} b\n"],
             'a bang alone' => ['a {*a {*!*} b*} b', "a *a {\\*!* b*} b\n"],
             'two bangs' => ['a {*a {*!!x*} b*} b', "a *a {\\*!!x* b*} b\n"],
             'an italic unit' => ['a {/a {/!x/} b/} b', "a /a {\\/!x/ b/} b\n"],

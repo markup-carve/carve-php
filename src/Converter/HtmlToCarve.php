@@ -433,7 +433,7 @@ class HtmlToCarve
         foreach ($this->unwrappedFormatting as $path) {
             $diagnostics[] = new HtmlImportDiagnostic(
                 'structure-unspellable',
-                'Unwrapped a span inside a braced span of the same kind, which has no Carve spelling',
+                'Unwrapped a span inside a span of the same kind, which has no Carve spelling',
                 'warning',
                 $path,
             );
@@ -3049,7 +3049,7 @@ class HtmlToCarve
     /**
      * Node paths of the formatting elements written braced in this pass.
      *
-     * @var array<string, true>
+     * @var array<string, bool>
      */
     protected array $bracedFormatting = [];
 
@@ -5284,21 +5284,21 @@ class HtmlToCarve
     }
 
     /**
-     * Record how a formatting element was written. A braced one marks each
-     * braced span of its kind inside it for unwrapping: PART 9 §9 E3 leaves
-     * that opener literal at any depth (PART 11 §1c).
+     * Record how a formatting element was written, and mark every span of its
+     * own kind inside it for unwrapping: PART 9 §9 E3 leaves that opener
+     * literal at any depth, bare or braced (PART 11 §1c,
+     * markup-carve/carve#2078).
      */
     protected function recordFormatting(DOMElement $node, string $kind, bool $braced): void
     {
-        if ($braced) {
-            foreach ($node->getElementsByTagName('*') as $inner) {
-                $key = (string)$inner->getNodePath();
-                if ($this->formattingKind($inner) === $kind && isset($this->bracedFormatting[$key])) {
-                    $this->unwrappedFormatting[$key] = $this->conversionNodePath($inner);
-                }
+        foreach ($node->getElementsByTagName('*') as $inner) {
+            $key = (string)$inner->getNodePath();
+            if ($this->formattingKind($inner) === $kind && isset($this->bracedFormatting[$key])) {
+                $this->unwrappedFormatting[$key] = $this->conversionNodePath($inner);
             }
-            $this->bracedFormatting[(string)$node->getNodePath()] = true;
         }
+        // Every written span is recorded, bare or braced, since E3 refuses both.
+        $this->bracedFormatting[(string)$node->getNodePath()] = $braced;
     }
 
     /**

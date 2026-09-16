@@ -45,6 +45,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A span opener of a kind already open is literal, bare or forced** (#2111): `*a {*b*} c*` and `{*a *b* c*}` no longer nest. The Carve writer throws `SourceUnspellableException` for a span inside a span of its kind, and the HTML importer writes the inner one as its content and reports `structure-unspellable`.
 - The Markdown renderer moves emphasis padding outside the delimiters, so content that begins or ends with whitespace still reads as emphasis rather than literal text; content that is only whitespace falls back to inline HTML (markup-carve/carve-js#1683).
 - HTML migrations that exceed the diagnostic limit now print a clean CLI error
   and exit with status 2 instead of terminating with an uncaught exception.

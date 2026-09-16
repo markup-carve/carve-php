@@ -161,13 +161,6 @@ class CarveRenderer implements RendererInterface
     protected array $edgeCellBreaks = [];
 
     /**
-     * Object ids of the inline spans written in the braced form.
-     *
-     * @var array<int, true>
-     */
-    protected array $bracedSpans = [];
-
-    /**
      * Inside an inline note's content, where `^[` opens nothing.
      *
      * PART 9 §16: a note's content is parsed with footnote recognition
@@ -516,7 +509,6 @@ class CarveRenderer implements RendererInterface
         $this->verbatimSentinels = $this->pickVerbatimSentinels($this->collectStrings($document));
         $this->treeCacheSource = null;
         $this->treeCache = null;
-        $this->bracedSpans = [];
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
         if ($minimal === $conservative) {
@@ -3370,29 +3362,24 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * Refuse a braced span holding a braced span of the same kind at any depth:
-     * PART 9 §9 E3 leaves the inner opener literal (PART 11 §1c).
+     * Refuse a span holding a span of the same kind at any depth: PART 9 §9 E3
+     * leaves the inner opener literal whichever way it is spelled, bare or
+     * forced (PART 11 §1c, markup-carve/carve#2078).
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
     protected function spellSameKind(Node $node, string $delimiter, string $written): string
     {
-        $braced = str_starts_with($written, '{' . $delimiter);
-        if ($braced) {
-            $pending = $node->getChildren();
-            while ($pending !== []) {
-                $child = array_shift($pending);
-                if ($child::class === $node::class && isset($this->bracedSpans[spl_object_id($child)])) {
-                    throw new SourceUnspellableException(
-                        $node->getType(),
-                        'a braced span inside a braced span of the same kind has no Carve source spelling',
-                    );
-                }
-                array_push($pending, ...$child->getChildren());
+        $pending = $node->getChildren();
+        while ($pending !== []) {
+            $child = array_shift($pending);
+            if ($child::class === $node::class) {
+                throw new SourceUnspellableException(
+                    $node->getType(),
+                    'a span inside a span of the same kind has no Carve source spelling',
+                );
             }
-            $this->bracedSpans[spl_object_id($node)] = true;
-        } else {
-            unset($this->bracedSpans[spl_object_id($node)]);
+            array_push($pending, ...$child->getChildren());
         }
 
         return $written;

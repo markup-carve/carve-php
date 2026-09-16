@@ -2833,6 +2833,29 @@ class InlineParser
     }
 
     /**
+     * The span kinds open around the text being parsed, bare and forced alike.
+     *
+     * PART 9 section 9 E3: a further opener of an open kind is literal, and a
+     * forced span pushes and pops on the same stack (markup-carve/carve#2078).
+     *
+     * @var array<int, string>
+     */
+    protected array $openSpanKinds = [];
+
+    /**
+     * Parse $content as the children of $node with $kind open around it.
+     */
+    protected function parseSpanContent(Node $node, string $content, int $offset, string $kind): void
+    {
+        $this->openSpanKinds[] = $kind;
+        try {
+            $this->parseInlinesAt($node, $content, $offset);
+        } finally {
+            array_pop($this->openSpanKinds);
+        }
+    }
+
+    /**
      * Parse delimited inline elements like _emphasis_ or *strong*
      *
      * @param string $delimiter
@@ -2844,6 +2867,11 @@ class InlineParser
      */
     protected function parseDelimited(string $text, int $pos, string $delimiter, string $nodeClass): ?array
     {
+        // E3: an opener of a kind already open is literal.
+        if (in_array($delimiter, $this->openSpanKinds, true)) {
+            return null;
+        }
+
         $length = strlen($text);
 
         // Reset the per-text no-closer memo when the scanned string changes.
@@ -2956,7 +2984,11 @@ class InlineParser
                 }
             }
 
-            if ($char === '{') {
+            // A FORCED OPENER OF THE OPEN KIND IS CONTENT (PART 9 section 9
+            // E3), so the scan does not step over it and the `X` before its
+            // `}` is a closer candidate. A substitution is a construct of its
+            // own, not a span of this kind, and stays opaque as E2a names it.
+            if ($char === '{' && (($text[$searchPos + 1] ?? '') !== $delimiter || $this->substitutionEnd($text, $searchPos) !== null)) {
                 $bracedEnd = $this->bracedInlineEnd($text, $searchPos);
                 if ($bracedEnd !== null) {
                     $searchPos = $bracedEnd;
@@ -3040,7 +3072,7 @@ class InlineParser
                     }
 
                     $node = new $nodeClass();
-                    $this->parseInlinesAt($node, $content, $pos + 1);
+                    $this->parseSpanContent($node, $content, $pos + 1, $delimiter);
 
                     $endPos = $actualClose + 1;
 
@@ -3309,7 +3341,7 @@ class InlineParser
             if ($text[$searchPos] === $marker && $text[$searchPos + 1] === '}') {
                 $content = substr($text, $pos + 2, $searchPos - $pos - 2);
                 $node = new $nodeClass();
-                $this->parseInlinesAt($node, $content, $pos + 2);
+                $this->parseSpanContent($node, $content, $pos + 2, $marker);
 
                 $endPos = $searchPos + 2;
 
@@ -4061,6 +4093,24 @@ class InlineParser
      * Mirrors parseEditorialComment() and parseBracedInline() without building
      * nodes; a trailing attribute block is not part of it.
      */
+
+    /**
+     * End (exclusive) of the substitution at $pos, or null where the pair holds
+     * no top-level arrow and is a forced strikethrough instead.
+     */
+    protected function substitutionEnd(string $text, int $pos): ?int
+    {
+        if (($text[$pos + 1] ?? '') !== '~' || !$this->closerExistsFrom($text, '~}', $pos + 2)) {
+            return null;
+        }
+        $close = strpos($text, '~}', $pos + 2);
+        if ($close === false) {
+            return null;
+        }
+
+        return str_contains(substr($text, $pos + 2, $close - $pos - 2), '~>') ? $close + 2 : null;
+    }
+
     protected function bracedInlineEnd(string $text, int $pos): ?int
     {
         $marker = $text[$pos + 1] ?? '';
