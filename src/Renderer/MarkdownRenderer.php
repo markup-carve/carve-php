@@ -1942,7 +1942,43 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // the `[label](#id)` link pointing at it resolves to a real anchor.
         $suffix = isset($this->referencedHeadingIds[$id]) ? ' {#' . $id . '}' : '';
 
-        return $prefix . $text . $suffix . "\n\n";
+        return $prefix . ($suffix === '' ? $this->keepTrailingHashRun($text) : $text) . $suffix . "\n\n";
+    }
+
+    /**
+     * Keep the escape on a heading line's trailing run of hashes (PART 11 §8a
+     * M1f). Every CommonMark reader takes such a run as the ATX closing
+     * sequence and drops it, so `# a ##` reaches the reader as `a`. The escape
+     * goes on the run's FIRST hash: the rest no longer follow a space.
+     *
+     * Only a run a space or tab opens is a closing sequence, and only at the
+     * line's end - so a heading carrying a `{#id}` suffix has none, and neither
+     * has `# a##`.
+     */
+    protected function keepTrailingHashRun(string $text): string
+    {
+        $undecided = $this->authoredSentinels['#'];
+        $width = strlen($undecided);
+
+        $end = strlen($text);
+        $at = $end;
+        while ($at >= $width && substr($text, $at - $width, $width) === $undecided) {
+            $at -= $width;
+        }
+
+        if ($at === $end) {
+            return $text;
+        }
+
+        // The `# ` the writer puts in front is the space a whole-text run opens
+        // against. Bytes throughout: no UTF-8 continuation byte is a space or a
+        // tab, so the byte before the run answers it.
+        $opener = $at === 0 ? ' ' : $text[$at - 1];
+        if ($opener !== ' ' && $opener !== "\t") {
+            return $text;
+        }
+
+        return substr($text, 0, $at) . $this->authoredKeptSentinels['#'] . substr($text, $at + $width);
     }
 
     protected function renderCodeBlock(CodeBlock $node): string
