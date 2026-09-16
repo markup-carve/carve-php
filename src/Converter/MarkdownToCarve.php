@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+use Closure;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use RuntimeException;
 
@@ -69,6 +70,21 @@ class MarkdownToCarve
     protected bool $convertAbbreviations = false;
 
     /**
+     * Normalized labels whose first reference definition has an empty
+     * destination, mapped to that definition's decoded title.
+     *
+     * @var array<string, string>
+     */
+    protected array $emptyDestinationLabels = [];
+
+    /**
+     * Every normalized reference definition label.
+     *
+     * @var array<string, true>
+     */
+    protected array $definedReferenceLabels = [];
+
+    /**
      * When true, carry `::: note` fences across as Carve containers (Pandoc /
      * Quarto fenced divs). Default false: in CommonMark both fence lines are
      * paragraph text, and left bare they disappeared from the render and
@@ -117,7 +133,7 @@ class MarkdownToCarve
         // the opening `---` becomes a thematic break and the closing one a
         // setext underline, turning `description: y` into an `##` heading.
         $frontmatter = $this->splitFrontmatter($allLines);
-        $lines = array_slice($allLines, count($frontmatter));
+        $lines = $this->removeEmptyDestinationDefinitions(array_slice($allLines, count($frontmatter)));
         $result = [];
         $inCodeBlock = false;
         $fenceChar = '';
@@ -1379,8 +1395,58 @@ class MarkdownToCarve
             $line,
         ) ?? $line;
 
+        // CommonMark links an empty destination; Carve reads `[t]()` as literal
+        // text, so a link is written as its text and an image as its alt text
+        // (markup-carve/carve#2069).
+        $label = '(?<label>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)';
+        $unwrap = function (array $match, string $title, string $subject) use ($protected, $protect): string {
+            return $this->unwrapEmptyDestination(
+                $match['label'][0],
+                $match[0][0][0] === '!',
+                $title,
+                substr($subject, 0, $match[0][1]),
+                $protected,
+                $protect,
+            );
+        };
+        if ($this->emptyDestinationLabels !== []) {
+            $unwrapReference = function (array $match, string $reference, string $subject) use ($protected, $unwrap): string {
+                $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected));
+                if (!isset($this->emptyDestinationLabels[$key])) {
+                    return $match[0][0];
+                }
+
+                return $unwrap($match, $this->emptyDestinationLabels[$key], $subject);
+            };
+            $subject = $line;
+            $line = preg_replace_callback(
+                '/!?\[' . $label . '\](?:\[\]|\[(?<reference>[^[\]\n]+)\])/',
+                fn (array $match): string => $unwrapReference($match, isset($match['reference']) && $match['reference'][1] >= 0 ? $match['reference'][0] : $match['label'][0], $subject),
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+            $subject = $line;
+            $line = preg_replace_callback(
+                '/!?\[(?<label>[^[\]\n]+)\](?![[(:])/',
+                fn (array $match): string => $unwrapReference($match, $match['label'][0], $subject),
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+        }
+        $subject = $line;
+        $line = preg_replace_callback(
+            '/!?\[' . $label . '\]\([ \t]*(?:<>(?:[ \t]+(?<title>"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)?\)/',
+            fn (array $match): string => $unwrap(
+                $match,
+                isset($match['title']) && $match['title'][1] >= 0 ? $this->decodeLinkTitle(substr($match['title'][0], 1, -1), $protected) : '',
+                $subject,
+            ),
+            $line,
+            flags: PREG_OFFSET_CAPTURE,
+        ) ?? $line;
+
         $encodeDest = static function (string $paren): string {
-            $inner = substr($paren, 1, -1);
+            $inner = trim(substr($paren, 1, -1), " \t");
             if (preg_match('/^(\S+)([\s\S]*)$/', $inner, $matches)) {
                 $url = $matches[1];
                 $rest = $matches[2];
@@ -1516,6 +1582,249 @@ class MarkdownToCarve
         } while ($line !== $previous);
 
         return $line;
+    }
+
+    /**
+     * Drop reference definitions with an empty destination, recording each
+     * label whose FIRST definition is one (CommonMark: the first one wins).
+     *
+     * @param array<string> $lines
+     *
+     * @return array<string>
+     */
+    protected function removeEmptyDestinationDefinitions(array $lines): array
+    {
+        $this->emptyDestinationLabels = [];
+        $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
+        $quote = '/^((?: {0,3}>[ \t]?)*)/';
+        $defined = [];
+        $kept = [];
+        $fence = null;
+        $htmlCloser = null;
+        $blockDepth = 0;
+        $blockList = 0;
+        $canStart = true;
+        $depth = 0;
+        $listIndent = 0;
+        $count = count($lines);
+        for ($i = 0; $i < $count; $i++) {
+            $line = $lines[$i];
+            $prefix = preg_match($quote, $line, $parts) === 1 ? $parts[1] : '';
+            $content = substr($line, strlen($prefix));
+            $quotePrefix = $prefix;
+            $lineDepth = substr_count($prefix, '>');
+            $opensItem = false;
+            // Leaving the container ends a fence or HTML block opened in it.
+            if (
+                ($fence !== null || $htmlCloser !== null)
+                && ($lineDepth < $blockDepth || ($blockList > 0 && $quotePrefix === '' && trim($line) !== '' && strspn($line, ' ') < $blockList))
+            ) {
+                $fence = null;
+                $htmlCloser = null;
+                $canStart = true;
+            }
+            if ($htmlCloser !== null) {
+                if (preg_match($htmlCloser, $line) === 1) {
+                    $htmlCloser = null;
+                    $canStart = true;
+                }
+                $kept[] = $line;
+
+                continue;
+            }
+            if ($fence === null && preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $content) !== 1 && preg_match('/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?=\S)/', $content, $marker) === 1) {
+                $prefix .= $marker[0];
+                $content = substr($content, strlen($marker[0]));
+                $listIndent = strlen($prefix);
+                $opensItem = true;
+            } elseif ($listIndent > 0 && trim($content) !== '') {
+                if (strspn($line, ' ') >= $listIndent) {
+                    $content = substr($line, $listIndent);
+                } else {
+                    $listIndent = 0;
+                }
+            }
+            if ($fence !== null) {
+                if (preg_match('/^ {0,3}(`{3,}|~{3,})[ \t]*$/', $content, $close) === 1 && $close[1][0] === $fence[0] && strlen($close[1]) >= strlen($fence)) {
+                    $fence = null;
+                    $canStart = true;
+                }
+                $kept[] = $line;
+                $depth = $lineDepth;
+
+                continue;
+            }
+            if (preg_match('/^ {0,3}(`{3,}|~{3,})/', $content, $open) === 1) {
+                $fence = $open[1];
+                $blockDepth = $lineDepth;
+                $blockList = $listIndent;
+                $kept[] = $line;
+                $depth = $lineDepth;
+
+                continue;
+            }
+            $closer = $this->htmlBlockCloser(ltrim($content, ' '));
+            if ($closer !== null && strspn($content, ' ') <= 3) {
+                if (preg_match($closer, substr(ltrim($content, ' '), 2)) !== 1) {
+                    $htmlCloser = $closer;
+                    $blockDepth = $lineDepth;
+                    $blockList = $listIndent;
+                }
+                $kept[] = $line;
+                $depth = $lineDepth;
+                $canStart = true;
+
+                continue;
+            }
+            // A deeper quote opens a block; a shallower line is lazy continuation.
+            if (
+                ($canStart || $opensItem || $lineDepth > $depth)
+                && preg_match('/^ {0,3}\[((?:[^[\]\\\\]|\\\\.)+)\]:(.*)$/', $content, $definition) === 1
+                && preg_match('/^[ \t]*(?:(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*)?$/', $definition[2]) === 1
+            ) {
+                $depth = $lineDepth;
+                $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]));
+                $continued = [];
+                if (
+                    trim($definition[2]) === ''
+                    && $i + 1 < $count
+                    && str_starts_with($lines[$i + 1], $quotePrefix)
+                    && preg_match('/^[ \t]*(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix))) === 1
+                ) {
+                    $continued[] = $lines[++$i];
+                    $definition[2] = substr($continued[0], strlen($quotePrefix));
+                }
+                if (preg_match('/^[ \t]*<>(?:[ \t]+' . $title . ')?[ \t]*$/', $definition[2], $empty) !== 1) {
+                    $defined[$key] = true;
+                    array_push($kept, $line, ...$continued);
+                    $canStart = true;
+
+                    continue;
+                }
+                $raw = $empty[1] ?? '';
+                if (
+                    $raw === ''
+                    && $i + 1 < $count
+                    && str_starts_with($lines[$i + 1], $quotePrefix)
+                    && preg_match('/^[ \t]*' . $title . '[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix)), $next) === 1
+                ) {
+                    $raw = $next[1];
+                    $i++;
+                }
+                if (!isset($defined[$key])) {
+                    $this->emptyDestinationLabels[$key] = $raw === '' ? '' : $this->decodeLinkTitle(substr($raw, 1, -1));
+                }
+                $defined[$key] = true;
+                $canStart = true;
+                // A quote keeps its line; an emptied list item is dropped, as Carve cannot spell one.
+                if ($quotePrefix !== '') {
+                    $kept[] = $quotePrefix;
+                } elseif (($kept === [] || trim(end($kept)) === '') && $i + 1 < $count && trim($lines[$i + 1]) === '') {
+                    $i++;
+                }
+
+                continue;
+            }
+            $kept[] = $line;
+            $depth = $lineDepth;
+            $canStart = trim($content) === ''
+                || preg_match('/^ {0,3}(?:#{1,6}(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$|=+[ \t]*$)/', $content) === 1;
+        }
+
+        $this->definedReferenceLabels = $defined;
+
+        return $kept;
+    }
+
+    /**
+     * The Carve a link or image with no destination leaves behind: a link's
+     * text, or an image's plain alt text written as the HTML importer writes
+     * `<img src="">`, in a span when a title survives.
+     *
+     * @param string $label
+     * @param bool $image
+     * @param string $title Decoded title, or empty.
+     * @param string $before The line up to the link.
+     * @param array<string> $protected
+     * @param \Closure(string): string $protect
+     */
+    protected function unwrapEmptyDestination(string $label, bool $image, string $title, string $before, array $protected, Closure $protect): string
+    {
+        // Bare at the start of a line or container, the text would open a block.
+        $lineStart = preg_match('/^[ \t]*(?:(?:>|[-*+]|(?:[0-9]{1,9}|[A-Za-z])[.)])[ \t]+|>)*$/', $before) === 1;
+        if ($image) {
+            $html = '<p><img src="" alt="' . htmlspecialchars($this->plainAltText($label, $protected), ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"'
+                . ($title === '' ? '' : ' title="' . htmlspecialchars($title, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"') . '></p>';
+            $text = trim((new HtmlToCarve())->convert($html), "\n");
+
+            return $protect($lineStart ? $this->escapeLineInitialBlockSyntax($text) : $text);
+        }
+        if ($title === '') {
+            return $lineStart ? $this->escapeLineInitialBlockSyntax($label) : $label;
+        }
+
+        return '[' . $label . ']' . $protect('{title=' . $this->quoteAttributeValue($title) . '}');
+    }
+
+    /**
+     * CommonMark's alt text: the description's content with its markup removed.
+     *
+     * @param string $label
+     * @param array<string> $protected
+     */
+    protected function plainAltText(string $label, array $protected): string
+    {
+        do {
+            $previous = $label;
+            $label = preg_replace('/!?\[((?:[^[\]\n]|(\[(?:[^[\]\n]|(?-1))*\]))*)\]\([^()\n]*\)/', '$1', $label) ?? $label;
+            $label = preg_replace_callback(
+                '/!?\[(?<text>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)\](?:\[(?<reference>[^[\]\n]*)\])?(?![[(:])/',
+                fn (array $match): string => isset($this->definedReferenceLabels[$this->normalizeReferenceLabel(
+                    $this->decodeLinkTitle(($match['reference'] ?? '') !== '' ? $match['reference'] : $match['text'], $protected),
+                )]) ? $match['text'] : $match[0],
+                $label,
+            ) ?? $label;
+            $label = preg_replace('/(\*{1,3}|_{1,3}|~~)(?!\s)(.+?)(?<!\s)\1/', '$2', $label) ?? $label;
+        } while ($label !== $previous);
+
+        return preg_replace_callback(
+            '/\x00P(\d+)\x00/',
+            function (array $match) use ($protected): string {
+                $span = $protected[(int)$match[1]];
+                if (preg_match('/^(`+)(.*)\1$/s', $span, $code) === 1) {
+                    return preg_match('/^ (.*\S.*) $/s', $code[2], $padded) === 1 ? $padded[1] : $code[2];
+                }
+
+                return $this->decodeLinkTitle($span, $protected);
+            },
+            $label,
+        ) ?? $label;
+    }
+
+    protected function normalizeReferenceLabel(string $label): string
+    {
+        return mb_convert_case(preg_replace('/\s+/u', ' ', trim($label)) ?? $label, MB_CASE_FOLD, 'UTF-8');
+    }
+
+    /**
+     * A title's text: backslash escapes and character references decoded,
+     * protected spans decoded one at a time so their output is not read again.
+     *
+     * @param string $title
+     * @param array<string> $protected
+     */
+    protected function decodeLinkTitle(string $title, array $protected = []): string
+    {
+        return preg_replace_callback(
+            '/\x00P(\d+)\x00|\\\\([!-\/:-@\[-`{-~])|&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
+            fn (array $match): string => match (true) {
+                $match[1] !== null => $this->decodeLinkTitle($protected[(int)$match[1]], $protected),
+                $match[2] !== null => $match[2],
+                default => html_entity_decode($match[0], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            },
+            $title,
+            flags: PREG_UNMATCHED_AS_NULL,
+        ) ?? $title;
     }
 
     protected function verbatimHtmlInline(string $html): string

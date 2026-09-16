@@ -83,6 +83,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Include expansion keeps the host's span on a merged text run, and an unresolved target's id names where the file would appear** (#2025, #2045).
 - **The ProseMirror bridge keeps two abutting links apart** (#2027), and declares the boundary two abutting spans of one mark lose (#2016).
 - **The borrowed-HTML fast path does not open a marker right after a closer of the same marker** (#2019).
+- **The Markdown importer writes a link or image with an empty destination as its text** (#2067), since Carve reads `[x]()` as literal text. An image becomes its plain alt text, and a title keeps a span.
 
 ## [0.1.7] - 2026-09-07
 

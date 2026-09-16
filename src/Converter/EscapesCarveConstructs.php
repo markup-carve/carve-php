@@ -6,6 +6,15 @@ namespace MarkupCarve\Carve\Converter;
 
 trait EscapesCarveConstructs
 {
+    protected function quoteAttributeValue(string $value): string
+    {
+        if (preg_match('/^[^\s"\'{}]+$/u', $value) === 1) {
+            return $value;
+        }
+
+        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
+    }
+
     /**
      * The braced-pair delimiters that may be literal text in source languages.
      *

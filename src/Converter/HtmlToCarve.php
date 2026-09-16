@@ -4320,15 +4320,6 @@ class HtmlToCarve
      * moment it met `carve fmt`, and it disagreed with carve-js and carve-rs on
      * the same input.
      */
-    protected function quoteAttributeValue(string $value): string
-    {
-        if (preg_match('/^[^\s"\'{}]+$/u', $value) === 1) {
-            return $value;
-        }
-
-        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
-    }
-
     protected function quoteLinkTitle(string $title): string
     {
         return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $title) . '"';
