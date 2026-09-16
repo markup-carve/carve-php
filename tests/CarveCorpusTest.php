@@ -881,6 +881,16 @@ class CarveCorpusTest extends TestCase
         // document by this test.
         'a-column-0-line-after-a-description-hosted-note-is-a-document-sibling',
         'include-directive-with-no-resolver-renders-literal',
+        // ARRIVED WITH THE PIN BUMP TO carve 2dc81f8. The engine work landed in
+        // carve-php#2005 (463), #2002 (467) and #2008 (468); 464, 465 and 466
+        // needed none. Every category renders byte-identically to its corpus
+        // HTML on this engine, verified per document by this test.
+        'a-bare-closer-does-not-reach-inside-a-braced-inline',
+        'a-bare-closer-does-not-reach-inside-a-link-destination',
+        'a-block-that-opens-a-tight-item-is-written-on-the-marker-line',
+        'an-underscore-pair-in-text-is-escaped-where-the-line-would-pair-it',
+        'an-underscore-pair-split-across-a-line-break-is-escaped',
+        'the-round-trip-comparison-normalizes-a-named-list',
     ];
 
     /**
