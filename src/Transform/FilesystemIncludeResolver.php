@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Transform;
 
+use MarkupCarve\Carve\Exception\UnresolvedIncludeException;
 use RuntimeException;
 
 /**
@@ -96,7 +97,10 @@ class FilesystemIncludeResolver implements IncludeResolverInterface
         }
 
         if (!is_file($real)) {
-            throw new RuntimeException("Include target not found: {$path}");
+            // I11: nothing is there, so the target is named by where it WOULD
+            // be, which is the path a host watches. Only a CONTAINED candidate
+            // reaches this line, so an escape still keeps its spelling.
+            throw new UnresolvedIncludeException("Include target not found: {$path}", $real);
         }
 
         if ($this->maxFileBytes !== null) {
