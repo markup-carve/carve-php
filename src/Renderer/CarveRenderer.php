@@ -300,6 +300,15 @@ class CarveRenderer implements RendererInterface
     protected const NOT_OFFERED_PER_OCCURRENCE = '\\`"\'^!$';
 
     /**
+     * What separates two backtick runs that would otherwise merge: an empty
+     * delimited comment, which renders nothing and compares equal to nothing
+     * (PART 11 section 10k N3, ruled on markup-carve/carve-js#1818).
+     *
+     * @var string
+     */
+    protected const VERBATIM_SEPARATOR = '{%  %}';
+
+    /**
      * Which units the occurrence search numbers, keyed by `spl_object_id`, so
      * a key survives a re-render.
      *
@@ -2978,6 +2987,11 @@ class CarveRenderer implements RendererInterface
                         }
                     }
                     $this->refuseGluedMention($node, $nodes[$i - 1] ?? null, $out, $previousRendered, $rendered);
+                    // Two backtick runs that touch merge into one run, so an
+                    // empty delimited comment separates them (PART 11 section 10k N3).
+                    if (str_starts_with($rendered, '`') && self::endsInABareBacktickRun($out)) {
+                        $out .= self::VERBATIM_SEPARATOR;
+                    }
                     $out .= $rendered;
                     $previousRendered = $rendered;
                     if ($node instanceof SoftBreak) {
@@ -4625,6 +4639,16 @@ class CarveRenderer implements RendererInterface
     private static function sigilType(string $sigil): string
     {
         return $sigil === '#' ? 'tag' : 'mention';
+    }
+
+    /**
+     * Does this written run end in a backtick run the next one would merge with?
+     */
+    private static function endsInABareBacktickRun(string $written): bool
+    {
+        $run = strlen($written) - strlen(rtrim($written, '`'));
+
+        return $run > 0 && self::backslashRunBefore($written, strlen($written) - $run) % 2 === 0;
     }
 
     private static function backslashRunBefore(string $text, int $offset): int

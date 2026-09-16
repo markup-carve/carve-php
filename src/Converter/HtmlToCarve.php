@@ -2950,6 +2950,25 @@ class HtmlToCarve
     }
 
     /**
+     * What separates two backtick runs that would otherwise merge into one:
+     * an empty delimited comment, the separator the Carve writer writes
+     * (markup-carve/carve-php#2107).
+     *
+     * @var string
+     */
+    protected const VERBATIM_SEPARATOR = '{%  %}';
+
+    /**
+     * Does this written run end in a backtick run the next one would merge with?
+     */
+    protected function endsInABareBacktickRun(string $written): bool
+    {
+        $run = strlen($written) - strlen(rtrim($written, '`'));
+
+        return $run > 0 && !$this->isEscapedAt($written, strlen($written) - $run);
+    }
+
+    /**
      * Build a bracketed label's content, whose text then escapes `[` and `]`.
      *
      * The content is Carve already when it returns, so escaping it afterwards
@@ -2978,6 +2997,12 @@ class HtmlToCarve
             }
             if (str_starts_with($part, '[')) {
                 $output = $this->escapeExtensionOpenerAtEnd($output);
+            }
+            // Two backtick runs that touch merge into one, so an empty
+            // delimited comment separates them, as the Carve writer writes it
+            // (PART 11 section 10k N3).
+            if (str_starts_with($part, '`') && $this->endsInABareBacktickRun($output)) {
+                $output .= self::VERBATIM_SEPARATOR;
             }
             $output .= $part;
         }
