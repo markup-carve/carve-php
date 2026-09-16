@@ -316,9 +316,25 @@ trait EscapesCarveConstructs
         // leaves a URL alone, since `http://x` has a letter before its colon.
         if (!str_contains($bareHandled, ':')) {
             $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9_]):(?=[A-Za-z0-9+-][\w+-]*:)/', $line);
+            // `:name[` opens an inline extension, intraword too (PART 3 `extension_inline`).
+            $line = $this->escapeUnlessAlreadyEscaped('/:(?=[A-Za-z_][A-Za-z0-9_-]*\[)/', $line);
         }
 
         return $line;
+    }
+
+    /**
+     * Escape the colon of a `:name` the text ends on, for a following node
+     * whose spelling opens with `[` (markup-carve/carve#2068).
+     */
+    protected function escapeExtensionOpenerAtEnd(string $text): string
+    {
+        if (preg_match('/:[A-Za-z_][A-Za-z0-9_-]*$/', $text, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            return $text;
+        }
+        $colon = $match[0][1];
+
+        return substr($text, 0, $colon) . '\\' . substr($text, $colon);
     }
 
     /**

@@ -2960,6 +2960,14 @@ class CarveRenderer implements RendererInterface
                     ) {
                         $out = substr($out, 0, -1) . '\\^';
                     }
+                    // A bare `:name` the previous node ended on opens an inline
+                    // extension against that `[` (markup-carve/carve#2068).
+                    if (str_starts_with($rendered, '[') && preg_match('/:[A-Za-z_][A-Za-z0-9_-]*$/', $out, $name, PREG_OFFSET_CAPTURE) === 1) {
+                        $colon = $name[0][1];
+                        if (self::backslashRunBefore($out, $colon) % 2 === 0) {
+                            $out = substr($out, 0, $colon) . '\\' . substr($out, $colon);
+                        }
+                    }
                     $out .= $rendered;
                     if ($node instanceof SoftBreak) {
                         $captionCanOpen = $isFirstInlineLine && $lineNodeCount === 1 && $lineHostsCaption;

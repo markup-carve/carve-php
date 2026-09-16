@@ -2867,6 +2867,9 @@ class HtmlToCarve
             if (str_starts_with($part, '[') && str_ends_with($output, '^')) {
                 $output = substr($output, 0, -1) . '\\^';
             }
+            if (str_starts_with($part, '[')) {
+                $output = $this->escapeExtensionOpenerAtEnd($output);
+            }
             $output .= $part;
         }
 
