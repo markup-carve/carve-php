@@ -31,6 +31,7 @@ class AnEmptyMarkdownDestinationIsNotALinkTest extends TestCase
             'an image is written as its plain alt text' => ['![a *b* `c` [d](u) \\* &amp;]()', 'a b c d * &'],
             'an image alt drops a code span\'s padding' => ['![a `` `x` `` b]()', 'a \\`x\\` b'],
             'an image at the start of a line escapes its block opener' => ['![- x]()', '\\- x'],
+            'an image alt drops defined reference links only' => ["![a [b][r] [r][] [r] [z]]()\n\n[r]: /u", "a b r r [z]\n\n[r]: /u"],
             'deeply nested brackets' => ['[a [b [c]]]()', 'a [b [c]]'],
             'the label keeps its formatting' => ['pre [a *b* `c`]() post', 'pre a /b/ `c` post'],
             'a full reference' => ["[w][r]\n\n[r]: <>", 'w'],

@@ -78,6 +78,13 @@ class MarkdownToCarve
     protected array $emptyDestinationLabels = [];
 
     /**
+     * Every normalized reference definition label.
+     *
+     * @var array<string, true>
+     */
+    protected array $definedReferenceLabels = [];
+
+    /**
      * When true, carry `::: note` fences across as Carve containers (Pandoc /
      * Quarto fenced divs). Default false: in CommonMark both fence lines are
      * paragraph text, and left bare they disappeared from the render and
@@ -1724,6 +1731,8 @@ class MarkdownToCarve
                 || preg_match('/^ {0,3}(?:#{1,6}(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$|=+[ \t]*$)/', $content) === 1;
         }
 
+        $this->definedReferenceLabels = $defined;
+
         return $kept;
     }
 
@@ -1768,6 +1777,13 @@ class MarkdownToCarve
         do {
             $previous = $label;
             $label = preg_replace('/!?\[((?:[^[\]\n]|(\[(?:[^[\]\n]|(?-1))*\]))*)\]\([^()\n]*\)/', '$1', $label) ?? $label;
+            $label = preg_replace_callback(
+                '/!?\[(?<text>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)\](?:\[(?<reference>[^[\]\n]*)\])?(?![[(:])/',
+                fn (array $match): string => isset($this->definedReferenceLabels[$this->normalizeReferenceLabel(
+                    $this->decodeLinkTitle(($match['reference'] ?? '') !== '' ? $match['reference'] : $match['text'], $protected),
+                )]) ? $match['text'] : $match[0],
+                $label,
+            ) ?? $label;
             $label = preg_replace('/(\*{1,3}|_{1,3}|~~)(?!\s)(.+?)(?<!\s)\1/', '$2', $label) ?? $label;
         } while ($label !== $previous);
 
