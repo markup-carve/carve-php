@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Performance;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Performance\BorrowedHtmlLayout;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class BorrowedHtmlLayoutTest extends TestCase
@@ -95,6 +96,64 @@ CRV;
         ) {
             $this->assertNull($layout->render($source), $source);
         }
+    }
+
+    /**
+     * `bare_opener` (CARVE-P3-013) refuses a marker preceded by the same
+     * marker, so the second run of `/x//y/` is text. The facade read it as a
+     * second span, which is the one thing it may never do: `convert()` and
+     * `HtmlRenderer` over `parse()` then disagree about the same document
+     * (markup-carve/carve-php#2001).
+     *
+     * @return array<string, array{string}>
+     */
+    public static function sameMarkerProvider(): array
+    {
+        return [
+            'two italic runs' => ["/x//y/\n"],
+            'two strong runs' => ["*x**y*\n"],
+            'in running text' => ["a /x//y/ b\n"],
+            'three runs' => ["/x//y//z/\n"],
+        ];
+    }
+
+    #[DataProvider('sameMarkerProvider')]
+    public function testAMarkerRightAfterASameMarkerCloserHandsTheLineBack(string $source): void
+    {
+        $this->assertNull((new BorrowedHtmlLayout())->render($source), $source);
+    }
+
+    #[DataProvider('sameMarkerProvider')]
+    public function testTheTwoEntryPointsAgreeOnIt(string $source): void
+    {
+        $this->assertSame(
+            $this->authoritative()->convert($source),
+            (new CarveConverter())->convert($source),
+        );
+    }
+
+    /**
+     * The guard is not a blanket refusal of two spans on one line: a marker
+     * that is not preceded by the same marker still takes the facade.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function stillAcceptedProvider(): array
+    {
+        return [
+            'separated by a space' => ["/x/ /y/\n"],
+            'separated by words' => ["a *x* b /y/ c\n"],
+        ];
+    }
+
+    #[DataProvider('stillAcceptedProvider')]
+    public function testASpanTheGuardDoesNotNameStillTakesTheFacade(string $source): void
+    {
+        $this->assertNotNull((new BorrowedHtmlLayout())->render($source), $source);
+        $this->assertSame(
+            $this->authoritative()->convert($source),
+            (new CarveConverter())->convert($source),
+        );
     }
 
     private function authoritative(): CarveConverter
