@@ -154,6 +154,13 @@ class CarveRenderer implements RendererInterface
     protected int $tableCellDepth = 0;
 
     /**
+     * Object ids of the hard breaks at a cell's edge, which write nothing.
+     *
+     * @var array<int, true>
+     */
+    protected array $edgeCellBreaks = [];
+
+    /**
      * Inside an inline note's content, where `^[` opens nothing.
      *
      * PART 9 §16: a note's content is parsed with footnote recognition
@@ -2684,13 +2691,51 @@ class CarveRenderer implements RendererInterface
         $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $inheritHorizontal . $valign . $attrs;
 
         $this->tableCellDepth++;
+        $this->edgeCellBreaks = $this->edgeHardBreaks($cell->getChildren());
         try {
             $content = $this->renderInlines($cell->getChildren());
         } finally {
             $this->tableCellDepth--;
+            $this->edgeCellBreaks = [];
         }
 
         return $this->padCell($prefix, $content);
+    }
+
+    /**
+     * The hard breaks with no content token before or after them in a cell.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     *
+     * @return array<int, true>
+     */
+    protected function edgeHardBreaks(array $children): array
+    {
+        $sequence = [];
+        $walk = function (array $nodes) use (&$walk, &$sequence): void {
+            foreach ($nodes as $node) {
+                if ($node instanceof HardBreak) {
+                    $sequence[] = $node;
+                } elseif ($node->getChildren() !== []) {
+                    $walk($node->getChildren());
+                } elseif (!$node instanceof Text || trim($node->getContent()) !== '') {
+                    $sequence[] = true;
+                }
+            }
+        };
+        $walk($children);
+
+        $edges = [];
+        foreach ([$sequence, array_reverse($sequence)] as $run) {
+            foreach ($run as $entry) {
+                if ($entry === true) {
+                    break;
+                }
+                $edges[spl_object_id($entry)] = true;
+            }
+        }
+
+        return $edges;
     }
 
     protected function renderFigure(Figure $node): string
@@ -3263,7 +3308,8 @@ class CarveRenderer implements RendererInterface
             // A line block's own spelling is decided in renderInlines(), which
             // is the only place that can see the line the break ends
             // (PART 11 §7c) - see verseLineBreak().
-            $node instanceof HardBreak => "\\\n",
+            // A pipe cell is one line and has no hard break: one space (PART 11 §1b).
+            $node instanceof HardBreak => $this->tableCellDepth === 0 ? "\\\n" : (isset($this->edgeCellBreaks[spl_object_id($node)]) ? '' : ' '),
             $node instanceof Insert => $withAttrs('{+' . $this->renderInlines($node->getChildren()) . '+}'),
             $node instanceof Delete => $withAttrs('{-' . $this->renderInlines($node->getChildren()) . '-}'),
             $node instanceof Substitution => '{~' . $this->escapeCriticText($node->getOldText()) . '~>' . $this->escapeCriticText($node->getNewText()) . '~}',
