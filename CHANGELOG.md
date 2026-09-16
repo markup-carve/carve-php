@@ -7,6 +7,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-17
+
 ### Added
 
 - `MentionsExtension` accepts authoritative mention and tag resolver callbacks
@@ -35,13 +37,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - HTML `--report` now uses the version 2 envelope, adding `schemaVersion`,
   `sourceFormat`, and per-diagnostic `fidelity` and `confidence` fields while
   retaining the existing report fields.
-- **The Markdown target spells emphasis and strike differently in several shapes** (#1952, #1967, #1973, #1977, #1983, #1989, #1990, #1993, #1994, #1996, #2006, #2007, #2008). Padding moves outside the delimiters; a run that cannot flank where it stands, or that merges with a neighbouring run, falls back to inline HTML, and of two abutting runs it is the second that takes the fallback (markup-carve/carve#2045); a nested child of the same strength takes it too, while one of a different strength keeps the delimiters; a literal tilde is escaped, and so is an underscore pair the emitted block would read as emphasis (markup-carve/carve#2043, markup-carve/carve#2046).
+- **The Markdown target spells emphasis and strike differently in several shapes** (#1952, #1967, #1973, #1977, #1983, #1989, #1990, #1993, #1994, #1996, #2006, #2007, #2008). Padding moves outside the delimiters; a run that cannot flank where it stands, or that merges with a neighboring run, falls back to inline HTML, and of two abutting runs it is the second that takes the fallback (markup-carve/carve#2045); a nested child of the same strength takes it too, while one of a different strength keeps the delimiters; a literal tilde is escaped, and so is an underscore pair the emitted block would read as emphasis (markup-carve/carve#2043, markup-carve/carve#2046).
 - **The Carve writer changes several shapes** (#1935, #1947, #1951, #2005). A description whose only content is a dropped note round-trips, a percent-leading comment body joins its marker, a sub-list above a line comment in a tight item is closed, and a span whose bare opener cannot open against what precedes it is written in braces.
 - **Rendered output ends in exactly one newline, even when it is empty** (#1941).
 - **The Markdown importer keeps raw HTML verbatim by default** (#1945, #1936, #1972), including attributed and unpaired inline HTML, and imports character references.
 - **The native `|=` header form survives a trailing colspan run** (#2003) in both the Carve writer and the HTML importer.
 - **The Djot importer is named for what it reads** (#1988), rather than calling this engine's own format Djot.
 - **The Carve writer throws `SourceUnspellableException` for an empty code span it cannot spell** (#2055): one with content or attributes after it, inside a link or span label, or in a table cell that is not the row's last. It used to write source that read back as a different tree.
+- **A substitution carries its two halves as inline content** (#2150, markup-carve/carve-js#1827). This breaks AST consumers: the wire `substitution` node holds `old` and `new` arrays of inline nodes instead of the `oldText` and `newText` strings, and `AstCodec::VERSION` is 5. `Substitution::getOld()` and `getNew()` return the halves; `getOldText()` and `getNewText()` still return plain text.
 
 ### Fixed
 
@@ -95,7 +98,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Markdown importer writes a defined shortcut reference as a reference link** (#2086): `[r]` becomes `[r][]`, or `[r][label]` where Carve's exact label match needs the definition's own label.
 - **The HTML importer keeps a space at the edge of a formatting element when it separates the content from a neighbor** (#2079): `<strong>x </strong>y` imports as `{*x *}y`, not `{*x*}y`. Edge whitespace beside a space, a hard break or the end of the block is still trimmed.
 - **A definition-shaped line that continues a Markdown paragraph stays text** (#2082): `text` then `[p]: /x` writes `\[p]: /x`, since a Carve definition can interrupt a paragraph and a CommonMark one cannot.
-- **The Carve writer refuses a mention or tag that carries attributes** (#2083). It used to write a span around strong text, which reads back as a different tree. It now throws `SourceUnspellableException`, so a Tiptap mention with an `id` no longer writes to Carve source.
+- **The Carve writer refuses a mention or tag that carries attributes** (#2083). It used to write a span around strong text, which reads back as a different tree. It now throws `SourceUnspellableException`.
 - **A code span closes on an equal-length run anywhere later in the block** (#2105), so a forced or editorial closer inside the run is code rather than the span's closer. A run nothing closes still ends at that closer.
 - **A substitution's `~>` counts only at the pair's own level** (#2104): one inside a verbatim run, inside a delimited comment, or escaped no longer splits the pair, which is then a forced strikethrough.
 - **Two verbatim runs that would merge are separated by an empty delimited comment** (#2107), so `<code>a</code><code>b</code>` is written `` `a`{%  %}`b` `` by the Carve writer and the HTML importer instead of one merged run.
@@ -106,6 +109,25 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The HTML importer writes a `<q>` as the marks a browser draws** (#2096): `“ ”` outside, `‘ ’` one level in. Straight quotes left the direction to smart punctuation, which drew the wrong marks around a nested quote and after a word. The element is also reported as `element-unwrapped` at `info` again, and a `cite` is written unquoted where it needs no quotes.
 - **An unclosed math or literal run that a forced span's closer ends is stripped of its trailing spaces and tabs** (#2098), as a bare code-span run already was.
 - **The HTML importer keeps a space at a link label's edge where it separates the label from its neighbor** (#2094): `<a href="u">x </a>y` imports as `[x ](u)y`, not `[x](u)y`.
+- **The HTML importer writes a quote's consecutive inline children as one paragraph** (#2102), where each child, and a `<br>`, used to become a paragraph of its own.
+- **The HTML importer escapes an inline opener in text** (#2100): a link, reference, span or note reference bracket, an autolink's `<`, and a comment's `{` or `%` run, as the Carve writer does.
+- **The HTML importer escapes text that would read back as another character or block** (#2101, #2137, #2138): a hyphen or dot run that smart typography turns into a dash or an ellipsis, every other smart symbol, and a leading `. ` that opens an ordered list.
+- **The HTML importer escapes a delimiter inside emphasized text that would close the emphasis** (#2139).
+- **The Carve writer keeps an authored `id` attribute** (#2143): keyed, bare and empty IDs are written, and a tree with duplicate ID slots writes one.
+- **The Carve writer refuses a table row whose every cell is blank** (#2109) with `SourceUnspellableException`, since Carve reads that row as a paragraph that splits the table.
+- **A forced opener of a kind that is already open is literal, and a braced inline of another kind starts its own scope** (#2111, #2135). The Carve writer and the HTML importer apply the same scope when they decide whether a nested span of one kind can be spelled.
+- **An unclosed run that a forced closer ends drops its trailing line break** (#2136), except in a line block.
+- **A marker at a list's own column stays in that list after a deeper, blank-separated list** (#2140), instead of opening a second list.
+- **The Markdown importer respells a thematic break Carve would not read as one** (#2097): a spaced, over-long, indented or underscore run.
+- **The Markdown importer respells a nested item's `+` bullet** (#2125), which Carve reads as text.
+- **The Markdown importer keeps a list loose when a blank line separates an item's paragraph from its sublist** (#2126).
+- **The Markdown importer reduces an extended fence info string to its language** (#2128), which Carve otherwise reads as a paragraph.
+- **The Markdown importer keeps a line after a nested item's unclosed fence out of the item** (#2129).
+- **The Markdown importer keeps the outer brackets literal when a link's text holds a link** (#2115), as CommonMark reads it.
+- **The ProseMirror bridge reports a substitution half that holds more than plain text as degraded** (#2068).
+- **The ProseMirror bridge names a stock Tiptap mention or tag by its `id`** (#2154). A `null` label counts as absent, `mentionSuggestionChar` is not written as an attribute, and a label that differs from the `id` is reported in `droppedAttributes()`.
+- **The ProseMirror bridge writes a mention or tag whose name the grammar rejects as text** (#2154). Tiptap's `{"id": "Lea Thompson", "label": null}` becomes the displayed text with its sigil escaped, not a mention of `Lea`, and `droppedAttributes()` names the attribute that held the name.
+- **The Carve writer refuses a mention or tag whose name the grammar rejects** (#2159). A name with a space, an apostrophe, a stray dot or a non-ASCII letter and no destination used to be written bare, so it read back as a different mention. It now throws `SourceUnspellableException`.
 
 ## [0.1.7] - 2026-09-07
 
@@ -2640,7 +2662,8 @@ Composer: `composer require markup-carve/carve-php`.
 - `HtmlToCarve` `data-djot-src` XSS closed (P0); `trustedRoundTrip` default-off
 - Output-byte budgets on all reverse converters against amplification DoS
 
-[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.7...HEAD
+[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.8...HEAD
+[0.1.8]: https://github.com/markup-carve/carve-php/compare/0.1.7...0.1.8
 [0.1.7]: https://github.com/markup-carve/carve-php/compare/0.1.6...0.1.7
 [0.1.6]: https://github.com/markup-carve/carve-php/compare/0.1.5...0.1.6
 [0.1.5]: https://github.com/markup-carve/carve-php/compare/0.1.4...0.1.5
