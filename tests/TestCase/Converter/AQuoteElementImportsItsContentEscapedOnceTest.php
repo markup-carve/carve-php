@@ -50,15 +50,10 @@ class AQuoteElementImportsItsContentEscapedOnceTest extends TestCase
     }
 
     /**
-     * Control: a straight quote outside a `<q>` keeps the importer's bare form.
+     * Control: a straight quote after a `<q>` is escaped once, like any other.
      */
-    public function testAStraightQuoteOutsideAQuoteElementIsNotEscaped(): void
+    public function testAStraightQuoteAfterAQuoteElementIsEscapedOnce(): void
     {
-        $this->assertSame("a\"b\n", (new HtmlToCarve())->convert('<p>a"b</p>'));
-    }
-
-    public function testAStraightQuoteAfterAQuoteElementIsNotEscaped(): void
-    {
-        $this->assertSame("\"x\"a\"b\n", (new HtmlToCarve())->convert('<p><q>x</q>a"b</p>'));
+        $this->assertSame("\"x\"a\\\"b\n", (new HtmlToCarve())->convert('<p><q>x</q>a"b</p>'));
     }
 }
