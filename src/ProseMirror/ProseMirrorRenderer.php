@@ -381,6 +381,7 @@ class ProseMirrorRenderer
      */
     protected function renderInlines(array $nodes, array $marks): array
     {
+        $this->noteMergeableSiblings($nodes);
         $out = [];
         foreach ($nodes as $node) {
             $rawRef = UnresolvedReference::sourceOf($node);
@@ -542,6 +543,39 @@ class ProseMirrorRenderer
         }
 
         return $out;
+    }
+
+    /**
+     * Records two sibling marks the editor model cannot hold apart.
+     *
+     * A mark set carries no boundary, so `{/x/}{/y/}` comes back as one run:
+     * ProseMirrorToCarve::mergeAdjacentMarks() has to merge them, because a
+     * single Carve mark arrives as several text nodes and reassembling it
+     * needs the same rule. The HTML differs, so the document is not fully
+     * covered (carve-php#2014).
+     *
+     * The condition mirrors that merge: same class, same attributes, and not
+     * one of the two content-bearing marks, whose text rides on the node and
+     * which renderInlines() therefore emits one text node each.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    protected function noteMergeableSiblings(array $nodes): void
+    {
+        $previous = null;
+        foreach ($nodes as $node) {
+            if (
+                $previous !== null
+                && SchemaMap::isMark($node->getType())
+                && !$node instanceof Code
+                && !$node instanceof CriticComment
+                && SchemaMap::isSameMark($previous, $node)
+            ) {
+                $this->degraded[$node->getType()] = 'a mark set carries no boundary, so two abutting '
+                    . 'spans of it come back as one run';
+            }
+            $previous = $node;
+        }
     }
 
     /**

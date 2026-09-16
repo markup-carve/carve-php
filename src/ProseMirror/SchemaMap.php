@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\ProseMirror;
 
+use MarkupCarve\Carve\Node\Node;
 use RuntimeException;
 
 /**
@@ -97,6 +98,42 @@ final class SchemaMap
         $carveType = self::ALIASES[$carveType]['through'] ?? $carveType;
 
         return (self::data()['types'][$carveType]['kind'] ?? null) === 'mark';
+    }
+
+    /**
+     * Whether two adjacent nodes are the SAME mark, and so indistinguishable
+     * once the editor holds them as a mark set.
+     *
+     * Same class, same attributes and same identity - everything the node keeps
+     * outside `attributes`. A link holds its destination, title and reference
+     * label there, so comparing attributes alone called two different links one
+     * mark and the merge discarded the second destination (carve-php#2026).
+     *
+     * The bridge and the renderer both ask here, because a merge the renderer
+     * does not declare is silent loss and a declaration with no merge behind it
+     * is a false one.
+     */
+    public static function isSameMark(Node $left, Node $right): bool
+    {
+        return $left::class === $right::class
+            && $left->getAttributes() === $right->getAttributes()
+            && self::identityOf($left) == self::identityOf($right);
+    }
+
+    /**
+     * A node's own state: everything but its place in the tree, its attributes
+     * and its span.
+     *
+     * @return array<string, mixed>
+     */
+    private static function identityOf(Node $node): array
+    {
+        $state = (array)$node;
+        foreach (['parent', 'children', 'attributes', 'attributeOrder', 'pos'] as $structural) {
+            unset($state["\0*\0" . $structural]);
+        }
+
+        return $state;
     }
 
     /**

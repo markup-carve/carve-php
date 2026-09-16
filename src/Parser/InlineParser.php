@@ -2866,11 +2866,6 @@ class InlineParser
             return null;
         }
 
-        // Can't open if followed by } (a closer marker)
-        if ($nextChar === '}') {
-            return null;
-        }
-
         // Keep the smart typography fat-arrow token literal for the symbol pass.
         if ($delimiter === '=' && $nextChar === '>') {
             return null;
