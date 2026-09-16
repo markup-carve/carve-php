@@ -3558,31 +3558,22 @@ class CarveRenderer implements RendererInterface
         return '![' . $this->escapeImageAlt($node->getAlt()) . '](' . $this->escapeDestination($node->getSource()) . $title . ')' . $this->renderAttrs($node);
     }
 
+    /**
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     */
     protected function renderMention(Mention $node): string
     {
+        // A trailing attribute block after `@name` stays literal text, so no
+        // source reads back as a mention or tag that carries attributes.
+        if ($node->getAttributes() !== []) {
+            throw new SourceUnspellableException(
+                $node->getCssClass() === 'tag' ? 'tag' : 'mention',
+                'it has no Carve source spelling with attributes',
+            );
+        }
+
         if (($node->getDestination() ?? '') === '') {
-            $bare = $this->plainInlineText($node);
-            if ($node->getAttributes() === []) {
-                return $bare;
-            }
-
-            $exact = $this->writeStaticMentionExactly($node);
-            if ($exact !== null) {
-                return $exact;
-            }
-
-            // The PLAIN label inside the brackets, not the escaped inlines:
-            // `renderInlines()` writes `\@alice`, and an escaped sigil re-parses
-            // as ordinary text, so the wrapper would keep the attribute and lose
-            // the mention. Anything that is not a flat name has no unescaped
-            // spelling, and keeping the text is then worth more than the class.
-            $sigilled = str_starts_with($bare, '#') ? '#' : '@';
-            $plain = str_starts_with($bare, $sigilled) ? substr($bare, 1) : $bare;
-            $inner = $this->isFlatText($node) && $this->isMentionName($plain)
-                ? $bare
-                : $this->renderInlines($node->getChildren());
-
-            return '[' . $inner . ']' . $this->renderAttrs($node);
+            return $this->plainInlineText($node);
         }
 
         // The plain text, not the rendered inlines: a name is tested against
@@ -3598,13 +3589,8 @@ class CarveRenderer implements RendererInterface
         // has no spelling in this syntax. It degrades to the link form rather
         // than to a name the author did not write: `@o'brien` would have to
         // become `@obrien`, which is a DIFFERENT mention, silently.
-        //
-        // An attribute and nested markup have no spelling either, and were
-        // dropped rather than deleted: a trailing `{.x}` after a mention stays
-        // literal text (the parser leaves it outside the node), and `@*user*` is
-        // not a mention at all, so a mention carrying either one lost it with a
-        // perfectly valid name to point at.
-        if (!$this->isMentionName($name) || $node->getAttributes() !== [] || !$this->isFlatText($node)) {
+        // Nested markup has no spelling either: `@*user*` is not a mention.
+        if (!$this->isMentionName($name) || !$this->isFlatText($node)) {
             return $this->renderMentionAsLink($node);
         }
 
@@ -3638,58 +3624,6 @@ class CarveRenderer implements RendererInterface
         }
 
         return true;
-    }
-
-    /**
-     * A destination-less mention written so the source RENDERS as the node did.
-     *
-     * With no URL template a mention is `<span class="…"><strong>…</strong>
-     * </span>` plus its own attributes - pinned by the corpus, so it is the
-     * target, not a choice. Three pieces reproduce it exactly:
-     *
-     * - `*…*` supplies the `<strong>`. Without it the span holds bare text.
-     * - the label is ESCAPED, so `\@alice` stays text rather than re-parsing as
-     *   a mention inside the span, which is what put a second `<span>` in the
-     *   output.
-     * - the class is written FIRST. A span renders its attributes in source
-     *   order, so `{#x .mention}` yields `<span id="x" class="mention">` and
-     *   fails on order alone.
-     *
-     * Returns null where no spelling reaches the rendered form, and the caller
-     * keeps the bracketed fallback: markup inside the label needs a doubled
-     * `*` delimiter that reads as literal asterisks, a label padded with
-     * whitespace puts a space beside a delimiter that then does not open, and a
-     * mention with no css class renders `class=""`, which is not worth
-     * spelling out.
-     *
-     * A `class` ATTRIBUTE is written after the structural class: the HTML
-     * renderer merges it into the same leading class slot, so the authored class
-     * has to be present here for `toHtml(fmt(x)) == toHtml(x)`.
-     */
-    protected function writeStaticMentionExactly(Mention $node): ?string
-    {
-        if ($node->getCssClass() === '' || !$this->isFlatText($node)) {
-            return null;
-        }
-
-        $label = $this->renderInlines($node->getChildren());
-        if ($label === '' || $label !== trim($label)) {
-            // An emphasis delimiter needs a non-space beside it, so a label
-            // padded with whitespace writes a pair of literal asterisks into the
-            // span instead of a strong - and `[**]` is literal for the same
-            // reason. Both decline rather than emit source that renders
-            // differently, which is the one outcome this method exists to avoid.
-            return null;
-        }
-
-        // Everything in the node's own order, via the normal attribute writer -
-        // so an author class stays `.class`, an id stays `#id`, and a key/value
-        // stays one.
-        $rest = clone $node;
-        $written = $this->renderAttrs($rest);
-
-        return '[*' . $label . '*]{.' . $this->escapeAttrNameValue($node->getCssClass())
-            . ($written === '' ? '' : ' ' . substr($written, 1, -1)) . '}';
     }
 
     /**

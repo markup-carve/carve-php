@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\ProseMirror;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
@@ -799,48 +801,43 @@ class ProseMirrorBridgeTest extends TestCase
 
     /**
      * A payload from a plain Tiptap editor uses `mention`, the name
-     * tiptap/extension-mention emits, with the shape that extension emits: an
-     * atom carrying `id` and `label`, no css class and no text child. Accepting
-     * only the name would resolve the node and then lose the visible name - the
-     * mention dropped out of the source altogether.
-     *
-     * The `id` survives all the way to Carve source, and the source renders as
-     * the node did: a Mention has no attribute slot of its own, so the writer
-     * spells out the form a destination-less mention RENDERS as - a strong
-     * inside a classed span, sigil escaped so the label stays text rather than
-     * re-parsing as a second mention (carve-php#567). Before it, the bridge
-     * wrote a bare `@Alice` and the id was gone with nothing reported.
+     * tiptap/extension-mention emits: an atom carrying `id` and `label`, no css
+     * class and no text child. The label becomes the visible name, and the `id`
+     * stays an attribute.
      */
-    #[DataProvider('stockMentionProvider')]
-    public function testAStockTiptapMentionConvertsWithoutRegistration(array $attrs, string $expected): void
+    public function testAStockTiptapMentionConvertsWithoutRegistration(): void
     {
-        $document = $this->converter->convert([
-            'type' => 'doc',
-            'content' => [
-                [
-                    'type' => 'paragraph',
-                    'content' => [
-                        ['type' => 'text', 'text' => 'ping '],
-                        ['type' => 'mention', 'attrs' => $attrs],
-                    ],
-                ],
-            ],
-        ]);
+        $mention = $this->stockMention(['id' => 'alice', 'label' => 'Alice']);
 
-        $this->assertSame($expected, CarveConverter::carve()->render($document));
+        $this->assertInstanceOf(Mention::class, $mention);
+        $this->assertSame('@Alice', $mention->getChildren()[0]->getContent());
+        $this->assertCount(1, $mention->getChildren());
+        $this->assertSame('alice', $mention->getAttribute('id'));
     }
 
     /**
-     * @return array<string, array{array<string, mixed>, string}>
+     * No Carve source reads back as a mention carrying attributes, so the writer
+     * refuses the `id` rather than spelling a span (markup-carve/carve-php#2083).
      */
-    public static function stockMentionProvider(): array
+    public function testAStockTiptapMentionWithAnIdIsUnspellable(): void
     {
-        return [
-            'a label is the visible name' => [['id' => 'alice', 'label' => 'Alice'], "ping [*\\@Alice*]{.mention #alice}\n"],
-            // Tiptap renders the id when nothing labelled it, so the id is the
-            // name rather than a second attribute beside an empty mention.
-            'an unlabelled mention falls back to the id' => [['id' => 'alice'], "ping @alice\n"],
-        ];
+        $document = $this->stockMention(['id' => 'alice', 'label' => 'Alice'])->getParent()?->getParent();
+        $this->assertInstanceOf(Document::class, $document);
+
+        $this->expectException(SourceUnspellableException::class);
+        CarveConverter::carve()->render($document);
+    }
+
+    /**
+     * Tiptap renders the id when nothing labelled it, so the id is the name
+     * rather than a second attribute beside an empty mention.
+     */
+    public function testAnUnlabelledStockTiptapMentionFallsBackToTheId(): void
+    {
+        $document = $this->stockMention(['id' => 'alice'])->getParent()?->getParent();
+        $this->assertInstanceOf(Document::class, $document);
+
+        $this->assertSame("ping @alice\n", CarveConverter::carve()->render($document));
     }
 
     /**
@@ -849,27 +846,39 @@ class ProseMirrorBridgeTest extends TestCase
      */
     public function testALabelDoesNotDuplicateAnExplicitTextChild(): void
     {
+        $mention = $this->stockMention(['label' => 'Alice'], [['type' => 'text', 'text' => '@alice']]);
+
+        $this->assertCount(1, $mention->getChildren());
+        $this->assertSame('@alice', $mention->getChildren()[0]->getContent());
+        $this->assertSame('Alice', $mention->getAttribute('label'));
+    }
+
+    /**
+     * @param array<string, mixed> $attrs
+     * @param array<int, array<string, mixed>>|null $content
+     */
+    private function stockMention(array $attrs, ?array $content = null): Mention
+    {
+        $node = ['type' => 'mention', 'attrs' => $attrs];
+        if ($content !== null) {
+            $node['content'] = $content;
+        }
         $document = $this->converter->convert([
             'type' => 'doc',
             'content' => [
                 [
                     'type' => 'paragraph',
-                    'content' => [
-                        [
-                            'type' => 'mention',
-                            'attrs' => ['label' => 'Alice'],
-                            'content' => [['type' => 'text', 'text' => '@alice']],
-                        ],
-                    ],
+                    'content' => [['type' => 'text', 'text' => 'ping '], $node],
                 ],
             ],
         ]);
 
-        // `label` stays an attribute here rather than becoming text, which is
-        // the point: one visible name, not two. It reaches the source as an
-        // ordinary key/value on the written span (carve-php#567) instead of
-        // being dropped.
-        $this->assertSame("[*\\@alice*]{.mention label=Alice}\n", CarveConverter::carve()->render($document));
+        foreach ($document->getChildren()[0]->getChildren() as $child) {
+            if ($child instanceof Mention) {
+                return $child;
+            }
+        }
+        $this->fail('No mention was built');
     }
 
     /**
