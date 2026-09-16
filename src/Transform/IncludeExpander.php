@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Ast\TextRunCoalescer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\ParseWarning;
+use MarkupCarve\Carve\Exception\UnresolvedIncludeException;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
@@ -647,7 +648,15 @@ class IncludeExpander implements TransformerInterface
                 new IncludeContext($currentPath, $currentPath, $stack, $depth),
             );
         } catch (Throwable $exception) {
-            $this->recordDependency($directive['path'], false);
+            // I11: a resolver that can say where the target would be reports
+            // that path, which is the one a host watches; any other refusal
+            // keeps the directive's spelling.
+            $this->recordDependency(
+                $exception instanceof UnresolvedIncludeException
+                    ? $exception->getTargetId()
+                    : $directive['path'],
+                false,
+            );
             // The resolver's own message is NOT the warning text. A filesystem
             // resolver routinely embeds absolute paths in it, so propagating it
             // verbatim leaks host directory layout into rendered output. The
