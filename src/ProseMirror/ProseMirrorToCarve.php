@@ -824,12 +824,7 @@ class ProseMirrorToCarve
             $mergeable = SchemaMap::isMark($node->getType())
                 && !isset(self::CONTENT_BEARING_MARKS[$node->getType()]);
 
-            if (
-                $previous !== null
-                && $previous::class === $node::class
-                && $mergeable
-                && $previous->getAttributes() === $node->getAttributes()
-            ) {
+            if ($previous !== null && $mergeable && SchemaMap::isSameMark($previous, $node)) {
                 foreach ($node->getChildren() as $child) {
                     $previous->appendChild($child);
                 }
