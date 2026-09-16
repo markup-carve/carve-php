@@ -97,6 +97,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A definition-shaped line that continues a Markdown paragraph stays text** (#2082): `text` then `[p]: /x` writes `\[p]: /x`, since a Carve definition can interrupt a paragraph and a CommonMark one cannot.
 - **The Carve writer refuses a mention or tag that carries attributes** (#2083). It used to write a span around strong text, which reads back as a different tree. It now throws `SourceUnspellableException`, so a Tiptap mention with an `id` no longer writes to Carve source.
 - **The HTML importer escapes a block opener that starts a line of text** (#2074), as the Carve writer does: `<p># x</p>` imports as `\# x`, not as a heading. It covers every opener the parser reads at a line start, in a paragraph, after a hard break, and in a list item, a quote and a description.
+- **The Markdown importer imports a fence in a nested list item as code** (#2099), closed or not. A fence opener is now measured against its own item's content column rather than column 0, so its backticks are no longer escaped into a paragraph, a tab counts as the four columns CommonMark gives it, and a body line is never dedented below its item. A backtick in a backtick fence's info string opens no fence at any column.
 
 ## [0.1.7] - 2026-09-07
 

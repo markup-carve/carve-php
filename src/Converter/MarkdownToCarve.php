@@ -225,7 +225,18 @@ class MarkdownToCarve
                 }
             }
 
-            if (!$inCodeBlock && preg_match('/^(\s{0,3})(`{3,}|~{3,})(.*)$/', $line, $matches)) {
+            // A fence may be indented up to three columns past its CONTAINER's
+            // content column, not past column 0.
+            $fenceContentCol = $listCols === [] ? 0 : (int)end($listCols);
+            if (
+                !$inCodeBlock
+                && preg_match('/^([ \t]*)(`{3,}|~{3,})(.*)$/', $line, $matches) === 1
+                && $this->columnWidth($matches[1]) <= $fenceContentCol + 3
+                // A backtick in a backtick fence's info string makes it a code
+                // span, not a fence, as it already does in a quote or on an
+                // item's first line.
+                && !($matches[2][0] === '`' && str_contains($matches[3], '`'))
+            ) {
                 if ($prevLineType !== 'blank' && $result !== []) {
                     $result[] = '';
                 }
@@ -248,15 +259,13 @@ class MarkdownToCarve
                 }
                 // Re-base the fence to its container's content column: strip
                 // only the indentation ABOVE that column. At document level the
-                // column is 0, so a 1-3 space Markdown fence dedents fully;
-                // inside a list item the fence's own indent IS the content
-                // column, so nothing is stripped and it stays in the item. The
-                // same strip comes off the body and closer.
-                $openerIndent = strlen($matches[1]);
-                $contentCol = $listCols === [] ? 0 : end($listCols);
-                $fenceStrip = max(0, $openerIndent - $contentCol);
-                $fenceItemCol = $contentCol;
-                $result[] = substr($matches[1], $fenceStrip) . $matches[2] . $info;
+                // column is 0, so a 1-3 space Markdown fence dedents fully; a
+                // fence sitting at its item's content column keeps its place in
+                // the item. The same strip comes off the body and closer.
+                $openerIndent = $this->columnWidth($matches[1]);
+                $fenceStrip = max(0, $openerIndent - $fenceContentCol);
+                $fenceItemCol = $fenceContentCol;
+                $result[] = $this->stripColumns($matches[1], $fenceStrip) . $matches[2] . $info;
                 $prevLineType = 'code_fence';
                 $bulletRunBroken = true;
 
@@ -280,9 +289,10 @@ class MarkdownToCarve
             if ($inCodeBlock) {
                 $bulletRunBroken = true;
                 $closerIndent = $this->indentWidth($line);
-                $dedented = $fenceStrip > 0
-                    ? preg_replace('/^ {0,' . $fenceStrip . '}/', '', $line)
-                    : $line;
+                // The strip never reaches below the item's own column: a body
+                // line indented no further than the item keeps its place in it.
+                $lineStrip = min($fenceStrip, max(0, $closerIndent - $fenceItemCol));
+                $dedented = $lineStrip > 0 ? $this->stripColumns($line, $lineStrip) : $line;
                 if (
                     $closerIndent <= $fenceItemCol + 3
                     && preg_match('/^' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/', ltrim($line, " \t")) === 1
@@ -340,7 +350,7 @@ class MarkdownToCarve
                         && $this->stripContainerPrefix($lines[$i - 1], $contentCol) === '';
                     $lastResultKey = array_key_last($result);
                     if ($previousWasContainerBlank && $lastResultKey !== null) {
-                        $result[$lastResultKey] = rtrim($result[$lastResultKey] ?? '');
+                        $result[$lastResultKey] = rtrim($result[$lastResultKey]);
                     }
                     if ($container === '0|0' && !$previousWasContainerBlank && $prevLineType !== 'blank' && $result !== []) {
                         $result[] = '';
@@ -474,7 +484,10 @@ class MarkdownToCarve
                 continue;
             }
 
-            if ($prevLineType === 'list' && $indent >= 1) {
+            // An indented line after a list line is that item's own text, EXCEPT
+            // when it opens a nested item on a fence: that is code, and the
+            // fence branch further down owns it.
+            if ($prevLineType === 'list' && $indent >= 1 && $this->opensItemFence($line, $isList) === null) {
                 $result[] = $this->convertInlineFormatting($this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)));
                 $prevLineType = 'list';
 
@@ -566,11 +579,8 @@ class MarkdownToCarve
 
             // A fence opening a list item's first line: the rest of the item is
             // its code, read by the fenced-code branch above.
-            if (
-                $isList
-                && preg_match('/^(\s*(?:[-*]|\d+[.)]) {1,4})(`{3,}|~{3,})(.*)$/', $body, $itemFence) === 1
-                && !($itemFence[2][0] === '`' && str_contains($itemFence[3], '`'))
-            ) {
+            $itemFence = $this->opensItemFence($body, $isList);
+            if ($itemFence !== null) {
                 $info = ltrim($itemFence[3]);
                 if (str_starts_with($info, '=')) {
                     $info = ltrim(ltrim($info, '='));
@@ -1099,6 +1109,29 @@ class MarkdownToCarve
         }
 
         return $this->columnWidth(substr($line, 0, $i));
+    }
+
+    /**
+     * A list line whose own content starts with a code fence, as the match of
+     * marker prefix, fence and info string, or null when it is not one. A
+     * backtick fence carrying a backtick in its info string is an inline code
+     * span, not a fence.
+     *
+     * @return array<int, string>|null
+     */
+    protected function opensItemFence(string $line, bool $isList): ?array
+    {
+        if (!$isList) {
+            return null;
+        }
+        if (preg_match('/^(\s*(?:[-*+]|\d+[.)]) {1,4})(`{3,}|~{3,})(.*)$/', $line, $itemFence) !== 1) {
+            return null;
+        }
+        if ($itemFence[2][0] === '`' && str_contains($itemFence[3], '`')) {
+            return null;
+        }
+
+        return $itemFence;
     }
 
     /**
