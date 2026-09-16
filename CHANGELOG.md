@@ -13,6 +13,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   result through `convertWithFidelityReport()`, classifying diagnostics as
   preserved, normalized, degraded or dropped with explicit confidence. Importers
   without construct-level evidence fail closed as dropped with fallback confidence.
+- **Include expansion** (#373). A document's include directives are resolved before rendering, with a containment root, a byte budget and a warning for every denial the resolver answers.
+- **Forward references survive the heading reparse** (#1938), so a cross-reference to a heading defined later in the document resolves.
 
 ### Changed
 
@@ -29,6 +31,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - HTML `--report` now uses the version 2 envelope, adding `schemaVersion`,
   `sourceFormat`, and per-diagnostic `fidelity` and `confidence` fields while
   retaining the existing report fields.
+- **The Markdown target spells emphasis and strike differently in several shapes** (#1952, #1967, #1973, #1977, #1983, #1989, #1990, #1993, #1994, #1996, #2006, #2007, #2008). Padding moves outside the delimiters; a run that cannot flank where it stands, or that merges with a neighbouring run, falls back to inline HTML, and of two abutting runs it is the second that takes the fallback (markup-carve/carve#2045); a nested child of the same strength takes it too, while one of a different strength keeps the delimiters; a literal tilde is escaped, and so is an underscore pair the emitted block would read as emphasis (markup-carve/carve#2043, markup-carve/carve#2046).
+- **The Carve writer changes several shapes** (#1935, #1947, #1951, #2005). A description whose only content is a dropped note round-trips, a percent-leading comment body joins its marker, a sub-list above a line comment in a tight item is closed, and a span whose bare opener cannot open against what precedes it is written in braces.
+- **Rendered output ends in exactly one newline, even when it is empty** (#1941).
+- **The Markdown importer keeps raw HTML verbatim by default** (#1945, #1936, #1972), including attributed and unpaired inline HTML, and imports character references.
+- **The native `|=` header form survives a trailing colspan run** (#2003) in both the Carve writer and the HTML importer.
+- **The Djot importer is named for what it reads** (#1988), rather than calling this engine's own format Djot.
 
 ### Fixed
 
@@ -50,6 +58,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   empty container, matching the spec (grammar §12) and the other engines; this
   overturns the fold behavior of #1893 / #1903, which was calibrated to the
   derived executable checker rather than the engines (markup-carve/carve#1970).
+- **A bare delimiter pairs across only what PART 9 §9 E2a names** (#2000, #2002). Code spans, braced inlines, link destinations and autolinks are opaque; plain braces, attribute blocks and link labels are not (markup-carve/carve#2027, markup-carve/carve#2046).
+- **Include resolution refuses what it cannot contain** (#1957, #1965, #1969, #1970). A blank or relative containment root is refused, containment is decided before existence, a directive closes at the first pair outside a quoted run, and the byte budget is charged for the read that broke it.
+- **An included child is parsed with the caller's extensions** (#1997).
+- **A note's body floor is measured at its own authored marker** (#1925, #1926, #1928, #1963). A trailing line in a nested note is placed by column reach, a bare colon-fence opener with no body opens an empty container, and a mergeable pair stays inside the item it opens.
+- **The Djot importer keeps Djot-only block markers and document structures** (#1931, #1932).
 
 ## [0.1.7] - 2026-09-07
 
