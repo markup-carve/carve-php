@@ -41,6 +41,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Markdown importer keeps raw HTML verbatim by default** (#1945, #1936, #1972), including attributed and unpaired inline HTML, and imports character references.
 - **The native `|=` header form survives a trailing colspan run** (#2003) in both the Carve writer and the HTML importer.
 - **The Djot importer is named for what it reads** (#1988), rather than calling this engine's own format Djot.
+- **The Carve writer throws `SourceUnspellableException` for an empty code span it cannot spell** (#2055): one with content or attributes after it, inside a link or span label, or in a table cell that is not the row's last. It used to write source that read back as a different tree.
 
 ### Fixed
 
