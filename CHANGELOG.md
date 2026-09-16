@@ -10,11 +10,11 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `MentionsExtension` accepts authoritative mention and tag resolver callbacks
-  with node attributes and opaque host context.
+  with node attributes and opaque host context (#2031).
 - HTML, Markdown, Djot and BBCode importers expose a shared version 2 migration
   result through `convertWithFidelityReport()`, classifying diagnostics as
   preserved, normalized, degraded or dropped with explicit confidence. Importers
-  without construct-level evidence fail closed as dropped with fallback confidence.
+  without construct-level evidence fail closed as dropped with fallback confidence (#1939).
 - **Include expansion** (#373). A document's include directives are resolved before rendering, with a containment root, a byte budget and a warning for every denial the resolver answers.
 - **Forward references survive the heading reparse** (#1938), so a cross-reference to a heading defined later in the document resolves.
 
@@ -67,6 +67,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **An included child is parsed with the caller's extensions** (#1997).
 - **A note's body floor is measured at its own authored marker** (#1925, #1926, #1928, #1963). A trailing line in a nested note is placed by column reach, a bare colon-fence opener with no body opens an empty container, and a mergeable pair stays inside the item it opens.
 - **The Djot importer keeps Djot-only block markers and document structures** (#1931, #1932).
+- **The HTML importer writes an empty code span only where its backtick run ends** (#2048). Anywhere else the span is dropped and reported as `structure-unspellable`.
+- **The Carve writer braces an emphasis that ends in an empty code span or wraps a strong** (#2043, #2015), and writes a `!` bare outside the channel it opens (#2018).
+- **The Markdown target escapes a hash run that would open or close an ATX heading** (#2030, #2046), and its underscore pair check reads one block at a time (#2017).
+- **The inline parser settles four brace and code-span shapes** (#2024, #2033, #2034, #2035). A bare delimiter opens against a close brace, a braced quote pair keeps its braces, a code-span closer is a maximal run in lookahead too, and a forced-span closer ends an unclosed run and strips its trailing whitespace.
+- **A `key=value` attribute whose name starts with an underscore is read** (#2023).
+- **Include expansion keeps the host's span on a merged text run, and an unresolved target's id names where the file would appear** (#2025, #2045).
+- **The ProseMirror bridge keeps two abutting links apart** (#2027), and declares the boundary two abutting spans of one mark lose (#2016).
+- **The borrowed-HTML fast path does not open a marker right after a closer of the same marker** (#2019).
 
 ## [0.1.7] - 2026-09-07
 
