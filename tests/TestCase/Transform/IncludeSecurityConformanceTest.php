@@ -97,6 +97,7 @@ class IncludeSecurityConformanceTest extends TestCase
         'remoteFetches',
         'maxVisitedDepth',
         'chargedBytes',
+        'dependencies',
     ];
 
     /**
@@ -203,7 +204,7 @@ class IncludeSecurityConformanceTest extends TestCase
 
     public function testPinsTheVectorCountSoAnAdditionCannotBeSkippedUnnoticed(): void
     {
-        self::assertCount(25, self::corpus()['vectors']);
+        self::assertCount(27, self::corpus()['vectors']);
     }
 
     public function testAnswersEveryRequirementTheCorpusStates(): void
@@ -500,22 +501,57 @@ class IncludeSecurityConformanceTest extends TestCase
             ];
         }
 
+        // The engine's own canonical root, read back only to spell the ids the
+        // corpus compares. It is not what was handed to the seam.
+        $canonicalRoot = $resolver !== null ? (string)realpath($rootSpec) : '';
+        $dependencies = $resolver !== null
+            ? $this->dependenciesOf($resolver, $request, $from === false ? null : $from, $canonicalRoot)
+            : null;
+
         if ($failure !== null) {
             // A root-configuration refusal leaves `$calls` empty because no
             // resolver was ever built - which is what makes "inclusion stays
             // disabled" observable rather than merely asserted.
-            return ['status' => 'denied', 'denial' => $this->denialFor($failure), 'resolverCalls' => $calls];
+            return [
+                'status' => 'denied',
+                'denial' => $this->denialFor($failure),
+                'resolverCalls' => $calls,
+                'dependencies' => $dependencies,
+            ];
         }
-
-        // The engine's own canonical root, read back only to spell the id the
-        // corpus compares. It is not what was handed to the seam.
-        $canonicalRoot = (string)realpath($rootSpec);
 
         return [
             'status' => 'allowed',
             'canonicalId' => str_replace($canonicalRoot, '<ROOT>', (string)$id),
             'resolverCalls' => $calls,
+            'dependencies' => $dependencies,
         ];
+    }
+
+    /**
+     * The engine's own I11 set for one directive, with the root spelled `<ROOT>`.
+     *
+     * @return list<array{id: string, resolved: bool}>
+     */
+    protected function dependenciesOf(
+        IncludeResolverInterface $resolver,
+        string $request,
+        ?string $from,
+        string $canonicalRoot,
+    ): array {
+        $source = '{{ ' . $request . " }}\n";
+        $expander = new IncludeExpander($resolver, $from, source: $source);
+        $expander->transform(CarveConverter::carve()->parse($source));
+
+        $dependencies = [];
+        foreach ($expander->getDependencies() as $dependency) {
+            $dependencies[] = [
+                'id' => str_replace($canonicalRoot, '<ROOT>', $dependency->getTarget()),
+                'resolved' => $dependency->isResolved(),
+            ];
+        }
+
+        return $dependencies;
     }
 
     /**
