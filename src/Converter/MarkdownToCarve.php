@@ -475,7 +475,7 @@ class MarkdownToCarve
             }
 
             if ($prevLineType === 'list' && $indent >= 1) {
-                $result[] = $this->convertInlineFormatting($line);
+                $result[] = $this->convertInlineFormatting($this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)));
                 $prevLineType = 'list';
 
                 continue;
@@ -589,6 +589,9 @@ class MarkdownToCarve
                 continue;
             }
 
+            if (!$isHeading && !$isList && in_array($prevLineType, ['text', 'list', 'blockquote'], true)) {
+                $body = $this->escapeDefinitionContinuation($body, $lines[$i - 1] ?? '', (string)end($result));
+            }
             $converted = $this->convertInlineFormatting($body);
 
             // A Markdown HARD BREAK is two or more spaces at the end of a line;
@@ -1449,6 +1452,31 @@ class MarkdownToCarve
     /**
      * Convert inline Markdown formatting to Carve on one non-code-block line.
      */
+
+    /**
+     * Escape a definition-shaped line that continues a paragraph: CommonMark
+     * reads it as text, Carve as a definition.
+     *
+     * @param string $line
+     * @param string $previous The source line above.
+     * @param string $written The line written for it.
+     */
+    protected function escapeDefinitionContinuation(string $line, string $previous, string $written): string
+    {
+        $prefix = '/^[ \t]*(?:>[ \t]?)*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?[ \t]*/';
+        $label = '\[(?:[^\]\\\\\n]|\\\\.)+\]:';
+        $previousContent = preg_replace($prefix, '', $previous) ?? $previous;
+        $writtenContent = preg_replace($prefix, '', $written) ?? $written;
+        $opensNoParagraph = trim($previousContent) === ''
+            || (preg_match('/^' . $label . '[ \t]*(?:(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)?$/', $previousContent) === 1
+                && !str_starts_with($writtenContent, '\\['));
+        if ($opensNoParagraph) {
+            return $line;
+        }
+
+        return preg_replace('/^([ \t]*(?:>[ \t]?)*[ \t]*)\[(?=(?:[^\]\\\\\n]|\\\\.)+\]:)/', '$1\\\\[', $line, 1) ?? $line;
+    }
+
     protected function convertInlineFormatting(string $line): string
     {
         $protected = [];
@@ -1624,7 +1652,7 @@ class MarkdownToCarve
                 function (array $match) use ($subject, $protected, $protect): string {
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
-                    if (($subject[$end] ?? '') === ':' && trim(substr($subject, 0, $match[0][1])) === '') {
+                    if (($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*$/', substr($subject, 0, $match[0][1])) === 1) {
                         return $match[0][0];
                     }
                     $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;

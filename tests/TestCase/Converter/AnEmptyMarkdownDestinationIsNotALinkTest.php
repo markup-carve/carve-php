@@ -81,10 +81,10 @@ class AnEmptyMarkdownDestinationIsNotALinkTest extends TestCase
         return [
             'a quoted destination after a space' => ['[u]( "t")', '[u]("t")'],
             'spaces around a destination' => ['[k]( /u )', '[k](/u)'],
-            'a definition interrupting a paragraph' => ["text\n[p]: <>", "text\n[p]: <>"],
-            'a definition lazily continuing a quoted paragraph' => ["> text\n[p]: <>", "> text\n[p]: <>"],
+            'a definition interrupting a paragraph' => ["text\n[p]: <>", "text\n\\[p]: <>"],
+            'a definition lazily continuing a quoted paragraph' => ["> text\n[p]: <>", "> text\n\\[p]: <>"],
             'a definition in a fence' => ["[c]\n\n```\n\n[c]: <>\n```", "[c]\n\n```\n\n[c]: <>\n```"],
-            'a definition after definition-like paragraph text' => ["[x]\n\n[x]: a b c\n[x]: <>", "[x]\n\n[x]: a b c\n[x]: <>"],
+            'a definition after definition-like paragraph text' => ["[x]\n\n[x]: a b c\n[x]: <>", "[x]\n\n[x]: a b c\n\\[x]: <>"],
             'an indented code block after a list' => ["- a\n\nb\n\n    [r]: <>\n\n[r]", "- a\n\nb\n\n```\n[r]: <>\n```\n\n[r]"],
             'a definition in an open HTML block' => ["<script>\n\n[r]: <>\n</script>\n\n[r]", "```=html\n<script>\n\n[r]: <>\n</script>\n```\n\n[r]"],
             'a code span' => ['`[d]()`', '`[d]()`'],
