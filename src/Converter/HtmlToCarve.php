@@ -5415,11 +5415,20 @@ class HtmlToCarve
             // reader saw (#2114).
             return $raw === '' ? '' : ' ';
         }
-        $withBreak = $this->restoreTrailingHardBreak($content);
+
+        return $this->paddedLabel($node, $raw, $this->restoreTrailingHardBreak($content));
+    }
+
+    /**
+     * Written content with one space restored at each edge the raw content
+     * had whitespace at and dropping it would join the neighbor.
+     */
+    protected function paddedLabel(DOMElement $node, string $raw, string $content): string
+    {
         $lead = preg_match('/^\s/', $raw) === 1 && !str_starts_with($content, "\\\n") && $this->paddingIsLost($node, false) ? ' ' : '';
         $trail = preg_match('/\s$/', $raw) === 1 && $this->paddingIsLost($node, true) ? ' ' : '';
 
-        return $lead . $withBreak . $trail;
+        return $lead . $content . $trail;
     }
 
     /**
@@ -5445,12 +5454,12 @@ class HtmlToCarve
                 if ($tag !== 'img' && $sibling->textContent === '' && $sibling->getElementsByTagName('img')->length === 0) {
                     return false;
                 }
-                // A link trims its label, so the space is this element's to keep.
-                if ($tag === 'a') {
+                // A link that writes no label keeps no space, so the space is this element's.
+                if ($tag === 'a' && !$this->linkWritesItsLabel($sibling)) {
                     return true;
                 }
-                // Between two formatting elements the left one keeps the space.
-                if ($this->formattingKind($sibling) !== null) {
+                // Between two formatting elements or links the left one keeps the space.
+                if ($tag === 'a' || $this->formattingKind($sibling) !== null) {
                     return $trailing || preg_match('/\s$/', $sibling->textContent) !== 1;
                 }
             }
@@ -5468,6 +5477,22 @@ class HtmlToCarve
         }
 
         return false;
+    }
+
+    /**
+     * Does this anchor write its content as a link label, which keeps an edge
+     * space, rather than as an autolink, a mention or a note reference?
+     */
+    protected function linkWritesItsLabel(DOMElement $node): bool
+    {
+        foreach (['data-djot-autolink', 'data-username', 'data-djot-footnote-label', 'data-djot-inline-footnote-html', 'data-djot-heading-ref'] as $attribute) {
+            if ($node->hasAttribute($attribute)) {
+                return false;
+            }
+        }
+
+        return !$this->importDestinationIsEmpty($node->getAttribute('href'))
+            && !$this->linkRequiresRawHtmlFallback($node);
     }
 
     /**
@@ -5807,7 +5832,8 @@ class HtmlToCarve
         }
 
         $href = $node->getAttribute('href');
-        $text = trim($this->buildLabelContent(fn (): string => $this->processChildren($node)));
+        $raw = $this->buildLabelContent(fn (): string => $this->processChildren($node));
+        $text = trim($raw);
         $title = $node->getAttribute('title');
 
         if ($text === '') {
@@ -5816,6 +5842,8 @@ class HtmlToCarve
         $text = $this->restoreTrailingHardBreak($text);
 
         $text = $this->escapeNoteReferenceLabel($text);
+        // The label keeps an edge space that separates it from its neighbor (#2094).
+        $label = trim($raw) === '' ? $text : $this->paddedLabel($node, $raw, $text);
 
         // Check for @mention (round-trip support for MentionsExtension)
         if ($node->hasAttribute('data-username')) {
@@ -5857,18 +5885,18 @@ class HtmlToCarve
 
             if ($refLabel === '' && !$this->isSafeReferenceLabel($text)) {
                 if ($title !== '') {
-                    return '[' . $text . '](' . $href . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
+                    return '[' . $label . '](' . $href . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
                 }
 
-                return '[' . $text . '](' . $href . ')' . $attrs;
+                return '[' . $label . '](' . $href . ')' . $attrs;
             }
 
             if ($refLabel !== '' && !$this->isSafeReferenceLabel($refLabel)) {
                 if ($title !== '') {
-                    return '[' . $text . '](' . $href . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
+                    return '[' . $label . '](' . $href . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
                 }
 
-                return '[' . $text . '](' . $href . ')' . $attrs;
+                return '[' . $label . '](' . $href . ')' . $attrs;
             }
 
             // Collect reference definition
@@ -5880,21 +5908,21 @@ class HtmlToCarve
 
             // Output reference link syntax
             if ($refLabel === '') {
-                // Collapsed reference [text][]
-                return '[' . $text . '][]' . $attrs;
+                // Collapsed reference [text][], or a full one where the label is padded.
+                return '[' . $label . '][' . ($label === $text ? '' : $text) . ']' . $attrs;
             }
 
-            return '[' . $text . '][' . $refLabel . ']' . $attrs;
+            return '[' . $label . '][' . $refLabel . ']' . $attrs;
         }
 
         // Skip href and title since they're in the link syntax
         $attrs = $this->formatInlineAttributes($node, ['href', 'title']);
 
         if ($title !== '') {
-            return '[' . $text . '](' . $href . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
+            return '[' . $label . '](' . $href . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
         }
 
-        return '[' . $text . '](' . $href . ')' . $attrs;
+        return '[' . $label . '](' . $href . ')' . $attrs;
     }
 
     protected function processImage(DOMElement $node): string

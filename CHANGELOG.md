@@ -105,6 +105,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Markdown importer imports a fence in a nested list item as code** (#2099), closed or not. A fence opener is now measured against its own item's content column rather than column 0, so its backticks are no longer escaped into a paragraph, a tab counts as the four columns CommonMark gives it, and a body line is never dedented below its item. A backtick in a backtick fence's info string opens no fence at any column.
 - **The HTML importer writes a `<q>` as the marks a browser draws** (#2096): `“ ”` outside, `‘ ’` one level in. Straight quotes left the direction to smart punctuation, which drew the wrong marks around a nested quote and after a word. The element is also reported as `element-unwrapped` at `info` again, and a `cite` is written unquoted where it needs no quotes.
 - **An unclosed math or literal run that a forced span's closer ends is stripped of its trailing spaces and tabs** (#2098), as a bare code-span run already was.
+- **The HTML importer keeps a space at a link label's edge where it separates the label from its neighbor** (#2094): `<a href="u">x </a>y` imports as `[x ](u)y`, not `[x](u)y`.
 
 ## [0.1.7] - 2026-09-07
 
