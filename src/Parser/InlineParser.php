@@ -3190,7 +3190,7 @@ class InlineParser
 
     /**
      * Parse braced inline syntax: {+insert+}, {-delete-},
-     * forced delimiter spans, {~old~>new~} substitution, {'} and {"}.
+     * forced delimiter spans and {~old~>new~} substitution.
      *
      * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|array{nodes: list<\MarkupCarve\Carve\Node\Node>, pos: int}|null
      */
@@ -3202,45 +3202,6 @@ class InlineParser
         }
 
         $marker = $text[$pos + 1];
-
-        // Handle braced quotes: {'} or {"} followed by optional quotes then }
-        // {''} = left single quote + right single quote
-        // {""} = left double quote + right double quote
-        // {'} = right single quote only, {"} = right double quote only
-        if ($marker === "'" || $marker === '"') {
-            // Count consecutive quotes
-            $quoteCount = 1;
-            $quotePos = $pos + 2;
-            while ($quotePos < $length && $text[$quotePos] === $marker) {
-                $quoteCount++;
-                $quotePos++;
-            }
-            // Must be followed by closing }
-            if ($quotePos < $length && $text[$quotePos] === '}') {
-                // Generate quotes based on count
-                $openQuote = $marker === "'" ? $this->openSingleQuote : $this->openDoubleQuote;
-                $closeQuote = $marker === "'" ? $this->closeSingleQuote : $this->closeDoubleQuote;
-
-                // For pairs like {''}, output left + right
-                // For single {'}, output apostrophe (always U+2019), {"} output close double
-                if ($quoteCount === 1) {
-                    $result = $marker === "'" ? $this->apostrophe : $closeQuote;
-                } elseif ($quoteCount === 2) {
-                    $result = $openQuote . $closeQuote;
-                } else {
-                    // For more, alternate open/close
-                    $result = '';
-                    for ($i = 0; $i < $quoteCount; $i++) {
-                        $result .= ($i % 2 === 0) ? $openQuote : $closeQuote;
-                    }
-                }
-
-                return [
-                    'node' => new Text($result),
-                    'pos' => $quotePos + 1,
-                ];
-            }
-        }
 
         // A BRACED HYPHEN PAIR IS AN EN DASH (carve#1447). The bare run carries
         // a flanking guard, so `x --verbose y` stays literal and an author who
