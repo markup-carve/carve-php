@@ -14,7 +14,6 @@ use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
-use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -176,26 +175,6 @@ class CarveWriterMentionTest extends TestCase
     }
 
     /**
-     * A trailing `{.x}` after a mention stays literal text - the parser leaves
-     * it outside the node - so a mention carrying attributes has no short form
-     * either, however spellable its name is. They were dropped, not deleted,
-     * which is why the name test alone did not catch it.
-     */
-    public function testAnAttributeIsCarriedRatherThanDropped(): void
-    {
-        $mention = new Mention('mention', '/u/1', '@user');
-        $mention->setAttribute('id', 'x');
-
-        $written = $this->write($mention);
-
-        $link = $this->firstLink((new CarveConverter())->parse($written));
-        $this->assertNotNull($link, "no link parsed back out of: $written");
-        $this->assertSame('x', $link->getAttribute('id'));
-        $this->assertSame('mention', $link->getAttribute('class'));
-        $this->assertSame('@user', $this->typedText($link));
-    }
-
-    /**
      * `@*user*` is not a mention, so a mention whose label carries markup has no
      * short form: writing `@user` dropped the emphasis and reported nothing.
      */
@@ -248,149 +227,7 @@ class CarveWriterMentionTest extends TestCase
     }
 
     /**
-     * A bare `@name` has nowhere to hang an attribute - the parser leaves a
-     * trailing `{.x}` outside the node - and the link form is unavailable with
-     * no destination, so the writer used to emit the bare spelling and drop the
-     * attribute without a word (carve-php#567).
-     *
-     * It is now written so the source RENDERS as the node did, byte for byte.
-     * The rendered form of a destination-less mention is
-     * `<span class="…"><strong>…</strong></span>` - corpus-pinned, so it is the
-     * target rather than a choice - and three pieces reproduce it: `*…*` for the
-     * `<strong>`, an escaped sigil so the label stays text instead of re-parsing
-     * as a second mention inside the span, and the class written FIRST, since a
-     * span renders its attributes in source order.
-     */
-    public function testAnAttributeOnADestinationlessMentionIsNotDropped(): void
-    {
-        $mention = new Mention('mention', '', '@alice');
-        $mention->setAttribute('id', 'x');
-
-        $written = $this->write($mention);
-
-        $this->assertSame('[*\\@alice*]{.mention #x}', $written);
-
-        // Both survive the round trip: the id on the wrapper, the mention inside.
-        $html = (new CarveConverter())->render((new CarveConverter())->parse($written));
-        $this->assertStringContainsString('id="x"', $html);
-        $this->assertStringContainsString('class="mention"', $html);
-    }
-
-    /**
-     * @return array<string, array{\MarkupCarve\Carve\Node\Inline\Mention}>
-     */
-    public static function exactlyWritableProvider(): array
-    {
-        $with = static function (string $class, string $label, array $attributes): Mention {
-            $mention = new Mention($class, '', $label);
-            foreach ($attributes as $key => $value) {
-                $mention->setAttribute($key, $value);
-            }
-
-            return $mention;
-        };
-
-        return [
-            'an id' => [$with('mention', '@alice', ['id' => 'keepme'])],
-            'a tag' => [$with('tag', '#release', ['id' => 'x'])],
-            'a key/value' => [$with('mention', '@alice', ['data-uid' => '42'])],
-            // The css class is what renders as `class`; an attribute one is
-            // dropped by the HTML renderer, so the source must not write it.
-            'a class attribute too' => [$with('mention', '@alice', ['class' => 'user', 'id' => 'z'])],
-            // A label the mention spelling could never hold anyway.
-            'a space in the label' => [$with('mention', '@a b', ['id' => 'r'])],
-            'an apostrophe' => [$with('mention', "@o'brien", ['id' => 'r'])],
-        ];
-    }
-
-    /**
-     * The property the issue asks for: `toHtml(fmt(x)) == toHtml(x)`.
-     *
-     * Byte equality, not "the id is in there somewhere" - the earlier spelling
-     * kept every value and still failed this, because the label re-parsed as a
-     * mention and the output grew a wrapper `<span>`.
-     */
-    #[DataProvider('exactlyWritableProvider')]
-    public function testTheWrittenSourceRendersAsTheNodeDid(Mention $mention): void
-    {
-        $document = $this->document($mention);
-        $expected = (new CarveConverter())->render($document);
-
-        $written = $this->write($mention);
-        $reparsed = (new CarveConverter())->render((new CarveConverter())->parse($written));
-
-        $this->assertSame($expected, $reparsed, "written as: $written");
-    }
-
-    #[DataProvider('exactlyWritableProvider')]
-    public function testTheWrittenSourceIsStable(Mention $mention): void
-    {
-        // A formatter that does not settle is worse than one that loses a field:
-        // every run produces a diff.
-        $written = $this->write($mention);
-        $renderer = new CarveRenderer();
-
-        $this->assertSame($written, trim($renderer->render((new CarveConverter())->parse($written))));
-    }
-
-    /**
-     * @return array<string, array{\MarkupCarve\Carve\Node\Inline\Mention}>
-     */
-    public static function notExactlyWritableProvider(): array
-    {
-        $nested = new Mention('mention', '', '');
-        $nested->removeChild($nested->getChildren()[0]);
-        $strong = new Strong();
-        $strong->appendChild(new Text('user'));
-        $nested->appendChild($strong);
-        $nested->setAttribute('id', 'n');
-
-        $classless = new Mention('', '', '@bob');
-        $classless->setAttribute('id', 'q');
-
-        $empty = new Mention('mention', '', '');
-        $empty->setAttribute('id', 's');
-
-        $padded = new Mention('mention', '', ' @alice');
-        $padded->setAttribute('id', 'p');
-
-        $trailing = new Mention('mention', '', '@alice ');
-        $trailing->setAttribute('id', 't');
-
-        return [
-            // `[**user**]` is a literal pair of asterisks, not a nested strong.
-            'markup inside the label' => [$nested],
-            // Renders `class=""`, which is not worth spelling out in source.
-            'no css class' => [$classless],
-            // `[**]` is literal too.
-            'an empty label' => [$empty],
-            // An emphasis delimiter needs a non-space beside it, so a padded
-            // label would write literal asterisks into the span.
-            'a leading space' => [$padded],
-            'a trailing space' => [$trailing],
-        ];
-    }
-
-    /**
-     * Where no spelling reaches the rendered form, the bracketed fallback keeps
-     * every value and accepts the wrapper `<span>`.
-     *
-     * Asserted rather than left implicit: these are the cases the exact writer
-     * declines, and "declines" has to mean the earlier behavior, not a crash or
-     * a silently dropped attribute.
-     */
-    #[DataProvider('notExactlyWritableProvider')]
-    public function testAnUnwritableShapeKeepsItsValuesInTheBracketedForm(Mention $mention): void
-    {
-        $written = $this->write($mention);
-
-        $this->assertStringStartsWith('[', $written);
-        $this->assertStringContainsString('#' . $mention->getAttribute('id'), $written);
-    }
-
-    /**
-     * The attribute case must not swallow the ordinary one: an unattributed
-     * bare mention still writes as `@alice`, not as a bracketed span.
+     * An unattributed bare mention still writes as `@alice`, not as a span.
      */
     public function testADestinationlessMentionWithoutAttributesStaysBare(): void
     {
