@@ -9,6 +9,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `MentionsExtension` accepts authoritative mention and tag resolver callbacks
+  with node attributes and opaque host context.
 - HTML, Markdown, Djot and BBCode importers expose a shared version 2 migration
   result through `convertWithFidelityReport()`, classifying diagnostics as
   preserved, normalized, degraded or dropped with explicit confidence. Importers
@@ -16,6 +18,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A mention or tag template that produces a denied URL now renders the inert
+  span instead of an anchor with an empty `href`.
 - The Carve writer and the HTML importer keep the native `|=` header form for a
   table whose header spans trail its real header cells (`|= A |= B | < |`),
   instead of a GFM delimiter row. A leading span, a real cell after a header

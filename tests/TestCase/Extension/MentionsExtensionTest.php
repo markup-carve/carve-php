@@ -6,7 +6,11 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\MentionsExtension;
+use MarkupCarve\Carve\Extension\SocialLinkResolverInput;
+use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class MentionsExtensionTest extends TestCase
 {
@@ -58,7 +62,67 @@ class MentionsExtensionTest extends TestCase
 
         $html = $converter->convert('@alice');
 
-        $this->assertStringContainsString('<a class="mention" href="">@alice</a>', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@alice</strong></span>', $html);
+    }
+
+    public function testResolversAreAuthoritativeAndReceiveContext(): void
+    {
+        $calls = [];
+        $context = (object)['tenant' => 42];
+        $converter = new CarveConverter();
+        $converter->addExtension(new MentionsExtension(
+            mentionUrl: '/fallback/{name}',
+            mentionResolver: function (SocialLinkResolverInput $input) use (&$calls): ?string {
+                $calls[] = $input;
+
+                return match ($input->name) {
+                    'alice' => '/people/42',
+                    'unsafe' => 'javascript:alert(1)',
+                    default => null,
+                };
+            },
+            tagResolver: static fn (SocialLinkResolverInput $input): ?string => $input->name === 'release' ? '/collections/stable' : null,
+            resolverContext: $context,
+        ));
+
+        $document = $converter->parse('@alice @missing #release @unsafe');
+        $mention = $document->getChildren()[0]->getChildren()[0];
+        $this->assertInstanceOf(Mention::class, $mention);
+        $mention->setAttribute('data-role', 'lead');
+        $html = $converter->render($document);
+        $this->assertStringContainsString('<a class="mention" href="/people/42" data-role="lead">@alice</a>', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@missing</strong></span>', $html);
+        $this->assertStringContainsString('<a class="tag" href="/collections/stable">#release</a>', $html);
+        $this->assertStringContainsString('<span class="mention"><strong>@unsafe</strong></span>', $html);
+        $this->assertCount(3, $calls);
+        $this->assertSame($context, $calls[0]->context);
+        $this->assertSame('lead', $calls[0]->attributes['data-role']);
+    }
+
+    public function testResolverErrorsRenderTheInertForm(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new MentionsExtension(
+            mentionResolver: static function (): never {
+                throw new RuntimeException('lookup failed');
+            },
+        ));
+
+        $this->assertStringContainsString(
+            '<span class="mention"><strong>@alice</strong></span>',
+            $converter->convert('@alice'),
+        );
+    }
+
+    public function testResolverDestinationReachesTheMarkdownRenderer(): void
+    {
+        $converter = new CarveConverter(renderer: new MarkdownRenderer());
+        $converter->addExtension(new MentionsExtension(
+            mentionUrl: '/fallback/{name}',
+            mentionResolver: static fn (): string => '/people/42',
+        ));
+
+        $this->assertSame("[@alice](/people/42)\n", $converter->convert('@alice'));
     }
 
     public function testMultipleMentions(): void

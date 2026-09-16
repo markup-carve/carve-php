@@ -240,6 +240,9 @@ Constructor options:
   non-link span.
 - `mentionClass` (`string`, default `'mention'`).
 - `tagClass` (`string`, default `'tag'`).
+- `mentionResolver` (`?callable`) - authoritative mention destination lookup.
+- `tagResolver` (`?callable`) - authoritative tag destination lookup.
+- `resolverContext` (`mixed`) - opaque host value passed to both resolvers.
 
 ~~~ php
 // Default (active out of the box): non-link spans
@@ -252,7 +255,21 @@ $converter->addExtension(new MentionsExtension(
     mentionUrl: '/users/{name}',
     tagUrl: '/tags/{name}',
 ));
+
+// Resolve through application data instead of a route template:
+$converter->addExtension(new MentionsExtension(
+    mentionResolver: static fn (SocialLinkResolverInput $input): ?string =>
+        $users->find($input->name)?->url,
+    resolverContext: $tenant,
+));
 ~~~
+
+Each callback receives a `SocialLinkResolverInput` containing the exact parsed
+`kind` and `name`, node `attributes`, and the opaque `context`. A configured
+resolver is authoritative for its kind. Returning `null`, throwing, or
+returning a denied URL produces the ordinary inert span and does not fall back
+to the URL template. The returned string is a complete destination and is not
+encoded again.
 
 ### CitationsExtension
 
