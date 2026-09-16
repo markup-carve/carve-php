@@ -15,11 +15,14 @@ use PHPUnit\Framework\TestCase;
  * M1 is not one rule across the metacharacter set. It splits three ways:
  *
  * - **M1a** the ASTERISK keeps M1 unconditionally.
- * - **M1b** `_`, `#` and `[` are escaped IF AND ONLY IF the character is
+ * - **M1b** `_` and `[` are escaped IF AND ONLY IF the character is
  *   ADJACENT ON THE EMITTED LINE to an UNESCAPED DELIMITER OF THE SAME
  *   CHARACTER.
  * - **M1c** a paragraph line must not become a list.
  * - **M1d** nothing else narrows.
+ * - **M1f** `#` is escaped where the emitted line would OPEN AN ATX HEADING
+ *   (markup-carve/carve#2049). Its reading is POSITIONAL, so it takes the test
+ *   §8b M2b already applies on the authored side, not M1b's.
  *
  * THE SHARP PAIR IS M1a AGAINST M1b, and it is what says a single-rule
  * implementation cannot satisfy both. Making the asterisk conditional kills only
@@ -154,7 +157,6 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
     {
         return [
             'two underscores' => ['a __b', 'a \_\_b'],
-            'two hashes' => ['a ##b', 'a \#\#b'],
             'two brackets' => ['a [[b', 'a \[\[b'],
             'three underscores' => ['a ___b', 'a \_\_\_b'],
             'underscores around a word' => ['a __b__ c', 'a \_\_b\_\_ c'],
@@ -295,6 +297,40 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
      */
     #[DataProvider('authoredInertProvider')]
     public function testAnAuthoredEscapeOfAnInertCharacterIsEmittedBare(string $source, string $expected): void
+    {
+        $this->assertSame($expected, $this->md($source));
+    }
+
+    /**
+     * §8a M1f. A hash from a TEXT node is read as markup only where it would
+     * OPEN AN ATX HEADING, which is the same test §8b M2b applies to an
+     * authored one.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function textHashProvider(): array
+    {
+        return [
+            'a paragraph continuation line' => ["a\n   # heading", "a\n\\# heading"],
+            'a lone hash the line ends on' => ["a\n   #", "a\n\\#"],
+            'only the first hash of the run' => ["a\n   ## b", "a\n\\## b"],
+            'a closed heading trailing run' => ["a\n   ### b ###", "a\n\\### b ###"],
+            'a run of six, the longest that opens one' => ["a\n   ###### b", "a\n\\###### b"],
+            'a run of seven, which opens none' => ["a\n   ####### b", "a\n####### b"],
+            'mid-line' => ['a # b', 'a # b'],
+            'a run no space closes' => ["a\n   #b", "a\n#b"],
+            'past a container prefix' => ["> a\n>    # b", "> a\n> \\# b"],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param string $expected
+     *
+     * @return void
+     */
+    #[DataProvider('textHashProvider')]
+    public function testATextHashIsDecidedByItsPosition(string $source, string $expected): void
     {
         $this->assertSame($expected, $this->md($source));
     }
