@@ -85,6 +85,13 @@ class HtmlToCarve
     protected const EMPTY_BODY_SENTINEL = '{empty}';
 
     /**
+     * A written table row whose every cell is blank, before its row attributes.
+     *
+     * @var string
+     */
+    protected const BLANK_TABLE_ROW = '/^\|(?:=? *\|)+$/';
+
+    /**
      * Canonical definition marker.
      *
      * @var string
@@ -815,6 +822,19 @@ class HtmlToCarve
             );
 
             return;
+        }
+
+        if ($tag === 'tr' && isset($this->droppedBlankTableRows[$path])) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'Dropped a row whose every cell is empty: Carve reads such a row as text',
+                'warning',
+                $path,
+            );
+            if ($this->droppedBlankTableRows[$path]) {
+                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a caption whose table has no row left', 'warning', $path);
+            }
         }
 
         if (isset($this->unwrappedBlockContainers[$path])) {
@@ -2635,6 +2655,7 @@ class HtmlToCarve
         $this->rawPreservedElements = [];
         $this->unwrappedFigures = [];
         $this->captionedTableFigures = [];
+        $this->droppedBlankTableRows = [];
         $this->detachedFigureCaptions = [];
         $this->unwrappedBlockContainers = [];
 
@@ -3083,6 +3104,13 @@ class HtmlToCarve
      * @var array<string, true>
      */
     protected array $captionedTableFigures = [];
+
+    /**
+     * The table rows written blank and dropped, keyed by path; true where the caption went with the table.
+     *
+     * @var array<string, bool>
+     */
+    protected array $droppedBlankTableRows = [];
 
     /**
      * The `<figcaption>` elements this conversion DETACHED into a paragraph.
@@ -7289,8 +7317,70 @@ class HtmlToCarve
             return $this->processTableAsListTable($node);
         }
 
+        $trElements = $this->getDirectTableRows($node);
+        if (!$this->tableMayWriteABlankRow($trElements)) {
+            return $this->writePipeTable($node, $trElements)[0];
+        }
+
+        // A row whose every cell is blank is not a table row (markup-carve/carve#1954),
+        // so it is dropped and the table written again without it (carve-js#1822).
+        $tablePath = $this->conversionNodePath($node);
+        $dropped = [];
+        do {
+            $blank = $this->importTrialWrite(fn (): ?int => $this->writePipeTable($node, $trElements)[1]);
+            if ($blank !== null) {
+                $dropped[] = $blank;
+                unset($trElements[$blank]);
+            }
+        } while ($blank !== null);
+
+        $captionGoes = $trElements === [] && $this->findFirstDirectChildByTagName($node, 'caption') instanceof DOMElement;
+        foreach ($dropped as $position => $index) {
+            $this->droppedBlankTableRows[$tablePath . '/tr[' . ($index + 1) . ']'] = $captionGoes && $position === count($dropped) - 1;
+        }
+        if ($trElements === []) {
+            return '';
+        }
+
+        return $this->writePipeTable($node, $trElements)[0];
+    }
+
+    /**
+     * Whether any row has only cells without text, the cheap gate on the trial writes.
+     *
+     * @param array<int, \DOMElement> $trElements
+     */
+    protected function tableMayWriteABlankRow(array $trElements): bool
+    {
+        foreach ($trElements as $tr) {
+            $blank = true;
+            foreach ($tr->childNodes as $cell) {
+                if ($cell instanceof DOMElement && trim($cell->textContent) !== '') {
+                    $blank = false;
+
+                    break;
+                }
+            }
+            if ($blank) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param array<int, \DOMElement> $trElements
+     *
+     * @return array{string, int|null} The written table, and the key of the first row written blank.
+     */
+    protected function writePipeTable(DOMElement $node, array $trElements): array
+    {
+        $blankRow = null;
         $rows = [];
         $headerRow = null;
+        $headerTrIndex = null;
         $headerRowAttrs = '';
         $headerCells = [];
         /** @var array<int, true> $headerAttributedCells */
@@ -7306,9 +7396,6 @@ class HtmlToCarve
         if ($captionElement instanceof DOMElement) {
             $captionText = trim($this->processCaptionChildren($captionElement));
         }
-
-        // Find all rows
-        $trElements = $this->getDirectTableRows($node);
 
         // Whether this table will spell a column's alignment in a marker run at
         // all. Only a first row of ALL header cells is promoted to the head,
@@ -7333,7 +7420,7 @@ class HtmlToCarve
         /** @var array<int, int> $rowspanMap */
         $rowspanMap = [];
 
-        foreach ($trElements as $tr) {
+        foreach ($trElements as $trIndex => $tr) {
             $cells = [];
             // Indexes into $cells whose string opens with an attribute block
             // THIS converter wrote. Kept rather than re-sniffed off the string,
@@ -7471,12 +7558,17 @@ class HtmlToCarve
                     // headers, and in the `|=` form the builder below writes
                     // the marker itself.
                     $headerRow = $this->buildTableRowLine($cells, $attributedCells, [], $cellPrefixes) . $rowAttrSuffix;
+                    $headerTrIndex = $trIndex;
                     $headerRowAttrs = $rowAttrSuffix;
                     $headerCells = $cells;
                     $headerAttributedCells = $attributedCells;
                     $headerPrefixes = $cellPrefixes;
                 } else {
-                    $rows[] = $this->buildTableRowLine($cells, $attributedCells, $headerFlags, $cellPrefixes) . $rowAttrSuffix;
+                    $line = $this->buildTableRowLine($cells, $attributedCells, $headerFlags, $cellPrefixes);
+                    if (preg_match(self::BLANK_TABLE_ROW, $line) === 1) {
+                        $blankRow ??= $trIndex;
+                    }
+                    $rows[] = $line . $rowAttrSuffix;
                 }
             }
         }
@@ -7542,8 +7634,14 @@ class HtmlToCarve
                     $headerLine .= '=' . $marker . ($headerPrefixes[$i] ?? '')
                         . (isset($headerAttributedCells[$i]) ? '' : ' ') . $cell . ' |';
                 }
+                if (preg_match(self::BLANK_TABLE_ROW, $headerLine) === 1) {
+                    $blankRow = $headerTrIndex;
+                }
                 $output .= $headerLine . $headerRowAttrs . "\n";
             } else {
+                if (preg_match(self::BLANK_TABLE_ROW, substr($headerRow, 0, strlen($headerRow) - strlen($headerRowAttrs))) === 1) {
+                    $blankRow = $headerTrIndex;
+                }
                 $output .= $headerRow . "\n";
 
                 // Use original separator widths if available for round-trip
@@ -7577,7 +7675,7 @@ class HtmlToCarve
             $output .= $this->formatCaptionText($captionText);
         }
 
-        return $output . "\n";
+        return [$output . "\n", $blankRow];
     }
 
     /**
@@ -9354,6 +9452,7 @@ class HtmlToCarve
         $loneImageParagraphs = $this->loneImageParagraphs;
         $unwrappedFigures = $this->unwrappedFigures;
         $captionedTableFigures = $this->captionedTableFigures;
+        $droppedBlankTableRows = $this->droppedBlankTableRows;
         $unwrappedBlockContainers = $this->unwrappedBlockContainers;
 
         try {
@@ -9371,6 +9470,7 @@ class HtmlToCarve
             $this->loneImageParagraphs = $loneImageParagraphs;
             $this->unwrappedFigures = $unwrappedFigures;
             $this->captionedTableFigures = $captionedTableFigures;
+            $this->droppedBlankTableRows = $droppedBlankTableRows;
             $this->unwrappedBlockContainers = $unwrappedBlockContainers;
         }
     }
