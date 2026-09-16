@@ -2251,7 +2251,7 @@ class InlineParser
                 // and a forced-span closer's where one bounds the run first
                 // (markup-carve/carve#2051); the strip is the run's own rule
                 // either way.
-                $remaining = rtrim(substr($text, $contentStart), " \t");
+                $remaining = rtrim(substr($text, $contentStart));
 
                 return [
                     'node' => new Code($remaining),
@@ -2325,7 +2325,7 @@ class InlineParser
         // extends to the end of the block (grammar §712), matching carve-js /
         // carve-rs. Previously this returned null, making the opener literal and
         // emitting a spurious empty <code> (`` `a`` `` -> `` `a<code></code> ``).
-        $remaining = rtrim(substr($text, $contentStart), " \t");
+        $remaining = rtrim(substr($text, $contentStart));
 
         return [
             'node' => new Code($remaining),
