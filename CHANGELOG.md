@@ -106,6 +106,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The HTML importer writes a `<q>` as the marks a browser draws** (#2096): `“ ”` outside, `‘ ’` one level in. Straight quotes left the direction to smart punctuation, which drew the wrong marks around a nested quote and after a word. The element is also reported as `element-unwrapped` at `info` again, and a `cite` is written unquoted where it needs no quotes.
 - **An unclosed math or literal run that a forced span's closer ends is stripped of its trailing spaces and tabs** (#2098), as a bare code-span run already was.
 - **The HTML importer keeps a space at a link label's edge where it separates the label from its neighbor** (#2094): `<a href="u">x </a>y` imports as `[x ](u)y`, not `[x](u)y`.
+- **The Markdown importer respells every thematic break as `---`** (#2097), the bytes the Carve writer gives the node, so a spaced run (`* * *`), an over-long one, an indented one and a trailing space no longer import as a nested list or a paragraph.
 
 ## [0.1.7] - 2026-09-07
 
