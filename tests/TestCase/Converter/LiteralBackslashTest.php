@@ -89,16 +89,14 @@ class LiteralBackslashTest extends TestCase
     }
 
     /**
-     * BOUND, not proof: the raw `alt` attribute never goes through the text
-     * pass, so it was correct before and stays correct. It is here because the
-     * shared label escaper STOPPED doubling backslashes in this change, and
-     * this is the call site that therefore has to do it itself.
+     * Alt text is raw, so its backslash is written once, as authored
+     * (markup-carve/carve-php#2056).
      */
     public function testAnImageAltKeepsItsBackslashes(): void
     {
         $carve = (new HtmlToCarve())->convert('<p><img src="x.png" alt="a \*b* c"></p>');
 
-        $this->assertStringContainsString('\\\\', $carve);
+        $this->assertSame("![a \\*b* c](x.png)\n", $carve);
     }
 
     /**
