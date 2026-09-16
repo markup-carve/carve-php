@@ -95,8 +95,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     }
 
     /**
-     * The characters PART 11 §8a M1b decides on the LINE, in the order the
-     * sentinel run is assigned to them.
+     * The characters PART 11 §8a M1b decides by ADJACENCY on the LINE, in the
+     * order the sentinel run is assigned to them.
+     *
+     * THE HASH IS NOT HERE, and that is M1f rather than an omission. A `#` does
+     * not collide with a delimiter of its own character; it opens an ATX
+     * heading at a line's content position and is inert everywhere else, which
+     * is the test §8b M2b already applies on the authored side.
      *
      * THE ASTERISK IS NOT HERE, and that is M1a rather than an omission. This
      * writer spells emphasis with `*`, so a literal asterisk is not a character
@@ -106,7 +111,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var list<string>
      */
-    private const NARROWED_CHARACTERS = ['_', '#', '['];
+    private const NARROWED_CHARACTERS = ['_', '['];
 
     /**
      * PART 11 §8b M2a: characters this target's readers never read as markup,
@@ -127,10 +132,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     private const AUTHORED_INERT = ['{', '}', '^', ',', '%', ':', '/', '@'];
 
     /**
-     * PART 11 §8b M2b: read as markup only at a line's CONTENT POSITION.
+     * PART 11 §8a M1f and §8b M2b: read as markup only at a line's CONTENT
+     * POSITION.
      *
      * `#` opens an ATX heading there and is inert everywhere else, so the
-     * decision is a property of the line and takes a sentinel like M1b's.
+     * decision is a property of the line and takes a sentinel like M1b's. One
+     * family serves both clauses: they ask the same positional question, so a
+     * `#` from text and one from an `escaped_text` node are decided alike.
      *
      * @var list<string>
      */
@@ -159,8 +167,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected array $narrowedSentinels = [
         '_' => "\u{E004}",
-        '#' => "\u{E005}",
-        '[' => "\u{E006}",
+        '[' => "\u{E005}",
     ];
 
     /**
@@ -175,7 +182,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * @var array<string, string>
      */
     protected array $authoredSentinels = [
-        '#' => "\u{E007}",
+        '#' => "\u{E006}",
     ];
 
     /**
@@ -185,7 +192,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * @var array<string, string>
      */
     protected array $authoredKeptSentinels = [
-        '#' => "\u{E008}",
+        '#' => "\u{E007}",
     ];
 
     /**
@@ -197,14 +204,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var string
      */
-    protected string $narrowedSentinelClass = '[\x{E004}-\x{E008}]';
+    protected string $narrowedSentinelClass = '[\x{E004}-\x{E007}]';
 
     protected int $listDepth = 0;
 
     /**
-     * Authored hashes emitted since the enclosing container started, so a
-     * container that emitted none skips the M2b pass instead of re-scanning its
-     * subtree once per enclosing level - the shape carve-php#1142 fixed.
+     * Hashes emitted since the enclosing container started, so a container that
+     * emitted none skips the position pass instead of re-scanning its subtree
+     * once per enclosing level - the shape carve-php#1142 fixed.
      */
     protected int $authoredHashes = 0;
 
@@ -422,12 +429,20 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         if (isset($this->authoredSentinels[$content])) {
-            $this->authoredHashes++;
-
-            return $this->authoredSentinels[$content];
+            return $this->positionalHash($content);
         }
 
         return '\\' . $content;
+    }
+
+    /**
+     * Emit a `#` as the undecided carrier, counted (PART 11 §8a M1f, §8b M2b).
+     */
+    protected function positionalHash(string $character): string
+    {
+        $this->authoredHashes++;
+
+        return $this->authoredSentinels[$character];
     }
 
     /**
@@ -2820,9 +2835,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // brackets handled after it.
         //
         // `_`, `#` and `[` are emitted as SENTINELS rather than as backslashes:
-        // PART 11 §8a M1b decides those three on the EMITTED LINE, which only
+        // PART 11 §8a decides those three on the EMITTED LINE, which only
         // resolveNarrowedEscapes() can see. `*` keeps M1 unconditionally (M1a),
         // and every other metacharacter keeps M1 as written (M1c).
+        //
+        // THE HASH TAKES M1f's CARRIER, not M1b's. Its test is positional
+        // rather than adjacency, and a container settles it at the prefix site.
         //
         // `~` IS ONE OF THEM. GFM's strikethrough extension pairs a run of ONE
         // OR TWO tildes, so a literal tilde in text is a Markdown
@@ -2833,7 +2851,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // for a reader that takes the one-tilde form, which pulldown-cmark does.
         $escaped = preg_replace_callback(
             '/([\\\\`*_~\[\]#])/',
-            fn (array $m): string => $this->narrowedSentinels[$m[1]] ?? '\\' . $m[1],
+            fn (array $m): string => $m[1] === '#'
+                ? $this->positionalHash('#')
+                : ($this->narrowedSentinels[$m[1]] ?? '\\' . $m[1]),
             $text,
         ) ?? $text;
 
