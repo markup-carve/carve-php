@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Extension\ListTableExtension;
 use MarkupCarve\Carve\Extension\MentionsExtension;
 use MarkupCarve\Carve\Extension\SemanticSpanExtension;
 use MarkupCarve\Carve\Extension\SmartQuotesExtension;
+use MarkupCarve\Carve\Extension\SocialLinkResolverInput;
 use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
@@ -139,6 +140,14 @@ class OptionalCorpusTest extends TestCase
     {
         return [
             'social-link-templates' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new MentionsExtension(mentionUrl: '/users/{name}', tagUrl: '/topics/{name}')),
+            'social-link-resolvers' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new MentionsExtension(
+                mentionResolver: static fn (SocialLinkResolverInput $input): ?string => match ($input->name) {
+                    'alice' => '/people/42',
+                    'unsafe' => 'javascript:alert(1)',
+                    default => null,
+                },
+                tagResolver: static fn (SocialLinkResolverInput $input): ?string => $input->name === 'release' ? '/collections/stable' : null,
+            )),
             'smart-quotes-locale-de' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new SmartQuotesExtension(locale: 'de')),
             'bare-url-autolink' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new AutolinkExtension()),
             'citations-numbered' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new CitationsExtension()),
