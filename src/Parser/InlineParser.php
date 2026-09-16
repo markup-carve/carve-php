@@ -3291,6 +3291,19 @@ class InlineParser
         // For braced syntax, we allow spaces inside (unlike bare delimiters)
         $searchPos = $pos + 2;
         while ($searchPos < $length - 1) {
+            // A CLOSER INSIDE A CLOSED VERBATIM RUN IS CODE, not this span's
+            // closer: the run is closed by an equal-length backtick run
+            // anywhere later in the block (markup-carve/carve#2079).
+            if ($text[$searchPos] === '`') {
+                $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
+                if ($codeEnd !== null) {
+                    $searchPos = $codeEnd;
+
+                    continue;
+                }
+                // A run nothing closes ENDS at this span's closer (PART 3
+                // UNCLOSED RUN, markup-carve/carve#2056), so the scan goes on.
+            }
             if ($text[$searchPos] === $marker && $text[$searchPos + 1] === '}') {
                 $content = substr($text, $pos + 2, $searchPos - $pos - 2);
                 $node = new $nodeClass();
@@ -4022,9 +4035,25 @@ class InlineParser
         if (($text[$pos + 2] ?? '') === $marker && ($text[$pos + 3] ?? '') === '}') {
             return null;
         }
-        $close = strpos($text, $marker . '}', $pos + 2);
+        // A closer inside a closed verbatim run is code, as in parseBracedInline().
+        $searchPos = $pos + 2;
+        $length = strlen($text);
+        while ($searchPos < $length - 1) {
+            if ($text[$searchPos] === '`') {
+                $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
+                if ($codeEnd !== null) {
+                    $searchPos = $codeEnd;
 
-        return $close === false ? null : $close + 2;
+                    continue;
+                }
+            }
+            if ($text[$searchPos] === $marker && $text[$searchPos + 1] === '}') {
+                return $searchPos + 2;
+            }
+            $searchPos++;
+        }
+
+        return null;
     }
 
     /**
