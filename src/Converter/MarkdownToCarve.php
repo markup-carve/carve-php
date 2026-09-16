@@ -168,6 +168,9 @@ class MarkdownToCarve
         $activeBulletMd = null;
         $activeBulletCarve = null;
         $bulletRunBroken = true;
+        // The markers of the nested bullet lists copied through the item-text
+        // branch, by indent: the Markdown marker and the Carve one it became.
+        $nestedBullets = [];
 
         // Raw-HTML block tracking. `$htmlCloser` is the terminator pattern of an
         // open CommonMark condition 1-5 block (`</script>`, `-->`, ...),
@@ -488,11 +491,16 @@ class MarkdownToCarve
             // when it opens a nested item on a fence: that is code, and the
             // fence branch further down owns it.
             if ($prevLineType === 'list' && $indent >= 1 && $this->opensItemFence($line, $isList) === null) {
+                if ($isList && $ordered === null) {
+                    $line = $this->respellNestedBullet($line, $indent, $nestedBullets);
+                }
                 $result[] = $this->convertInlineFormatting($this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)));
                 $prevLineType = 'list';
 
                 continue;
             }
+
+            $nestedBullets = [];
 
             $underline = $i + 1 < $lineCount ? trim($lines[$i + 1]) : '';
             if (
@@ -1109,6 +1117,37 @@ class MarkdownToCarve
         }
 
         return $this->columnWidth(substr($line, 0, $i));
+    }
+
+    /**
+     * A nested bullet's Carve marker (#2125). Carve has no `+` bullet, and a
+     * change of Markdown marker at one indent starts a new list, which Carve
+     * only reads where the Carve marker changes too.
+     *
+     * @param string $line
+     * @param int $indent
+     * @param array<int, array{md: string, carve: string}> $nestedBullets
+     */
+    protected function respellNestedBullet(string $line, int $indent, array &$nestedBullets): string
+    {
+        $markdown = $line[$indent];
+        $previous = $nestedBullets[$indent] ?? null;
+        if ($previous !== null && $previous['md'] === $markdown) {
+            $carve = $previous['carve'];
+        } else {
+            $carve = $markdown === '+' ? '-' : $markdown;
+            if ($previous !== null && $previous['carve'] === $carve) {
+                $carve = $carve === '-' ? '*' : '-';
+            }
+        }
+        foreach (array_keys($nestedBullets) as $deeper) {
+            if ($deeper > $indent) {
+                unset($nestedBullets[$deeper]);
+            }
+        }
+        $nestedBullets[$indent] = ['md' => $markdown, 'carve' => $carve];
+
+        return substr($line, 0, $indent) . $carve . substr($line, $indent + 1);
     }
 
     /**
