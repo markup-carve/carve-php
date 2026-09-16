@@ -2450,7 +2450,7 @@ DJOT;
         $html = '<p>She said <q>Hello</q> to me.</p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('She said "Hello" to me.', $result);
+        $this->assertSame("She said \u{201C}Hello\u{201D} to me.", $result);
     }
 
     public function testQElementEscapesInnerQuotes(): void
@@ -2458,7 +2458,7 @@ DJOT;
         $html = '<p><q>He said "hi"</q></p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('"He said \\"hi\\""', $result);
+        $this->assertSame("\u{201C}He said \\\"hi\\\"\u{201D}", $result);
         $this->assertStringContainsString('He said "hi"', (new CarveConverter())->convert($result));
     }
 
@@ -2467,7 +2467,7 @@ DJOT;
         $html = '<p>As stated: <q cite="https://example.com">Quote here</q>.</p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('As stated: ["Quote here"]{cite="https://example.com"}.', $result);
+        $this->assertSame("As stated: [\u{201C}Quote here\u{201D}]{cite=https://example.com}.", $result);
     }
 
     public function testQElementWithCiteEscapesInnerQuotes(): void
@@ -2475,7 +2475,7 @@ DJOT;
         $html = '<p><q cite="https://example.com">He said "hi"</q></p>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertSame('["He said \\"hi\\""]{cite="https://example.com"}', $result);
+        $this->assertSame("[\u{201C}He said \\\"hi\\\"\u{201D}]{cite=https://example.com}", $result);
         $this->assertStringContainsString('He said "hi"', (new CarveConverter())->convert($result));
     }
 

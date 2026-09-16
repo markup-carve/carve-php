@@ -38,7 +38,33 @@ class AQuoteElementImportsItsContentEscapedOnceTest extends TestCase
     {
         $readBack = str_replace("\n", '', CarveConverter::create()->convert((new HtmlToCarve())->convert($html)));
 
-        $this->assertSame(str_replace(['<q>', '</q>'], ["\u{201C}", "\u{201D}"], $html), $readBack);
+        $this->assertSame($this->withQuoteMarks($html), $readBack);
+    }
+
+    /**
+     * The HTML with each `<q>` replaced by the pair a browser draws for it:
+     * double outside, single one level in (markup-carve/carve-php#2096).
+     */
+    protected function withQuoteMarks(string $html): string
+    {
+        $depth = 0;
+
+        return (string)preg_replace_callback(
+            '#</?q>#',
+            function (array $match) use (&$depth): string {
+                if ($match[0] === '</q>') {
+                    $depth--;
+
+                    return $depth % 2 === 0 ? "\u{201D}" : "\u{2019}";
+                }
+
+                $mark = $depth % 2 === 0 ? "\u{201C}" : "\u{2018}";
+                $depth++;
+
+                return $mark;
+            },
+            $html,
+        );
     }
 
     #[DataProvider('htmlProvider')]
@@ -50,10 +76,25 @@ class AQuoteElementImportsItsContentEscapedOnceTest extends TestCase
     }
 
     /**
+     * A cite goes through the shared attribute helper, whose unquoted form is
+     * the one the writer keeps (markup-carve/carve-php#2096).
+     */
+    public function testACitedQuoteIsAFixedPointOfFmt(): void
+    {
+        $imported = (new HtmlToCarve())->convert('<p><q cite="https://e.com">a</q></p>');
+
+        $this->assertSame("[\u{201C}a\u{201D}]{cite=https://e.com}\n", $imported);
+        $this->assertSame($imported, CarveConverter::toCarve($imported));
+    }
+
+    /**
      * Control: a straight quote after a `<q>` is escaped once, like any other.
      */
     public function testAStraightQuoteAfterAQuoteElementIsEscapedOnce(): void
     {
-        $this->assertSame("\"x\"a\\\"b\n", (new HtmlToCarve())->convert('<p><q>x</q>a"b</p>'));
+        $this->assertSame(
+            "\u{201C}x\u{201D}a\\\"b\n",
+            (new HtmlToCarve())->convert('<p><q>x</q>a"b</p>'),
+        );
     }
 }
