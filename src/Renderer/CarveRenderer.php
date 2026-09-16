@@ -3220,13 +3220,13 @@ class CarveRenderer implements RendererInterface
             // Strong, and W4 escalated the whole document to conservative
             // (carve#374).
             $node instanceof EscapedText => '\\' . $node->getContent(),
-            $node instanceof Emphasis => $withAttrs($this->renderEmphasis('/', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Emphasis => $withAttrs($this->renderEmphasis('/', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node))),
             $node instanceof Strong => $withAttrs($this->renderStrongNode($node, $prevChar, $nextChar)),
-            $node instanceof Underline => $withAttrs($this->renderEmphasis('_', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
-            $node instanceof Strike => $withAttrs($this->renderEmphasis('~', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Underline => $withAttrs($this->renderEmphasis('_', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node))),
+            $node instanceof Strike => $withAttrs($this->renderEmphasis('~', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node))),
             $node instanceof Superscript => $withAttrs($this->renderForcedEmphasis('^', $this->renderInlines($node->getChildren()))),
             $node instanceof Subscript => $withAttrs($this->renderForcedEmphasis(',', $this->renderInlines($node->getChildren()))),
-            $node instanceof Highlight => $withAttrs($this->renderEmphasis('=', $this->renderInlines($node->getChildren()), $prevChar, $nextChar)),
+            $node instanceof Highlight => $withAttrs($this->renderEmphasis('=', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node))),
             $node instanceof Code => $withAttrs($this->renderCode($node->getContent())),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
@@ -3284,7 +3284,7 @@ class CarveRenderer implements RendererInterface
             return '/*' . $this->renderInlines($inner->getChildren()) . '*/';
         }
 
-        return $this->renderEmphasis('*', $this->renderInlines($node->getChildren()), $prevChar, $nextChar);
+        return $this->renderEmphasis('*', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node));
     }
 
     protected function renderLink(Link $node): string
@@ -3618,10 +3618,26 @@ class CarveRenderer implements RendererInterface
         return '{' . $delimiter . $content . $delimiter . '}';
     }
 
-    protected function renderEmphasis(string $delimiter, string $content, string $prevChar, string $nextChar): string
+    /**
+     * An EMPTY code span has one spelling, a backtick run its container ends,
+     * and inside an emphasis only the braced closer ends it - a bare closer is
+     * swallowed by the open run (markup-carve/carve#2051).
+     */
+    protected static function endsInEmptyCodeSpan(InlineNode $node): bool
+    {
+        $children = $node->getChildren();
+        $last = $children === [] ? null : $children[array_key_last($children)];
+
+        // Attributes need a CLOSING run to attach to, so an empty span carrying
+        // them has no spelling at all and the braces would not give it one.
+        return $last instanceof Code && $last->getContent() === '' && $last->getAttributes() === [];
+    }
+
+    protected function renderEmphasis(string $delimiter, string $content, string $prevChar, string $nextChar, bool $endsInEmptyCodeSpan = false): string
     {
         // The characters `bare_opener` refuses before a marker (CARVE-P3-013).
-        $needsForced = preg_match('/[A-Za-z0-9_]/', $prevChar) === 1
+        $needsForced = $endsInEmptyCodeSpan
+            || preg_match('/[A-Za-z0-9_]/', $prevChar) === 1
             || $prevChar === $delimiter
             || ($prevChar === '/' && ($delimiter === '/' || $delimiter === '_'))
             || preg_match('/[A-Za-z0-9_]/', $nextChar) === 1
