@@ -3231,10 +3231,12 @@ class InlineParser
             while ($searchPos < $length - 1) {
                 if ($text[$searchPos] === '~' && $text[$searchPos + 1] === '}') {
                     $content = substr($text, $pos + 2, $searchPos - $pos - 2);
-                    if (str_contains($content, '~>')) {
-                        [$old, $new] = explode('~>', $content, 2);
-
-                        return ['node' => new Substitution($old, $new), 'pos' => $searchPos + 2];
+                    $arrow = $this->topLevelSubstitutionArrow($content);
+                    if ($arrow !== null) {
+                        return [
+                            'node' => new Substitution(substr($content, 0, $arrow), substr($content, $arrow + 2)),
+                            'pos' => $searchPos + 2,
+                        ];
                     }
 
                     break;
@@ -4006,6 +4008,52 @@ class InlineParser
     protected function findCodeSpanEnd(string $text, int $pos): ?int
     {
         return BracketScanner::codeSpanEnd($text, $pos);
+    }
+
+    /**
+     * Offset of the `~>` that splits a substitution, or null where the pair
+     * holds none at its own level (markup-carve/carve#2083).
+     *
+     * Verbatim content and a delimited comment are skipped, and an escaped
+     * `~` is not an arrow, so a pair whose only `~>` sits in one of those is a
+     * forced strikethrough instead.
+     */
+    protected function topLevelSubstitutionArrow(string $content): ?int
+    {
+        $length = strlen($content);
+        for ($at = 0; $at < $length; $at++) {
+            $char = $content[$at];
+            if ($char === '\\') {
+                $at++;
+
+                continue;
+            }
+            if ($char === '`') {
+                $end = $this->findCodeSpanEnd($content, $at);
+                // A run nothing closes reaches the end of the content, so no
+                // arrow behind it is top level.
+                if ($end === null) {
+                    return null;
+                }
+                $at = $end - 1;
+
+                continue;
+            }
+            if ($char === '{' && ($content[$at + 1] ?? '') === '%') {
+                $end = strpos($content, '%}', $at + 2);
+                if ($end === false) {
+                    return null;
+                }
+                $at = $end + 1;
+
+                continue;
+            }
+            if ($char === '~' && ($content[$at + 1] ?? '') === '>') {
+                return $at;
+            }
+        }
+
+        return null;
     }
 
     /**
