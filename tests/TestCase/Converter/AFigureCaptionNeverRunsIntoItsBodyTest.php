@@ -70,7 +70,7 @@ class AFigureCaptionNeverRunsIntoItsBodyTest extends TestCase
             'a link-wrapped image, which is an inline body too' => [
                 '<figure><a href="u"><img src="i.png" alt="a"></a><figcaption>cap</figcaption></figure>',
                 '(u)cap',
-                "[!\\[a\\](i.png)](u)\n\ncap\n",
+                "[![a](i.png)](u)\n\ncap\n",
             ],
             'an inline RUN of two children ran into the caption' => [
                 '<figure><span>b</span><em>c</em><figcaption>cap</figcaption></figure>',

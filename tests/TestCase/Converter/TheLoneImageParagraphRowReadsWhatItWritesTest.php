@@ -120,7 +120,7 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
             ],
             'a link, which writes its destination' => [
                 '<p><a href="u"><img src="g.jpg" alt="G"></a></p>',
-                "[!\\[G\\](g.jpg)](u)\n",
+                "[![G](g.jpg)](u)\n",
             ],
             'an emphasis, which writes its own delimiters' => [
                 '<p><em><img src="g.jpg" alt="G"></em></p>',

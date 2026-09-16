@@ -130,7 +130,7 @@ class AFigureFindsItsImageBehindAWrapperTest extends TestCase
             // destination the HTML held.
             'a link around the image' => [
                 '<figure><p><a href="u"><img src="i.png" alt="a"></a></p><figcaption>cap</figcaption></figure>',
-                "[!\\[a\\](i.png)](u)\n\ncap\n",
+                "[![a](i.png)](u)\n\ncap\n",
             ],
             // The paragraph writes an attribute line ABOVE the image, so it is
             // not writing the image alone.

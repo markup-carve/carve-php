@@ -72,6 +72,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Carve writer braces an emphasis that ends in an empty code span or wraps a strong** (#2043, #2015), and writes a `!` bare outside the channel it opens (#2018).
 - **An emphasis or link label ending in a hard break keeps its closer** in the Carve writer and the HTML importer (#2054).
 - **The HTML importer escapes a `<q>` element's content once** (#2057), so an escape its children wrote is no longer doubled.
+- **The HTML importer escapes a label's brackets in its text only** (#2056), so a code span or image inside a link or span keeps its brackets, and image alt text is written as authored where its run closes.
 - **The Markdown target escapes a hash run that would open or close an ATX heading** (#2030, #2046), and its underscore pair check reads one block at a time (#2017).
 - **The inline parser settles four brace and code-span shapes** (#2024, #2033, #2034, #2035). A bare delimiter opens against a close brace, a braced quote pair keeps its braces, a code-span closer is a maximal run in lookahead too, and a forced-span closer ends an unclosed run and strips its trailing whitespace.
 - **A `key=value` attribute whose name starts with an underscore is read** (#2023).

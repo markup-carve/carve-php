@@ -16,6 +16,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Parser\Block\TableParser;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -2367,6 +2368,11 @@ class HtmlToCarve
      */
     protected int $quoteDepth = 0;
 
+    /**
+     * How many bracketed labels the walk is inside, whose text escapes `[` and `]`.
+     */
+    protected int $labelDepth = 0;
+
     protected bool $preserveTextWhitespace = false;
 
     /**
@@ -2451,6 +2457,7 @@ class HtmlToCarve
         $this->listDepth = 0;
         $this->inPre = false;
         $this->quoteDepth = 0;
+        $this->labelDepth = 0;
         $this->preserveTextWhitespace = false;
         $this->referenceDefinitions = [];
         $this->footnoteDefinitions = [];
@@ -2594,9 +2601,8 @@ class HtmlToCarve
             if ($this->inPre) {
                 return $text;
             }
-            $text = $this->escapeHtmlTextAsCarveProse($text);
 
-            return $this->quoteDepth > 0 ? str_replace('"', '\\"', $text) : $text;
+            return $this->escapeHtmlTextForSlot($text);
         }
 
         if ($node instanceof DOMComment) {
@@ -2742,6 +2748,39 @@ class HtmlToCarve
             $this->escapeAttributeBlockOpener($this->escapeVerbatimDelimiter($this->escapeLiteralBackslashes($text))),
             self::HANDLED_PLAIN,
         );
+    }
+
+    /**
+     * HTML text escaped as prose, plus what the enclosing quote or label reads.
+     *
+     * @param string $text
+     */
+    protected function escapeHtmlTextForSlot(string $text): string
+    {
+        $text = $this->escapeHtmlTextAsCarveProse($text);
+        if ($this->quoteDepth > 0) {
+            $text = str_replace('"', '\\"', $text);
+        }
+
+        return $this->labelDepth > 0 ? $this->escapeLinkOrImageLabel($text) : $text;
+    }
+
+    /**
+     * Build a bracketed label's content, whose text then escapes `[` and `]`.
+     *
+     * The content is Carve already when it returns, so escaping it afterwards
+     * would escape a code span's text and a nested image's own brackets.
+     *
+     * @param \Closure(): string $build
+     */
+    protected function buildLabelContent(Closure $build): string
+    {
+        $this->labelDepth++;
+        try {
+            return $build();
+        } finally {
+            $this->labelDepth--;
+        }
     }
 
     protected function processChildren(DOMNode $node): string
@@ -5036,7 +5075,7 @@ class HtmlToCarve
         // hand-written input, where a `data-djot-*` attribute beside a blanked
         // destination would otherwise rebuild a link the rule says is not one.
         if ($this->importDestinationIsEmpty($node->getAttribute('href'))) {
-            return $this->unwrapDestinationLessElement($node, $this->processChildren($node), ['href']);
+            return $this->unwrapDestinationLessElement($node, fn (): string => $this->processChildren($node), ['href']);
         }
 
         if ($node->hasAttribute('data-djot-heading-ref')) {
@@ -5096,15 +5135,15 @@ class HtmlToCarve
         }
 
         $href = $node->getAttribute('href');
-        $text = trim($this->processChildren($node));
+        $text = trim($this->buildLabelContent(fn (): string => $this->processChildren($node)));
         $title = $node->getAttribute('title');
 
         if ($text === '') {
-            $text = $href;
+            $text = $this->escapeLinkOrImageLabel($href);
         }
         $text = $this->restoreTrailingHardBreak($text);
 
-        $text = $this->escapeNoteReferenceLabel($this->escapeLinkOrImageLabel($text));
+        $text = $this->escapeNoteReferenceLabel($text);
 
         // Check for @mention (round-trip support for MentionsExtension)
         if ($node->hasAttribute('data-username')) {
@@ -5210,12 +5249,16 @@ class HtmlToCarve
             // markup the HTML never held.
             return $this->unwrapDestinationLessElement(
                 $node,
-                $this->escapeHtmlTextAsCarveProse($rawAlt),
+                fn (): string => $this->escapeHtmlTextForSlot($rawAlt),
                 ['src', 'alt'],
             );
         }
 
-        $alt = $this->escapeLinkOrImageLabel($this->escapeLiteralBackslashes($rawAlt));
+        // Alt text is raw (PART 3), so it is written as the writer writes it:
+        // as authored where the run closes, escaped only where it cannot.
+        $alt = BracketScanner::rawRunCloses($rawAlt)
+            ? $rawAlt
+            : $this->escapeLinkOrImageLabel($this->escapeLiteralBackslashes($rawAlt));
 
         // Check for reference image (round-trip support)
         if ($node->hasAttribute('data-djot-ref')) {
@@ -5310,17 +5353,17 @@ class HtmlToCarve
      * prose and a backslash there would be a character the author never wrote.
      *
      * @param \DOMElement $node
-     * @param string $content
+     * @param \Closure(): string $content
      * @param array<string> $skipAttrs The destination slot, and anything the content already carries.
      */
-    protected function unwrapDestinationLessElement(DOMElement $node, string $content, array $skipAttrs): string
+    protected function unwrapDestinationLessElement(DOMElement $node, Closure $content, array $skipAttrs): string
     {
         $attrs = $this->formatInlineAttributes($node, $skipAttrs);
         if ($attrs === '') {
-            return $content;
+            return $content();
         }
 
-        return '[' . $this->escapeLinkOrImageLabel($content) . ']' . $attrs;
+        return '[' . $this->escapeNoteReferenceLabel($this->buildLabelContent($content)) . ']' . $attrs;
     }
 
     protected function processHr(DOMNode $node): string
@@ -7946,17 +7989,17 @@ class HtmlToCarve
                 . $this->mathAttributeSuffix($node, $math['classes']);
         }
 
-        $content = $this->processChildren($node);
-
         // Use getElementAttributes to get all attributes including data-*
         $attrs = $this->getElementAttributes($node);
 
         // If span has any attributes, convert to Carve span syntax
         if ($attrs !== '') {
+            $content = $this->buildLabelContent(fn (): string => $this->processChildren($node));
+
             return '[' . $this->escapeNoteReferenceLabel($content) . ']{' . $attrs . '}';
         }
 
-        return $content;
+        return $this->processChildren($node);
     }
 
     /**
@@ -8107,7 +8150,7 @@ class HtmlToCarve
      */
     protected function processSemanticSpan(DOMElement $node, string $type): string
     {
-        $content = $this->processChildren($node);
+        $content = $this->buildLabelContent(fn (): string => $this->processChildren($node));
 
         // Preserve definition-based abbreviations when the round-trip template
         // already restored the matching abbreviation definition.
@@ -8171,9 +8214,12 @@ class HtmlToCarve
     {
         // The children are Carve already, so only their TEXT escapes the
         // quote; escaping the result would double every escape in it.
+        $cite = $node->getAttribute('cite');
         $this->quoteDepth++;
         try {
-            $content = $this->processChildren($node);
+            $content = $cite !== ''
+                ? $this->buildLabelContent(fn (): string => $this->processChildren($node))
+                : $this->processChildren($node);
         } finally {
             $this->quoteDepth--;
         }
@@ -8181,7 +8227,6 @@ class HtmlToCarve
         $quoted = '"' . $content . '"';
 
         // If there's a cite attribute, wrap in span with the attribute
-        $cite = $node->getAttribute('cite');
         if ($cite !== '') {
             $escapedCite = str_replace(['\\', '"'], ['\\\\', '\\"'], $cite);
 
@@ -9042,7 +9087,8 @@ class HtmlToCarve
             return '';
         }
 
-        return $converter->processChildren($root);
+        // Its one caller writes the result as a bracketed label.
+        return $converter->buildLabelContent(fn (): string => $converter->processChildren($root));
     }
 
     protected function isInlineOnlyEndnotesSection(DOMElement $node): bool
