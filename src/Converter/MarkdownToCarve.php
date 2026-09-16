@@ -85,6 +85,14 @@ class MarkdownToCarve
     protected array $definedReferenceLabels = [];
 
     /**
+     * The source label of each normalized label's first definition with a
+     * destination.
+     *
+     * @var array<string, string>
+     */
+    protected array $referenceDefinitionLabels = [];
+
+    /**
      * When true, carry `::: note` fences across as Carve containers (Pandoc /
      * Quarto fenced divs). Default false: in CommonMark both fence lines are
      * paragraph text, and left bare they disappeared from the render and
@@ -1607,6 +1615,30 @@ class MarkdownToCarve
         $line = preg_replace_callback('/<[^>\s@]+@[^>\s]+>/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         $line = preg_replace_callback('/\bhttps?:\/\/[^\s<>`]+/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         $line = preg_replace_callback('/^\s*\[[^^\]][^\]]*\]:\s*\S.*$/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
+        // Carve has no shortcut reference, so a defined `[r]` is written in the
+        // full form, collapsed only where Carve's exact label match still holds.
+        if ($this->referenceDefinitionLabels !== []) {
+            $subject = $line;
+            $line = preg_replace_callback(
+                '/(!?)\[([^[\]\n^][^[\]\n]*)\](?!\x00)/',
+                function (array $match) use ($subject, $protected, $protect): string {
+                    $label = $match[2][0];
+                    $end = $match[0][1] + strlen($match[0][0]);
+                    if (($subject[$end] ?? '') === ':' && trim(substr($subject, 0, $match[0][1])) === '') {
+                        return $match[0][0];
+                    }
+                    $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
+                    if ($definition === null) {
+                        return $match[0][0];
+                    }
+
+                    return $match[1][0] . '[' . $label . ']'
+                        . ($definition === $label && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 ? '[]' : $protect('[' . $definition . ']'));
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+        }
 
         if ($this->convertMath) {
             $line = preg_replace_callback('/\$\$([^$]+)\$\$/', fn (array $match): string => $protect('$$`' . $match[1] . '`'), $line) ?? $line;
@@ -1731,6 +1763,7 @@ class MarkdownToCarve
         $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
         $quote = '/^((?: {0,3}>[ \t]?)*)/';
         $defined = [];
+        $labels = [];
         $kept = [];
         $fence = null;
         $htmlCloser = null;
@@ -1828,6 +1861,9 @@ class MarkdownToCarve
                     $definition[2] = substr($continued[0], strlen($quotePrefix));
                 }
                 if (preg_match('/^[ \t]*<>(?:[ \t]+' . $title . ')?[ \t]*$/', $definition[2], $empty) !== 1) {
+                    if (!isset($defined[$key])) {
+                        $labels[$key] = $definition[1];
+                    }
                     $defined[$key] = true;
                     array_push($kept, $line, ...$continued);
                     $canStart = true;
@@ -1865,6 +1901,7 @@ class MarkdownToCarve
         }
 
         $this->definedReferenceLabels = $defined;
+        $this->referenceDefinitionLabels = $labels;
 
         return $kept;
     }
