@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Transform;
 
+use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Ast\TextRunCoalescer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Extension\Frontmatter;
@@ -527,6 +529,7 @@ class IncludeExpander implements TransformerInterface
             $cursor = $span['end'];
         }
         $nodes = [...$nodes, ...$this->sliceRun($run, $cursor, strlen($full))];
+        $nodes = $this->mergeExpandedRun($nodes, $this->hostSpan($run));
 
         for ($remove = count($run) - 1; $remove >= 1; $remove--) {
             $parent->removeChild($run[$remove]);
@@ -567,11 +570,14 @@ class IncludeExpander implements TransformerInterface
                 continue;
             }
 
-            $value = substr($text, max($from, $start) - $start, min($to, $end) - max($from, $start));
+            $sliceFrom = max($from, $start) - $start;
+            $value = substr($text, $sliceFrom, min($to, $end) - max($from, $start));
             if ($value === $text) {
                 $out[] = $node;
             } elseif ($value !== '') {
-                $out[] = new Text($value);
+                $piece = new Text($value);
+                $piece->setPos($this->narrowedSpan($node->getPos(), $text, $sliceFrom, strlen($value)));
+                $out[] = $piece;
             }
         }
 
@@ -870,6 +876,114 @@ class IncludeExpander implements TransformerInterface
     protected function textLikeContent(array $nodes): string
     {
         return IncludeDirectiveSyntax::textLikeContent($nodes);
+    }
+
+    /**
+     * The extent the run occupied in its own file, before the splice.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $run
+     */
+    protected function hostSpan(array $run): ?SourceSpan
+    {
+        $first = null;
+        $last = null;
+        foreach ($run as $node) {
+            $pos = $node->getPos();
+            if ($pos === null) {
+                continue;
+            }
+            $first ??= $pos;
+            $last = $pos;
+        }
+        if ($first === null || $last === null) {
+            return null;
+        }
+
+        return new SourceSpan(
+            $first->startLine,
+            $last->endLine,
+            $first->startColumn,
+            $last->endColumn,
+            $first->startOffset,
+            $last->endOffset,
+            $first->file,
+        );
+    }
+
+    /**
+     * Join the adjacent text nodes the splice left behind (PART 12 §1a).
+     *
+     * A run assembled from more than one file takes the host's span rather than
+     * none: its pieces are contiguous in no single file, so the contiguity rule
+     * refuses them, and a host that mapped the text before expansion would lose
+     * the mapping. A run still entirely from one file keeps that rule.
+     *
+     * @param list<\MarkupCarve\Carve\Node\Node> $nodes
+     * @param \MarkupCarve\Carve\Ast\SourceSpan|null $host
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function mergeExpandedRun(array $nodes, ?SourceSpan $host): array
+    {
+        $out = [];
+        $runStart = null;
+        $foreign = false;
+        foreach ($nodes as $node) {
+            if (!$node instanceof Text) {
+                $runStart = null;
+                $foreign = false;
+                $out[] = $node;
+
+                continue;
+            }
+            $pos = $node->getPos();
+            if ($runStart === null) {
+                $runStart = $node;
+                $foreign = $pos !== null && $host !== null && $pos->file !== $host->file;
+                $out[] = $node;
+
+                continue;
+            }
+            if ($pos !== null && $host !== null && $pos->file !== $host->file) {
+                $foreign = true;
+            }
+            $runStart->setPos($foreign ? $host : TextRunCoalescer::mergedPos($runStart->getPos(), $pos));
+            $runStart->appendContent($node->getContent());
+        }
+
+        return $out;
+    }
+
+    /**
+     * The span of `$length` bytes of `$text` starting at `$fromByte`, measured
+     * inside `$span`.
+     *
+     * A slice of a text node is a slice of the source, so it gets the part of
+     * the span it covers rather than the whole one - PART 12 §4 rates a span
+     * that selects the wrong text worse than no span at all. Offsets and
+     * columns count codepoints while the slice boundaries are bytes, and a
+     * node crossing a line break has no column arithmetic here, so either
+     * gives up the span instead of inventing one.
+     */
+    protected function narrowedSpan(?SourceSpan $span, string $text, int $fromByte, int $length): ?SourceSpan
+    {
+        if ($span === null || $span->startLine !== $span->endLine || str_contains($text, "\n")) {
+            return null;
+        }
+
+        $before = mb_strlen(substr($text, 0, $fromByte), 'UTF-8');
+        $width = mb_strlen(substr($text, $fromByte, $length), 'UTF-8');
+        $start = $span->startOffset + $before;
+
+        return new SourceSpan(
+            $span->startLine,
+            $span->endLine,
+            $span->startColumn + $before,
+            $span->startColumn + $before + $width,
+            $start,
+            $start + $width,
+            $span->file,
+        );
     }
 
     /**
