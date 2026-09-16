@@ -276,6 +276,11 @@ class MarkdownToCarve
             // a dedented line closes it and is read again outside it.
             if ($inCodeBlock && $fenceItemCol > 0 && trim($line) !== '' && $this->indentWidth($line) < $fenceItemCol) {
                 $result[] = str_repeat(' ', $fenceItemCol) . str_repeat($fenceChar, $fenceLength);
+                // After a nested item's closer Carve reads the line as lazy content of
+                // the parent item: keep the Markdown blank line, and add one when the line leaves the list.
+                if (count($listCols) > 1 && ($wasPrevBlank || $this->indentWidth($line) < (int)$listCols[0])) {
+                    $result[] = '';
+                }
                 $inCodeBlock = false;
                 $fenceChar = '';
                 $fenceLength = 0;
