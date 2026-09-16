@@ -5009,11 +5009,10 @@ class HtmlToCarve
         if (isset($this->unwrappedFormatting[(string)$node->getNodePath()])) {
             return $this->writeUnwrappedFormatting($node);
         }
-        $content = trim($this->processChildren($node));
+        $content = $this->paddedContent($node, $this->processChildren($node));
         if ($content === '') {
             return '';
         }
-        $content = $this->restoreTrailingHardBreak($content);
 
         [$open, $close] = $this->boundaryDelimiters($node, $ch, $content);
         $this->recordFormatting($node, $ch, $open !== $ch);
@@ -5102,6 +5101,7 @@ class HtmlToCarve
             || str_starts_with($content, $ch)
             || str_ends_with($content, $ch)
             || str_ends_with($content, "\n")
+            || preg_match('/^\s|\s$/', $content) === 1
             // `/*` opens `bold_italic`, the writer's carve-php#2012 case.
             || ($ch === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));
 
@@ -5165,6 +5165,86 @@ class HtmlToCarve
             }
             $current = $parent;
         }
+    }
+
+    /**
+     * A formatting element's content, trimmed, keeping one space at an edge
+     * where dropping it would join the text to its neighbor (#2079).
+     */
+    protected function paddedContent(DOMElement $node, string $raw): string
+    {
+        $content = trim($raw);
+        if ($content === '') {
+            return '';
+        }
+        $withBreak = $this->restoreTrailingHardBreak($content);
+        $lead = preg_match('/^\s/', $raw) === 1 && !str_starts_with($content, "\\\n") && $this->paddingIsLost($node, false) ? ' ' : '';
+        $trail = preg_match('/\s$/', $raw) === 1 && $this->paddingIsLost($node, true) ? ' ' : '';
+
+        return $lead . $withBreak . $trail;
+    }
+
+    /**
+     * Does inline content sit against this edge of the element with no
+     * whitespace of its own between?
+     */
+    protected function paddingIsLost(DOMElement $node, bool $trailing): bool
+    {
+        for ($current = $node; $current instanceof DOMElement; $current = $current->parentNode) {
+            $sibling = $trailing ? $current->nextSibling : $current->previousSibling;
+            while (
+                $sibling instanceof DOMComment
+                || ($sibling instanceof DOMText && $sibling->textContent === '')
+                || ($sibling instanceof DOMElement && $this->writesNothingInline($sibling))
+            ) {
+                $sibling = $trailing ? $sibling->nextSibling : $sibling->previousSibling;
+            }
+            if ($sibling instanceof DOMElement) {
+                $tag = strtolower($sibling->tagName);
+                if (in_array($tag, $this->blockElements, true) || in_array($tag, static::BOUNDARY_BLOCK_TAGS, true)) {
+                    return false;
+                }
+                if ($tag !== 'img' && $sibling->textContent === '' && $sibling->getElementsByTagName('img')->length === 0) {
+                    return false;
+                }
+                // A link trims its label, so the space is this element's to keep.
+                if ($tag === 'a') {
+                    return true;
+                }
+                // Between two formatting elements the left one keeps the space.
+                if ($this->formattingKind($sibling) !== null) {
+                    return $trailing || preg_match('/\s$/', $sibling->textContent) !== 1;
+                }
+            }
+            if ($sibling !== null) {
+                return $sibling->textContent === '' || preg_match($trailing ? '/^\s/' : '/\s$/', $sibling->textContent) !== 1;
+            }
+            $parent = $current->parentNode;
+            if (
+                !$parent instanceof DOMElement
+                || in_array(strtolower($parent->tagName), $this->blockElements, true)
+                || in_array(strtolower($parent->tagName), static::BOUNDARY_BLOCK_TAGS, true)
+            ) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * An inline element with no text and no image writes nothing to measure against.
+     */
+    protected function writesNothingInline(DOMElement $node): bool
+    {
+        $tag = strtolower($node->tagName);
+
+        return $node->textContent === ''
+            && $tag !== 'br'
+            && $tag !== 'img'
+            && $node->getElementsByTagName('img')->length === 0
+            && $node->getElementsByTagName('br')->length === 0
+            && !in_array($tag, $this->blockElements, true);
     }
 
     protected function boundaryCharacter(?DOMNode $sibling, bool $trailing): string
@@ -5271,11 +5351,10 @@ class HtmlToCarve
         if (isset($this->unwrappedFormatting[(string)$node->getNodePath()])) {
             return $this->writeUnwrappedFormatting($node);
         }
-        $content = trim($this->processChildren($node));
+        $content = $this->paddedContent($node, $this->processChildren($node));
         if ($content === '') {
             return '';
         }
-        $content = $this->restoreTrailingHardBreak($content);
 
         $this->recordFormatting($node, $open, true);
         $attrs = $this->formatInlineAttributes($node);

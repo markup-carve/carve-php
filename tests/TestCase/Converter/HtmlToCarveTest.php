@@ -353,9 +353,9 @@ class HtmlToCarveTest extends TestCase
 
     public function testWhitespaceInInlineTags(): void
     {
-        // Whitespace should be trimmed
-        $this->assertSame("E=mc{^2^}\n", $this->converter->convert('E=mc<sup> 2 </sup>'));
-        $this->assertSame("H{,2,}O\n", $this->converter->convert('H<sub> 2 </sub>O'));
+        // Edge whitespace is trimmed, except one space that separates the content from a neighbor (#2079)
+        $this->assertSame("E=mc{^ 2^}\n", $this->converter->convert('E=mc<sup> 2 </sup>'));
+        $this->assertSame("H{, 2 ,}O\n", $this->converter->convert('H<sub> 2 </sub>O'));
         $this->assertSame("*bold*\n", $this->converter->convert('<strong> bold </strong>'));
         $this->assertSame("{-deleted-}\n", $this->converter->convert('<del> deleted </del>'));
     }
