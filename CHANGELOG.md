@@ -93,6 +93,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Markdown importer writes an empty list item as `- +`** (#2075), where it used to write a bare marker that Carve reads as text.
 - **The Markdown importer imports a fence in a block quote or on a list item's first line as code** (#2076). Its content is no longer converted as prose, and a fence left open closes where its quote or item ends.
 - **The Markdown importer writes a defined shortcut reference as a reference link** (#2086): `[r]` becomes `[r][]`, or `[r][label]` where Carve's exact label match needs the definition's own label.
+- **The HTML importer keeps a space at the edge of a formatting element when it separates the content from a neighbor** (#2079): `<strong>x </strong>y` imports as `{*x *}y`, not `{*x*}y`. Edge whitespace beside a space, a hard break or the end of the block is still trimmed.
 
 ## [0.1.7] - 2026-09-07
 
