@@ -2476,6 +2476,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($this->safeMode !== null) {
             $href = $this->safeMode->sanitizeUrl($href);
         }
+        if ($href === '') {
+            $spanAttrs = $this->getRenderableAttributes($node);
+            $spanClass = $spanAttrs['class'] ?? '';
+            unset($spanAttrs['class'], $spanAttrs['href']);
+            $attrs = $this->mergeAttribute(['class' => $class], 'class', $spanClass) + $spanAttrs;
+
+            return '<span'
+                . $this->renderAttributeArray($attrs) . '><strong>'
+                . $this->renderChildren($node) . '</strong></span>';
+        }
 
         // Class first, then href, then any attributes added by the link
         // pipeline (e.g. rel="nofollow ugc" from a profile). With no
