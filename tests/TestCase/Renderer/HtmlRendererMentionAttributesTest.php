@@ -105,6 +105,13 @@ class HtmlRendererMentionAttributesTest extends TestCase
                 ['href' => '/evil', 'class' => 'user', 'data-role' => 'lead'],
                 '<a class="mention user" href="/u/alice" data-role="lead">@alice</a>',
             ],
+            'dangerous mention link becomes an attributed span' => [
+                'mention',
+                'javascript:alert(1)',
+                '@alice',
+                ['href' => '/evil', 'class' => 'user', 'data-role' => 'lead'],
+                '<span class="mention user" data-role="lead"><strong>@alice</strong></span>',
+            ],
             'tag span no attrs' => [
                 'tag',
                 '',
@@ -167,6 +174,13 @@ class HtmlRendererMentionAttributesTest extends TestCase
                 '#release',
                 ['href' => '/evil', 'class' => 'user', 'data-role' => 'lead'],
                 '<a class="tag user" href="/t/release" data-role="lead">#release</a>',
+            ],
+            'dangerous tag link becomes a span' => [
+                'tag',
+                'data:text/html,unsafe',
+                '#release',
+                [],
+                '<span class="tag"><strong>#release</strong></span>',
             ],
         ];
     }

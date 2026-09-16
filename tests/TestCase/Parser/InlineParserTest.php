@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
@@ -853,17 +854,18 @@ class InlineParserTest extends TestCase
 
     public function testEmphasisFollowedByCloseBrace(): void
     {
-        // Emphasis opener cannot be followed by } (closer marker)
+        // `bare_opener(d)` refuses only whitespace and the same delimiter after
+        // `d`, so a `}` opens an underline like any other punctuation. The
+        // refusal this used to pin came from the djot-php fork and no clause
+        // (carve-php#2022).
         $para = $this->parseInline('_}b_');
 
-        // Should all be literal text
-        $content = '';
-        foreach ($para->getChildren() as $child) {
-            if ($child instanceof Text) {
-                $content .= $child->getContent();
-            }
-        }
-        $this->assertSame('_}b_', $content);
+        $this->assertCount(1, $para->getChildren());
+        $underline = $this->getFirstChild($para);
+        $this->assertInstanceOf(Underline::class, $underline);
+        $inner = $underline->getChildren()[0];
+        $this->assertInstanceOf(Text::class, $inner);
+        $this->assertSame('}b', $inner->getContent());
     }
 
     public function testParseBooleanAttribute(): void

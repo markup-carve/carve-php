@@ -45,6 +45,7 @@ class TwoAbuttingSpansOfOneMarkAreDeclaredTest extends TestCase
             'different attributes' => ['{/x/}{/y/}{.a}'],
             'one span the parser split' => ['/x_y/'],
             'two code spans, a content-bearing mark' => ['`a`{.q}`b`{.q}'],
+            'two links with different destinations' => ['[a](u)[b](v)'],
         ];
     }
 

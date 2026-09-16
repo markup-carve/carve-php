@@ -2246,8 +2246,12 @@ class InlineParser
             $closePos = strpos($text, str_repeat('`', $openBackticks), $searchPos);
             if ($closePos === false) {
                 // No closing backticks found - an unclosed code span extends
-                // to the end of the paragraph content
-                $remaining = substr($text, $contentStart);
+                // to the end of the paragraph content, with that end's trailing
+                // whitespace stripped. The end is the BLOCK's at the top level
+                // and a forced-span closer's where one bounds the run first
+                // (markup-carve/carve#2051); the strip is the run's own rule
+                // either way.
+                $remaining = rtrim(substr($text, $contentStart), " \t");
 
                 return [
                     'node' => new Code($remaining),
@@ -2321,7 +2325,7 @@ class InlineParser
         // extends to the end of the block (grammar §712), matching carve-js /
         // carve-rs. Previously this returned null, making the opener literal and
         // emitting a spurious empty <code> (`` `a`` `` -> `` `a<code></code> ``).
-        $remaining = substr($text, $contentStart);
+        $remaining = rtrim(substr($text, $contentStart), " \t");
 
         return [
             'node' => new Code($remaining),
@@ -2866,11 +2870,6 @@ class InlineParser
             return null;
         }
 
-        // Can't open if followed by } (a closer marker)
-        if ($nextChar === '}') {
-            return null;
-        }
-
         // Keep the smart typography fat-arrow token literal for the symbol pass.
         if ($delimiter === '=' && $nextChar === '>') {
             return null;
@@ -3195,7 +3194,7 @@ class InlineParser
 
     /**
      * Parse braced inline syntax: {+insert+}, {-delete-},
-     * forced delimiter spans, {~old~>new~} substitution, {'} and {"}.
+     * forced delimiter spans and {~old~>new~} substitution.
      *
      * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|array{nodes: list<\MarkupCarve\Carve\Node\Node>, pos: int}|null
      */
@@ -3207,45 +3206,6 @@ class InlineParser
         }
 
         $marker = $text[$pos + 1];
-
-        // Handle braced quotes: {'} or {"} followed by optional quotes then }
-        // {''} = left single quote + right single quote
-        // {""} = left double quote + right double quote
-        // {'} = right single quote only, {"} = right double quote only
-        if ($marker === "'" || $marker === '"') {
-            // Count consecutive quotes
-            $quoteCount = 1;
-            $quotePos = $pos + 2;
-            while ($quotePos < $length && $text[$quotePos] === $marker) {
-                $quoteCount++;
-                $quotePos++;
-            }
-            // Must be followed by closing }
-            if ($quotePos < $length && $text[$quotePos] === '}') {
-                // Generate quotes based on count
-                $openQuote = $marker === "'" ? $this->openSingleQuote : $this->openDoubleQuote;
-                $closeQuote = $marker === "'" ? $this->closeSingleQuote : $this->closeDoubleQuote;
-
-                // For pairs like {''}, output left + right
-                // For single {'}, output apostrophe (always U+2019), {"} output close double
-                if ($quoteCount === 1) {
-                    $result = $marker === "'" ? $this->apostrophe : $closeQuote;
-                } elseif ($quoteCount === 2) {
-                    $result = $openQuote . $closeQuote;
-                } else {
-                    // For more, alternate open/close
-                    $result = '';
-                    for ($i = 0; $i < $quoteCount; $i++) {
-                        $result .= ($i % 2 === 0) ? $openQuote : $closeQuote;
-                    }
-                }
-
-                return [
-                    'node' => new Text($result),
-                    'pos' => $quotePos + 1,
-                ];
-            }
-        }
 
         // A BRACED HYPHEN PAIR IS AN EN DASH (carve#1447). The bare run carries
         // a flanking guard, so `x --verbose y` stays literal and an author who

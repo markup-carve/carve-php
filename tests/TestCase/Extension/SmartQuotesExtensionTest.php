@@ -159,15 +159,26 @@ class SmartQuotesExtensionTest extends TestCase
         $this->assertStringContainsString("\u{201A}\u{2018}", $html);
     }
 
-    public function testBracedApostropheAlwaysU2019(): void
+    public function testAWordInternalApostropheIsAlwaysU2019(): void
     {
         $converter = new CarveConverter();
         $converter->addExtension(new SmartQuotesExtension(locale: 'de'));
 
-        $html = $converter->convert('{' . "'" . '} test');
+        // A quote with a letter on each side is an apostrophe whatever the
+        // locale's quotation marks are.
+        $this->assertStringContainsString("don\u{2019}t", $converter->convert("don't stop"));
+    }
 
-        // {'} is always U+2019 (apostrophe), even with non-English locale
-        $this->assertStringContainsString("\u{2019}", $html);
+    public function testABracedQuoteFollowsTheLocale(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new SmartQuotesExtension(locale: 'de'));
+
+        // `{` is in the opening set, so the quote after it opens in the
+        // locale's own spelling. This used to be a djot quote MARKER that
+        // always gave U+2019 and swallowed the braces
+        // (markup-carve/carve-php#2028).
+        $this->assertStringContainsString("{\u{201A}} test", $converter->convert('{' . "'" . '} test'));
     }
 
     public function testJapaneseCjkCornerBrackets(): void

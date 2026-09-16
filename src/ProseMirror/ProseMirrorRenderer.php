@@ -566,11 +566,10 @@ class ProseMirrorRenderer
         foreach ($nodes as $node) {
             if (
                 $previous !== null
-                && $previous::class === $node::class
                 && SchemaMap::isMark($node->getType())
                 && !$node instanceof Code
                 && !$node instanceof CriticComment
-                && $previous->getAttributes() === $node->getAttributes()
+                && SchemaMap::isSameMark($previous, $node)
             ) {
                 $this->degraded[$node->getType()] = 'a mark set carries no boundary, so two abutting '
                     . 'spans of it come back as one run';
