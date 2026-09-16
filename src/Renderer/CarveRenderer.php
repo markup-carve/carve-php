@@ -3629,7 +3629,11 @@ class CarveRenderer implements RendererInterface
             || str_ends_with($content, $delimiter)
             || str_starts_with($content, ' ')
             || str_ends_with($content, ' ')
-            || $content === '';
+            || $content === ''
+            // `/*` opens `bold_italic` and `*/` closes it, so a bare emphasis
+            // whose content has both would read back as a strong wrapping an
+            // emphasis -- the other nesting (carve-php#2012).
+            || ($delimiter === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));
 
         return $needsForced ? '{' . $delimiter . $content . $delimiter . '}' : $delimiter . $content . $delimiter;
     }
