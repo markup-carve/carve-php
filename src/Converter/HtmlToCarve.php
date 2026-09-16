@@ -4690,6 +4690,18 @@ class HtmlToCarve
      */
     protected function emptyCodeSpanIsSpellable(DOMElement $node): bool
     {
+        // A pipe-table row is one line, so only its last cell ends the run. A
+        // list table writes each cell as its own block.
+        for ($cell = $node->parentNode; $cell instanceof DOMElement; $cell = $cell->parentNode) {
+            if (
+                in_array(strtolower($cell->tagName), ['td', 'th'], true)
+                && !$this->cellEndsItsWrittenRow($cell)
+                && !$this->cellIsWrittenAsAListTableItem($cell)
+            ) {
+                return false;
+            }
+        }
+
         while ($this->endsItsImportInlineRun($node)) {
             $parent = $node->parentNode;
             if (!$parent instanceof DOMElement) {
@@ -4713,6 +4725,76 @@ class HtmlToCarve
             // A wrapper with no spelling of its own flattens to its children,
             // so the run ends wherever the wrapper's own position ends it.
             $node = $parent;
+        }
+
+        return false;
+    }
+
+    /**
+     * Is this the last cell {@see processTable()} writes in its row, counting
+     * the `<` and `^` markers it writes after a real cell?
+     */
+    protected function cellEndsItsWrittenRow(DOMElement $cell): bool
+    {
+        $table = $cell->parentNode;
+        while ($table instanceof DOMElement && strtolower($table->tagName) !== 'table') {
+            $table = $table->parentNode;
+        }
+        if (!$table instanceof DOMElement) {
+            return true;
+        }
+
+        /** @var array<int, int> $rowspanMap */
+        $rowspanMap = [];
+        foreach ($this->getDirectTableRows($table) as $tr) {
+            $isCellRow = $tr === $cell->parentNode;
+            $passedCell = false;
+            $logicalCol = 0;
+            foreach ($tr->childNodes as $candidate) {
+                if (!$candidate instanceof DOMElement || !in_array(strtolower($candidate->tagName), ['td', 'th'], true)) {
+                    continue;
+                }
+                if ($passedCell) {
+                    return false;
+                }
+                while (($rowspanMap[$logicalCol] ?? 0) > 0) {
+                    $rowspanMap[$logicalCol]--;
+                    $logicalCol++;
+                }
+                $colspan = max(1, (int)$candidate->getAttribute('colspan'));
+                $rowspan = max(1, (int)$candidate->getAttribute('rowspan'));
+                if ($rowspan > 1) {
+                    $rowspanMap[$logicalCol] = ($rowspanMap[$logicalCol] ?? 0) + ($rowspan - 1);
+                }
+                $logicalCol += $colspan;
+                if ($candidate === $cell) {
+                    if ($colspan > 1) {
+                        return false;
+                    }
+                    $passedCell = true;
+                }
+            }
+            if ($isCellRow) {
+                return ($rowspanMap[$logicalCol] ?? 0) === 0;
+            }
+            while (($rowspanMap[$logicalCol] ?? 0) > 0) {
+                $rowspanMap[$logicalCol]--;
+                $logicalCol++;
+            }
+        }
+
+        return true;
+    }
+
+    protected function cellIsWrittenAsAListTableItem(DOMElement $cell): bool
+    {
+        if (!$this->listTableForBlockCells) {
+            return false;
+        }
+        for ($table = $cell->parentNode; $table instanceof DOMElement; $table = $table->parentNode) {
+            if (strtolower($table->tagName) === 'table') {
+                return $this->tableHasBlockContentCell($table);
+            }
         }
 
         return false;
@@ -4805,7 +4887,8 @@ class HtmlToCarve
             return $last instanceof DOMElement
                 && strtolower($last->tagName) === 'code'
                 && !$this->inPre
-                && $last->textContent === '';
+                && $last->textContent === ''
+                && !$this->emptyCodeSpanIsDropped($last);
         }
 
         return false;
@@ -4853,8 +4936,11 @@ class HtmlToCarve
                     // A verbatim span is a node even when it holds nothing, and
                     // its CONTENT is what the writer measures - so an empty one
                     // contributes '' and ENDS the search rather than being
-                    // stepped over.
-                    return $this->edgeCharacter($sibling->textContent, $trailing);
+                    // stepped over. One this importer drops writes nothing, so
+                    // the search steps over that one.
+                    if (!$this->emptyCodeSpanIsDropped($sibling)) {
+                        return $this->edgeCharacter($sibling->textContent, $trailing);
+                    }
                 }
                 if (in_array($tag, static::BOUNDARY_OPAQUE_TAGS, true)) {
                     // An element with nothing in it renders nothing, so it is
