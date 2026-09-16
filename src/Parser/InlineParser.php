@@ -2246,8 +2246,12 @@ class InlineParser
             $closePos = strpos($text, str_repeat('`', $openBackticks), $searchPos);
             if ($closePos === false) {
                 // No closing backticks found - an unclosed code span extends
-                // to the end of the paragraph content
-                $remaining = substr($text, $contentStart);
+                // to the end of the paragraph content, with that end's trailing
+                // whitespace stripped. The end is the BLOCK's at the top level
+                // and a forced-span closer's where one bounds the run first
+                // (markup-carve/carve#2051); the strip is the run's own rule
+                // either way.
+                $remaining = rtrim(substr($text, $contentStart), " \t");
 
                 return [
                     'node' => new Code($remaining),
@@ -2321,7 +2325,7 @@ class InlineParser
         // extends to the end of the block (grammar §712), matching carve-js /
         // carve-rs. Previously this returned null, making the opener literal and
         // emitting a spurious empty <code> (`` `a`` `` -> `` `a<code></code> ``).
-        $remaining = substr($text, $contentStart);
+        $remaining = rtrim(substr($text, $contentStart), " \t");
 
         return [
             'node' => new Code($remaining),
