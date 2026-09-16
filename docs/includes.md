@@ -54,6 +54,13 @@ resolved. A preview re-runs the expansion when any of them changes - including
 the unresolved ones, since creating a missing file is exactly what makes the
 include start working.
 
+A missing target is named by where it would be, so a `sub/frag.crv` asking for
+`missing.crv` is reported as `<root>/sub/missing.crv` and the watch lands on
+the file the author meant. A target denied by containment keeps the directive's
+spelling. A resolver of your own names one by throwing
+`UnresolvedIncludeException` with the path; any other exception leaves the
+spelling alone.
+
 ## Source positions across files
 
 With position tracking on, a node an include pulled in keeps the coordinates of
