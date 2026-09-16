@@ -3227,7 +3227,9 @@ class CarveRenderer implements RendererInterface
             $node instanceof Superscript => $withAttrs($this->renderForcedEmphasis('^', $this->renderInlines($node->getChildren()))),
             $node instanceof Subscript => $withAttrs($this->renderForcedEmphasis(',', $this->renderInlines($node->getChildren()))),
             $node instanceof Highlight => $withAttrs($this->renderEmphasis('=', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node))),
-            $node instanceof Code => $withAttrs($this->renderCode($node->getContent())),
+            $node instanceof Code => $node->getContent() === '' && !self::emptyCodeSpanIsSpellable($node)
+                ? throw new SourceUnspellableException('code', 'an empty code span has no Carve source spelling where its open run does not end')
+                : $withAttrs($this->renderCode($node->getContent())),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
             $rawReference !== null => $rawReference,
@@ -3628,9 +3630,61 @@ class CarveRenderer implements RendererInterface
         $children = $node->getChildren();
         $last = $children === [] ? null : $children[array_key_last($children)];
 
-        // Attributes need a CLOSING run to attach to, so an empty span carrying
-        // them has no spelling at all and the braces would not give it one.
-        return $last instanceof Code && $last->getContent() === '' && $last->getAttributes() === [];
+        return $last instanceof Code && $last->getContent() === '';
+    }
+
+    /**
+     * Does the open run of this empty code span end where the span does? It
+     * ends at the end of a block or at a braced closer (PART 3, UNCLOSED RUN);
+     * anything else behind it is read into the span, and an enclosing link or
+     * span label never closes. Attributes attach to a closing run, which the
+     * span has not got.
+     */
+    protected static function emptyCodeSpanIsSpellable(Code $node): bool
+    {
+        if ($node->getAttributes() !== []) {
+            return false;
+        }
+
+        $current = $node;
+        $closed = false;
+        for ($parent = $node->getParent(); $parent !== null; $current = $parent, $parent = $parent->getParent()) {
+            if (!$closed) {
+                $after = false;
+                foreach ($parent->getChildren() as $sibling) {
+                    if ($after && (!$sibling instanceof Text || $sibling->getContent() !== '')) {
+                        return false;
+                    }
+                    $after = $after || $sibling === $current;
+                }
+            }
+            if (!$parent instanceof InlineNode) {
+                if ($parent instanceof TableCell) {
+                    // Cells are split after the run is read, so only the last
+                    // cell's run ends with its line, braced closer or not.
+                    $row = $parent->getParent();
+
+                    return !$row instanceof TableRow || $row->getChildren()[count($row->getChildren()) - 1] === $parent;
+                }
+
+                return true;
+            }
+            $braced = $parent instanceof Emphasis
+                || $parent instanceof Strong
+                || $parent instanceof Underline
+                || $parent instanceof Strike
+                || $parent instanceof Highlight
+                || $parent instanceof Superscript
+                || $parent instanceof Subscript
+                || $parent instanceof Insert
+                || $parent instanceof Delete;
+            if (!$braced && !$parent instanceof Abbreviation) {
+                return false;
+            }
+            $closed = $closed || $braced;
+        }
+
+        return true;
     }
 
     protected function renderEmphasis(string $delimiter, string $content, string $prevChar, string $nextChar, bool $endsInEmptyCodeSpan = false): string

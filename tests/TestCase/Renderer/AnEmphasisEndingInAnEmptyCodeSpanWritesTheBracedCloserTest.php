@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
@@ -91,10 +92,10 @@ class AnEmphasisEndingInAnEmptyCodeSpanWritesTheBracedCloserTest extends TestCas
 
     /**
      * Attributes attach to a span's CLOSING run, which an empty span has not
-     * got, so the shape has no Carve spelling and the braces would not give it
-     * one. No source reaches it; a tree an importer built can.
+     * got, so no spelling exists and the writer refuses the tree
+     * (markup-carve/carve-php#2044).
      */
-    public function testAnEmptyCodeSpanCarryingAttributesTakesNoBraces(): void
+    public function testAnEmptyCodeSpanCarryingAttributesIsRefused(): void
     {
         $code = new Code('');
         $code->setAttribute('class', 'c');
@@ -105,6 +106,7 @@ class AnEmphasisEndingInAnEmptyCodeSpanWritesTheBracedCloserTest extends TestCas
         $document = new Document();
         $document->appendChild($paragraph);
 
-        $this->assertSame("~``{.c}~\n", (new CarveRenderer())->render($document));
+        $this->expectException(SourceUnspellableException::class);
+        (new CarveRenderer())->render($document);
     }
 }
