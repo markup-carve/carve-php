@@ -730,25 +730,212 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     /**
      * M1b's pair condition is asked over the inline content the underscore is
-     * emitted in, so a blank line ends the scan: a reader pairs emphasis across
-     * a soft break and never across a paragraph boundary
-     * (markup-carve/carve#2046).
+     * emitted in -- a paragraph, heading or table cell -- so the scan is taken
+     * per block (markup-carve/carve#2046, markup-carve/carve-php#2009).
      *
      * @return array<int, bool>
      */
     protected function pairableUnderscoresPerBlock(string $line): array
     {
         $pairs = [];
-        // A blank line inside a quote carries the marker, so the separator
-        // between two paragraphs there is `>` rather than nothing.
-        $blocks = preg_split('/\n[ \t>]*\n/', $line, -1, PREG_SPLIT_OFFSET_CAPTURE);
-        foreach ($blocks === false ? [] : $blocks as [$block, $start]) {
-            foreach ($this->pairableUnderscores($block) as $offset => $_) {
-                $pairs[$start + $offset] = true;
+        foreach ($this->inlineBlocks($line) as $block) {
+            // The ranges are joined by one space, which is what a line or cell
+            // boundary is to the reader, and the offsets are mapped back.
+            $joined = '';
+            $origin = [];
+            foreach ($block as [$start, $end]) {
+                if ($joined !== '') {
+                    $joined .= ' ';
+                    $origin[] = -1;
+                }
+                for ($i = $start; $i < $end; $i++) {
+                    $joined .= $line[$i];
+                    $origin[] = $i;
+                }
+            }
+            foreach ($this->pairableUnderscores($joined) as $offset => $_) {
+                if ($origin[$offset] >= 0) {
+                    $pairs[$origin[$offset]] = true;
+                }
             }
         }
 
         return $pairs;
+    }
+
+    /**
+     * The emitted document cut into the blocks M1b reads, each as the content
+     * ranges of its lines: a blank line ends a block, a new list item starts
+     * one, and every table cell is one of its own.
+     *
+     * A HEADING NEEDS NO CASE OF ITS OWN HERE, which carve-rs's port of this
+     * does carry. This writer separates a heading from the block below it with
+     * a blank line in every container except a tight list item, where the item
+     * marker is the separator -- so both rules above already cut there, and a
+     * heading case would be a branch that cannot fire. Measured over the
+     * 1707-document corpus and four inline matrices: removing it moves no byte.
+     *
+     * @return array<int, array<int, array{int, int}>>
+     */
+    protected function inlineBlocks(string $line): array
+    {
+        $blocks = [];
+        $current = [];
+        $length = strlen($line);
+        $lineStart = 0;
+        while ($lineStart <= $length) {
+            $newline = strpos($line, "\n", $lineStart);
+            $lineEnd = $newline === false ? $length : $newline;
+            $content = min($this->contentPosition($line, $lineStart), $lineEnd);
+            $body = substr($line, $content, $lineEnd - $content);
+            if (trim($body, ' ') === '') {
+                if ($current !== []) {
+                    $blocks[] = $current;
+                    $current = [];
+                }
+            } elseif ($body[0] === '|') {
+                if ($current !== []) {
+                    $blocks[] = $current;
+                    $current = [];
+                }
+                $cell = $content + 1;
+                for ($i = $cell; $i < $lineEnd; $i++) {
+                    if ($line[$i] === '\\') {
+                        $i++;
+
+                        continue;
+                    }
+                    if ($line[$i] === '|') {
+                        $blocks[] = [[$cell, $i]];
+                        $cell = $i + 1;
+                    }
+                }
+                if ($cell < $lineEnd) {
+                    $blocks[] = [[$cell, $lineEnd]];
+                }
+            } elseif ($this->startsAListItem($line, $lineStart)) {
+                if ($current !== []) {
+                    $blocks[] = $current;
+                }
+                $current = [[$content, $lineEnd]];
+            } else {
+                $current[] = [$content, $lineEnd];
+            }
+            $lineStart = $lineEnd + 1;
+        }
+        if ($current !== []) {
+            $blocks[] = $current;
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * Where a line's own content begins, past every container prefix in front.
+     */
+    protected function contentPosition(string $line, int $lineStart): int
+    {
+        $at = $lineStart;
+        while (true) {
+            while (($line[$at] ?? '') === ' ') {
+                $at++;
+            }
+            $end = $this->containerPrefixEnd($line, $at);
+            if ($end === null) {
+                return $at;
+            }
+            $at = $end;
+        }
+    }
+
+    /**
+     * One container prefix at $at, and where it ends.
+     *
+     * @see self::contentPosition()
+     */
+    protected function containerPrefixEnd(string $line, int $at): ?int
+    {
+        $ch = $line[$at] ?? '';
+        if ($ch === '') {
+            return null;
+        }
+
+        // A quote marker takes ONE following space, the separator this writer
+        // emits. A blank quote line is written bare (`>`), so it is optional.
+        if ($ch === '>') {
+            return ($line[$at + 1] ?? '') === ' ' ? $at + 2 : $at + 1;
+        }
+
+        // A bullet. The task box after it -- `- [ ] ` -- needs no case of its
+        // own: it is bracketed by spaces, so no candidate can stand beside it,
+        // and whether it counts as prefix or as content changes no answer.
+        if (($ch === '-' || $ch === '*' || $ch === '+') && ($line[$at + 1] ?? '') === ' ') {
+            return $at + 2;
+        }
+
+        // An ordered marker: digits, then the authored delimiter, then the
+        // separator. A number no writer emits is not a marker, so the digit run
+        // is bounded.
+        if ($ch >= '0' && $ch <= '9') {
+            $end = $at;
+            while ($end - $at < 9 && ctype_digit($line[$end] ?? '')) {
+                $end++;
+            }
+            $delimiter = $line[$end] ?? '';
+            if (($delimiter === '.' || $delimiter === ')') && ($line[$end + 1] ?? '') === ' ') {
+                return $end + 2;
+            }
+
+            return null;
+        }
+
+        // A footnote definition's label, which this writer emits as `[^id]: `.
+        // An abbreviation definition (`*[X]: `) is NOT one: its body is not a
+        // container.
+        if ($ch === '[' && ($line[$at + 1] ?? '') === '^') {
+            $end = $at + 2;
+            $length = strlen($line);
+            while ($end < $length && $line[$end] !== "\n" && $line[$end] !== ']') {
+                $end++;
+            }
+            if (
+                ($line[$end] ?? '') === ']'
+                && ($line[$end + 1] ?? '') === ':'
+                && ($line[$end + 2] ?? '') === ' '
+            ) {
+                return $end + 3;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the line opens a list item, past any quote markers in front.
+     */
+    protected function startsAListItem(string $line, int $lineStart): bool
+    {
+        $at = $lineStart;
+        while (true) {
+            while (($line[$at] ?? '') === ' ') {
+                $at++;
+            }
+            $ch = $line[$at] ?? '';
+            if ($ch === '') {
+                return false;
+            }
+            if ($ch === '>') {
+                $end = $this->containerPrefixEnd($line, $at);
+                if ($end === null) {
+                    return false;
+                }
+                $at = $end;
+
+                continue;
+            }
+
+            return $this->containerPrefixEnd($line, $at) !== null;
+        }
     }
 
     /**

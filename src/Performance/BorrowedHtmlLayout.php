@@ -449,7 +449,9 @@ final class BorrowedHtmlLayout
                 if (
                     $close === false || $close <= $i + 1 || ctype_space($text[$i + 1])
                     || ctype_space($text[$close - 1])
-                    || ($i > 0 && ctype_alnum($text[$i - 1]))
+                    // `bare_opener` (CARVE-P3-013) refuses a marker preceded by
+                    // the same marker, so the second run of `/x//y/` is text.
+                    || ($i > 0 && (ctype_alnum($text[$i - 1]) || $text[$i - 1] === $delimiter))
                     || (isset($text[$close + 1]) && ctype_alnum($text[$close + 1]))
                 ) {
                     return null;

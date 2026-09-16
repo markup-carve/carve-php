@@ -3629,7 +3629,11 @@ class CarveRenderer implements RendererInterface
             || str_ends_with($content, $delimiter)
             || str_starts_with($content, ' ')
             || str_ends_with($content, ' ')
-            || $content === '';
+            || $content === ''
+            // `/*` opens `bold_italic` and `*/` closes it, so a bare emphasis
+            // whose content has both would read back as a strong wrapping an
+            // emphasis -- the other nesting (carve-php#2012).
+            || ($delimiter === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));
 
         return $needsForced ? '{' . $delimiter . $content . $delimiter . '}' : $delimiter . $content . $delimiter;
     }
@@ -4351,10 +4355,12 @@ class CarveRenderer implements RendererInterface
                     // Forced in BOTH modes - see the note on the method.
                     return '\\^';
                 }
-                // `!` stays in the conservative class, which escaped it before
-                // this guard existed and still does; the guard decides the
-                // MINIMAL pass, which is the one that has to be winnable.
-                if ($char === '!' && $minimal && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
+                // `!` is decided by the guard in BOTH passes, like `$` below.
+                // §27 reinterprets it only where it binds to a following
+                // backtick run, so anywhere else the backslash would add an
+                // `escaped_text` node the source never had, which is what §2
+                // forbids (carve-php#2013).
+                if ($char === '!' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
                     return '!';
                 }
                 // `$` was in NEITHER class, so both passes wrote it bare and

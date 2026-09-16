@@ -136,6 +136,72 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame($source, CarveConverter::markdown()->convert($source));
     }
 
+    /**
+     * M1b's unit is the paragraph, heading or table cell, so a boundary with no
+     * blank line at it still ends the scan (markup-carve/carve-php#2009).
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function blockBoundaryProvider(): array
+    {
+        return [
+            'two cells of one row' => [
+                "| a _y | z_ w |\n| --- | --- |\n| p | q |\n",
+                "| a _y | z_ w |\n| --- | --- |\n| p | q |\n",
+            ],
+            'two rows of one column' => [
+                "| a _y | c |\n| --- | --- |\n| z_ w | q |\n",
+                "| a _y | c |\n| --- | --- |\n| z_ w | q |\n",
+            ],
+            'two items of a tight list' => ["- a _y\n- z_ w\n", "- a _y\n- z_ w\n"],
+            'two items of an ordered list' => ["1. a _y\n2. z_ w\n", "1. a _y\n2. z_ w\n"],
+            'two items of a task list' => ["- [ ] a _y\n- [x] z_ w\n", "- [ ] a _y\n- [x] z_ w\n"],
+            'two items inside a quote' => ["> - a _y\n> - z_ w\n", "> - a _y\n> - z_ w\n"],
+            'a heading and the line under it' => ["# a _y\nz_ w\n", "# a _y\n\nz_ w\n"],
+            'two footnote definitions' => ["[^n]: a _y\n[^m]: z_ w\n", "[^n]: a _y\n[^m]: z_ w\n"],
+        ];
+    }
+
+    #[DataProvider('blockBoundaryProvider')]
+    public function testAPairSplitAcrossABlockBoundaryStaysBare(string $source, string $expected): void
+    {
+        $this->assertSame($expected, CarveConverter::markdown()->convert($source));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function insideOneBlockProvider(): array
+    {
+        return [
+            'inside one cell' => [
+                "| /x/_y_ | c |\n| --- | --- |\n| p | q |\n",
+                "| *x*\\_y\\_ | c |\n| --- | --- |\n| p | q |\n",
+            ],
+            'inside one item, across a soft break' => [
+                "- /x/_y\n  z_ w\n",
+                "- *x*\\_y\n  z\\_ w\n",
+            ],
+            'across an escaped pipe, which does not end a cell' => [
+                "| /x/_y \\| z_ w | c |\n| --- | --- |\n| p | q |\n",
+                "| *x*\\_y \\| z\\_ w | c |\n| --- | --- |\n| p | q |\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('insideOneBlockProvider')]
+    public function testAPairInsideOneBlockIsStillEscaped(string $source, string $expected): void
+    {
+        $this->assertSame($expected, CarveConverter::markdown()->convert($source));
+    }
+
+    public function testALooseListIsWrittenTightAndTheItemBoundaryStillCuts(): void
+    {
+        // The writer collapses the blank line, so the boundary the blank-line
+        // scan relied on is not in its own output. The item marker is.
+        $this->assertSame("- a _y\n- z_ w\n", CarveConverter::markdown()->convert("- a _y\n\n- z_ w\n"));
+    }
+
     public function testUnderlineEmphasisStillRenders(): void
     {
         $this->assertSame('<u>underline</u>', trim(CarveConverter::markdown()->convert('_underline_')));
