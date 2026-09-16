@@ -96,6 +96,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The HTML importer keeps a space at the edge of a formatting element when it separates the content from a neighbor** (#2079): `<strong>x </strong>y` imports as `{*x *}y`, not `{*x*}y`. Edge whitespace beside a space, a hard break or the end of the block is still trimmed.
 - **A definition-shaped line that continues a Markdown paragraph stays text** (#2082): `text` then `[p]: /x` writes `\[p]: /x`, since a Carve definition can interrupt a paragraph and a CommonMark one cannot.
 - **The Carve writer refuses a mention or tag that carries attributes** (#2083). It used to write a span around strong text, which reads back as a different tree. It now throws `SourceUnspellableException`, so a Tiptap mention with an `id` no longer writes to Carve source.
+- **The HTML importer escapes a block opener that starts a line of text** (#2074), as the Carve writer does: `<p># x</p>` imports as `\# x`, not as a heading. It covers every opener the parser reads at a line start, in a paragraph, after a hard break, and in a list item, a quote and a description.
 
 ## [0.1.7] - 2026-09-07
 

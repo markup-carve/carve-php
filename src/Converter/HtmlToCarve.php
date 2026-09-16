@@ -14,7 +14,11 @@ use DOMXPath;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -2498,6 +2502,14 @@ class HtmlToCarve
      */
     protected int $labelDepth = 0;
 
+    /**
+     * The marker and continuation indent of the container an inline run is
+     * written in, for {@see escapeBlockLineOpeners()}.
+     *
+     * @var array{0: string, 1: string}
+     */
+    protected array $blockLineContext = ['', ''];
+
     protected bool $preserveTextWhitespace = false;
 
     /**
@@ -2598,6 +2610,7 @@ class HtmlToCarve
         $this->listDepth = 0;
         $this->inPre = false;
         $this->labelDepth = 0;
+        $this->blockLineContext = ['', ''];
         $this->preserveTextWhitespace = false;
         $this->referenceDefinitions = [];
         $this->footnoteDefinitions = [];
@@ -3351,6 +3364,7 @@ class HtmlToCarve
     {
         $content = '';
         $inlineBuffer = '';
+        $inlineNodes = [];
         // The last block written, for the caption-opener test below: a caption
         // line reaches back across ONE blank line, which is exactly the
         // separation this loop writes.
@@ -3377,13 +3391,14 @@ class HtmlToCarve
                 // splitting it at the comment would move the words either side
                 // of it into two. Only a run holding nothing but comments and
                 // the layout between them is a comment among blocks.
-                $inlineText = trim($inlineBuffer);
+                $inlineText = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
                 if ($inlineText !== '') {
                     $inlineText = $this->escapeDetachedCaptionOpener($previousBlock, $inlineText);
                     $content .= $inlineText . "\n\n";
                     $previousBlock = $inlineText;
                 }
                 $inlineBuffer = '';
+                $inlineNodes = [];
                 $rendered = $this->blockCommentSource($child->textContent);
                 $content .= $rendered . "\n\n";
                 $previousBlock = $rendered;
@@ -3393,13 +3408,14 @@ class HtmlToCarve
 
             if ($isBlock) {
                 // Flush any accumulated inline content as an implicit paragraph
-                $inlineText = trim($inlineBuffer);
+                $inlineText = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
                 if ($inlineText !== '') {
                     $inlineText = $this->escapeDetachedCaptionOpener($previousBlock, $inlineText);
                     $content .= $inlineText . "\n\n";
                     $previousBlock = $inlineText;
                 }
                 $inlineBuffer = '';
+                $inlineNodes = [];
 
                 // Process the block element
                 $rendered = $this->escapeDetachedCaptionOpener($previousBlock, $this->processNode($child));
@@ -3410,11 +3426,12 @@ class HtmlToCarve
             } else {
                 // Accumulate inline content
                 $inlineBuffer .= $this->processNode($child);
+                $inlineNodes[] = $child;
             }
         }
 
         // Flush any remaining inline content
-        $inlineText = trim($inlineBuffer);
+        $inlineText = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
         if ($inlineText !== '') {
             $content .= $this->escapeDetachedCaptionOpener($previousBlock, $inlineText) . "\n\n";
         }
@@ -3514,6 +3531,188 @@ class HtmlToCarve
         }
 
         return $escaped;
+    }
+
+    /**
+     * Escape a block opener that starts a line of an inline run, as the writer
+     * does (markup-carve/carve-php#2074).
+     *
+     * A line gets the escape only where it would otherwise change the block
+     * structure its container reads, decided by parsing it under the
+     * container's marker. The opener's run is escaped as a whole, and a run the
+     * text escaper already escaped in part is completed, where that reads
+     * the same.
+     *
+     * @param string $run
+     * @param array<int, \DOMNode> $nodes The nodes the run was written from.
+     */
+    protected function escapeBlockLineOpeners(string $run, array $nodes): string
+    {
+        if (
+            $this->tableCellDepth > 0
+            || $this->captionDepth > 0
+            || preg_match('/(?:^|\n)[ \t]*(?:\\\\?[-*_+#%~>|:\[{]|[0-9]+[.)]|[A-Za-z]+[.)])/', $run) !== 1
+        ) {
+            return $run;
+        }
+
+        [$marker, $indent] = $this->blockLineContext;
+        $lines = explode("\n", $run);
+        $textLed = $this->linesLedByText($nodes);
+        foreach ($lines as $index => $line) {
+            $escaped = count($textLed) === count($lines) && $textLed[$index] ? $this->escapedLineOpener($line, $index === 0) : null;
+            if ($escaped === null) {
+                continue;
+            }
+            if ($escaped['partial']) {
+                $html = new CarveConverter();
+                if ($html->convert($marker . $line) === $html->convert($marker . $escaped['line'])) {
+                    $lines[$index] = $escaped['line'];
+                }
+
+                continue;
+            }
+            $before = $index === 0 ? $marker : $marker . 'x' . (str_ends_with($lines[$index - 1], '\\') ? "\\\n" : "\n") . $indent;
+            $expected = $this->blockShape($before . 'x');
+            if ($this->blockShape($before . $line) !== $expected && $this->blockShape($before . $escaped['line']) === $expected) {
+                $lines[$index] = $escaped['line'];
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * The line with its leading opener escaped, and whether the text escaper had
+     * already escaped part of that run.
+     *
+     * @return array{line: string, partial: bool}|null
+     */
+    protected function escapedLineOpener(string $line, bool $first): ?array
+    {
+        // A lone `+` is the first-block form of an item or description body.
+        if ($first && $line === '+') {
+            return ['line' => '\\+', 'partial' => false];
+        }
+        if (preg_match('/^([ \t]*)([0-9]+|[A-Za-z]+)([.)])(?=[ \t]|$)/', $line, $ordered) === 1) {
+            $at = strlen($ordered[1]) + strlen($ordered[2]);
+
+            return ['line' => substr($line, 0, $at) . '\\' . substr($line, $at), 'partial' => false];
+        }
+        if (preg_match('/^([ \t]*)(\\\\?)([-*_#%~>|:\[{])((?:\\\\?\3)*)/', $line, $opener) !== 1) {
+            return null;
+        }
+        [$whole, $indent, $slash, $char, $tail] = $opener;
+        // A colon opens only at the line start, so only the first one is escaped.
+        $written = $char === ':' ? '\\:' . $tail : str_repeat('\\' . $char, 1 + substr_count($tail, $char));
+        $original = $slash . $char . $tail;
+        if ($written === $original) {
+            return null;
+        }
+
+        return [
+            'line' => $indent . $written . substr($line, strlen($whole)),
+            'partial' => str_contains($original, '\\'),
+        ];
+    }
+
+    /**
+     * The block structure a source parses to, with inline content reduced to
+     * its hard breaks.
+     */
+    protected function blockShape(string $source): string
+    {
+        return $this->nodeShape(CarveConverter::create()->parse($source));
+    }
+
+    /**
+     * For each line the nodes write, split at `<br>`, whether its first output
+     * comes from text. A line led by an element's own markup is never escaped.
+     *
+     * @param array<int, \DOMNode> $nodes
+     *
+     * @return array<int, bool>
+     */
+    protected function linesLedByText(array $nodes): array
+    {
+        $lines = [];
+        $open = true;
+        $walk = function (DOMNode $node) use (&$walk, &$lines, &$open): void {
+            if ($node instanceof DOMText) {
+                if ($open && trim($node->textContent) !== '') {
+                    $lines[] = true;
+                    $open = false;
+                }
+
+                return;
+            }
+            if ($node instanceof DOMElement && strtolower($node->tagName) === 'br') {
+                if ($open) {
+                    $lines[] = false;
+                }
+                $open = true;
+
+                return;
+            }
+            if ($node instanceof DOMElement && $node->childNodes->length > 0 && !in_array(strtolower($node->tagName), self::MARKUP_LED_ELEMENTS, true)) {
+                foreach ($node->childNodes as $child) {
+                    $walk($child);
+                }
+
+                return;
+            }
+            if ($open && !($node instanceof DOMElement && $node->childNodes->length === 0 && !in_array(strtolower($node->tagName), self::MARKUP_LED_ELEMENTS, true))) {
+                $lines[] = false;
+                $open = false;
+            }
+        };
+        foreach ($nodes as $node) {
+            $walk($node);
+        }
+        if ($open) {
+            $lines[] = false;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Elements whose output is their own markup rather than their text.
+     *
+     * @var array<int, string>
+     */
+    protected const MARKUP_LED_ELEMENTS = ['audio', 'canvas', 'code', 'embed', 'hr', 'iframe', 'img', 'input', 'kbd', 'math', 'object', 'picture', 'pre', 'samp', 'svg', 'textarea', 'video'];
+
+    protected function holdsABlockElement(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && in_array(strtolower($child->tagName), $this->blockElements, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function nodeShape(Node $node): string
+    {
+        $shape = $node->getType() . json_encode($node->getAttributes());
+        $children = $node->getChildren();
+        if ($node instanceof Paragraph) {
+            $breaks = count(array_filter($children, static fn (Node $child): bool => $child instanceof HardBreak));
+            $last = $children === [] ? null : $children[array_key_last($children)];
+
+            return $shape . '(' . $breaks . ($last instanceof HardBreak ? ' last' : '') . ')';
+        }
+
+        $inner = '';
+        foreach ($children as $child) {
+            if (!$child instanceof InlineNode) {
+                $inner .= $this->nodeShape($child);
+            }
+        }
+
+        return $shape . '[' . $inner . ']';
     }
 
     /**
@@ -4501,7 +4700,7 @@ class HtmlToCarve
 
     protected function processParagraph(DOMElement $node): string
     {
-        $content = trim($this->processChildren($node));
+        $content = $this->escapeBlockLineOpeners(trim($this->processChildren($node)), iterator_to_array($node->childNodes));
         if ($content === '') {
             return '';
         }
@@ -5814,15 +6013,24 @@ class HtmlToCarve
     {
         // Process content, preserving paragraph breaks.
         $parts = [];
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMText && trim($child->textContent) === '') {
-                continue;
-            }
+        $outerContext = $this->blockLineContext;
+        $this->blockLineContext = ['> ', '> '];
+        try {
+            foreach ($node->childNodes as $child) {
+                if ($child instanceof DOMText && trim($child->textContent) === '') {
+                    continue;
+                }
 
-            $part = rtrim($this->processNode($child), "\n");
-            if ($part !== '') {
-                $parts[] = $part;
+                $part = rtrim($this->processNode($child), "\n");
+                if (!$child instanceof DOMElement || !in_array(strtolower($child->tagName), $this->blockElements, true)) {
+                    $part = $this->escapeBlockLineOpeners($part, [$child]);
+                }
+                if ($part !== '') {
+                    $parts[] = $part;
+                }
             }
+        } finally {
+            $this->blockLineContext = $outerContext;
         }
 
         $content = implode("\n\n", $parts);
@@ -6367,12 +6575,15 @@ class HtmlToCarve
                 // `TIGHT_ITEM_BLOCK_OPENERS`.
                 $partOpensBlock = [];
                 $inlineBuffer = '';
+                $inlineNodes = [];
                 $nestedContent = '';
                 // Whether the nested content BEGINS with the sublist itself. A
                 // stray non-`<li>` child is hoisted in FRONT of the list, so the
                 // nested run can start with a paragraph, which folds into the
                 // lead if nothing separates it.
                 $nestedOpensWithItsList = null;
+                $outerContext = $this->blockLineContext;
+                $this->blockLineContext = [$prefix, str_repeat(' ', $markerWidth)];
 
                 foreach ($child->childNodes as $liChild) {
                     if ($liChild instanceof DOMElement) {
@@ -6401,24 +6612,28 @@ class HtmlToCarve
                             // fall through and be processed normally.
                             continue;
                         } elseif (in_array($childTag, $this->blockElements, true)) {
-                            $this->flushListItemInlineBuffer($contentParts, $inlineBuffer);
+                            $this->flushListItemInlineBuffer($contentParts, $inlineBuffer, $inlineNodes);
                             // A flushed inline run is plain text, so it opens
                             // nothing at the content column.
                             $partOpensBlock = array_pad($partOpensBlock, count($contentParts), false);
                             $content = trim($this->processNode($liChild));
                             if ($content !== '') {
                                 $contentParts[] = $content;
+                                $this->blockLineContext[0] = $this->blockLineContext[1];
                                 $partOpensBlock[] = in_array($childTag, self::TIGHT_ITEM_BLOCK_OPENERS, true);
                             }
                         } else {
                             $inlineBuffer .= $this->processNode($liChild);
+                            $inlineNodes[] = $liChild;
                         }
                     } else {
                         $inlineBuffer .= $this->processNode($liChild);
+                        $inlineNodes[] = $liChild;
                     }
                 }
 
-                $this->flushListItemInlineBuffer($contentParts, $inlineBuffer);
+                $this->flushListItemInlineBuffer($contentParts, $inlineBuffer, $inlineNodes);
+                $this->blockLineContext = $outerContext;
                 $partOpensBlock = array_pad($partOpensBlock, count($contentParts), false);
 
                 $continuation = $indent . str_repeat(' ', $markerWidth);
@@ -6867,12 +7082,16 @@ class HtmlToCarve
     /**
      * @param list<string> $contentParts
      * @param string $inlineBuffer
+     * @param array<int, \DOMNode> $inlineNodes The nodes the buffer was written from.
      */
-    protected function flushListItemInlineBuffer(array &$contentParts, string &$inlineBuffer): void
+    protected function flushListItemInlineBuffer(array &$contentParts, string &$inlineBuffer, array &$inlineNodes = []): void
     {
-        $inlineContent = trim($inlineBuffer);
+        $inlineContent = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
+        $inlineNodes = [];
         if ($inlineContent !== '') {
             $contentParts[] = $inlineContent;
+            // A later part is written below a blank line, at the continuation indent.
+            $this->blockLineContext[0] = $this->blockLineContext[1];
         }
         $inlineBuffer = '';
     }
@@ -7874,7 +8093,17 @@ class HtmlToCarve
             if ($tag === 'dt') {
                 $output .= ':: ' . trim($this->processChildren($child)) . "\n";
             } elseif ($tag === 'dd') {
-                $description = trim($this->processChildren($child));
+                $outerContext = $this->blockLineContext;
+                // A body marker reads as one only below a term.
+                $this->blockLineContext = [':: t' . "\n" . self::DEFINITION_BODY_MARKER, self::DEFINITION_BODY_INDENT];
+                try {
+                    $description = trim($this->processChildren($child));
+                    if (!$this->holdsABlockElement($child)) {
+                        $description = $this->escapeBlockLineOpeners($description, iterator_to_array($child->childNodes));
+                    }
+                } finally {
+                    $this->blockLineContext = $outerContext;
+                }
                 if ($description === '') {
                     $output .= self::DEFINITION_BODY_MARKER . self::EMPTY_BODY_SENTINEL . "\n";
 
