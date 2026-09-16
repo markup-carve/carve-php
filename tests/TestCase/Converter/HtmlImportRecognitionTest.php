@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlImportDiagnostic;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Extension\DetailsExtension;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -20,8 +21,9 @@ use PHPUnit\Framework\TestCase;
  * widget's label and the extension takes the label from the opener's quoted
  * title, so that is where it goes.
  *
- * `<q>` was already mapped to quote characters and still reported
- * `element-unwrapped`, which is a loss that does not happen.
+ * `<q>` maps to the mark pair a browser draws around it. The row it reports
+ * was taken away here on the reading that the marks lose nothing; they read
+ * back as text rather than as a `<q>`, so carve-php#2096 gave it back.
  */
 class HtmlImportRecognitionTest extends TestCase
 {
@@ -196,8 +198,18 @@ class HtmlImportRecognitionTest extends TestCase
     public static function inlineQuoteProvider(): array
     {
         return [
-            'plain' => ['<p>He said <q>hi</q>.</p>', "He said \"hi\".\n"],
-            'holding markup' => ['<p><q>a <strong>b</strong> c</q></p>', "\"a *b* c\"\n"],
+            'plain' => ['<p>He said <q>hi</q>.</p>', "He said \u{201C}hi\u{201D}.\n"],
+            'holding markup' => ['<p><q>a <strong>b</strong> c</q></p>', "\u{201C}a *b* c\u{201D}\n"],
+            'nested' => ['<p><q>outer <q>inner</q></q></p>', "\u{201C}outer \u{2018}inner\u{2019}\u{201D}\n"],
+            // Depth, not a running count: the second one is outside the first.
+            'side by side' => [
+                '<p><q>a</q> and <q>b</q></p>',
+                "\u{201C}a\u{201D} and \u{201C}b\u{201D}\n",
+            ],
+            'nested then alone' => [
+                '<p><q>a <q>b</q></q> and <q>c</q></p>',
+                "\u{201C}a \u{2018}b\u{2019}\u{201D} and \u{201C}c\u{201D}\n",
+            ],
         ];
     }
 
@@ -210,7 +222,7 @@ class HtmlImportRecognitionTest extends TestCase
     /**
      * @return array<string, array{0: string}>
      */
-    public static function quoteReportsNothingProvider(): array
+    public static function quoteReportsTheMappingProvider(): array
     {
         return [
             'plain' => ['<p>He said <q>hi</q>.</p>'],
@@ -220,22 +232,63 @@ class HtmlImportRecognitionTest extends TestCase
         ];
     }
 
-    #[DataProvider('quoteReportsNothingProvider')]
-    public function testAnInlineQuoteReportsNoUnwrapping(string $html): void
+    /**
+     * The marks are what reaches the output, and they read back as text: the
+     * element is gone, which is what the row says.
+     */
+    #[DataProvider('quoteReportsTheMappingProvider')]
+    public function testAnInlineQuoteReportsTheUnwrapping(string $html): void
     {
-        $this->assertNotContains('element-unwrapped', $this->diagnosticCodes($html));
+        $this->assertContains('element-unwrapped', $this->diagnosticCodes($html));
     }
 
     /**
-     * CONTROL. Quote characters are what the source now says, and the renderer
-     * turns them into the typographic pair - so the mapping survives the parse
-     * rather than only the string comparison above.
+     * CONTROL. Quote characters are what the source now says, and they survive
+     * the parse rather than only the string comparison above.
      */
     public function testTheQuoteCharactersSurviveTheParse(): void
     {
         $this->assertSame(
             "<p>He said \u{201C}hi\u{201D}.</p>\n",
             $this->carve->convert($this->converter->convert('<p>He said <q>hi</q>.</p>')),
+        );
+    }
+
+    /**
+     * The whole row for each `<q>`, and its place ahead of the rows naming what
+     * the element carried (carve-php#1737). Measured against carve-js, which
+     * writes the same code, severity and path for this input.
+     */
+    public function testTheQuoteRowIsWholeAndStandsBeforeItsAttributes(): void
+    {
+        $mapping = 'Read <q> as quotation marks: Carve has no quotation element, so the marks are the mapping';
+
+        $rows = array_map(
+            static fn (HtmlImportDiagnostic $diagnostic): array => [
+                $diagnostic->code,
+                $diagnostic->message,
+                $diagnostic->severity,
+                $diagnostic->fidelity(),
+                $diagnostic->confidence(),
+                $diagnostic->path,
+            ],
+            (new HtmlToCarve())->convertWithReport('<p><q id="k">a <q>b</q></q></p>')->diagnostics,
+        );
+
+        $this->assertSame(
+            [
+                ['element-unwrapped', $mapping, 'info', 'degraded', 'exact', '/p[1]/q[1]'],
+                [
+                    'attribute-dropped',
+                    'Dropped unsupported attribute id on <q>',
+                    'info',
+                    'dropped',
+                    'exact',
+                    '/p[1]/q[1]',
+                ],
+                ['element-unwrapped', $mapping, 'info', 'degraded', 'exact', '/p[1]/q[1]/q[2]'],
+            ],
+            $rows,
         );
     }
 

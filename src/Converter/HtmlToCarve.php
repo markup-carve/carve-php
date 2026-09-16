@@ -116,6 +116,17 @@ class HtmlToCarve
     protected const SEMANTIC_SPAN_ELEMENTS = ['abbr', 'time', 'kbd', 'samp', 'var', 'cite', 'dfn'];
 
     /**
+     * The mark pair a browser draws around a `<q>`, indexed by nesting parity:
+     * double outside, single one level in, double again below that.
+     *
+     * @var array<int, array{0: string, 1: string}>
+     */
+    protected const QUOTE_MARKS = [
+        ['“', '”'],
+        ['‘', '’'],
+    ];
+
+    /**
      * Elements dropped whole, with everything under them.
      *
      * Named once so the walk that reports the drop and the content key that
@@ -883,7 +894,18 @@ class HtmlToCarve
             // spends from `emittedImportValues` and the attribute questions
             // spend from `survivingImportAttributes`, so neither can consume
             // the other's survivor whichever runs first.
-            if (!$this->isKnownImportElement($tag) && $tag !== 'math') {
+            if ($tag === 'q') {
+                // Its own arm because neither generic answer fits: an empty
+                // `<q>` still leaves marks behind, so it is not a drop, and the
+                // marks are not span metadata.
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'element-unwrapped',
+                    'Read <q> as quotation marks: Carve has no quotation element, so the marks are the mapping',
+                    'info',
+                    $path,
+                );
+            } elseif (!$this->isKnownImportElement($tag) && $tag !== 'math') {
                 $this->reportImportElementOutcome($node, $tag, $path, $diagnostics);
             }
 
@@ -2449,11 +2471,12 @@ class HtmlToCarve
             'aside', 'dialog', 'fieldset', 'form', 'hgroup', 'menu', 'search', 'details', 'summary',
             'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em',
             'i', 'u', 's', 'strike',
-            // `q` is a mapping, not an unwrapping: its content comes back
-            // wrapped in quote characters, which is the representation Carve
-            // has for a quoted phrase. Nothing is replaced by span metadata
-            // and nothing is lost, so there was nothing to report.
-            'q',
+            // `q` IS NOT HERE. It was, on the reading that its marks are the
+            // representation Carve has for a quoted phrase and so nothing is
+            // lost - but `{+ +}` reads back as an `<ins>` and a mark pair reads
+            // back as text, so the element goes where `ins` survives. The walk
+            // answers for it above, ahead of this call.
+            //
             // `ins` sits next to its `del` twin: both have a marker of their
             // own (`{+ +}` and `{- -}`) and neither is unwrapped, so reporting
             // one as replaced by Carve span metadata described a loss that
@@ -2501,6 +2524,11 @@ class HtmlToCarve
      * How many bracketed labels the walk is inside, whose text escapes `[` and `]`.
      */
     protected int $labelDepth = 0;
+
+    /**
+     * How many `<q>` elements the walk is inside, which picks the mark pair.
+     */
+    protected int $quoteDepth = 0;
 
     /**
      * The marker and continuation indent of the container an inline run is
@@ -8868,25 +8896,38 @@ class HtmlToCarve
     /**
      * Process inline quote element to Carve
      *
-     * Converts <q> to quoted text. If the q element has a cite attribute,
-     * it's preserved as an attribute on a span.
+     * Converts <q> to the mark pair a browser draws around it. If the q element
+     * has a cite attribute, it's preserved as an attribute on a span.
      */
     protected function processInlineQuote(DOMElement $node): string
     {
+        // A straight `"` would reach the writer as text and stay straight
+        // (PART 11 §5), and smart punctuation reads direction from the
+        // neighbors rather than from the element, so the marks themselves are
+        // the only bytes that reproduce what the HTML showed.
+        [$open, $close] = self::QUOTE_MARKS[$this->quoteDepth % 2];
+
         // The children are Carve already, and their text escapes `"` itself;
         // escaping the result would double every escape in it.
         $cite = $node->getAttribute('cite');
-        $content = $cite !== ''
-            ? $this->buildLabelContent(fn (): string => $this->processChildren($node))
-            : $this->processChildren($node);
+        $this->quoteDepth++;
 
-        $quoted = '"' . $content . '"';
+        try {
+            $content = $cite !== ''
+                ? $this->buildLabelContent(fn (): string => $this->processChildren($node))
+                : $this->processChildren($node);
+        } finally {
+            $this->quoteDepth--;
+        }
 
-        // If there's a cite attribute, wrap in span with the attribute
+        $quoted = $open . $content . $close;
+
+        // If there's a cite attribute, wrap in span with the attribute. The
+        // shared helper writes it: the always-quoted form this site used to
+        // spell is one `carve fmt` rewrites, so the importer's own output was
+        // not a fixed point of the writer.
         if ($cite !== '') {
-            $escapedCite = str_replace(['\\', '"'], ['\\\\', '\\"'], $cite);
-
-            return '[' . $quoted . ']{cite="' . $escapedCite . '"}';
+            return '[' . $quoted . ']{cite=' . $this->quoteAttributeValue($cite) . '}';
         }
 
         return $quoted;

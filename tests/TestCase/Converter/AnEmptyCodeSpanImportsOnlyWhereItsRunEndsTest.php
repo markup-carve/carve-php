@@ -108,7 +108,7 @@ class AnEmptyCodeSpanImportsOnlyWhereItsRunEndsTest extends TestCase
             'text follows it in the paragraph' => ['<p>x<code></code>y</p>', "xy\n"],
             'an element follows it' => ['<p><s><code></code><b>y</b></s></p>', "~*y*~\n"],
             'a link closes with its own tail' => ['<p><a href="u">z<code></code></a></p>', "[z](u)\n"],
-            'a quote closes with its own mark' => ['<p><q>z<code></code></q></p>', "\"z\"\n"],
+            'a quote closes with its own mark' => ['<p><q>z<code></code></q></p>', "\u{201C}z\u{201D}\n"],
             'a semantic span closes with its own tail' => [
                 '<p><cite>z<code></code></cite></p>',
                 "[z]{cite}\n",

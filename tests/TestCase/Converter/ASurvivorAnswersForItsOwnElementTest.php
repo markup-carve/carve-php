@@ -208,7 +208,7 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
     /**
      * A mapping may spell marks of its own around the content it keeps.
      *
-     * `<q cite="u">` comes back as `<span cite="u">"quoted"</span>`, so the
+     * `<q cite="u">` comes back as `<span cite="u">“quoted”</span>`, so the
      * element carries two more characters than it was given. The content key
      * keeps only letters and digits for exactly this reason.
      */
@@ -219,7 +219,17 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
         $this->assertStringContainsString('cite="u"', (new CarveConverter())->convert(
             (new HtmlToCarve())->convertWithReport($html)->value,
         ));
-        $this->assertSame([], $this->diagnostics($html));
+        // The element's own row is there; the cite's is not, which is the
+        // question this test asks.
+        $this->assertSame(
+            [
+                [
+                    'element-unwrapped',
+                    'Read <q> as quotation marks: Carve has no quotation element, so the marks are the mapping',
+                ],
+            ],
+            $this->diagnostics($html),
+        );
     }
 
     /**

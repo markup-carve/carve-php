@@ -74,7 +74,7 @@ class ALabelAndAnAltImportWithoutAddedEscapesTest extends TestCase
             ],
             'a bracket in a quote carrying a cite' => [
                 '<p><q cite="c">a]b</q></p>',
-                "[\"a\\]b\"]{cite=\"c\"}\n",
+                "[\u{201C}a\\]b\u{201D}]{cite=c}\n",
                 "<p><span cite=\"c\">\u{201C}a]b\u{201D}</span></p>",
             ],
             'a bracket in a round-trip inline footnote' => [

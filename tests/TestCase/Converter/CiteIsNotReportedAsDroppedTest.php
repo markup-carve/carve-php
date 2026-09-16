@@ -520,24 +520,36 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
      * This used to assert the opposite - that `<q cite="u">` keeps reporting,
      * because the represented pair was tag AND name and only `blockquote`
      * carried `cite`. It was asserting a FALSE row: the attribute round-trips
-     * as `["x"]{cite="u"}` and comes back on the rendered `<span cite="u">`,
+     * as `[“x”]{cite=u}` and comes back on the rendered `<span cite="u">`,
      * so nothing was lost. The tag/name pair was the enumeration talking.
      *
      * The claim it was really protecting - that the fix must not be written
      * against the attribute name alone - now holds structurally, because no
      * name is consulted at all.
+     *
+     * The element's own row is a separate question and stands: the `<q>` is
+     * gone whatever its attribute did (markup-carve/carve-php#2096).
      */
     public function testCiteOnAnotherElementIsDecidedByTheDocumentToo(): void
     {
         $carve = $this->carve('<p><q cite="u">x</q></p>');
 
-        $this->assertStringContainsString('cite="u"', $carve);
+        $this->assertStringContainsString('cite=u', $carve);
         $this->assertStringContainsString(
             'cite="u"',
             (new CarveConverter())->convert($carve),
             'the attribute comes back on the rendered element, so nothing was dropped',
         );
-        $this->assertSame([], $this->diagnostics('<p><q cite="u">x</q></p>'));
+        $this->assertSame(
+            [
+                [
+                    'element-unwrapped',
+                    'info',
+                    'Read <q> as quotation marks: Carve has no quotation element, so the marks are the mapping',
+                ],
+            ],
+            $this->diagnostics('<p><q cite="u">x</q></p>'),
+        );
     }
 
     /**
