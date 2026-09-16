@@ -6080,21 +6080,37 @@ class HtmlToCarve
     {
         // Process content, preserving paragraph breaks.
         $parts = [];
+        $inlineBuffer = '';
+        $inlineNodes = [];
         $outerContext = $this->blockLineContext;
         $this->blockLineContext = ['> ', '> '];
         try {
             foreach ($node->childNodes as $child) {
-                if ($child instanceof DOMText && trim($child->textContent) === '') {
+                $isBlock = $child instanceof DOMElement
+                    && in_array(strtolower($child->tagName), $this->blockElements, true);
+                if (!$isBlock) {
+                    $inlineBuffer .= $this->processNode($child);
+                    $inlineNodes[] = $child;
+
                     continue;
                 }
 
-                $part = rtrim($this->processNode($child), "\n");
-                if (!$child instanceof DOMElement || !in_array(strtolower($child->tagName), $this->blockElements, true)) {
-                    $part = $this->escapeBlockLineOpeners($part, [$child]);
+                $flushed = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
+                if ($flushed !== '') {
+                    $parts[] = $flushed;
                 }
+                $inlineBuffer = '';
+                $inlineNodes = [];
+
+                $part = rtrim($this->processNode($child), "\n");
                 if ($part !== '') {
                     $parts[] = $part;
                 }
+            }
+
+            $flushed = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
+            if ($flushed !== '') {
+                $parts[] = $flushed;
             }
         } finally {
             $this->blockLineContext = $outerContext;
