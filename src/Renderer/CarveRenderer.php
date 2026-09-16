@@ -3645,6 +3645,9 @@ class CarveRenderer implements RendererInterface
             || str_ends_with($content, $delimiter)
             || str_starts_with($content, ' ')
             || str_ends_with($content, ' ')
+            // A trailing hard break puts the closer at the start of the next
+            // line, where only the braced closer closes.
+            || str_ends_with($content, "\n")
             || $content === ''
             // `/*` opens `bold_italic` and `*/` closes it, so a bare emphasis
             // whose content has both would read back as a strong wrapping an

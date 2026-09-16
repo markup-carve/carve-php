@@ -4703,6 +4703,7 @@ class HtmlToCarve
         if ($content === '') {
             return '';
         }
+        $content = $this->restoreTrailingHardBreak($content);
 
         [$open, $close] = $this->boundaryDelimiters($node, $ch, $content);
 
@@ -4728,6 +4729,7 @@ class HtmlToCarve
             || $this->isWordCharacter($this->boundaryCharacter($node->nextSibling, false))
             || str_starts_with($content, $ch)
             || str_ends_with($content, $ch)
+            || str_ends_with($content, "\n")
             // `/*` opens `bold_italic`, the writer's carve-php#2012 case.
             || ($ch === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));
 
@@ -4869,10 +4871,21 @@ class HtmlToCarve
         if ($content === '') {
             return '';
         }
+        $content = $this->restoreTrailingHardBreak($content);
 
         $attrs = $this->formatInlineAttributes($node);
 
         return $open . $content . $close . $attrs;
+    }
+
+    /**
+     * Put back the newline a trim took from a trailing hard break, whose
+     * backslash would otherwise escape the closer. A text backslash is written
+     * doubled, so only an odd run ends in a break.
+     */
+    protected function restoreTrailingHardBreak(string $content): string
+    {
+        return preg_match('/(?<!\\\\)(?:\\\\\\\\)*\\\\$/', $content) === 1 ? $content . "\n" : $content;
     }
 
     protected function processCode(DOMElement $node): string
@@ -5078,6 +5091,7 @@ class HtmlToCarve
         if ($text === '') {
             $text = $href;
         }
+        $text = $this->restoreTrailingHardBreak($text);
 
         $text = $this->escapeNoteReferenceLabel($this->escapeLinkOrImageLabel($text));
 
