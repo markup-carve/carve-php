@@ -493,10 +493,10 @@ DJOT;
 
         $html = $this->converter->convert($djot);
 
-        // Should contain curly quotes, not be stripped
-        $this->assertStringContainsString("\u{2018}", $html); // Left single quote
-        $this->assertStringContainsString("\u{2019}", $html); // Right single quote
-        $this->assertStringContainsString("\u{201C}", $html); // Left double quote
-        $this->assertStringContainsString("\u{201D}", $html); // Right double quote
+        // The BRACES are the point of this case: a cell holding one is not read
+        // as an attribute block. The quote inside it is per-character
+        // substitution, so both quotes of a run open (markup-carve/carve-php#2028).
+        $this->assertStringContainsString("<td>{\u{2018}\u{2018}}</td>", $html);
+        $this->assertStringContainsString("<td>{\u{201C}\u{201C}}</td>", $html);
     }
 }
