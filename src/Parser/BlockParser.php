@@ -2939,7 +2939,7 @@ class BlockParser
         $singleLineAttrStr = $this->parseSingleLineBlockAttributePayload($line);
         if ($singleLineAttrStr !== null) {
             $attrStr = $singleLineAttrStr;
-            if (!preg_match('/^[.#:a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+            if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
                 return null;
             }
             $consumed = 1;
@@ -2956,7 +2956,7 @@ class BlockParser
             $nextLine = $lines[$i];
             if (preg_match('/^(.*)\}[ \t]*$/', $nextLine, $closeMatch)) {
                 $attrStr = trim($attrContent . ' ' . $closeMatch[1]);
-                if (!preg_match('/^[.#:a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+                if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
                     return null;
                 }
                 $consumed = $i - $start + 1;
@@ -3725,8 +3725,11 @@ class BlockParser
         $singleLineAttrStr = $this->parseSingleLineBlockAttributePayload($line);
         if ($singleLineAttrStr !== null) {
             $attrStr = $singleLineAttrStr;
-            // Exclude _ * = + - ~ ^ which are braced inline markers (not block attributes)
-            if (!preg_match('/^[.#:a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+            // Exclude * = + - ~ ^ which are braced inline markers. `_` leads an
+            // identifier, so `{_k=1}` is a block-attribute line; the boolean
+            // form that collides with forced underline is refused by
+            // `isValidAttrPayload` instead (carve-php#2021).
+            if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
                 return null;
             }
 
@@ -3774,8 +3777,9 @@ class BlockParser
                 $attrContent .= ' ' . $closeMatch[1];
                 $attrStr = trim($attrContent);
 
-                // Exclude _ * = + - ~ ^ which are braced inline markers (not block attributes)
-                if (!preg_match('/^[.#:a-zA-Z]/', $attrStr) || str_starts_with($attrStr, '%')) {
+                // Exclude * = + - ~ ^ which are braced inline markers; `_` leads an
+                // identifier and is refused for the boolean form alone.
+                if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
                     return null;
                 }
                 // The whole payload must be valid, else it is not a block-
@@ -12795,7 +12799,7 @@ class BlockParser
      * Whether a line is a standalone single-line block-attribute line: a
      * `{...}` block alone on the line that yields attributes (matching the
      * single-line case recognised by tryParseBlockAttributes). Braced inline
-     * markers (`_ * = + - ~ ^`) and comment blocks (`%`) are excluded.
+     * markers (`* = + - ~ ^`) and comment blocks (`%`) are excluded.
      */
     protected function isBlockAttributeLine(string $line): bool
     {
@@ -12808,7 +12812,7 @@ class BlockParser
         // start with an attribute char: an invalid one like `{# id}` (a
         // space-broken id) is NOT a block-attribute line, so it continues the
         // paragraph as text rather than splitting it. Matches carve-js / carve-rs.
-        return preg_match('/^[.#:a-zA-Z]/', $attrStr) === 1
+        return preg_match('/^[.#:a-zA-Z_]/', $attrStr) === 1
             && !str_starts_with($attrStr, '%')
             && $this->inlineParser->isValidAttrPayload($attrStr);
     }
