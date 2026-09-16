@@ -2364,11 +2364,6 @@ class HtmlToCarve
     protected bool $inPre = false;
 
     /**
-     * How many `<q>` elements the walk is inside, whose text escapes `"`.
-     */
-    protected int $quoteDepth = 0;
-
-    /**
      * How many bracketed labels the walk is inside, whose text escapes `[` and `]`.
      */
     protected int $labelDepth = 0;
@@ -2456,7 +2451,6 @@ class HtmlToCarve
         // Reset state
         $this->listDepth = 0;
         $this->inPre = false;
-        $this->quoteDepth = 0;
         $this->labelDepth = 0;
         $this->preserveTextWhitespace = false;
         $this->referenceDefinitions = [];
@@ -2751,16 +2745,17 @@ class HtmlToCarve
     }
 
     /**
-     * HTML text escaped as prose, plus what the enclosing quote or label reads.
+     * HTML text escaped as prose, plus what an enclosing label reads.
+     *
+     * A straight quote is escaped everywhere, as the writer escapes one (PART 11
+     * §5): bare, it reads back as smart punctuation. So is a caret opening an
+     * inline note.
      *
      * @param string $text
      */
     protected function escapeHtmlTextForSlot(string $text): string
     {
-        $text = $this->escapeHtmlTextAsCarveProse($text);
-        if ($this->quoteDepth > 0) {
-            $text = str_replace('"', '\\"', $text);
-        }
+        $text = str_replace(['"', "'", '^['], ['\\"', "\\'", '\\^['], $this->escapeHtmlTextAsCarveProse($text));
 
         return $this->labelDepth > 0 ? $this->escapeLinkOrImageLabel($text) : $text;
     }
@@ -2787,7 +2782,12 @@ class HtmlToCarve
     {
         $output = '';
         foreach ($node->childNodes as $child) {
-            $output .= $this->processNode($child);
+            $part = $this->processNode($child);
+            // A text caret meeting a sibling's `[` would open an inline note.
+            if (str_starts_with($part, '[') && str_ends_with($output, '^')) {
+                $output = substr($output, 0, -1) . '\\^';
+            }
+            $output .= $part;
         }
 
         return $output;
@@ -4339,7 +4339,7 @@ class HtmlToCarve
         // Div/code opener headers cannot contain a double quote. When converting
         // arbitrary HTML, keep the source valid and preserve the remaining
         // inline markup rather than emitting an opener the parser cannot read.
-        return '"' . str_replace('"', '', $title) . '"';
+        return '"' . str_replace(['\\"', '"'], '', $title) . '"';
     }
 
     protected function processParagraph(DOMElement $node): string
@@ -8212,17 +8212,12 @@ class HtmlToCarve
      */
     protected function processInlineQuote(DOMElement $node): string
     {
-        // The children are Carve already, so only their TEXT escapes the
-        // quote; escaping the result would double every escape in it.
+        // The children are Carve already, and their text escapes `"` itself;
+        // escaping the result would double every escape in it.
         $cite = $node->getAttribute('cite');
-        $this->quoteDepth++;
-        try {
-            $content = $cite !== ''
-                ? $this->buildLabelContent(fn (): string => $this->processChildren($node))
-                : $this->processChildren($node);
-        } finally {
-            $this->quoteDepth--;
-        }
+        $content = $cite !== ''
+            ? $this->buildLabelContent(fn (): string => $this->processChildren($node))
+            : $this->processChildren($node);
 
         $quoted = '"' . $content . '"';
 
