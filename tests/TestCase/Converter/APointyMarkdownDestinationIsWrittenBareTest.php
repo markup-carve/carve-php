@@ -25,10 +25,12 @@ class APointyMarkdownDestinationIsWrittenBareTest extends TestCase
             'a title after it' => ['[k](</u v> "t")', '[k](/u%20v "t")'],
             'an image' => ['![i](<a b.png>)', '![i](a%20b.png)'],
             'parentheses' => ['[k](<a(b)>)', '[k](a%28b%29)'],
+            'an unbalanced parenthesis' => ['[x](<a)b>) c', '[x](a%29b) c'],
             'an escaped angle bracket' => ['[k](<a\\>b>)', '[k](a%3Eb)'],
             'a backslash' => ['[k](<a\\\\b>)', '[k](a%5Cb)'],
             'a tag-like destination' => ['[k](<u>)', '[k](u)'],
             'a reference definition' => ["[t][r]\n\n[r]: </u v>", "[t][r]\n\n[r]: /u%20v"],
+            'a definition label holding an escaped bracket' => ["[t][a\\]]\n\n[a\\]]: </u v>", "[t][a\\]]\n\n[a\\]]: /u%20v"],
             'a code span' => ['`[k](<u v>)`', '`[k](<u v>)`'],
             'angle brackets not in a destination' => ['a <b>x</b> y', 'a *x* y'],
         ];
