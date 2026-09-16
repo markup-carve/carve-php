@@ -146,8 +146,14 @@ final class BracketScanner
                 return null;
             }
 
+            // BOTH SIDES, because the closer is a MAXIMAL run too. Checking
+            // only the right accepted the second backtick of a pair as the
+            // closer of a one-backtick opener, so the emphasis lookahead found
+            // a closer past a run that closes nothing (carve-php#2029).
             $afterClose = $closePos + $openBackticks;
-            if ($afterClose >= $length || $text[$afterClose] !== '`') {
+            $partOfALongerRun = ($closePos > 0 && $text[$closePos - 1] === '`')
+                || ($afterClose < $length && $text[$afterClose] === '`');
+            if (!$partOfALongerRun) {
                 return $afterClose;
             }
 
