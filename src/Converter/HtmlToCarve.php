@@ -441,7 +441,7 @@ class HtmlToCarve
         // stand-in the parsed tree gives back.
         $source = $this->convertWithReport($html);
         $treeBreaks = !str_contains($html, self::TREE_BREAK)
-            && !str_contains($html, self::TREE_KIND)
+            && preg_match('/\s' . self::TREE_KIND . '\s*=/i', $html) !== 1
             && $this->reportsUnspellable($source->diagnostics);
         $value = $source->value;
         if ($treeBreaks) {
@@ -551,7 +551,19 @@ class HtmlToCarve
                 $keyValues = is_array($attrs) ? $attrs['keyValues'] ?? null : null;
                 $kind = is_array($keyValues) ? $keyValues[self::TREE_KIND] ?? null : null;
                 if (is_string($kind)) {
-                    $out[] = ['type' => $kind, 'children' => $entry['children'] ?? []];
+                    unset($keyValues[self::TREE_KIND]);
+                    $attrs['keyValues'] = $keyValues;
+                    if ($keyValues === []) {
+                        unset($attrs['keyValues']);
+                    }
+                    $order = is_array($attrs['order'] ?? null) ? $attrs['order'] : [];
+                    $attrs['order'] = array_values(array_filter($order, static fn (mixed $slot): bool => $slot !== self::TREE_KIND));
+                    $node = ['type' => $kind];
+                    if ($attrs['order'] !== []) {
+                        $node['attrs'] = $attrs;
+                    }
+                    $node['children'] = $entry['children'] ?? [];
+                    $out[] = $node;
 
                     continue;
                 }
@@ -5048,8 +5060,10 @@ class HtmlToCarve
             default => 'subscript',
         };
 
+        $attrs = $this->formatInlineAttributes($node);
+
         return '[' . $this->escapeNoteReferenceLabel($this->buildLabelContent(fn (): string => $this->restoreTrailingHardBreak(trim($this->processChildren($node)))))
-            . ']{' . self::TREE_KIND . '=' . $type . '}';
+            . ']{' . self::TREE_KIND . '=' . $type . ($attrs === '' ? '' : ' ' . substr($attrs, 1, -1)) . '}';
     }
 
     protected function formattingKind(DOMElement $node): ?string

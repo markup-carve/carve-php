@@ -117,6 +117,21 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
         );
     }
 
+    public function testTheAstExitKeepsTheInnerAttributes(): void
+    {
+        $this->assertSame(
+            [['type' => 'superscript', 'attrs' => ['id' => 'i', 'classes' => ['inner'], 'order' => ['#id', '.class']], 'children' => [['type' => 'text', 'value' => 'x']]]],
+            $this->at((new HtmlToCarve())->convertToAst('<p><sup><sup class="inner" id="i">x</sup></sup></p>'), 'children', 0, 'children', 0, 'children'),
+        );
+    }
+
+    public function testTheAstExitIsNotStoppedByTheStandInNameAsText(): void
+    {
+        $html = '<p>data-carve-tree-kind <sup><sup>x</sup></sup></p>';
+
+        $this->assertSame('superscript', $this->at((new HtmlToCarve())->convertToAst($html), 'children', 0, 'children', 1, 'children', 0, 'type'));
+    }
+
     public function testTheAstExitLeavesTheStandInAttributeInTheInputAlone(): void
     {
         $html = '<p><span data-carve-tree-kind="strong">x</span> <sup><sup>y</sup></sup></p>';
