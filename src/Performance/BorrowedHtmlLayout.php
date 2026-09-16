@@ -609,7 +609,8 @@ final class BorrowedHtmlLayout
         $i = $start;
         $expected = $first['number'];
         while (isset($lines[$i]) && ($item = $this->decimalListItem($lines[$i])) !== null) {
-            if ($item['number'] !== $expected || $this->blockish($item['text'])) {
+            // A lone `+` opens a first-block item, as in the bullet list above.
+            if ($item['number'] !== $expected || $item['text'] === '+' || $this->blockish($item['text'])) {
                 return null;
             }
             $inline = $this->renderInline($item['text'], $definitions);
