@@ -136,7 +136,7 @@ class TextRunCoalescer
      * offset, and PART 12 §4 rates a span that selects the wrong text worse
      * than no span at all.
      */
-    protected static function mergedPos(?SourceSpan $left, ?SourceSpan $right): ?SourceSpan
+    public static function mergedPos(?SourceSpan $left, ?SourceSpan $right): ?SourceSpan
     {
         if ($left === null || $right === null) {
             return null;
