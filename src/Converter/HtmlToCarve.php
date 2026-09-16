@@ -2362,6 +2362,11 @@ class HtmlToCarve
 
     protected bool $inPre = false;
 
+    /**
+     * How many `<q>` elements the walk is inside, whose text escapes `"`.
+     */
+    protected int $quoteDepth = 0;
+
     protected bool $preserveTextWhitespace = false;
 
     /**
@@ -2445,6 +2450,7 @@ class HtmlToCarve
         // Reset state
         $this->listDepth = 0;
         $this->inPre = false;
+        $this->quoteDepth = 0;
         $this->preserveTextWhitespace = false;
         $this->referenceDefinitions = [];
         $this->footnoteDefinitions = [];
@@ -2585,7 +2591,12 @@ class HtmlToCarve
             // A backslash in HTML text is a character, not an escape, so it
             // is doubled before the delimiter escaping runs. Inside `pre` the
             // text is verbatim and nothing is escaped at all.
-            return $this->inPre ? $text : $this->escapeHtmlTextAsCarveProse($text);
+            if ($this->inPre) {
+                return $text;
+            }
+            $text = $this->escapeHtmlTextAsCarveProse($text);
+
+            return $this->quoteDepth > 0 ? str_replace('"', '\\"', $text) : $text;
         }
 
         if ($node instanceof DOMComment) {
@@ -8158,11 +8169,16 @@ class HtmlToCarve
      */
     protected function processInlineQuote(DOMElement $node): string
     {
-        $content = $this->processChildren($node);
-        $escapedContent = str_replace(['\\', '"'], ['\\\\', '\\"'], $content);
+        // The children are Carve already, so only their TEXT escapes the
+        // quote; escaping the result would double every escape in it.
+        $this->quoteDepth++;
+        try {
+            $content = $this->processChildren($node);
+        } finally {
+            $this->quoteDepth--;
+        }
 
-        // Wrap in quotes
-        $quoted = '"' . $escapedContent . '"';
+        $quoted = '"' . $content . '"';
 
         // If there's a cite attribute, wrap in span with the attribute
         $cite = $node->getAttribute('cite');
