@@ -105,6 +105,37 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame('a_b', trim(CarveConverter::markdown()->convert('a_b')));
     }
 
+    /**
+     * M1b reads the inline content the underscore is emitted in, so a soft
+     * break keeps the pair and a blank line ends it (markup-carve/carve#2046).
+     */
+    public function testThePairSurvivesASoftBreak(): void
+    {
+        $this->assertSame(
+            "*x*\\_y\nz\\_ w\n",
+            CarveConverter::markdown()->convert("/x/_y\nz_ w\n"),
+        );
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function blankLineProvider(): array
+    {
+        return [
+            'two paragraphs' => ["a _y\n\nz_ w\n"],
+            'a heading and a paragraph' => ["# a _y\n\nz_ w\n"],
+            'a paragraph and a heading' => ["a _y\n\n# z_ w\n"],
+            'two paragraphs in a quote' => ["> a _y\n>\n> z_ w\n"],
+        ];
+    }
+
+    #[DataProvider('blankLineProvider')]
+    public function testAPairSplitAcrossABlankLineStaysBare(string $source): void
+    {
+        $this->assertSame($source, CarveConverter::markdown()->convert($source));
+    }
+
     public function testUnderlineEmphasisStillRenders(): void
     {
         $this->assertSame('<u>underline</u>', trim(CarveConverter::markdown()->convert('_underline_')));

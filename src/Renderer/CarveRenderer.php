@@ -2535,17 +2535,41 @@ class CarveRenderer implements RendererInterface
                 }
             }
         }
+        // A colspan cell is always written plain (`| < |`), so a header row can
+        // keep the native `|=` form when its span markers form a TRAILING run
+        // of colspans after at least one real header cell: each `<` absorbs into
+        // the `|=` header on its left, and the row is still promoted by those
+        // markers. Every other span shape needs a delimiter row: a leading span
+        // has no `|=` anchor before it, a real cell after a span would have to
+        // be written `|=< K` (an aligned header, not the promoted data cell),
+        // and a trailing rowspan (`^`) does not absorb left, so a first-row
+        // `| ^ |` is not a header cell and the row falls out of the header.
         $needsDelimiter = false;
         if ($headerRow) {
-            foreach ($tableRows[0]->getChildren() as $cell) {
-                if (!$cell instanceof TableCell) {
-                    continue;
-                }
+            $headerCellsRow = array_values(array_filter(
+                $tableRows[0]->getChildren(),
+                static fn (Node $child): bool => $child instanceof TableCell,
+            ));
+            $firstSpan = -1;
+            foreach ($headerCellsRow as $index => $cell) {
                 if ($cell->getSpanMarker() !== null) {
-                    $needsDelimiter = true;
+                    $firstSpan = $index;
 
                     break;
                 }
+            }
+            if ($firstSpan >= 0) {
+                $trailingColspansOnly = $firstSpan >= 1;
+                $headerCellCount = count($headerCellsRow);
+                for ($column = $firstSpan; $column < $headerCellCount; $column++) {
+                    // '<' is the colspan marker (rowspan is '^').
+                    if ($headerCellsRow[$column]->getSpanMarker() !== '<') {
+                        $trailingColspansOnly = false;
+
+                        break;
+                    }
+                }
+                $needsDelimiter = !$trailingColspansOnly;
             }
         }
         foreach ($tableRows as $rowIndex => $row) {
@@ -2871,9 +2895,12 @@ class CarveRenderer implements RendererInterface
                     continue;
                 }
                 if ($node instanceof InlineNode) {
+                    $prevChar = $this->lastBoundary($nodes[$i - 1] ?? null);
                     $out .= $this->renderInline(
                         $node,
-                        $this->lastBoundary($nodes[$i - 1] ?? null),
+                        // A span leaves no boundary character of its own, so the
+                        // one it WROTE (its closer) is what the next opener sits against.
+                        $prevChar === '' ? substr($out, -1) : $prevChar,
                         $this->firstBoundary($nodes[$i + 1] ?? null),
                         $captionCanOpen,
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
@@ -3593,7 +3620,10 @@ class CarveRenderer implements RendererInterface
 
     protected function renderEmphasis(string $delimiter, string $content, string $prevChar, string $nextChar): string
     {
+        // The characters `bare_opener` refuses before a marker (CARVE-P3-013).
         $needsForced = preg_match('/[A-Za-z0-9_]/', $prevChar) === 1
+            || $prevChar === $delimiter
+            || ($prevChar === '/' && ($delimiter === '/' || $delimiter === '_'))
             || preg_match('/[A-Za-z0-9_]/', $nextChar) === 1
             || str_starts_with($content, $delimiter)
             || str_ends_with($content, $delimiter)

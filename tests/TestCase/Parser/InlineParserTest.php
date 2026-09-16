@@ -26,7 +26,6 @@ use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
-use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
@@ -606,11 +605,11 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithUnderscoreInLinkDestination(): void
     {
-        $para = $this->parseInline('_[link](http://example.com?foo_bar=1), more text_');
+        $para = $this->parseInline('/[link](http://example.com?foo_bar=1), more text/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
-        $this->assertInstanceOf(Underline::class, $children[0]);
+        $this->assertInstanceOf(Emphasis::class, $children[0]);
 
         $emChildren = $children[0]->getChildren();
         // Should contain a link node followed by text
@@ -680,11 +679,11 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithNestedParensInDestination(): void
     {
-        $para = $this->parseInline('*[wiki](http://en.wikipedia.org/wiki/Foo_(bar))*');
+        $para = $this->parseInline('/[wiki](http://en.wikipedia.org/wiki/Foo_(bar))/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
-        $this->assertInstanceOf(Strong::class, $children[0]);
+        $this->assertInstanceOf(Emphasis::class, $children[0]);
 
         $emChildren = $children[0]->getChildren();
         $this->assertCount(1, $emChildren);
@@ -813,11 +812,11 @@ class InlineParserTest extends TestCase
      */
     public function testEmphasisWithComplexQueryString(): void
     {
-        $para = $this->parseInline('*Check [this API](https://api.example.com/v1/users?sort_by=name&filter_type=active) for details*');
+        $para = $this->parseInline('/Check [this API](https://api.example.com/v1/users?sort_by=name&filter_type=active) for details/');
 
         $children = $para->getChildren();
         $this->assertCount(1, $children);
-        $this->assertInstanceOf(Strong::class, $children[0]);
+        $this->assertInstanceOf(Emphasis::class, $children[0]);
 
         $emChildren = $children[0]->getChildren();
         $found = false;

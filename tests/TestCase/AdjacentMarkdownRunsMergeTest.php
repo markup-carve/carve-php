@@ -74,17 +74,17 @@ class AdjacentMarkdownRunsMergeTest extends TestCase
 
     public function testTwoAdjacentEmphasesCannotBothResolve(): void
     {
-        $this->assertSame("a <em>x</em>*y*\n", $this->md("a {/x/}{/y/}\n"));
+        $this->assertSame("a *x*<em>y</em>\n", $this->md("a {/x/}{/y/}\n"));
     }
 
     public function testTwoAdjacentStrongsCannotEither(): void
     {
-        $this->assertSame("a <strong>x</strong>**y**\n", $this->md("a {*x*}{*y*}\n"));
+        $this->assertSame("a **x**<strong>y</strong>\n", $this->md("a {*x*}{*y*}\n"));
     }
 
-    public function testAChainOfThreeLeavesTheLastOneSpelled(): void
+    public function testAChainOfThreeLeavesTheOuterTwoSpelled(): void
     {
-        $this->assertSame("<em>x</em><em>y</em>*z*\n", $this->md("{/x/}{/y/}{/z/}\n"));
+        $this->assertSame("*x*<em>y</em>*z*\n", $this->md("{/x/}{/y/}{/z/}\n"));
     }
 
     public function testStrongAgainstEmphasisSumsToThreeAndStays(): void
@@ -154,12 +154,12 @@ class AdjacentMarkdownRunsMergeTest extends TestCase
 
     public function testAnEscapedAsteriskIsNotCountedAsPartOfTheRun(): void
     {
-        $this->assertSame("<em>x\\*</em>*\\~y*\n", $this->md("{/x*/}{/~y/}\n"));
+        $this->assertSame("*x\\**<em>\\~y</em>\n", $this->md("{/x*/}{/~y/}\n"));
     }
 
     public function testTheMergedRunFlanksAgainstTheSiblingsContent(): void
     {
-        $this->assertSame("<em>x\\~</em>**y**\n", $this->md("{/x~/}{*y*}\n"));
+        $this->assertSame("*x\\~*<strong>y</strong>\n", $this->md("{/x~/}{*y*}\n"));
     }
 
     public function testTheRightHandSideOfATildeSeamIsReSpelledWhateverTheContent(): void

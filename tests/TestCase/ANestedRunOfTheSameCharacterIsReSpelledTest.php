@@ -56,6 +56,46 @@ class ANestedRunOfTheSameCharacterIsReSpelledTest extends TestCase
         $this->assertSame("*~~x~~*\n", $this->md("/{~x~}/\n"));
     }
 
+    /**
+     * markup-carve/carve-php#1999: a child of a DIFFERENT strength at an edge
+     * nests, so the run stays and the engines write the same bytes. The ruling
+     * recorded on markup-carve/carve-js#1736 picks the plain spelling.
+     */
+    public function testAStrongThatClosesAnEmphasisKeepsTheRun(): void
+    {
+        $this->assertSame("*italic **bold***\n", $this->md("{/italic *bold*/}\n"));
+    }
+
+    public function testAnEmphasisThatClosesAStrongKeepsTheRun(): void
+    {
+        $this->assertSame("**bold *italic***\n", $this->md("{*bold /italic/*}\n"));
+    }
+
+    public function testAChildThatOpensTheContentKeepsTheRun(): void
+    {
+        $this->assertSame("***bold** italic*\n", $this->md("{/*bold* italic/}\n"));
+    }
+
+    public function testTheRunStaysIntraword(): void
+    {
+        $this->assertSame("a*x **y***b\n", $this->md("a{/x *y*/}b\n"));
+    }
+
+    public function testAnEqualStrengthChildThatOpensTheContentIsReSpelled(): void
+    {
+        $this->assertSame("<em>*x* tail</em>\n", $this->md("/{/x/} tail/\n"));
+    }
+
+    public function testAnEqualStrengthChildThatClosesItIsReSpelled(): void
+    {
+        $this->assertSame("<em>head *x*</em>\n", $this->md("/head {/x/}/\n"));
+    }
+
+    public function testALiteralTheRendererDidNotEscapeAtTheEdgeIsReSpelled(): void
+    {
+        $this->assertSame("<em>*\\*\\*x*</em>\n", $this->md("{//**x//}\n"));
+    }
+
     public function testAnEscapedEdgeCharacterDoesNotReachTheRun(): void
     {
         $this->assertSame("*x\\**\n", $this->md("{/x\\*/}\n"));

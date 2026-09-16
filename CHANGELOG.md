@@ -16,6 +16,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The Carve writer and the HTML importer keep the native `|=` header form for a
+  table whose header spans trail its real header cells (`|= A |= B | < |`),
+  instead of a GFM delimiter row. A leading span, a real cell after a header
+  span, or a trailing rowspan still uses the delimiter row.
 - `carve migrate --check-loss` now exits with status 1 for unverified Markdown,
   Djot and BBCode imports. Opaque `raw-preserved` HTML is classified as degraded
   because it cannot be structurally edited; explicitly preserved attributes

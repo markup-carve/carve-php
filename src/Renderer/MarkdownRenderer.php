@@ -501,7 +501,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // candidate shifts its position in `$line` two bytes left. carve-js can
         // reuse the offset directly because its sentinel is one UTF-16 unit
         // exactly like the character it replaces; here it cannot.
-        $pairs = str_contains($line, '_') ? $this->pairableUnderscores($line) : [];
+        $pairs = str_contains($line, '_') ? $this->pairableUnderscoresPerBlock($line) : [];
 
         $out = '';
         $read = 0;
@@ -726,6 +726,29 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $backslashes % 2 === 0;
+    }
+
+    /**
+     * M1b's pair condition is asked over the inline content the underscore is
+     * emitted in, so a blank line ends the scan: a reader pairs emphasis across
+     * a soft break and never across a paragraph boundary
+     * (markup-carve/carve#2046).
+     *
+     * @return array<int, bool>
+     */
+    protected function pairableUnderscoresPerBlock(string $line): array
+    {
+        $pairs = [];
+        // A blank line inside a quote carries the marker, so the separator
+        // between two paragraphs there is `>` rather than nothing.
+        $blocks = preg_split('/\n[ \t>]*\n/', $line, -1, PREG_SPLIT_OFFSET_CAPTURE);
+        foreach ($blocks === false ? [] : $blocks as [$block, $start]) {
+            foreach ($this->pairableUnderscores($block) as $offset => $_) {
+                $pairs[$start + $offset] = true;
+            }
+        }
+
+        return $pairs;
     }
 
     /**
@@ -1125,7 +1148,19 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
         foreach (array_keys($parts) as $index) {
             $piece = $this->delimiterPiece($children, $parts, $index);
-            if ($piece !== null && $this->seamMergesRun($children, $parts, $index, $piece)) {
+            if ($piece === null || !$this->seamMergesRun($children, $parts, $index, $piece)) {
+                continue;
+            }
+            // ONE SEAM, ONE FALLBACK, AND IT IS THE RUN ON THE RIGHT that takes
+            // it (markup-carve/carve#2045). A tilde seam is decided from both
+            // sides and already reports against the right-hand strike, so only
+            // the asterisk seam, which looks right only, moves its fallback
+            // across.
+            $next = $piece['delimiter'][0] === '~' ? -1 : $this->nextRendered($parts, $index);
+            $right = $next < 0 ? null : $this->delimiterPiece($children, $parts, $next);
+            if ($right !== null && $right['delimiter'][0] === $piece['delimiter'][0]) {
+                array_splice($parts, $next, 1, [$this->spellAsHtml($right)]);
+            } else {
                 $parts[$index] = $this->spellAsHtml($piece);
             }
         }
@@ -1253,28 +1288,35 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             return false;
         }
 
-        return !$this->commutes($piece, $node);
+        return !$this->edgeChildNests($piece, $node);
     }
 
     /**
-     * The round-trip normalization list, PART 11 section 10k: nested emphasis of
-     * DIFFERENT strengths, where the child spans the whole parent, may commute.
-     * `***x***` comes back with the emphasis outside either way, and the two
-     * nestings are the same document. EQUAL strengths do not commute - the runs
-     * collapse into one element of the wrong kind, which is a different
-     * document.
+     * Whether every run the CONTENT adds at an edge belongs to a nested child of
+     * a different strength, which the reader re-pairs as the nesting the
+     * document has: `*italic **bold***` comes back as an emphasis holding a
+     * strong.
+     *
+     * EQUAL strengths do not nest - the runs collapse into one element of the
+     * wrong kind - and a run that is not a child's delimiter at all, a literal
+     * the renderer did not escape, reaches the reader as part of the renderer's
+     * own run. Both take the inline-HTML spelling instead.
+     *
+     * `***x***`, where the child spans the whole parent, is the case PART 11
+     * section 10k's round-trip normalization list already allowed: the emphasis
+     * comes back outside either way, and the two nestings are the same document.
      *
      * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
      * @param \MarkupCarve\Carve\Node\Node $node
      */
-    protected function commutes(array $piece, Node $node): bool
+    protected function edgeChildNests(array $piece, Node $node): bool
     {
         if ($piece['delimiter'][0] !== '*') {
             return false;
         }
         // The padding text nodes are not content: the renderer has already moved
-        // them outside the delimiters, so the child still spans everything
-        // between them.
+        // them outside the delimiters, so a child at an edge of the core is
+        // still the node whose delimiter stands there.
         $kids = [];
         foreach ($node->getChildren() as $kid) {
             if ($kid instanceof Text && trim($kid->getContent()) === '') {
@@ -1282,15 +1324,25 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             }
             $kids[] = $kid;
         }
-        if (count($kids) !== 1) {
-            return false;
-        }
-        $child = $kids[0];
-        if (!$child instanceof Emphasis && !$child instanceof Strong) {
+        if ($this->runAtStart($piece['core'], '*') > 0 && !$this->nestsInside($piece, $kids[0] ?? null)) {
             return false;
         }
 
-        return strlen($this->delimiterRun($child)[0]) !== strlen($piece['delimiter']);
+        return $this->runAtEnd($piece['core'], '*') === 0
+            || $this->nestsInside($piece, $kids !== [] ? $kids[count($kids) - 1] : null);
+    }
+
+    /**
+     * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     * @param \MarkupCarve\Carve\Node\Node|null $kid
+     */
+    protected function nestsInside(array $piece, ?Node $kid): bool
+    {
+        if (!$kid instanceof Emphasis && !$kid instanceof Strong) {
+            return false;
+        }
+
+        return strlen($this->delimiterRun($kid)[0]) !== strlen($piece['delimiter']);
     }
 
     /**
