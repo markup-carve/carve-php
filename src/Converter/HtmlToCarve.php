@@ -6354,13 +6354,11 @@ class HtmlToCarve
                 $markerCarriesNested = $contentParts === [] && $nestedContent !== '';
 
                 if ($contentParts === [] && !$markerCarriesNested) {
-                    // An EMPTY item that carries attributes needs something
-                    // after the abutted brace pair: a marker line ending in
-                    // `-{#x}` is not a marker at all, and comes back as a
-                    // paragraph reading the braces as a tag span. `+` is the
-                    // continuation marker, which is how carve-js spells an
-                    // empty item here too, and it re-parses as `<li id="x">`.
-                    $output .= $indent . $prefix . ($liAttrs !== '' ? '+' : '') . "\n";
+                    // AN EMPTY ITEM IS WRITTEN `- +`, the first-block form: a
+                    // marker with nothing after it is not a marker (PART 2
+                    // `CARVE-P2-009`) and read back as text under the item
+                    // above, attributes or not.
+                    $output .= $indent . $prefix . '+' . "\n";
                 } elseif ($contentParts !== []) {
                     $firstPart = array_shift($contentParts);
                     array_shift($partOpensBlock);

@@ -89,6 +89,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A braced span inside a braced span of the same kind is unspellable** (#2071). The Carve writer throws `SourceUnspellableException` for the tree, and the HTML importer writes the inner span as its content, reports `structure-unspellable` and keeps the nesting in its AST exit.
 - **The Carve writer refuses a mention or tag glued to a word character** (#2077): a letter, digit or `_` before the sigil, or a name character, or a dot and one, after the name. It throws `SourceUnspellableException`; no parse builds such a tree.
 - **The Markdown importer writes a pointy link destination bare** (#2073): `[k](</u v>)` becomes `[k](/u%20v)`, since Carve has no `<...>` destination and the brackets read as raw HTML.
+- **An empty list item is imported as `- +`** (#2087), the first-block form, instead of a bare marker that read back as text under the item above. The borrowed-HTML fast path renders an ordered `2. +` as an empty item, as the full parser does.
 
 ## [0.1.7] - 2026-09-07
 
