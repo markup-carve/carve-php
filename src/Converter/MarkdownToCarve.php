@@ -41,6 +41,15 @@ class MarkdownToCarve
     use PreservesHeadingIds;
 
     /**
+     * A CommonMark thematic break, matched against a line already stripped of
+     * its container prefix: three or more `-`, `*` or `_`, spaces and tabs
+     * allowed anywhere between and after them.
+     *
+     * @var string
+     */
+    protected const THEMATIC_BREAK = '/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/';
+
+    /**
      * When true, rewrite paired-dollar Markdown-flavour math spans to Carve
      * math syntax. Default false because plain CommonMark treats dollars as
      * literal text.
@@ -211,10 +220,14 @@ class MarkdownToCarve
                 // way a heading or a fence does, so a dedented one leaves the
                 // item rather than being read as more of its paragraph.
                 $startsBlock = preg_match('/^(#{1,6}([ \t]|$)|>|`{3,}|~{3,}|-{3,}$|\*{3,}$|_{3,}$)/', $trimmed) === 1
+                    || preg_match(self::THEMATIC_BREAK, $trimmed) === 1
                     || $this->htmlBlockInterrupts($trimmed);
                 if (
                     preg_match('/^([ \t]*)(?:[-*+]|[0-9]+[.)]) +/', $line, $lm) === 1
                     && preg_match('/\S/', substr($line, strlen($lm[0]))) === 1
+                    // A thematic break outranks a list marker in CommonMark, so
+                    // `- - -` opens no item and closes the ones it dedents past.
+                    && preg_match(self::THEMATIC_BREAK, $trimmed) !== 1
                 ) {
                     $markerIndent = $this->columnWidth($lm[1]);
                     while ($listCols !== [] && end($listCols) > $markerIndent) {
@@ -343,6 +356,21 @@ class MarkdownToCarve
                 && !($prevLineType === 'text' && $ordered !== null && (int)$ordered[1] !== 1);
 
             $contentCol = $listCols === [] ? 0 : (int)end($listCols);
+
+            // Inside an open raw-HTML block the line is literal content, not a
+            // break, so nothing respells it there.
+            $inHtmlBlock = $this->convertRawHtml && ($htmlCloser !== null || $htmlBlockOpen);
+            // A break closes every open block, so the line after it opens one
+            // of its own: 'blank', not 'text', or a bare `-` below the rule
+            // would be read as a setext underline and stay text.
+            $rule = $inHtmlBlock ? null : $this->thematicBreakLine($line, $contentCol);
+            if ($rule !== null) {
+                $result[] = $rule;
+                $prevLineType = 'blank';
+                $bulletRunBroken = true;
+
+                continue;
+            }
 
             if (!$this->convertRawHtml) {
                 $htmlBlock = $this->collectVerbatimHtmlBlock(
@@ -882,6 +910,30 @@ class MarkdownToCarve
         $owned = substr($matches[1], 0, min(strlen($matches[1]), $contentCol));
 
         return rtrim($owned . $matches[2]);
+    }
+
+    /**
+     * The Carve spelling of a line CommonMark reads as a thematic break, or
+     * null when the line is not one.
+     *
+     * Carve's break is a contiguous run of three or more markers sitting
+     * exactly at its container's content column, so every other CommonMark
+     * spelling has to be respelled or it comes back as a nested list (`* * *`,
+     * `- - -`) or a paragraph (`_ _ _`, an indented `---`). The target is the
+     * bytes CarveRenderer writes for a ThematicBreak node, which are `---`.
+     */
+    protected function thematicBreakLine(string $line, int $contentCol): ?string
+    {
+        $rest = $this->stripContainerPrefix($line, $contentCol);
+        if ($rest === null || preg_match(self::THEMATIC_BREAK, $rest) !== 1) {
+            return null;
+        }
+
+        if (preg_match('/^[ \t]*(?:>[ \t]?)+/', $line, $matches) === 1) {
+            return $this->normalizeBlockquoteMarkers($matches[0] . '---');
+        }
+
+        return str_repeat(' ', $contentCol) . '---';
     }
 
     /**

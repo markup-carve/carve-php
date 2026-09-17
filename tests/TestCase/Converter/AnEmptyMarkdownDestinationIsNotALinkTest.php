@@ -50,7 +50,7 @@ class AnEmptyMarkdownDestinationIsNotALinkTest extends TestCase
             'a definition after a quote ends its open HTML block' => ["> <script>\n> x\n\n[r]: <>\n\n[r]", "> ```=html\n> <script>\n> x\n> ```\n\nr"],
             'a definition after a list item ends its open fence' => ["- ```\n  code\n\n[r]: <>\n\n[r]", "- ```\n  code\n\n  ```\nr"],
             'a definition opening a later list item' => ["- one\n- [r]: <>\n\n[r]", "- one\n\nr"],
-            'a definition after a starred thematic break' => ["* * *\n[r]: <>\n\n[r]", "* * *\n\nr"],
+            'a definition after a starred thematic break' => ["* * *\n[r]: <>\n\n[r]", "---\n\nr"],
             'a definition opening a list item' => ["- [r]: <>\n- two\n\n[r]", "- two\n\nr"],
             'a definition continuing a list item' => ["- a\n\n    [r]: <>\n\n[r]", "- a\n\nr"],
             'a title on the line after a list item definition' => ["- [r]: <>\n  \"t\"\n- two\n\n[r]", "- two\n\n[r]{title=t}"],
