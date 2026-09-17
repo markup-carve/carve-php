@@ -453,14 +453,8 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         $upstreamSchema = json_decode((string)file_get_contents($upstream), true, 512, JSON_THROW_ON_ERROR);
         $vendoredSchema = json_decode((string)file_get_contents($vendored), true, 512, JSON_THROW_ON_ERROR);
 
-        // ONE CARVE-OUT, WHILE A CHANGE ROLLS OUT ENGINES FIRST. The
-        // substitution node carries `old` and `new` inline arrays since the
-        // ruling on markup-carve/carve-js#1827, and markup-carve/carve#2095
-        // carries the schema for it; that PR stays red until the engines land,
-        // so the two copies differ in this one definition until the pin moves.
-        // Everything else is compared, and the exemption goes with the bump.
-        $upstreamSchema['$defs']['substitution'] = $vendoredSchema['$defs']['substitution'] ?? null;
-
+        // NO CARVE-OUT. The substitution definition was exempt while
+        // markup-carve/carve#2095 was ahead of the pin; the pin now includes it.
         $this->assertSame($upstreamSchema, $vendoredSchema);
     }
 
