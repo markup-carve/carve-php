@@ -2835,7 +2835,7 @@ class HtmlToCarve
                 return $text;
             }
 
-            return $this->escapeHtmlTextForSlot($text);
+            return $this->escapeEnclosingDelimiterRuns($this->escapeHtmlTextForSlot($text), $node);
         }
 
         if ($node instanceof DOMComment) {
@@ -2993,6 +2993,44 @@ class HtmlToCarve
      *
      * @param string $text
      */
+
+    /**
+     * Escape a run of the delimiter an enclosing formatting element is written
+     * with: inside `/x/`, a `//` in the text closes the span at its first
+     * character (#2139). A single delimiter is left to the pair rule above.
+     */
+    protected function escapeEnclosingDelimiterRuns(string $text, DOMText $node): string
+    {
+        foreach ($this->enclosingBareDelimiters($node) as $delimiter) {
+            $quoted = preg_quote($delimiter, '/');
+            $text = (string)preg_replace_callback(
+                '/(?<!\\\\)' . $quoted . '{2,}/',
+                static fn (array $match): string => str_repeat('\\' . $delimiter, strlen($match[0])),
+                $text,
+            );
+        }
+
+        return $text;
+    }
+
+    /**
+     * The bare delimiters of the formatting elements this text sits inside.
+     *
+     * @return array<int, string>
+     */
+    protected function enclosingBareDelimiters(DOMText $node): array
+    {
+        $delimiters = [];
+        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            $kind = $this->formattingKind($parent);
+            if ($kind !== null && strlen($kind) === 1 && str_contains('*/_~=', $kind)) {
+                $delimiters[$kind] = true;
+            }
+        }
+
+        return array_keys($delimiters);
+    }
+
     protected function escapeHtmlTextForSlot(string $text): string
     {
         $text = str_replace(['"', "'", '^['], ['\\"', "\\'", '\\^['], $this->escapeHtmlTextAsCarveProse($text));
