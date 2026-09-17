@@ -2845,13 +2845,16 @@ class InlineParser
     /**
      * Parse $content as the children of $node with $kind open around it.
      */
-    protected function parseSpanContent(Node $node, string $content, int $offset, string $kind): void
+    protected function parseSpanContent(Node $node, string $content, int $offset, string $kind, bool $braced = false): void
     {
-        $this->openSpanKinds[] = $kind;
+        $outer = $this->openSpanKinds;
+        // A braced inline starts its own scope, so an outer kind opens again
+        // inside it (markup-carve/carve#2091).
+        $this->openSpanKinds = $braced ? [$kind] : [...$outer, $kind];
         try {
             $this->parseInlinesAt($node, $content, $offset);
         } finally {
-            array_pop($this->openSpanKinds);
+            $this->openSpanKinds = $outer;
         }
     }
 
@@ -3338,10 +3341,18 @@ class InlineParser
                 // A run nothing closes ENDS at this span's closer (PART 3
                 // UNCLOSED RUN, markup-carve/carve#2056), so the scan goes on.
             }
+            if ($text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') !== $marker) {
+                $scopeEnd = $this->bracedInlineEnd($text, $searchPos);
+                if ($scopeEnd !== null) {
+                    $searchPos = $scopeEnd;
+
+                    continue;
+                }
+            }
             if ($text[$searchPos] === $marker && $text[$searchPos + 1] === '}') {
                 $content = substr($text, $pos + 2, $searchPos - $pos - 2);
                 $node = new $nodeClass();
-                $this->parseSpanContent($node, $content, $pos + 2, $marker);
+                $this->parseSpanContent($node, $content, $pos + 2, $marker, true);
 
                 $endPos = $searchPos + 2;
 
@@ -4141,6 +4152,14 @@ class InlineParser
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
                     $searchPos = $codeEnd;
+
+                    continue;
+                }
+            }
+            if ($text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') !== $marker) {
+                $scopeEnd = $this->bracedInlineEnd($text, $searchPos);
+                if ($scopeEnd !== null) {
+                    $searchPos = $scopeEnd;
 
                     continue;
                 }
