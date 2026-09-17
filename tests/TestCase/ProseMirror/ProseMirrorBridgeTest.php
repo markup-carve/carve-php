@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\ProseMirror;
 
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
@@ -802,30 +801,18 @@ class ProseMirrorBridgeTest extends TestCase
     /**
      * A payload from a plain Tiptap editor uses `mention`, the name
      * tiptap/extension-mention emits: an atom carrying `id` and `label`, no css
-     * class and no text child. The label becomes the visible name, and the `id`
-     * stays an attribute.
+     * class and no text child. The `id` names the mention; a different label is
+     * reported (markup-carve/carve-php#2154).
      */
     public function testAStockTiptapMentionConvertsWithoutRegistration(): void
     {
         $mention = $this->stockMention(['id' => 'alice', 'label' => 'Alice']);
 
         $this->assertInstanceOf(Mention::class, $mention);
-        $this->assertSame('@Alice', $mention->getChildren()[0]->getContent());
+        $this->assertSame('@alice', $mention->getChildren()[0]->getContent());
         $this->assertCount(1, $mention->getChildren());
-        $this->assertSame('alice', $mention->getAttribute('id'));
-    }
-
-    /**
-     * No Carve source reads back as a mention carrying attributes, so the writer
-     * refuses the `id` rather than spelling a span (markup-carve/carve-php#2083).
-     */
-    public function testAStockTiptapMentionWithAnIdIsUnspellable(): void
-    {
-        $document = $this->stockMention(['id' => 'alice', 'label' => 'Alice'])->getParent()?->getParent();
-        $this->assertInstanceOf(Document::class, $document);
-
-        $this->expectException(SourceUnspellableException::class);
-        CarveConverter::carve()->render($document);
+        $this->assertSame([], $mention->getAttributes());
+        $this->assertArrayHasKey('label', $this->converter->droppedAttributes());
     }
 
     /**

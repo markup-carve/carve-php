@@ -1415,7 +1415,13 @@ class ProseMirrorToCarve
         }
 
         $consumed = [];
+        if ($node instanceof Mention && !self::hasContent($data)) {
+            $consumed = $this->applyStockMentionName($node, $attrs);
+        }
         foreach ($attrs as $key => $value) {
+            if (array_key_exists($key, $consumed)) {
+                continue;
+            }
             $consumed[$key] = match (true) {
                 $node instanceof Heading && $key === 'level' => $this->setState($node, 'level', self::asInt($value)),
                 $node instanceof CodeBlock && $key === 'language' => $this->setState($node, 'language', self::asString($value)),
@@ -1547,20 +1553,6 @@ class ProseMirrorToCarve
                 // Replayed after the loop below, once every slot it names has
                 // actually been set on the node.
                 $key === 'carveAttrOrder' => true,
-                // A mention's visible name is a child Text node here, but
-                // tiptap/extension-mention is an atom that keeps it in `label`
-                // (`id` when unlabelled). Left as an attribute it becomes a
-                // stray `label="Alice"` and the mention renders with nothing to
-                // show - so it drops out of Carve source entirely. CarveKit's
-                // own carveMention never sends `label`, so consuming it cannot
-                // collide. The sigil is tiptap's default `@`; an editor
-                // configured for `#` registers its own factory.
-                $node instanceof Mention && $key === 'label' && !self::hasContent($data) => $this->addMentionLabel(
-                    $node,
-                    self::asString($value),
-                ),
-                $node instanceof Mention && $key === 'id' && !self::hasContent($data)
-                    && !array_key_exists('label', $attrs) => $this->addMentionLabel($node, self::asString($value)),
                 ($node instanceof Image || $node instanceof Link) && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
                 // Editor bookkeeping that has no Carve meaning.
                 in_array($key, ['checked', 'carveTaskState', 'languageRaw'], true) => true,
@@ -1809,6 +1801,42 @@ class ProseMirrorToCarve
     protected static function hasContent(array $data): bool
     {
         return is_array($data['content'] ?? null) && $data['content'] !== [];
+    }
+
+    /**
+     * The name of a stock tiptap mention, which keeps it in `id` and `label`
+     * rather than a child (markup-carve/carve-php#2154). The name is `id`,
+     * the stable key a resolver needs; `label` stands in only when `id` is
+     * missing, and a different label is reported rather than lost. A `null`
+     * counts as absent, and `mentionSuggestionChar` is editor state.
+     *
+     * @param \MarkupCarve\Carve\Node\Inline\Mention $node
+     * @param array<mixed> $attrs
+     *
+     * @return array<string, bool> the keys this consumed
+     */
+    protected function applyStockMentionName(Mention $node, array $attrs): array
+    {
+        $consumed = [];
+        if (array_key_exists('mentionSuggestionChar', $attrs)) {
+            $consumed['mentionSuggestionChar'] = true;
+        }
+        $id = is_scalar($attrs['id'] ?? null) ? self::asString($attrs['id']) : '';
+        $label = is_scalar($attrs['label'] ?? null) ? self::asString($attrs['label']) : '';
+        $labelIsText = array_key_exists('label', $attrs) && ($attrs['label'] === null || is_scalar($attrs['label']));
+        if ($id !== '') {
+            $consumed['id'] = $this->addMentionLabel($node, $id);
+            if ($labelIsText && ($label === '' || $label === $id)) {
+                $consumed['label'] = true;
+            } elseif ($label !== '') {
+                $consumed['label'] = true;
+                $this->droppedAttributes['label'] = 'the mention name is its id, so a different display label is not carried';
+            }
+        } elseif ($label !== '') {
+            $consumed['label'] = $this->addMentionLabel($node, $label);
+        }
+
+        return $consumed;
     }
 
     /**
