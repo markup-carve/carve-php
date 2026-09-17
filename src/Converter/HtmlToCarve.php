@@ -3014,6 +3014,84 @@ class HtmlToCarve
      */
 
     /**
+     * Does a closed label at $close have a destination, a reference or an
+     * attribute block behind it?
+     */
+    protected function labelIsFollowedByATarget(string $text, int $close): bool
+    {
+        $next = $text[$close + 1] ?? '';
+        $closer = ['(' => ')', '[' => ']', '{' => '}'][$next] ?? null;
+
+        return $closer !== null && strpos($text, $closer, $close + 2) !== false;
+    }
+
+    /**
+     * Escape what would open a link, a span, an image, a note reference, an
+     * autolink or a comment (markup-carve/carve-php#2100).
+     *
+     * Every one of these is literal in HTML text, and the Carve writer escapes
+     * the same character for the same text node.
+     */
+    protected function escapeInlineOpeners(string $text): string
+    {
+        // A comment opens on `%%`, and the run is escaped whole, whatever the
+        // text pass escaped of it already.
+        $text = (string)preg_replace_callback(
+            '/(\\\\?%){2,}/',
+            static fn (array $match): string => str_repeat('\\%', substr_count($match[0], '%')),
+            $text,
+        );
+        $escape = [];
+        $length = strlen($text);
+        for ($at = 0; $at < $length; $at++) {
+            if ($this->isEscapedAt($text, $at)) {
+                continue;
+            }
+            $char = $text[$at];
+            if ($char === '[') {
+                $close = BracketScanner::balancedBracketEnd($text, $at);
+                // A note reference is `[^id]`; a link, a reference and a span
+                // are a label with a `(`, `[` or `{` behind it.
+                if (
+                    $close !== null
+                    && (
+                        preg_match('/^\[\^[^\]\s]+\]/', substr($text, $at, $close - $at + 1)) === 1
+                        || $this->labelIsFollowedByATarget($text, $close)
+                    )
+                ) {
+                    $escape[$at] = true;
+                }
+
+                continue;
+            }
+            if ($char === '<' && preg_match('~\G<(?:[A-Za-z][A-Za-z0-9+.-]*:[^\s<>]*|[^\s<>@]+@[^\s<>]+\.[A-Za-z]+)>~', $text, $autolink, 0, $at) === 1) {
+                $escape[$at] = true;
+
+                continue;
+            }
+            if ($char === '{' && ($text[$at + 1] ?? '') === '%' && strpos($text, '%}', $at + 2) !== false) {
+                $escape[$at] = true;
+
+                continue;
+            }
+        }
+
+        if ($escape === []) {
+            return $text;
+        }
+
+        ksort($escape);
+        $out = '';
+        $from = 0;
+        foreach (array_keys($escape) as $offset) {
+            $out .= substr($text, $from, $offset - $from) . '\\';
+            $from = $offset;
+        }
+
+        return $out . substr($text, $from);
+    }
+
+    /**
      * Escape a run of the delimiter an enclosing formatting element is written
      * with: inside `/x/`, a `//` in the text closes the span at its first
      * character (#2139). A single delimiter is left to the pair rule above.
@@ -3052,7 +3130,7 @@ class HtmlToCarve
 
     protected function escapeHtmlTextForSlot(string $text): string
     {
-        $text = str_replace(['"', "'", '^['], ['\\"', "\\'", '\\^['], $this->escapeHtmlTextAsCarveProse($text));
+        $text = $this->escapeInlineOpeners(str_replace(['"', "'", '^['], ['\\"', "\\'", '\\^['], $this->escapeHtmlTextAsCarveProse($text)));
 
         return $this->labelDepth > 0 ? $this->escapeLinkOrImageLabel($text) : $text;
     }
