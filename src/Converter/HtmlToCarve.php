@@ -3662,7 +3662,7 @@ class HtmlToCarve
         if (
             $this->tableCellDepth > 0
             || $this->captionDepth > 0
-            || preg_match('/(?:^|\n)[ \t]*(?:\\\\?[-*_+#%~>|:\[{]|[0-9]+[.)]|[A-Za-z]+[.)])/', $run) !== 1
+            || preg_match('/(?:^|\n)[ \t]*(?:\\\\?[-*_+#%~>|:.\[{]|[0-9]+[.)]|[A-Za-z]+[.)])/', $run) !== 1
         ) {
             return $run;
         }
@@ -3710,7 +3710,7 @@ class HtmlToCarve
 
             return ['line' => substr($line, 0, $at) . '\\' . substr($line, $at), 'partial' => false];
         }
-        if (preg_match('/^([ \t]*)(\\\\?)([-*_#%~>|:\[{])((?:\\\\?\3)*)/', $line, $opener) !== 1) {
+        if (preg_match('/^([ \t]*)(\\\\?)([-*_#%~>|:.\[{])((?:\\\\?\3)*)/', $line, $opener) !== 1) {
             return null;
         }
         [$whole, $indent, $slash, $char, $tail] = $opener;
