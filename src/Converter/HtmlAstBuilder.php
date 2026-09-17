@@ -59,6 +59,48 @@ final class HtmlAstBuilder
 
     private bool $preserveInlineWhitespace = false;
 
+    /**
+     * @template T
+     *
+     * @param iterable<T> $values
+     * @param callable(T): bool $predicate
+     */
+    private static function every(iterable $values, callable $predicate): bool
+    {
+        foreach ($values as $value) {
+            if (!$predicate($value)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @template T
+     *
+     * @param iterable<T> $values
+     * @param callable(T): bool $predicate
+     */
+    private static function some(iterable $values, callable $predicate): bool
+    {
+        foreach ($values as $value) {
+            if ($predicate($value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param bool $listTableForBlockCells
+     * @param string $importMode
+     * @param bool $trustedRoundTrip
+     * @param bool $sourceSafe
+     * @param array<string, string> $alignmentClasses
+     * @param array<string, string> $labels
+     */
     public function __construct(
         private readonly bool $listTableForBlockCells = false,
         private readonly string $importMode = 'safe',
@@ -270,7 +312,7 @@ final class HtmlAstBuilder
 
         foreach ($nodes as $index => $node) {
             if ($node instanceof DOMComment) {
-                $inlineRun = array_any(
+                $inlineRun = self::some(
                     $pending,
                     static fn (array $part): bool => ($part['type'] ?? null) !== 'text'
                         || trim((string)($part['value'] ?? '')) !== '',
@@ -1099,7 +1141,7 @@ final class HtmlAstBuilder
                 ++$column;
             }
             if ($cells !== []) {
-                $blank = array_all(
+                $blank = self::every(
                     $cells,
                     static fn (array $cell): bool => !isset($cell['span']) && ($cell['children'] ?? []) === [],
                 );
@@ -1123,7 +1165,7 @@ final class HtmlAstBuilder
                         [
                             'type' => 'list',
                             'ordered' => false,
-                            'tight' => !array_any(
+                            'tight' => !self::some(
                                 $listCells,
                                 static fn (array $item): bool => count($item['children']) > 1,
                             ),
@@ -1371,7 +1413,7 @@ final class HtmlAstBuilder
     /**
      * @param \DOMElement $node
      * @param string $property
-@param list<string> $allowed
+     * @param list<string> $allowed
      */
     private function styleEnum(DOMElement $node, string $property, array $allowed): ?string
     {
@@ -1695,7 +1737,7 @@ final class HtmlAstBuilder
                 && strtolower($child->tagName) === 'p'
                 && (preg_split('/\s+/', trim($child->getAttribute('class'))) ?: []) === ['div-label']
                 && $child->attributes->length === 1
-                && array_all([...$child->childNodes], static fn (DOMNode $part): bool => $part instanceof DOMText)
+                && self::every([...$child->childNodes], static fn (DOMNode $part): bool => $part instanceof DOMText)
                 && !str_contains($child->textContent, ']')
                 && !str_contains($child->textContent, "\n")
             ) {
@@ -2094,7 +2136,7 @@ final class HtmlAstBuilder
             }
             $tail = array_slice($out, $index + 1);
             if (
-                $tail !== [] && array_all($tail, static fn (array $part): bool => ($part['type'] ?? null) === 'text' && trim((string)($part['value'] ?? '')) === '')
+                $tail !== [] && self::every($tail, static fn (array $part): bool => ($part['type'] ?? null) === 'text' && trim((string)($part['value'] ?? '')) === '')
             ) {
                 $out = array_slice($out, 0, $index + 1);
 
