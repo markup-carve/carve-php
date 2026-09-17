@@ -91,15 +91,15 @@ class AttributeParser
             if (($match[1] ?? '') !== '') {
                 // key="double quoted value"
                 $attributes[$match[1]] = self::processEscapes($match[2] ?? '');
-                $order[] = $match[1];
+                $order[] = self::canonicalSlot($match[1]);
             } elseif (($match[3] ?? '') !== '') {
                 // key='single quoted value'
                 $attributes[$match[3]] = self::processEscapes($match[4] ?? '');
-                $order[] = $match[3];
+                $order[] = self::canonicalSlot($match[3]);
             } elseif (($match[5] ?? '') !== '') {
                 // key=unquoted
                 $attributes[$match[5]] = $match[6] ?? '';
-                $order[] = $match[5];
+                $order[] = self::canonicalSlot($match[5]);
             } elseif (($match[7] ?? '') !== '') {
                 // .class shorthand - accumulate classes
                 $existing = $attributes['class'] ?? '';
@@ -112,7 +112,7 @@ class AttributeParser
             } elseif (($match[9] ?? '') !== '') {
                 // boolean attribute
                 $attributes[$match[9]] = '';
-                $order[] = $match[9];
+                $order[] = self::canonicalSlot($match[9]);
             } elseif (($match['lang_sigil'] ?? '') === ':') {
                 $attributes['lang'] = $match['lang_tag'] ?? '';
                 $order[] = 'lang';
@@ -120,6 +120,11 @@ class AttributeParser
         }
 
         return ['attributes' => $attributes, 'order' => $order];
+    }
+
+    private static function canonicalSlot(string $name): string
+    {
+        return $name === 'id' ? '#id' : $name;
     }
 
     /**
