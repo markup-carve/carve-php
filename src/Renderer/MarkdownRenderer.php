@@ -251,9 +251,20 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     private ?HtmlRenderer $attributeSerializer = null;
 
-    public function __construct()
+    /**
+     * @param array<string, string> $symbols The same map HtmlRenderer takes. Markdown keeps the `:name:` spelling, so the map changes no output here.
+     */
+    public function __construct(protected array $symbols = [])
     {
         $this->headingIdTracker = new HeadingIdTracker();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getSymbols(): array
+    {
+        return $this->symbols;
     }
 
     /**
