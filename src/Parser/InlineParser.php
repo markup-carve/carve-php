@@ -519,14 +519,22 @@ class InlineParser
      * @param bool $captionContext
      * @param \MarkupCarve\Carve\Parser\SourceMap|null $sourceMap
      */
+    /**
+     * What an unclosed verbatim run strips from its end.
+     */
+    protected string $runStripCharacters = " \t\n";
+
     public function parse(
         Node $parent,
         string $text,
         int $sourceLine = 0,
         bool $captionContext = false,
         ?SourceMap $sourceMap = null,
+        bool $lineBlock = false,
     ): void {
         $this->sourceMap = $sourceMap;
+        // A line break is content in a line block (markup-carve/carve#2089).
+        $this->runStripCharacters = $lineBlock ? " \t" : " \t\n";
         $this->textBufferStart = null;
         $this->textBufferRewritten = false;
         $this->delimiterStack = [];
@@ -2251,7 +2259,7 @@ class InlineParser
                 // and a forced-span closer's where one bounds the run first
                 // (markup-carve/carve#2051); the strip is the run's own rule
                 // either way.
-                $remaining = rtrim(substr($text, $contentStart), " \t");
+                $remaining = rtrim(substr($text, $contentStart), $this->runStripCharacters);
 
                 return [
                     'node' => new Code($remaining),
@@ -2325,7 +2333,7 @@ class InlineParser
         // extends to the end of the block (grammar §712), matching carve-js /
         // carve-rs. Previously this returned null, making the opener literal and
         // emitting a spurious empty <code> (`` `a`` `` -> `` `a<code></code> ``).
-        $remaining = rtrim(substr($text, $contentStart), " \t");
+        $remaining = rtrim(substr($text, $contentStart), $this->runStripCharacters);
 
         return [
             'node' => new Code($remaining),
@@ -4650,7 +4658,7 @@ class InlineParser
             }
             // A forced-span closer ends the run like the block end does, and
             // strips its trailing spaces and tabs (markup-carve/carve#2051).
-            $content = rtrim($content, " \t");
+            $content = rtrim($content, $this->runStripCharacters);
 
             // THE REMAINDER, WHOLE. An unclosed run reaches the end of the
             // BLOCK (PART 2) and what it reaches is verbatim, so the trailing
@@ -4748,7 +4756,7 @@ class InlineParser
         $closed = $closePos !== false;
         $content = $closed
             ? $this->stripVerbatimPadding(substr($text, $contentStart, $closePos - $contentStart))
-            : rtrim(substr($text, $contentStart), " \t");
+            : rtrim(substr($text, $contentStart), $this->runStripCharacters);
 
         $node = new LiteralInline($content);
 
