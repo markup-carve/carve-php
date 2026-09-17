@@ -72,6 +72,7 @@ use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use ReflectionClass;
 use ReflectionNamedType;
 use RuntimeException;
+use WeakMap;
 
 /**
  * Builds a Carve AST from a ProseMirror (Tiptap) document.
@@ -137,6 +138,14 @@ class ProseMirrorToCarve
     protected array $droppedAttributes = [];
 
     /**
+     * Stock mentions whose name the mention grammar rejects, with the text
+     * each is written as instead.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Inline\Mention, string>|null
+     */
+    protected ?WeakMap $mentionsAsText = null;
+
+    /**
      * @var array<string, \Closure(array<string, mixed>): \MarkupCarve\Carve\Node\Node>
      */
     protected array $factories = [];
@@ -167,6 +176,7 @@ class ProseMirrorToCarve
         }
 
         $this->droppedAttributes = [];
+        $this->mentionsAsText = new WeakMap();
 
         $rootAttrs = is_array($document['attrs'] ?? null) ? $document['attrs'] : [];
         $incomingAbbreviations = $rootAttrs['carveAbbreviations'] ?? [];
@@ -949,6 +959,9 @@ class ProseMirrorToCarve
 
         $node = $this->instantiate($name, $data);
         $this->applyAttributes($node, $data);
+        if ($node instanceof Mention && isset($this->mentionsAsText[$node])) {
+            return [$this->wrapInMarks(new Text($this->mentionsAsText[$node]), $data['marks'] ?? [])];
+        }
         foreach ($this->childrenOf($data) as $child) {
             foreach ($this->buildInlines($child) as $built) {
                 $node->appendChild($built);
@@ -1824,6 +1837,23 @@ class ProseMirrorToCarve
         $id = is_scalar($attrs['id'] ?? null) ? self::asString($attrs['id']) : '';
         $label = is_scalar($attrs['label'] ?? null) ? self::asString($attrs['label']) : '';
         $labelIsText = array_key_exists('label', $attrs) && ($attrs['label'] === null || is_scalar($attrs['label']));
+        $name = $id !== '' ? $id : $label;
+        $hasDestination = is_scalar($attrs['href'] ?? null) && self::asString($attrs['href']) !== '';
+        if ($name !== '' && !$hasDestination && !$this->isMentionName($node, $name)) {
+            // Written as the text Tiptap shows (`label ?? id`), never as a
+            // normalized name the resolver would read as someone else.
+            $consumed['id'] = array_key_exists('id', $attrs);
+            $consumed['label'] = $labelIsText;
+            $flavor = $node->getCssClass() === 'tag' ? 'tag' : 'mention';
+            $this->droppedAttributes[$id !== '' ? 'id' : 'label'] = sprintf(
+                'the name is not a Carve %1$s name, so the %1$s is written as text',
+                $flavor,
+            );
+            $this->mentionsAsText ??= new WeakMap();
+            $this->mentionsAsText[$node] = $this->withSigil($node, $label !== '' ? $label : $id);
+
+            return array_filter($consumed);
+        }
         if ($id !== '') {
             $consumed['id'] = $this->addMentionLabel($node, $id);
             if ($labelIsText && ($label === '' || $label === $id)) {
@@ -1848,13 +1878,33 @@ class ProseMirrorToCarve
             return false;
         }
 
-        // The sigil follows the flavor the class records, not the stock `@`.
-        // A carveTag arrives with its name in `id` and no sigil anywhere, so
-        // hardcoding `@` here rewrote every tag into a mention.
-        $sigil = $node->getCssClass() === 'tag' ? '#' : '@';
-        $node->appendChild(new Text(str_starts_with($label, $sigil) ? $label : $sigil . $label));
+        $node->appendChild(new Text($this->withSigil($node, $label)));
 
         return true;
+    }
+
+    /**
+     * The sigil follows the flavor the class records, not the stock `@`.
+     * A carveTag arrives with its name in `id` and no sigil anywhere, so
+     * hardcoding `@` rewrote every tag into a mention.
+     */
+    protected function withSigil(Mention $node, string $name): string
+    {
+        $sigil = $node->getCssClass() === 'tag' ? '#' : '@';
+
+        return str_starts_with($name, $sigil) ? $name : $sigil . $name;
+    }
+
+    /**
+     * `mention_name = name_word, {'.', name_word}` over ASCII, the set the
+     * parser reads; one leading sigil is not part of the name.
+     */
+    protected function isMentionName(Mention $node, string $name): bool
+    {
+        $sigil = $node->getCssClass() === 'tag' ? '#' : '@';
+        $bare = str_starts_with($name, $sigil) ? substr($name, 1) : $name;
+
+        return preg_match('/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/', $bare) === 1;
     }
 
     /**
