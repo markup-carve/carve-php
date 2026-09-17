@@ -2225,9 +2225,10 @@ class CarveRenderer implements RendererInterface
         $seen = [];
         $emit = function (string $slot) use (&$parts, &$seen, $attrs, $structural): void {
             if ($slot === '#id') {
-                if (!array_key_exists('id', $attrs)) {
+                if (isset($seen['id']) || !array_key_exists('id', $attrs)) {
                     return;
                 }
+                $seen['id'] = true;
                 $id = $attrs['id'];
                 $parts[] = $this->isExplicitIdOrClassIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
 
@@ -4017,9 +4018,10 @@ class CarveRenderer implements RendererInterface
         $seen = [];
         $emit = function (string $slot) use (&$parts, &$seen, $attrs): void {
             if ($slot === '#id') {
-                if (!array_key_exists('id', $attrs)) {
+                if (isset($seen['id']) || !array_key_exists('id', $attrs)) {
                     return;
                 }
+                $seen['id'] = true;
                 $id = $attrs['id'];
                 $parts[] = $this->isExplicitIdOrClassIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
 
