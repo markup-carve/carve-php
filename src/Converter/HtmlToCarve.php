@@ -435,7 +435,7 @@ class HtmlToCarve
         foreach ($this->unwrappedFormatting as $path) {
             $diagnostics[] = new HtmlImportDiagnostic(
                 'structure-unspellable',
-                'Unwrapped a span inside a braced span of the same kind, which has no Carve spelling',
+                'Unwrapped a span inside a span of the same kind, which has no Carve spelling',
                 'warning',
                 $path,
             );
@@ -3096,7 +3096,7 @@ class HtmlToCarve
     /**
      * Node paths of the formatting elements written braced in this pass.
      *
-     * @var array<string, true>
+     * @var array<string, bool>
      */
     protected array $bracedFormatting = [];
 
@@ -5331,21 +5331,31 @@ class HtmlToCarve
     }
 
     /**
-     * Record how a formatting element was written. A braced one marks each
-     * braced span of its kind inside it for unwrapping: PART 9 §9 E3 leaves
-     * that opener literal at any depth (PART 11 §1c).
+     * Record how a formatting element was written, and mark every span of its
+     * own kind inside it for unwrapping: PART 9 §9 E3 leaves that opener
+     * literal at any depth, bare or braced (PART 11 §1c,
+     * markup-carve/carve#2078).
      */
     protected function recordFormatting(DOMElement $node, string $kind, bool $braced): void
     {
-        if ($braced) {
-            foreach ($node->getElementsByTagName('*') as $inner) {
-                $key = (string)$inner->getNodePath();
-                if ($this->formattingKind($inner) === $kind && isset($this->bracedFormatting[$key])) {
-                    $this->unwrappedFormatting[$key] = $this->conversionNodePath($inner);
-                }
+        $pending = iterator_to_array($node->childNodes);
+        while ($pending !== []) {
+            $inner = array_shift($pending);
+            if (!$inner instanceof DOMElement) {
+                continue;
             }
-            $this->bracedFormatting[(string)$node->getNodePath()] = true;
+            $key = (string)$inner->getNodePath();
+            if ($this->formattingKind($inner) === $kind && isset($this->bracedFormatting[$key])) {
+                $this->unwrappedFormatting[$key] = $this->conversionNodePath($inner);
+            }
+            // A braced span of another kind is a scope of its own.
+            if (($this->bracedFormatting[$key] ?? false) === true && $this->formattingKind($inner) !== $kind) {
+                continue;
+            }
+            array_push($pending, ...iterator_to_array($inner->childNodes));
         }
+        // Every written span is recorded, bare or braced, since E3 refuses both.
+        $this->bracedFormatting[(string)$node->getNodePath()] = $braced;
     }
 
     /**
@@ -5413,9 +5423,38 @@ class HtmlToCarve
             || str_ends_with($content, "\n")
             || preg_match('/^\s|\s$/', $content) === 1
             // `/*` opens `bold_italic`, the writer's carve-php#2012 case.
-            || ($ch === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));
+            || ($ch === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'))
+            // A braced span starts a scope, so it lets an outer kind nest again (markup-carve/carve#2091).
+            || $this->separatesAnOuterFormattingKind($node);
 
         return $needsForced ? ['{' . $ch, $ch . '}'] : [$ch, $ch];
+    }
+
+    /**
+     * Does a formatting element of an enclosing kind other than this one's sit
+     * inside it? Then it is written braced, as the Carve writer writes it.
+     */
+    protected function separatesAnOuterFormattingKind(DOMElement $node): bool
+    {
+        $own = $this->formattingKind($node);
+        $outer = [];
+        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            $kind = $this->formattingKind($parent);
+            if ($kind !== null && $kind !== $own) {
+                $outer[$kind] = true;
+            }
+        }
+        if ($outer === []) {
+            return false;
+        }
+        foreach ($node->getElementsByTagName('*') as $inner) {
+            $kind = $this->formattingKind($inner);
+            if ($kind !== null && isset($outer[$kind])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
