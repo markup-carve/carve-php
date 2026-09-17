@@ -40,6 +40,15 @@ $markdown = CarveConverter::create(null, $renderer)->convert($carveSource);
   escaped by the same code the HTML target uses, so event handlers, injection
   sinks and denylisted URL schemes are dropped there too.
 
+The constructor also takes a `symbols` map, the same one `HtmlRenderer` takes,
+so one configuration serves both targets. Markdown has no symbol syntax to
+resolve into, so a `:name:` symbol keeps its source spelling whether or not the
+map names it, and `getSymbols()` returns the map as configured.
+
+~~~ php
+$renderer = new MarkdownRenderer(symbols: ['rocket' => '🚀']);
+~~~
+
 With the HTML fallback, this Carve source:
 
 ~~~
