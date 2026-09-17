@@ -2635,8 +2635,8 @@ class HtmlToCarve
     }
 
     /**
-     * Escape every hyphen or dot run the output would read back as a dash or an
-     * ellipsis, as the writer does (markup-carve/carve-php#2101).
+     * Escape every run the output would read back as smart typography: a dash,
+     * an ellipsis, an arrow or a symbol (markup-carve/carve-php#2101, #2138).
      *
      * HTML text holds those glyphs as characters already, so no such run in the
      * output is intended. The parser decides which runs convert, because the
@@ -2644,7 +2644,7 @@ class HtmlToCarve
      */
     protected function escapeSmartTypographyRuns(string $carve): string
     {
-        if (!str_contains($carve, '--') && !str_contains($carve, '...')) {
+        if (preg_match('/--|\.\.\.|[+!<>(]/', $carve) !== 1) {
             return $carve;
         }
 
@@ -2652,15 +2652,34 @@ class HtmlToCarve
         $length = strlen($carve);
         $walk = function (Node $node) use (&$walk, &$escape, $carve, $length): void {
             $pos = $node->getPos();
-            if ($node instanceof SmartPunctuation && $pos !== null && in_array($node->getKind(), ['en_dash', 'em_dash', 'ellipsis'], true)) {
-                $char = $node->getKind() === 'ellipsis' ? '.' : '-';
-                // A braced dash's span starts at its `{`.
-                $start = (int)strpos($carve, $char, $pos->startOffset);
-                while ($start > 0 && $carve[$start - 1] === $char && !$this->isEscapedAt($carve, $start - 1)) {
-                    $start--;
-                }
-                for ($i = $start; $i < $length && $carve[$i] === $char; $i++) {
-                    $escape[$i] = true;
+            if ($node instanceof SmartPunctuation && $pos !== null) {
+                if (in_array($node->getKind(), ['en_dash', 'em_dash', 'ellipsis'], true)) {
+                    $char = $node->getKind() === 'ellipsis' ? '.' : '-';
+                    // A braced dash's span starts at its `{`.
+                    $start = (int)strpos($carve, $char, $pos->startOffset);
+                    while ($start > 0 && $carve[$start - 1] === $char && !$this->isEscapedAt($carve, $start - 1)) {
+                        $start--;
+                    }
+                    for ($i = $start; $i < $length && $carve[$i] === $char; $i++) {
+                        $escape[$i] = true;
+                    }
+                } elseif (preg_match('/^[-+!<>(.]/', $node->getContent()) === 1) {
+                    // A symbol token holding a hyphen or a dot is kept literal
+                    // by escaping those, which is what the writer escapes; any
+                    // other token is kept literal by escaping its first
+                    // character (#2138).
+                    $token = $node->getContent();
+                    $marks = preg_match('/[-.]/', $token) === 1 ? '-.' : '';
+                    if ($marks === '') {
+                        $escape[$pos->startOffset] = true;
+                    } else {
+                        $width = strlen($token);
+                        for ($i = 0; $i < $width; $i++) {
+                            if (str_contains($marks, $token[$i])) {
+                                $escape[$pos->startOffset + $i] = true;
+                            }
+                        }
+                    }
                 }
             }
             foreach ($node->getChildren() as $child) {
