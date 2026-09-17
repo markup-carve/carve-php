@@ -265,19 +265,7 @@ class MarkdownToCarve
                 $inCodeBlock = true;
                 $fenceChar = $matches[2][0];
                 $fenceLength = strlen($matches[2]);
-                // Canonical fence opener has no space between the fence and the
-                // info string (```php, not ``` php). Carve accepts both info
-                // spellings, but emits the no-space form. The rest of the info
-                // is preserved (c++, js title="x").
-                // A foreign code-fence info string is a LANGUAGE, never a raw
-                // block directive. Neutralize a leading `=` so untrusted
-                // Markdown cannot mint a Carve `=html` raw-HTML block (which the
-                // default renderer would emit as live HTML). `=html` -> `html`
-                // stays an inert, escaped code block.
-                $info = ltrim($matches[3]);
-                if (str_starts_with($info, '=')) {
-                    $info = ltrim(ltrim($info, '='));
-                }
+                $info = $this->fenceLanguage($matches[3]);
                 // Re-base the fence to its container's content column: strip
                 // only the indentation ABOVE that column. At document level the
                 // column is 0, so a 1-3 space Markdown fence dedents fully; a
@@ -627,11 +615,7 @@ class MarkdownToCarve
             // its code, read by the fenced-code branch above.
             $itemFence = $this->opensItemFence($body, $isList);
             if ($itemFence !== null) {
-                $info = ltrim($itemFence[3]);
-                if (str_starts_with($info, '=')) {
-                    $info = ltrim(ltrim($info, '='));
-                }
-                $result[] = $itemFence[1] . $itemFence[2] . $info;
+                $result[] = $itemFence[1] . $itemFence[2] . $this->fenceLanguage($itemFence[3]);
                 $inCodeBlock = true;
                 $fenceChar = $itemFence[2][0];
                 $fenceLength = strlen($itemFence[2]);
@@ -1214,6 +1198,19 @@ class MarkdownToCarve
     }
 
     /**
+     * The language a Markdown fence info string carries, as the Carve opener
+     * writes it: its first token over Carve's language charset.
+     *
+     * Carve reads only a single token after a fence, so `js title=x` must
+     * reduce to `js` to stay a code block. The charset has no `=`, so untrusted
+     * Markdown cannot mint a Carve `=html` raw block.
+     */
+    protected function fenceLanguage(string $info): string
+    {
+        return preg_match('~[A-Za-z0-9_+#/.-]+~', $info, $token) === 1 ? $token[0] : '';
+    }
+
+    /**
      * A list line whose own content starts with a code fence, as the match of
      * marker prefix, fence and info string, or null when it is not one. A
      * backtick fence carrying a backtick in its info string is an inline code
@@ -1471,10 +1468,7 @@ class MarkdownToCarve
         if ($fence[0] === '`' && str_contains($info, '`')) {
             return null;
         }
-        $info = ltrim($info);
-        if (str_starts_with($info, '=')) {
-            $info = ltrim(ltrim($info, '='));
-        }
+        $info = $this->fenceLanguage($info);
         $depth = substr_count($prefix, '>');
         $output = [$prefix . $fence . $info];
         $end = $start;
