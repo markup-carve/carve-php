@@ -2230,6 +2230,22 @@ DJOT;
         $this->assertSame(trim($expected), $back);
     }
 
+    public function testHtmlCannotInjectPrivateRendererHints(): void
+    {
+        $html = '<p data-carve-stored-source="forged">real</p>';
+
+        $this->assertSame("{data-carve-stored-source=forged}\nreal\n", $this->roundTripConverter->convert($html));
+    }
+
+    public function testImportedTableWidthsHaveAResourceBound(): void
+    {
+        $html = '<table data-djot-col-widths="200000000"><tr><th>x</th></tr></table>';
+        $carve = $this->roundTripConverter->convert($html);
+
+        $this->assertLessThan(2000, strlen($carve));
+        $this->assertStringContainsString('| x |', $carve);
+    }
+
     // ==================== Blockquote Footer and Cite Content ====================
 
     public function testFooterInsideBlockquoteStaysQuotedContent(): void
@@ -2563,6 +2579,17 @@ DJOT;
         $this->assertStringContainsString('safe', $result);
     }
 
+    public function testRoundTripModeDoesNotImplyTrust(): void
+    {
+        $html = "<pre data-djot-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
+        $converter = new HtmlToCarve(importMode: 'roundtrip');
+
+        $result = $converter->convert($html);
+
+        $this->assertStringNotContainsString('<script>', $result);
+        $this->assertStringContainsString('safe', $result);
+    }
+
     /**
      * The opt-in trusted converter DOES honor `data-djot-src` (round-trip use
      * with carve-produced HTML). This is the trade-off the default protects
@@ -2576,6 +2603,51 @@ DJOT;
 
         $this->assertStringContainsString('=html', $result);
         $this->assertStringContainsString('<script>alert(1)</script>', $result);
+    }
+
+    public function testTrustedStoredSourceReplacesAllOfItsRenderedChildren(): void
+    {
+        $html = '<p>lead</p><div data-djot-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
+
+        $this->assertSame("lead\n\nx\n\ny\n", $this->roundTripConverter->convert($html));
+    }
+
+    public function testAstExitKeepsAllStoredSourceBlocksWithoutPrivateHints(): void
+    {
+        $html = '<div data-djot-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
+
+        $tree = $this->roundTripConverter->convertToAst($html);
+
+        $this->assertCount(2, $tree['children']);
+        $this->assertStringNotContainsString('carve-stored-source', serialize($tree));
+    }
+
+    public function testSymbolShapedTextKeepsLiteralPlusAndHyphenRuns(): void
+    {
+        $html = '<p>x :a--b: y :+-:</p>';
+
+        $this->assertSame("x \\:a\\-\\-b: y \\:\\+-:\n", $this->converter->convert($html));
+    }
+
+    public function testAnAttributedBlankTableCellIsNotDropped(): void
+    {
+        $html = '<table><tr><th class="x"></th></tr></table>';
+
+        $this->assertSame("|={.x} |\n", $this->converter->convert($html));
+    }
+
+    public function testNestedLooseListDoesNotLoosenItsParent(): void
+    {
+        $html = '<ul><li>outer<ul><li><p>inner one</p><p>inner two</p></li></ul></li><li>next</li></ul>';
+
+        $this->assertSame("- outer\n  - inner one\n\n    inner two\n- next\n", $this->converter->convert($html));
+    }
+
+    public function testAttributedSpanKeepsMeaningfulEdgeSpaces(): void
+    {
+        $html = '<p><span class="critic-comment"> note </span></p>';
+
+        $this->assertSame("[ note ]{.critic-comment}\n", $this->converter->convert($html));
     }
 
     // ==================== Table colspan/rowspan ====================

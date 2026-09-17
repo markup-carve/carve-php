@@ -753,14 +753,17 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
      */
     protected function splitOnSoftBreaks(array $nodes): array
     {
-        $lines = [[]];
+        $lines = [];
+        $line = [];
         foreach ($nodes as $node) {
             if ($node instanceof SoftBreak) {
-                $lines[] = [];
+                $lines[] = $line;
+                $line = [];
             } elseif ($node instanceof InlineNode) {
-                $lines[count($lines) - 1][] = $node;
+                $line[] = $node;
             }
         }
+        $lines[] = $line;
 
         return $lines;
     }

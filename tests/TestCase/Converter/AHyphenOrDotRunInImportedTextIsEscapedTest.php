@@ -49,23 +49,6 @@ class AHyphenOrDotRunInImportedTextIsEscapedTest extends TestCase
         $this->assertSame($carve . "\n", (new HtmlToCarve())->convert($html));
     }
 
-    public function testTheRunIsTakenFromTheParsedSpan(): void
-    {
-        $importer = new class extends HtmlToCarve {
-            public function escapeRuns(string $carve): string
-            {
-                return $this->escapeSmartTypographyRuns($carve);
-            }
-        };
-
-        $this->assertSame("x \\-\\-\\-\n", $importer->escapeRuns("x \\---\n"));
-        $this->assertSame("a{\\-\\-}b\n", $importer->escapeRuns("a{--}b\n"));
-        $this->assertSame(
-            "x[^1]\n\n[^1]: a \\-\\- b\n\nc \\-\\- d\n",
-            $importer->escapeRuns("x[^1]\n\n[^1]: a -- b\n\nc -- d\n"),
-        );
-    }
-
     /**
      * @return array<string, array{string, string, array<string, mixed>}>
      */

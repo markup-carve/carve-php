@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -57,6 +58,37 @@ class TheAstJsonIngestReplacesANulTest extends TestCase
      * @var string
      */
     private const VT = "\u{000B}";
+
+    public function testANulInAnAttributeNameIsReplacedBeforeUse(): void
+    {
+        $payload = $this->textDocument('safe');
+        $payload['children'][0]['attrs'] = [
+            'keyValues' => ["\0carve-stored-source" => 'forged'],
+            'order' => ["\0carve-stored-source"],
+        ];
+
+        $document = (new AstCodec())->decode($payload);
+        $paragraph = $document->getChildren()[0];
+
+        $this->assertSame('forged', $paragraph->getAttribute(self::FFFD . 'carve-stored-source'));
+        $this->assertSame("{carve-stored-source=forged}\nsafe\n", (new CarveRenderer())->render($document));
+    }
+
+    public function testImporterHintsDoNotBypassNulReplacementInValues(): void
+    {
+        $payload = $this->textDocument("a\0b");
+        $payload['children'][0]['children'][0]['attrs'] = [
+            'keyValues' => ["\0carve-literal-symbol" => '1'],
+            'order' => ["\0carve-literal-symbol"],
+        ];
+
+        $document = (new AstCodec())->decodeImporterTree($payload);
+        $text = $document->getChildren()[0]->getChildren()[0];
+
+        $this->assertInstanceOf(Text::class, $text);
+        $this->assertSame('a' . self::FFFD . 'b', $text->getContent());
+        $this->assertSame('1', $text->getRenderHint("\0carve-literal-symbol"));
+    }
 
     /**
      * @return array<string, mixed>

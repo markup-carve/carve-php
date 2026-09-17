@@ -31,6 +31,29 @@ abstract class Node
     protected array $attributeOrder = [];
 
     /**
+     * Import-only source details that are not part of the public AST.
+     *
+     * @var array<string, string>
+     */
+    private array $renderHints = [];
+
+    /**
+     * @internal
+     */
+    public function setRenderHint(string $key, string $value): void
+    {
+        $this->renderHints[$key] = $value;
+    }
+
+    /**
+     * @internal
+     */
+    public function getRenderHint(string $key): ?string
+    {
+        return $this->renderHints[$key] ?? null;
+    }
+
+    /**
      * Where this node came from, when the parser recorded it.
      *
      * Null is a real answer, not a placeholder: PART 12 §4 forbids emitting a
