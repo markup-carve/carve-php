@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use Closure;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
+use MarkupCarve\Carve\Node\Block\ListBlock;
 use RuntimeException;
+use Throwable;
 
 /**
  * Converts Markdown syntax to Carve syntax.
@@ -711,6 +714,7 @@ class MarkdownToCarve
         }
 
         $carve = preg_replace('/\n{3,}/', "\n\n", implode("\n", $result)) ?? implode("\n", $result);
+        $carve = $this->keepLooseListsLoose($carve);
         $carve = $this->applyHeadingIdPreservation($carve, $markdown);
 
         if ($frontmatter === []) {
@@ -1228,6 +1232,176 @@ class MarkdownToCarve
         }
 
         return $itemFence;
+    }
+
+    /**
+     * CommonMark loosens a list when a blank line separates an item's block from
+     * its sublist, but Carve reads that blank as no separator (PART 9 §17). Such
+     * a list is respelled as the writer spells a loose list: a blank line
+     * between its items, or a `{loose}` line above a single item.
+     */
+    protected function keepLooseListsLoose(string $carve): string
+    {
+        $lines = explode("\n", $carve);
+        $count = count($lines);
+        $inFence = $this->fencedLineMask($lines);
+        $markers = [];
+        foreach ($lines as $i => $line) {
+            $marker = $inFence[$i] ? null : $this->carveListMarker($line);
+            if ($marker !== null) {
+                $markers[$i] = $marker;
+            }
+        }
+
+        // Line index => the line to insert above it. Respelling one list never
+        // changes how Carve reads another, so every list is decided first.
+        $insertions = [];
+        // Item line => the first item line of its list, once that list is decided.
+        $listStart = [];
+        foreach ($markers as $n => [$markerCol]) {
+            if ($n < 2 || trim($lines[$n - 1]) !== '') {
+                continue;
+            }
+
+            // The nearest line reaching left of the sublist must be its parent item.
+            $parent = null;
+            for ($k = $n - 2; $k >= 0; $k--) {
+                if ($inFence[$k] || trim($lines[$k]) === '') {
+                    continue;
+                }
+                if (!isset($markers[$k])) {
+                    if ($this->indentWidth($lines[$k]) >= $markerCol) {
+                        continue;
+                    }
+
+                    break;
+                }
+                if ($markers[$k][1] <= $markerCol) {
+                    $parent = $k;
+                }
+
+                break;
+            }
+            if ($parent === null) {
+                continue;
+            }
+
+            if (isset($listStart[$parent])) {
+                continue;
+            }
+            [$column, , $kind] = $markers[$parent];
+            $sameList = fn (int $k): bool => isset($markers[$k]) && $markers[$k][0] === $column && $markers[$k][2] === $kind;
+            $start = $parent;
+            for ($k = $parent - 1; $k >= 0; $k--) {
+                if ($sameList($k)) {
+                    $start = $k;
+                } elseif (!$inFence[$k] && trim($lines[$k]) !== '' && $this->indentWidth($lines[$k]) <= $column) {
+                    break;
+                }
+            }
+            $end = $parent;
+            $items = [];
+            for ($k = $start; $k < $count; $k++) {
+                if ($sameList($k)) {
+                    $items[] = $k;
+                    $listStart[$k] = $start;
+                } elseif (!$inFence[$k] && trim($lines[$k]) !== '' && $this->indentWidth($lines[$k]) <= $column) {
+                    break;
+                }
+                if (trim($lines[$k]) !== '') {
+                    $end = $k;
+                }
+            }
+
+            $segment = [];
+            for ($k = $start; $k <= $end; $k++) {
+                $segment[] = $this->indentWidth($lines[$k]) >= $column
+                    ? $this->stripColumns($lines[$k], $column)
+                    : ltrim($lines[$k], " \t");
+            }
+            try {
+                $list = (new CarveConverter())->parse(implode("\n", $segment))->getChildren()[0] ?? null;
+            } catch (Throwable) {
+                $list = null;
+            }
+            if (!$list instanceof ListBlock || !$list->isTight()) {
+                continue;
+            }
+
+            if (count($items) === 1) {
+                $insertions[$start] = str_repeat(' ', $column) . '{loose}';
+
+                continue;
+            }
+            foreach (array_slice($items, 1) as $item) {
+                if (trim($lines[$item - 1]) !== '') {
+                    $insertions[$item] = '';
+                }
+            }
+        }
+
+        krsort($insertions);
+        foreach ($insertions as $index => $insertion) {
+            array_splice($lines, $index, 0, [$insertion]);
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Which lines of written Carve sit inside a code fence, delimiters included.
+     *
+     * @param array<int, string> $lines
+     *
+     * @return array<int, bool>
+     */
+    protected function fencedLineMask(array $lines): array
+    {
+        $mask = [];
+        $fence = null;
+        foreach ($lines as $i => $line) {
+            $trimmed = ltrim($line, " \t");
+            if ($fence === null) {
+                if (preg_match('/^(`{3,}|~{3,})/', $trimmed, $open) === 1) {
+                    $fence = $open[1];
+                    $mask[$i] = true;
+
+                    continue;
+                }
+                $opener = $this->opensItemFence($line, true);
+                if ($opener !== null) {
+                    $fence = $opener[2];
+                }
+                $mask[$i] = false;
+
+                continue;
+            }
+            $mask[$i] = true;
+            if (preg_match('/^' . preg_quote($fence[0], '/') . '{' . strlen($fence) . ',}[ \t]*$/', $trimmed) === 1) {
+                $fence = null;
+            }
+        }
+
+        return $mask;
+    }
+
+    /**
+     * A written Carve list line as its marker column, content column and marker
+     * kind, or null when the line opens no item.
+     *
+     * @return array{int, int, string}|null
+     */
+    protected function carveListMarker(string $line): ?array
+    {
+        if (preg_match('/^([ \t]*)([-*]|\d{1,9}([.)]))[ \t]+\S/', $line, $match) !== 1) {
+            return null;
+        }
+        if (preg_match('/^[ \t]*([-*])(?:[ \t]*\1){2,}[ \t]*$/', $line) === 1) {
+            return null;
+        }
+        $prefix = substr($line, 0, strlen($match[0]) - 1);
+
+        return [$this->columnWidth($match[1]), $this->columnWidth($prefix), ($match[3] ?? '') !== '' ? $match[3] : $match[2]];
     }
 
     /**

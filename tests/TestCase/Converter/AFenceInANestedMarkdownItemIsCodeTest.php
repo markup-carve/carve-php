@@ -23,11 +23,11 @@ class AFenceInANestedMarkdownItemIsCodeTest extends TestCase
         return [
             'a fence in a nested item' => [
                 "- a\n\n  - b\n\n    ```\n    code\n    ```",
-                "- a\n\n  - b\n\n    ```\n    code\n    ```",
+                "{loose}\n- a\n\n  - b\n\n    ```\n    code\n    ```",
             ],
             'a fence in a doubly nested item' => [
                 "- a\n\n  - b\n\n    - c\n\n      ```\n      code\n      ```",
-                "- a\n\n  - b\n\n    - c\n\n      ```\n      code\n      ```",
+                "{loose}\n- a\n\n  {loose}\n  - b\n\n    - c\n\n      ```\n      code\n      ```",
             ],
             'a fence on a nested item line' => [
                 "1. a\n   - ```\n     code\n     ```",
@@ -35,27 +35,27 @@ class AFenceInANestedMarkdownItemIsCodeTest extends TestCase
             ],
             'an unclosed fence in a nested item' => [
                 "- a\n\n  - b\n\n    ```\n    code",
-                "- a\n\n  - b\n\n    ```\n    code",
+                "{loose}\n- a\n\n  - b\n\n    ```\n    code",
             ],
             'a tilde fence in a nested item' => [
                 "- a\n\n  - b\n\n    ~~~\n    code\n    ~~~",
-                "- a\n\n  - b\n\n    ~~~\n    code\n    ~~~",
+                "{loose}\n- a\n\n  - b\n\n    ~~~\n    code\n    ~~~",
             ],
             'an ordered parent with a bullet child' => [
                 "1. a\n\n   - b\n\n     ```\n     code\n     ```",
-                "1. a\n\n   - b\n\n     ```\n     code\n     ```",
+                "{loose}\n1. a\n\n   - b\n\n     ```\n     code\n     ```",
             ],
             'a nested item fence with an info string' => [
                 "- a\n\n  - b\n\n    ```php\n    echo 1;\n    ```",
-                "- a\n\n  - b\n\n    ```php\n    echo 1;\n    ```",
+                "{loose}\n- a\n\n  - b\n\n    ```php\n    echo 1;\n    ```",
             ],
             'a nested item fence info with a raw-block equals sign' => [
                 "- a\n\n  - b\n\n    ```=html\n    <b>\n    ```",
-                "- a\n\n  - b\n\n    ```html\n    <b>\n    ```",
+                "{loose}\n- a\n\n  - b\n\n    ```html\n    <b>\n    ```",
             ],
             'a nested item fence indented three columns past its item' => [
                 "- a\n\n  - b\n\n       ```\n       code\n       ```",
-                "- a\n\n  - b\n\n    ```\n    code\n    ```",
+                "{loose}\n- a\n\n  - b\n\n    ```\n    code\n    ```",
             ],
             'a nested item fence ended by a dedented line' => [
                 "- a\n\n  - b\n\n    ```\n    code\n\n  more",
@@ -88,7 +88,7 @@ class AFenceInANestedMarkdownItemIsCodeTest extends TestCase
         return [
             'four columns past a nested item column' => [
                 "- a\n\n  - b\n\n        ```\n        code\n        ```",
-                "- a\n\n  - b\n\n    ````\n    ```\n    code\n    ```\n    ````",
+                "{loose}\n- a\n\n  - b\n\n    ````\n    ```\n    code\n    ```\n    ````",
             ],
             'a tab-indented fence at the top level' => [
                 "\t```\n\tcode\n\t```",
@@ -109,7 +109,7 @@ class AFenceInANestedMarkdownItemIsCodeTest extends TestCase
             'at the top level' => ["```foo`bar\nx", "\\`\\`\\`foo\\`bar\nx"],
             'in a nested item' => [
                 "- a\n\n  - b\n\n    ```foo`bar\n    x",
-                "- a\n\n  - b\n\n    \\`\\`\\`foo\\`bar\n    x",
+                "{loose}\n- a\n\n  - b\n\n    \\`\\`\\`foo\\`bar\n    x",
             ],
         ];
     }
