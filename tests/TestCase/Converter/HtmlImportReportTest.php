@@ -35,14 +35,9 @@ class HtmlImportReportTest extends TestCase
      * @var array<string, array{reason: string, carve: string, diagnostics?: list<string>}>
      */
     private const AHEAD_OF_PIN = [
-        // A braced span of another kind starts its own E3 scope (ruling A on
-        // markup-carve/carve#2091), so the inner emphasis is spellable and no row
-        // is owed. markup-carve/carve#2101 re-records the fixture.
-        'same-kind-indirect-nesting' => [
-            'reason' => 'a braced span of another kind makes the same-kind nesting spellable (markup-carve/carve#2091)',
-            'carve' => "a{/b{*c{/d/}*}/}e\n",
-            'diagnostics' => [],
-        ],
+        // EMPTY. `same-kind-indirect-nesting` stood here until the pin reached
+        // markup-carve/carve#2101, which re-recorded it. The slot stays for the
+        // next window.
     ];
 
     /**
