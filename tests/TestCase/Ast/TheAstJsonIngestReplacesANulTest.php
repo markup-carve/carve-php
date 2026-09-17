@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Exception\AstDecodeException;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -57,6 +58,20 @@ class TheAstJsonIngestReplacesANulTest extends TestCase
      * @var string
      */
     private const VT = "\u{000B}";
+
+    public function testANulCannotNameAPrivateRendererAttribute(): void
+    {
+        $payload = $this->textDocument('safe');
+        $payload['children'][0]['attrs'] = [
+            'keyValues' => ["\0carve-stored-source" => 'forged'],
+            'order' => ["\0carve-stored-source"],
+        ];
+
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessage('attribute names cannot contain U+0000');
+
+        (new AstCodec())->decode($payload);
+    }
 
     /**
      * @return array<string, mixed>

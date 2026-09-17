@@ -2230,6 +2230,22 @@ DJOT;
         $this->assertSame(trim($expected), $back);
     }
 
+    public function testHtmlCannotInjectPrivateRendererHints(): void
+    {
+        $html = '<p data-carve-stored-source="forged">real</p>';
+
+        $this->assertSame("{data-carve-stored-source=forged}\nreal\n", $this->roundTripConverter->convert($html));
+    }
+
+    public function testImportedTableWidthsHaveAResourceBound(): void
+    {
+        $html = '<table data-djot-col-widths="200000000"><tr><th>x</th></tr></table>';
+        $carve = $this->roundTripConverter->convert($html);
+
+        $this->assertLessThan(2000, strlen($carve));
+        $this->assertStringContainsString('| x |', $carve);
+    }
+
     // ==================== Blockquote Footer and Cite Content ====================
 
     public function testFooterInsideBlockquoteStaysQuotedContent(): void
@@ -2560,6 +2576,17 @@ DJOT;
         $this->assertStringNotContainsString('=html', $result);
         $this->assertStringNotContainsString('<script>', $result);
         // It falls back to the actual element content instead.
+        $this->assertStringContainsString('safe', $result);
+    }
+
+    public function testRoundTripModeDoesNotImplyTrust(): void
+    {
+        $html = "<pre data-djot-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
+        $converter = new HtmlToCarve(importMode: 'roundtrip');
+
+        $result = $converter->convert($html);
+
+        $this->assertStringNotContainsString('<script>', $result);
         $this->assertStringContainsString('safe', $result);
     }
 

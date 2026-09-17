@@ -205,17 +205,15 @@ class EscaperCorpusTest extends TestCase
     /**
      * NO PROFILE HERE IS SPECULATIVE.
      *
-     * carve-rs runs `plain` and `markdown` with no caller, because its Markdown
-     * and HTML importers build an AST and let the canonical writer emit source.
-     * All three profiles have a text-level converter in this engine, and this is
-     * what says so: a call site rewritten back to an inline literal, or removed,
-     * drops the count to zero and fails here rather than leaving the corpus
-     * silently measuring a set nothing passes.
+     * The HTML importer now builds an AST and lets the canonical writer emit
+     * source, so it no longer owns a plain-text escaper call. The remaining
+     * text-level converters are pinned here: a call site rewritten back to an
+     * inline literal, or removed, drops the count to zero.
      */
     public function testEveryProfileNamedHereHasACallSite(): void
     {
         $callers = [
-            'HANDLED_PLAIN' => ['src/Converter/BbcodeToCarve.php', 'src/Converter/HtmlToCarve.php'],
+            'HANDLED_PLAIN' => ['src/Converter/BbcodeToCarve.php'],
             'HANDLED_MARKDOWN' => ['src/Converter/MarkdownToCarve.php'],
             'HANDLED_DJOT' => ['src/Converter/DjotToCarve.php'],
         ];

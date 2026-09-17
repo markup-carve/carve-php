@@ -485,10 +485,11 @@ class AstCodec
 
     /**
      * @param array<string, mixed> $data
+     * @param bool $allowPrivateAttributes
      *
      * @throws \MarkupCarve\Carve\Exception\AstDecodeException When the payload is not a document this version can read.
      */
-    public function decode(array $data): Document
+    public function decode(array $data, bool $allowPrivateAttributes = false): Document
     {
         // FIRST, ahead of every other question this method asks. `decodeJson`
         // is bounded for free because `json_decode` takes a depth argument;
@@ -511,6 +512,10 @@ class AstCodec
                 self::MAX_JSON_DEPTH,
                 self::MAX_PARSER_NESTING_DEPTH,
             ));
+        }
+
+        if (!$allowPrivateAttributes) {
+            self::verifyNoPrivateAttributeNames($data);
         }
 
         // What the sender actually had to send, measured HERE and not further
@@ -1036,6 +1041,30 @@ class AstCodec
             count($unnamed) === 1 ? 'y' : 'ies',
             implode(', ', array_slice($unnamed, 0, 6)),
         ));
+    }
+
+    /**
+     * @param array<mixed> $payload
+     *
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException
+     */
+    private static function verifyNoPrivateAttributeNames(array $payload): void
+    {
+        foreach ($payload as $key => $value) {
+            if (is_string($key) && str_contains($key, "\0")) {
+                throw new AstDecodeException('AST attribute names cannot contain U+0000.');
+            }
+            if ($key === 'order' && is_array($value)) {
+                foreach ($value as $name) {
+                    if (is_string($name) && str_contains($name, "\0")) {
+                        throw new AstDecodeException('AST attribute names cannot contain U+0000.');
+                    }
+                }
+            }
+            if (is_array($value)) {
+                self::verifyNoPrivateAttributeNames($value);
+            }
+        }
     }
 
     /**
@@ -2048,7 +2077,11 @@ class AstCodec
                 // because that slot arrives in the wire's `order` and is
                 // restored below.
                 $order = $node->getAttributeOrder();
-                $node->setAttribute('class', $kind);
+                $classes = preg_split('/\s+/', trim((string)($node->getAttribute('class') ?? ''))) ?: [];
+                if (!in_array($kind, $classes, true)) {
+                    array_unshift($classes, $kind);
+                }
+                $node->setAttribute('class', implode(' ', $classes));
                 $node->setAttributeOrder($order);
             }
             // Falls through to the Div branch below, which recomputes the raw

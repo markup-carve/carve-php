@@ -4,29 +4,18 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
-use Closure;
 use DOMComment;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
-use DOMXPath;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\TableCell;
-use MarkupCarve\Carve\Node\Inline\HardBreak;
-use MarkupCarve\Carve\Node\Inline\InlineNode;
-use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
-use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
-use MarkupCarve\Carve\Parser\BlockParser;
-use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
-use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
 use Throwable;
 
@@ -51,7 +40,6 @@ use Throwable;
 class HtmlToCarve
 {
     use ReportsMigrationFidelity;
-    use EscapesCarveConstructs;
 
     /**
      * Stands in for the HARD LIST BOUNDARY (PART 9 §11 N1a) until the
@@ -307,27 +295,6 @@ class HtmlToCarve
      */
     protected bool $listTableForBlockCells = false;
 
-    /**
-     * A noncharacter standing in for a hard break Carve source cannot hold,
-     * written only for the AST exit.
-     *
-     * @var string
-     */
-    protected const TREE_BREAK = "\u{FDD0}";
-
-    /**
-     * The attribute on a span standing in for an unwrapped formatting element
-     * in the AST exit, naming the node type it stands for.
-     *
-     * @var string
-     */
-    protected const TREE_KIND = 'data-carve-tree-kind';
-
-    /**
-     * Writing for the AST exit rather than for source.
-     */
-    protected bool $treeExit = false;
-
     protected string $importMode = 'safe';
 
     protected string $importAdapter = 'generic';
@@ -405,15 +372,6 @@ class HtmlToCarve
 
         try {
             $diagnostics = $this->inspectImportLoss($html);
-            foreach ([...$this->captionFlattenDiagnostics, ...$this->sameKindDiagnostics()] as $diagnostic) {
-                $this->addImportDiagnostic(
-                    $diagnostics,
-                    $diagnostic->code,
-                    $diagnostic->message,
-                    $diagnostic->severity,
-                    $diagnostic->path ?? '',
-                );
-            }
         } finally {
             $this->inspectedCarve = null;
         }
@@ -426,24 +384,6 @@ class HtmlToCarve
         );
     }
 
-    /**
-     * @return array<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic>
-     */
-    protected function sameKindDiagnostics(): array
-    {
-        $diagnostics = [];
-        foreach ($this->unwrappedFormatting as $path) {
-            $diagnostics[] = new HtmlImportDiagnostic(
-                'structure-unspellable',
-                'Unwrapped a span inside a span of the same kind, which has no Carve spelling',
-                'warning',
-                $path,
-            );
-        }
-
-        return $diagnostics;
-    }
-
     public function convertWithFidelityReport(string $html): MigrationResult
     {
         return $this->htmlMigrationResult($this->convertWithReport($html));
@@ -452,34 +392,24 @@ class HtmlToCarve
     /**
      * Convert HTML to the public PART 12 AST and retain the import report.
      *
-     * The AST is deliberately read from the canonical-source exit. This makes
-     * the two public exits one invariant: if the writer loses structure, the
-     * shared expected.ast.json fixture exposes it instead of letting an
-     * independently-built tree and source each pass against separate goldens.
+     * The source and AST exits use the same direct HTML-to-AST builder. The AST
+     * exit disables source-only renderer hints so it exposes only the public
+     * PART 12 tree.
      */
     public function convertToAstWithReport(string $html): HtmlImportAstResult
     {
-        // The tree is read back from the source this writer emits
-        // (markup-carve/carve#1827). Where a `structure-unspellable` row says
-        // the source lost structure, a second conversion carries it in a
-        // stand-in the parsed tree gives back.
         $source = $this->convertWithReport($html);
-        $treeBreaks = !str_contains($html, self::TREE_BREAK)
-            && preg_match('/\s' . self::TREE_KIND . '\s*=/i', $html) !== 1
-            && $this->reportsUnspellable($source->diagnostics);
-        $value = $source->value;
-        if ($treeBreaks) {
-            $this->treeExit = true;
-            try {
-                $value = $this->convert($html);
-            } finally {
-                $this->treeExit = false;
-            }
-        }
-        $document = CarveConverter::create()->parse($value);
+        $normalized = $this->normalizeHtmlForDirectAst($html);
 
         return new HtmlImportAstResult(
-            self::withoutTheWriter((new AstCodec())->encode($document), $treeBreaks),
+            self::withoutTheWriter((new HtmlAstBuilder(
+                $this->listTableForBlockCells,
+                $this->importMode,
+                $this->trustedRoundTrip,
+                false,
+                $this->alignmentClasses,
+                $this->labels,
+            ))->build($normalized, strlen($html))),
             $source->mode,
             $source->adapter,
             $source->diagnostics,
@@ -488,14 +418,13 @@ class HtmlToCarve
 
     /**
      * @param array<string, mixed> $tree
-     * @param bool $treeBreaks
      *
      * @return array<string, mixed>
      */
-    private static function withoutTheWriter(array $tree, bool $treeBreaks = false): array
+    private static function withoutTheWriter(array $tree): array
     {
         foreach ($tree as $key => $value) {
-            $tree[$key] = self::asPublished($value, $treeBreaks);
+            $tree[$key] = self::asPublished($value);
         }
 
         return $tree;
@@ -511,11 +440,10 @@ class HtmlToCarve
      * same lines that reach a paragraph.
      *
      * @param mixed $value
-     * @param bool $treeBreaks
      *
      * @return mixed
      */
-    private static function asPublished(mixed $value, bool $treeBreaks): mixed
+    private static function asPublished(mixed $value): mixed
     {
         if (!is_array($value)) {
             return $value;
@@ -523,7 +451,7 @@ class HtmlToCarve
         if (array_is_list($value)) {
             $out = [];
             foreach ($value as $entry) {
-                $entry = self::asPublished($entry, $treeBreaks);
+                $entry = self::asPublished($entry);
                 if (is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
                     $escaped = $entry['value'] ?? '';
                     $entry = ['type' => 'text', 'value' => is_string($escaped) ? $escaped : ''];
@@ -549,80 +477,13 @@ class HtmlToCarve
                 $out[] = $entry;
             }
 
-            return $treeBreaks ? self::withTreeBreaks($out) : $out;
+            return $out;
         }
         foreach ($value as $key => $inner) {
-            $value[$key] = self::asPublished($inner, $treeBreaks);
+            $value[$key] = self::asPublished($inner);
         }
 
         return $value;
-    }
-
-    /**
-     * Take the tree exit's stand-ins back out: a text entry splits at each
-     * hard-break stand-in, and a stand-in span becomes the node it names.
-     *
-     * @param array<int, mixed> $entries
-     *
-     * @return array<int, mixed>
-     */
-    private static function withTreeBreaks(array $entries): array
-    {
-        $out = [];
-        foreach ($entries as $entry) {
-            if (is_array($entry) && ($entry['type'] ?? null) === 'span') {
-                $attrs = $entry['attrs'] ?? null;
-                $keyValues = is_array($attrs) ? $attrs['keyValues'] ?? null : null;
-                $kind = is_array($keyValues) ? $keyValues[self::TREE_KIND] ?? null : null;
-                if (is_string($kind)) {
-                    unset($keyValues[self::TREE_KIND]);
-                    $attrs['keyValues'] = $keyValues;
-                    if ($keyValues === []) {
-                        unset($attrs['keyValues']);
-                    }
-                    $order = is_array($attrs['order'] ?? null) ? $attrs['order'] : [];
-                    $attrs['order'] = array_values(array_filter($order, static fn (mixed $slot): bool => $slot !== self::TREE_KIND));
-                    $node = ['type' => $kind];
-                    if ($attrs['order'] !== []) {
-                        $node['attrs'] = $attrs;
-                    }
-                    $node['children'] = $entry['children'] ?? [];
-                    $out[] = $node;
-
-                    continue;
-                }
-            }
-            $text = is_array($entry) && ($entry['type'] ?? null) === 'text' ? $entry['value'] ?? null : null;
-            if (!is_string($text) || !str_contains($text, self::TREE_BREAK)) {
-                $out[] = $entry;
-
-                continue;
-            }
-            foreach (explode(self::TREE_BREAK, $text) as $index => $part) {
-                if ($index > 0) {
-                    $out[] = ['type' => 'hard_break'];
-                }
-                if ($part !== '') {
-                    $out[] = ['type' => 'text', 'value' => $part];
-                }
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param array<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
-     */
-    private function reportsUnspellable(array $diagnostics): bool
-    {
-        foreach ($diagnostics as $diagnostic) {
-            if ($diagnostic->code === 'structure-unspellable') {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -790,13 +651,35 @@ class HtmlToCarve
             return;
         }
         $tag = strtolower($node->tagName);
+        if ($tag === 'input' && $this->directAstConsumesCheckbox($node)) {
+            $this->consumedCheckboxInputs[$path] = true;
+        }
         if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
             $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $path);
 
             return;
         }
 
-        if (isset($this->rawPreservedElements[$path])) {
+        $parent = $node->parentNode;
+        if (
+            $parent instanceof DOMElement
+            && $this->formattingKind($node) !== null
+            && $this->formattingKind($node) === $this->formattingKind($parent)
+        ) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'Unwrapped a span inside a span of the same kind, which has no Carve spelling',
+                'warning',
+                $path,
+            );
+        }
+
+        if (
+            $tag !== 'colgroup'
+            && !($tag === 'math' && $node->attributes->length === 0)
+            && $this->directAstRawPreserves($node)
+        ) {
             $this->inspectImportAttributeList($node, $tag, $path, $diagnostics, true);
             // The figure says WHY in its own words, matching carve-js: it is
             // not an unsupported element - Carve has figures - it is a figure
@@ -826,7 +709,10 @@ class HtmlToCarve
             return;
         }
 
-        if ($tag === 'tr' && isset($this->droppedBlankTableRows[$path])) {
+        if (
+            $tag === 'tr'
+            && $this->directAstBlankTableRow($node)
+        ) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'structure-unspellable',
@@ -834,13 +720,14 @@ class HtmlToCarve
                 'warning',
                 $path,
             );
-            if ($this->droppedBlankTableRows[$path]) {
+            if ($this->directAstBlankRowDropsCaption($node)) {
                 $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a caption whose table has no row left', 'warning', $path);
             }
         }
 
-        if (isset($this->unwrappedBlockContainers[$path])) {
-            if ($this->hasImportContentToUnwrap($node)) {
+        if ($this->directAstUnwraps($node)) {
+            $hasContent = $this->directAstHasSurvivingContent($node);
+            if ($hasContent) {
                 $this->addImportDiagnostic(
                     $diagnostics,
                     'element-unwrapped',
@@ -859,7 +746,7 @@ class HtmlToCarve
             }
         }
 
-        if ($tag === 'figure' && isset($this->captionedTableFigures[$path])) {
+        if ($tag === 'figure' && $this->directAstFigureOutcome($node) === 'table-rebuild') {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'structure-unspellable',
@@ -870,7 +757,12 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'figcaption' && isset($this->detachedFigureCaptions[$path])) {
+        if (
+            $tag === 'figcaption'
+            && $node->parentNode instanceof DOMElement
+            && strtolower($node->parentNode->tagName) === 'figure'
+            && $this->directAstFigureOutcome($node->parentNode) === 'table-detach'
+        ) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
@@ -881,7 +773,10 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'figure' && isset($this->unwrappedFigures[$path])) {
+        if (
+            $tag === 'figure'
+            && $this->directAstFigureOutcome($node) === 'unwrap'
+        ) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
@@ -1002,7 +897,13 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'p' && isset($this->loneImageParagraphs[$path])) {
+        $directLoneImage = $tag === 'p' ? $this->directAstLoneImage($node) : null;
+        if (
+            $tag === 'p'
+            && $directLoneImage instanceof DOMElement
+            && $this->importParagraphIsWrittenAsABlock($node)
+            && !($node->parentNode instanceof DOMElement && strtolower($node->parentNode->tagName) === 'figure')
+        ) {
             // A DECLARED LOSS IS A CEILING, NOT A LICENCE
             // (`docs/html-import.md`). Carve source has no spelling for a
             // paragraph whose whole content is one image - `![G](g.jpg)`
@@ -1013,7 +914,11 @@ class HtmlToCarve
             // missing is the row: the writer already dropped the `<p>` and said
             // nothing, which is exactly the half the ceiling does not cover
             // (carve-php#1667, ported from markup-carve/carve-js#1422).
-            $lost = $this->loneImageParagraphs[$path];
+            $paragraphAttrs = $this->writtenImportAttributeNames($node);
+            $lost = [
+                'attributed' => $paragraphAttrs !== [] || $node->hasAttribute('class'),
+                'overwritten' => $this->overwrittenImportImageAttributes($node, $directLoneImage),
+            ];
             $head = 'A paragraph holding nothing but an image has no Carve spelling; '
                 . 'the image is written as a block';
             // THREE OUTCOMES, AND THE MESSAGE SAYS WHICH ONE HAPPENED. The
@@ -1105,6 +1010,314 @@ class HtmlToCarve
         }
 
         $this->inspectImportChildren($node, $tag, $path, $diagnostics);
+
+        if ($this->directAstCaptionFlattens($node) && $this->hasImportContentToUnwrap($node)) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Unwrapped unsupported <' . $tag . '> element',
+                'info',
+                $path,
+            );
+        }
+    }
+
+    private function directAstCaptionFlattens(DOMElement $node): bool
+    {
+        if (!$this->isFlattenedInACaption(strtolower($node->tagName))) {
+            return false;
+        }
+        for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+            $tag = strtolower($ancestor->tagName);
+            if ($tag === 'caption') {
+                return true;
+            }
+            if ($tag === 'figcaption') {
+                $figure = $ancestor->parentNode;
+
+                return $figure instanceof DOMElement
+                    && strtolower($figure->tagName) === 'figure'
+                    && in_array($this->directAstFigureOutcome($figure), ['survives', 'table-rebuild'], true);
+            }
+        }
+
+        return false;
+    }
+
+    private function directAstUnwraps(DOMElement $node): bool
+    {
+        $tag = strtolower($node->tagName);
+        if ($tag === 'aside') {
+            $classes = preg_split('/\s+/', trim($node->getAttribute('class'))) ?: [];
+
+            return !in_array('admonition', $classes, true) && !in_array('note', $classes, true);
+        }
+        if ($tag === 'section' && strtolower($node->getAttribute('role')) === 'doc-endnotes') {
+            return false;
+        }
+
+        return in_array(
+            $tag,
+            ['article', 'main', 'header', 'footer', 'nav', 'section', 'address', 'dialog', 'fieldset', 'form', 'hgroup', 'menu', 'search'],
+            true,
+        );
+    }
+
+    private function directAstHasSurvivingContent(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMText && trim($child->textContent) !== '') {
+                return true;
+            }
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
+                continue;
+            }
+            if ($tag === 'hr' || $tag === 'br') {
+                return true;
+            }
+            if ($tag === 'img' && trim($child->getAttribute('src')) !== '') {
+                return true;
+            }
+            if ($this->directAstHasSurvivingContent($child)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function directAstLoneImage(DOMElement $paragraph): ?DOMElement
+    {
+        $find = function (DOMElement $container) use (&$find): ?DOMElement {
+            $found = null;
+            foreach ($container->childNodes as $child) {
+                if ($child instanceof DOMText) {
+                    if (trim($child->textContent) !== '') {
+                        return null;
+                    }
+
+                    continue;
+                }
+                if (!$child instanceof DOMElement) {
+                    continue;
+                }
+                $tag = strtolower($child->tagName);
+                if ($tag === 'img') {
+                    if ($found !== null || trim($child->getAttribute('src')) === '') {
+                        return null;
+                    }
+                    $found = $child;
+
+                    continue;
+                }
+                if (!in_array($tag, ['span', 'picture', 'source', 'figure'], true)) {
+                    return null;
+                }
+                if ($tag !== 'source' && $child->attributes->length !== 0) {
+                    return null;
+                }
+                $nested = $find($child);
+                if ($nested === null || $found !== null) {
+                    return null;
+                }
+                $found = $nested;
+            }
+
+            return $found;
+        };
+
+        return $find($paragraph);
+    }
+
+    private function directAstRawPreserves(DOMElement $node): bool
+    {
+        if (strtolower($node->tagName) === 'figure') {
+            return $this->directAstFigureOutcome($node) === 'raw';
+        }
+        if ($this->importMode !== 'roundtrip') {
+            return false;
+        }
+        $tag = strtolower($node->tagName);
+        if (in_array($tag, ['address', 'fieldset', 'form', 'hgroup'], true)) {
+            return true;
+        }
+        if ($tag === 'math') {
+            return $this->resolveMathTex($node)['tier'] === 3;
+        }
+
+        return !$this->isKnownImportElement($tag);
+    }
+
+    private function directAstFigureOutcome(DOMElement $figure): string
+    {
+        $caption = null;
+        $captionWrites = false;
+        $body = [];
+        foreach ($figure->childNodes as $child) {
+            if ($child instanceof DOMText && trim($child->textContent) === '') {
+                continue;
+            }
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
+                if (trim($child->textContent) !== '' || $child->getElementsByTagName('*')->length > 0) {
+                    $caption = $child;
+                    $captionWrites = trim($child->textContent) !== '';
+                }
+
+                continue;
+            }
+            $body[] = $child;
+        }
+        if (!$caption instanceof DOMElement) {
+            return 'unwrap';
+        }
+        if (count($body) !== 1 || !$body[0] instanceof DOMElement) {
+            return $this->importMode === 'roundtrip' ? 'raw' : 'unwrap';
+        }
+        $target = $body[0];
+        $tag = strtolower($target->tagName);
+        if ($tag === 'p') {
+            $meaningful = [];
+            foreach ($target->childNodes as $child) {
+                if ($child instanceof DOMText && trim($child->textContent) === '') {
+                    continue;
+                }
+                $meaningful[] = $child;
+            }
+            if (
+                count($meaningful) === 1
+                && $meaningful[0] instanceof DOMElement
+                && strtolower($meaningful[0]->tagName) === 'img'
+                && trim($meaningful[0]->getAttribute('src')) !== ''
+            ) {
+                return 'survives';
+            }
+        }
+        if ($tag === 'img' && trim($target->getAttribute('src')) !== '') {
+            return 'survives';
+        }
+        if ($tag === 'picture') {
+            foreach ($target->getElementsByTagName('img') as $image) {
+                if (trim($image->getAttribute('src')) !== '') {
+                    return 'survives';
+                }
+            }
+        }
+        if ($tag === 'figure') {
+            foreach ($target->childNodes as $child) {
+                if (
+                    $child instanceof DOMElement
+                    && strtolower($child->tagName) === 'figcaption'
+                    && (trim($child->textContent) !== '' || $child->getElementsByTagName('*')->length > 0)
+                ) {
+                    return 'unwrap';
+                }
+            }
+
+            return 'survives';
+        }
+        if (in_array($tag, ['blockquote', 'pre'], true)) {
+            return 'survives';
+        }
+        if ($tag === 'table') {
+            if (!$captionWrites) {
+                return 'table-rebuild';
+            }
+            foreach ($target->getElementsByTagName('caption') as $tableCaption) {
+                if (trim($tableCaption->textContent) !== '') {
+                    return $this->importMode === 'roundtrip' ? 'raw' : 'table-detach';
+                }
+            }
+
+            return 'table-rebuild';
+        }
+
+        return $this->importMode === 'roundtrip' ? 'raw' : 'unwrap';
+    }
+
+    private function directAstConsumesCheckbox(DOMElement $input): bool
+    {
+        if (strtolower($input->getAttribute('type')) !== 'checkbox') {
+            return false;
+        }
+        $container = $input->parentNode;
+        if ($container instanceof DOMElement && strtolower($container->tagName) === 'label') {
+            $container = $container->parentNode;
+        }
+        if (!$container instanceof DOMElement || strtolower($container->tagName) !== 'li') {
+            return false;
+        }
+        foreach ($container->childNodes as $child) {
+            if ($child instanceof DOMText && trim($child->textContent) === '') {
+                continue;
+            }
+            if ($child === $input) {
+                return true;
+            }
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'label') {
+                foreach ($child->childNodes as $labelChild) {
+                    if ($labelChild instanceof DOMText && trim($labelChild->textContent) === '') {
+                        continue;
+                    }
+
+                    return $labelChild === $input;
+                }
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    private function directAstBlankTableRow(DOMElement $row): bool
+    {
+        $sawCell = false;
+        foreach ($row->childNodes as $cell) {
+            if (
+                !$cell instanceof DOMElement
+                || !in_array(strtolower($cell->tagName), ['td', 'th'], true)
+            ) {
+                continue;
+            }
+            $sawCell = true;
+            if (trim($cell->textContent) !== '' || $cell->getElementsByTagName('*')->length > 0) {
+                return false;
+            }
+        }
+
+        return $sawCell;
+    }
+
+    private function directAstBlankRowDropsCaption(DOMElement $row): bool
+    {
+        $table = $row->parentNode;
+        while ($table instanceof DOMElement && strtolower($table->tagName) !== 'table') {
+            $table = $table->parentNode;
+        }
+        if (!$table instanceof DOMElement) {
+            return false;
+        }
+        $lastBlank = null;
+        foreach ($table->getElementsByTagName('tr') as $candidate) {
+            if (!$this->directAstBlankTableRow($candidate)) {
+                return false;
+            }
+            $lastBlank = $candidate;
+        }
+        if ($lastBlank !== $row) {
+            return false;
+        }
+        foreach ($table->getElementsByTagName('caption') as $caption) {
+            if (trim($caption->textContent) !== '' || $caption->getElementsByTagName('*')->length > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -2623,193 +2836,107 @@ class HtmlToCarve
      */
     public function convert(string $html): string
     {
-        // A pass that marks a span for unwrapping changes its neighbors'
-        // spelling, so the document is written again until no mark is added.
-        $this->unwrappedFormatting = [];
-        do {
-            $marked = $this->unwrappedFormatting;
-            $carve = $this->convertPass($html);
-        } while ($this->unwrappedFormatting !== $marked);
+        if (preg_match('/^\s*<!doctype\b[^>]*>\s*$/iD', $html) === 1) {
+            return '';
+        }
+        $normalized = $this->normalizeHtmlForDirectAst($html);
+        $storedSource = $this->singleStoredRoundTripSource($normalized);
+        if ($storedSource !== null) {
+            return rtrim($storedSource, "\n") . "\n";
+        }
+        $tree = (new HtmlAstBuilder(
+            $this->listTableForBlockCells,
+            $this->importMode,
+            $this->trustedRoundTrip,
+            true,
+            $this->alignmentClasses,
+            $this->labels,
+        ))->build($normalized, strlen($html));
+        $document = (new AstCodec())->decode($tree, true);
 
-        return $this->escapeSmartTypographyRuns($carve);
+        return (new CarveRenderer())->render($document);
     }
 
-    /**
-     * Escape every run the output would read back as smart typography: a dash,
-     * an ellipsis, an arrow or a symbol (markup-carve/carve-php#2101, #2138).
-     *
-     * HTML text holds those glyphs as characters already, so no such run in the
-     * output is intended. The parser decides which runs convert, because the
-     * flag rule depends on the inline slice a run lands in.
-     */
-    protected function escapeSmartTypographyRuns(string $carve): string
+    private function singleStoredRoundTripSource(string $html): ?string
     {
-        if (preg_match('/--|\.\.\.|[+!<>(]/', $carve) !== 1) {
-            return $carve;
+        if (!$this->trustedRoundTrip) {
+            return null;
         }
-
-        $escape = [];
-        $length = strlen($carve);
-        $walk = function (Node $node) use (&$walk, &$escape, $carve, $length): void {
-            $pos = $node->getPos();
-            if ($node instanceof SmartPunctuation && $pos !== null) {
-                if (in_array($node->getKind(), ['en_dash', 'em_dash', 'ellipsis'], true)) {
-                    $char = $node->getKind() === 'ellipsis' ? '.' : '-';
-                    // A braced dash's span starts at its `{`.
-                    $start = (int)strpos($carve, $char, $pos->startOffset);
-                    while ($start > 0 && $carve[$start - 1] === $char && !$this->isEscapedAt($carve, $start - 1)) {
-                        $start--;
-                    }
-                    for ($i = $start; $i < $length && $carve[$i] === $char; $i++) {
-                        $escape[$i] = true;
-                    }
-                } elseif (preg_match('/^[-+!<>(.]/', $node->getContent()) === 1) {
-                    // A symbol token holding a hyphen or a dot is kept literal
-                    // by escaping those, which is what the writer escapes; any
-                    // other token is kept literal by escaping its first
-                    // character (#2138).
-                    $token = $node->getContent();
-                    $marks = preg_match('/[-.]/', $token) === 1 ? '-.' : '';
-                    if ($marks === '') {
-                        $escape[$pos->startOffset] = true;
-                    } else {
-                        $width = strlen($token);
-                        for ($i = 0; $i < $width; $i++) {
-                            if (str_contains($marks, $token[$i])) {
-                                $escape[$pos->startOffset + $i] = true;
-                            }
-                        }
-                    }
-                }
-            }
-            foreach ($node->getChildren() as $child) {
-                $walk($child);
-            }
-        };
-        $walk(CarveConverter::create(parser: new BlockParser(trackPositions: true))->parse($carve));
-        ksort($escape);
-        $out = '';
-        $from = 0;
-        foreach (array_keys($escape) as $offset) {
-            $out .= substr($carve, $from, $offset - $from) . '\\';
-            $from = $offset;
-        }
-
-        return $out . substr($carve, $from);
-    }
-
-    /**
-     * @phpstan-impure
-     */
-    protected function convertPass(string $html): string
-    {
-        // Reset state
-        $this->listDepth = 0;
-        $this->inPre = false;
-        $this->labelDepth = 0;
-        $this->blockLineContext = ['', ''];
-        $this->preserveTextWhitespace = false;
-        $this->referenceDefinitions = [];
-        $this->footnoteDefinitions = [];
-        $this->noteReferenceTargets = null;
-        $this->abbreviationDefinitions = [];
-        $this->abbreviationMap = [];
-        $this->captionFlattenDiagnostics = [];
-        $this->bracedFormatting = [];
-        $this->loneImageParagraphs = [];
-        $this->consumedCheckboxInputs = [];
-        $this->rawPreservedElements = [];
-        $this->unwrappedFigures = [];
-        $this->captionedTableFigures = [];
-        $this->droppedBlankTableRows = [];
-        $this->detachedFigureCaptions = [];
-        $this->unwrappedBlockContainers = [];
-
-        // Wrap in a single root element unless the input is already a full
-        // document. Only a leading <!doctype>/<html>/<body> counts as a root:
-        // a <div> nested anywhere must NOT skip wrapping, otherwise a fragment
-        // with several top-level siblings (e.g. <ul>..</ul><ul>..</ul> where an
-        // item contains a <div>) loses every sibling after the first, since
-        // LIBXML_HTML_NOIMPLIED makes only the first element the documentElement.
-        if (!preg_match('/^\s*(<!doctype|<html|<body)/i', $html)) {
-            $html = '<div>' . $html . '</div>';
-        }
-
-        // Load HTML
-        $doc = new DOMDocument();
-        $doc->encoding = 'UTF-8';
-
-        // Suppress warnings for malformed HTML
+        $document = new DOMDocument();
+        $document->encoding = 'UTF-8';
         libxml_use_internal_errors(true);
-        $doc->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $document->loadHTML(
+            '<?xml encoding="UTF-8"><carve-import-root>' . $html . '</carve-import-root>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
+        );
         libxml_clear_errors();
-
-        // Extract abbreviation definitions from template element (round-trip support)
-        $this->extractAbbreviationDefinitions($doc);
-
-        // Rewrite an editor's footnote-shaped HTML into the shape the core
-        // policy below already reads. Adapter-gated; see the method.
-        $this->normalizeAdapterFootnotes($doc);
-
-        $djot = $this->processNode($doc->documentElement ?? $doc);
-
-        // Prepend abbreviation definitions at the start
-        if ($this->abbreviationDefinitions !== []) {
-            $abbrevs = implode("\n", $this->abbreviationDefinitions) . "\n\n";
-            $djot = $abbrevs . $djot;
+        $root = $document->getElementsByTagName('carve-import-root')->item(0);
+        if (!$root instanceof DOMElement) {
+            return null;
         }
-
-        // Append reference definitions collected during conversion
-        if ($this->referenceDefinitions !== []) {
-            // Ensure blank line before reference definitions
-            $refs = "\n\n";
-            foreach ($this->referenceDefinitions as $label => $url) {
-                $refs .= '[' . $label . ']: ' . $url . "\n";
+        $element = null;
+        foreach ($root->childNodes as $child) {
+            if ($child instanceof DOMText && trim($child->textContent) === '') {
+                continue;
             }
-            $djot .= $refs;
-        }
-
-        // Append footnote definitions collected during conversion
-        if ($this->footnoteDefinitions !== []) {
-            // Ensure blank line before footnote definitions
-            $notes = "\n\n";
-            foreach ($this->footnoteDefinitions as $label => $content) {
-                $notes .= $this->formatFootnoteDefinition($label, $content) . "\n";
+            if (!$child instanceof DOMElement || $element instanceof DOMElement) {
+                return null;
             }
-            $djot .= $notes;
+            $element = $child;
         }
 
-        // Clean up
-        $djot = $this->cleanup($djot);
-
-        return $djot;
+        return $element instanceof DOMElement && $element->hasAttribute('data-djot-src')
+            ? $this->reconstructStoredSource(html_entity_decode(
+                $element->getAttribute('data-djot-src'),
+                ENT_QUOTES | ENT_HTML5,
+                'UTF-8',
+            ))
+            : null;
     }
 
-    /**
-     * Extract abbreviation definitions from template element
-     */
-    protected function extractAbbreviationDefinitions(DOMDocument $doc): void
+    private function reconstructStoredSource(string $source): string
     {
-        $templates = $doc->getElementsByTagName('template');
-        foreach ($templates as $template) {
-            if ($template->hasAttribute('data-djot-abbreviations')) {
-                $content = $template->textContent;
-                $lines = explode("\n", $content);
-                foreach ($lines as $line) {
-                    $line = trim($line);
-                    if ($line !== '') {
-                        $this->abbreviationDefinitions[] = $line;
-                        if (preg_match('/^\*\[([^\]]+)\]:\s*(.*)$/', $line, $matches) === 1) {
-                            $this->abbreviationMap[$matches[1]] = $matches[2];
-                        }
-                    }
-                }
-                // Remove the template element so it's not processed
-                $template->parentNode?->removeChild($template);
+        return (string)preg_replace_callback(
+            '/`(<(th|td|dt|dd)\b[^>]*>.*?<\/\2>)`\{=html\}/is',
+            function (array $match): string {
+                return trim((new static(
+                    false,
+                    $this->alignmentClasses,
+                    $this->listTableForBlockCells,
+                    $this->importMode,
+                    $this->importAdapter,
+                    $this->maxDiagnostics,
+                    $this->labels,
+                ))->convert($match[1]));
+            },
+            $source,
+        );
+    }
 
-                break;
-            }
+    private function normalizeHtmlForDirectAst(string $html): string
+    {
+        if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true)) {
+            return $html;
         }
+        $document = new DOMDocument();
+        $document->encoding = 'UTF-8';
+        libxml_use_internal_errors(true);
+        $document->loadHTML(
+            '<?xml encoding="UTF-8"><carve-import-root>' . $html . '</carve-import-root>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
+        );
+        libxml_clear_errors();
+        $this->normalizeAdapterFootnotes($document);
+        $root = $document->getElementsByTagName('carve-import-root')->item(0);
+        if (!$root instanceof DOMElement) {
+            return $html;
+        }
+        $normalized = '';
+        foreach ($root->childNodes as $child) {
+            $normalized .= $document->saveHTML($child);
+        }
+
+        return $normalized;
     }
 
     /**
@@ -2832,310 +2959,6 @@ class HtmlToCarve
     }
 
     /**
-     * @phpstan-impure
-     */
-    protected function processNode(DOMNode $node): string
-    {
-        if ($node instanceof DOMText) {
-            $text = $node->textContent;
-            if (!$this->inPre && !$this->preserveTextWhitespace) {
-                // Normalize whitespace outside pre blocks
-                $text = preg_replace('/\s+/', ' ', $text) ?? $text;
-            }
-
-            if ($this->captionDepth > 0 && trim($text) !== '') {
-                $this->captionPendingBoundary = false;
-            }
-
-            // A backslash in HTML text is a character, not an escape, so it
-            // is doubled before the delimiter escaping runs. Inside `pre` the
-            // text is verbatim and nothing is escaped at all.
-            if ($this->inPre) {
-                return $text;
-            }
-
-            return $this->escapeEnclosingDelimiterRuns($this->escapeHtmlTextForSlot($text), $node);
-        }
-
-        if ($node instanceof DOMComment) {
-            // AN HTML COMMENT IS A CARVE COMMENT, and this is the INLINE
-            // position of it (`markup-carve/carve#1709`). The block position is
-            // decided in processChildren(), which is the only walk that can see
-            // whether the comment stands among blocks.
-            //
-            // The usual reason this importer drops something is that Carve
-            // cannot express the shape. That reason never applied here: Carve
-            // HAS comments, so dropping one was a choice to lose bytes the
-            // format can hold, in a mode whose whole job is fidelity, made by
-            // nobody. A comment renders nothing in either language, so keeping
-            // it is invisible in the output and lossless in the source.
-            return $this->inlineCommentSource($node);
-        }
-
-        if (!($node instanceof DOMElement)) {
-            // Process children for other node types
-            return $this->processChildren($node);
-        }
-
-        $tagName = strtolower($node->tagName);
-
-        $djotSrc = $this->captionDepth > 0 ? null : $this->extractRoundTripSource($node, $tagName);
-        if ($djotSrc !== null) {
-            return $djotSrc;
-        }
-
-        if ($tagName === 'section' && $this->isInlineOnlyEndnotesSection($node)) {
-            return '';
-        }
-
-        if ($this->captionDepth > 0 && $this->isFlattenedInACaption($tagName)) {
-            $hadPending = $this->captionPendingBoundary;
-            $needsSeparator = $this->captionPendingNeedsSeparator;
-            $this->captionPendingBoundary = false;
-            $flattened = rtrim($this->processChildren($node));
-            if ($flattened === '') {
-                $this->captionPendingBoundary = $hadPending;
-                $this->captionPendingNeedsSeparator = $needsSeparator;
-
-                return '';
-            }
-
-            $this->captionPendingBoundary = true;
-            $this->captionPendingNeedsSeparator = preg_match('/\s$/u', $flattened) !== 1;
-            $this->captionFlattenDiagnostics[] = new HtmlImportDiagnostic(
-                'element-unwrapped',
-                'Unwrapped unsupported <' . $tagName . '> element',
-                'info',
-                $this->conversionNodePath($node),
-            );
-
-            return ($hadPending && $needsSeparator ? ' ' : '') . $flattened;
-        }
-
-        return match ($tagName) {
-            'section' => $this->processSection($node),
-            'html', 'body' => $this->processBlock($node),
-            'aside' => $this->processAside($node),
-            'article', 'main', 'header', 'footer', 'nav',
-            'address', 'dialog', 'fieldset', 'form', 'hgroup', 'menu', 'search' => $this->processGenericBlockContainer($node),
-            'details' => $this->processDetails($node),
-            'div' => $this->processDiv($node),
-            'p' => $this->processParagraph($node),
-            'h1', 'h2', 'h3', 'h4', 'h5', 'h6' => $this->processHeading($node),
-            // The five single-character delimiters (`*` strong, `/` emphasis,
-            // `_` underline, `~` strike, `=` highlight) are bare when the
-            // element is word-bounded (canonical) and take the forced brace
-            // form intraword (Sy<strong>rup</strong>-free, H<sub>2</sub>O),
-            // where a bare delimiter would not open at all and its two
-            // characters would land in the prose as literal text.
-            'strong', 'b' => $this->processBareInlineFormatting($node, '*'),
-            'em', 'i' => $this->processBareInlineFormatting($node, '/'),
-            'u' => $this->processBareInlineFormatting($node, '_'),
-            's', 'strike' => $this->processBareInlineFormatting($node, '~'),
-            'mark' => $this->processBareInlineFormatting($node, '='),
-            'ins' => $this->processInlineFormatting($node, '{+', '+}'),
-            'del' => $this->processInlineFormatting($node, '{-', '-}'),
-            // Superscript and subscript have no bare form at all.
-            'sup' => $this->processInlineFormatting($node, '{^', '^}'),
-            'sub' => $this->processInlineFormatting($node, '{,', ',}'),
-            'kbd' => $this->processSemanticSpan($node, 'kbd'),
-            'dfn' => $this->processSemanticSpan($node, 'dfn'),
-            'abbr' => $this->processSemanticSpan($node, 'abbr'),
-            'samp' => $this->processSemanticSpan($node, 'samp'),
-            'var' => $this->processSemanticSpan($node, 'var'),
-            'cite' => $this->processSemanticSpan($node, 'cite'),
-            'time' => $this->processSemanticSpan($node, 'time'),
-            'q' => $this->processInlineQuote($node),
-            'code' => $this->processCode($node),
-            'pre' => $this->processPreBlock($node),
-            'a' => $this->processLink($node),
-            'img' => $this->processImage($node),
-            // A pipe cell is one line, so a break there flattens to a space (PART 11 §1b).
-            'br' => $this->inPre ? "\n" : ($this->tableCellDepth > 0 ? ($this->treeExit ? self::TREE_BREAK : ' ') : "\\\n"),
-            'hr' => $this->processHr($node),
-            'blockquote' => $this->processBlockquote($node),
-            'ul', 'ol' => $this->processList($node),
-            'li' => $this->processListItem($node),
-            'table' => $this->processTable($node),
-            'dl' => $this->processDefinitionList($node),
-            'span' => $this->processSpan($node),
-            'math' => $this->processMath($node),
-            'figure' => $this->processFigure($node),
-            'figcaption' => '', // Handled by figure
-            'caption' => '', // Handled by table
-            'thead', 'tbody', 'tfoot', 'tr', 'th', 'td' => $this->processChildren($node), // Handled by table
-            // READ BY A PARENT'S WALK, so none of them is markup this
-            // converter cannot express and none preserves
-            // (`markup-carve/carve-php#1713`). `processDefinitionList()` and
-            // `processList()` read these directly; one reaching the dispatch
-            // at all means it was written outside the parent that owns it, and
-            // the answer there is the one it always gave. Naming them keeps
-            // them out of the `default` arm below, which is now the
-            // preserve arm - a `<dt>` inside a tab came back as raw HTML.
-            'dt', 'dd', 'li' => $this->processChildren($node),
-            'script', 'style', 'noscript' => '', // Skip these
-            /*
-             * THE DEFAULT ARM IS THE PRESERVE ARM (`markup-carve/carve-php#1713`),
-             * and that makes it load-bearing in a way it was not before.
-             */
-            default => $this->preservedAsRawHtml($node) ?? $this->processChildren($node),
-        };
-    }
-
-    /**
-     * HTML text, escaped for the Carve PROSE slot it is about to land in.
-     *
-     * Every character Carve reads as an opener is literal in HTML text, so the
-     * value carries none of the author's intent as markup and all of it as
-     * characters. The four passes are one production - the backslash doubling
-     * has to run FIRST so the already-escaped guard in the rest sees an even
-     * run - and they are named here rather than spelled at each call site,
-     * because a second copy is what drifts. `<img alt>` promoted to prose is
-     * the second caller, and it reached the same slot by a different route.
-     *
-     * @param string $text
-     */
-    protected function escapeHtmlTextAsCarveProse(string $text): string
-    {
-        return $this->escapePlainCarveInlineSyntax(
-            $this->escapeAttributeBlockOpener($this->escapeVerbatimDelimiter($this->escapeLiteralBackslashes($text))),
-            self::HANDLED_PLAIN,
-        );
-    }
-
-    /**
-     * HTML text escaped as prose, plus what an enclosing label reads.
-     *
-     * A straight quote is escaped everywhere, as the writer escapes one (PART 11
-     * §5): bare, it reads back as smart punctuation. So is a caret opening an
-     * inline note.
-     *
-     * @param string $text
-     */
-
-    /**
-     * Does a closed label at $close have a destination, a reference or an
-     * attribute block behind it?
-     */
-    protected function labelIsFollowedByATarget(string $text, int $close): bool
-    {
-        $next = $text[$close + 1] ?? '';
-        $closer = ['(' => ')', '[' => ']', '{' => '}'][$next] ?? null;
-
-        return $closer !== null && strpos($text, $closer, $close + 2) !== false;
-    }
-
-    /**
-     * Escape what would open a link, a span, an image, a note reference, an
-     * autolink or a comment (markup-carve/carve-php#2100).
-     *
-     * Every one of these is literal in HTML text, and the Carve writer escapes
-     * the same character for the same text node.
-     */
-    protected function escapeInlineOpeners(string $text): string
-    {
-        // A comment opens on `%%`, and the run is escaped whole, whatever the
-        // text pass escaped of it already.
-        $text = (string)preg_replace_callback(
-            '/(\\\\?%){2,}/',
-            static fn (array $match): string => str_repeat('\\%', substr_count($match[0], '%')),
-            $text,
-        );
-        $escape = [];
-        $length = strlen($text);
-        for ($at = 0; $at < $length; $at++) {
-            if ($this->isEscapedAt($text, $at)) {
-                continue;
-            }
-            $char = $text[$at];
-            if ($char === '[') {
-                $close = BracketScanner::balancedBracketEnd($text, $at);
-                // A note reference is `[^id]`; a link, a reference and a span
-                // are a label with a `(`, `[` or `{` behind it.
-                if (
-                    $close !== null
-                    && (
-                        preg_match('/^\[\^[^\]\s]+\]/', substr($text, $at, $close - $at + 1)) === 1
-                        || $this->labelIsFollowedByATarget($text, $close)
-                    )
-                ) {
-                    $escape[$at] = true;
-                }
-
-                continue;
-            }
-            if ($char === '<' && preg_match('~\G<(?:[A-Za-z][A-Za-z0-9+.-]*:[^\s<>]*|[^\s<>@]+@[^\s<>]+\.[A-Za-z]+)>~', $text, $autolink, 0, $at) === 1) {
-                $escape[$at] = true;
-
-                continue;
-            }
-            if ($char === '{' && ($text[$at + 1] ?? '') === '%' && strpos($text, '%}', $at + 2) !== false) {
-                $escape[$at] = true;
-
-                continue;
-            }
-        }
-
-        if ($escape === []) {
-            return $text;
-        }
-
-        ksort($escape);
-        $out = '';
-        $from = 0;
-        foreach (array_keys($escape) as $offset) {
-            $out .= substr($text, $from, $offset - $from) . '\\';
-            $from = $offset;
-        }
-
-        return $out . substr($text, $from);
-    }
-
-    /**
-     * Escape a run of the delimiter an enclosing formatting element is written
-     * with: inside `/x/`, a `//` in the text closes the span at its first
-     * character (#2139). A single delimiter is left to the pair rule above.
-     */
-    protected function escapeEnclosingDelimiterRuns(string $text, DOMText $node): string
-    {
-        foreach ($this->enclosingBareDelimiters($node) as $delimiter) {
-            $quoted = preg_quote($delimiter, '/');
-            $text = (string)preg_replace_callback(
-                '/(?<!\\\\)' . $quoted . '{2,}/',
-                static fn (array $match): string => str_repeat('\\' . $delimiter, strlen($match[0])),
-                $text,
-            );
-        }
-
-        return $text;
-    }
-
-    /**
-     * The bare delimiters of the formatting elements this text sits inside.
-     *
-     * @return array<int, string>
-     */
-    protected function enclosingBareDelimiters(DOMText $node): array
-    {
-        $delimiters = [];
-        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            $kind = $this->formattingKind($parent);
-            if ($kind !== null && strlen($kind) === 1 && str_contains('*/_~=', $kind)) {
-                $delimiters[$kind] = true;
-            }
-        }
-
-        return array_keys($delimiters);
-    }
-
-    protected function escapeHtmlTextForSlot(string $text): string
-    {
-        $text = $this->escapeInlineOpeners(str_replace(['"', "'", '^['], ['\\"', "\\'", '\\^['], $this->escapeHtmlTextAsCarveProse($text)));
-
-        return $this->labelDepth > 0 ? $this->escapeLinkOrImageLabel($text) : $text;
-    }
-
-    /**
      * What separates two backtick runs that would otherwise merge into one:
      * an empty delimited comment, the separator the Carve writer writes
      * (markup-carve/carve-php#2107).
@@ -3144,194 +2967,9 @@ class HtmlToCarve
      */
     protected const VERBATIM_SEPARATOR = '{%  %}';
 
-    /**
-     * Does this written run end in a backtick run the next one would merge with?
-     */
-    protected function endsInABareBacktickRun(string $written): bool
-    {
-        $run = strlen($written) - strlen(rtrim($written, '`'));
-
-        return $run > 0 && !$this->isEscapedAt($written, strlen($written) - $run);
-    }
-
-    /**
-     * Build a bracketed label's content, whose text then escapes `[` and `]`.
-     *
-     * The content is Carve already when it returns, so escaping it afterwards
-     * would escape a code span's text and a nested image's own brackets.
-     *
-     * @param \Closure(): string $build
-     */
-    protected function buildLabelContent(Closure $build): string
-    {
-        $this->labelDepth++;
-        try {
-            return $build();
-        } finally {
-            $this->labelDepth--;
-        }
-    }
-
-    protected function processChildren(DOMNode $node): string
-    {
-        $output = '';
-        foreach ($node->childNodes as $child) {
-            $part = $this->processNode($child);
-            // A text caret meeting a sibling's `[` would open an inline note.
-            if (str_starts_with($part, '[') && str_ends_with($output, '^')) {
-                $output = substr($output, 0, -1) . '\\^';
-            }
-            if (str_starts_with($part, '[')) {
-                $output = $this->escapeExtensionOpenerAtEnd($output);
-            }
-            // Two backtick runs that touch merge into one, so an empty
-            // delimited comment separates them, as the Carve writer writes it
-            // (PART 11 section 10k N3).
-            if (str_starts_with($part, '`') && $this->endsInABareBacktickRun($output)) {
-                $output .= self::VERBATIM_SEPARATOR;
-            }
-            $output .= $part;
-        }
-
-        return $output;
-    }
-
-    /**
-     * A caption's content, with block descendants UNWRAPPED to their inline run.
-     */
-    protected function processCaptionChildren(DOMNode $node): string
-    {
-        $previousPending = $this->captionPendingBoundary;
-        $previousNeedsSeparator = $this->captionPendingNeedsSeparator;
-        $this->captionPendingBoundary = false;
-        $this->captionPendingNeedsSeparator = false;
-        $this->captionDepth++;
-        try {
-            return rtrim($this->processChildren($node));
-        } finally {
-            $this->captionDepth--;
-            $this->captionPendingBoundary = $previousPending;
-            $this->captionPendingNeedsSeparator = $previousNeedsSeparator;
-        }
-    }
-
-    /**
-     * How many caption slots deep the serializer is.
-     *
-     * Zero everywhere else, so nothing outside a caption changes: a list in an
-     * ordinary table cell is a different question (carve-php#1164) and must not
-     * start flattening because a caption does.
-     */
-    protected int $captionDepth = 0;
-
     protected bool $captionPendingBoundary = false;
 
     protected bool $captionPendingNeedsSeparator = false;
-
-    /**
-     * Node paths of the formatting elements written braced in this pass.
-     *
-     * @var array<string, bool>
-     */
-    protected array $bracedFormatting = [];
-
-    /**
-     * Node paths of the formatting elements written as their content, mapped
-     * to the path a diagnostic reports. Kept across passes.
-     *
-     * @var array<string, string>
-     */
-    protected array $unwrappedFormatting = [];
-
-    /**
-     * @var list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic>
-     */
-    protected array $captionFlattenDiagnostics = [];
-
-    /**
-     * The elements this conversion kept BYTE FOR BYTE, keyed by path.
-     *
-     * KEYED BY PATH for the reason every other record here is: the report walks
-     * a SECOND parse of the same HTML, so no node object is shared between the
-     * two passes, and the path is what both walks agree on.
-     *
-     * @var array<string, true>
-     */
-    protected array $rawPreservedElements = [];
-
-    /**
-     * The `<figure>` elements this conversion UNWRAPPED, keyed by path.
-     *
-     * @var array<string, true>
-     */
-    protected array $unwrappedFigures = [];
-
-    /**
-     * The `<figure>` elements this conversion rebuilt as a CAPTIONED TABLE.
-     *
-     * `<table><caption>` is the idiomatic HTML for a captioned table, so a
-     * figure around one rebuilds rather than preserving (`markup-carve/carve#1704`) -
-     * but the rebuild is not lossless. The `^ ` line reads back as the table's
-     * own `<caption>`, so what comes out is a captioned table where the input
-     * had a figure, and `structure-unspellable` is what says so.
-     *
-     * This is the row that was missing WITH the caption line: the caption used
-     * to leave the figure and land as a detached paragraph, and the report was
-     * empty either way (carve-php#1722).
-     *
-     * KEYED BY PATH for the reason {@see self::$rawPreservedElements} is: the
-     * report walks a SECOND parse of the same HTML, so no node object is
-     * shared between the two passes.
-     *
-     * @var array<string, true>
-     */
-    protected array $captionedTableFigures = [];
-
-    /**
-     * The table rows written blank and dropped, keyed by path; true where the caption went with the table.
-     *
-     * @var array<string, bool>
-     */
-    protected array $droppedBlankTableRows = [];
-
-    /**
-     * The `<figcaption>` elements this conversion DETACHED into a paragraph.
-     *
-     * A figure around a table that captions itself has two captions for one
-     * `^ ` slot (ruling `markup-carve/carve-js#1488`). The table keeps the slot
-     * and the figcaption's text follows as prose, so what is lost is the caption
-     * ROLE and not a byte of either caption - and this is the row that says so.
-     *
-     * KEYED BY THE CAPTION'S PATH, not the figure's, because the caption is what
-     * the row is about and the report is ordered by the losing node's position.
-     *
-     * @var array<string, true>
-     */
-    protected array $detachedFigureCaptions = [];
-
-    /**
-     * The block containers this conversion UNWRAPPED, keyed by path.
-     *
-     * @var array<string, true>
-     */
-    protected array $unwrappedBlockContainers = [];
-
-    /**
-     * The `<p>` elements this conversion wrote as a bare block image.
-     *
-     * A paragraph holding nothing but an image has no Carve spelling, so the
-     * writer emits the image at a block position and the `<p>` the author wrote
-     * is not in the source it produced (carve-php#1667). The value carries what
-     * the row has to SAY about it: whether the paragraph had attributes to
-     * re-attach, and which of them the image's own attribute block overwrites.
-     *
-     * KEYED BY PATH for the reason {@see self::$rawPreservedElements} is:
-     * `convertWithReport()` inspects a SECOND parse of the same HTML, so no node
-     * object is shared between the two passes.
-     *
-     * @var array<string, array{attributed: bool, overwritten: list<string>}>
-     */
-    protected array $loneImageParagraphs = [];
 
     /**
      * The `<input>` elements this conversion CONSUMED into a task marker.
@@ -3348,81 +2986,6 @@ class HtmlToCarve
      * element changes - see {@see self::inspectImportNode()}.
      */
     protected ?string $inspectedConsumedCheckbox = null;
-
-    /**
-     * How many flattened top-level nodes stand before this `<head>`/`<body>`.
-     *
-     * {@see self::importTopLevelNodes()} splices the children of each into one
-     * run, so a `<body>` child's number continues where the `<head>`'s children
-     * stopped. Any other child of `<html>` counts as itself, since it is not
-     * flattened.
-     */
-    private function flattenedTopLevelOffset(DOMElement $section): int
-    {
-        $parent = $section->parentNode;
-        if (!$parent instanceof DOMElement) {
-            return 0;
-        }
-
-        $offset = 0;
-        foreach ($parent->childNodes as $sibling) {
-            if ($sibling === $section) {
-                break;
-            }
-            $tag = $sibling instanceof DOMElement ? strtolower($sibling->tagName) : '';
-            $offset += $tag === 'head' || $tag === 'body' ? $sibling->childNodes->length : 1;
-        }
-
-        return $offset;
-    }
-
-    private function conversionNodePath(DOMElement $node): string
-    {
-        $parts = [];
-        for ($current = $node; $current instanceof DOMElement; $current = $current->parentNode) {
-            $parent = $current->parentNode;
-            if (!$parent instanceof DOMElement) {
-                break;
-            }
-            $index = 0;
-            foreach ($parent->childNodes as $sibling) {
-                $index++;
-                if ($sibling === $current) {
-                    break;
-                }
-            }
-            // A FULL DOCUMENT NUMBERS HEAD AND BODY AS ONE RUN, because
-            // `importTopLevelNodes()` flattens them into one before the
-            // inspection walk numbers anything - so a `<body>`'s first child is
-            // not child 1 when the `<head>` contributed nodes ahead of it. The
-            // two passes have to agree: the record this path keys is written by
-            // the CONVERSION and read by the INSPECTION, and a path that
-            // disagrees drops the row silently, which is the exact failure the
-            // rows keyed this way exist to prevent. Every row on the record -
-            // the dropped `<dd>` and the lone-image paragraph - was missing on
-            // a document with a non-empty `<head>`.
-            $parentTag = strtolower($parent->tagName);
-            if (
-                in_array($parentTag, ['head', 'body'], true)
-                && $parent->parentNode instanceof DOMElement
-                && strtolower($parent->parentNode->tagName) === 'html'
-            ) {
-                $index += $this->flattenedTopLevelOffset($parent);
-            }
-
-            $tag = strtolower($current->tagName);
-            if (!in_array($tag, ['html', 'head', 'body'], true)) {
-                $parts[] = $tag . '[' . $index . ']';
-            }
-
-            // A fragment's synthetic wrapper is never part of a public path.
-            if ($parent->parentNode instanceof DOMDocument && strtolower($parent->tagName) === 'div') {
-                break;
-            }
-        }
-
-        return '/' . implode('/', array_reverse($parts));
-    }
 
     /**
      * Does a caption slot dissolve this element into its content?
@@ -3494,65 +3057,6 @@ class HtmlToCarve
     }
 
     /**
-     * An HTML comment in a BLOCK position, as the fenced Carve comment.
-     *
-     * A FENCE MUST BE WIDER THAN ANY RUN OF `%` INSIDE IT - a nested `%%%`
-     * closes it early - so it widens the way a code fence does. That is why the
-     * block form has no unspellable payload and the inline form does: nothing
-     * an author can write into a comment can close this one.
-     *
-     * The widening rule is `CarveRenderer::renderComment`'s, spelled the same
-     * way, so a document that comes through this importer and then through the
-     * writer does not change width.
-     */
-    protected function blockCommentSource(string $content): string
-    {
-        preg_match_all('/%+/', $content, $matches);
-        $longest = 0;
-        foreach ($matches[0] as $match) {
-            $longest = max($longest, strlen($match));
-        }
-        $fence = str_repeat('%', max(3, $longest + 1));
-
-        return $fence . "\n" . $content . "\n" . $fence;
-    }
-
-    /**
-     * An HTML comment in an INLINE position, as the delimited Carve comment.
-     *
-     * TWO PAYLOADS HAVE NO INLINE SPELLING, and both close the comment EARLY
-     * rather than being escapable:
-     *
-     * - text holding the closer, which ends the comment where it appears, so
-     *   the rest of the payload comes back as prose;
-     * - text holding a BLANK line, which ends the paragraph the run is in, so
-     *   both halves come back as prose and the comment is gone.
-     *
-     * Those are DROPPED, with one row saying so. Not truncated and not escaped
-     * into the form: a comment that came back shorter, or carrying characters
-     * the author did not write, is a silent content change, and the row is the
-     * point. Not relocated to the block form either - moving it would put text
-     * somewhere the author did not write it.
-     *
-     * A single newline is NOT one of the two: it is a soft wrap inside the run
-     * rather than its end, so such a comment re-reads intact.
-     */
-    protected function inlineCommentSource(DOMComment $node): string
-    {
-        $content = $node->textContent;
-        $closesEarly = str_contains($content, '%}');
-        $endsTheRun = preg_match('/\n[ \t]*\n/', $content) === 1;
-        if ($this->commentHasNoInlineSpelling($content)) {
-            // The ROW is added by the inspection walk, which is where every
-            // other row is added and the only walk that numbers a path in
-            // document order. See inspectImportNodes().
-            return '';
-        }
-
-        return '{% ' . $content . ' %}';
-    }
-
-    /**
      * Is this comment text one of the two payloads the inline form cannot hold?
      *
      * ONE PLACE, because two walks ask it: the CONVERSION decides whether to
@@ -3586,104 +3090,6 @@ class HtmlToCarve
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
         'blockquote', 'pre', 'table', 'dl', 'hr', 'details',
     ];
-
-    /**
-     * A container's children, with a BLANK LINE at every inline-to-block seam.
-     *
-     * The seam is the whole point. Loose text beside a block sibling has no
-     * separator of its own in the DOM, so concatenating the two writes the
-     * block's opener onto the text's line, and the opener stops being one:
-     * `First` beside a `<div class="tabs-panel">` came back as the paragraph
-     * `First::: tabs-panel` with the panel's content lazily continued into it,
-     * and the same glue turned a `<blockquote>` into a `>` mid-sentence and a
-     * `<h2>` into `##` mid-sentence (carve-php#1543). Nothing is dropped, so
-     * no diagnostic fires - the source simply says something else.
-     *
-     * `docs/html-import.md` puts the rule on the importer rather than on the
-     * writer: an importer that builds source by hand "has to hold that line
-     * itself", the line being that it emits what the canonical writer emits.
-     *
-     * @param \DOMNode $node
-     * @param \Closure(\DOMNode): bool|null $skip A child to leave out entirely.
-     */
-    protected function processBlock(DOMNode $node, ?Closure $skip = null): string
-    {
-        $content = '';
-        $inlineBuffer = '';
-        $inlineNodes = [];
-        // The last block written, for the caption-opener test below: a caption
-        // line reaches back across ONE blank line, which is exactly the
-        // separation this loop writes.
-        $previousBlock = '';
-
-        foreach ($node->childNodes as $child) {
-            if ($skip !== null && $skip($child)) {
-                continue;
-            }
-            $isBlock = false;
-
-            if ($child instanceof DOMElement) {
-                $tagName = strtolower($child->tagName);
-                $isBlock = in_array($tagName, $this->blockElements, true);
-            }
-
-            if ($child instanceof DOMComment && $this->commentStandsAmongBlocks($child)) {
-                // A COMMENT STANDING AMONG BLOCKS IS A BLOCK COMMENT
-                // (`markup-carve/carve#1709`). It flushes the buffer the way a
-                // block element does, because that is what it is here.
-                //
-                // The run around it is what decides, not the tag it sits under:
-                // `<div>text <!--n--> more</div>` is ONE paragraph, and
-                // splitting it at the comment would move the words either side
-                // of it into two. Only a run holding nothing but comments and
-                // the layout between them is a comment among blocks.
-                $inlineText = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
-                if ($inlineText !== '') {
-                    $inlineText = $this->escapeDetachedCaptionOpener($previousBlock, $inlineText);
-                    $content .= $inlineText . "\n\n";
-                    $previousBlock = $inlineText;
-                }
-                $inlineBuffer = '';
-                $inlineNodes = [];
-                $rendered = $this->blockCommentSource($child->textContent);
-                $content .= $rendered . "\n\n";
-                $previousBlock = $rendered;
-
-                continue;
-            }
-
-            if ($isBlock) {
-                // Flush any accumulated inline content as an implicit paragraph
-                $inlineText = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
-                if ($inlineText !== '') {
-                    $inlineText = $this->escapeDetachedCaptionOpener($previousBlock, $inlineText);
-                    $content .= $inlineText . "\n\n";
-                    $previousBlock = $inlineText;
-                }
-                $inlineBuffer = '';
-                $inlineNodes = [];
-
-                // Process the block element
-                $rendered = $this->escapeDetachedCaptionOpener($previousBlock, $this->processNode($child));
-                $content .= $rendered;
-                if (trim($rendered) !== '') {
-                    $previousBlock = trim($rendered);
-                }
-            } else {
-                // Accumulate inline content
-                $inlineBuffer .= $this->processNode($child);
-                $inlineNodes[] = $child;
-            }
-        }
-
-        // Flush any remaining inline content
-        $inlineText = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
-        if ($inlineText !== '') {
-            $content .= $this->escapeDetachedCaptionOpener($previousBlock, $inlineText) . "\n\n";
-        }
-
-        return trim($content);
-    }
 
     /**
      * Does this element hold characters, and are they ALL layout?
@@ -3723,644 +3129,11 @@ class HtmlToCarve
     }
 
     /**
-     * Harden a caption caret that would attach to the block written before it.
-     *
-     * A caption line reaches BACK across one blank line and makes a figure of
-     * the block above it (PART 9 §4b), and one blank line is exactly what this
-     * importer writes between blocks. So a paragraph whose text happens to
-     * begin `^ ` stopped being a paragraph: `<table>` followed by `<p>^ c</p>`
-     * came back as the table plus a caption, and the paragraph was gone
-     * (carve-php#1615).
-     *
-     * THE TEST IS THE ONE PART 11 §2 STATES, run rather than approximated: the
-     * escape is written if and only if omitting it changes what the source
-     * means. The two candidate spellings are rendered and compared, so the
-     * hosts a caption attaches to are never enumerated here - a table, a quote,
-     * a code block, an image, a display-math paragraph and a figure group all
-     * answer for themselves, and a host added later answers too.
-     *
-     * That also settles the other half, which is the half a writer gets wrong
-     * silently: where nothing captionable stands above, both spellings render
-     * the same and the caret is left alone.
-     *
-     * Bounded to the PREVIOUS block rather than the document so far, because
-     * that is all a caption can reach, and so a document full of caret-shaped
-     * paragraphs cannot make this quadratic.
-     *
-     * @param string $previousBlock The block written immediately above, if any.
-     * @param string $block The block about to be written.
-     *
-     * @return string The block, with the caret escaped if it would attach.
-     */
-    protected function escapeDetachedCaptionOpener(string $previousBlock, string $block): string
-    {
-        if (trim($previousBlock) === '') {
-            return $block;
-        }
-
-        $offset = strspn($block, " \t\n\r");
-        $newline = strpos($block, "\n", $offset);
-        $firstLine = $newline === false ? substr($block, $offset) : substr($block, $offset, $newline - $offset);
-        // A caption opener is the caret, a run of spaces, and something that is
-        // not more whitespace - the parser own opener test.
-        if (preg_match('/^\^ +.*\S/u', $firstLine) !== 1) {
-            return $block;
-        }
-
-        $escaped = substr($block, 0, $offset) . '\\' . substr($block, $offset);
-        $renderer = new CarveConverter();
-        $meaning = $renderer->convert($previousBlock . "\n\n" . $block);
-        if ($meaning === $renderer->convert($previousBlock . "\n\n" . $escaped)) {
-            // Nothing above for the caret to reach, so the escape would be idle
-            // and PART 11 §2 forbids writing it.
-            return $block;
-        }
-
-        return $escaped;
-    }
-
-    /**
-     * Escape a block opener that starts a line of an inline run, as the writer
-     * does (markup-carve/carve-php#2074).
-     *
-     * A line gets the escape only where it would otherwise change the block
-     * structure its container reads, decided by parsing it under the
-     * container's marker. The opener's run is escaped as a whole, and a run the
-     * text escaper already escaped in part is completed, where that reads
-     * the same.
-     *
-     * @param string $run
-     * @param array<int, \DOMNode> $nodes The nodes the run was written from.
-     */
-    protected function escapeBlockLineOpeners(string $run, array $nodes): string
-    {
-        if (
-            $this->tableCellDepth > 0
-            || $this->captionDepth > 0
-            || preg_match('/(?:^|\n)[ \t]*(?:\\\\?[-*_+#%~>|:.\[{]|[0-9]+[.)]|[A-Za-z]+[.)])/', $run) !== 1
-        ) {
-            return $run;
-        }
-
-        [$marker, $indent] = $this->blockLineContext;
-        $lines = explode("\n", $run);
-        $textLed = $this->linesLedByText($nodes);
-        foreach ($lines as $index => $line) {
-            $escaped = count($textLed) === count($lines) && $textLed[$index] ? $this->escapedLineOpener($line, $index === 0) : null;
-            if ($escaped === null) {
-                continue;
-            }
-            if ($escaped['partial']) {
-                $html = new CarveConverter();
-                if ($html->convert($marker . $line) === $html->convert($marker . $escaped['line'])) {
-                    $lines[$index] = $escaped['line'];
-                }
-
-                continue;
-            }
-            $before = $index === 0 ? $marker : $marker . 'x' . (str_ends_with($lines[$index - 1], '\\') ? "\\\n" : "\n") . $indent;
-            $expected = $this->blockShape($before . 'x');
-            if ($this->blockShape($before . $line) !== $expected && $this->blockShape($before . $escaped['line']) === $expected) {
-                $lines[$index] = $escaped['line'];
-            }
-        }
-
-        return implode("\n", $lines);
-    }
-
-    /**
-     * The line with its leading opener escaped, and whether the text escaper had
-     * already escaped part of that run.
-     *
-     * @return array{line: string, partial: bool}|null
-     */
-    protected function escapedLineOpener(string $line, bool $first): ?array
-    {
-        // A lone `+` is the first-block form of an item or description body.
-        if ($first && $line === '+') {
-            return ['line' => '\\+', 'partial' => false];
-        }
-        if (preg_match('/^([ \t]*)([0-9]+|[A-Za-z]+)([.)])(?=[ \t]|$)/', $line, $ordered) === 1) {
-            $at = strlen($ordered[1]) + strlen($ordered[2]);
-
-            return ['line' => substr($line, 0, $at) . '\\' . substr($line, $at), 'partial' => false];
-        }
-        if (preg_match('/^([ \t]*)(\\\\?)([-*_#%~>|:.\[{])((?:\\\\?\3)*)/', $line, $opener) !== 1) {
-            return null;
-        }
-        [$whole, $indent, $slash, $char, $tail] = $opener;
-        // A colon opens only at the line start, so only the first one is escaped.
-        $written = $char === ':' ? '\\:' . $tail : str_repeat('\\' . $char, 1 + substr_count($tail, $char));
-        $original = $slash . $char . $tail;
-        if ($written === $original) {
-            return null;
-        }
-
-        return [
-            'line' => $indent . $written . substr($line, strlen($whole)),
-            'partial' => str_contains($original, '\\'),
-        ];
-    }
-
-    /**
-     * The block structure a source parses to, with inline content reduced to
-     * its hard breaks.
-     */
-    protected function blockShape(string $source): string
-    {
-        return $this->nodeShape(CarveConverter::create()->parse($source));
-    }
-
-    /**
-     * For each line the nodes write, split at `<br>`, whether its first output
-     * comes from text. A line led by an element's own markup is never escaped.
-     *
-     * @param array<int, \DOMNode> $nodes
-     *
-     * @return array<int, bool>
-     */
-    protected function linesLedByText(array $nodes): array
-    {
-        $lines = [];
-        $open = true;
-        $walk = function (DOMNode $node) use (&$walk, &$lines, &$open): void {
-            if ($node instanceof DOMText) {
-                if ($open && trim($node->textContent) !== '') {
-                    $lines[] = true;
-                    $open = false;
-                }
-
-                return;
-            }
-            if ($node instanceof DOMElement && strtolower($node->tagName) === 'br') {
-                if ($open) {
-                    $lines[] = false;
-                }
-                $open = true;
-
-                return;
-            }
-            if ($node instanceof DOMElement && $node->childNodes->length > 0 && !in_array(strtolower($node->tagName), self::MARKUP_LED_ELEMENTS, true)) {
-                foreach ($node->childNodes as $child) {
-                    $walk($child);
-                }
-
-                return;
-            }
-            if ($open && !($node instanceof DOMElement && $node->childNodes->length === 0 && !in_array(strtolower($node->tagName), self::MARKUP_LED_ELEMENTS, true))) {
-                $lines[] = false;
-                $open = false;
-            }
-        };
-        foreach ($nodes as $node) {
-            $walk($node);
-        }
-        if ($open) {
-            $lines[] = false;
-        }
-
-        return $lines;
-    }
-
-    /**
      * Elements whose output is their own markup rather than their text.
      *
      * @var array<int, string>
      */
     protected const MARKUP_LED_ELEMENTS = ['audio', 'canvas', 'code', 'embed', 'hr', 'iframe', 'img', 'input', 'kbd', 'math', 'object', 'picture', 'pre', 'samp', 'svg', 'textarea', 'video'];
-
-    protected function holdsABlockElement(DOMElement $node): bool
-    {
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && in_array(strtolower($child->tagName), $this->blockElements, true)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    protected function nodeShape(Node $node): string
-    {
-        $shape = $node->getType() . json_encode($node->getAttributes());
-        $children = $node->getChildren();
-        if ($node instanceof Paragraph) {
-            $breaks = count(array_filter($children, static fn (Node $child): bool => $child instanceof HardBreak));
-            $last = $children === [] ? null : $children[array_key_last($children)];
-
-            return $shape . '(' . $breaks . ($last instanceof HardBreak ? ' last' : '') . ')';
-        }
-
-        $inner = '';
-        foreach ($children as $child) {
-            if (!$child instanceof InlineNode) {
-                $inner .= $this->nodeShape($child);
-            }
-        }
-
-        return $shape . '[' . $inner . ']';
-    }
-
-    /**
-     * Process section elements, handling explicit IDs for round-trip support
-     */
-    protected function processSection(DOMElement $node): string
-    {
-        // Check if this is a footnotes section (doc-endnotes)
-        if ($node->getAttribute('role') === 'doc-endnotes') {
-            $rebuilt = $this->processEndnotesSection($node);
-            if ($rebuilt !== null) {
-                return $rebuilt;
-            }
-            // NOTHING WAS REBUILT, so this is not a footnote section as far as
-            // the import goes: it falls through to the ordinary section policy
-            // below, which keeps the `<hr>` and the `<ol>` it is built from.
-            // See processEndnotesSection() for why.
-        }
-
-        if ($node->getAttribute('role') !== 'doc-endnotes') {
-            $this->unwrappedBlockContainers[$this->conversionNodePath($node)] = true;
-        }
-
-        // Check if section has an explicit ID from round-trip mode
-        $hasExplicitId = $node->hasAttribute('data-djot-explicit-id');
-        $sectionId = $node->getAttribute('id');
-
-        // Find the first heading inside this section
-        $firstHeading = null;
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                $tag = strtolower($child->tagName);
-                if (in_array($tag, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'], true)) {
-                    $firstHeading = $child;
-
-                    break;
-                }
-            }
-        }
-
-        // If we have an explicit ID and a heading, combine ID with heading's attributes
-        $prefix = '';
-        if (
-            $sectionId !== ''
-            && $firstHeading !== null
-            && ($hasExplicitId || $this->sectionIdLooksAuthored($sectionId, $firstHeading))
-        ) {
-            // Get heading's attributes (class, etc.) excluding id
-            $headingAttrs = $this->getElementAttributes($firstHeading, ['id', 'data-djot-explicit-id', 'data-djot-source-level']);
-
-            // Build combined attribute block with ID first
-            $attrParts = ['#' . $sectionId];
-            if ($headingAttrs !== '') {
-                // Add other attributes (already formatted with . prefix for classes)
-                $attrParts[] = $headingAttrs;
-            }
-            $prefix = '{' . implode(' ', $attrParts) . "}\n";
-
-            // Mark that we've handled the heading's attributes
-            $firstHeading->setAttribute('data-djot-attrs-handled', '1');
-        }
-
-        // Process section content as a normal block. processBlock() trims its
-        // own trailing separation, so it is restored here - without it two
-        // adjacent sections glued their headings into one line (`## A## B`),
-        // and an attribute-line prefix could land inline on the previous
-        // heading (carve-php#1289).
-        $content = $this->processBlock($node);
-
-        return $prefix . $content . "\n\n";
-    }
-
-    /**
-     * Whether a section wrapper's id was authored, outside round-trip mode.
-     *
-     * The renderer moves a heading's id onto its `<section>`, authored and
-     * generated alike, and only round-trip mode stamps which one it was. An
-     * authored id used to be dropped here wholesale, so `{#custom}` came back
-     * as a text-derived id and every `#custom` anchor broke after one HTML
-     * round trip (carve-php#1289). The generated id is re-derivable - it is
-     * the tracker's slug of the heading text - so an id that MATCHES that slug
-     * is treated as generated and left to regeneration, and anything else is
-     * authored and kept. A permalink or numbering extension changes the
-     * heading's visible text, which makes the comparison conservative: an id
-     * it cannot confirm as generated is kept, which re-renders identically
-     * either way.
-     */
-    protected function sectionIdLooksAuthored(string $sectionId, DOMElement $heading): bool
-    {
-        $expected = (new HeadingIdTracker())->getIdForText(trim($heading->textContent));
-
-        return $sectionId !== $expected;
-    }
-
-    /**
-     * The colon fence for a container opening at the CURRENT nesting depth.
-     */
-    protected function colonFenceFor(): string
-    {
-        return str_repeat(':', 3 + $this->colonFenceDepth);
-    }
-
-    /**
-     * Serialize a colon-fenced container's BODY, one nesting level deeper.
-     *
-     * The depth has to be raised before the body is written, because the
-     * inward-widening discipline is top-down: the child's width is a fact
-     * about where it sits, not about what it contains.
-     *
-     * @param \Closure(): string $produce
-     */
-    protected function insideColonFence(Closure $produce): string
-    {
-        $this->colonFenceDepth++;
-        try {
-            return $produce();
-        } finally {
-            $this->colonFenceDepth--;
-        }
-    }
-
-    protected function processDiv(DOMElement $node): string
-    {
-        // FIRST, before the admonition and line-block round trips below: those
-        // are colon fences too, and reaching them inside a cell produced
-        // `::: note d :::` and `::: | onetwo :::` as literal cell text. A fence
-        // needs its own lines, which a cell does not have, so the wrapper is
-        // dropped and the content kept - the same thing an attribute-less div
-        // in a cell already did (carve-php#1164).
-        if ($this->tableCellDepth > 0) {
-            return $this->degradeToContent($node);
-        }
-
-        // Check for admonition div (round-trip support)
-        if ($node->hasAttribute('data-djot-admonition-type')) {
-            return $this->processAdmonition($node);
-        }
-
-        // Check for line block (round-trip support)
-        if ($this->hasClass($node, 'line-block')) {
-            return $this->processLineBlock($node);
-        }
-
-        $blockMath = $this->mathDelimitedContent($node, 'div');
-        if ($blockMath !== null) {
-            // The display flag decides the sigil, so a div spelled
-            // `class="math inline"` writes the INLINE form rather than being
-            // promoted to display by the block position it was found in.
-            return $this->renderMath($blockMath['content'], $blockMath['display'])
-                . $this->mathAttributeSuffix($node, $blockMath['classes'])
-                . "\n\n";
-        }
-
-        // BEFORE the class list, because the label decides two things below it:
-        // whether a bare div keeps its fence at all, and what its opener says.
-        // See {@see self::liftContainerLabel()}.
-        //
-        // NOT ON A BARE `djot-content` WRAPPER. That one is a TRANSPORT
-        // wrapper rather than a container - it unwraps unconditionally a few
-        // lines down, and a label lifted here would have no opener to land on
-        // and would be dropped SILENTLY, which is the same undeclared loss this
-        // whole change exists to close, arriving from the other direction.
-        // Refusing keeps the paragraph the HTML actually has (raised by codex
-        // review).
-        $label = $this->isBareDjotContentWrapper($node) ? null : $this->liftContainerLabel($node);
-        $labelPart = $label === null ? '' : ' [' . $label . ']';
-
-        $classes = $this->getElementClassList($node);
-        $fenceClass = array_shift($classes);
-
-        // Check for wrapper div unwrapping: if div has NO class but has attrs
-        // and single block child, apply attrs to the child instead of fenced div
-        //
-        // NOT WITH A LABEL. Moving the attributes onto the child dissolves the
-        // container, and the label has nowhere but a container's opener to go -
-        // so a labelled div keeps its fence even where an unlabelled one would
-        // hand its attributes down.
-        if ($label === null && ($fenceClass === null || $fenceClass === '')) {
-            $singleChild = $this->getSingleBlockChild($node);
-            if ($singleChild !== null) {
-                $attrs = $this->formatBlockAttributes($node);
-                if ($attrs !== '') {
-                    $content = trim($this->processNode($singleChild));
-
-                    return $attrs . $content . "\n";
-                }
-            }
-        }
-
-        if ($fenceClass === null || $fenceClass === '') {
-            $attrs = $this->formatBlockAttributes($node);
-            if ($attrs === '' && $label === null) {
-                return $this->degradeToContent($node);
-            }
-
-            $content = $this->insideColonFence(fn (): string => trim($this->processBlock($node)));
-            $fence = $this->colonFenceFor();
-            $output = $attrs . $fence . $labelPart . "\n";
-            if ($content !== '') {
-                $output .= $content . "\n";
-            }
-
-            return $output . $fence . "\n\n";
-        }
-        // ONE SPELLING, shared with the reason the label lift declined above
-        // {@see self::isBareDjotContentWrapper()} - the two must agree, or a
-        // label is lifted off a wrapper that then throws it away.
-        if ($this->isBareDjotContentWrapper($node)) {
-            return $this->degradeToContent($node);
-        }
-
-        $header = $this->extractAdmonitionTitle($node);
-        $content = $this->insideColonFence(fn (): string => $header === null
-            ? trim($this->processBlock($node))
-            : $this->processAdmonitionContent($node));
-        // The fence class is what NAMES this container - `tabs` is why the
-        // wrapper is called "Tabs" - and it is written as the fence word rather
-        // than kept in `$classes`, so the derived-name test is told about it.
-        $this->structuralClassInProgress = $fenceClass;
-        $parts = [];
-        $idPart = $this->idAttributePart($node);
-        if ($idPart !== null) {
-            $parts[] = $idPart;
-        }
-        foreach ($classes as $class) {
-            $parts[] = '.' . $class;
-        }
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            $name = $attr->name;
-            if ($name === 'id' || $name === 'class' || $this->isStrippedImportAttribute($name)) {
-                continue;
-            }
-            $value = $attr->value;
-            if (
-                $this->isConsumedTitleReference($node, $name, $value)
-                || $this->isDerivedAccessibleName($node, $name, $value)
-            ) {
-                continue;
-            }
-            $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
-        }
-        $this->structuralClassInProgress = null;
-        $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $fence = $this->colonFenceFor();
-        $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
-        $output = $attrs . $fence . ' ' . $fenceClass . $headerPart . $labelPart . "\n";
-        if ($content !== '') {
-            $output .= $content . "\n";
-        }
-
-        return $output . $fence . "\n\n";
-    }
-
-    /**
-     * Is this the bare `djot-content` transport wrapper the importer unwraps
-     * unconditionally?
-     *
-     * Read TWICE on purpose - once to decline the label lift and once to do the
-     * unwrapping - because a lift that ran here would remove a paragraph the
-     * unwrap then throws away.
-     */
-    protected function isBareDjotContentWrapper(DOMElement $node): bool
-    {
-        $classes = $this->getElementClassList($node);
-        if ($classes !== ['djot-content'] || $node->getAttribute('id') !== '') {
-            return false;
-        }
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            if ($attr->name !== 'class' && !$this->isStrippedImportAttribute($attr->name)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    protected function processAside(DOMElement $node): string
-    {
-        $classes = $this->getElementClassList($node);
-        if (!in_array('admonition', $classes, true)) {
-            return $this->processGenericBlockContainer($node);
-        }
-
-        $type = null;
-        foreach ($classes as $class) {
-            if (in_array($class, self::ADMONITION_TYPES, true)) {
-                $type = $class;
-
-                break;
-            }
-        }
-        if ($type === null) {
-            return $this->processGenericBlockContainer($node);
-        }
-
-        $parts = [];
-        $idPart = $this->idAttributePart($node);
-        if ($idPart !== null) {
-            $parts[] = $idPart;
-        }
-
-        foreach ($classes as $class) {
-            if ($class !== 'admonition' && $class !== $type) {
-                $parts[] = '.' . $class;
-            }
-        }
-
-        $skipAttrs = ['id', 'class'];
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            $name = $attr->name;
-            if (in_array($name, $skipAttrs, true) || $this->isStrippedImportAttribute($name)) {
-                continue;
-            }
-            $value = $attr->value;
-            if (
-                $this->isConsumedTitleReference($node, $name, $value)
-                || $this->isDerivedAccessibleName($node, $name, $value)
-            ) {
-                continue;
-            }
-            $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
-        }
-
-        $header = $this->extractAdmonitionTitle($node);
-        // BEFORE the content walk, so the paragraph the label was degraded to
-        // is not also written into the body {@see self::liftContainerLabel()}.
-        $label = $this->liftContainerLabel($node);
-        $content = $this->insideColonFence(fn (): string => $this->processAdmonitionContent($node));
-        $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $fence = $this->colonFenceFor();
-        $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
-        $labelPart = $label === null ? '' : ' [' . $label . ']';
-        $output = $attrs . $fence . ' ' . $type . $headerPart . $labelPart . "\n";
-        if ($content !== '') {
-            $output .= $content . "\n";
-        }
-
-        return $output . $fence . "\n\n";
-    }
-
-    /**
-     * Process admonition div (with data-djot-admonition-type) for round-trip
-     */
-    protected function processAdmonition(DOMElement $node): string
-    {
-        $type = $node->getAttribute('data-djot-admonition-type');
-        $customTitle = $node->getAttribute('data-djot-admonition-title');
-        $header = $customTitle !== '' ? $customTitle : null;
-
-        // Build attributes (excluding admonition-specific classes and data attributes)
-        $parts = [];
-        $idPart = $this->idAttributePart($node);
-        if ($idPart !== null) {
-            $parts[] = $idPart;
-        }
-
-        // Get remaining classes (exclude 'admonition' and the type)
-        $classes = $this->getElementClassList($node);
-        foreach ($classes as $class) {
-            if ($class !== 'admonition' && $class !== $type) {
-                $parts[] = '.' . $class;
-            }
-        }
-
-        // Add other attributes (excluding special ones)
-        $skipAttrs = ['id', 'class', 'data-djot-admonition-type', 'data-djot-admonition-title'];
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            $name = $attr->name;
-            if (in_array($name, $skipAttrs, true) || $this->isStrippedImportAttribute($name)) {
-                continue;
-            }
-            $value = $attr->value;
-            if (
-                $this->isConsumedTitleReference($node, $name, $value)
-                || $this->isDerivedAccessibleName($node, $name, $value)
-            ) {
-                continue;
-            }
-            $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
-        }
-
-        // BEFORE the content walk, for the same reason
-        // {@see self::liftContainerLabel()}.
-        $label = $this->liftContainerLabel($node);
-        // Process content, excluding the title element
-        $content = $this->insideColonFence(fn (): string => $this->processAdmonitionContent($node));
-
-        $attrs = $parts === [] ? '' : '{' . implode(' ', $parts) . "}\n";
-        $fence = $this->colonFenceFor();
-        $headerPart = $header === null ? '' : ' ' . $this->quoteOpenerHeader($header);
-        $labelPart = $label === null ? '' : ' [' . $label . ']';
-        $output = $attrs . $fence . ' ' . $type . $headerPart . $labelPart . "\n";
-        if ($content !== '') {
-            $output .= $content . "\n";
-        }
-
-        return $output . $fence . "\n\n";
-    }
 
     /**
      * Is this the accessible name the RENDERER derives for this element?
@@ -4562,83 +3335,6 @@ class HtmlToCarve
         return false;
     }
 
-    protected function extractAdmonitionTitle(DOMElement $node): ?string
-    {
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'p' && $this->hasClass($child, 'admonition-title')) {
-                return trim($this->processChildren($child));
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Process admonition content, excluding the title element
-     */
-    protected function processAdmonitionContent(DOMElement $node): string
-    {
-        return $this->processBlock($node, fn (DOMNode $child): bool => $this->isDegradedContainerTitle($child));
-    }
-
-    /**
-     * Is this child the container's own TITLE, degraded to markup by the
-     * renderer rather than written as body content?
-     *
-     * ONE SPELLING, because two readers ask it: the content walk skips it, and
-     * {@see self::liftContainerLabel()} scans past it. A quoted title and a
-     * grouping label are written on the same opener - `::: note "T" [g]` - so
-     * the title's own degraded paragraph sits ahead of the label's, and a lift
-     * that stopped at the first element it did not recognize refused every
-     * container carrying both.
-     */
-    protected function isDegradedContainerTitle(DOMNode $child): bool
-    {
-        if (!$child instanceof DOMElement) {
-            return false;
-        }
-        $tag = strtolower($child->tagName);
-
-        return ($tag === 'p' && $this->hasClass($child, 'admonition-title')) || $tag === 'summary';
-    }
-
-    /**
-     * `<details>` becomes the `::: details` admonition DetailsExtension renders
-     * back as a disclosure widget.
-     *
-     * The `<summary>` is that widget's label, and the extension takes the label
-     * from the QUOTED TITLE on the opener line. Letting the summary fall
-     * through as ordinary block content kept its text but not its role: the
-     * round trip came back with the extension's default `<summary>Details</summary>`
-     * and the real label demoted to the first paragraph of the body.
-     */
-    protected function processDetails(DOMElement $node): string
-    {
-        if ($this->tableCellDepth > 0) {
-            return $this->degradeToContent($node);
-        }
-
-        $summary = $this->findFirstDirectChildByTagName($node, 'summary');
-        if (!$summary instanceof DOMElement) {
-            return $this->processGenericBlockContainer($node);
-        }
-        $title = $this->detailsSummaryTitle($summary);
-        if ($title === null) {
-            return $this->processGenericBlockContainer($node);
-        }
-
-        $summary->parentNode?->removeChild($summary);
-        $attrs = $this->formatBlockAttributes($node);
-        $content = $this->insideColonFence(fn (): string => trim($this->processBlock($node)));
-        $fence = $this->colonFenceFor();
-        $output = $attrs . $fence . ' details "' . $title . '"' . "\n";
-        if ($content !== '') {
-            $output .= $content . "\n";
-        }
-
-        return $output . $fence . "\n\n";
-    }
-
     /**
      * Does this element stand inside a table cell?
      *
@@ -4675,225 +3371,16 @@ class HtmlToCarve
      */
     protected function detailsSummaryTitle(DOMElement $summary): ?string
     {
-        $title = trim($this->processChildren($summary));
+        $html = '';
+        foreach ($summary->childNodes as $child) {
+            $html .= $summary->ownerDocument?->saveHTML($child) ?? '';
+        }
+        $title = trim((new self())->convert($html));
         if ($title === '' || str_contains($title, '"') || str_contains($title, "\n")) {
             return null;
         }
 
         return $title;
-    }
-
-    /**
-     * Is this one of the SECTIONING wrappers?
-     */
-    protected function isSectioningWrapper(string $tagName): bool
-    {
-        return in_array($tagName, ['article', 'main', 'header', 'footer', 'nav', 'aside'], true);
-    }
-
-    protected function processGenericBlockContainer(DOMElement $node): string
-    {
-        $tagName = strtolower($node->tagName);
-
-        // `<details>` always builds a colon fence, which a cell cannot hold.
-        // Every other tag here already degrades to its content once the cell
-        // context has emptied its attributes; this makes the one exception
-        // behave like the rest (carve-php#1164).
-        if ($this->tableCellDepth > 0) {
-            return $this->unwrapBlockContainer($node, $tagName);
-        }
-
-        // THE UNMAPPED NAMES ARE KEPT BYTE FOR BYTE IN `roundtrip`
-        // (`markup-carve/carve-php#1713`). `<form>` and its neighbours map to
-        // nothing, and a `::: form` fence is not a `<form>` - it renders as a
-        // div, so the element was gone and the mode's contract with it.
-        if ($tagName !== 'details' && !$this->isSectioningWrapper($tagName)) {
-            $preserved = $this->preservedAsRawHtml($node);
-            if ($preserved !== null) {
-                return $preserved;
-            }
-        }
-
-        // ONLY `<details>` REACHES THE FENCE, and that is the whole of the
-        // change here. `::: details` is a real construct the extension renders
-        // back as a `<details>`; every other name this handler sees renders as
-        // a `<div>` wearing the name, so the fence was never a spelling for it -
-        // see {@see self::isSectioningWrapper()}.
-        if ($tagName !== 'details') {
-            return $this->unwrapBlockContainer($node, $tagName);
-        }
-
-        $attrs = $this->formatBlockAttributes($node);
-        $content = $this->insideColonFence(fn (): string => trim($this->processBlock($node)));
-        $fence = $this->colonFenceFor();
-        $output = $attrs . $fence . ' ' . $tagName . "\n";
-        if ($content !== '') {
-            $output .= $content . "\n";
-        }
-
-        return $output . $fence . "\n\n";
-    }
-
-    /**
-     * A block container's content, with the container itself declared gone.
-     *
-     * The unwrapping is what this handler always did for a wrapper carrying no
-     * attributes; what it did not do was SAY so, for that case or for the
-     * attributed one it used to write a fence for. Both engines report the row
-     * (carve-php#1721), and this file reports the equivalent unwrap for every
-     * element it has no mapping for - these were the exception.
-     *
-     * The wrapper's own attributes need no row of their own here: they are gone
-     * from the output, so {@see self::inspectImportAttributes()} already asks
-     * the document and finds them missing.
-     *
-     * @param \DOMElement $node
-     * @param string $tagName
-     */
-    protected function unwrapBlockContainer(DOMElement $node, string $tagName): string
-    {
-        if ($tagName !== 'details') {
-            $this->unwrappedBlockContainers[$this->conversionNodePath($node)] = true;
-        }
-
-        return $this->degradeToContent($node);
-    }
-
-    /**
-     * Process line block div (with class "line-block") for round-trip
-     */
-    protected function processLineBlock(DOMElement $node): string
-    {
-        // Build attributes (excluding 'line-block' class)
-        $parts = [];
-        $idPart = $this->idAttributePart($node);
-        if ($idPart !== null) {
-            $parts[] = $idPart;
-        }
-
-        // Get remaining classes (exclude 'line-block')
-        $classes = $this->getElementClassList($node);
-        foreach ($classes as $class) {
-            if ($class !== 'line-block') {
-                $parts[] = '.' . $class;
-            }
-        }
-
-        // Add other attributes (excluding special ones)
-        $skipAttrs = ['id', 'class'];
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            $name = $attr->name;
-            if (in_array($name, $skipAttrs, true) || $this->isStrippedImportAttribute($name)) {
-                continue;
-            }
-            $value = $attr->value;
-            if (
-                $this->isConsumedTitleReference($node, $name, $value)
-                || $this->isDerivedAccessibleName($node, $name, $value)
-            ) {
-                continue;
-            }
-            $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
-        }
-
-        // Extract lines from the content - handle <br> as line separators
-        $lines = $this->insideColonFence(fn (): string => implode("\n", $this->extractLineBlockLines($node)));
-        $lines = $lines === '' ? [] : explode("\n", $lines);
-
-        // A CLOSER-SHAPED VERSE LINE IS ESCAPED, NOT WIDENED AROUND. The fence
-        // width is the container's own (`carve fmt`'s inward-widening form, see
-        // {@see colonFenceFor()}), so it cannot also carry the answer to "does
-        // a verse line read as this block's closer" - and the formatter answers
-        // that one with a backslash, which is the spelling that survives at any
-        // width. Widening instead made the whole block one column wider for a
-        // reason that is not about nesting, and left the source outside
-        // `carve fmt`'s image either way (markup-carve/carve-php#1583).
-        $fence = $this->colonFenceFor();
-        foreach ($lines as $index => $line) {
-            if (preg_match('/^:{3,}\s*$/', $line) === 1) {
-                $lines[$index] = '\\' . $line;
-            }
-        }
-
-        // STRICT (djot): the `:::` fence takes no inline attributes, so any
-        // extra id/classes go on a PRECEDING block-attribute line.
-        $attrLine = $parts === [] ? '' : '{' . implode(' ', $parts) . '}' . "\n";
-        $output = $attrLine . $fence . ' |' . "\n";
-
-        foreach ($lines as $line) {
-            $output .= $line . "\n";
-        }
-
-        return $output . $fence . "\n\n";
-    }
-
-    /**
-     * Extract lines from a line block, handling <br> elements as separators
-     *
-     * @return array<string>
-     */
-    protected function extractLineBlockLines(DOMElement $node): array
-    {
-        $lines = [];
-        $currentLine = '';
-
-        $processNode = function (DOMNode $child) use (&$lines, &$currentLine): void {
-            if ($child instanceof DOMText) {
-                $text = $child->textContent;
-                $text = str_replace("\u{00A0}", ' ', $text);
-                if ($currentLine === '') {
-                    $text = preg_replace('/^\n/', '', $text) ?? $text;
-                }
-                $currentLine .= $text;
-            } elseif ($child instanceof DOMElement) {
-                $tag = strtolower($child->tagName);
-                if ($tag === 'br') {
-                    // <br> marks end of current line
-                    $lines[] = rtrim($currentLine);
-                    $currentLine = '';
-                } else {
-                    // Process other elements inline (strong, em, etc.)
-                    $currentLine .= $this->processNode($child);
-                }
-            }
-        };
-
-        // Find inner content (may be wrapped in <p> or direct children)
-        $sawParagraph = false;
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'p') {
-                if ($sawParagraph && ($lines === [] || end($lines) !== '')) {
-                    $lines[] = '';
-                }
-                $sawParagraph = true;
-
-                // Process paragraph's children
-                foreach ($child->childNodes as $pChild) {
-                    $processNode($pChild);
-                }
-
-                if (trim($currentLine) !== '') {
-                    $lines[] = rtrim($currentLine);
-                    $currentLine = '';
-                }
-            } elseif ($child instanceof DOMText && trim($child->textContent) === '') {
-                // Structural whitespace between block children (e.g. the
-                // indentation before a <p>) is not content - skip it so it does
-                // not bleed into the first verse line. Real indentation lives
-                // inside the <p> as NBSP and is handled above.
-                continue;
-            } else {
-                $processNode($child);
-            }
-        }
-
-        // Don't forget the last line if any content remains
-        if (trim($currentLine) !== '') {
-            $lines[] = rtrim($currentLine);
-        }
-
-        return $lines;
     }
 
     /**
@@ -4919,76 +3406,6 @@ class HtmlToCarve
         $classList = preg_split('/\s+/', $classes) ?: [];
 
         return array_values(array_filter($classList, static fn (string $class): bool => $class !== ''));
-    }
-
-    /**
-     * The canonical writer's quoting rule, which is the one the importer owes.
-     *
-     * This is `CarveRenderer::quoteAttrValue()`'s predicate, not a second
-     * opinion about it. A narrower charset here quoted `title="a=b"`,
-     * `title="é"` and `data-q="a&b"` where every writer - this engine's
-     * included - writes them bare, so the importer's output was rewritten the
-     * moment it met `carve fmt`, and it disagreed with carve-js and carve-rs on
-     * the same input.
-     */
-    protected function quoteLinkTitle(string $title): string
-    {
-        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $title) . '"';
-    }
-
-    protected function quoteOpenerHeader(string $title): string
-    {
-        // Div/code opener headers cannot contain a double quote. When converting
-        // arbitrary HTML, keep the source valid and preserve the remaining
-        // inline markup rather than emitting an opener the parser cannot read.
-        return '"' . str_replace(['\\"', '"'], '', $title) . '"';
-    }
-
-    protected function processParagraph(DOMElement $node): string
-    {
-        $content = $this->escapeBlockLineOpeners(trim($this->processChildren($node)), iterator_to_array($node->childNodes));
-        if ($content === '') {
-            return '';
-        }
-
-        $attrs = $this->formatBlockAttributes($node);
-
-        /*
-         * CARVE SOURCE CANNOT SPELL A PARAGRAPH HOLDING ONLY AN IMAGE, so this
-         * line writes a BLOCK image and the author's `<p>` leaves the document
-         * (carve-php#1667). `resources/examples/edge-cases.md` rules the shape -
-         * "a paragraph whose whole content is one image is still the standalone
-         * image shape, not a wrapped one" - so there is no other output to
-         * write, and `docs/html-import.md` says what is owed instead: the exit
-         * that writes source reports `structure-unspellable`.
-         *
-         * RECORDED HERE, WHERE THE WRITER IS. The inspection walk cannot ask a
-         * DOM-shaped predicate for this and get the same answer: what a `<p>`
-         * HOLDS and what it WRITES are different questions. This one is the
-         * writer's.
-         */
-        $image = $this->loneImportImage($node, $content);
-        if ($image !== null && $this->importParagraphIsWrittenAsABlock($node)) {
-            $this->loneImageParagraphs[$this->conversionNodePath($node)] = [
-                'attributed' => $attrs !== '',
-                'overwritten' => $this->overwrittenImportImageAttributes($node, $image),
-            ];
-        }
-
-        return $attrs . $content . "\n\n";
-    }
-
-    /**
-     * The one `<img>` a paragraph WRITES, when it writes nothing else.
-     */
-    protected function loneImportImage(DOMElement $node, string $written): ?DOMElement
-    {
-        $image = $this->soleImportImageDescendant($node);
-        if ($image === null) {
-            return null;
-        }
-
-        return $this->importImageSpelling($image) === $written ? $image : null;
     }
 
     /**
@@ -5104,108 +3521,6 @@ class HtmlToCarve
         }
 
         return $names;
-    }
-
-    protected function processHeading(DOMElement $node): string
-    {
-        $level = (int)substr($node->tagName, 1);
-        if ($node->hasAttribute('data-djot-source-level')) {
-            $level = max(1, min(6, (int)$node->getAttribute('data-djot-source-level')));
-        }
-        $content = trim($this->processChildren($node));
-        $prefix = str_repeat('#', $level) . ' ';
-
-        // Check if attributes were already handled by processSection
-        if ($node->hasAttribute('data-djot-attrs-handled')) {
-            return $prefix . $content . "\n\n";
-        }
-
-        $skipAttrs = ['data-djot-source-level', 'data-djot-explicit-id', 'data-djot-attrs-handled'];
-        if ($this->headingIdWasGenerated($node)) {
-            // The renderer derives it again from the same text, so dropping it
-            // is a no-op on the render and carrying it would spell an authored
-            // slot the source never had.
-            $skipAttrs[] = 'id';
-        }
-        // THE SLOT ORDER IS THE ELEMENT'S, which is only observable on a
-        // heading: this is the one construct whose writer can be handed an id
-        // and a class in either order and has to write them back in it.
-        $attrs = $this->formatBlockAttributes($node, $skipAttrs, true);
-
-        return $attrs . $prefix . $content . "\n\n";
-    }
-
-    /**
-     * Whether this heading's `id` is one THIS ENGINE generated, so re-emitting
-     * it would change the render.
-     */
-    protected function headingIdWasGenerated(DOMElement $node): bool
-    {
-        if ($this->importMode !== 'roundtrip' || !$node->hasAttribute('id')) {
-            return false;
-        }
-        if ($node->hasAttribute('data-djot-explicit-id')) {
-            return false;
-        }
-
-        return $this->idInGeneratedPosition($node)
-            && $this->isGeneratedHeadingId($node->getAttribute('id'), trim($node->textContent));
-    }
-
-    /**
-     * Whether `id` sits where `HtmlRenderer` writes a GENERATED one: after
-     * every authored attribute.
-     *
-     * `data-source-line` is the one thing allowed to follow it. That is a
-     * render annotation rather than an authored attribute, and the renderer
-     * emits it last on purpose - `HtmlRenderer::RENDER_ANNOTATIONS` and the
-     * rule beside it, "A RENDER ANNOTATION IS EMITTED LAST - after the
-     * GENERATED attribute, not merely after the authored ones".
-     */
-    protected function idInGeneratedPosition(DOMElement $node): bool
-    {
-        $names = [];
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            $names[] = $attr->name;
-        }
-        while ($names !== [] && end($names) === 'data-source-line') {
-            array_pop($names);
-        }
-
-        return $names !== [] && end($names) === 'id';
-    }
-
-    /**
-     * Whether `id` is a value this engine's renderer would derive for a heading
-     * whose plain text is `text`.
-     *
-     * THE DEFAULT SLUG ONLY, which is the accepted limit the importer already
-     * states for every other derived attribute: it cannot know which heading-id
-     * options the render used, so a value no default equals is
-     * indistinguishable from an authored one and KEEPING it is the safe side.
-     *
-     * The `-N` tail is `HeadingIdTracker::dedupe()`'s own shape, and it starts
-     * at 2 because the first occurrence takes the bare base. So `-1` is never a
-     * counter this engine wrote, and neither is a leading-zero run nor a tail
-     * holding anything but digits.
-     */
-    protected function isGeneratedHeadingId(string $id, string $text): bool
-    {
-        $base = (new HeadingIdTracker())->normalizeId($text);
-        if ($id === $base) {
-            return true;
-        }
-        if (!str_starts_with($id, $base . '-')) {
-            return false;
-        }
-
-        $count = substr($id, strlen($base) + 1);
-
-        return $count !== ''
-            && $count !== '1'
-            && !str_starts_with($count, '0')
-            && preg_match('/^[0-9]+$/', $count) === 1;
     }
 
     /**
@@ -5440,86 +3755,6 @@ class HtmlToCarve
         return true;
     }
 
-    /**
-     * Convert one of the five single-character inline kinds, bare or braced.
-     *
-     * A bare delimiter opens and closes only away from a word character, which
-     * is the whole reason the braced form exists: `Sy*rup*-free` renders the
-     * two asterisks as prose and throws the emphasis away, while
-     * `Sy{*rup*}-free` is the same document the HTML was. So the intraword case
-     * takes `{*x*}` and every other case keeps the canonical bare `*x*`.
-     */
-    protected function processBareInlineFormatting(DOMElement $node, string $ch): string
-    {
-        if (isset($this->unwrappedFormatting[(string)$node->getNodePath()])) {
-            return $this->writeUnwrappedFormatting($node);
-        }
-        $content = $this->paddedContent($node, $this->processChildren($node));
-        if ($content === '') {
-            return '';
-        }
-
-        [$open, $close] = $this->boundaryDelimiters($node, $ch, $content);
-        $this->recordFormatting($node, $ch, $open !== $ch);
-
-        return $open . $content . $close . $this->formatInlineAttributes($node);
-    }
-
-    /**
-     * Record how a formatting element was written, and mark every span of its
-     * own kind inside it for unwrapping: PART 9 §9 E3 leaves that opener
-     * literal at any depth, bare or braced (PART 11 §1c,
-     * markup-carve/carve#2078).
-     */
-    protected function recordFormatting(DOMElement $node, string $kind, bool $braced): void
-    {
-        $pending = iterator_to_array($node->childNodes);
-        while ($pending !== []) {
-            $inner = array_shift($pending);
-            if (!$inner instanceof DOMElement) {
-                continue;
-            }
-            $key = (string)$inner->getNodePath();
-            if ($this->formattingKind($inner) === $kind && isset($this->bracedFormatting[$key])) {
-                $this->unwrappedFormatting[$key] = $this->conversionNodePath($inner);
-            }
-            // A braced span of another kind is a scope of its own.
-            if (($this->bracedFormatting[$key] ?? false) === true && $this->formattingKind($inner) !== $kind) {
-                continue;
-            }
-            array_push($pending, ...iterator_to_array($inner->childNodes));
-        }
-        // Every written span is recorded, bare or braced, since E3 refuses both.
-        $this->bracedFormatting[(string)$node->getNodePath()] = $braced;
-    }
-
-    /**
-     * A formatting element marked for unwrapping: its content, or for the AST
-     * exit a span carrying the node type it stands for.
-     */
-    protected function writeUnwrappedFormatting(DOMElement $node): string
-    {
-        if (!$this->treeExit) {
-            return $this->processChildren($node);
-        }
-        $type = match (strtolower($node->tagName)) {
-            'strong', 'b' => 'strong',
-            'em', 'i' => 'emphasis',
-            'u' => 'underline',
-            's', 'strike' => 'strike',
-            'mark' => 'highlight',
-            'ins' => 'insert',
-            'del' => 'delete',
-            'sup' => 'superscript',
-            default => 'subscript',
-        };
-
-        $attrs = $this->formatInlineAttributes($node);
-
-        return '[' . $this->escapeNoteReferenceLabel($this->buildLabelContent(fn (): string => $this->restoreTrailingHardBreak(trim($this->processChildren($node)))))
-            . ']{' . self::TREE_KIND . '=' . $type . ($attrs === '' ? '' : ' ' . substr($attrs, 1, -1)) . '}';
-    }
-
     protected function formattingKind(DOMElement $node): ?string
     {
         return match (strtolower($node->tagName)) {
@@ -5537,88 +3772,6 @@ class HtmlToCarve
     }
 
     /**
-     * Choose bare vs forced-brace delimiters for a single-character inline kind.
-     *
-     * The test is the canonical writer's, `CarveRenderer::renderEmphasis`: a
-     * word character on either side, or content that itself starts or ends with
-     * the delimiter, forces the braces. Anything else keeps the bare form. That
-     * is what makes the importer's output a fixed point of `carve fmt` - the
-     * two would otherwise disagree about which spelling this span wants, and
-     * formatting an imported document would rewrite it.
-     *
-     * @return array{0: string, 1: string}
-     */
-    protected function boundaryDelimiters(DOMElement $node, string $ch, string $content = ''): array
-    {
-        $needsForced = $this->endsInEmptyCodeSpan($node)
-            || $this->isWordCharacter($this->adjacentBoundaryCharacter($node, true))
-            || $this->isWordCharacter($this->adjacentBoundaryCharacter($node, false))
-            || str_starts_with($content, $ch)
-            || str_ends_with($content, $ch)
-            || str_ends_with($content, "\n")
-            || preg_match('/^\s|\s$/', $content) === 1
-            // `/*` opens `bold_italic`, the writer's carve-php#2012 case.
-            || ($ch === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'))
-            // A braced span starts a scope, so it lets an outer kind nest again (markup-carve/carve#2091).
-            || $this->separatesAnOuterFormattingKind($node);
-
-        return $needsForced ? ['{' . $ch, $ch . '}'] : [$ch, $ch];
-    }
-
-    /**
-     * Does a formatting element of an enclosing kind other than this one's sit
-     * inside it? Then it is written braced, as the Carve writer writes it.
-     */
-    protected function separatesAnOuterFormattingKind(DOMElement $node): bool
-    {
-        $own = $this->formattingKind($node);
-        $outer = [];
-        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            $kind = $this->formattingKind($parent);
-            if ($kind !== null && $kind !== $own) {
-                $outer[$kind] = true;
-            }
-        }
-        if ($outer === []) {
-            return false;
-        }
-        foreach ($node->getElementsByTagName('*') as $inner) {
-            $kind = $this->formattingKind($inner);
-            if ($kind !== null && isset($outer[$kind])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Does this element end in the one span a bare closer cannot follow?
-     *
-     * The writer's test, `CarveRenderer::endsInEmptyCodeSpan()`: an empty
-     * verbatim span leaves its run open, and inside an emphasis only the braced
-     * `X}` ends it - a bare closer sits in the run and is read as content. The
-     * writer excludes an ATTRIBUTED span where this does not, because
-     * {@see processCode()} has already written this one without its attributes.
-     */
-    protected function endsInEmptyCodeSpan(DOMElement $node): bool
-    {
-        for ($last = $node->lastChild; $last !== null; $last = $last->previousSibling) {
-            if ($last instanceof DOMText && trim($last->textContent) === '') {
-                continue;
-            }
-
-            return $last instanceof DOMElement
-                && strtolower($last->tagName) === 'code'
-                && !$this->inPre
-                && $last->textContent === ''
-                && !$this->emptyCodeSpanIsDropped($last);
-        }
-
-        return false;
-    }
-
-    /**
      * The character a sibling puts next to the delimiter, or '' when it puts
      * none there.
      *
@@ -5629,638 +3782,6 @@ class HtmlToCarve
      * a construct here - an attribute-less `<span>`, a wrapper the walk does
      * not know - flattens to its children, so the search descends into it.
      */
-
-    /**
-     * The character beside an element, read past the edge of an unwrapped
-     * formatting parent, whose content is written in its place.
-     */
-    protected function adjacentBoundaryCharacter(DOMElement $node, bool $trailing): string
-    {
-        $current = $node;
-        while (true) {
-            $sibling = $trailing ? $current->previousSibling : $current->nextSibling;
-            $parent = $current->parentNode;
-            if (
-                $sibling !== null
-                || !$parent instanceof DOMElement
-                || !isset($this->unwrappedFormatting[(string)$parent->getNodePath()])
-            ) {
-                return $this->boundaryCharacter($sibling, $trailing);
-            }
-            $current = $parent;
-        }
-    }
-
-    /**
-     * A formatting element's content, trimmed, keeping one space at an edge
-     * where dropping it would join the text to its neighbor (#2079).
-     */
-    protected function paddedContent(DOMElement $node, string $raw): string
-    {
-        $content = trim($raw);
-        if ($content === '') {
-            // WHITESPACE IS CONTENT HERE. The element rendered a space, and the
-            // writer spells that tree `{* *}`; dropping it lost a space the
-            // reader saw (#2114).
-            return $raw === '' ? '' : ' ';
-        }
-
-        return $this->paddedLabel($node, $raw, $this->restoreTrailingHardBreak($content));
-    }
-
-    /**
-     * Written content with one space restored at each edge the raw content
-     * had whitespace at and dropping it would join the neighbor.
-     */
-    protected function paddedLabel(DOMElement $node, string $raw, string $content): string
-    {
-        $lead = preg_match('/^\s/', $raw) === 1 && !str_starts_with($content, "\\\n") && $this->paddingIsLost($node, false) ? ' ' : '';
-        $trail = preg_match('/\s$/', $raw) === 1 && $this->paddingIsLost($node, true) ? ' ' : '';
-
-        return $lead . $content . $trail;
-    }
-
-    /**
-     * Does inline content sit against this edge of the element with no
-     * whitespace of its own between?
-     */
-    protected function paddingIsLost(DOMElement $node, bool $trailing): bool
-    {
-        for ($current = $node; $current instanceof DOMElement; $current = $current->parentNode) {
-            $sibling = $trailing ? $current->nextSibling : $current->previousSibling;
-            while (
-                $sibling instanceof DOMComment
-                || ($sibling instanceof DOMText && $sibling->textContent === '')
-                || ($sibling instanceof DOMElement && $this->writesNothingInline($sibling))
-            ) {
-                $sibling = $trailing ? $sibling->nextSibling : $sibling->previousSibling;
-            }
-            if ($sibling instanceof DOMElement) {
-                $tag = strtolower($sibling->tagName);
-                if (in_array($tag, $this->blockElements, true) || in_array($tag, static::BOUNDARY_BLOCK_TAGS, true)) {
-                    return false;
-                }
-                if ($tag !== 'img' && $sibling->textContent === '' && $sibling->getElementsByTagName('img')->length === 0) {
-                    return false;
-                }
-                // A link that writes no label keeps no space, so the space is this element's.
-                if ($tag === 'a' && !$this->linkWritesItsLabel($sibling)) {
-                    return true;
-                }
-                // Between two formatting elements or links the left one keeps the space.
-                if ($tag === 'a' || $this->formattingKind($sibling) !== null) {
-                    return $trailing || preg_match('/\s$/', $sibling->textContent) !== 1;
-                }
-            }
-            if ($sibling !== null) {
-                return $sibling->textContent === '' || preg_match($trailing ? '/^\s/' : '/\s$/', $sibling->textContent) !== 1;
-            }
-            $parent = $current->parentNode;
-            if (
-                !$parent instanceof DOMElement
-                || in_array(strtolower($parent->tagName), $this->blockElements, true)
-                || in_array(strtolower($parent->tagName), static::BOUNDARY_BLOCK_TAGS, true)
-            ) {
-                return false;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Does this anchor write its content as a link label, which keeps an edge
-     * space, rather than as an autolink, a mention or a note reference?
-     */
-    protected function linkWritesItsLabel(DOMElement $node): bool
-    {
-        foreach (['data-djot-autolink', 'data-username', 'data-djot-footnote-label', 'data-djot-inline-footnote-html', 'data-djot-heading-ref'] as $attribute) {
-            if ($node->hasAttribute($attribute)) {
-                return false;
-            }
-        }
-
-        return !$this->importDestinationIsEmpty($node->getAttribute('href'))
-            && !$this->linkRequiresRawHtmlFallback($node);
-    }
-
-    /**
-     * An inline element with no text and no image writes nothing to measure against.
-     */
-    protected function writesNothingInline(DOMElement $node): bool
-    {
-        $tag = strtolower($node->tagName);
-
-        return $node->textContent === ''
-            && $tag !== 'br'
-            && $tag !== 'img'
-            && $node->getElementsByTagName('img')->length === 0
-            && $node->getElementsByTagName('br')->length === 0
-            && !in_array($tag, $this->blockElements, true);
-    }
-
-    protected function boundaryCharacter(?DOMNode $sibling, bool $trailing): string
-    {
-        // How many flattening wrappers the walk has stepped INTO, so it can
-        // step back out of exactly those and no further. Leaving the inline run
-        // is a different answer from finding nothing inside a wrapper.
-        $depth = 0;
-        while ($sibling !== null) {
-            $descend = null;
-            if ($sibling instanceof DOMText) {
-                if ($sibling->textContent !== '') {
-                    return $this->edgeCharacter($sibling->textContent, $trailing);
-                }
-            } elseif ($sibling instanceof DOMComment) {
-                if (
-                    !$this->commentStandsAmongBlocks($sibling)
-                    && !$this->commentHasNoInlineSpelling($sibling->textContent)
-                ) {
-                    return '';
-                }
-            } elseif ($sibling instanceof DOMElement) {
-                $tag = strtolower($sibling->tagName);
-                if (
-                    in_array($tag, $this->blockElements, true)
-                    || in_array($tag, static::BOUNDARY_BLOCK_TAGS, true)
-                ) {
-                    return '';
-                }
-                if ($tag === 'code' && !$this->inPre) {
-                    // A verbatim span is a node even when it holds nothing, and
-                    // its CONTENT is what the writer measures - so an empty one
-                    // contributes '' and ENDS the search rather than being
-                    // stepped over. One this importer drops writes nothing, so
-                    // the search steps over that one.
-                    if (!$this->emptyCodeSpanIsDropped($sibling)) {
-                        return $this->edgeCharacter($sibling->textContent, $trailing);
-                    }
-                }
-                if (
-                    in_array($tag, static::BOUNDARY_OPAQUE_TAGS, true)
-                    && !isset($this->unwrappedFormatting[(string)$sibling->getNodePath()])
-                ) {
-                    // An element with nothing in it renders nothing, so it is
-                    // not in the tree the writer measures and the search keeps
-                    // going. A link, a break and an image are nodes whatever
-                    // they contain.
-                    if ($sibling->textContent !== '' || in_array($tag, ['a', 'br', 'img'], true)) {
-                        return '';
-                    }
-                } elseif ($tag === 'span' && $sibling->attributes->length > 0) {
-                    return '';
-                } else {
-                    // Everything left flattens to its own children, so the
-                    // neighbour is whatever they end with.
-                    $descend = $trailing ? $sibling->lastChild : $sibling->firstChild;
-                }
-            }
-            if ($descend !== null) {
-                $sibling = $descend;
-                $depth++;
-
-                continue;
-            }
-            // Nothing here - a comment, an empty text node, an element that
-            // renders nothing, or a wrapper with no children. Step sideways,
-            // climbing back out of the wrappers this walk entered.
-            $step = $trailing ? $sibling->previousSibling : $sibling->nextSibling;
-            while ($step === null && $depth > 0) {
-                $sibling = $sibling->parentNode;
-                $depth--;
-                if ($sibling === null) {
-                    return '';
-                }
-                $step = $trailing ? $sibling->previousSibling : $sibling->nextSibling;
-            }
-            $sibling = $step;
-        }
-
-        return '';
-    }
-
-    protected function edgeCharacter(string $text, bool $trailing): string
-    {
-        if ($text === '') {
-            return '';
-        }
-
-        return $trailing ? substr($text, -1) : $text[0];
-    }
-
-    /**
-     * A byte from the middle of a multi-byte sequence is >= 0x80 and matches
-     * nothing here, which is the right answer: the rule is ASCII-only in every
-     * engine, so `é*b*é` opens.
-     */
-    protected function isWordCharacter(string $character): bool
-    {
-        return $character !== '' && preg_match('/[A-Za-z0-9_]/', $character) === 1;
-    }
-
-    protected function processInlineFormatting(DOMElement $node, string $open, string $close): string
-    {
-        if (isset($this->unwrappedFormatting[(string)$node->getNodePath()])) {
-            return $this->writeUnwrappedFormatting($node);
-        }
-        $content = $this->paddedContent($node, $this->processChildren($node));
-        if ($content === '') {
-            return '';
-        }
-
-        $this->recordFormatting($node, $open, true);
-        $attrs = $this->formatInlineAttributes($node);
-
-        return $open . $content . $close . $attrs;
-    }
-
-    /**
-     * Put back the newline a trim took from a trailing hard break, whose
-     * backslash would otherwise escape the closer. A text backslash is written
-     * doubled, so only an odd run ends in a break.
-     */
-    protected function restoreTrailingHardBreak(string $content): string
-    {
-        return preg_match('/(?<!\\\\)(?:\\\\\\\\)*\\\\$/', $content) === 1 ? $content . "\n" : $content;
-    }
-
-    protected function processCode(DOMElement $node): string
-    {
-        // Check if inside a pre block (handled by processPreBlock)
-        $parent = $node->parentNode;
-        if ($parent instanceof DOMElement && strtolower($parent->tagName) === 'pre') {
-            return $node->textContent;
-        }
-
-        $content = $node->textContent;
-
-        if ($content === '') {
-            // An attribute block attaches to a CLOSING run, which an empty span
-            // has not got, so it is written bare and `attribute-dropped` carries
-            // what it lost.
-            return $this->emptyCodeSpanIsSpellable($node) ? '``' : '';
-        }
-
-        $backticks = StringUtil::findSafeCodeFence($content, 1);
-        $attrs = $this->formatInlineAttributes($node);
-
-        if (strlen($backticks) > 1) {
-            $needsStartSpace = str_starts_with($content, '`');
-            $needsEndSpace = str_ends_with($content, '`');
-
-            if ($needsStartSpace || $needsEndSpace) {
-                return $backticks . ' ' . $content . ' ' . $backticks . $attrs;
-            }
-        }
-
-        return $backticks . $content . $backticks . $attrs;
-    }
-
-    protected function processPreBlock(DOMElement $node): string
-    {
-        $this->inPre = true;
-
-        // Get content (may be wrapped in code tag)
-        $code = $this->findFirstDirectChildByTagName($node, 'code');
-        $content = $code ? $code->textContent : $node->textContent;
-
-        // Detect language from class
-        $language = '';
-        if ($code instanceof DOMElement) {
-            $classList = $this->getElementClassList($code);
-            foreach ($classList as $class) {
-                if (str_starts_with($class, 'language-') && $class !== 'language-') {
-                    $language = substr($class, 9);
-
-                    break;
-                }
-            }
-
-            if ($language === '' && $classList !== []) {
-                $language = $classList[0];
-            }
-        }
-
-        $backticks = StringUtil::findSafeCodeFence($content, 3);
-        $this->inPre = false;
-
-        // Get attributes from pre element (skip class on code since used for language)
-        $attrs = $this->formatBlockAttributes($node);
-
-        // NO space between the fence and the language word. This importer had it
-        // right and was aligned onto the writer's spelling instead, because the
-        // writer was the one that was wrong: `fenced_code_block` states "The
-        // no-space form (```php) is canonical and is what the X->Carve
-        // converters emit", and an importer IS such a converter. The writer now
-        // emits the same form, so the alignment `docs/html-import.md` asks for
-        // holds in the direction the grammar names.
-        $opener = $backticks . $language;
-
-        if (str_ends_with($content, "\n")) {
-            $content = substr($content, 0, -1);
-        }
-
-        // Glued, not separated - see processBlockquote() for why.
-        return $attrs . $opener . "\n" . $content . "\n" . $backticks . "\n\n";
-    }
-
-    protected function extractRoundTripSource(DOMElement $node, string $tagName): ?string
-    {
-        // Untrusted HTML must not be able to smuggle raw Carve through a
-        // `data-djot-src` attribute (it is emitted verbatim, so a crafted value
-        // could inject a raw-HTML block -> live <script>). Only honor it when the
-        // caller explicitly trusts the source.
-        if (!$this->trustedRoundTrip) {
-            return null;
-        }
-
-        if (!$node->hasAttribute('data-djot-src')) {
-            return null;
-        }
-
-        if ($tagName !== 'pre' && !in_array($tagName, $this->blockElements, true)) {
-            return null;
-        }
-
-        $source = html_entity_decode($node->getAttribute('data-djot-src'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-        return rtrim($source, "\n") . "\n\n";
-    }
-
-    protected function processLink(DOMElement $node): string
-    {
-        // The trusted verbatim escape hatch stays ahead of everything: it
-        // re-emits the element as it stands, `href=""` included, so it carries
-        // no destination back either.
-        if ($this->linkRequiresRawHtmlFallback($node)) {
-            return $this->processRawHtmlInlineElement($node);
-        }
-
-        // A DESTINATION CARVE CANNOT CARRY IS NOT A DESTINATION
-        // (`docs/html-import.md`). Carve spells a link's destination in one
-        // slot and has NO spelling for an empty one - `[t]()` is literal text -
-        // so writing the empty slot emitted four punctuation characters the
-        // HTML never held, into the middle of the prose. No link node is built:
-        // the element's CONTENT stands in its place, carried by a span where an
-        // attribute survives and bare where none does.
-        //
-        // AND THE DESTINATION IS NOT REBUILT, which is the normative half. This
-        // is what Carve's own renderer emits: PART 9 §25 blanks a dangerous
-        // destination and writes no provenance for it, keeping the visible
-        // text, so any route from a `title`, from the anchor's text or from a
-        // round-trip attribute back to a destination would reconstruct the
-        // exact value a security rule removed. The round trip owes the text.
-        //
-        // AHEAD OF THE ROUND-TRIP BRANCHES, so the clause holds with no
-        // exception to state. None of them can be reached with an empty
-        // destination from this engine's own output - `HeadingReferenceExtension`
-        // rewrites the placeholder to `href="#slug"` before it appends its
-        // attribute, and `InlineFootnotesExtension` and the renderer's footnote
-        // reference both write `href="#fnN"` before theirs - so nothing that
-        // round-trips loses its route here. What the order settles is
-        // hand-written input, where a `data-djot-*` attribute beside a blanked
-        // destination would otherwise rebuild a link the rule says is not one.
-        if ($this->importDestinationIsEmpty($node->getAttribute('href'))) {
-            return $this->unwrapDestinationLessElement($node, fn (): string => $this->processChildren($node), ['href']);
-        }
-
-        if ($node->hasAttribute('data-djot-heading-ref')) {
-            $target = $node->getAttribute('data-djot-heading-ref');
-            $displayText = $node->getAttribute('data-djot-heading-ref-display');
-            if ($displayText === '') {
-                $displayText = trim($this->processChildren($node));
-            }
-
-            return $displayText === $target
-                ? '[[' . $target . ']]'
-                : '[[' . $target . '|' . $displayText . ']]';
-        }
-
-        // Check for regular footnote reference (round-trip support)
-        if ($node->hasAttribute('data-djot-footnote-label')) {
-            $label = $node->getAttribute('data-djot-footnote-label');
-
-            return '[^' . $label . ']';
-        }
-
-        if ($node->hasAttribute('data-djot-inline-footnote-html')) {
-            $html = $node->getAttribute('data-djot-inline-footnote-html');
-            preg_match('/^\s+/u', $html, $leadingWhitespaceMatch);
-            preg_match('/\s+$/u', $html, $trailingWhitespaceMatch);
-
-            $leadingWhitespace = $leadingWhitespaceMatch[0] ?? '';
-            $trailingWhitespace = $trailingWhitespaceMatch[0] ?? '';
-            $trimmedHtml = preg_replace('/^\s+|\s+$/u', '', $html) ?? $html;
-            $content = $this->convertInlineFragmentToDjot($trimmedHtml);
-            $content = $leadingWhitespace . $content . $trailingWhitespace;
-            $cssClass = $node->getAttribute('data-djot-inline-footnote-class');
-            if ($cssClass === '') {
-                $cssClass = 'fn';
-            }
-
-            return '[' . $this->escapeNoteReferenceLabel($content) . ']{.' . $cssClass . '}';
-        }
-
-        // The engine's own footnote reference outside round-trip mode:
-        // <a id="fnrefN" href="#fnN" role="doc-noteref"><sup>N</sup></a>.
-        // Without this it imported as a literal link carrying a superscript
-        // span, the definition it pointed at went unused, and the endnotes
-        // section vanished on the next render (carve-php#1286). The label is
-        // derived from the fragment the same way the definition side derives
-        // it from the list item's id, so the pair stays bound. AFTER the
-        // data-djot branches: a round-trip-mode inline footnote carries the
-        // same role, and its data attributes are the richer record.
-        if (
-            $node->getAttribute('role') === 'doc-noteref'
-            && str_starts_with($node->getAttribute('href'), '#fn')
-        ) {
-            $label = substr($node->getAttribute('href'), 3);
-            if ($label !== '' && !str_contains($label, ' ')) {
-                return '[^' . $label . ']';
-            }
-        }
-
-        $href = $node->getAttribute('href');
-        $raw = $this->buildLabelContent(fn (): string => $this->processChildren($node));
-        $text = trim($raw);
-        $title = $node->getAttribute('title');
-
-        if ($text === '') {
-            $text = $this->escapeLinkOrImageLabel($href);
-        }
-        $text = $this->restoreTrailingHardBreak($text);
-
-        $text = $this->escapeNoteReferenceLabel($text);
-        // The label keeps an edge space that separates it from its neighbor (#2094).
-        $label = trim($raw) === '' ? $text : $this->paddedLabel($node, $raw, $text);
-
-        // Check for @mention (round-trip support for MentionsExtension)
-        if ($node->hasAttribute('data-username')) {
-            $username = $node->getAttribute('data-username');
-            // Verify the link text matches @username pattern
-            if ($text === '@' . $username) {
-                return '@' . $username;
-            }
-        }
-
-        // Check for autolink (round-trip support)
-        if ($node->hasAttribute('data-djot-autolink')) {
-            // Skip href and data-djot-autolink since they're in the autolink syntax
-            $attrs = $this->formatInlineAttributes($node, ['href', 'data-djot-autolink']);
-
-            // Email autolinks have mailto: prefix - strip it for output
-            if (str_starts_with($href, 'mailto:')) {
-                $email = substr($href, 7);
-
-                return '<' . $email . '>' . $attrs;
-            }
-
-            return '<' . $href . '>' . $attrs;
-        }
-
-        // Check for reference link (round-trip support)
-        if ($node->hasAttribute('data-djot-ref')) {
-            $refLabel = $node->getAttribute('data-djot-ref');
-            // The COLLAPSED form. `ref` used to hold `''` for it; PART 12 §3a
-            // made it the real label (carve#597), and a label equal to the link
-            // text is exactly what `[text][]` means - writing it out would
-            // produce `[text][text]`, which is a different construct in the
-            // source even though it resolves the same.
-            if ($refLabel === $text) {
-                $refLabel = '';
-            }
-            // Skip href, title, and data-djot-ref since they're in the reference syntax
-            $attrs = $this->formatInlineAttributes($node, ['href', 'title', 'data-djot-ref']);
-
-            if ($refLabel === '' && !$this->isSafeReferenceLabel($text)) {
-                if ($title !== '') {
-                    return '[' . $label . '](' . $href . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
-                }
-
-                return '[' . $label . '](' . $href . ')' . $attrs;
-            }
-
-            if ($refLabel !== '' && !$this->isSafeReferenceLabel($refLabel)) {
-                if ($title !== '') {
-                    return '[' . $label . '](' . $href . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
-                }
-
-                return '[' . $label . '](' . $href . ')' . $attrs;
-            }
-
-            // Collect reference definition
-            // For collapsed reference (empty label), use the link text as label
-            $defLabel = $refLabel === '' ? $text : $refLabel;
-            if (!isset($this->referenceDefinitions[$defLabel])) {
-                $this->referenceDefinitions[$defLabel] = $href;
-            }
-
-            // Output reference link syntax
-            if ($refLabel === '') {
-                // Collapsed reference [text][], or a full one where the label is padded.
-                return '[' . $label . '][' . ($label === $text ? '' : $text) . ']' . $attrs;
-            }
-
-            return '[' . $label . '][' . $refLabel . ']' . $attrs;
-        }
-
-        // Skip href and title since they're in the link syntax
-        $attrs = $this->formatInlineAttributes($node, ['href', 'title']);
-
-        if ($title !== '') {
-            return '[' . $label . '](' . $href . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
-        }
-
-        return '[' . $label . '](' . $href . ')' . $attrs;
-    }
-
-    protected function processImage(DOMElement $node): string
-    {
-        $src = $node->getAttribute('src');
-        $rawAlt = $node->getAttribute('alt');
-        $title = $node->getAttribute('title');
-
-        if ($this->requiresRawImageFallback($rawAlt)) {
-            return $this->processRawHtmlInlineElement($node);
-        }
-
-        // The same rule as the link one layer up, and it is the SAME shape: an
-        // `<img>` whose `src` names no destination the source can carry builds
-        // no image node either. AN IMAGE'S CONTENT IS ITS ALTERNATIVE TEXT -
-        // that is what every target with no image shows for it, and what a
-        // browser shows for one it cannot load - so the alt text is what stands
-        // in its place.
-        if ($this->importDestinationIsEmpty($src)) {
-            // ESCAPED AS PROSE, not as an image label. The alt value has not
-            // been through `processNode`, so unlike the anchor's content above
-            // it arrives raw - and it is landing in a slot where every Carve
-            // opener is live. Emitted bare, `alt="a *bold* b"` came back as
-            // markup the HTML never held.
-            return $this->unwrapDestinationLessElement(
-                $node,
-                fn (): string => $this->escapeHtmlTextForSlot($rawAlt),
-                ['src', 'alt'],
-            );
-        }
-
-        // Alt text is raw (PART 3), so it is written as the writer writes it:
-        // as authored where the run closes, escaped only where it cannot.
-        $alt = BracketScanner::rawRunCloses($rawAlt)
-            ? $rawAlt
-            : $this->escapeLinkOrImageLabel($this->escapeLiteralBackslashes($rawAlt));
-
-        // Check for reference image (round-trip support)
-        if ($node->hasAttribute('data-djot-ref')) {
-            $refLabel = $node->getAttribute('data-djot-ref');
-            // The COLLAPSED form - see the note on the link branch above
-            // (carve#597).
-            if ($refLabel === $alt) {
-                $refLabel = '';
-            }
-            // Skip src, alt, title, and data-djot-ref since they're in the reference syntax
-            $attrs = $this->formatInlineAttributes($node, ['src', 'alt', 'title', 'data-djot-ref']);
-
-            if ($refLabel === '' && !$this->isSafeReferenceLabel($alt)) {
-                if ($title !== '') {
-                    return '![' . $alt . '](' . $src . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
-                }
-
-                return '![' . $alt . '](' . $src . ')' . $attrs;
-            }
-
-            if ($refLabel !== '' && !$this->isSafeReferenceLabel($refLabel)) {
-                if ($title !== '') {
-                    return '![' . $alt . '](' . $src . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
-                }
-
-                return '![' . $alt . '](' . $src . ')' . $attrs;
-            }
-
-            // Collect reference definition
-            // For collapsed reference (empty label), use the alt text as label
-            $defLabel = $refLabel === '' ? $alt : $refLabel;
-            if (!isset($this->referenceDefinitions[$defLabel])) {
-                $this->referenceDefinitions[$defLabel] = $src;
-            }
-
-            // Output reference image syntax
-            if ($refLabel === '') {
-                // Collapsed reference ![alt][]
-                return '![' . $alt . '][]' . $attrs;
-            }
-
-            return '![' . $alt . '][' . $refLabel . ']' . $attrs;
-        }
-
-        // Skip src, alt, title since they're in the image syntax
-        $attrs = $this->formatInlineAttributes($node, ['src', 'alt', 'title']);
-
-        if ($title !== '') {
-            return '![' . $alt . '](' . $src . ' ' . $this->quoteLinkTitle($title) . ')' . $attrs;
-        }
-
-        return '![' . $alt . '](' . $src . ')' . $attrs;
-    }
 
     /**
      * Does this URL attribute name no destination at all?
@@ -6285,130 +3806,6 @@ class HtmlToCarve
     protected function importDestinationIsEmpty(string $value): bool
     {
         return trim($value, " \t\n\f\r") === '';
-    }
-
-    /**
-     * The Carve an element with no destination leaves behind: its content, in a
-     * span where an attribute survives and bare where none does.
-     *
-     * That is the attribute-less `<div>` boundary one layer down, and it is the
-     * same boundary because it is the same question - what is the element still
-     * needed to hold? Nothing here reads the destination slot: `$skipAttrs`
-     * carries it out, and the caller passes the content it wants stood in the
-     * element's place.
-     *
-     * The brackets are escaped ONLY in the span case, where an unescaped `]` in
-     * the content would end the label early. Bare, the content is ordinary
-     * prose and a backslash there would be a character the author never wrote.
-     *
-     * @param \DOMElement $node
-     * @param \Closure(): string $content
-     * @param array<string> $skipAttrs The destination slot, and anything the content already carries.
-     */
-    protected function unwrapDestinationLessElement(DOMElement $node, Closure $content, array $skipAttrs): string
-    {
-        $attrs = $this->formatInlineAttributes($node, $skipAttrs);
-        if ($attrs === '') {
-            return $content();
-        }
-
-        return '[' . $this->escapeNoteReferenceLabel($this->buildLabelContent($content)) . ']' . $attrs;
-    }
-
-    protected function processHr(DOMNode $node): string
-    {
-        $char = '-';
-        if ($node instanceof DOMElement && $node->hasAttribute('data-char')) {
-            $char = $node->getAttribute('data-char');
-        }
-
-        return "\n\n" . str_repeat($char, 3) . "\n\n";
-    }
-
-    protected function processBlockquote(DOMElement $node): string
-    {
-        // Process content, preserving paragraph breaks.
-        $parts = [];
-        $inlineBuffer = '';
-        $inlineNodes = [];
-        $outerContext = $this->blockLineContext;
-        $this->blockLineContext = ['> ', '> '];
-        try {
-            foreach ($node->childNodes as $child) {
-                $isBlock = $child instanceof DOMElement
-                    && in_array(strtolower($child->tagName), $this->blockElements, true);
-                if (!$isBlock) {
-                    $inlineBuffer .= $this->processNode($child);
-                    $inlineNodes[] = $child;
-
-                    continue;
-                }
-
-                $flushed = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
-                if ($flushed !== '') {
-                    $parts[] = $flushed;
-                }
-                $inlineBuffer = '';
-                $inlineNodes = [];
-
-                $part = rtrim($this->processNode($child), "\n");
-                if ($part !== '') {
-                    $parts[] = $part;
-                }
-            }
-
-            $flushed = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
-            if ($flushed !== '') {
-                $parts[] = $flushed;
-            }
-        } finally {
-            $this->blockLineContext = $outerContext;
-        }
-
-        $content = implode("\n\n", $parts);
-        $lines = explode("\n", $content);
-
-        $quoted = [];
-        foreach ($lines as $line) {
-            $quoted[] = $line === '' ? '>' : '> ' . rtrim($line);
-        }
-
-        $attrs = $this->formatBlockAttributes($node);
-
-        // NO SEPARATOR between the attribute block and the block it attributes:
-        // `formatBlockAttributes()` already ends its line, and adding a second
-        // newline put a blank line between them. The shared cross-engine
-        // fixture `html-import/blockquote-cite` pins the glued form, and this
-        // engine's own paragraph path always wrote it that way - only the quote
-        // and the code fence doubled it.
-        return $attrs . implode("\n", $quoted) . "\n\n";
-    }
-
-    /**
-     * Turn a `<math>` element into Carve math, or into nothing.
-     *
-     * Tiers 1 and 2 have TeX to write. Tier 3 does not, and the children are
-     * not a substitute for it, so `roundtrip` keeps the element verbatim and
-     * the untrusted modes drop it - the report names it, from the same tier
-     * decision this reads (`inspectMath()`).
-     */
-    protected function processMath(DOMElement $node): string
-    {
-        $resolved = $this->resolveMathTex($node);
-        if ($resolved['content'] !== '') {
-            return $this->renderMath($resolved['content'], $node->getAttribute('display') === 'block');
-        }
-
-        if ($this->trustedRoundTrip) {
-            return $this->processRawHtmlInlineElement($node);
-        }
-
-        // A `<math>` with no TeX anywhere is not an equation this importer can
-        // build, and in `roundtrip` it is kept rather than dropped: its
-        // children are a token stream whose concatenation is meaningless, so
-        // the markup is the only thing left that means anything
-        // (`markup-carve/carve-php#1713`).
-        return $this->preservedAsRawHtml($node) ?? '';
     }
 
     /**
@@ -6471,113 +3868,6 @@ class HtmlToCarve
     }
 
     /**
-     * The TeX a Carve-rendered math element carries, or null if it is not one.
-     *
-     * @param \DOMElement $node
-     * @param string $tag The element name this shape is spelled with.
-     *
-     * @return array{content: string, display: bool, classes: array<string>}|null
-     */
-    protected function mathDelimitedContent(DOMElement $node, string $tag): ?array
-    {
-        if (strtolower($node->tagName) !== $tag) {
-            return null;
-        }
-
-        $classes = $this->getElementClassList($node);
-        $mathAt = array_search('math', $classes, true);
-        if ($mathAt === false) {
-            return null;
-        }
-        unset($classes[$mathAt]);
-
-        $display = null;
-        foreach ($classes as $index => $class) {
-            if ($class === 'inline' || $class === 'display') {
-                $display = $class === 'display';
-                unset($classes[$index]);
-
-                break;
-            }
-        }
-        if ($display === null) {
-            return null;
-        }
-
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                return null;
-            }
-        }
-
-        $text = trim($node->textContent);
-        $open = $display ? '\\[' : '\\(';
-        $close = $display ? '\\]' : '\\)';
-        if (!str_starts_with($text, $open) || !str_ends_with($text, $close)) {
-            return null;
-        }
-
-        $content = trim((string)preg_replace('/\s+/u', ' ', substr($text, strlen($open), -strlen($close))));
-        if ($content === '') {
-            return null;
-        }
-
-        return ['content' => $content, 'display' => $display, 'classes' => array_values($classes)];
-    }
-
-    /**
-     * The attribute block riding a reconstructed math node, in writer slot order.
-     *
-     * The two classes that SPELL the math are consumed by the spelling, exactly
-     * as `<abbr title>`'s title is consumed by `{abbr="…"}`. Everything the
-     * renderer merged in beside them - an authored id, authored classes,
-     * `data-*` - is the author's and comes back.
-     *
-     * @param \DOMElement $node
-     * @param array<string> $classes The classes left after the math pair.
-     */
-    protected function mathAttributeSuffix(DOMElement $node, array $classes): string
-    {
-        $parts = [];
-        $idPart = $this->idAttributePart($node);
-        if ($idPart !== null) {
-            $parts[] = $idPart;
-        }
-        foreach ($classes as $class) {
-            $parts[] = '.' . $class;
-        }
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            $name = $attr->name;
-            if ($name === 'id' || $name === 'class' || $this->isStrippedImportAttribute($name)) {
-                continue;
-            }
-            $value = $attr->value;
-            $parts[] = $value === '' ? $name : $name . '=' . $this->quoteAttributeValue($value);
-        }
-
-        return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
-    }
-
-    /**
-     * Carve math is a PREFIX on a code span, and has no closing delimiter.
-     *
-     * The grammar spells it `math_inline = '$', code_span` and
-     * `math_display = "$$", code_span` (§18), so the code span's own closing
-     * backticks end the math. A trailing `$` after them is not part of the
-     * construct: it is the next character of the paragraph, and it came back as
-     * literal text sitting beside the equation - `$`x`$` rendered the math span
-     * and then a stray `$` (carve-php#1543).
-     */
-    protected function renderMath(string $content, bool $isDisplay): string
-    {
-        $delimiter = $isDisplay ? '$$' : '$';
-        $backticks = StringUtil::findSafeCodeFence($content, 1);
-
-        return $delimiter . $backticks . $content . $backticks;
-    }
-
-    /**
      * The single letters a Roman numeral is built from.
      *
      * An alphabetic marker that happens to be one of them reads as the Roman
@@ -6607,1313 +3897,6 @@ class HtmlToCarve
         'IV' => 4,
         'I' => 1,
     ];
-
-    /**
-     * The numbering style this `ol` should be written with, or null for decimal.
-     *
-     * `<ol type="a">` used to leave a raw `{type=a}` attribute block above a
-     * decimal list. That renders an `<ol type="a">` again, which is why it
-     * looked done, but the tree carried `attrs.type` and never the `olType`
-     * field the style belongs in - so every consumer reading the AST rather
-     * than the HTML saw a decimal list. Worse, the attribute block is only
-     * written for a top-level list, so a nested `<ol type="i">` lost its style
-     * outright. Carve spells all four styles in the marker itself, so the
-     * marker is where the style goes.
-     *
-     * Null keeps the previous behavior, and deliberately: the two shapes below
-     * have no marker spelling at all, and a raw attribute that still renders
-     * the right `<ol>` beats markers that would re-parse as a different list.
-     */
-    protected function orderedListNumberingStyle(DOMElement $node): ?string
-    {
-        $type = $node->getAttribute('type');
-        if (!in_array($type, ['a', 'A', 'i', 'I'], true)) {
-            return null;
-        }
-
-        $start = $node->hasAttribute('start') ? (int)$node->getAttribute('start') : 1;
-        if ($start < 1) {
-            return null;
-        }
-        $count = max(1, $this->orderedListItemCount($node));
-        $last = $start + $count - 1;
-
-        if ($type === 'i' || $type === 'I') {
-            // A Roman marker is never mistaken for an alphabetic one: past the
-            // first item it is more than one letter, and on the first the
-            // parser resolves the overlap to Roman, which is what was meant.
-            // There is no upper bound, because the additive form above 3999
-            // (`MMMM.`) is one this parser reads and CarveRenderer already
-            // writes; a cutoff here would be this converter's own rule.
-            return $type;
-        }
-
-        // Alphabetic markers are a single letter, so the sequence has to stay
-        // inside a-z; `aa.` is not a marker and would come back as a paragraph.
-        if ($start > 26 || $last > 26) {
-            return null;
-        }
-
-        // Two or more items settle the Roman overlap by themselves - no two
-        // single-letter Roman numerals are consecutive, so `c. d.` can only be
-        // alphabetic. One item cannot, and reads as the Roman value.
-        if ($count < 2 && in_array(strtolower($this->alphabeticMarker($start)), self::ROMAN_LETTERS, true)) {
-            return null;
-        }
-
-        return $type;
-    }
-
-    /**
-     * How many items this list will actually write markers for.
-     */
-    protected function orderedListItemCount(DOMElement $node): int
-    {
-        $count = 0;
-        foreach ($node->childNodes as $child) {
-            if (
-                $child instanceof DOMElement
-                && strtolower($child->tagName) === 'li'
-                && !$child->hasAttribute('data-djot-inline-footnote')
-            ) {
-                $count++;
-            }
-        }
-
-        return $count;
-    }
-
-    /**
-     * The marker text for the nth item in a numbering style.
-     */
-    protected function orderedListMarkerText(int $number, ?string $style): string
-    {
-        if ($style === 'a' || $style === 'A') {
-            if ($number < 1 || $number > 26) {
-                // Outside a-z there is no alphabetic marker, and
-                // orderedListNumberingStyle() does not choose the style there.
-                // Should it ever be reached anyway, a decimal marker is a
-                // marker, where a letter past `z` is not one.
-                return (string)$number;
-            }
-            $letter = $this->alphabeticMarker($number);
-
-            return $style === 'a' ? strtolower($letter) : $letter;
-        }
-
-        return match ($style) {
-            'i' => strtolower($this->romanMarker($number)),
-            'I' => $this->romanMarker($number),
-            default => (string)$number,
-        };
-    }
-
-    /**
-     * The nth uppercase letter, counting from 1. Outside 1..26 there is no
-     * letter and the caller has already chosen a different marker.
-     */
-    protected function alphabeticMarker(int $number): string
-    {
-        return substr('ABCDEFGHIJKLMNOPQRSTUVWXYZ', $number - 1, 1);
-    }
-
-    /**
-     * The uppercase Roman numeral for a positive integer.
-     *
-     * Deliberately the same numeral CarveRenderer writes, additive form above
-     * 3999 included, so a list does not get one spelling on the way in and
-     * another on the way out. Its alphabetic companion is NOT copied: that one
-     * wraps past `z` with a modulo, which is right for a writer whose reader
-     * has the `start` alongside, and wrong here, where a wrapped letter would
-     * re-parse as a list starting somewhere else.
-     */
-    protected function romanMarker(int $number): string
-    {
-        $result = '';
-        foreach (self::ROMAN_VALUES as $numeral => $value) {
-            while ($number >= $value) {
-                $result .= $numeral;
-                $number -= $value;
-            }
-        }
-
-        return $result;
-    }
-
-    protected function processList(DOMElement $node): string
-    {
-        $strayBlocks = $this->processStrayListChildren($node);
-
-        $this->listDepth++;
-
-        // A NESTED list's stray blocks stay inside the item that holds the
-        // list. Rendered at the outer depth they came out at column zero, which
-        // reparses as a top-level block: it closed the parent item and split
-        // the sublist off into a list of its own. They belong at the same
-        // column the nested list's own markers reach.
-        if ($strayBlocks !== '' && $this->listDepth > 1) {
-            $strayBlocks = (string)preg_replace(
-                '/^(?=.)/m',
-                str_repeat('  ', $this->listDepth - 1),
-                $strayBlocks,
-            );
-        }
-        // Does a sibling list sit immediately before this one, close enough to
-        // merge with it? Read BEFORE anything is emitted, because the answer
-        // goes at the very front of what this list returns.
-        $needsListBoundary = $this->precedingSiblingListWouldMerge($node);
-        $isOrdered = strtolower($node->tagName) === 'ol';
-        // Recognize both the rendered form (class="task-list") and the TipTap
-        // editor form (data-type="taskList").
-        $isTaskList = $this->isTaskList($node);
-        $output = '';
-        $counter = 1;
-        $attributeLine = '';
-        $hasAttributeLine = false;
-
-        // Get start attribute for ordered lists
-        if ($isOrdered && $node->hasAttribute('start')) {
-            $counter = (int)$node->getAttribute('start');
-        }
-
-        $marker = $isOrdered ? $this->resolveOrderedDelim($node) : $this->resolveBulletMarker($node);
-
-        $olType = $isOrdered ? $this->orderedListNumberingStyle($node) : null;
-
-        // Add leading newline for top-level lists to ensure blank line before
-        if ($this->listDepth === 1) {
-            // Add list-level attributes (skip 'start', 'data-marker', 'class' for task-list)
-            $skipAttrs = $isOrdered ? ['start', 'data-marker'] : ['data-marker'];
-            if ($olType !== null || ($isOrdered && $node->getAttribute('type') === '1')) {
-                // The markers below carry the numbering style, so writing the
-                // attribute as well would say it twice - and as a raw attribute
-                // rather than as the `olType` the style belongs in. Decimal is
-                // what an absent style means, so `type="1"` needs no spelling
-                // at all.
-                $skipAttrs[] = 'type';
-            }
-            if ($isTaskList) {
-                $skipAttrs[] = 'class';
-                $skipAttrs[] = 'data-type';
-            }
-            $listAttrs = $this->formatBlockAttributes($node, $skipAttrs);
-            // HELD BACK, not emitted. PART 9 §17 L7 decides from the BODY
-            // whether this list needs `{loose}` spelled, and the body is not
-            // written yet - so the attribute line is assembled after the items
-            // and spliced in at the end. See the L7 block below the loop.
-            $attributeLine = $listAttrs;
-            $hasAttributeLine = true;
-        }
-
-        // A LOOSE source list - an item holding an explicit <p> - stays loose:
-        // the items are separated by a blank line, which is Carve's spelling
-        // of looseness, so the paragraph-ness of the source survives the trip.
-        // A bare-text item stays tight, which is the inverse ruling: the two
-        // directions are one predicate read off the source's own markup
-        // (markup-carve/carve#1210). Decided per LIST, as CommonMark does -
-        // one paragraph item loosens the whole list.
-        $isLoose = false;
-        foreach ($node->childNodes as $child) {
-            if (!$child instanceof DOMElement || strtolower($child->tagName) !== 'li') {
-                continue;
-            }
-            foreach ($child->childNodes as $liChild) {
-                if ($liChild instanceof DOMElement && strtolower($liChild->tagName) === 'p') {
-                    $isLoose = true;
-
-                    break 2;
-                }
-            }
-        }
-
-        $firstItem = true;
-        // COUNTED AS WRITTEN, not as present in the DOM. The loop below skips an
-        // inline-footnote item, so a DOM count would say two where the body
-        // holds one - and L7's whole question is what the BODY spells.
-        $itemsWritten = 0;
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'li') {
-                if ($child->hasAttribute('data-djot-inline-footnote')) {
-                    continue;
-                }
-                $itemsWritten++;
-
-                // The blank line between loose items, unless the previous
-                // item's own trailing content (a nested list, a multi-block
-                // part) already left one.
-                if ($isLoose && !$firstItem && !str_ends_with($output, "\n\n")) {
-                    $output .= "\n";
-                }
-                $firstItem = false;
-
-                $indent = str_repeat('  ', $this->listDepth - 1);
-
-                // Check for task list item. The checked state comes from a
-                // direct <input checked> (rendered form) or from data-checked
-                // (TipTap form, where the input is nested in a <label>).
-                $checkbox = '';
-                // Reset per item: a PHP loop variable survives its iteration.
-                $authoredState = null;
-                $checkboxInput = $this->getDirectCheckboxInput($child);
-                if ($isTaskList || $checkboxInput !== null) {
-                    $isChecked = $child->hasAttribute('data-checked')
-                        ? $child->getAttribute('data-checked') === 'true'
-                        : ($checkboxInput?->hasAttribute('checked') ?? false);
-                    // PART 10 section 11: the box cannot show these four.
-                    $authoredState = $this->readableTaskState($child, $isChecked);
-                    $checkbox = '[' . ($authoredState ?? ($isChecked ? 'x' : ' ')) . '] ';
-
-                    // THE POINT OF CONSUMPTION, which is the only place that
-                    // knows WHICH input became this marker (carve-php#1705).
-                    // Exactly one does: `getDirectCheckboxInput()` returns the
-                    // first, and a second checkbox in the same item is dropped
-                    // like any other - so recording only this one leaves the
-                    // second's loss reported, which is what the survival budget
-                    // exists to keep.
-                    //
-                    // A TIPTAP ITEM KEEPS ITS STATE IN `data-checked` and wraps
-                    // the input in an empty `<label>` that the content loop
-                    // skips whole. That input is consumed by the marker just the
-                    // same, so it is recorded here too. Reaching the right-hand
-                    // side at all means there was no direct checkbox, which
-                    // inside this branch means the item is a task list.
-                    $consumed = $checkboxInput ?? $this->labelWrappedCheckboxInput($child);
-                    if ($consumed !== null) {
-                        $this->consumedCheckboxInputs[$this->conversionNodePath($consumed)] = true;
-                    }
-                }
-
-                $liSkipAttrs = $isTaskList ? ['data-type', 'data-checked'] : [];
-                // Consumed, not dropped as derived - it is half of the state.
-                if ($authoredState !== null) {
-                    $liSkipAttrs[] = 'data-task-state';
-                }
-                $liAttrs = $this->getElementAttributes($child, $liSkipAttrs);
-                $attrToken = $liAttrs !== '' ? '{' . $liAttrs . '}' : '';
-
-                $barePrefix = $isOrdered
-                    ? $this->orderedListMarkerText($counter, $olType) . $marker . ' '
-                    : $marker . ' ';
-                $markerWidth = strlen($barePrefix);
-                $prefix = $isOrdered
-                    ? rtrim($barePrefix) . $attrToken . ' '
-                    : $marker . $attrToken . ' ' . $checkbox;
-
-                // Process list item content, separating nested lists from other content
-                $contentParts = [];
-                // Aligned with `$contentParts`: whether that part still OPENS a
-                // block when written at the item's content column with no blank
-                // line above it. Only such a part may be written tight - see
-                // `TIGHT_ITEM_BLOCK_OPENERS`.
-                $partOpensBlock = [];
-                $inlineBuffer = '';
-                $inlineNodes = [];
-                $nestedContent = '';
-                // Whether the nested content BEGINS with the sublist itself. A
-                // stray non-`<li>` child is hoisted in FRONT of the list, so the
-                // nested run can start with a paragraph, which folds into the
-                // lead if nothing separates it.
-                $nestedOpensWithItsList = null;
-                $outerContext = $this->blockLineContext;
-                $this->blockLineContext = [$prefix, str_repeat(' ', $markerWidth)];
-
-                foreach ($child->childNodes as $liChild) {
-                    if ($liChild instanceof DOMElement) {
-                        $childTag = strtolower($liChild->tagName);
-                        if ($childTag === 'ul' || $childTag === 'ol') {
-                            // Process nested list separately
-                            $nestedRendered = $this->processNode($liChild);
-                            // ANSWERED BY THE FIRST LIST THAT WRITES SOMETHING,
-                            // not by the first one present. An EMPTY `<ul>` ahead
-                            // of the real one contributes nothing to the run, so
-                            // letting it answer described a run it is not the
-                            // start of: `<li>a<ul></ul><ul><p>x</p><li>b</li></ul></li>`
-                            // would then abut the stray paragraph and fold `x`
-                            // into the lead.
-                            if ($nestedRendered !== '') {
-                                $nestedOpensWithItsList ??= !$this->listHoistsStrayBlocks($liChild);
-                            }
-                            $nestedContent .= $nestedRendered;
-                        } elseif ($childTag === 'input' && $this->isCheckboxInput($liChild)) {
-                            // Skip checkbox inputs (handled via $checkbox prefix)
-                            continue;
-                        } elseif ($isTaskList && $childTag === 'label' && trim($liChild->textContent) === '') {
-                            // TipTap wraps the checkbox in an empty <label>; the
-                            // visible text lives in the sibling <div>. A label
-                            // that carries text (accessibility markup) is left to
-                            // fall through and be processed normally.
-                            continue;
-                        } elseif (in_array($childTag, $this->blockElements, true)) {
-                            $this->flushListItemInlineBuffer($contentParts, $inlineBuffer, $inlineNodes);
-                            // A flushed inline run is plain text, so it opens
-                            // nothing at the content column.
-                            $partOpensBlock = array_pad($partOpensBlock, count($contentParts), false);
-                            $content = trim($this->processNode($liChild));
-                            if ($content !== '') {
-                                $contentParts[] = $content;
-                                $this->blockLineContext[0] = $this->blockLineContext[1];
-                                $partOpensBlock[] = in_array($childTag, self::TIGHT_ITEM_BLOCK_OPENERS, true);
-                            }
-                        } else {
-                            $inlineBuffer .= $this->processNode($liChild);
-                            $inlineNodes[] = $liChild;
-                        }
-                    } else {
-                        $inlineBuffer .= $this->processNode($liChild);
-                        $inlineNodes[] = $liChild;
-                    }
-                }
-
-                $this->flushListItemInlineBuffer($contentParts, $inlineBuffer, $inlineNodes);
-                $this->blockLineContext = $outerContext;
-                $partOpensBlock = array_pad($partOpensBlock, count($contentParts), false);
-
-                $continuation = $indent . str_repeat(' ', $markerWidth);
-
-                // An item whose ONLY content is a nested list puts that list
-                // on the marker line, and the nested block below skips its
-                // usual blank separator. Emitting the marker alone gave `- `
-                // followed by a blank line, which does not round trip: a marker
-                // with nothing after it is not a marker, so it came back as a
-                // paragraph reading `-` and the nested list dedented out of the
-                // item. `- - a` is also what every engine's own writer emits.
-                $markerCarriesNested = $contentParts === [] && $nestedContent !== '';
-
-                if ($contentParts === [] && !$markerCarriesNested) {
-                    // AN EMPTY ITEM IS WRITTEN `- +`, the first-block form: a
-                    // marker with nothing after it is not a marker (PART 2
-                    // `CARVE-P2-009`) and read back as text under the item
-                    // above, attributes or not.
-                    $output .= $indent . $prefix . '+' . "\n";
-                } elseif ($contentParts !== []) {
-                    $firstPart = array_shift($contentParts);
-                    array_shift($partOpensBlock);
-                    $firstPartLines = preg_split('/\R/', $firstPart) ?: [''];
-                    $firstLine = array_shift($firstPartLines);
-
-                    // The marker line always carries the first line of the
-                    // first part, whatever that part is. A multi-line part used
-                    // to go BELOW the marker instead, which left `- ` alone on
-                    // its line - and a marker with nothing after it is not a
-                    // marker, so a `details` container as an item's only
-                    // content came back as a paragraph reading `-` with the
-                    // container loose beside it (markup-carve/carve-php#1224).
-                    $output .= $indent . $prefix . $firstLine . "\n";
-                    foreach ($firstPartLines as $line) {
-                        // A blank line is kept as a blank line, not dropped: it
-                        // separates the blocks inside the part, and removing it
-                        // ran them together.
-                        $output .= trim($line) === '' ? "\n" : $continuation . $line . "\n";
-                    }
-
-                    foreach ($contentParts as $partIndex => $part) {
-                        $tight = !$isLoose && ($partOpensBlock[$partIndex] ?? false);
-                        $output .= ($tight ? '' : "\n") . $this->indentListItemPart($part, $continuation) . "\n";
-                    }
-                }
-
-                // Add nested list content, with a blank line before it only
-                // where the list is loose (see the separator note below). The
-                // recursive render indents nested content by a fixed
-                // two columns per depth; a nested list must instead reach the
-                // PARENT item's content column (content-column model, carve#295),
-                // which for an ordered marker (`1. ` -> 3, `10. ` -> 4) is wider
-                // than two. Pad every non-empty line by that surplus so the
-                // nested list re-parses as a child rather than detaching. The
-                // task checkbox is content, not marker, so a task/bullet item's
-                // content column stays two.
-                if ($nestedContent !== '') {
-                    // Attributes and the task checkbox add no marker width.
-                    $surplus = $markerWidth - 2;
-                    if ($surplus > 0) {
-                        $pad = str_repeat(' ', $surplus);
-                        $nestedContent = (string)preg_replace('/^(?=.)/m', $pad, $nestedContent);
-                    }
-
-                    if ($markerCarriesNested) {
-                        // The nested list is already indented to this item's
-                        // content column, so its first line moves onto the
-                        // marker line unchanged apart from that indent, and the
-                        // rest stays where it is.
-                        $nestedLines = preg_split('/\R/', rtrim($nestedContent, "\n")) ?: [];
-                        $firstNested = ltrim((string)array_shift($nestedLines));
-                        // Attributes go ON the marker (`-{.x} - a`), not on a
-                        // line below it: the line below is now the nested
-                        // list's own second item, so an attribute line there
-                        // would attach to that item instead of this one. The
-                        // prefix already carries them, ahead of any checkbox.
-                        $output .= $indent . $prefix . $firstNested . "\n";
-                        foreach ($nestedLines as $line) {
-                            $output .= $line === '' ? "\n" : $line . "\n";
-                        }
-                    } else {
-                        // A SUBLIST BELOW A LEAD IS THE SAME SEPARATOR, and it
-                        // takes the same vote. A nested list is structure rather
-                        // than a paragraph wrapper, so it never loosens on its
-                        // own - `<li>a<ul><li>b</li></ul></li>` is a tight item
-                        // with a tight child, and the blank line written here
-                        // unconditionally spelled a looseness neither list had.
-                        //
-                        // UNLESS A STRAY BLOCK STANDS IN FRONT OF IT. A non-`<li>`
-                        // child is hoisted above the list it was found in, so the
-                        // run starts with a paragraph rather than with a marker,
-                        // and a paragraph written tight folds into the lead.
-                        $tight = !$isLoose && ($nestedOpensWithItsList ?? false);
-                        $output .= ($tight ? '' : "\n") . $nestedContent;
-                    }
-                }
-
-                $counter++;
-            }
-        }
-
-        // PART 9 §17 L7: SPELL THE LOOSENESS THE LAYOUT CANNOT SAY.
-        //
-        // A blank line between items is Carve's spelling of looseness, and this
-        // writer emits one between every pair - so a multi-item loose list
-        // already says it. A ONE-ITEM list has no "between items" for that
-        // blank line to stand in, and that is exactly the shape L7 exists for.
-        // A document with a single footnote imports as exactly one item, so it
-        // is the common case rather than a corner: the derived endnotes section
-        // was written tight and the `<p>` the imported tree recorded was lost on
-        // the way back in.
-        //
-        // The DECISION PROCEDURE is shared with `CarveRenderer`, which has
-        // spelled this since the key landed - write the body without the key,
-        // read it back, and emit the key exactly where the looseness did not
-        // survive. Asking it there rather than re-deriving it here is what keeps
-        // the two writers from answering differently.
-        if ($hasAttributeLine) {
-            $needsLoose = CarveRenderer::looseKeyIsNeededForBody($isLoose, $itemsWritten, $output);
-            if ($needsLoose) {
-                // `loose` goes FIRST in the slot order, which is where the
-                // canonical writer puts it, so a document that round-trips
-                // through both writers is stable.
-                $attributeLine = $attributeLine === ''
-                    ? "{loose}\n"
-                    : '{loose ' . mb_substr($attributeLine, 1, null, 'UTF-8');
-            }
-            // THE ATTRIBUTE LINE ENDS ITS OWN LINE, so adding one here wrote a
-            // BLANK line between the attribute and the list it attaches to
-            // (carve-php#1653). `formatBlockAttributes()` returns `"{...}\n"`
-            // and says so in its own docblock; seven of its callers use that
-            // directly and three added a second newline.
-            //
-            // The empty case keeps its newline, which is a DIFFERENT role: a
-            // top-level list with no attribute line opens with one, and the two
-            // roles were conflated in the single statement this replaces.
-            $output = ($attributeLine !== '' ? $attributeLine : "\n") . $output;
-        }
-
-        $this->listDepth--;
-
-        // THE HARD BOUNDARY GOES AHEAD OF EVERYTHING THIS LIST EMITS, so that
-        // three blank lines land between the previous list's last item and this
-        // list's first marker. Stray blocks are the exception: they are emitted
-        // ahead of the list and already stand between the two, so there is no
-        // merge left to prevent.
-        $boundary = $needsListBoundary && $strayBlocks === '' ? self::LIST_BOUNDARY . "\n" : '';
-
-        // Add trailing newline for top-level lists
-        return $boundary . $strayBlocks . $output . ($this->listDepth === 0 ? "\n" : '');
-    }
-
-    /**
-     * Render every child of a list that is not an `<li>`, as blocks that go
-     * ahead of the list.
-     *
-     * Delegating to the ordinary node walk settles the kinds that are not
-     * elements at all: the margin between pretty-printed items is blank text
-     * and produces nothing, a comment produces nothing, an ACTIVE element
-     * (`script`, `style`, `template`, `noscript`) is dropped by the walk with
-     * the `element-dropped` every other site gives it, and bare text directly
-     * inside the list comes back as the paragraph it needs.
-     *
-     * @param \DOMElement $node The `<ul>` or `<ol>` element.
-     *
-     * @return string Blocks, blank-line separated and blank-line terminated, or
-     *   the empty string when the list carries nothing but items.
-     */
-    protected function processStrayListChildren(DOMElement $node): string
-    {
-        $blocks = [];
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'li') {
-                continue;
-            }
-            if ($child instanceof DOMComment) {
-                // A COMMENT BETWEEN TWO ITEMS IS KEPT NOW
-                // (`markup-carve/carve#1709`). A list holds items, so there is
-                // no Carve position BETWEEN two of them - and the comment takes
-                // the same answer every other stray child of a list takes here:
-                // emitted ahead of the list, with the move declared by
-                // inspectImportListChildren().
-                $blocks[] = $this->blockCommentSource($child->textContent);
-
-                continue;
-            }
-            $rendered = trim($this->processNode($child));
-            if ($rendered === '') {
-                continue;
-            }
-            $blocks[] = $rendered;
-        }
-
-        return $blocks === [] ? '' : implode("\n\n", $blocks) . "\n\n";
-    }
-
-    /**
-     * Might this list write anything ABOVE its own first marker?
-     *
-     * {@see self::processStrayListChildren()} hoists every non-`<li>` child out
-     * in front of the list, so the run this list renders to does not always
-     * begin with a marker line. A tight item may only abut a nested run that
-     * does begin with one (carve-php#1708).
-     *
-     * ASKED OF THE TREE, NOT OF A SECOND RENDER. Rendering the children again to
-     * find out whether they write anything is the exact answer the writer gives,
-     * and it is the wrong way to get it: `processNode()` carries state, and one
-     * of the things it carries APPENDS - a flattened caption pushes onto
-     * `$captionFlattenDiagnostics` every time it runs, so the report would grow
-     * a duplicate row and spend the diagnostic budget twice for a question that
-     * writes nothing.
-     *
-     * SO IT OVER-ANSWERS, deliberately, and only in the safe direction. An
-     * element that renders to nothing is still counted here, which costs a blank
-     * line this writer did not need - a source spelling, which is where the
-     * engine already was. The opposite error abuts a block that IS written and
-     * folds it into the lead, which costs the block. Whitespace between
-     * pretty-printed items is not content and a comment writes nothing, so
-     * neither counts.
-     *
-     * @param \DOMElement $node The nested `<ul>` or `<ol>`.
-     *
-     * @return bool Whether a stray block may be written above the list's markers.
-     */
-    protected function listHoistsStrayBlocks(DOMElement $node): bool
-    {
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMComment) {
-                continue;
-            }
-            if ($child instanceof DOMElement) {
-                if (strtolower($child->tagName) !== 'li') {
-                    return true;
-                }
-
-                continue;
-            }
-            if (trim($child->textContent) !== '') {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Resolve the delimiter an `<ol>` emits: its explicit data-marker when set,
-     * otherwise `.`.
-     *
-     * @param \DOMElement $node The `<ol>` element.
-     *
-     * @return string The ordered delimiter, `.` unless the source named one.
-     */
-    protected function resolveOrderedDelim(DOMElement $node): string
-    {
-        $marker = $node->getAttribute('data-marker');
-
-        return $marker !== '' ? $marker : '.';
-    }
-
-    /**
-     * Resolve the bullet marker a `<ul>` emits: its explicit data-marker when
-     * set (and not the `+` continuation marker, which is not a Carve bullet),
-     * otherwise `-`.
-     *
-     * @param \DOMElement $node The `<ul>` element.
-     *
-     * @return string The bullet marker, `-` unless the source named one.
-     */
-    protected function resolveBulletMarker(DOMElement $node): string
-    {
-        $marker = $node->getAttribute('data-marker');
-
-        return $marker !== '' && $marker !== '+' ? $marker : '-';
-    }
-
-    /**
-     * The nearest preceding sibling that puts anything in the emitted source.
-     *
-     * A node that writes nothing does not separate what stands on either side
-     * of it, so it cannot be what the adjacency question is answered against
-     * (carve-php#1617). Returns null when the walk runs out of siblings, and
-     * null when it reaches content that IS written - the caller wants the
-     * element it can compare against, and content that is not an element ends
-     * the walk with the same answer as no sibling at all.
-     *
-     * @param \DOMNode $node The node to walk back from.
-     *
-     * @return \DOMNode|null The sibling that writes something, or null.
-     */
-    protected function precedingSiblingThatWritesSomething(DOMNode $node): ?DOMNode
-    {
-        for ($prev = $node->previousSibling; $prev !== null; $prev = $prev->previousSibling) {
-            if ($prev instanceof DOMComment) {
-                if (
-                    $this->commentStandsAmongBlocks($prev)
-                    && !$this->commentHasNoInlineSpelling($prev->textContent)
-                ) {
-                    return $prev;
-                }
-
-                continue;
-            }
-
-            if ($prev instanceof DOMElement) {
-                if ($this->writesNothing($prev)) {
-                    continue;
-                }
-
-                return $prev;
-            }
-
-            // A text node. Whitespace between two blocks is layout and writes
-            // nothing of its own; anything else is content that separates them.
-            if (trim($prev->textContent) === '') {
-                continue;
-            }
-
-            return $prev;
-        }
-
-        return null;
-    }
-
-    /**
-     * Does this element put NOTHING in the emitted source?
-     *
-     * Deliberately conservative, and one-directional in its risk. Answering
-     * "writes nothing" for an element that writes something would insert a hard
-     * boundary where content already separates two lists, which is visible
-     * damage; answering "writes something" for an element that writes nothing
-     * only leaves carve-php#1617 unfixed for that shape. So the test asks for
-     * POSITIVE evidence that something reaches the output, and treats anything
-     * it does not recognize as evidence.
-     *
-     * @param \DOMElement $node The element to test.
-     *
-     * @return bool True when nothing this element holds reaches the output.
-     */
-    protected function writesNothing(DOMElement $node): bool
-    {
-        // A dropped-whole subtree never reaches the output, whatever it holds -
-        // a `<script>` is all text and writes none of it.
-        if (in_array(strtolower($node->tagName), self::ACTIVE_ELEMENTS, true)) {
-            return true;
-        }
-
-        if (trim($node->textContent) !== '') {
-            return false;
-        }
-
-        // No text anywhere below. Only an element that stands for itself can
-        // still write something from here.
-        foreach ($node->getElementsByTagName('*') as $descendant) {
-            if (in_array(strtolower($descendant->tagName), self::SELF_STANDING_ELEMENTS, true)) {
-                return false;
-            }
-        }
-
-        return !in_array(strtolower($node->tagName), self::SELF_STANDING_ELEMENTS, true);
-    }
-
-    /**
-     * The code fence this line opens or closes, behind whatever a container
-     * wrote to its left - or null when the line is not a fence delimiter.
-     *
-     * @param string $line The emitted line.
-     *
-     * @return string|null The fence delimiter run, or null when there is none.
-     */
-    protected function codeFenceDelimiter(string $line): ?string
-    {
-        $rest = $line;
-        // One marker per nesting level: ``- - ```` is a fence two items deep.
-        while (
-            preg_match(
-                '/^(?:[ \t]+|>[ \t]?|(?:[-*+]|\d{1,9}[.)]|[a-zA-Z][.)])[ \t]+|:[ \t]{1,2})/',
-                $rest,
-                $prefix,
-            ) === 1
-        ) {
-            $rest = substr($rest, strlen($prefix[0]));
-        }
-
-        return preg_match('/^(`{3,}|~{3,})/', $rest, $fence) === 1 ? $fence[1] : null;
-    }
-
-    /**
-     * Would this list MERGE with the sibling list written immediately before
-     * it, if the two were only parted by the usual blank line?
-     *
-     * @param \DOMElement $node The `<ul>` or `<ol>` element.
-     *
-     * @return bool True when the two lists need the hard boundary between them.
-     */
-    protected function precedingSiblingListWouldMerge(DOMElement $node): bool
-    {
-        $prev = $this->precedingSiblingThatWritesSomething($node);
-        if (!$prev instanceof DOMElement) {
-            return false;
-        }
-
-        $tag = strtolower($node->tagName);
-        if (strtolower($prev->tagName) !== $tag) {
-            return false;
-        }
-
-        if ($tag === 'ol') {
-            return $this->resolveOrderedDelim($prev) === $this->resolveOrderedDelim($node)
-                && $this->orderedListNumberingStyle($prev) === $this->orderedListNumberingStyle($node);
-        }
-
-        if ($tag !== 'ul') {
-            return false;
-        }
-
-        // A TASK LIST IS ITS OWN LIST TYPE. `- [ ] a` and `- b` parse as two
-        // lists however they are laid out, so the marker they share does not
-        // merge them and the boundary would be noise.
-        if ($this->isTaskList($prev) !== $this->isTaskList($node)) {
-            return false;
-        }
-
-        return $this->resolveBulletMarker($prev) === $this->resolveBulletMarker($node);
-    }
-
-    /**
-     * Is this `<ul>` a task list - the rendered `class="task-list"` form or the
-     * TipTap `data-type="taskList"` one?
-     *
-     * @param \DOMElement $node The `<ul>` element.
-     *
-     * @return bool True when the list's items carry checkboxes.
-     */
-    protected function isTaskList(DOMElement $node): bool
-    {
-        return $node->getAttribute('class') === 'task-list'
-            || $node->getAttribute('data-type') === 'taskList';
-    }
-
-    protected function processListItem(DOMElement $node): string
-    {
-        return $this->processChildren($node);
-    }
-
-    /**
-     * @param list<string> $contentParts
-     * @param string $inlineBuffer
-     * @param array<int, \DOMNode> $inlineNodes The nodes the buffer was written from.
-     */
-    protected function flushListItemInlineBuffer(array &$contentParts, string &$inlineBuffer, array &$inlineNodes = []): void
-    {
-        $inlineContent = $this->escapeBlockLineOpeners(trim($inlineBuffer), $inlineNodes);
-        $inlineNodes = [];
-        if ($inlineContent !== '') {
-            $contentParts[] = $inlineContent;
-            // A later part is written below a blank line, at the continuation indent.
-            $this->blockLineContext[0] = $this->blockLineContext[1];
-        }
-        $inlineBuffer = '';
-    }
-
-    protected function indentListItemPart(string $content, string $indent): string
-    {
-        $lines = preg_split('/\R/', $content) ?: [];
-        $output = [];
-
-        foreach ($lines as $line) {
-            $output[] = $line === '' ? '' : $indent . $line;
-        }
-
-        return implode("\n", $output);
-    }
-
-    /**
-     * The checkbox a TipTap task item hides in the empty `<label>` beside it.
-     *
-     * TipTap keeps the state in `data-checked` on the `<li>` and wraps the input
-     * in a `<label>` that carries no text, which the content loop skips whole.
-     * The input inside it is therefore consumed by the marker exactly as a
-     * direct one is, and has the same claim to saying nothing about itself
-     * (carve-php#1705).
-     *
-     * The empty-label test matches the one the content loop applies, so the two
-     * cannot disagree about which label was skipped: a label carrying text is
-     * accessibility markup that falls through and is processed normally.
-     *
-     * @param \DOMElement $li The task item.
-     *
-     * @return \DOMElement|null The consumed input, or null when there is none.
-     */
-    protected function labelWrappedCheckboxInput(DOMElement $li): ?DOMElement
-    {
-        foreach ($li->childNodes as $child) {
-            if (
-                !$child instanceof DOMElement
-                || strtolower($child->tagName) !== 'label'
-                || trim($child->textContent) !== ''
-            ) {
-                continue;
-            }
-            $input = $this->getDirectCheckboxInput($child);
-            if ($input !== null) {
-                return $input;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * The authored task state, where the attribute IS that state: one PART 10
-     * section 11 writes, on an empty box. Anything else is the author's.
-     */
-    protected function readableTaskState(DOMElement $li, bool $isChecked): ?string
-    {
-        if ($isChecked || !$li->hasAttribute('data-task-state')) {
-            return null;
-        }
-        $state = $li->getAttribute('data-task-state');
-
-        return in_array($state, ['-', '_', '>', '?'], true) ? $state : null;
-    }
-
-    /**
-     * Check if a list item contains a checkbox input
-     */
-    protected function getDirectCheckboxInput(DOMElement $li): ?DOMElement
-    {
-        foreach ($li->childNodes as $child) {
-            if (
-                $child instanceof DOMElement
-                && strtolower($child->tagName) === 'input'
-                && $this->isCheckboxInput($child)
-            ) {
-                return $child;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * `type` on an `<input>` is an ENUMERATED attribute, and HTML matches an
-     * enumerated keyword ASCII case-insensitively: `<input type="CHECKBOX">` is
-     * a checkbox to every browser, and so is `Checkbox`. Compared exactly, a
-     * real task list imported as an ordinary bullet list and the task state
-     * left the document with nothing said.
-     *
-     * `strtolower()` is the ASCII fold this wants: since PHP 8.2 it is
-     * locale-independent and converts only `A-Z`, which is exactly the rule
-     * HTML states. A Unicode-aware fold would additionally read `CHEC`
-     * + U+212A KELVIN SIGN + `BOX` as the keyword, which no browser does.
-     *
-     * @param \DOMElement $input The `<input>` element to test.
-     *
-     * @return bool Whether it is a checkbox.
-     */
-    protected function isCheckboxInput(DOMElement $input): bool
-    {
-        return strtolower($input->getAttribute('type')) === 'checkbox';
-    }
-
-    /**
-     * Remove checkbox input from content when processing task list items
-     */
-    protected function processListItemContent(DOMElement $li, bool $isTaskList): string
-    {
-        $content = '';
-        foreach ($li->childNodes as $child) {
-            // Skip checkbox inputs in task lists
-            if ($isTaskList && $child instanceof DOMElement) {
-                if ($child->tagName === 'input' && $this->isCheckboxInput($child)) {
-                    continue;
-                }
-            }
-            $content .= $this->processNode($child);
-        }
-
-        return $content;
-    }
-
-    protected function processTable(DOMElement $node): string
-    {
-        if ($this->listTableForBlockCells && $this->tableHasBlockContentCell($node)) {
-            return $this->processTableAsListTable($node);
-        }
-
-        $trElements = $this->getDirectTableRows($node);
-        if (!$this->tableMayWriteABlankRow($trElements)) {
-            return $this->writePipeTable($node, $trElements)[0];
-        }
-
-        // A row whose every cell is blank is not a table row (markup-carve/carve#1954),
-        // so it is dropped and the table written again without it (carve-js#1822).
-        $tablePath = $this->conversionNodePath($node);
-        $dropped = [];
-        do {
-            $blank = $this->importTrialWrite(fn (): ?int => $this->writePipeTable($node, $trElements)[1]);
-            if ($blank !== null) {
-                $dropped[] = $blank;
-                unset($trElements[$blank]);
-            }
-        } while ($blank !== null);
-
-        $captionGoes = $trElements === [] && $this->findFirstDirectChildByTagName($node, 'caption') instanceof DOMElement;
-        foreach ($dropped as $position => $index) {
-            $this->droppedBlankTableRows[$tablePath . '/tr[' . ($index + 1) . ']'] = $captionGoes && $position === count($dropped) - 1;
-        }
-        if ($trElements === []) {
-            return '';
-        }
-
-        return $this->writePipeTable($node, $trElements)[0];
-    }
-
-    /**
-     * Whether any row has only cells without text, the cheap gate on the trial writes.
-     *
-     * @param array<int, \DOMElement> $trElements
-     */
-    protected function tableMayWriteABlankRow(array $trElements): bool
-    {
-        foreach ($trElements as $tr) {
-            $blank = true;
-            foreach ($tr->childNodes as $cell) {
-                if ($cell instanceof DOMElement && trim($cell->textContent) !== '') {
-                    $blank = false;
-
-                    break;
-                }
-            }
-            if ($blank) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param \DOMElement $node
-     * @param array<int, \DOMElement> $trElements
-     *
-     * @return array{string, int|null} The written table, and the key of the first row written blank.
-     */
-    protected function writePipeTable(DOMElement $node, array $trElements): array
-    {
-        $blankRow = null;
-        $rows = [];
-        $headerRow = null;
-        $headerTrIndex = null;
-        $headerRowAttrs = '';
-        $headerCells = [];
-        /** @var array<int, true> $headerAttributedCells */
-        $headerAttributedCells = [];
-        /** @var array<int, string> $headerPrefixes */
-        $headerPrefixes = [];
-        $columnCount = 0;
-        $captionText = '';
-        $alignments = [];
-
-        // Find caption element if present
-        $captionElement = $this->findFirstDirectChildByTagName($node, 'caption');
-        if ($captionElement instanceof DOMElement) {
-            $captionText = trim($this->processCaptionChildren($captionElement));
-        }
-
-        // Whether this table will spell a column's alignment in a marker run at
-        // all. Only a first row of ALL header cells is promoted to the head,
-        // and only a promoted head carries the markers - so in every other
-        // table the collected alignments are written nowhere, and a cell that
-        // relied on them lost its alignment in silence
-        // (markup-carve/carve#1741). Asked here rather than at the write site
-        // because a cell's attributes are serialized before the promotion is
-        // decided.
-        $emitsColumnAlignment = $this->tableHeadTakesTheAlignmentMarkers($trElements);
-        // Whether the head will be written in the CANONICAL `|=` form, whose
-        // marker run holds both axes. The separator form can only spell the
-        // horizontal one, so a header cell's vertical alignment has to ride its
-        // own prefix there instead.
-        $emitsColumnValign = $emitsColumnAlignment
-            && $node->getAttribute('data-djot-col-widths') === ''
-            && !$this->tableHeadHasASpanMarker($trElements);
-        $valignments = [];
-
-        // $rowspanMap[colIndex] = number of remaining rows that col is spanned
-        // Used to inject `^` continuation markers at the right positions.
-        /** @var array<int, int> $rowspanMap */
-        $rowspanMap = [];
-
-        foreach ($trElements as $trIndex => $tr) {
-            $cells = [];
-            // Indexes into $cells whose string opens with an attribute block
-            // THIS converter wrote. Kept rather than re-sniffed off the string,
-            // so a cell whose content merely starts with a brace is not glued.
-            $attributedCells = [];
-            // The marker run each cell carries of its own - its alignment, its
-            // vertical alignment, or both - keyed the same way. Kept beside the
-            // cell strings rather than glued into them, because the header
-            // builder and the row builder place a run differently.
-            /** @var array<int, string> $cellPrefixes */
-            $cellPrefixes = [];
-            // Indexes into $cells the source wrote as `th`. Header is a
-            // property of the CELL, not of the row: a row-head column is one
-            // `th` beside ordinary data cells, and `|= R | 1 |` spells exactly
-            // that. Reading it off the row instead promoted every cell in the
-            // row to a header, and dropped the header from every `th` outside
-            // the one row that got promoted.
-            /** @var array<int, true> $headerFlags */
-            $headerFlags = [];
-            $realCells = 0;
-            $headerCellCount = 0;
-
-            // Logical column index, accounting for positions already occupied
-            // by ongoing rowspans from previous rows.
-            $logicalCol = 0;
-
-            foreach ($tr->childNodes as $cell) {
-                if (!$cell instanceof DOMElement) {
-                    continue;
-                }
-                $tag = strtolower($cell->tagName);
-                if ($tag !== 'th' && $tag !== 'td') {
-                    continue;
-                }
-
-                // Advance past columns that are still occupied by a rowspan
-                // from a previous row, injecting `^` markers for each.
-                while (isset($rowspanMap[$logicalCol]) && $rowspanMap[$logicalCol] > 0) {
-                    $cells[] = '^';
-                    $rowspanMap[$logicalCol]--;
-                    if ($rowspanMap[$logicalCol] === 0) {
-                        unset($rowspanMap[$logicalCol]);
-                    }
-                    $logicalCol++;
-                }
-
-                $colspan = max(1, (int)$cell->getAttribute('colspan'));
-                $rowspan = max(1, (int)$cell->getAttribute('rowspan'));
-
-                // Serialize content, excluding colspan/rowspan from cell attributes.
-                $cellContent = $this->serializeTableCellContent($cell);
-                $cellSkip = $this->tableCellSkipAttributes($cell);
-                $cellAlignment = $this->extractTableCellAlignment($cell);
-                $cellValign = $this->extractTableCellValign($cell);
-                $ownAlignment = $this->importMode === 'safe' || ($emitsColumnAlignment
-                    && ($alignments[$logicalCol] ?? $cellAlignment) === $cellAlignment)
-                    ? TableCell::ALIGN_DEFAULT
-                    : $cellAlignment;
-                $ownValign = $this->importMode === 'safe' || ($emitsColumnValign
-                    && ($valignments[$logicalCol] ?? $cellValign) === $cellValign)
-                    ? ''
-                    : $cellValign;
-                $cellPrefixes[count($cells)] = $this->tableCellMarkerRun($ownAlignment, $ownValign);
-                $cellAttrs = $this->getElementAttributes($cell, $cellSkip);
-                if ($tag === 'th') {
-                    // Every `th` gets the marker now. PART 9 §5 T10 binds the
-                    // attribute block AFTER the marker run, so `|={#x} R |`
-                    // spells an attributed header cell; before it, the only
-                    // available shape was `|{#x}= R |`, whose `=` reads as
-                    // content, and the marker had to be dropped.
-                    $headerFlags[count($cells)] = true;
-                }
-                if ($cellAttrs !== '') {
-                    $attributedCells[count($cells)] = true;
-                    $cells[] = '{' . $cellAttrs . '} ' . $cellContent;
-                } else {
-                    $cells[] = $this->escapeSpanMarkerCellPayload($cellContent);
-                }
-
-                $realCells++;
-                if ($tag === 'th') {
-                    $headerCellCount++;
-                }
-                if (!isset($alignments[$logicalCol])) {
-                    $alignments[$logicalCol] = $cellAlignment;
-                }
-                if (!isset($valignments[$logicalCol])) {
-                    $valignments[$logicalCol] = $cellValign;
-                }
-
-                // Register rowspan: only the origin column gets `^` in subsequent rows.
-                // The colspan continuation columns (`<`) are not extended by the rowspan;
-                // those positions in later rows are filled by real cells.
-                if ($rowspan > 1) {
-                    $rowspanMap[$logicalCol] = ($rowspanMap[$logicalCol] ?? 0) + ($rowspan - 1);
-                }
-
-                $logicalCol++;
-
-                // Emit `<` continuation markers for each extra colspan column.
-                for ($cs = 1; $cs < $colspan; $cs++) {
-                    $cells[] = '<';
-                    $logicalCol++;
-                }
-            }
-
-            // Flush any trailing rowspan `^` markers for columns after the last
-            // real cell in this row (e.g. a row where ALL cells are rowspan continuations).
-            while (isset($rowspanMap[$logicalCol]) && $rowspanMap[$logicalCol] > 0) {
-                $cells[] = '^';
-                $rowspanMap[$logicalCol]--;
-                if ($rowspanMap[$logicalCol] === 0) {
-                    unset($rowspanMap[$logicalCol]);
-                }
-                $logicalCol++;
-            }
-
-            if ($cells) {
-                $columnCount = max($columnCount, count($cells));
-
-                // Get row attributes
-                $rowAttrs = $this->getElementAttributes($tr);
-                $rowAttrSuffix = $rowAttrs !== '' ? '{' . $rowAttrs . '}' : '';
-
-                // Only a row whose cells are ALL headers is a header row, and
-                // only the FIRST row emitted can be promoted to the head. The
-                // old rule took the first row holding ANY `th` and moved it to
-                // the top, so a table whose third row carried one came out with
-                // that row first - the rows themselves reordered.
-                $isHeaderRow = $realCells > 0 && $headerCellCount === $realCells;
-
-                if ($isHeaderRow && $headerRow === null && $rows === []) {
-                    // The promoted row's cells are written bare: in the
-                    // delimiter form the row after it is what makes them
-                    // headers, and in the `|=` form the builder below writes
-                    // the marker itself.
-                    $headerRow = $this->buildTableRowLine($cells, $attributedCells, [], $cellPrefixes) . $rowAttrSuffix;
-                    $headerTrIndex = $trIndex;
-                    $headerRowAttrs = $rowAttrSuffix;
-                    $headerCells = $cells;
-                    $headerAttributedCells = $attributedCells;
-                    $headerPrefixes = $cellPrefixes;
-                } else {
-                    $line = $this->buildTableRowLine($cells, $attributedCells, $headerFlags, $cellPrefixes);
-                    if (preg_match(self::BLANK_TABLE_ROW, $line) === 1) {
-                        $blankRow ??= $trIndex;
-                    }
-                    $rows[] = $line . $rowAttrSuffix;
-                }
-            }
-        }
-
-        // Table-level attributes (excluding data-djot-col-widths which is for round-trip)
-        $tableAttrs = $this->formatBlockAttributes($node, ['data-djot-col-widths']);
-        // Ends its own line - see the note in `processList()` (carve-php#1653).
-        // The empty case keeps the newline it has always opened with.
-        $output = $tableAttrs !== '' ? $tableAttrs : "\n";
-
-        if ($headerRow !== null) {
-            $colWidthsAttr = $node->getAttribute('data-djot-col-widths');
-
-            // A colspan marker (`<`) is written as its own plain cell, so it
-            // absorbs into the `|=` header on its left: the header keeps the
-            // native form when its span markers form a TRAILING run of colspans
-            // after at least one real header cell. Fall back to the separator
-            // form for every other span shape - a leading span (no `|=` anchor),
-            // a real cell after a span (which would read as `|=< K`, an aligned
-            // header), and a trailing rowspan (`^`, which does not absorb left).
-            $firstSpan = -1;
-            foreach ($headerCells as $i => $hc) {
-                if ($hc === '<' || $hc === '^') {
-                    $firstSpan = $i;
-
-                    break;
-                }
-            }
-            $headerNeedsDelimiter = false;
-            if ($firstSpan >= 0) {
-                $trailingColspansOnly = $firstSpan >= 1;
-                $headerCellCount = count($headerCells);
-                for ($span = $firstSpan; $span < $headerCellCount; $span++) {
-                    if ($headerCells[$span] !== '<') {
-                        $trailingColspansOnly = false;
-
-                        break;
-                    }
-                }
-                $headerNeedsDelimiter = !$trailingColspansOnly;
-            }
-
-            if ($colWidthsAttr === '' && !$headerNeedsDelimiter) {
-                // Canonical Carve: `|=` header cells (alignment via `<`/`>`/`~`
-                // markers on the header cell), no separator row. Used unless the
-                // source was a GFM table (recorded via data-djot-col-widths).
-                $headerLine = '|';
-                foreach ($headerCells as $i => $cell) {
-                    if ($cell === '<') {
-                        // A trailing colspan marker is a plain cell that merges
-                        // into the `|=` header on its left, so it takes no `=`.
-                        $headerLine .= ' < |';
-
-                        continue;
-                    }
-                    $marker = $this->tableCellMarkerRun(
-                        $alignments[$i] ?? TableCell::ALIGN_DEFAULT,
-                        $valignments[$i] ?? '',
-                    );
-                    // The block is already at the head of an attributed cell's
-                    // string and glues to the marker run (T10), so that cell
-                    // takes no separating space here.
-                    $headerLine .= '=' . $marker . ($headerPrefixes[$i] ?? '')
-                        . (isset($headerAttributedCells[$i]) ? '' : ' ') . $cell . ' |';
-                }
-                if (preg_match(self::BLANK_TABLE_ROW, $headerLine) === 1) {
-                    $blankRow = $headerTrIndex;
-                }
-                $output .= $headerLine . $headerRowAttrs . "\n";
-            } else {
-                if (preg_match(self::BLANK_TABLE_ROW, substr($headerRow, 0, strlen($headerRow) - strlen($headerRowAttrs))) === 1) {
-                    $blankRow = $headerTrIndex;
-                }
-                $output .= $headerRow . "\n";
-
-                // Use original separator widths if available for round-trip
-                $separator = [];
-                if ($colWidthsAttr !== '') {
-                    $colWidths = array_map('intval', explode(',', $colWidthsAttr));
-                    foreach ($colWidths as $width) {
-                        // Use exact width from original for round-trip fidelity
-                        $separator[] = $this->buildTableSeparator($width, $alignments[count($separator)] ?? TableCell::ALIGN_DEFAULT);
-                    }
-                    // Fill remaining columns with default width
-                    $separatorCount = count($separator);
-                    while ($separatorCount < $columnCount) {
-                        $separator[] = $this->buildTableSeparator(3, $alignments[$separatorCount] ?? TableCell::ALIGN_DEFAULT);
-                        $separatorCount++;
-                    }
-                } else {
-                    for ($i = 0; $i < $columnCount; $i++) {
-                        $separator[] = $this->buildTableSeparator(3, $alignments[$i] ?? TableCell::ALIGN_DEFAULT);
-                    }
-                }
-
-                $output .= '|' . implode('|', $separator) . '|' . "\n";
-            }
-        }
-
-        $output .= implode("\n", $rows) . "\n";
-
-        // Add caption after table
-        if ($captionText !== '') {
-            $output .= $this->formatCaptionText($captionText);
-        }
-
-        return [$output . "\n", $blankRow];
-    }
 
     /**
      * Does any cell hold content a pipe-table cell cannot express?
@@ -7952,218 +3935,6 @@ class HtmlToCarve
     }
 
     /**
-     * Write the table as a `::: list-table` div.
-     *
-     * Rows are the outer list items and cells the inner ones, so a cell is a
-     * list item and holds block content for free. The span markers are the
-     * pipe-table ones - a lone `^` merges upward, a lone `<` leftward
-     * (extensions §5.1) - so the colspan/rowspan bookkeeping is the same
-     * question answered in the same spelling, just written as items.
-     *
-     * `{header-rows}` / `{header-cols}` sit on the line BEFORE the opener: a
-     * trailing attribute block on `:::` would make the whole div literal.
-     */
-    protected function processTableAsListTable(DOMElement $node): string
-    {
-        $captionElement = $this->findFirstDirectChildByTagName($node, 'caption');
-        $caption = $captionElement instanceof DOMElement
-            ? trim($this->processCaptionChildren($captionElement))
-            : '';
-
-        $rows = [];
-        $headerRows = 0;
-        $headerCols = null;
-        $sawBodyRow = false;
-
-        foreach ($this->getDirectTableRows($node) as $row) {
-            $cells = [];
-            $rowIsAllHeader = true;
-            $leadingHeaderCells = 0;
-            $countingLeaders = true;
-
-            foreach ($row->childNodes as $cell) {
-                if (!$cell instanceof DOMElement || !in_array(strtolower($cell->tagName), ['td', 'th'], true)) {
-                    continue;
-                }
-
-                $isHeaderCell = strtolower($cell->tagName) === 'th';
-                $rowIsAllHeader = $rowIsAllHeader && $isHeaderCell;
-
-                if ($countingLeaders && $isHeaderCell) {
-                    $leadingHeaderCells++;
-                } else {
-                    $countingLeaders = false;
-                }
-
-                $cells[] = [
-                    // ONE LEVEL DEEPER, because the cell's content sits inside
-                    // the `::: list-table` fence this method is about to open
-                    // (see {@see colonFenceFor()}): a container written in a
-                    // cell needs the inward-widening width of its own depth,
-                    // not of the document's (raised by codex review).
-                    'content' => $this->insideColonFence(fn (): string => $this->listTableCellContent($cell)),
-                    'attributes' => $this->getElementAttributes($cell, $this->tableCellSkipAttributes($cell)),
-                    'colspan' => max(1, (int)$cell->getAttribute('colspan')),
-                    'rowspan' => max(1, (int)$cell->getAttribute('rowspan')),
-                ];
-            }
-
-            if ($cells === []) {
-                continue;
-            }
-
-            // Only a run of header rows at the TOP is `header-rows`; a `<th>`
-            // further down is an ordinary cell as far as this attribute goes.
-            if ($rowIsAllHeader && !$sawBodyRow) {
-                $headerRows++;
-            } else {
-                $sawBodyRow = true;
-                // `header-cols` is the count every BODY row agrees on.
-                $headerCols = $headerCols === null
-                    ? $leadingHeaderCells
-                    : min($headerCols, $leadingHeaderCells);
-            }
-
-            $rows[] = $cells;
-        }
-
-        if ($rows === []) {
-            return '';
-        }
-
-        $attributes = [];
-
-        // The table's OWN attributes belong on this block too. ListTable passes
-        // non-structural attributes through to the rendered `<table>`, so a
-        // class or id the author wrote is carried rather than dropped on the
-        // way into this form (raised by codex review).
-        $tableAttributes = $this->getElementAttributes($node, ['data-djot-col-widths']);
-        if ($tableAttributes !== '') {
-            $attributes[] = $tableAttributes;
-        }
-
-        if ($headerRows > 0) {
-            $attributes[] = 'header-rows=' . $headerRows;
-        }
-        if ($headerCols !== null && $headerCols > 0) {
-            $attributes[] = 'header-cols=' . $headerCols;
-        }
-
-        $fence = $this->colonFenceFor();
-        $output = $attributes === [] ? '' : '{' . implode(' ', $attributes) . "}\n";
-        $output .= $fence . ' list-table' . ($caption === '' ? '' : ' "' . str_replace('"', '\\"', $caption) . '"') . "\n";
-        $output .= $this->listTableRows($rows);
-
-        return $output . $fence . "\n\n";
-    }
-
-    /**
-     * The nested list: one outer item per row, one inner item per cell.
-     *
-     * @param array<int, array<int, array{content: string, attributes: string, colspan: int, rowspan: int}>> $rows
-     */
-    protected function listTableRows(array $rows): string
-    {
-        // [column => remaining rows spanned], so a `^` lands in the column the
-        // rowspan actually occupies rather than at the end of the row.
-        $rowspanMap = [];
-        $output = '';
-
-        foreach ($rows as $cells) {
-            $items = [];
-            $column = 0;
-
-            foreach ($cells as $cell) {
-                while (isset($rowspanMap[$column])) {
-                    $items[] = '^';
-                    if (--$rowspanMap[$column] === 0) {
-                        unset($rowspanMap[$column]);
-                    }
-                    $column++;
-                }
-
-                // The cell's own attributes are NOT written. Carve has no
-                // per-list-item attribute spelling this converter could find -
-                // `{.c}` on its own line before an item attaches to the LIST,
-                // and after the marker it is literal text - so emitting one
-                // put the class on the cell's first PARAGRAPH instead of on
-                // the cell. Dropping it is the smaller loss than moving it
-                // somewhere it does not belong; see carve-php#1167.
-                $items[] = $cell['content'];
-
-                if ($cell['rowspan'] > 1) {
-                    $rowspanMap[$column] = ($rowspanMap[$column] ?? 0) + ($cell['rowspan'] - 1);
-                }
-                $column++;
-
-                for ($span = 1; $span < $cell['colspan']; $span++) {
-                    $items[] = '<';
-                    $column++;
-                }
-            }
-
-            // A column still spanned AFTER the row's last real cell needs its
-            // `^` as well. Without it the row simply ends, the span is lost and
-            // the next row gains an empty cell instead (raised by codex review).
-            while (isset($rowspanMap[$column])) {
-                $items[] = '^';
-                if (--$rowspanMap[$column] === 0) {
-                    unset($rowspanMap[$column]);
-                }
-                $column++;
-            }
-
-            $output .= $this->listTableRow($items);
-        }
-
-        return $output;
-    }
-
-    /**
-     * One row. The first cell opens both lists on one line, every later cell is
-     * an inner item indented under it, and a cell's continuation lines are
-     * indented to that inner item's content column.
-     *
-     * @param array<int, string> $items
-     */
-    protected function listTableRow(array $items): string
-    {
-        $output = '';
-
-        foreach ($items as $index => $item) {
-            $marker = $index === 0 ? '- - ' : '  - ';
-            $lines = explode("\n", rtrim($item));
-            $output .= $marker . array_shift($lines) . "\n";
-
-            foreach ($lines as $line) {
-                $output .= ($line === '' ? '' : '    ' . $line) . "\n";
-            }
-        }
-
-        return $output;
-    }
-
-    /**
-     * A cell's own content, as blocks rather than as one collapsed line.
-     */
-    protected function listTableCellContent(DOMElement $cell): string
-    {
-        $hasBlockChildren = false;
-
-        foreach ($cell->childNodes as $child) {
-            if ($child instanceof DOMElement && in_array(strtolower($child->tagName), $this->blockElements, true)) {
-                $hasBlockChildren = true;
-
-                break;
-            }
-        }
-
-        $content = $hasBlockChildren ? $this->processBlock($cell) : trim($this->processChildren($cell));
-
-        return trim($content) === '' ? '' : trim($content);
-    }
-
-    /**
      * @return list<\DOMElement>
      */
     protected function getDirectTableRows(DOMElement $table): array
@@ -8194,44 +3965,6 @@ class HtmlToCarve
         }
 
         return $rows;
-    }
-
-    /**
-     * Assemble one table row line.
-     *
-     * A cell attribute block parses only when it is GLUED to the opening pipe:
-     * PART 7 gives `data_cell` its own `{space}` run after the `|`, so a space
-     * before the brace makes the whole thing ordinary content and the class is
-     * rendered as the four visible characters `{.c}` (carve-php#1164). Cells
-     * this converter gave an attribute block are therefore written without the
-     * separating space, and every other cell keeps it - including one whose
-     * CONTENT happens to start with a brace, which must stay content.
-     *
-     * @param array<int, string> $cells
-     * @param array<int, true> $attributed Indexes of cells opening with an attribute block.
-     * @param array<int, true> $header Indexes of cells the source wrote as `th`.
-     * @param array<int, string> $prefixes The marker run each cell carries of its own.
-     */
-    protected function buildTableRowLine(array $cells, array $attributed, array $header = [], array $prefixes = []): string
-    {
-        $line = '|';
-
-        foreach ($cells as $index => $cell) {
-            // `|= x |` is a header cell wherever it stands: in the leading run
-            // of header rows it is a column header, below it a row header. The
-            // marker is glued to the pipe, the space goes after it - and an
-            // attribute block glues to the marker in turn (PART 9 §5 T10), so
-            // an attributed cell takes no space between the two.
-            // THE MARKER RUN COMES AFTER THE KIND MARKER and before the
-            // attribute block, which is the order the grammar binds them in
-            // (PART 9 §5 T10): `|=>{.x} h |` is a right-aligned attributed
-            // header cell, and any other order reads as content.
-            $marker = isset($header[$index]) ? '=' : '';
-            $line .= $marker . ($prefixes[$index] ?? '')
-                . (isset($attributed[$index]) ? '' : ' ') . $cell . ' |';
-        }
-
-        return $line;
     }
 
     /**
@@ -8312,114 +4045,6 @@ class HtmlToCarve
      */
     protected ?string $inspectedElementContent = null;
 
-    /**
-     * Degrade a wrapper to its own content, keeping the boundary it carried.
-     *
-     * The wrapper goes but the block break it stood for must not: processBlock()
-     * appends a block child's output directly and relies on the child having
-     * ended itself. A paragraph does, which is why a `<p>` pair was never
-     * affected and only the wrappers that degrade were - two `<div>`s came out
-     * as one run of text, `ab`, at top level and `| a()b: |` in a table cell.
-     *
-     * One rule, two right answers. Outside a table the separator is a real
-     * block break, which is what the author wrote. Inside a pipe-table cell the
-     * cell serializer collapses it to a single space, because a pipe row is one
-     * line and cannot hold a break at all - an explicit `<br>` there does not
-     * survive as one either. So this is a separator rather than padding, and a
-     * lone wrapper still trims to `| d |` (carve-php#1164).
-     */
-    protected function degradeToContent(DOMElement $node): string
-    {
-        $content = $this->processBlock($node);
-
-        return $content === '' ? '' : $content . "\n\n";
-    }
-
-    protected function serializeTableCellContent(DOMElement $cell): string
-    {
-        $hasBlockChildren = false;
-
-        foreach ($cell->childNodes as $child) {
-            if ($child instanceof DOMElement && in_array(strtolower($child->tagName), $this->blockElements, true)) {
-                $hasBlockChildren = true;
-
-                break;
-            }
-        }
-
-        $this->tableCellDepth++;
-
-        try {
-            $content = $hasBlockChildren ? $this->processBlock($cell) : $this->processChildren($cell);
-        } finally {
-            $this->tableCellDepth--;
-        }
-
-        $content = trim($content);
-
-        $content = preg_replace('/\s+/', ' ', $content) ?? $content;
-
-        return str_replace('|', '\|', $content);
-    }
-
-    /**
-     * Take PART 9 §10's grouping `[label]` back off the `<p class="div-label">`
-     * the renderer degraded it to, removing that paragraph from the container.
-     */
-    protected function liftContainerLabel(DOMElement $node): ?string
-    {
-        $paragraph = null;
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMText) {
-                if (trim($child->textContent) === '') {
-                    continue;
-                }
-
-                return null;
-            }
-            if (!$child instanceof DOMElement) {
-                continue;
-            }
-            // The container's own TITLE was degraded the same way, and it is
-            // written ahead of the label on the same opener, so it is scanned
-            // past rather than treated as content in front of the label.
-            if ($this->isDegradedContainerTitle($child)) {
-                continue;
-            }
-            $paragraph = $child;
-
-            break;
-        }
-        if ($paragraph === null || strtolower($paragraph->tagName) !== 'p') {
-            return null;
-        }
-        if (!$this->hasClass($paragraph, 'div-label')) {
-            return null;
-        }
-        foreach ($paragraph->childNodes as $child) {
-            if (!$child instanceof DOMText) {
-                return null;
-            }
-        }
-        /** @var \DOMAttr $attr */
-        foreach ($paragraph->attributes as $attr) {
-            if ($attr->name !== 'class') {
-                return null;
-            }
-        }
-        if ($this->getElementClassList($paragraph) !== ['div-label']) {
-            return null;
-        }
-        $label = $paragraph->textContent;
-        if (str_contains($label, ']') || str_contains($label, "\n")) {
-            return null;
-        }
-
-        $paragraph->parentNode?->removeChild($paragraph);
-
-        return $label;
-    }
-
     protected function findFirstDirectChildByTagName(DOMElement $node, string $tagName): ?DOMElement
     {
         $tagName = strtolower($tagName);
@@ -8431,147 +4056,6 @@ class HtmlToCarve
         }
 
         return null;
-    }
-
-    /**
-     * Get single block child element if div is a wrapper
-     *
-     * Returns the child element if:
-     * - There is exactly one element child (ignoring whitespace text nodes)
-     * - The child is a block-level element
-     */
-    protected function getSingleBlockChild(DOMElement $node): ?DOMElement
-    {
-        $elementChild = null;
-
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMText) {
-                // Allow whitespace-only text nodes
-                if (trim($child->textContent) !== '') {
-                    return null; // Has significant text content, not a wrapper
-                }
-
-                continue;
-            }
-
-            if ($child instanceof DOMElement) {
-                if ($elementChild !== null) {
-                    return null; // More than one element child
-                }
-                $elementChild = $child;
-            }
-        }
-
-        // Check if the child is a block element
-        if ($elementChild !== null) {
-            $tag = strtolower($elementChild->tagName);
-            if (in_array($tag, $this->blockElements, true)) {
-                return $elementChild;
-            }
-        }
-
-        return null;
-    }
-
-    protected function processDefinitionList(DOMElement $node): string
-    {
-        // Carve definition list: `:: term` for each term, `:  definition` for
-        // each definition (grammar definition_term = "::", definition_body =
-        // ":  "); a multi-line definition continues on three-space-indented
-        // lines. dl-level attributes attach on a preceding block-attribute line.
-        // (dt/dd-level attributes have no `::` representation and are dropped.)
-        $dlAttrs = $this->formatBlockAttributes($node);
-        // Ends its own line - see the note in `processList()` (carve-php#1653).
-        // No empty-case newline here: this caller was already conditional, so
-        // the only thing the extra one ever added was the blank line.
-        $output = $dlAttrs;
-
-        // Every entry writes its own description line, so consecutive `::`
-        // lines never end up sharing one: a `<dl>` writes back as ONE list with
-        // the grouping it came in with, and no term acquires the next entry's
-        // description.
-        foreach ($this->definitionListEntries($node) as $child) {
-            $tag = strtolower($child->tagName);
-            if ($tag === 'dt') {
-                $output .= ':: ' . trim($this->processChildren($child)) . "\n";
-            } elseif ($tag === 'dd') {
-                $outerContext = $this->blockLineContext;
-                // A body marker reads as one only below a term.
-                $this->blockLineContext = [':: t' . "\n" . self::DEFINITION_BODY_MARKER, self::DEFINITION_BODY_INDENT];
-                try {
-                    $description = trim($this->processChildren($child));
-                    if (!$this->holdsABlockElement($child)) {
-                        $description = $this->escapeBlockLineOpeners($description, iterator_to_array($child->childNodes));
-                    }
-                } finally {
-                    $this->blockLineContext = $outerContext;
-                }
-                if ($description === '') {
-                    $output .= self::DEFINITION_BODY_MARKER . self::EMPTY_BODY_SENTINEL . "\n";
-
-                    continue;
-                }
-
-                $lines = explode("\n", $description);
-                $output .= self::DEFINITION_BODY_MARKER . array_shift($lines) . "\n";
-                foreach ($lines as $line) {
-                    $output .= self::DEFINITION_BODY_INDENT . $line . "\n";
-                }
-            }
-        }
-
-        return $output . "\n";
-    }
-
-    /**
-     * The `dt`/`dd` elements of a definition list, in document order.
-     *
-     * HTML5 gives `dl` two content models: term/definition elements as direct
-     * children, or one `div` per group wrapping them. Reading only the direct
-     * children saw nothing at all in the second form, so a div-wrapped list
-     * converted to an empty document - every term and every definition gone,
-     * with no diagnostic. Word, Google Docs and several editors emit the
-     * wrapped form because it is the one CSS grid can style.
-     *
-     * The wrapper is unwrapped transparently: it groups rows for styling and
-     * carries no meaning Carve's `::` form spells. Its attributes go the same
-     * way `dt`/`dd` attributes already do, since neither has a representation
-     * on a definition line.
-     *
-     * Only one level unwraps, which is the only level HTML5 allows. A `div`
-     * nested inside the wrapper is not a group and its terms stay unread,
-     * rather than the converter inventing a flattening the source did not say.
-     *
-     * @return list<\DOMElement>
-     */
-    protected function definitionListEntries(DOMElement $node): array
-    {
-        $entries = [];
-        foreach ($node->childNodes as $child) {
-            if (!$child instanceof DOMElement) {
-                continue;
-            }
-            $tag = strtolower($child->tagName);
-            if ($tag === 'dt' || $tag === 'dd') {
-                $entries[] = $child;
-
-                continue;
-            }
-            if ($tag !== 'div') {
-                continue;
-            }
-            foreach ($child->childNodes as $wrapped) {
-                if (!$wrapped instanceof DOMElement) {
-                    continue;
-                }
-                $wrappedTag = strtolower($wrapped->tagName);
-                if ($wrappedTag === 'dt' || $wrappedTag === 'dd') {
-                    $entries[] = $wrapped;
-                }
-            }
-        }
-
-        return $entries;
     }
 
     /**
@@ -8598,75 +4082,6 @@ class HtmlToCarve
         }
 
         return $this->alignmentClasses[strtolower($matches[1])] ?? null;
-    }
-
-    /**
-     * The Carve attributes this element's inline CSS maps to.
-     *
-     * @param \DOMElement $node
-     *
-     * @return array<string, string>
-     */
-    protected function mappedStyleAttributes(DOMElement $node): array
-    {
-        if ($this->isTableCell($node)) {
-            // A CELL TAKES THE MARKER RUN, NOT AN ATTRIBUTE. `|>` is written
-            // back as `style="text-align: right;"` and `{align=right}` as
-            // `align="right"`, so only the marker returns the declaration the
-            // import was handed - and only the marker keeps
-            // `carve -> html -> carve -> html` stable
-            // (markup-carve/carve#1745). processTable() reads the axes off the
-            // cell itself.
-            return [];
-        }
-
-        if ($this->extractAlignmentClass($node) !== null) {
-            // The configured class already carries this element's alignment.
-            // Writing the key as well would spell one source twice, in two
-            // mechanisms - the same reason cells take the native marker instead
-            // of a class.
-            return [];
-        }
-
-        $mapped = [];
-        foreach ($this->styleDeclarations($node->getAttribute('style')) as [$property, $value]) {
-            if ($this->mappedStyleSlot($node, $property, $value) === 'align') {
-                $mapped['align'] = $value;
-            }
-        }
-
-        return $mapped;
-    }
-
-    /**
-     * The Carve attribute names this element's inline CSS fills, whichever
-     * mechanism carries them.
-     *
-     * Asked SEPARATELY from {@see self::mappedStyleAttributes()} because a
-     * cell's axes reach the marker run rather than the attribute block, and a
-     * presentational `align` / `valign` beside them still has to go: CSS beats
-     * the presentational attribute in HTML, and keeping both would spell one
-     * axis twice from one source.
-     *
-     * @param \DOMElement $node
-     *
-     * @return array<string, true>
-     */
-    protected function mappedStyleSlots(DOMElement $node): array
-    {
-        if (!$this->isTableCell($node) && $this->extractAlignmentClass($node) !== null) {
-            return [];
-        }
-
-        $slots = [];
-        foreach ($this->styleDeclarations($node->getAttribute('style')) as [$property, $value]) {
-            $slot = $this->mappedStyleSlot($node, $property, $value);
-            if ($slot !== null) {
-                $slots[$slot] = true;
-            }
-        }
-
-        return $slots;
     }
 
     protected function isTableCell(DOMElement $node): bool
@@ -8764,169 +4179,6 @@ class HtmlToCarve
         return $declarations;
     }
 
-    protected function extractTableCellAlignment(DOMElement $cell): string
-    {
-        // NOT MODE-GATED, and that is deliberate. `safe` maps no CSS to an
-        // ATTRIBUTE - markup-carve/carve#1741 says so and
-        // `mappedStyleDeclarationValue()` implements it - but the column marker
-        // is not an attribute mapping. It is how a pipe table SPELLS a column,
-        // it round-trips the declaration byte for byte, and
-        // `TheHtmlRoundTripWithoutTheSidecarTest` pins a sidecar-less
-        // `carve -> html -> carve` on it in the default mode
-        // (markup-carve/carve#1344). Gating it here dropped that reconstruction.
-        $style = $cell->getAttribute('style');
-        if ($style !== '' && preg_match('/text-align\s*:\s*(left|right|center)\s*;?/i', $style, $matches) === 1) {
-            return strtolower($matches[1]);
-        }
-
-        return TableCell::ALIGN_DEFAULT;
-    }
-
-    /**
-     * Whether this table's head will carry the column alignment markers.
-     *
-     * THE SAME RULE THE PROMOTION USES: only the first row holding cells is a
-     * candidate, and only a row whose cells are ALL headers is promoted. A
-     * table that promotes nothing writes no marker run and no separator row, so
-     * a column alignment collected from its cells has nowhere to go - which is
-     * why the cell keeps its own `{align=...}` there instead.
-     *
-     * @param array<\DOMElement> $trElements
-     */
-    protected function tableHeadTakesTheAlignmentMarkers(array $trElements): bool
-    {
-        foreach ($trElements as $tr) {
-            $cells = 0;
-            $headers = 0;
-            foreach ($tr->childNodes as $cell) {
-                if (!$cell instanceof DOMElement) {
-                    continue;
-                }
-                $tag = strtolower($cell->tagName);
-                if ($tag !== 'th' && $tag !== 'td') {
-                    continue;
-                }
-                $cells++;
-                if ($tag === 'th') {
-                    $headers++;
-                }
-            }
-            if ($cells === 0) {
-                // A row with no cells is not emitted, so the NEXT one is still
-                // the candidate - the same reason the promotion tests
-                // `$rows === []` rather than the row's index.
-                continue;
-            }
-
-            return $headers === $cells;
-        }
-
-        return false;
-    }
-
-    /**
-     * The vertical alignment this cell's inline CSS states, or `''` for none.
-     *
-     * A SIBLING OF {@see self::extractTableCellAlignment()}, and mapped for the
-     * same reason: Carve has a cell `valign`, the marker run writes it back as
-     * `style="vertical-align: top;"`, and refusing it declared a loss the
-     * engine did not have to take (markup-carve/carve#1746).
-     */
-    protected function extractTableCellValign(DOMElement $cell): string
-    {
-        // Unlike the horizontal axis this is NOT carried in `safe`. Nothing
-        // shipped depends on it, so it follows the ruling rather than the
-        // exception the horizontal one inherited.
-        if ($this->importMode === 'safe') {
-            return '';
-        }
-
-        $style = $cell->getAttribute('style');
-        if ($style !== '' && preg_match('/vertical-align\s*:\s*(top|middle|bottom)\s*;?/i', $style, $matches) === 1) {
-            return strtolower($matches[1]);
-        }
-
-        return '';
-    }
-
-    /**
-     * The marker run a cell carrying these axes is written with.
-     *
-     * `?` IS THE INHERITED HORIZONTAL. The vertical marker only exists in the
-     * second position of the run, so a cell stating only a vertical alignment
-     * needs something in the first - and a bare `|^` is not that: it reads as
-     * cell content and comes back as the literal text `^ a`. `|~` alone is the
-     * CENTER horizontal marker, not a vertical one, which is the other way the
-     * run is easy to misspell.
-     */
-    protected function tableCellMarkerRun(string $alignment, string $valign): string
-    {
-        $align = $this->tableAlignMarker($alignment);
-        if ($valign === '') {
-            return $align;
-        }
-
-        $vertical = match ($valign) {
-            'top' => '^',
-            'middle' => '~',
-            'bottom' => 'v',
-            default => '',
-        };
-
-        return ($align === '' ? '?' : $align) . $vertical;
-    }
-
-    /**
-     * Whether the head row would be written with a span marker, which is what
-     * sends the table to the separator form: `|= < |` is not valid Carve for a
-     * colspan continuation, so the head cannot take the `|=` shape.
-     *
-     * Asked of the SOURCE rather than of the built cells, because a cell's
-     * marker run has to be decided before the row is built.
-     *
-     * @param array<\DOMElement> $trElements
-     */
-    protected function tableHeadHasASpanMarker(array $trElements): bool
-    {
-        foreach ($trElements as $tr) {
-            $cells = 0;
-            $spanning = false;
-            foreach ($tr->childNodes as $cell) {
-                if (!$cell instanceof DOMElement) {
-                    continue;
-                }
-                $tag = strtolower($cell->tagName);
-                if ($tag !== 'th' && $tag !== 'td') {
-                    continue;
-                }
-                $cells++;
-                if ((int)$cell->getAttribute('colspan') > 1) {
-                    $spanning = true;
-                }
-            }
-            if ($cells === 0) {
-                continue;
-            }
-
-            return $spanning;
-        }
-
-        return false;
-    }
-
-    protected function buildTableSeparator(int $width, string $alignment): string
-    {
-        // Width represents the number of dashes in the separator
-        // For alignment markers, we add colons around the dashes
-        // Minimum is 1 dash for center, 2 for others (Djot allows 2-dash separators)
-        return match ($alignment) {
-            TableCell::ALIGN_LEFT => ':' . str_repeat('-', max(2, $width)),
-            TableCell::ALIGN_RIGHT => str_repeat('-', max(2, $width)) . ':',
-            TableCell::ALIGN_CENTER => ':' . str_repeat('-', max(1, $width)) . ':',
-            default => str_repeat('-', max(2, $width)),
-        };
-    }
-
     /**
      * The tight alignment marker glued to a `|=` header cell: `<` left,
      * `>` right, `~` center, empty for default.
@@ -8940,952 +4192,9 @@ class HtmlToCarve
     protected ?TableParser $cellReader = null;
 
     /**
-     * Escape a cell payload that would otherwise re-read as a SPAN MARKER.
-     *
-     * PADDING IS NOT AN ESCAPE WHERE THE PRODUCTION ADMITS PADDING (PART 11
-     * §6f). §6e's one space in front of the content puts it out of reach of the
-     * three slots that are read GLUED to the opening pipe, and that argument
-     * holds only where the construct forbids the padding. The span cell is
-     * written WITH the padding inside it:
-     *
-     *     span_cell = rowspan_marker | colspan_marker ;
-     *     rowspan_marker = {space}, '^', {space} ;
-     *     colspan_marker = {space}, '<', {space} ;
-     *
-     * so a cell whose whole payload is `^` or `<` re-reads as a span however it
-     * is padded, and §2 is what applies: omitting the escape changes the
-     * re-parsed AST, so the payload is escaped.
-     *
-     * IT LOSES THE CELL, not a byte of spelling, which is why this is a §1
-     * failure rather than an under-escaped character. An ordinary
-     * `<td>^</td>` under a two-cell row came back as `| ^ |`, and the cell
-     * ABOVE it grew a `rowspan="2"` while the caret's own cell was deleted
-     * outright. In the GFM separator form the same payload in the header row
-     * emits `<th></th>` and the caret is simply gone.
-     *
-     * THE TEST, NOT THE TWO CHARACTERS: the payload is handed to the parser's
-     * OWN span-marker predicates rather than compared against a list here.
-     * Naming `^` and `<` in this file would be an enumeration that goes stale
-     * the next time a cell-level marker is added, and §6e's history is what
-     * that costs - each writer answered the alignment-sigil class with its own
-     * slightly different set of characters.
-     *
-     * ONLY A CONTENT-DERIVED PAYLOAD REACHES THIS. The `^` and `<` this
-     * converter writes for a real `rowspan` / `colspan` are pushed onto the row
-     * directly and are markers on purpose; escaping those would destroy the
-     * span the HTML actually held. An ATTRIBUTED cell is not asked either, for
-     * the reason the parser does not ask it: an attribute block ahead of the
-     * payload already makes the cell content.
-     *
-     * A cell emitted with the glued `=` header marker does not NEED the escape
-     * - `|= ^ |` is already a header cell holding a caret - and it gets one
-     * anyway, because which of the two header forms a row will take is decided
-     * after the cells are built. That spends one idle escape on a rare cell and
-     * renders identically; the other direction deletes the cell.
-     *
-     * @param string $payload
-     */
-    protected function escapeSpanMarkerCellPayload(string $payload): string
-    {
-        $this->cellReader ??= new TableParser();
-        if (
-            !$this->cellReader->isRowspanMarker($payload)
-            && !$this->cellReader->isColspanMarker($payload)
-        ) {
-            return $payload;
-        }
-
-        return str_replace(['^', '<'], ['\^', '\<'], $payload);
-    }
-
-    protected function tableAlignMarker(string $alignment): string
-    {
-        return match ($alignment) {
-            TableCell::ALIGN_LEFT => '<',
-            TableCell::ALIGN_RIGHT => '>',
-            TableCell::ALIGN_CENTER => '~',
-            default => '',
-        };
-    }
-
-    protected function processSpan(DOMElement $node): string
-    {
-        // Check for escaped text (round-trip support)
-        if ($node->hasAttribute('data-djot-escaped')) {
-            return '\\' . $node->textContent;
-        }
-
-        // Check for raw inline content (round-trip support). Only honor it for
-        // trusted input: `data-djot-raw="html"` emits a `{=html}` raw-inline
-        // verbatim, so untrusted HTML could smuggle live <script> through it.
-        if ($node->hasAttribute('data-djot-raw') && $this->trustedRoundTrip) {
-            return $this->processRawInline($node);
-        }
-
-        // The engine's own mention and hashtag output:
-        // <span class="mention"><strong>@alice</strong></span> and the same
-        // shape with class="tag" around #tag. Imported as an attributed span
-        // it double-wrapped on reparse - the inner @name parsed as a mention
-        // again, adding a layer per HTML round trip (carve-php#1291). The bare
-        // sigil spelling is exactly what the renderer re-emits.
-        $mentionClass = ['mention' => '@', 'tag' => '#'];
-        $class = trim($node->getAttribute('class'));
-        if (isset($mentionClass[$class])) {
-            $text = trim($node->textContent);
-            if (
-                str_starts_with($text, $mentionClass[$class])
-                && preg_match('/^[@#][\w-]+$/u', $text) === 1
-            ) {
-                return $text;
-            }
-        }
-
-        // The engine's own math output: <span class="math inline">\(x\)</span>,
-        // which is also what djot.js and pandoc write. Imported as an attributed
-        // span the equation stopped being an equation - the delimiters became
-        // literal text a re-render escapes as prose, so a typesetter has nothing
-        // left to find (carve-php#1543). Math carries no active content, so
-        // `safe` maps it exactly as `semantic` and `roundtrip` do.
-        $math = $this->mathDelimitedContent($node, 'span');
-        if ($math !== null) {
-            return $this->renderMath($math['content'], $math['display'])
-                . $this->mathAttributeSuffix($node, $math['classes']);
-        }
-
-        // Use getElementAttributes to get all attributes including data-*
-        $attrs = $this->getElementAttributes($node);
-
-        // If span has any attributes, convert to Carve span syntax
-        if ($attrs !== '') {
-            $content = $this->buildLabelContent(fn (): string => $this->processChildren($node));
-
-            return '[' . $this->escapeNoteReferenceLabel($content) . ']{' . $attrs . '}';
-        }
-
-        return $this->processChildren($node);
-    }
-
-    /**
-     * Process raw inline span (with data-djot-raw) for round-trip
-     */
-    protected function processRawInline(DOMElement $node): string
-    {
-        $format = $node->getAttribute('data-djot-raw');
-
-        // For HTML format, get the innerHTML (raw HTML content)
-        // For other formats, get the text content (was HTML-escaped)
-        if ($format === 'html') {
-            $content = $this->getInnerHtml($node);
-        } else {
-            $content = $node->textContent;
-        }
-
-        // Find the appropriate backtick fence
-        $backticks = StringUtil::findSafeCodeFence($content, 1);
-
-        return $backticks . $content . $backticks . '{=' . $format . '}';
-    }
-
-    /**
      * The element kept BYTE FOR BYTE, where `roundtrip` is the mode and Carve
      * has no construct for it (`markup-carve/carve-php#1713`).
      */
-
-    /**
-     * Does this `<figcaption>` spell anything at all?
-     *
-     * A CAPTION IS WHAT MAKES A FIGURE (PART 9 §4b), so a wrapper whose caption
-     * contributes nothing is not a figure to preserve or to rebuild.
-     *
-     * ASKED OF THE DOM, and that is not a style choice: the obvious test is to
-     * convert the caption and look at the result, and
-     * `processCaptionChildren()` RECORDS DIAGNOSTICS as it runs. Asking it here
-     * and again on the real path reported every flattened element twice, so a
-     * figure whose caption held a list gained three rows for a conversion that
-     * happened once (`markup-carve/carve-php#1713`).
-     */
-    protected function captionSpellsSomething(DOMElement $caption): bool
-    {
-        foreach ($caption->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                return true;
-            }
-            if ($child instanceof DOMText && !$this->isLayoutOnlyText($child->textContent)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    protected function preservedAsRawHtml(DOMElement $node): ?string
-    {
-        if ($this->importMode !== 'roundtrip') {
-            return null;
-        }
-        $tag = strtolower($node->tagName);
-        // A CELL CANNOT HOLD A BLOCK, and a raw HTML block is one. Inside a
-        // table cell every other block already degrades to its content, so the
-        // inline span is the answer there for both shapes.
-        $block = in_array($tag, self::RAW_PRESERVED_BLOCK_ELEMENTS, true) && $this->tableCellDepth === 0;
-        $this->rawPreservedElements[$this->conversionNodePath($node)] = true;
-        if (!$block) {
-            return $this->processRawHtmlInlineElement($node);
-        }
-
-        $clone = $node->cloneNode(true);
-        if ($clone instanceof DOMElement) {
-            $this->stripDjotDataAttributes($clone);
-        }
-        $html = $clone instanceof DOMElement ? $clone->ownerDocument?->saveHTML($clone) : null;
-        $html = is_string($html) ? rtrim($html, "\n") : '';
-        $fence = StringUtil::findSafeCodeFence($html, 3);
-
-        return $fence . "=html\n" . $html . "\n" . $fence . "\n\n";
-    }
-
-    protected function processRawHtmlInlineElement(DOMElement $node): string
-    {
-        $clone = $node->cloneNode(true);
-        if ($clone instanceof DOMElement) {
-            $this->stripDjotDataAttributes($clone);
-        }
-
-        $html = $clone instanceof DOMElement ? $clone->ownerDocument?->saveHTML($clone) : null;
-        if (!is_string($html)) {
-            $html = '';
-        }
-
-        $backticks = StringUtil::findSafeCodeFence($html, 1);
-
-        return $backticks . $html . $backticks . '{=html}';
-    }
-
-    protected function linkRequiresRawHtmlFallback(DOMElement $node): bool
-    {
-        foreach ($node->childNodes as $child) {
-            if (
-                $child instanceof DOMElement
-                && strtolower($child->tagName) === 'img'
-                && $this->requiresRawImageFallback($child->getAttribute('alt'))
-            ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    protected function isSafeReferenceLabel(string $label): bool
-    {
-        return strpbrk($label, '[]\\') === false;
-    }
-
-    protected function stripDjotDataAttributes(DOMElement $node): void
-    {
-        $toRemove = [];
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            if (str_starts_with($attr->name, 'data-djot-')) {
-                $toRemove[] = $attr->name;
-            }
-        }
-
-        foreach ($toRemove as $name) {
-            $node->removeAttribute($name);
-        }
-
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                $this->stripDjotDataAttributes($child);
-            }
-        }
-    }
-
-    /**
-     * Process semantic HTML elements to Carve span syntax
-     *
-     * Converts semantic HTML inline elements to Carve span syntax
-     * for round-trip support with SemanticSpanExtension.
-     *
-     * @param \DOMElement $node The semantic element
-     * @param string $type The element type (abbr, time, kbd, samp, var, cite, dfn)
-     */
-    protected function processSemanticSpan(DOMElement $node, string $type): string
-    {
-        $content = $this->buildLabelContent(fn (): string => $this->processChildren($node));
-
-        // Preserve definition-based abbreviations when the round-trip template
-        // already restored the matching abbreviation definition.
-        if ($type === 'abbr') {
-            $title = $node->getAttribute('title');
-            if (($this->abbreviationMap[$content] ?? null) === $title) {
-                return $content;
-            }
-        }
-
-        // Build attribute parts
-        $attrParts = [];
-
-        $valueAttribute = self::SEMANTIC_SPAN_VALUE_ATTRIBUTE[$type] ?? null;
-
-        // The leftovers come FIRST. `docs/html-import.md` puts the canonical
-        // writer at the end of the import pipeline and makes it the byte-exact
-        // reference for a shared fixture, and the writer's slot order is
-        // `#id .class key=value boolean` - the order this importer's own
-        // getElementAttributes() already emits for every other element, and the
-        // order the spec spells this exact construct in
-        // (`[Tab]{#k .key kbd}`, blocks-and-attributes "Anything left over
-        // rides the outermost element"; corpus 71-attribute-edge-cases-11).
-        // Putting the consumed name first made <abbr id class title> and
-        // <span id class title> disagree inside one importer.
-        $skipAttributes = ['title'];
-        if ($valueAttribute !== null) {
-            $skipAttributes[] = $valueAttribute;
-        }
-        $otherAttrs = $this->getElementAttributes($node, $skipAttributes);
-        if ($otherAttrs !== '') {
-            $attrParts[] = $otherAttrs;
-        }
-
-        // Three of the seven names carry a value, and each carries it in its own
-        // HTML attribute. That attribute becomes the span attribute's VALUE and
-        // is consumed here rather than riding along as a duplicate key.
-        $value = $valueAttribute !== null ? $node->getAttribute($valueAttribute) : '';
-        if ($value !== '') {
-            // Quoted only where the canonical writer quotes. A hand-rolled
-            // always-quoted form spelled a value the writer immediately
-            // rewrites, so the importer's own output was not stable under
-            // `carve fmt`.
-            $attrParts[] = $type . '=' . $this->quoteAttributeValue($value);
-        } else {
-            // A name with no value, or one whose value attribute is absent, is
-            // spelled as the bare boolean attribute.
-            $attrParts[] = $type;
-        }
-
-        return '[' . $this->escapeNoteReferenceLabel($content) . ']{' . implode(' ', $attrParts) . '}';
-    }
-
-    /**
-     * Process inline quote element to Carve
-     *
-     * Converts <q> to the mark pair a browser draws around it. If the q element
-     * has a cite attribute, it's preserved as an attribute on a span.
-     */
-    protected function processInlineQuote(DOMElement $node): string
-    {
-        // A straight `"` would reach the writer as text and stay straight
-        // (PART 11 §5), and smart punctuation reads direction from the
-        // neighbors rather than from the element, so the marks themselves are
-        // the only bytes that reproduce what the HTML showed.
-        [$open, $close] = self::QUOTE_MARKS[$this->quoteDepth % 2];
-
-        // The children are Carve already, and their text escapes `"` itself;
-        // escaping the result would double every escape in it.
-        $cite = $node->getAttribute('cite');
-        $this->quoteDepth++;
-
-        try {
-            $content = $cite !== ''
-                ? $this->buildLabelContent(fn (): string => $this->processChildren($node))
-                : $this->processChildren($node);
-        } finally {
-            $this->quoteDepth--;
-        }
-
-        $quoted = $open . $content . $close;
-
-        // If there's a cite attribute, wrap in span with the attribute. The
-        // shared helper writes it: the always-quoted form this site used to
-        // spell is one `carve fmt` rewrites, so the importer's own output was
-        // not a fixed point of the writer.
-        if ($cite !== '') {
-            return '[' . $quoted . ']{cite=' . $this->quoteAttributeValue($cite) . '}';
-        }
-
-        return $quoted;
-    }
-
-    /**
-     * Get the innerHTML of an element
-     */
-    protected function getInnerHtml(DOMElement $node): string
-    {
-        $html = '';
-        foreach ($node->childNodes as $child) {
-            $html .= $node->ownerDocument?->saveHTML($child) ?? '';
-        }
-
-        return $html;
-    }
-
-    protected function processFigure(DOMElement $node): string
-    {
-        // A composite figure this converter's own HTML renderer produced
-        // (PART 9 §4c) goes back to its `::: figure` source.
-        if ($this->hasClass($node, 'carve-figure-group')) {
-            return $this->processFigureGroup($node);
-        }
-
-        $output = "\n";
-
-        // Find img, blockquote, pre, and figcaption
-        $img = $this->figureImageTarget($node);
-        $blockquote = $this->findFirstDirectChildByTagName($node, 'blockquote');
-        $pre = $this->findFirstDirectChildByTagName($node, 'pre');
-        $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
-
-        if ($img instanceof DOMElement) {
-            $this->recordFiguresPassedOverForTheTarget($node, $img);
-            $output .= $this->processImage($img) . "\n";
-        } elseif ($this->hasOnlySupportedFigureContent($node) && $blockquote instanceof DOMElement) {
-            $output .= $this->processBlockquote($blockquote);
-            // Remove the trailing blank line since caption follows immediately
-            $output = rtrim($output) . "\n";
-        } elseif ($this->hasOnlySupportedFigureContent($node) && $pre instanceof DOMElement) {
-            // A captioned code block is a figure whose target is the fence -
-            // the engine's own output shape. Importing it as a bare fence plus
-            // a plain paragraph lost the `^` association (carve-php#1288).
-            $output .= $this->processPreBlock($pre);
-            $output = rtrim($output) . "\n";
-        } elseif ($this->figureRebuildsAsCaptionedTable($node)) {
-            /** @var \DOMElement $table */
-            $table = $this->findFirstDirectChildByTagName($node, 'table');
-            // TWO CAPTIONS AND ONE SLOT (ruling `markup-carve/carve-js#1488`).
-            // A table that captions itself has taken the slot, so no Carve
-            // spelling reproduces the figure and `roundtrip` keeps the element
-            // whole rather than writing something else.
-            if ($this->tableCaptionsItself($table)) {
-                $preserved = $this->preservedAsRawHtml($node);
-                if ($preserved !== null) {
-                    return $preserved;
-                }
-            }
-            // WRITTEN ONCE. The lossy exit needs to know whether the table
-            // actually WROTE a caption line, and re-running the conversion to
-            // ask would report everything inside the table twice.
-            $written = rtrim($this->processTable($table)) . "\n";
-            if ($caption instanceof DOMElement) {
-                $detached = $this->figureCaptionDetachedFromTheTable($node, $caption, $written);
-                if ($detached !== null) {
-                    return $detached;
-                }
-            }
-            // THE CAPTION GOES ON THE TABLE, which is where it stays a caption.
-            // The rebuild used to reach the generic fallback, which writes a
-            // caption's content as ordinary blocks - so `Cap` left the figure
-            // and landed as its own paragraph, the association gone and the
-            // report empty (carve-php#1722). A `^ ` line after the pipe rows
-            // reads back as the table's `<caption>`, which is the closest the
-            // syntax comes and what carve-js and carve-rs both write.
-            //
-            // The figure itself is still lost - the row below declares it - so
-            // this is a ceiling, not a lossless spelling.
-            $this->captionedTableFigures[$this->conversionNodePath($node)] = true;
-            $output .= $written;
-            $output = rtrim($output) . "\n";
-        } else {
-            $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
-            if (
-                $caption instanceof DOMElement
-                && $this->captionSpellsSomething($caption)
-            ) {
-                $preserved = $this->preservedAsRawHtml($node);
-                if ($preserved !== null) {
-                    return $preserved;
-                }
-            }
-
-            $this->unwrappedFigures[$this->conversionNodePath($node)] = true;
-
-            return $this->processGenericFigureContent($node);
-        }
-
-        // A FIGURE IS ITS CAPTION (PART 9 §4b), AND NO CAPTION LINE IS NO
-        // FIGURE. The three arms above write the target and then this line;
-        // without it the output is a bare image, quote or code block, and the
-        // re-render has no `<figure>` in it at all. The target came through, so
-        // the outcome is an unwrapping rather than a drop - and it is the one
-        // outcome of this handler that used to leave the report empty
-        // (carve-php#1723). carve-js and carve-rs both report the row here.
-        $captionLine = $caption instanceof DOMElement
-            ? $this->formatCaptionText(trim($this->processCaptionChildren($caption)))
-            : '';
-        if (trim($captionLine) === '') {
-            // NOTHING TO HANG THE ATTRIBUTES ON. The figure is gone and the
-            // target is a bare image, quote or fence, so a block attribute
-            // line here would land on the TARGET and say the document carried
-            // an id it never carried. Both sibling engines drop them here and
-            // declare the drop, and `element-unwrapped` above is the row that
-            // names what became of the element.
-            $this->unwrappedFigures[$this->conversionNodePath($node)] = true;
-
-            return $output . $captionLine . "\n\n";
-        }
-
-        return "\n" . $this->formatBlockAttributes($node) . ltrim($output, "\n") . $captionLine . "\n\n";
-    }
-
-    /**
-     * `<figure class="carve-figure-group">` back to `::: figure` source
-     * (PART 9 §4c; own-output round trip). The structural classes are
-     * render-time vocabulary, not authored, so they are dropped; everything
-     * else goes back on the attribute lines. The trailing `<figcaption>` is
-     * the group caption and comes back as the `^ ` line after the closer.
-     */
-    protected function processFigureGroup(DOMElement $node): string
-    {
-        $attrs = $this->formatBlockAttributesWithoutClass($node, 'carve-figure-group');
-
-        // FLAT shape: panels and preserved stray content are DIRECT children
-        // of the group figure - no wrapper element - and the group's own
-        // `<figcaption>` is the direct child handled below (a panel's caption
-        // sits inside the panel figure, so it never matches here).
-        $content = $this->insideColonFence(function () use ($node): string {
-            $body = '';
-            foreach ($node->childNodes as $child) {
-                if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
-                    continue;
-                }
-                if (
-                    $child instanceof DOMElement
-                    && strtolower($child->tagName) === 'figure'
-                    && $this->hasClass($child, 'carve-figure-panel')
-                ) {
-                    $body .= $this->processFigurePanel($child);
-                } else {
-                    $body .= $this->processNode($child);
-                }
-            }
-
-            return trim($body);
-        });
-
-        $fence = $this->colonFenceFor();
-        $output = "\n" . $attrs . $fence . " figure\n";
-        if ($content !== '') {
-            $output .= $content . "\n";
-        }
-        $output .= $fence;
-
-        $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
-        if ($caption instanceof DOMElement) {
-            $captionText = rtrim($this->formatCaptionText(trim($this->processCaptionChildren($caption))), "\n");
-            if ($captionText !== '') {
-                $output .= "\n" . $captionText;
-            }
-        }
-
-        return $output . "\n\n";
-    }
-
-    /**
-     * One panel of a composite figure: the attribute line, the host content,
-     * then the panel caption's `^ ` line - the shape the inner caption rules
-     * re-attach on parse. A table panel's host keeps its own `<caption>`
-     * handling; the wrapper contributed nothing but the structural class.
-     */
-    protected function processFigurePanel(DOMElement $node): string
-    {
-        $attrs = $this->formatBlockAttributesWithoutClass($node, 'carve-figure-panel');
-
-        $body = '';
-        $captionText = '';
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
-                $captionText = $this->formatCaptionText(trim($this->processCaptionChildren($child)));
-
-                continue;
-            }
-            $body .= $this->processNode($child);
-        }
-
-        $output = $attrs . trim($body) . "\n";
-        if ($captionText !== '') {
-            $output .= $captionText;
-        }
-
-        return $output . "\n";
-    }
-
-    /**
-     * The element's block-attribute line with ONE structural class removed.
-     */
-    protected function formatBlockAttributesWithoutClass(DOMElement $node, string $structuralClass): string
-    {
-        $classes = array_values(array_diff($this->getElementClassList($node), [$structuralClass]));
-        $originalClass = $node->getAttribute('class');
-        $node->setAttribute('class', implode(' ', $classes));
-        // The structural class is what NAMES the element - `tabs` is why the
-        // wrapper is called "Tabs" - so the derived-name test has to see it even
-        // while it is lifted off the node for the attribute writer's benefit.
-        // Without this the name is unrecognizable exactly on the constructs that
-        // carry one (markup-carve/carve#1500).
-        $this->structuralClassInProgress = $structuralClass;
-        try {
-            return $this->formatBlockAttributes($node);
-        } finally {
-            $node->setAttribute('class', $originalClass);
-            $this->structuralClassInProgress = null;
-        }
-    }
-
-    /**
-     * The `<img>` a figure captions, found by what its body WRITES.
-     */
-    protected function figureImageTarget(DOMElement $node): ?DOMElement
-    {
-        $direct = $this->findFirstDirectChildByTagName($node, 'img');
-        if ($this->hasOnlySupportedFigureContent($node) && $direct instanceof DOMElement) {
-            // GUARDED, and it could not be until the generic path stopped
-            // running an inline body into the caption (carve-php#1676). A
-            // caption binds to the BLOCK above it, so a target that wrote no
-            // image swallowed the marker as ordinary text:
-            // `<figure><img src=""><figcaption>cap</figcaption></figure>` wrote
-            // `a` and then `^ cap`, and re-read as ONE paragraph holding the
-            // literal characters `^ cap`. While carve-php#1672 was in flight
-            // this branch was left alone, because the generic path would have
-            // written `acap` - one invented word - which is a worse addition,
-            // not a fix. Both ends are closed now, so the guard applies to the
-            // direct spelling and the wrapped one alike.
-            return $this->importImageSpelling($direct) === null ? null : $direct;
-        }
-
-        $body = $this->soleFigureBodyElement($node);
-        if ($body === null || strtolower($body->tagName) === 'img') {
-            return null;
-        }
-
-        $image = $this->soleImportImageDescendant($body);
-        if ($image === null) {
-            return null;
-        }
-
-        // THE WHOLE PROBE IS THE TRIAL, not just the body write. Asking an
-        // `<img>` what it writes registers a reference definition when it
-        // carries one, so the spelling question has to sit inside the trial too
-        // - see the note on `importTrialWrite()` for the dangling definition
-        // that escaped when it did not.
-        return $this->importTrialWrite(function () use ($body, $image): ?DOMElement {
-            $spelling = $this->importImageSpelling($image);
-
-            return $spelling !== null && trim($this->processNode($body)) === $spelling ? $image : null;
-        });
-    }
-
-    /**
-     * Record the `<figure>` elements the target was reached THROUGH.
-     */
-    protected function recordFiguresPassedOverForTheTarget(DOMElement $figure, DOMElement $target): void
-    {
-        for ($current = $target->parentNode; $current instanceof DOMElement; $current = $current->parentNode) {
-            if ($current === $figure) {
-                return;
-            }
-            if (strtolower($current->tagName) === 'figure') {
-                $this->unwrappedFigures[$this->conversionNodePath($current)] = true;
-            }
-        }
-    }
-
-    /**
-     * What an `<img>` writes, and `null` when what it writes is not an IMAGE.
-     *
-     * A CAPTION NEEDS SOMETHING TO BIND TO. `^ cap` attaches to the block above
-     * it, so a target that wrote no block swallows the marker as ordinary text:
-     * `<figure><img src=""><figcaption>cap</figcaption></figure>` wrote
-     * `a` then `^ cap` and re-read as ONE PARAGRAPH holding the literal
-     * characters `^ cap`. That is an ADDITION, which markup-carve/carve#1636 forbids
-     * outright - a declared ceiling covers what an import LOSES, never text it
-     * invents - so a figure whose body writes no image takes the generic path
-     * and loses the binding instead.
-     *
-     * {@see self::processImage()} has four returns and only two of them are an
-     * image: the inline `![alt](src)` and the reference `![alt][label]`. The
-     * other two write no image at all - a `src` naming no destination unwraps to
-     * the alt text, and an alt the source cannot carry falls back to raw HTML -
-     * so the prefix is the test rather than a copy of those two conditions,
-     * which would go stale the moment a third return was added.
-     */
-    protected function importImageSpelling(DOMElement $image): ?string
-    {
-        $written = trim($this->processImage($image));
-
-        return str_starts_with($written, '![') ? $written : null;
-    }
-
-    /**
-     * The figure's one content child, when it has exactly one.
-     *
-     * Whitespace between the tags is layout rather than content (PART 11 §7),
-     * and the `<figcaption>` is the caption slot rather than the body, so
-     * neither disqualifies a figure from having a single body element.
-     */
-    protected function soleFigureBodyElement(DOMElement $node): ?DOMElement
-    {
-        $body = null;
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement) {
-                if (strtolower($child->tagName) === 'figcaption') {
-                    continue;
-                }
-                if ($body !== null) {
-                    return null;
-                }
-                $body = $child;
-
-                continue;
-            }
-            if ($child instanceof DOMText && trim($child->wholeText) !== '') {
-                return null;
-            }
-        }
-
-        return $body;
-    }
-
-    /**
-     * The one `<img>` in a subtree, when the subtree holds exactly one.
-     *
-     * AN EARLY EXIT, NOT A BOUND, and the distinction was measured rather than
-     * assumed: relaxing this to "the first image" changes nothing any test can
-     * see, because a body holding two images does not write one image's
-     * spelling and the comparison in {@see self::figureImageTarget()} rejects
-     * it anyway. What this saves is the trial write on a subtree that obviously
-     * cannot be the shape. The bound itself is the comparison.
-     */
-    protected function soleImportImageDescendant(DOMElement $node): ?DOMElement
-    {
-        $images = $node->getElementsByTagName('img');
-        if ($images->length !== 1) {
-            return null;
-        }
-        $image = $images->item(0);
-
-        return $image instanceof DOMElement ? $image : null;
-    }
-
-    /**
-     * Ask what a node WRITES, and leave nothing behind for having asked.
-     *
-     * @template TResult
-     *
-     * @param \Closure(): TResult $ask
-     *
-     * @return TResult
-     */
-    protected function importTrialWrite(Closure $ask): mixed
-    {
-        $listDepth = $this->listDepth;
-        $inPre = $this->inPre;
-        $preserveTextWhitespace = $this->preserveTextWhitespace;
-        $referenceDefinitions = $this->referenceDefinitions;
-        $footnoteDefinitions = $this->footnoteDefinitions;
-        $noteReferenceTargets = $this->noteReferenceTargets;
-        $abbreviationDefinitions = $this->abbreviationDefinitions;
-        $abbreviationMap = $this->abbreviationMap;
-        $captionFlattenDiagnostics = $this->captionFlattenDiagnostics;
-        $loneImageParagraphs = $this->loneImageParagraphs;
-        $unwrappedFigures = $this->unwrappedFigures;
-        $captionedTableFigures = $this->captionedTableFigures;
-        $droppedBlankTableRows = $this->droppedBlankTableRows;
-        $unwrappedBlockContainers = $this->unwrappedBlockContainers;
-
-        try {
-            return $ask();
-        } finally {
-            $this->listDepth = $listDepth;
-            $this->inPre = $inPre;
-            $this->preserveTextWhitespace = $preserveTextWhitespace;
-            $this->referenceDefinitions = $referenceDefinitions;
-            $this->footnoteDefinitions = $footnoteDefinitions;
-            $this->noteReferenceTargets = $noteReferenceTargets;
-            $this->abbreviationDefinitions = $abbreviationDefinitions;
-            $this->abbreviationMap = $abbreviationMap;
-            $this->captionFlattenDiagnostics = $captionFlattenDiagnostics;
-            $this->loneImageParagraphs = $loneImageParagraphs;
-            $this->unwrappedFigures = $unwrappedFigures;
-            $this->captionedTableFigures = $captionedTableFigures;
-            $this->droppedBlankTableRows = $droppedBlankTableRows;
-            $this->unwrappedBlockContainers = $unwrappedBlockContainers;
-        }
-    }
-
-    /**
-     * The tag names of a figure's content children, or null if it holds stray text.
-     *
-     * The caption is not content - it is what the content is captioned WITH -
-     * so it is skipped, and layout-only text between the children is skipped
-     * too. Anything else at text level means the figure is holding words of its
-     * own, which no target arm can carry, and null says so rather than a list
-     * that looks clean.
-     *
-     * @param \DOMElement $node
-     *
-     * @return list<string>|null
-     */
-    protected function figureContentChildren(DOMElement $node): ?array
-    {
-        $contentChildren = [];
-        foreach ($node->childNodes as $child) {
-            if (!($child instanceof DOMElement)) {
-                if (trim($child->textContent) !== '') {
-                    return null;
-                }
-
-                continue;
-            }
-
-            if (strtolower($child->tagName) === 'figcaption') {
-                continue;
-            }
-
-            $contentChildren[] = strtolower($child->tagName);
-        }
-
-        return $contentChildren;
-    }
-
-    protected function hasOnlySupportedFigureContent(DOMElement $node): bool
-    {
-        $contentChildren = $this->figureContentChildren($node);
-
-        return $contentChildren !== null
-            && count($contentChildren) === 1
-            && in_array($contentChildren[0], ['img', 'blockquote', 'pre'], true);
-    }
-
-    /**
-     * Does this `<table>` already fill Carve's one caption slot?
-     *
-     * A `^ ` line on a table becomes the table's OWN `<caption>` rather than a
-     * `<figcaption>` beside it, so a table that arrived with a `<caption>` has
-     * taken the slot before the wrapping figure gets to ask for it. Empty is
-     * not taken: `<caption></caption>` writes no `^ ` line, so the slot is free
-     * and the ordinary rebuild below applies unchanged.
-     */
-    protected function tableCaptionsItself(DOMElement $table): bool
-    {
-        $caption = $this->findFirstDirectChildByTagName($table, 'caption');
-
-        return $caption instanceof DOMElement && $this->captionSpellsSomething($caption);
-    }
-
-    /**
-     * TWO CAPTIONS AND ONE SLOT (ruling `markup-carve/carve-js#1488`).
-     *
-     * @return string|null
-     */
-    protected function figureCaptionDetachedFromTheTable(
-        DOMElement $node,
-        DOMElement $caption,
-        string $written,
-    ): ?string {
-        if (!$this->writtenTableCarriesACaption($written)) {
-            return null;
-        }
-
-        // THE CAPTION'S CONTENT AS ORDINARY BLOCKS, which is what this engine
-        // already does wherever a `<figcaption>` lands outside a caption slot
-        // ({@see self::processGenericFigureContent()}): the paragraph it becomes
-        // can hold a list, and flattening one to inline would destroy structure
-        // the output can carry.
-        $detached = trim($this->processChildren($caption));
-
-        // A CAPTION THAT CONVERTS TO NOTHING WAS NOT DETACHED, so it does not
-        // get the row saying it was. What happened is the ORDINARY rebuild: the
-        // table keeps its caption, the wrapper is gone, and
-        // `structure-unspellable` is the row for that.
-        if ($detached === '') {
-            $this->captionedTableFigures[$this->conversionNodePath($node)] = true;
-
-            return "\n" . $this->formatBlockAttributes($node) . ltrim($written, "\n") . "\n";
-        }
-
-        $this->detachedFigureCaptions[$this->conversionNodePath($caption)] = true;
-
-        return "\n" . $this->formatBlockAttributes($node) . ltrim($written, "\n")
-            . "\n" . $detached . "\n\n";
-    }
-
-    /**
-     * Did the written table take Carve's one caption slot?
-     *
-     * A pipe row starts with `|` and a row attribute line with `{`, so a line
-     * opening with `^ ` in a written table is its caption line and nothing else.
-     */
-    protected function writtenTableCarriesACaption(string $written): bool
-    {
-        return preg_match('/^\^ /m', $written) === 1;
-    }
-
-    /**
-     * Does this figure rebuild as a table carrying its caption?
-     *
-     * @param \DOMElement $node
-     */
-    protected function figureRebuildsAsCaptionedTable(DOMElement $node): bool
-    {
-        $caption = $this->findFirstDirectChildByTagName($node, 'figcaption');
-        if (!$caption instanceof DOMElement || !$this->captionSpellsSomething($caption)) {
-            return false;
-        }
-
-        return $this->figureContentChildren($node) === ['table'];
-    }
-
-    protected function processGenericFigureContent(DOMElement $node): string
-    {
-        $output = '';
-
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
-                // NOT a caption slot. This fallback writes the caption's
-                // content as ORDINARY BLOCKS rather than through a `^` line, so
-                // a list here is representable and must be kept - flattening it
-                // would destroy structure the output can hold.
-                $captionText = trim($this->processChildren($child));
-                if ($captionText !== '') {
-                    // AND IT IS A BLOCK OF ITS OWN, which is what was missing
-                    // (carve-php#1676). A figure body that writes INLINE content
-                    // leaves no block boundary behind it, so appending the
-                    // caption ran the two together: `<figure><span>b</span>` and
-                    // a caption of `cap` wrote `bcap`, one invented word, and a
-                    // link-wrapped image wrote `[![a](i.png)](u)cap`. A loss
-                    // inside a declared ceiling is permitted; text the input
-                    // never held is not (markup-carve/carve#1636). A BLOCK body
-                    // already ended in a blank line, so this changes nothing
-                    // there.
-                    $output = $this->appendImportBlock($output, $captionText);
-                }
-
-                continue;
-            }
-
-            $output .= $this->processNode($child);
-        }
-
-        return $output;
-    }
-
-    /**
-     * Put one block after whatever has been written, with a boundary between.
-     *
-     * SEPARATE ONLY AT THE JOIN, never between everything. Consecutive INLINE
-     * children of a figure body are ONE run - `<span>b</span><em>c</em>` writes
-     * `b{/c/}` and must keep writing it - so a helper that blank-lined every
-     * contribution would break the body apart while fixing the caption. This
-     * inserts a boundary at the one place a block genuinely starts.
-     */
-    protected function appendImportBlock(string $output, string $block): string
-    {
-        if ($output !== '' && !str_ends_with($output, "\n\n")) {
-            $output = rtrim($output, "\n") . "\n\n";
-        }
-
-        return $output . $block . "\n\n";
-    }
 
     /**
      * The `#id` slot's key in the writer's slot map.
@@ -9905,571 +4214,6 @@ class HtmlToCarve
      * @var string
      */
     protected const ATTR_SLOT_CLASS = '.class';
-
-    /**
-     * Format element attributes as Carve block attribute syntax.
-     * Returns empty string if no relevant attributes.
-     *
-     * @param \DOMElement $node The element to extract attributes from
-     * @param array<string> $skipAttrs Additional attributes to skip for this element
-     * @param bool $elementSlotOrder Take the slot order from the element's own attribute order
-     *
-     * @return string Carve attribute block like "{#id .class key=value}\n" or ""
-     */
-    protected function formatBlockAttributes(DOMElement $node, array $skipAttrs = [], bool $elementSlotOrder = false): string
-    {
-        // Inside a cell there is no line for a block attribute block to sit on,
-        // so it would be written as literal text. The attribute is dropped
-        // instead (carve-php#1164); the cell's OWN attributes are unaffected -
-        // they are written by processTable(), glued to the opening pipe.
-        if ($this->tableCellDepth > 0) {
-            return '';
-        }
-
-        $attrs = $this->getElementAttributes($node, $skipAttrs, $elementSlotOrder);
-        if (!$attrs) {
-            return '';
-        }
-
-        return '{' . $attrs . "}\n";
-    }
-
-    /**
-     * Format element attributes as Carve inline attribute syntax.
-     * Returns empty string if no relevant attributes.
-     *
-     * @param \DOMElement $node The element to extract attributes from
-     * @param array<string> $skipAttrs Additional attributes to skip for this element
-     *
-     * @return string Carve inline attributes like "{#id .class}" or ""
-     */
-    protected function formatInlineAttributes(DOMElement $node, array $skipAttrs = []): string
-    {
-        $attrs = $this->getElementAttributes($node, $skipAttrs);
-        if (!$attrs) {
-            return '';
-        }
-
-        return '{' . $attrs . '}';
-    }
-
-    /**
-     * Extract and format attributes from a DOM element.
-     *
-     * @param \DOMElement $node The element to extract attributes from
-     * @param array<string> $skipAttrs Additional attributes to skip
-     * @param bool $elementSlotOrder Take the slot order from the element's own attribute order
-     *
-     * @return string Formatted attributes (without braces) or empty string
-     */
-    protected function getElementAttributes(DOMElement $node, array $skipAttrs = [], bool $elementSlotOrder = false): string
-    {
-        $slots = [];
-        $allSkip = $skipAttrs;
-
-        // Process id first
-        if (!in_array('id', $allSkip, true)) {
-            $idPart = $this->idAttributePart($node);
-            if ($idPart !== null) {
-                $slots[self::ATTR_SLOT_ID] = [$idPart];
-            }
-        }
-
-        // Process class (if not skipped)
-        if (!in_array('class', $allSkip, true)) {
-            $classParts = [];
-            $class = $node->getAttribute('class');
-            if ($class !== '') {
-                $classes = preg_split('/\s+/', trim($class));
-                if ($classes) {
-                    foreach ($classes as $c) {
-                        if ($c !== '') {
-                            $classParts[] = '.' . $c;
-                        }
-                    }
-                }
-            }
-
-            $alignmentClass = $this->extractAlignmentClass($node);
-            if ($alignmentClass !== null) {
-                $classParts[] = '.' . $alignmentClass;
-            }
-            if ($classParts !== []) {
-                $slots[self::ATTR_SLOT_CLASS] = $classParts;
-            }
-        }
-
-        // The keys a mapped CSS declaration fills, read BEFORE the loop. CSS
-        // beats the presentational attribute in HTML, and it has to beat it in
-        // BOTH source orders - reading it as the loop reached `style` let
-        // `<td align="right" style="text-align:left">` keep both, because the
-        // attribute had already been written by then.
-        $styleMapped = in_array('style', $allSkip, true) ? [] : $this->mappedStyleSlots($node);
-
-        // Process other attributes
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            $name = $attr->name;
-
-            // Skip already processed and this call's own skips; the POLICY is
-            // one question, asked the same way by every writer.
-            if ($name === 'id' || $name === 'class') {
-                continue;
-            }
-            if (strtolower($name) === 'style' && !in_array($name, $allSkip, true)) {
-                // A DECLARATION THIS ENGINE CAN SPELL IS NOT A LOSS. `style` was
-                // refused wholesale, so a cell carrying `text-align:right` came
-                // back unaligned - for a value this converter's own renderer
-                // writes from `{align=right}`, byte for byte
-                // (markup-carve/carve#1741). A cell whose column marker already
-                // carries the alignment passes `style` in $skipAttrs and lands
-                // above, so the same information is never spelled twice.
-                foreach ($this->mappedStyleAttributes($node) as $key => $mapped) {
-                    $slots[$key] = [$key . '=' . $this->quoteAttributeValue($mapped)];
-                }
-
-                continue;
-            }
-            if (in_array($name, $allSkip, true) || $this->isStrippedImportAttribute($name)) {
-                continue;
-            }
-            if (isset($styleMapped[$name])) {
-                continue;
-            }
-
-            $value = $attr->value;
-            if ($this->isDerivedAccessibleName($node, $name, $value)) {
-                continue;
-            }
-            if ($value === '') {
-                // Boolean attribute
-                $slots[$name] = [$name];
-            } else {
-                $slots[$name] = [$name . '=' . $this->quoteAttributeValue($value)];
-            }
-        }
-
-        $order = $elementSlotOrder ? $this->slotOrderFromElement($node, $slots) : array_keys($slots);
-
-        $parts = [];
-        foreach ($order as $slot) {
-            foreach ($slots[$slot] as $part) {
-                $parts[] = $part;
-            }
-        }
-
-        return implode(' ', $parts);
-    }
-
-    /**
-     * The `#id` slot's written form, or null when the element carries no id.
-     *
-     * PRESENT, NOT NON-EMPTY. An explicit `id=""` is not an absent id: it wins
-     * verbatim and SUPPRESSES the auto slug, and this engine's own renderer
-     * writes `<h1 id="">` back for it. Asking `getAttribute('id') !== ''` could
-     * not tell the two apart - `getAttribute()` answers `''` for both - so the
-     * import dropped the empty id and the re-render gave the heading the anchor
-     * its source explicitly suppressed (carve-php#1698). The loss was in the
-     * VALUE test, which is why it happened beside a class too, where carve-js's
-     * own truthiness defect did not reach.
-     *
-     * An empty id has no `#` spelling, so it rides the key-value slot as
-     * `id=""` - the form carve-js and carve-rs write, and the one this engine's
-     * parser reads back into an explicit empty id.
-     */
-    protected function idAttributePart(DOMElement $node): ?string
-    {
-        if (!$node->hasAttribute('id')) {
-            return null;
-        }
-
-        $id = $node->getAttribute('id');
-
-        return $id === '' ? 'id=' . $this->quoteAttributeValue($id) : '#' . $id;
-    }
-
-    /**
-     * The writer's slot order for $slots, READ OFF THE ELEMENT'S OWN ATTRIBUTE
-     * ORDER.
-     *
-     * @param \DOMElement $node
-     * @param array<string, array<int, string>> $slots
-     *
-     * @return list<string>
-     */
-    protected function slotOrderFromElement(DOMElement $node, array $slots): array
-    {
-        $order = [];
-        /** @var \DOMAttr $attr */
-        foreach ($node->attributes as $attr) {
-            $name = $attr->name;
-            $slot = match ($name) {
-                'id' => self::ATTR_SLOT_ID,
-                'class' => self::ATTR_SLOT_CLASS,
-                default => $name,
-            };
-            if (isset($slots[$slot]) && !in_array($slot, $order, true)) {
-                $order[] = $slot;
-            }
-        }
-
-        foreach (array_keys($slots) as $slot) {
-            if (!in_array($slot, $order, true)) {
-                $order[] = $slot;
-            }
-        }
-
-        return $order;
-    }
-
-    protected function formatCaptionText(string $captionText): string
-    {
-        $lines = preg_split('/\R/', $captionText) ?: [];
-        $lines = array_values(array_filter($lines, static fn (string $line): bool => trim($line) !== ''));
-        if ($lines === []) {
-            return '';
-        }
-
-        $firstLine = array_shift($lines);
-        $output = '^ ' . $firstLine . "\n";
-
-        foreach ($lines as $line) {
-            $output .= $line . "\n";
-        }
-
-        return $output;
-    }
-
-    protected function convertInlineFragmentToDjot(string $html): string
-    {
-        // Propagate the trust setting so a trusted round-trip parent keeps
-        // honoring inner round-trip attributes in the recursive sub-conversion
-        // (and an untrusted parent keeps ignoring them).
-        $converter = new self($this->trustedRoundTrip);
-        $converter->preserveTextWhitespace = true;
-
-        $doc = new DOMDocument();
-        $doc->encoding = 'UTF-8';
-
-        libxml_use_internal_errors(true);
-        $doc->loadHTML('<?xml encoding="UTF-8"><span>' . $html . '</span>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        libxml_clear_errors();
-
-        $root = $doc->documentElement;
-        if (!$root instanceof DOMElement) {
-            return '';
-        }
-
-        // Its one caller writes the result as a bracketed label.
-        return $converter->buildLabelContent(fn (): string => $converter->processChildren($root));
-    }
-
-    protected function isInlineOnlyEndnotesSection(DOMElement $node): bool
-    {
-        if ($node->getAttribute('role') !== 'doc-endnotes') {
-            return false;
-        }
-
-        $ol = $this->findFirstDirectChildByTagName($node, 'ol');
-        if (!$ol instanceof DOMElement) {
-            return false;
-        }
-
-        $listItems = $this->getDirectChildElementsByTagName($ol, 'li');
-        if ($listItems === []) {
-            return false;
-        }
-
-        foreach ($listItems as $listItem) {
-            if (!$listItem->hasAttribute('data-djot-inline-footnote')) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Rebuild the footnote definitions an endnotes section holds, or refuse the
-     * section entirely.
-     *
-     * @return string|null The source for this section, or null when no note was
-     *   rebuilt and the ordinary section policy should have it.
-     */
-    protected function processEndnotesSection(DOMElement $node): ?string
-    {
-        // Find the <ol> containing footnote definitions
-        $ol = $this->findFirstDirectChildByTagName($node, 'ol');
-        if (!$ol instanceof DOMElement) {
-            return null;
-        }
-
-        // Process each <li> footnote definition
-        $listItems = $this->getDirectChildElementsByTagName($ol, 'li');
-        $rebuilt = [];
-        foreach ($listItems as $index => $li) {
-            // Skip inline footnotes (handled separately). They are CONSUMED, not
-            // refused: the reference site carries the note's whole content, so
-            // the item here is a copy of something already in the document and
-            // leaving it behind would print it twice.
-            if ($li->hasAttribute('data-djot-inline-footnote')) {
-                $rebuilt[$index] = true;
-
-                continue;
-            }
-
-            // Get footnote label from data attribute
-            $label = $li->getAttribute('data-djot-footnote-label');
-            if ($label === '') {
-                // Fallback: extract from id attribute (fn1 -> 1)
-                $id = $li->getAttribute('id');
-                if (str_starts_with($id, 'fn')) {
-                    $label = substr($id, 2);
-                } else {
-                    continue;
-                }
-            }
-
-            if (!$this->endnoteHasReference($li, $label)) {
-                continue;
-            }
-
-            // Extract content, removing the backlink
-            $content = $this->processFootnoteContent($li);
-            if ($content !== '') {
-                $this->footnoteDefinitions[$label] = $content;
-                $rebuilt[$index] = true;
-            }
-        }
-
-        if ($rebuilt === []) {
-            return null;
-        }
-
-        if (count($rebuilt) === count($listItems)) {
-            // Every note left; the definitions are appended at the end and the
-            // separator went with them.
-            //
-            // THE POSITION IS MEANING, so it is kept. Definitions collect to
-            // document level whatever the source said, so a section with
-            // content after it would otherwise re-render past that content -
-            // the same characters in the wrong order, with nothing to say so.
-            // Carve spells the position, and `docs/html-import.md` - "An
-            // endnotes section keeps the position it was written at" - has the
-            // import write the placement directive where the section sat.
-            //
-            // Nothing is reported: this is not `structure-unspellable`, since
-            // the language HAS the spelling, which is the whole argument.
-            //
-            // A SECTION THAT IS LAST WRITES NO DIRECTIVE. The definitions
-            // already render there, so the directive would put a construct in
-            // the source that the input did not distinguish.
-            if ($this->hasContentAfterEndnotesSection($node)) {
-                return "::: footnotes\n\n:::\n\n";
-            }
-
-            return '';
-        }
-
-        return $this->processNode($this->endnotesRemainder($ol, $rebuilt));
-    }
-
-    /**
-     * Does anything a reader would see follow this endnotes section?
-     *
-     * The question the placement directive turns on. A section with nothing
-     * after it already renders where the definitions land, so the import writes
-     * no directive; a section with content after it needs one, or the re-render
-     * puts the notes past that content.
-     *
-     * WALKED UP THE ANCESTORS, not only across the section's own siblings: a
-     * section wrapped in a `<div>` that has a paragraph after the wrapper is
-     * still not last, and reading one level would have called it last and moved
-     * the notes past that paragraph.
-     *
-     * WHAT IS WRITTEN, not what is present. Whitespace-only text, comments and
-     * an element `writesNothing()` recognizes - a `<script>`, an empty `<p>` -
-     * all put nothing in the source, so a section they follow is still last and
-     * still writes no directive. This is the same question
-     * `precedingSiblingThatWritesSomething()` asks in the other direction, and
-     * it is asked through the same helper so the two cannot drift.
-     *
-     * `writesNothing()` is conservative the way this caller needs: it treats
-     * what it does not recognize as writing something. Reading a written
-     * element as silent would move the notes past content a reader can see,
-     * where the other error only writes a directive the input did not need.
-     */
-    protected function hasContentAfterEndnotesSection(DOMElement $node): bool
-    {
-        $current = $node;
-        while ($current instanceof DOMElement) {
-            for ($sibling = $current->nextSibling; $sibling !== null; $sibling = $sibling->nextSibling) {
-                if ($sibling instanceof DOMComment) {
-                    continue;
-                }
-
-                if ($sibling instanceof DOMText) {
-                    if (trim($sibling->textContent) === '') {
-                        continue;
-                    }
-
-                    return true;
-                }
-
-                if ($sibling instanceof DOMElement && $this->writesNothing($sibling)) {
-                    continue;
-                }
-
-                return true;
-            }
-
-            $parent = $current->parentNode;
-            $current = $parent instanceof DOMElement ? $parent : null;
-        }
-
-        return false;
-    }
-
-    /**
-     * The endnotes `<ol>` with the items that became footnote definitions taken
-     * out of it, so what is left is emitted as the list it is.
-     *
-     * A CLONE, because the items are only gone from THIS reading: the loss
-     * report walks the original tree to ask what each element's attributes did,
-     * and an element removed from under it would be an element it could not
-     * find.
-     *
-     * @param \DOMElement $ol
-     * @param array<int, true> $rebuilt Indexes of the direct `<li>` children
-     *   that became footnote definitions.
-     */
-    protected function endnotesRemainder(DOMElement $ol, array $rebuilt): DOMElement
-    {
-        $clone = $ol->cloneNode(true);
-        if (!$clone instanceof DOMElement) {
-            return $ol;
-        }
-
-        foreach ($this->getDirectChildElementsByTagName($clone, 'li') as $index => $li) {
-            if (isset($rebuilt[$index])) {
-                $li->parentNode?->removeChild($li);
-            }
-        }
-
-        return $clone;
-    }
-
-    /**
-     * Is there a `role="doc-noteref"` reference in this document for the note
-     * this `<li>` holds?
-     *
-     * THE ROLE, not the shape of the anchor. A reference is authored semantics
-     * (PART 9 §16a writes it, and every producer whose HTML imports as
-     * footnotes without an adapter writes it), where an anchor pointing at the
-     * item is only a link - so the same signal the rest of this converter reads
-     * decides whether the definition has a reader.
-     *
-     * The `#fn{label}` spelling is checked beside the item's own `id` for the
-     * round-trip case, where `data-djot-footnote-label` carries an authored
-     * label and the rendered `id` is derived from it.
-     */
-    protected function endnoteHasReference(DOMElement $li, string $label): bool
-    {
-        $targets = $this->noteReferenceTargets($li->ownerDocument);
-        $id = $li->getAttribute('id');
-
-        return ($id !== '' && isset($targets['#' . $id])) || isset($targets['#fn' . $label]);
-    }
-
-    /**
-     * Every fragment a `role="doc-noteref"` anchor in this document points at,
-     * as a set.
-     *
-     * Collected ONCE per document rather than per note: a section of N notes
-     * asked about M references is N*M anchor reads, and an endnotes section is
-     * exactly the document that has many of both.
-     *
-     * @return array<string, true>
-     */
-    protected function noteReferenceTargets(?DOMDocument $document): array
-    {
-        if ($this->noteReferenceTargets !== null) {
-            return $this->noteReferenceTargets;
-        }
-        if ($document === null) {
-            return [];
-        }
-
-        $targets = [];
-        $xpath = new DOMXPath($document);
-        /** @var \DOMNodeList<\DOMElement> $anchors */
-        $anchors = $xpath->query('//a[@role="doc-noteref"]');
-        foreach ($anchors as $anchor) {
-            $href = $anchor->getAttribute('href');
-            if (str_starts_with($href, '#')) {
-                $targets[$href] = true;
-            }
-        }
-        $this->noteReferenceTargets = $targets;
-
-        return $targets;
-    }
-
-    /**
-     * @return list<\DOMElement>
-     */
-    protected function getDirectChildElementsByTagName(DOMElement $node, string $tagName): array
-    {
-        $matches = [];
-        $tagName = strtolower($tagName);
-
-        foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === $tagName) {
-                $matches[] = $child;
-            }
-        }
-
-        return $matches;
-    }
-
-    /**
-     * Process footnote content, removing backlinks
-     */
-    protected function processFootnoteContent(DOMElement $li): string
-    {
-        // Clone the node so we can remove backlinks without affecting the original
-        $clone = $li->cloneNode(true);
-
-        // Remove all backlink elements
-        $ownerDocument = $clone->ownerDocument;
-        if ($ownerDocument !== null) {
-            $xpath = new DOMXPath($ownerDocument);
-            /** @var \DOMNodeList<\DOMElement> $backlinks */
-            $backlinks = $xpath->query('.//a[@role="doc-backlink"]', $clone);
-            foreach ($backlinks as $backlink) {
-                $backlink->parentNode?->removeChild($backlink);
-            }
-        }
-
-        // Process the remaining content
-        $content = trim($this->processBlock($clone));
-
-        return $content;
-    }
-
-    protected function formatFootnoteDefinition(string|int $label, string $content): string
-    {
-        $lines = explode("\n", $content);
-        $firstLine = $lines[0];
-        $lines = array_slice($lines, 1);
-        $formatted = '[^' . $label . ']: ' . $firstLine;
-
-        foreach ($lines as $line) {
-            $formatted .= "\n  " . $line;
-        }
-
-        return $formatted;
-    }
 
     /**
      * Rewrite an editor's footnote-shaped HTML into the shape the core policy
@@ -11231,285 +4975,4 @@ class HtmlToCarve
      * `[a \\\\ b]` for a label containing one backslash. The raw `alt` attribute
      * has NOT been through that path, so its call site doubles first.
      */
-
-    /**
-     * Harden a label whose text would open a NOTE REFERENCE.
-     *
-     * @param string $text The label text, already escaped as prose.
-     *
-     * @return string The label, with a colliding caret escaped.
-     */
-    protected function escapeNoteReferenceLabel(string $text): string
-    {
-        return preg_match('/^\\^[^\\]\\r\\n]/u', $text) === 1 ? '\\' . $text : $text;
-    }
-
-    protected function escapeLinkOrImageLabel(string $text): string
-    {
-        return str_replace(
-            ['[', ']'],
-            ['\[', '\]'],
-            $text,
-        );
-    }
-
-    protected function requiresRawImageFallback(string $alt): bool
-    {
-        // The raw-HTML fallback re-emits the original element verbatim (a
-        // `{=html}` block), so untrusted HTML could smuggle live script /
-        // event handlers (`<img onerror=...>`) through it. Only trusted input
-        // may use it; otherwise fall through to safe `![alt](src)` processing.
-        if (!$this->trustedRoundTrip) {
-            return false;
-        }
-
-        return strpbrk($alt, '[]\\') !== false;
-    }
-
-    /**
-     * Turn each boundary sentinel line into the three blank lines PART 9
-     * §11 N1a spells the hard list boundary with.
-     *
-     * WHATEVER SITS TO THE SENTINEL'S LEFT IS THE PREFIX, and the blank lines
-     * are written with it: inside a block quote the boundary is three `>` lines,
-     * not three empty ones, which would end the quote instead of splitting the
-     * list inside it. That is why the sentinel opens a line rather than joining
-     * two - every container that indents line by line has already prefixed it
-     * by the time this runs.
-     *
-     * The blank line the walk left on either side is absorbed, so the run is
-     * exactly three however the two lists were laid out - a nested pair arrives
-     * with none, a top-level pair with one on each side.
-     *
-     * @param list<string> $lines The cleaned-up lines.
-     *
-     * @return list<string> The lines with every sentinel expanded.
-     */
-    protected function expandListBoundaries(array $lines): array
-    {
-        $expanded = [];
-        $dropBlank = null;
-        foreach ($lines as $line) {
-            if ($dropBlank !== null) {
-                $blank = $dropBlank;
-                $dropBlank = null;
-                if (rtrim($line) === $blank) {
-                    continue;
-                }
-            }
-
-            $at = strpos($line, self::LIST_BOUNDARY);
-            if ($at === false) {
-                $expanded[] = $line;
-
-                continue;
-            }
-
-            $prefix = rtrim(substr($line, 0, $at));
-            if ($expanded !== [] && rtrim((string)end($expanded)) === $prefix) {
-                array_pop($expanded);
-            }
-            $expanded[] = $prefix;
-            $expanded[] = $prefix;
-            $expanded[] = $prefix;
-            $dropBlank = $prefix;
-        }
-
-        return $expanded;
-    }
-
-    protected function cleanup(string $djot): string
-    {
-        // Remove leading whitespace from lines (except in code blocks and indented content)
-        $lines = explode("\n", $djot);
-        $inCodeBlock = false;
-        $inDefinitionList = false;
-        $inList = false;
-        $inFootnote = false;
-        $lineBlockFence = 0;
-        // The width of the `%%%` comment fence currently open, or 0.
-        $commentFence = 0;
-        $result = [];
-        // Which emitted lines sit inside a fence, so the blank-line collapse
-        // below can leave their blanks alone.
-        $verbatim = [];
-
-        foreach ($lines as $line) {
-            // The boundary sentinel passes through untouched, whatever a
-            // container prefix put to its left. It has to be caught ahead of
-            // every other branch: those trim and re-indent, and the expansion
-            // at the end of this method reads the prefix off this line.
-            if (str_contains($line, self::LIST_BOUNDARY)) {
-                $result[] = $line;
-
-                continue;
-            }
-
-            // Track line blocks (::: line-block ... :::) so verse indentation
-            // is preserved verbatim - the default branch below ltrims lines.
-            if ($lineBlockFence > 0) {
-                $verbatim[count($result)] = true;
-                $result[] = $line;
-                if (preg_match('/^(:{3,})\s*$/', $line, $lbm) === 1 && strlen($lbm[1]) >= $lineBlockFence) {
-                    $lineBlockFence = 0;
-                }
-
-                continue;
-            }
-            if (preg_match('/^(:{3,})\s+\|/', $line, $lbm) === 1) {
-                $lineBlockFence = strlen($lbm[1]);
-                $verbatim[count($result)] = true;
-                $result[] = $line;
-
-                continue;
-            }
-
-            // A `%%%` COMMENT FENCE IS VERBATIM, like the code fence below and
-            // the line block above (`markup-carve/carve#1709`).
-            //
-            // The default branch of this loop LTRIMS, and a comment's body is
-            // the author's bytes: `<!-- c -->` imports as a fence around ` c `,
-            // and without this the leading space was gone before the source was
-            // returned - the same silent content change the comment rule exists
-            // to stop, one layer down in the writer.
-            //
-            // It could not have shown up before, because no importer path wrote
-            // a `%%%` fence until comments were kept.
-            if ($commentFence > 0) {
-                $verbatim[count($result)] = true;
-                $result[] = $line;
-                if (preg_match('/^(%{3,})[ \t]*$/', $line, $cfm) === 1 && strlen($cfm[1]) >= $commentFence) {
-                    $commentFence = 0;
-                }
-
-                continue;
-            }
-            if (preg_match('/^(%{3,})[ \t]*$/', $line, $cfm) === 1) {
-                $commentFence = strlen($cfm[1]);
-                $verbatim[count($result)] = true;
-                $result[] = $line;
-
-                continue;
-            }
-
-            // Track code blocks
-            if ($this->codeFenceDelimiter($line) !== null) {
-                $inCodeBlock = !$inCodeBlock;
-                $result[] = $line;
-
-                continue;
-            }
-
-            if ($inCodeBlock) {
-                $verbatim[count($result)] = true;
-                $result[] = $line;
-
-                continue;
-            }
-
-            if (preg_match('/^\[\^[^\]]+\]:\s*/', $line) === 1) {
-                $result[] = $line;
-                $inDefinitionList = false;
-                $inList = false;
-                $inFootnote = true;
-
-                continue;
-            }
-
-            // Track definition lists (`:: term` / `:  definition`)
-            if (str_starts_with($line, ':: ') || preg_match('/^: +/', $line) === 1) {
-                $inDefinitionList = true;
-                $inList = false;
-                $inFootnote = false;
-                $result[] = $line;
-
-                continue;
-            }
-
-            if (
-                preg_match(
-                    '/^(\s*)([-*+]|\d+\.|[A-Za-z]\.|[ivxlcdm]{2,}\.|[IVXLCDM]{2,}\.)'
-                    . '(\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})?\s/',
-                    $line,
-                    $m,
-                )
-            ) {
-                $result[] = $line;
-                $inDefinitionList = false;
-                $inList = true;
-                $inFootnote = false;
-
-                continue;
-            }
-
-            // Preserve indented attribute blocks after list items (li attributes)
-            if ($inList && preg_match('/^\s+\{[^{}]+\}\s*$/', $line)) {
-                $result[] = $line;
-
-                continue;
-            }
-
-            // Preserve indented continuation lines inside list items
-            if ($inList && preg_match('/^\s{2,}\S/', $line)) {
-                $result[] = $line;
-
-                continue;
-            }
-
-            // Preserve indentation for definition content (indented lines after `: term`)
-            if ($inDefinitionList && preg_match('/^  /', $line)) {
-                $result[] = $line;
-
-                continue;
-            }
-
-            // Preserve standalone attribute blocks in definition lists (dt/dd attributes)
-            if ($inDefinitionList && preg_match('/^\{[^{}]+\}\s*$/', $line)) {
-                $result[] = $line;
-
-                continue;
-            }
-
-            if ($inFootnote && preg_match('/^\s{2,}\S/', $line)) {
-                $result[] = $line;
-
-                continue;
-            }
-
-            // Blank line (or whitespace-only line) ends definition list context but not list context
-            if (trim($line) === '') {
-                $result[] = $inFootnote ? '  ' : ''; // Normalize to empty string unless footnote continuation needs indentation
-
-                continue;
-            }
-
-            // Regular line - trim leading whitespace and reset contexts
-            $result[] = ltrim($line);
-            $inDefinitionList = false;
-            $inList = false;
-            $inFootnote = false;
-        }
-
-        // Normalize runs of blank lines to ONE, but never inside a fence: a
-        // blank line there is content, and collapsing it rewrote the payload -
-        // `<pre><code>a\n\n\nb</code></pre>` came back with one blank line
-        // where the source had two (carve-php#1543).
-        $collapsed = [];
-        $previousWasBlank = false;
-        foreach ($result as $index => $line) {
-            $isVerbatim = isset($verbatim[$index]);
-            if (!$isVerbatim && $line === '' && $previousWasBlank) {
-                continue;
-            }
-            $previousWasBlank = !$isVerbatim && $line === '';
-            $collapsed[] = $line;
-        }
-
-        $djot = implode("\n", $this->expandListBoundaries($collapsed));
-
-        // Remove leading/trailing whitespace
-        $djot = trim($djot);
-
-        return $djot . "\n";
-    }
 }
