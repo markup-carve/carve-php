@@ -174,9 +174,9 @@ class MarkdownToCarveTest extends TestCase
                 '![*logo* [small]](/x.png)',
                 '![*logo* [small]](/x.png)',
             ],
-            'keeps a full fence info string and the block as code' => [
+            'reduces an extended fence info string to its language' => [
                 "```js title=\"demo\"\n*a*\n```",
-                "```js title=\"demo\"\n*a*\n```",
+                "```js\n*a*\n```",
             ],
             'normalizes a space between fence and language to no-space (canonical)' => [
                 "``` php\n*a*\n```",
@@ -186,9 +186,9 @@ class MarkdownToCarveTest extends TestCase
                 "- item\n  ``` php\n  *a*\n    indented\n  ```",
                 "- item\n\n  ```php\n  *a*\n    indented\n  ```",
             ],
-            'strips only the leading space, keeps the rest of the info' => [
+            'strips the leading space and the rest of the info' => [
                 "``` js title=\"x\"\n*a*\n```",
-                "```js title=\"x\"\n*a*\n```",
+                "```js\n*a*\n```",
             ],
             'converts <em>/<i> to /x/' => [
                 '<em>a</em> <i>b</i>',
