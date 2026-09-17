@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use Closure;
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use RuntimeException;
 use Throwable;
 
@@ -1867,6 +1869,9 @@ class MarkdownToCarve
             $line,
         ) ?? $line;
 
+        $closers = [];
+        $line = $this->protectClosersOfLinksHoldingALink($line, $protected, $protect, $closers);
+
         // CommonMark links an empty destination; Carve reads `[t]()` as literal
         // text, so a link is written as its text and an image as its alt text
         // (markup-carve/carve#2069).
@@ -1950,11 +1955,15 @@ class MarkdownToCarve
         // full form, collapsed only where Carve's exact label match still holds.
         if ($this->referenceDefinitionLabels !== []) {
             $subject = $line;
+            // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
-                '/(!?)\[([^[\]\n^][^[\]\n]*)\](?!\x00)/',
-                function (array $match) use ($subject, $protected, $protect): string {
+                '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
+                function (array $match) use ($subject, $protected, $protect, $closers): string {
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
+                    if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
+                        return $match[0][0];
+                    }
                     if (($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*$/', substr($subject, 0, $match[0][1])) === 1) {
                         return $match[0][0];
                     }
@@ -2078,6 +2087,134 @@ class MarkdownToCarve
         } while ($line !== $previous);
 
         return $line;
+    }
+
+    /**
+     * CommonMark lets no link hold a link: once one closes, every `[` opened
+     * before it stays literal. Each such bracket's closer, with an inline
+     * destination after it, is written as the Carve writer writes that text.
+     *
+     * @param string $line
+     * @param array<string> $protected
+     * @param \Closure(string): string $protect
+     * @param array<int, true> $closers Receives the protected index of each closer written.
+     */
+    protected function protectClosersOfLinksHoldingALink(string $line, array $protected, Closure $protect, array &$closers): string
+    {
+        if (!str_contains($line, '](') && !str_contains($line, '][')) {
+            return $line;
+        }
+        $destination = '/\G\([ \t]*(?:<[^<>\n]*>|(?:[^\s()\x00]|\x00P\d+\x00|\((?:[^\s()\x00]|\x00P\d+\x00)*\))*)'
+            . '(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*\)/';
+        $reference = '/\G\[([^[\]\n]*)\]/';
+        $defined = fn (string $label): bool => isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))]);
+
+        /** @var array<array{start: int, image: bool}> $openers */
+        $openers = [];
+        // Every non-image opener pushed before this offset is inactive.
+        $deactivatedBefore = -1;
+        /** @var array<int, string> $literal closer offset => the tail after it */
+        $literal = [];
+        $length = strlen($line);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $line[$i];
+            if ($char === '[') {
+                $image = $i > 0 && $line[$i - 1] === '!';
+                $openers[] = ['start' => $i, 'image' => $image];
+
+                continue;
+            }
+            if ($char !== ']' || $openers === []) {
+                continue;
+            }
+            $opener = array_pop($openers);
+            $inline = preg_match($destination, $line, $tail, 0, $i + 1) === 1 ? $tail[0] : null;
+            $full = $inline === null && preg_match($reference, $line, $ref, 0, $i + 1) === 1 ? $ref : null;
+            if (!$opener['image'] && $opener['start'] < $deactivatedBefore) {
+                if ($inline !== null || $full !== null) {
+                    $literal[$i] = $inline ?? $full[0];
+                }
+
+                continue;
+            }
+            $label = substr($line, $opener['start'] + 1, $i - $opener['start'] - 1);
+            $end = null;
+            if ($inline !== null) {
+                $end = $i + strlen($inline);
+            } elseif ($full !== null) {
+                if ($defined($full[1] === '' ? $label : $full[1])) {
+                    $end = $i + strlen($full[0]);
+                }
+            } elseif ($defined($label)) {
+                $end = $i;
+            }
+            if ($end === null) {
+                continue;
+            }
+            if (!$opener['image']) {
+                $deactivatedBefore = $i;
+            }
+            $i = $end;
+        }
+
+        if ($literal === []) {
+            return $line;
+        }
+        $written = $this->writtenTexts(array_map(static fn (string $tail): string => ']' . $tail, $literal), $protected);
+        $out = '';
+        $from = 0;
+        foreach ($literal as $offset => $tail) {
+            $bytes = $written[']' . $tail];
+            $consumed = 1 + strlen($tail);
+            // A tail that holds inline markup or a reference is still Markdown to convert.
+            if (str_starts_with($tail, '[') || preg_match('/[*_`<&!\\[\x00]/', $tail) === 1) {
+                $bytes = str_starts_with($bytes, '\\]') ? '\\]' : ']';
+                $consumed = 1;
+            }
+            $placeholder = $protect($bytes);
+            $closers[(int)substr($placeholder, 2, -1)] = true;
+            $out .= substr($line, $from, $offset - $from) . $placeholder;
+            $from = $offset + $consumed;
+        }
+
+        return $out . substr($line, $from);
+    }
+
+    /**
+     * The bytes the Carve writer writes for each text when it follows a link
+     * inside an open bracket. Each is rendered as its own document: the writer
+     * reads document-wide context, so a shared one changes the bytes.
+     *
+     * @param array<string> $texts
+     * @param array<string> $protected
+     *
+     * @return array<string, string>
+     */
+    protected function writtenTexts(array $texts, array $protected): array
+    {
+        $codec = new AstCodec();
+        $renderer = new CarveRenderer();
+        $written = [];
+        foreach (array_unique($texts) as $text) {
+            $decoded = preg_replace_callback('/\x00P(\d+)\x00/', fn (array $match): string => $this->decodeLinkTitle($protected[(int)$match[1]], $protected), $text) ?? $text;
+            $document = $codec->decode([
+                'type' => 'document',
+                'srcByteLength' => 0,
+                'children' => [
+                    [
+                        'type' => 'paragraph',
+                        'children' => [
+                            ['type' => 'text', 'value' => '['],
+                            ['type' => 'link', 'href' => 'x', 'children' => [['type' => 'text', 'value' => 'x']]],
+                            ['type' => 'text', 'value' => $decoded],
+                        ],
+                    ],
+                ],
+            ]);
+            $written[$text] = substr(rtrim($renderer->render($document), "\n"), strlen('[[x](x)'));
+        }
+
+        return $written;
     }
 
     /**
