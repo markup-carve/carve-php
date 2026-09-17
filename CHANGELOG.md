@@ -45,7 +45,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **The Markdown importer respells a nested item's `+` bullet** (#2125), which Carve read as text, and keeps a change of marker at one indent as a change of list.
 - The Markdown renderer moves emphasis padding outside the delimiters, so content that begins or ends with whitespace still reads as emphasis rather than literal text; content that is only whitespace falls back to inline HTML (markup-carve/carve-js#1683).
 - HTML migrations that exceed the diagnostic limit now print a clean CLI error
   and exit with status 2 instead of terminating with an uncaught exception.
