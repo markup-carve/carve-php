@@ -9565,6 +9565,7 @@ class BlockParser
             implode("\n", $texts),
             $lines[0][1],
             sourceMap: $this->lineBlockMap(array_merge($segments, $endingSegments)),
+            lineBlock: true,
         );
         $this->convertParagraphSoftBreaksToHardBreaks($paragraph, $lineEndings);
         $this->placeVerseComments($paragraph, $verseComments, $verseCommentSources);
