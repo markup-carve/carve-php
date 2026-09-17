@@ -5954,7 +5954,13 @@ class BlockParser
                         // If we've seen content at a higher indent level (actual nested content),
                         // and now we're back at the marker level (subIndent) after a blank line,
                         // this content belongs to the parent level - break to let parent handle it
-                        if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine) {
+                        // UNLESS IT CONTINUES THE LIST ALREADY COLLECTED. A
+                        // marker at the column the collected list opened at is
+                        // that list's next item, whatever a deeper list did in
+                        // between (markup-carve/carve-php#2140).
+                        $continuesCollectedList = $subSawListMarker
+                            && $this->listParser->parseListItemMarker(ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t")) !== null;
+                        if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList) {
                             // Set flags so parent loop handles this as continuation content
                             $lastItemHadBlankAfter = true;
                             $brokeForParentContent = true;
