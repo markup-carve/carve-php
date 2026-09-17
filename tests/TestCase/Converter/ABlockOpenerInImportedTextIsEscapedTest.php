@@ -58,6 +58,7 @@ class ABlockOpenerInImportedTextIsEscapedTest extends TestCase
             'a plus with text' => ['<p>+ x</p>', '+ x'],
             'a lone plus in a paragraph' => ['<p>+</p>', '+'],
             'a hyphen word' => ['<p>-x</p>', '-x'],
+            'a period marker' => ['<p>. b</p>', '\\. b'],
             'a sentence abbreviation' => ['<p>Mr. Smith</p>', 'Mr. Smith'],
             'a bullet after a hard break at the top level' => ['<p>a<br>- x</p>', "a\\\n- x"],
             'a strong that starts the paragraph' => ['<p><strong>- x</strong></p>', '*- x*'],
@@ -83,6 +84,7 @@ class ABlockOpenerInImportedTextIsEscapedTest extends TestCase
             '~~~', '~~~~', '```', '***', '___', '- - -', '* * *', '1.', '1)', '12.',
             'a.', 'A)', 'iv.',
             '(a)', '[a]:', '*[a]:', '{.c}', '{k=v}', '- [ ]', '- [x]', '|=', '|x|', '[[',
+            '.', '..',
             '||', 'Mr.',
         ];
         $contexts = [
