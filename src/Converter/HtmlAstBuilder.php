@@ -21,6 +21,10 @@ use MarkupCarve\Carve\Renderer\HeadingIdTracker;
  * stay in the canonical writer.
  *
  * @internal
+ *
+ * @phpstan-type Attrs array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}
+ * @phpstan-type TableCellNode array{type: 'table_cell', header: bool, children: list<array<string, mixed>>, span?: 'rowspan'|'colspan', align?: string, valign?: string, attrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}}
+ * @phpstan-type TableRowNode array{type: 'table_row', cells: list<array{type: 'table_cell', header: bool, children: list<array<string, mixed>>, span?: 'rowspan'|'colspan', align?: string, valign?: string, attrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}}>, attrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}}
  */
 final class HtmlAstBuilder
 {
@@ -91,6 +95,116 @@ final class HtmlAstBuilder
         }
 
         return false;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $name
+     */
+    private function addHint(array &$node, string $name): void
+    {
+        $this->setPrivateAttribute($node, $name, '1');
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $value
+     * @param string $name
+     */
+    private function setPrivateAttribute(array &$node, string $name, string $value): void
+    {
+        if (!$this->sourceSafe) {
+            return;
+        }
+        $attrs = is_array($node['attrs'] ?? null) ? $node['attrs'] : [];
+        $keyValues = is_array($attrs['keyValues'] ?? null) ? $attrs['keyValues'] : [];
+        $order = is_array($attrs['order'] ?? null) ? $attrs['order'] : [];
+        $keyValues[$name] = $value;
+        $order[] = $name;
+        $attrs['keyValues'] = $keyValues;
+        $attrs['order'] = $order;
+        $node['attrs'] = $attrs;
+    }
+
+    private static function stringValue(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function nodeList(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $nodes = [];
+        foreach ($value as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $node = [];
+            foreach ($item as $key => $entry) {
+                if (is_string($key)) {
+                    $node[$key] = $entry;
+                }
+            }
+            $nodes[] = $node;
+        }
+
+        return $nodes;
+    }
+
+    /**
+     * @return Attrs
+     */
+    private static function attrsValue(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+        $attrs = [];
+        if (is_string($value['id'] ?? null)) {
+            $attrs['id'] = $value['id'];
+        }
+        $classes = is_array($value['classes'] ?? null)
+            ? array_values(array_filter($value['classes'], 'is_string'))
+            : [];
+        if ($classes !== []) {
+            $attrs['classes'] = $classes;
+        }
+        $keyValues = is_array($value['keyValues'] ?? null)
+            ? array_filter($value['keyValues'], 'is_string')
+            : [];
+        if ($keyValues !== []) {
+            $attrs['keyValues'] = $keyValues;
+        }
+        $order = is_array($value['order'] ?? null)
+            ? array_values(array_filter($value['order'], 'is_string'))
+            : [];
+        if ($order !== []) {
+            $attrs['order'] = $order;
+        }
+
+        return $attrs;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function collectedFootnotes(): array
+    {
+        return $this->footnoteDefinitions;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function collectedReferences(): array
+    {
+        return $this->referenceDefinitions;
     }
 
     /**
@@ -195,20 +309,18 @@ final class HtmlAstBuilder
         }
         $children = $this->blocks($this->children($root));
         foreach (array_reverse($this->abbreviationDefinitions, true) as $abbr => $expansion) {
-            array_unshift($children, [
+            $definition = [
                 'type' => 'abbreviation_def',
                 'abbr' => $abbr,
                 'expansion' => $expansion,
-                'attrs' => [
-                    'keyValues' => ["\0carve-compact-definition" => '1'],
-                    'order' => ["\0carve-compact-definition"],
-                ],
-            ]);
+            ];
+            $this->addHint($definition, "\0carve-compact-definition");
+            array_unshift($children, $definition);
         }
-        foreach ($this->footnoteDefinitions as $definition) {
+        foreach ($this->collectedFootnotes() as $definition) {
             $children[] = $definition;
         }
-        foreach ($this->referenceDefinitions as $label => $href) {
+        foreach ($this->collectedReferences() as $label => $href) {
             $children[] = [
                 'type' => 'link_reference_definition',
                 'label' => $label,
@@ -235,53 +347,58 @@ final class HtmlAstBuilder
     {
         if (
             ($node['type'] ?? null) === 'text'
-            && preg_match('/(?<![\w]):[a-zA-Z0-9+-][\w+-]*(?::|\[)/', (string)($node['value'] ?? '')) === 1
+            && preg_match('/(?<![\w]):[a-zA-Z0-9+-][\w+-]*(?::|\[)/', self::stringValue($node['value'] ?? null)) === 1
         ) {
-            $node['attrs']['keyValues']["\0carve-literal-symbol"] = '1';
-            $node['attrs']['order'][] = "\0carve-literal-symbol";
+            $this->addHint($node, "\0carve-literal-symbol");
         }
         if (
             ($node['type'] ?? null) === 'text'
-            && preg_match('/\[[^\]\n]+\]\([^\)\n]*["\'][^\)\n]*\)/', (string)($node['value'] ?? '')) === 1
+            && preg_match('/\[[^\]\n]+\]\([^\)\n]*["\'][^\)\n]*\)/', self::stringValue($node['value'] ?? null)) === 1
         ) {
-            $node['attrs']['keyValues']["\0carve-literal-inline-opener"] = '1';
-            $node['attrs']['order'][] = "\0carve-literal-inline-opener";
+            $this->addHint($node, "\0carve-literal-inline-opener");
         }
         $type = $node['type'] ?? null;
         if (in_array($type, ['span', 'link'], true)) {
-            $first = array_key_first($node['children'] ?? []);
+            $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+            $first = array_key_first($children);
             if (
                 $first !== null
-                && ($node['children'][$first]['type'] ?? null) === 'text'
-                && preg_match('/^\^./s', (string)($node['children'][$first]['value'] ?? '')) === 1
+                && is_array($children[$first])
+                && ($children[$first]['type'] ?? null) === 'text'
+                && is_string($children[$first]['value'] ?? null)
+                && preg_match('/^\^./s', $children[$first]['value']) === 1
             ) {
-                $node['children'][$first]['attrs']['keyValues']["\0carve-literal-caret"] = '1';
-                $node['children'][$first]['attrs']['order'][] = "\0carve-literal-caret";
+                $this->addHint($children[$first], "\0carve-literal-caret");
+                $node['children'] = $children;
             }
         }
         if ($type === 'table_cell' && !isset($node['attrs'])) {
-            foreach (array_keys($node['children'] ?? []) as $index) {
-                $child = &$node['children'][$index];
-                if (($child['type'] ?? null) === 'text' && trim((string)($child['value'] ?? '')) === '^') {
-                    $child['attrs']['keyValues']["\0carve-literal-caret"] = '1';
-                    $child['attrs']['order'][] = "\0carve-literal-caret";
+            $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+            foreach ($children as &$child) {
+                if (is_array($child) && ($child['type'] ?? null) === 'text' && ($child['value'] ?? null) === '^') {
+                    $this->addHint($child, "\0carve-literal-caret");
                 }
-                unset($child);
             }
+            unset($child);
+            $node['children'] = $children;
         }
         foreach ($node as &$value) {
             if (!is_array($value)) {
                 continue;
             }
             if (array_is_list($value)) {
-                foreach ($value as &$child) {
-                    if (is_array($child)) {
-                        $this->markLiteralSymbolText($child);
-                    }
+                $children = self::nodeList($value);
+                foreach ($children as &$child) {
+                    $this->markLiteralSymbolText($child);
                 }
                 unset($child);
+                $value = $children;
             } elseif (isset($value['type'])) {
-                $this->markLiteralSymbolText($value);
+                $nested = self::nodeList([$value]);
+                if (isset($nested[0])) {
+                    $this->markLiteralSymbolText($nested[0]);
+                    $value = $nested[0];
+                }
             }
         }
         unset($value);
@@ -315,7 +432,7 @@ final class HtmlAstBuilder
                 $inlineRun = self::some(
                     $pending,
                     static fn (array $part): bool => ($part['type'] ?? null) !== 'text'
-                        || trim((string)($part['value'] ?? '')) !== '',
+                        || trim(self::stringValue($part['value'] ?? null)) !== '',
                 );
                 if (!$inlineRun) {
                     for ($next = $index + 1, $count = count($nodes); $next < $count; ++$next) {
@@ -438,8 +555,7 @@ final class HtmlAstBuilder
             $quote = ['type' => 'block_quote', 'children' => $this->blocks($this->children($node))];
             $this->attachAttrs($quote, $node);
             if (($quote['children'][0]['type'] ?? null) === 'list') {
-                $quote['attrs']['keyValues']["\0carve-leading-blank"] = '1';
-                $quote['attrs']['order'][] = "\0carve-leading-blank";
+                $this->addHint($quote, "\0carve-leading-blank");
             }
 
             return [$quote];
@@ -562,7 +678,7 @@ final class HtmlAstBuilder
         if ($attrs !== []) {
             foreach ($blocks as &$block) {
                 if (($block['type'] ?? null) === 'heading') {
-                    $headingAttrs = $block['attrs'] ?? [];
+                    $headingAttrs = self::attrsValue($block['attrs'] ?? null);
                     $merged = $this->mergeAttrs($headingAttrs, $attrs);
                     $merged['order'] = array_values(array_unique([
                         ...($attrs['order'] ?? []),
@@ -688,7 +804,7 @@ final class HtmlAstBuilder
             $content = substr($content, 0, -1);
         }
         $block = ['type' => 'code_block', 'content' => $content];
-        $class = $source instanceof DOMElement ? $source->getAttribute('class') : '';
+        $class = $source->getAttribute('class');
         if (preg_match('/(?:^|\s)language-([^\s]+)/', $class, $match) === 1) {
             $block['lang'] = $match[1];
         }
@@ -699,14 +815,19 @@ final class HtmlAstBuilder
                 $skip[] = 'aria-label';
             }
         }
-        $this->attachAttrs($block, $node, $skip);
+        $attrs = $this->attrs($node, $skip);
         if (
             $node->hasAttribute('aria-label')
             && strcasecmp($node->getAttribute('aria-label'), trim($class)) !== 0
         ) {
-            $attrs = $block['attrs'] ?? [];
-            $attrs['keyValues']['aria-label'] = $node->getAttribute('aria-label');
-            $attrs['order'][] = 'aria-label';
+            $keyValues = $attrs['keyValues'] ?? [];
+            $order = $attrs['order'] ?? [];
+            $keyValues['aria-label'] = $node->getAttribute('aria-label');
+            $order[] = 'aria-label';
+            $attrs['keyValues'] = $keyValues;
+            $attrs['order'] = $order;
+        }
+        if ($attrs !== []) {
             $block['attrs'] = $attrs;
         }
 
@@ -759,7 +880,10 @@ final class HtmlAstBuilder
             $items[] = $item;
         }
         $tight = !$hasLooseItem;
-        foreach ($node->getElementsByTagName('li') as $itemElement) {
+        foreach ($node->childNodes as $itemElement) {
+            if (!$itemElement instanceof DOMElement || strtolower($itemElement->tagName) !== 'li') {
+                continue;
+            }
             foreach ($itemElement->childNodes as $itemChild) {
                 if ($itemChild instanceof DOMElement && strtolower($itemChild->tagName) === 'p') {
                     $tight = false;
@@ -798,26 +922,8 @@ final class HtmlAstBuilder
             $skipListAttrs[] = 'type';
         }
         $this->attachAttrs($list, $node, $skipListAttrs);
-        if ($this->hasClass($node, 'task-list') && isset($list['attrs'])) {
-            $classes = array_values(array_filter(
-                $list['attrs']['classes'] ?? [],
-                static fn (string $class): bool => $class !== 'task-list',
-            ));
-            if ($classes === []) {
-                unset($list['attrs']['classes']);
-                $list['attrs']['order'] = array_values(array_filter(
-                    $list['attrs']['order'] ?? [],
-                    static fn (string $slot): bool => $slot !== '.class',
-                ));
-            } else {
-                $list['attrs']['classes'] = $classes;
-            }
-            if (($list['attrs']['order'] ?? []) === []) {
-                unset($list['attrs']['order']);
-            }
-            if ($list['attrs'] === []) {
-                unset($list['attrs']);
-            }
+        if ($this->hasClass($node, 'task-list')) {
+            $this->removeStructuralClass($list, 'task-list');
         }
 
         return $list;
@@ -891,18 +997,14 @@ final class HtmlAstBuilder
             } finally {
                 $this->inFootnoteDefinition = $previous;
             }
-            $this->footnoteDefinitions[] = [
+            $definition = [
                 'type' => 'footnote',
                 'label' => $label,
                 'children' => $children,
-                'attrs' => [
-                    'keyValues' => [
-                        "\0carve-indent-blank-lines" => '1',
-                        "\0carve-compact-definition" => '1',
-                    ],
-                    'order' => ["\0carve-indent-blank-lines", "\0carve-compact-definition"],
-                ],
             ];
+            $this->addHint($definition, "\0carve-indent-blank-lines");
+            $this->addHint($definition, "\0carve-compact-definition");
+            $this->footnoteDefinitions[] = $definition;
         }
         if (!$found) {
             return $this->blocks($this->children($section));
@@ -1143,7 +1245,10 @@ final class HtmlAstBuilder
             if ($cells !== []) {
                 $blank = self::every(
                     $cells,
-                    static fn (array $cell): bool => !isset($cell['span']) && ($cell['children'] ?? []) === [],
+                    static fn (array $cell): bool => !isset($cell['span'])
+                        && $cell['children'] === []
+                        && self::attrsValue($cell['attrs'] ?? null) === []
+                        && !isset($cell['align'], $cell['valign']),
                 );
                 if ($blank) {
                     continue;
@@ -1167,13 +1272,16 @@ final class HtmlAstBuilder
                             'ordered' => false,
                             'tight' => !self::some(
                                 $listCells,
-                                static fn (array $item): bool => count($item['children']) > 1,
+                                static fn (mixed $item): bool => count(self::nodeList($item['children'] ?? null)) > 1,
                             ),
                             'items' => $listCells,
-                            'attrs' => [
-                                'keyValues' => ["\0carve-compact-items" => '1'],
-                                'order' => ["\0carve-compact-items"],
-                            ],
+                            ...($this->sourceSafe ? [
+
+                                'attrs' => [
+                                    'keyValues' => ["\0carve-compact-items" => '1'],
+                                    'order' => ["\0carve-compact-items"],
+                                ],
+                            ] : []),
                         ],
                     ],
                 ];
@@ -1184,7 +1292,7 @@ final class HtmlAstBuilder
         }
         $columnAlignments = [];
         foreach ($rows[0]['cells'] as $column => &$headCell) {
-            if (!($headCell['header'] ?? false)) {
+            if (!$headCell['header']) {
                 continue;
             }
             $element = $this->tableCellElementAt($node, 0, $column);
@@ -1265,18 +1373,18 @@ final class HtmlAstBuilder
             && $node->hasAttribute('data-djot-col-widths')
             && !$node->hasAttribute('data-djot-src')
         ) {
-            $table['attrs']['keyValues']["\0carve-col-widths"] = $node->getAttribute('data-djot-col-widths');
-            $table['attrs']['order'][] = "\0carve-col-widths";
+            $this->setPrivateAttribute($table, "\0carve-col-widths", $node->getAttribute('data-djot-col-widths'));
         }
         if ($this->sourceSafe && $headerRows > 0 && $this->importedTableNeedsDelimiter($rows)) {
-            $table['attrs']['keyValues']["\0carve-delimiter-row"] = '1';
-            $table['attrs']['order'][] = "\0carve-delimiter-row";
+            $this->addHint($table, "\0carve-delimiter-row");
         }
 
         return $table;
     }
 
     /**
+     * @phpstan-param list<TableRowNode> $rows
+     *
      * @param list<array<string, mixed>> $rows
      */
     private function importedTableNeedsDelimiter(array $rows): bool
@@ -1306,6 +1414,10 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @phpstan-return TableCellNode
+     *
+     * @phpstan-param 'rowspan'|'colspan' $span
+     *
      * @return array<string, mixed>
      */
     private function spanCell(string $span): array
@@ -1452,10 +1564,10 @@ final class HtmlAstBuilder
             is_array($target)
             && ($target['type'] ?? null) === 'paragraph'
             && !isset($target['attrs'])
-            && count($target['children'] ?? []) === 1
-            && (($target['children'][0]['type'] ?? null) === 'image')
+            && count(self::nodeList($target['children'] ?? null)) === 1
+            && ((self::nodeList($target['children'] ?? null)[0]['type'] ?? null) === 'image')
         ) {
-            $target = $target['children'][0];
+            $target = self::nodeList($target['children'] ?? null)[0];
         }
         if (is_array($target) && ($target['type'] ?? null) === 'table') {
             $tableHasCaption = ($target['caption'] ?? []) !== [];
@@ -1468,11 +1580,10 @@ final class HtmlAstBuilder
             $figureAttrs = $this->attrs($node, []);
             if ($figureAttrs !== []) {
                 if (($target['attrs'] ?? []) !== []) {
-                    $target['attrs']['keyValues']["\0carve-prefix-attrs"] = json_encode(
+                    $this->setPrivateAttribute($target, "\0carve-prefix-attrs", json_encode(
                         $figureAttrs,
                         JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-                    );
-                    $target['attrs']['order'][] = "\0carve-prefix-attrs";
+                    ));
                 } else {
                     $target['attrs'] = $figureAttrs;
                 }
@@ -1491,10 +1602,10 @@ final class HtmlAstBuilder
             is_array($target)
             && ($target['type'] ?? null) === 'paragraph'
             && !isset($target['attrs'])
-            && count($target['children'] ?? []) === 1
-            && (($target['children'][0]['type'] ?? null) === 'image')
+            && count(self::nodeList($target['children'] ?? null)) === 1
+            && ((self::nodeList($target['children'] ?? null)[0]['type'] ?? null) === 'image')
         ) {
-            $target = $target['children'][0];
+            $target = self::nodeList($target['children'] ?? null)[0];
         }
         if (count($bodyNodes) === 1 && $bodyNodes[0] instanceof DOMElement && strtolower($bodyNodes[0]->tagName) === 'picture') {
             foreach ($bodyNodes[0]->getElementsByTagName('img') as $imageElement) {
@@ -1585,35 +1696,41 @@ final class HtmlAstBuilder
      */
     private function removeStructuralClass(array &$node, string $structural): void
     {
-        if (!isset($node['attrs'])) {
+        if (!is_array($node['attrs'] ?? null)) {
             return;
         }
+        $attrs = $node['attrs'];
         $classes = array_values(array_filter(
-            $node['attrs']['classes'] ?? [],
-            static fn (string $class): bool => $class !== $structural,
+            is_array($attrs['classes'] ?? null) ? $attrs['classes'] : [],
+            static fn (mixed $class): bool => is_string($class) && $class !== $structural,
         ));
         if ($classes === []) {
-            unset($node['attrs']['classes']);
-            $node['attrs']['order'] = array_values(array_filter(
-                $node['attrs']['order'] ?? [],
-                static fn (string $slot): bool => $slot !== '.class',
+            unset($attrs['classes']);
+            $attrs['order'] = array_values(array_filter(
+                is_array($attrs['order'] ?? null) ? $attrs['order'] : [],
+                static fn (mixed $slot): bool => is_string($slot) && $slot !== '.class',
             ));
         } else {
-            $node['attrs']['classes'] = $classes;
+            $attrs['classes'] = $classes;
         }
-        if (($node['attrs']['order'] ?? []) === []) {
-            unset($node['attrs']['order']);
+        if (($attrs['order'] ?? []) === []) {
+            unset($attrs['order']);
         }
-        if ($node['attrs'] === []) {
+        if ($attrs === []) {
             unset($node['attrs']);
+        } else {
+            $node['attrs'] = $attrs;
         }
     }
 
     /**
+     * @phpstan-param Attrs $inner
+     * @phpstan-param Attrs $outer
+     *
      * @param array<string, mixed> $outer
      * @param array<string, mixed> $inner
      *
-     * @return array<string, mixed>
+     * @return Attrs
      */
     private function mergeAttrs(array $outer, array $inner): array
     {
@@ -1817,8 +1934,8 @@ final class HtmlAstBuilder
         if ($attrs === [] && $label === null) {
             return $children;
         }
-        if ($singleBlockWrapper && $label === null && $attrs !== [] && count($children) === 1) {
-            $children[0]['attrs'] = $this->mergeAttrs($attrs, $children[0]['attrs'] ?? []);
+        if ($singleBlockWrapper && $label === null && count($children) === 1) {
+            $children[0]['attrs'] = $this->mergeAttrs($attrs, self::attrsValue($children[0]['attrs'] ?? null));
 
             return $children;
         }
@@ -1840,10 +1957,12 @@ final class HtmlAstBuilder
     {
         foreach ($nodes as &$node) {
             if (($node['type'] ?? null) === 'text') {
-                $node['value'] = str_replace('"', '', (string)($node['value'] ?? ''));
+                $node['value'] = str_replace('"', '', self::stringValue($node['value'] ?? null));
             }
             if (is_array($node['children'] ?? null)) {
-                $this->stripOpenerTitleQuotes($node['children']);
+                $children = self::nodeList($node['children']);
+                $this->stripOpenerTitleQuotes($children);
+                $node['children'] = $children;
             }
         }
         unset($node);
@@ -1955,15 +2074,19 @@ final class HtmlAstBuilder
         if (in_array($node['type'] ?? null, ['text', 'code'], true)) {
             $pattern = $atStart ? '/^[\s\x{00A0}]/u' : '/[\s\x{00A0}]$/u';
 
-            return preg_match($pattern, (string)($node['value'] ?? '')) === 1;
+            return preg_match($pattern, self::stringValue($node['value'] ?? null)) === 1;
         }
         $children = $node['children'] ?? null;
         if (!is_array($children) || $children === []) {
             return false;
         }
+        $children = self::nodeList($children);
+        if ($children === []) {
+            return false;
+        }
         $key = $atStart ? array_key_first($children) : array_key_last($children);
 
-        return $key !== null && $this->captionBoundaryHasSpace($children[$key], $atStart);
+        return $this->captionBoundaryHasSpace($children[$key], $atStart);
     }
 
     /**
@@ -1979,10 +2102,8 @@ final class HtmlAstBuilder
         }
         unset($node);
         $this->trimInlineLeading($nodes[0]);
-        $last = array_key_last($nodes);
-        if ($last !== null) {
-            $this->trimInlineTrailing($nodes[$last]);
-        }
+        $last = count($nodes) - 1;
+        $this->trimInlineTrailing($nodes[$last]);
         for ($index = 0, $count = count($nodes) - 1; $index < $count; ++$index) {
             $leftType = $nodes[$index]['type'] ?? null;
             $rightType = $nodes[$index + 1]['type'] ?? null;
@@ -2025,7 +2146,7 @@ final class HtmlAstBuilder
         if (!is_array($node['children'] ?? null)) {
             return;
         }
-        $children = &$node['children'];
+        $children = self::nodeList($node['children']);
         foreach ($children as &$child) {
             $this->normalizeHardBreakPadding($child);
         }
@@ -2041,6 +2162,7 @@ final class HtmlAstBuilder
                 $this->trimInlineLeading($children[$index + 1]);
             }
         }
+        $node['children'] = $children;
     }
 
     /**
@@ -2049,14 +2171,14 @@ final class HtmlAstBuilder
     private function inlineStartsWithSpace(array $node): bool
     {
         if (($node['type'] ?? null) === 'text') {
-            return preg_match('/^[ \t]/', (string)($node['value'] ?? '')) === 1;
+            return preg_match('/^[ \t]/', self::stringValue($node['value'] ?? null)) === 1;
         }
         if (($node['type'] ?? null) === 'code') {
-            return preg_match('/^[ \t]/', (string)($node['value'] ?? '')) === 1;
+            return preg_match('/^[ \t]/', self::stringValue($node['value'] ?? null)) === 1;
         }
-        $children = $node['children'] ?? null;
+        $children = self::nodeList($node['children'] ?? null);
 
-        return is_array($children) && $children !== [] && $this->inlineStartsWithSpace($children[0]);
+        return $children !== [] && $this->inlineStartsWithSpace($children[0]);
     }
 
     /**
@@ -2065,13 +2187,13 @@ final class HtmlAstBuilder
     private function inlineEndsWithSpace(array $node): bool
     {
         if (($node['type'] ?? null) === 'text') {
-            return preg_match('/[ \t]$/', (string)($node['value'] ?? '')) === 1;
+            return preg_match('/[ \t]$/', self::stringValue($node['value'] ?? null)) === 1;
         }
         if (($node['type'] ?? null) === 'code') {
-            return preg_match('/[ \t]$/', (string)($node['value'] ?? '')) === 1;
+            return preg_match('/[ \t]$/', self::stringValue($node['value'] ?? null)) === 1;
         }
-        $children = $node['children'] ?? null;
-        $last = is_array($children) ? array_key_last($children) : null;
+        $children = self::nodeList($node['children'] ?? null);
+        $last = array_key_last($children);
 
         return $last !== null && $this->inlineEndsWithSpace($children[$last]);
     }
@@ -2082,16 +2204,21 @@ final class HtmlAstBuilder
     private function trimInlineLeading(array &$node): void
     {
         if (($node['type'] ?? null) === 'text') {
-            $node['value'] = preg_replace('/^[ \t]+/', '', (string)($node['value'] ?? '')) ?? $node['value'];
+            $node['value'] = preg_replace('/^[ \t]+/', '', self::stringValue($node['value'] ?? null)) ?? $node['value'];
 
+            return;
+        }
+        if (($node['type'] ?? null) === 'span' && self::attrsValue($node['attrs'] ?? null) !== []) {
             return;
         }
         $plain = $this->plainInlineText([$node]);
         if ($plain !== '' && trim($plain) === '') {
             return;
         }
-        if (isset($node['children'][0]) && is_array($node['children'][0])) {
-            $this->trimInlineLeading($node['children'][0]);
+        $children = self::nodeList($node['children'] ?? null);
+        if (isset($children[0])) {
+            $this->trimInlineLeading($children[0]);
+            $node['children'] = $children;
         }
     }
 
@@ -2101,18 +2228,22 @@ final class HtmlAstBuilder
     private function trimInlineTrailing(array &$node): void
     {
         if (($node['type'] ?? null) === 'text') {
-            $node['value'] = preg_replace('/[ \t]+$/', '', (string)($node['value'] ?? '')) ?? $node['value'];
+            $node['value'] = preg_replace('/[ \t]+$/', '', self::stringValue($node['value'] ?? null)) ?? $node['value'];
 
+            return;
+        }
+        if (($node['type'] ?? null) === 'span' && self::attrsValue($node['attrs'] ?? null) !== []) {
             return;
         }
         $plain = $this->plainInlineText([$node]);
         if ($plain !== '' && trim($plain) === '') {
             return;
         }
-        $children = $node['children'] ?? null;
-        $last = is_array($children) ? array_key_last($children) : null;
-        if ($last !== null && is_array($node['children'][$last])) {
-            $this->trimInlineTrailing($node['children'][$last]);
+        $children = self::nodeList($node['children'] ?? null);
+        $last = array_key_last($children);
+        if ($last !== null) {
+            $this->trimInlineTrailing($children[$last]);
+            $node['children'] = $children;
         }
     }
 
@@ -2136,7 +2267,7 @@ final class HtmlAstBuilder
             }
             $tail = array_slice($out, $index + 1);
             if (
-                $tail !== [] && self::every($tail, static fn (array $part): bool => ($part['type'] ?? null) === 'text' && trim((string)($part['value'] ?? '')) === '')
+                $tail !== [] && self::every($tail, static fn (array $part): bool => ($part['type'] ?? null) === 'text' && trim(self::stringValue($part['value'] ?? null)) === '')
             ) {
                 $out = array_slice($out, 0, $index + 1);
 
@@ -2505,11 +2636,14 @@ final class HtmlAstBuilder
                 return $children;
             }
             $span = ['type' => $type];
-            $this->attachAttrs($span, $node);
+            $attrs = $this->attrs($node, []);
+            if ($attrs !== []) {
+                $span['attrs'] = $attrs;
+            }
 
             $span['children'] = $children;
 
-            if ($span['children'] === [] && !isset($span['attrs'])) {
+            if ($span['children'] === [] && $attrs === []) {
                 return [];
             }
 
@@ -2600,18 +2734,21 @@ final class HtmlAstBuilder
             'UTF-8',
         );
         $tree = (new AstCodec())->encode(CarveConverter::create()->parse($source));
-        $children = $tree['children'] ?? null;
+        $children = self::nodeList($tree['children'] ?? null);
 
         if (
-            is_array($children)
-            && isset($children[0])
+            isset($children[0])
             && !preg_match('/`<(?:th|td|dt|dd)\b/i', $source)
         ) {
-            $children[0]['attrs']['keyValues']["\0carve-stored-source"] = $source;
-            $children[0]['attrs']['order'][] = "\0carve-stored-source";
+            if (!$this->sourceSafe) {
+                return $children;
+            }
+            $this->setPrivateAttribute($children[0], "\0carve-stored-source", $source);
+
+            return [$children[0]];
         }
 
-        return is_array($children) ? array_values($children) : null;
+        return $children;
     }
 
     private function isSupportedInlineTag(string $tag): bool
@@ -2748,9 +2885,9 @@ final class HtmlAstBuilder
         $text = '';
         foreach ($nodes as $node) {
             if (($node['type'] ?? null) === 'text') {
-                $text .= (string)($node['value'] ?? '');
+                $text .= self::stringValue($node['value'] ?? null);
             } elseif (is_array($node['children'] ?? null)) {
-                $text .= $this->plainInlineText($node['children']);
+                $text .= $this->plainInlineText(self::nodeList($node['children']));
             }
         }
 
@@ -2806,9 +2943,7 @@ final class HtmlAstBuilder
                 $out[] = ['type' => 'text', 'value' => ' '];
             }
             foreach ($children as $child) {
-                if (is_array($child)) {
-                    $out[] = $child;
-                }
+                $out[] = $child;
             }
         }
 
@@ -2855,10 +2990,7 @@ final class HtmlAstBuilder
         }
         if ($type === 'list') {
             $out = [];
-            foreach ($node['items'] ?? [] as $item) {
-                if (!is_array($item)) {
-                    continue;
-                }
+            foreach (self::nodeList($node['items'] ?? null) as $item) {
                 if ($out !== []) {
                     $out[] = ['type' => 'text', 'value' => ' '];
                 }
@@ -2873,15 +3005,10 @@ final class HtmlAstBuilder
         if ($type === 'table') {
             if (!$this->inCaption) {
                 $lines = [];
-                foreach ($node['rows'] ?? [] as $row) {
-                    if (!is_array($row)) {
-                        continue;
-                    }
+                foreach (self::nodeList($node['rows'] ?? null) as $row) {
                     $cells = [];
-                    foreach ($row['cells'] ?? [] as $cell) {
-                        if (is_array($cell)) {
-                            $cells[] = trim($this->plainInlineText($this->projectToInlines($cell)));
-                        }
+                    foreach (self::nodeList($row['cells'] ?? null) as $cell) {
+                        $cells[] = trim($this->plainInlineText($this->projectToInlines($cell)));
                     }
                     if ($cells !== []) {
                         $lines[] = '| ' . implode(' | ', $cells) . ' |';
@@ -2891,18 +3018,13 @@ final class HtmlAstBuilder
                 return $lines === [] ? [] : [['type' => 'text', 'value' => implode(' ', $lines)]];
             }
             $out = [];
-            foreach ($node['rows'] ?? [] as $row) {
-                if (!is_array($row)) {
-                    continue;
-                }
-                foreach ($row['cells'] ?? [] as $cell) {
-                    if (is_array($cell)) {
-                        $projected = $this->projectToInlines($cell);
-                        if ($out !== [] && $projected !== []) {
-                            $out[] = ['type' => 'text', 'value' => ' '];
-                        }
-                        array_push($out, ...$projected);
+            foreach (self::nodeList($node['rows'] ?? null) as $row) {
+                foreach (self::nodeList($row['cells'] ?? null) as $cell) {
+                    $projected = $this->projectToInlines($cell);
+                    if ($out !== [] && $projected !== []) {
+                        $out[] = ['type' => 'text', 'value' => ' '];
                     }
+                    array_push($out, ...$projected);
                 }
             }
 
@@ -2911,19 +3033,13 @@ final class HtmlAstBuilder
 
         $out = [];
         foreach (['children', 'items', 'rows', 'cells', 'caption'] as $slot) {
-            if (!is_array($node[$slot] ?? null)) {
-                continue;
-            }
-            foreach ($node[$slot] as $child) {
-                if (!is_array($child)) {
-                    continue;
-                }
+            foreach (self::nodeList($node[$slot] ?? null) as $child) {
                 $projected = $this->projectToInlines($child);
                 if (
                     $out !== []
                     && $projected !== []
                     && !isset($inlineTypes[$child['type'] ?? ''])
-                    && !$this->inlineEndsWithSpace($out[array_key_last($out)])
+                    && !$this->inlineEndsWithSpace($out[count($out) - 1])
                     && !$this->inlineStartsWithSpace($projected[0])
                 ) {
                     $out[] = ['type' => 'text', 'value' => ' '];
@@ -2938,6 +3054,10 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @phpstan-param T $target
+     *
+     * @template T of array<string, mixed>
+     *
      * @param array<string, mixed> $target
      * @param \DOMElement $node
      * @param list<string> $skip
@@ -2951,6 +3071,10 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @phpstan-param T $target
+     *
+     * @template T of array<string, mixed>
+     *
      * @param array<string, mixed> $target
      * @param \DOMElement $node
      * @param list<string> $skip
@@ -2986,7 +3110,7 @@ final class HtmlAstBuilder
      * @param \DOMElement $node
      * @param list<string> $skip
      *
-     * @return array<string, mixed>
+     * @return Attrs
      */
     private function attrs(DOMElement $node, array $skip): array
     {
@@ -3008,19 +3132,19 @@ final class HtmlAstBuilder
                 continue;
             }
             if ($name === 'id') {
-                $attrs['id'] = $attribute->nodeValue;
+                $attrs['id'] = $attribute->value;
 
                 continue;
             }
             if ($name === 'class') {
-                $classes = preg_split('/\s+/', trim($attribute->nodeValue)) ?: [];
+                $classes = preg_split('/\s+/', trim($attribute->value)) ?: [];
 
                 continue;
             }
             if (preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/D', $name) !== 1) {
                 continue;
             }
-            $keyValues[$name] = $attribute->nodeValue;
+            $keyValues[$name] = $attribute->value;
         }
         $tag = strtolower($node->tagName);
         $alignment = $this->styleEnum($node, 'text-align', ['left', 'right', 'center']);
@@ -3067,7 +3191,8 @@ final class HtmlAstBuilder
         foreach ($nodes as $node) {
             $last = array_key_last($out);
             if ($last !== null && ($node['type'] ?? null) === 'text' && ($out[$last]['type'] ?? null) === 'text') {
-                $out[$last]['value'] .= $node['value'];
+                $out[$last]['value'] = self::stringValue($out[$last]['value'] ?? null)
+                    . self::stringValue($node['value'] ?? null);
             } else {
                 $out[] = $node;
             }
@@ -3084,7 +3209,8 @@ final class HtmlAstBuilder
     private function trimBlockEdges(array $nodes): array
     {
         while (($nodes[0]['type'] ?? null) === 'text') {
-            $nodes[0]['value'] = preg_replace('/^[ \t]+/', '', $nodes[0]['value']) ?? $nodes[0]['value'];
+            $value = self::stringValue($nodes[0]['value'] ?? null);
+            $nodes[0]['value'] = preg_replace('/^[ \t]+/', '', $value) ?? $value;
             if ($nodes[0]['value'] !== '') {
                 break;
             }
@@ -3092,17 +3218,18 @@ final class HtmlAstBuilder
         }
         while ($nodes !== []) {
             $last = array_key_last($nodes);
-            if ($last === null || ($nodes[$last]['type'] ?? null) !== 'text') {
+            if (($nodes[$last]['type'] ?? null) !== 'text') {
                 break;
             }
-            $nodes[$last]['value'] = preg_replace('/[ \t]+$/', '', $nodes[$last]['value']) ?? $nodes[$last]['value'];
+            $value = self::stringValue($nodes[$last]['value'] ?? null);
+            $nodes[$last]['value'] = preg_replace('/[ \t]+$/', '', $value) ?? $value;
             if ($nodes[$last]['value'] !== '') {
                 break;
             }
             array_pop($nodes);
         }
 
-        return array_values($nodes);
+        return $nodes;
     }
 
     /**

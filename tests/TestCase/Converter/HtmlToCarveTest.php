@@ -2605,6 +2605,51 @@ DJOT;
         $this->assertStringContainsString('<script>alert(1)</script>', $result);
     }
 
+    public function testTrustedStoredSourceReplacesAllOfItsRenderedChildren(): void
+    {
+        $html = '<p>lead</p><div data-djot-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
+
+        $this->assertSame("lead\n\nx\n\ny\n", $this->roundTripConverter->convert($html));
+    }
+
+    public function testAstExitKeepsAllStoredSourceBlocksWithoutPrivateHints(): void
+    {
+        $html = '<div data-djot-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
+
+        $tree = $this->roundTripConverter->convertToAst($html);
+
+        $this->assertCount(2, $tree['children']);
+        $this->assertStringNotContainsString('carve-stored-source', serialize($tree));
+    }
+
+    public function testSymbolShapedTextKeepsLiteralPlusAndHyphenRuns(): void
+    {
+        $html = '<p>x :a--b: y :+-:</p>';
+
+        $this->assertSame("x \\:a\\-\\-b: y \\:\\+-:\n", $this->converter->convert($html));
+    }
+
+    public function testAnAttributedBlankTableCellIsNotDropped(): void
+    {
+        $html = '<table><tr><th class="x"></th></tr></table>';
+
+        $this->assertSame("|={.x} |\n", $this->converter->convert($html));
+    }
+
+    public function testNestedLooseListDoesNotLoosenItsParent(): void
+    {
+        $html = '<ul><li>outer<ul><li><p>inner one</p><p>inner two</p></li></ul></li><li>next</li></ul>';
+
+        $this->assertSame("- outer\n  - inner one\n\n    inner two\n- next\n", $this->converter->convert($html));
+    }
+
+    public function testAttributedSpanKeepsMeaningfulEdgeSpaces(): void
+    {
+        $html = '<p><span class="critic-comment"> note </span></p>';
+
+        $this->assertSame("[ note ]{.critic-comment}\n", $this->converter->convert($html));
+    }
+
     // ==================== Table colspan/rowspan ====================
 
     public function testTableColspan(): void

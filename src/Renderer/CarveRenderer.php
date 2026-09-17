@@ -1282,8 +1282,8 @@ class CarveRenderer implements RendererInterface
                     } elseif (
                         $parts !== []
                         && $previousBlock instanceof Node
-                        && $previousBlock->getAttribute("\0carve-compact-definition") === '1'
-                        && $block->getAttribute("\0carve-compact-definition") === '1'
+                        && $previousBlock->getRenderHint("\0carve-compact-definition") === '1'
+                        && $block->getRenderHint("\0carve-compact-definition") === '1'
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
                     } else {
@@ -1442,7 +1442,7 @@ class CarveRenderer implements RendererInterface
 
     protected function renderBlockBody(Node $node, bool $atAnAuthoredBodyColumn = false): string
     {
-        $stored = $node->getAttribute("\0carve-stored-source");
+        $stored = $node->getRenderHint("\0carve-stored-source");
         if ($stored !== null) {
             return $stored;
         }
@@ -1672,7 +1672,7 @@ class CarveRenderer implements RendererInterface
 
         $quoted = implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
 
-        if ($node->getAttribute("\0carve-leading-blank") === '1') {
+        if ($node->getRenderHint("\0carve-leading-blank") === '1') {
             $quoted = ">\n" . $quoted;
         }
 
@@ -1683,7 +1683,7 @@ class CarveRenderer implements RendererInterface
     {
         $this->listDepth++;
         try {
-            $compactItems = $node->getAttribute("\0carve-compact-items") === '1';
+            $compactItems = $node->getRenderHint("\0carve-compact-items") === '1';
             $out = '';
             $counter = $node->getStart();
             // The marker is semantic (section 11: a different bullet char or
@@ -2561,13 +2561,13 @@ class CarveRenderer implements RendererInterface
     {
         $rows = [];
         $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));
-        $columnWidths = $node->hasAttribute("\0carve-col-widths")
+        $columnWidths = $node->getRenderHint("\0carve-col-widths") !== null
             ? array_map(
                 static fn (string $width): int => (int)$width > 0 ? min(1000, (int)$width) : 3,
-                explode(',', (string)$node->getAttribute("\0carve-col-widths")),
+                explode(',', (string)$node->getRenderHint("\0carve-col-widths")),
             )
             : [];
-        $forceDelimiter = $node->getAttribute("\0carve-delimiter-row") === '1' || $columnWidths !== [];
+        $forceDelimiter = $node->getRenderHint("\0carve-delimiter-row") === '1' || $columnWidths !== [];
         $headerRow = isset($tableRows[0]) && ($tableRows[0]->isHeader() || $forceDelimiter);
         // This parser resolves a cell's alignment at parse time, so a body cell
         // carries the column's alignment even when the author only wrote it on
@@ -2683,7 +2683,7 @@ class CarveRenderer implements RendererInterface
     protected function renderTableWithAttrs(Table $node, Closure $withAttrs): string
     {
         $body = $withAttrs($this->renderTable($node));
-        $encoded = $node->getAttribute("\0carve-prefix-attrs");
+        $encoded = $node->getRenderHint("\0carve-prefix-attrs");
         if ($encoded === null || $encoded === '') {
             return $body;
         }
@@ -2691,14 +2691,22 @@ class CarveRenderer implements RendererInterface
         if (!is_array($structured)) {
             return $body;
         }
-        $attrs = $structured['keyValues'] ?? [];
-        if (isset($structured['id'])) {
+        $attrs = is_array($structured['keyValues'] ?? null)
+            ? array_filter($structured['keyValues'], 'is_string')
+            : [];
+        if (is_string($structured['id'] ?? null)) {
             $attrs['id'] = $structured['id'];
         }
-        if (($structured['classes'] ?? []) !== []) {
-            $attrs['class'] = implode(' ', $structured['classes']);
+        $classes = is_array($structured['classes'] ?? null)
+            ? array_values(array_filter($structured['classes'], 'is_string'))
+            : [];
+        if ($classes !== []) {
+            $attrs['class'] = implode(' ', $classes);
         }
-        $prefix = $this->renderAttrList($attrs, $structured['order'] ?? []);
+        $order = is_array($structured['order'] ?? null)
+            ? array_values(array_filter($structured['order'], 'is_string'))
+            : [];
+        $prefix = $this->renderAttrList($attrs, $order);
 
         return $prefix === '' ? $body : $prefix . "\n" . $body;
     }
@@ -2963,7 +2971,7 @@ class CarveRenderer implements RendererInterface
             // legal continuation but puts the body's blocks at a relative column
             // above zero, and an indented block opener does not open a block - so
             // a table or list written at three came back as a paragraph.
-            $out .= "\n" . ($line === '' && $node->getAttribute("\0carve-indent-blank-lines") === '1'
+            $out .= "\n" . ($line === '' && $node->getRenderHint("\0carve-indent-blank-lines") === '1'
                 ? str_repeat($this->verbatimSentinels[0], 2)
                 : $this->indentContinuationLine($line, '  '));
         }
@@ -4668,18 +4676,16 @@ class CarveRenderer implements RendererInterface
 
     protected function escapeImportedText(Text $node, string $rendered): string
     {
-        if ($node->getAttribute("\0carve-literal-inline-opener") === '1') {
+        if ($node->getRenderHint("\0carve-literal-inline-opener") === '1') {
             $rendered = (string)preg_replace('/(?<!\\\\)\[/', '\\\\[', $rendered, 1);
         }
-        if ($node->getAttribute("\0carve-literal-caret") === '1') {
+        if ($node->getRenderHint("\0carve-literal-caret") === '1') {
             $rendered = (string)preg_replace('/(?<!\\\\)\^/', '\\\\^', $rendered, 1);
         }
-        if ($node->getAttribute("\0carve-literal-symbol") === '1') {
+        if ($node->getRenderHint("\0carve-literal-symbol") === '1') {
             $rendered = (string)preg_replace_callback(
                 '/(?<!\\\\):((?:\\\\[+\-\[]|[\w+\-])+)(:|\\\\?\[)/',
-                static fn (array $match): string => '\\:'
-                    . str_replace(['\\+', '\\-', '\\['], ['+', '-', '['], $match[1])
-                    . ($match[2] === '\\[' ? '[' : $match[2]),
+                static fn (array $match): string => '\\:' . $match[1] . $match[2],
                 $rendered,
             );
         }

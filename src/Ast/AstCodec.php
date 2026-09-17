@@ -44,6 +44,8 @@ use SplFileInfo;
  */
 class AstCodec
 {
+    private bool $decodeImporterHints = false;
+
     /**
      * Encoding version.
      *
@@ -485,11 +487,10 @@ class AstCodec
 
     /**
      * @param array<string, mixed> $data
-     * @param bool $allowPrivateAttributes
      *
      * @throws \MarkupCarve\Carve\Exception\AstDecodeException When the payload is not a document this version can read.
      */
-    public function decode(array $data, bool $allowPrivateAttributes = false): Document
+    public function decode(array $data): Document
     {
         // FIRST, ahead of every other question this method asks. `decodeJson`
         // is bounded for free because `json_decode` takes a depth argument;
@@ -512,10 +513,6 @@ class AstCodec
                 self::MAX_JSON_DEPTH,
                 self::MAX_PARSER_NESTING_DEPTH,
             ));
-        }
-
-        if (!$allowPrivateAttributes) {
-            self::verifyNoPrivateAttributeNames($data);
         }
 
         // What the sender actually had to send, measured HERE and not further
@@ -626,7 +623,7 @@ class AstCodec
         // BEFORE `verifyNothingWasLost()`, which compares the payload against
         // the decoded node: normalizing after that comparison would report the
         // engine's own replacement as a lost value.
-        $data = self::replaceNulValues($data);
+        $data = self::replaceNulValues($data, $this->decodeImporterHints);
 
         // Read BEFORE the walk: the definitions drive expansion, which is
         // engine state on the document rather than anything the block nodes
@@ -663,7 +660,10 @@ class AstCodec
             $node->setAbbreviationsBeforeBody($beforeBody);
         }
 
-        $this->verifyNothingWasLost($data, $node);
+        $this->verifyNothingWasLost(
+            $this->decodeImporterHints ? self::withoutImporterHints($data) : $data,
+            $node,
+        );
         self::resolveFootnoteRefs($node);
         // PART 12 section 23 on ingest: TRUST `blockImage`, and promote only
         // where it is ABSENT (markup-carve/carve-php#1800). Unlike the two
@@ -678,6 +678,73 @@ class AstCodec
         BlockImagePromotion::promoteWhereAbsent($node);
 
         return $node;
+    }
+
+    /**
+     * Decode a tree produced by the HTML importer, retaining its private
+     * source-rendering hints outside the public attribute map.
+     *
+     * @internal
+     *
+     * @param array<string, mixed> $data
+     */
+    public function decodeImporterTree(array $data): Document
+    {
+        $this->decodeImporterHints = true;
+        try {
+            return $this->decode($data);
+        } finally {
+            $this->decodeImporterHints = false;
+        }
+    }
+
+    /**
+     * @param array<mixed> $data
+     *
+     * @return array<mixed>
+     */
+    private static function withoutImporterHints(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if ($key === 'keyValues' && is_array($value)) {
+                $value = array_filter(
+                    $value,
+                    static fn (mixed $_value, int|string $name): bool => !is_string($name) || !str_starts_with($name, "\0carve-"),
+                    ARRAY_FILTER_USE_BOTH,
+                );
+                if ($value === []) {
+                    unset($data[$key]);
+                } else {
+                    $data[$key] = $value;
+                }
+
+                continue;
+            }
+            if ($key === 'order' && is_array($value)) {
+                $value = array_values(array_filter(
+                    $value,
+                    static fn (mixed $name): bool => !is_string($name) || !str_starts_with($name, "\0carve-"),
+                ));
+                if ($value === []) {
+                    unset($data[$key]);
+                } else {
+                    $data[$key] = $value;
+                }
+
+                continue;
+            }
+            if (is_array($value)) {
+                $value = self::withoutImporterHints($value);
+                if ($key === 'attrs' && $value === []) {
+                    unset($data[$key]);
+
+                    continue;
+                }
+                $data[$key] = $value;
+            }
+        }
+
+        return $data;
     }
 
     /**
@@ -979,10 +1046,9 @@ class AstCodec
     }
 
     /**
-     * Replace every U+0000 with U+FFFD in every string value of a payload.
+     * Replace every U+0000 with U+FFFD in every string key and value.
      *
-     * PART 12 §21. Values only: a NUL in a KEY is a slot the format does not
-     * name, and `verifyNoUnnamedSlots()` has already refused the payload for it.
+     * PART 12 §21 applies before a value is used as either content or a key.
      *
      * WHAT IT MAKES SAFE HERE. `ConsumedAbbreviationDefinitions` joins a term
      * and an expansion on a NUL, on the premise that "both come from source
@@ -995,26 +1061,45 @@ class AstCodec
      * once the character cannot arrive.
      *
      * @param array<mixed> $data
+     * @param bool $preserveImporterHintKeys
+     * @param bool $inAttributeOrder
      *
      * @return array<mixed>
      */
-    private static function replaceNulValues(array $data): array
-    {
+    private static function replaceNulValues(
+        array $data,
+        bool $preserveImporterHintKeys = false,
+        bool $inAttributeOrder = false,
+    ): array {
+        $normalized = [];
         foreach ($data as $key => $value) {
+            if (is_string($key) && (!$preserveImporterHintKeys || !str_starts_with($key, "\0carve-"))) {
+                $key = str_replace("\0", "\u{FFFD}", $key);
+            }
             if (is_string($value)) {
-                if (str_contains($value, "\0")) {
-                    $data[$key] = str_replace("\0", "\u{FFFD}", $value);
-                }
+                $normalized[$key] = $preserveImporterHintKeys
+                    && $inAttributeOrder
+                    && str_starts_with($value, "\0carve-")
+                        ? $value
+                        : str_replace("\0", "\u{FFFD}", $value);
 
                 continue;
             }
 
             if (is_array($value)) {
-                $data[$key] = self::replaceNulValues($value);
+                $normalized[$key] = self::replaceNulValues(
+                    $value,
+                    $preserveImporterHintKeys,
+                    $key === 'order',
+                );
+
+                continue;
             }
+
+            $normalized[$key] = $value;
         }
 
-        return $data;
+        return $normalized;
     }
 
     /**
@@ -1041,30 +1126,6 @@ class AstCodec
             count($unnamed) === 1 ? 'y' : 'ies',
             implode(', ', array_slice($unnamed, 0, 6)),
         ));
-    }
-
-    /**
-     * @param array<mixed> $payload
-     *
-     * @throws \MarkupCarve\Carve\Exception\AstDecodeException
-     */
-    private static function verifyNoPrivateAttributeNames(array $payload): void
-    {
-        foreach ($payload as $key => $value) {
-            if (is_string($key) && str_contains($key, "\0")) {
-                throw new AstDecodeException('AST attribute names cannot contain U+0000.');
-            }
-            if ($key === 'order' && is_array($value)) {
-                foreach ($value as $name) {
-                    if (is_string($name) && str_contains($name, "\0")) {
-                        throw new AstDecodeException('AST attribute names cannot contain U+0000.');
-                    }
-                }
-            }
-            if (is_array($value)) {
-                self::verifyNoPrivateAttributeNames($value);
-            }
-        }
     }
 
     /**
@@ -2077,7 +2138,7 @@ class AstCodec
                 // because that slot arrives in the wire's `order` and is
                 // restored below.
                 $order = $node->getAttributeOrder();
-                $classes = preg_split('/\s+/', trim((string)($node->getAttribute('class') ?? ''))) ?: [];
+                $classes = preg_split('/\s+/', trim((string)($node->getAttribute('class') ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
                 if (!in_array($kind, $classes, true)) {
                     array_unshift($classes, $kind);
                 }
@@ -2546,6 +2607,16 @@ class AstCodec
             $wire['classes'] = $classes;
         }
         [$attrs, $order] = self::attrsFromWire($wire);
+        if ($this->decodeImporterHints) {
+            foreach ($attrs as $name => $value) {
+                if (!str_starts_with($name, "\0carve-")) {
+                    continue;
+                }
+                $node->setRenderHint($name, $value);
+                unset($attrs[$name]);
+                $order = array_values(array_filter($order, static fn (string $slot): bool => $slot !== $name));
+            }
+        }
         if ($attrs !== []) {
             $node->setAttributesWithOrder($attrs, $order);
         }

@@ -36,6 +36,8 @@ use Throwable;
  * otherwise be emitted verbatim as raw Carve, allowing a crafted attribute to
  * inject a raw-HTML block). Only enable round-trip extraction via the
  * constructor flag when the HTML is TRUSTED (e.g. produced by carve itself).
+ *
+ * @phpstan-consistent-constructor
  */
 class HtmlToCarve
 {
@@ -2852,7 +2854,7 @@ class HtmlToCarve
             $this->alignmentClasses,
             $this->labels,
         ))->build($normalized, strlen($html));
-        $document = (new AstCodec())->decode($tree, true);
+        $document = (new AstCodec())->decodeImporterTree($tree);
 
         return (new CarveRenderer())->render($document);
     }

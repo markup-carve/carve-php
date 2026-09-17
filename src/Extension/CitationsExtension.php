@@ -762,7 +762,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
             }
         }
 
-        return $lines;
+        return array_values($lines);
     }
 
     /**
