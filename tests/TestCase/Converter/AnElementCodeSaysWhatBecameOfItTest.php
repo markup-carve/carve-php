@@ -241,7 +241,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
     public static function wordlessContentProvider(): array
     {
         return [
-            'punctuation only' => ['<p><button>...</button></p>', '...'],
+            'punctuation only' => ['<p><button>...</button></p>', '\\.\\.\\.'],
             'a rule for a child' => ['<button><hr></button>', '---'],
         ];
     }
