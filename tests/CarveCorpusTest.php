@@ -891,6 +891,11 @@ class CarveCorpusTest extends TestCase
         'an-underscore-pair-in-text-is-escaped-where-the-line-would-pair-it',
         'an-underscore-pair-split-across-a-line-break-is-escaped',
         'the-round-trip-comparison-normalizes-a-named-list',
+        // Arrived with spec f8a99b6; every pair renders byte-exact.
+        'an-empty-link-destination-is-not-a-link',
+        'a-quote-is-an-ordinary-link-destination-character',
+        'a-forced-opener-of-an-open-kind-is-literal',
+        'substitution-content-is-inline-and-only-a-top-level-arrow-splits-it',
     ];
 
     /**

@@ -871,6 +871,15 @@ class ProseMirrorRenderer
         } elseif ($node instanceof Substitution) {
             $attrs['oldText'] = $node->getOldText();
             $attrs['newText'] = $node->getNewText();
+            // The editor keeps each half as plain text, so markup inside one is
+            // flattened (markup-carve/carve-grammars#466).
+            foreach ([$node->getOld(), $node->getNew()] as $half) {
+                foreach ($half->getChildren() as $child) {
+                    if (!$child instanceof Text) {
+                        $this->degraded['substitution'] = 'the editor keeps each half as plain text, so inline markup inside it is flattened';
+                    }
+                }
+            }
         } elseif ($node instanceof HeadingRef) {
             // The resolved href is a resolution artifact; the target is the
             // authored identity, so only it is carried.

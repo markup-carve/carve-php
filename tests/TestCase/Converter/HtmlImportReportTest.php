@@ -35,13 +35,14 @@ class HtmlImportReportTest extends TestCase
      * @var array<string, array{reason: string, carve: string, diagnostics?: list<string>}>
      */
     private const AHEAD_OF_PIN = [
-        // EMPTY. The two entries that stood here declared the
-        // `empty-definition-description` fixtures as ahead of a pin whose
-        // goldens still recorded the dropped body and the `%%` separator that
-        // kept the split list apart. Upstream re-recorded both - one list, no
-        // diagnostics - so the window closed, each entry failed its own
-        // staleness assertion on this pin, and both are deleted rather than
-        // reworded. The slot stays for the next window.
+        // A braced span of another kind starts its own E3 scope (ruling A on
+        // markup-carve/carve#2091), so the inner emphasis is spellable and no row
+        // is owed. markup-carve/carve#2101 re-records the fixture.
+        'same-kind-indirect-nesting' => [
+            'reason' => 'a braced span of another kind makes the same-kind nesting spellable (markup-carve/carve#2091)',
+            'carve' => "a{/b{*c{/d/}*}/}e\n",
+            'diagnostics' => [],
+        ],
     ];
 
     /**
@@ -264,6 +265,14 @@ class HtmlImportReportTest extends TestCase
         return $matched;
     }
 
+    private static function isEmptyDelimitedComment(mixed $node): bool
+    {
+        return is_array($node)
+            && ($node['type'] ?? null) === 'comment'
+            && ($node['delimited'] ?? false) === true
+            && trim((string)($node['content'] ?? '')) === '';
+    }
+
     private static function astDifference(mixed $expected, mixed $actual, string $path = '$'): ?string
     {
         if (!is_array($expected)) {
@@ -273,6 +282,11 @@ class HtmlImportReportTest extends TestCase
             return $path . ' is not an array';
         }
         if (array_is_list($expected)) {
+            if (array_is_list($actual)) {
+                // PART 11 §10k N3: an empty delimited comment compares equal to nothing.
+                $actual = array_values(array_filter($actual, static fn (mixed $node): bool => !self::isEmptyDelimitedComment($node)));
+                $expected = array_values(array_filter($expected, static fn (mixed $node): bool => !self::isEmptyDelimitedComment($node)));
+            }
             if (!array_is_list($actual) || count($expected) !== count($actual)) {
                 return $path . ' has a different list shape';
             }
