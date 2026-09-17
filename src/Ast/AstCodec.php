@@ -58,7 +58,7 @@ class AstCodec
      *
      * @var int
      */
-    public const VERSION = 4;
+    public const VERSION = 5;
 
     /**
      * Node types this engine has and the wire does not, and what each publishes.
@@ -67,6 +67,7 @@ class AstCodec
      */
     public const NOT_ON_THE_WIRE = [
         'caption' => 'paragraph',
+        'substitution_half' => 'span',
         'raw_text' => 'text',
         'section' => 'div',
     ];
@@ -111,6 +112,8 @@ class AstCodec
         'list' => ['ordered', 'delim'],
         'list_item' => ['checked', 'taskState'],
         'mention' => ['user'],
+        // The halves are FIELDS holding inline content, not child containers.
+        'substitution' => ['old', 'new'],
         'table_cell' => ['header'],
         'tag' => ['name'],
     ];
@@ -168,7 +171,7 @@ class AstCodec
         'raw_inline.content', 'raw_inline.format', 'smart_punctuation.kind',
         'smart_punctuation.value', 'span.attrs', 'span.children',
         'strike.children', 'strong.children', 'subscript.children',
-        'substitution.newText', 'substitution.oldText', 'superscript.children',
+        'substitution.new', 'substitution.old', 'superscript.children',
         'symbol.name', 'table.rows', 'table_cell.children',
         'table_cell.header', 'table_row.cells', 'tag.name',
         'text.value', 'underline.children',
@@ -1720,7 +1723,7 @@ class AstCodec
             ));
         }
 
-        return self::citationShape(self::captionShape(self::spanShape(self::figureShape(self::listMarkerShape($encoded)))));
+        return self::citationShape(self::captionShape(self::spanShape(self::substitutionShape(self::figureShape(self::listMarkerShape($encoded))))));
     }
 
     /**
@@ -2369,6 +2372,62 @@ class AstCodec
     }
 
     /**
+     * Publish a substitution as the reference does: `old` and `new`, each an
+     * array of inline nodes (markup-carve/carve#2095).
+     *
+     * This engine models the halves as two `substitution_half` children, a type
+     * the reference has none of, so the wire gets the fields and the tree keeps
+     * the containers (PART 12 §1).
+     *
+     * @param array<string, mixed> $encoded
+     *
+     * @return array<string, mixed>
+     */
+    private static function substitutionShape(array $encoded): array
+    {
+        if (($encoded['type'] ?? null) !== 'substitution') {
+            return $encoded;
+        }
+
+        $halves = [];
+        $children = $encoded['children'] ?? [];
+        foreach (is_array($children) ? $children : [] as $child) {
+            if (is_array($child)) {
+                $halves[] = $child['children'] ?? [];
+            }
+        }
+
+        unset($encoded['children']);
+        $encoded['old'] = $halves[0] ?? [];
+        $encoded['new'] = $halves[1] ?? [];
+
+        return $encoded;
+    }
+
+    /**
+     * `old` and `new` back to the two halves this engine models a substitution
+     * with.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, mixed>
+     */
+    private static function substitutionFromWire(array $data): array
+    {
+        if (($data['type'] ?? null) !== 'substitution') {
+            return $data;
+        }
+
+        $data['children'] = [
+            ['type' => 'substitution_half', 'children' => is_array($data['old'] ?? null) ? $data['old'] : []],
+            ['type' => 'substitution_half', 'children' => is_array($data['new'] ?? null) ? $data['new'] : []],
+        ];
+        unset($data['old'], $data['new']);
+
+        return $data;
+    }
+
+    /**
      * `target` and `caption` back to the children this engine models a figure
      * with: the thing being captioned, then a `caption` block wrapping the
      * caption's inline content.
@@ -2409,7 +2468,7 @@ class AstCodec
         // back to the tree it came from - which is what PART 12 §6's round trip
         // asks for, and what the loss check verifies. Both were caught by that
         // check rather than by review.
-        $data = self::citationFromWire(self::captionFromWire(self::spanFromWire(self::figureFromWire(self::listMarkerFromWire($data)))));
+        $data = self::citationFromWire(self::captionFromWire(self::substitutionFromWire(self::spanFromWire(self::figureFromWire(self::listMarkerFromWire($data))))));
 
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {

@@ -58,6 +58,18 @@ class RequiredFieldsAreAlwaysPublishedTest extends TestCase
         return $required;
     }
 
+    /**
+     * Fields the pinned schema still requires and this engine has replaced,
+     * while the change rolls out engines first (PART 12's AST schema contract).
+     *
+     * `substitution.oldText` and `newText` became `old` and `new` on
+     * markup-carve/carve-js#1827; markup-carve/carve#2095 carries the schema.
+     * The entry goes when the pin reaches it.
+     *
+     * @var array<int, string>
+     */
+    private const ROLLING_OUT = ['substitution.oldText', 'substitution.newText'];
+
     public function testEveryFieldTheSchemaRequiresIsAlwaysPublished(): void
     {
         $reflection = new ReflectionClass(AstCodec::class);
@@ -66,6 +78,9 @@ class RequiredFieldsAreAlwaysPublishedTest extends TestCase
         $missing = [];
         foreach ($this->requiredBySpec() as $type => $fields) {
             foreach ($fields as $field) {
+                if (in_array($type . '.' . $field, self::ROLLING_OUT, true)) {
+                    continue;
+                }
                 if (!in_array($type . '.' . $field, $published, true)) {
                     $missing[] = $type . '.' . $field;
                 }

@@ -1297,8 +1297,8 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderSubstitution(Substitution $node): string
     {
-        return $this->style($this->stripControls($node->getOldText()), self::STRIKETHROUGH . self::FG_RED)
-            . $this->style($this->stripControls($node->getNewText()), self::FG_GREEN . self::UNDERLINE);
+        return $this->style($this->renderChildren($node->getOld()), self::STRIKETHROUGH . self::FG_RED)
+            . $this->style($this->renderChildren($node->getNew()), self::FG_GREEN . self::UNDERLINE);
     }
 
     protected function renderUnderline(Underline $node): string

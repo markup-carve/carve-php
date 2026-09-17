@@ -3353,7 +3353,7 @@ class CarveRenderer implements RendererInterface
             $node instanceof HardBreak => $this->tableCellDepth === 0 ? "\\\n" : (isset($this->edgeCellBreaks[spl_object_id($node)]) ? '' : ' '),
             $node instanceof Insert => $withAttrs($this->spellSameKind($node, '+', '{+' . $this->renderInlines($node->getChildren()) . '+}')),
             $node instanceof Delete => $withAttrs($this->spellSameKind($node, '-', '{-' . $this->renderInlines($node->getChildren()) . '-}')),
-            $node instanceof Substitution => '{~' . $this->escapeCriticText($node->getOldText()) . '~>' . $this->escapeCriticText($node->getNewText()) . '~}',
+            $node instanceof Substitution => '{~' . $this->renderInlines($node->getOld()->getChildren()) . '~>' . $this->renderInlines($node->getNew()->getChildren()) . '~}',
             $node instanceof HeadingRef => '</#' . $this->escapeCrossrefTarget($node->getTargetId()) . '>',
             $node instanceof CaptionNumber => '#',
             $node instanceof CitationGroup => $node->getRaw(),

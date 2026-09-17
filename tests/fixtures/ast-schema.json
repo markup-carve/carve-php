@@ -348,8 +348,8 @@
   },
   "substitution": {
     "fields": [
-      "oldText",
-      "newText"
+      "old",
+      "new"
     ],
     "required": []
   },

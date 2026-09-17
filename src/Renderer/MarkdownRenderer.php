@@ -2605,8 +2605,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderSubstitution(Substitution $node): string
     {
-        return '<del>' . $this->escapeHtml($this->stripControls($node->getOldText())) . '</del>'
-            . '<ins>' . $this->escapeHtml($this->stripControls($node->getNewText())) . '</ins>';
+        return '<del>' . $this->renderChildren($node->getOld()) . '</del>'
+            . '<ins>' . $this->renderChildren($node->getNew()) . '</ins>';
     }
 
     protected function renderUnderline(Underline $node): string

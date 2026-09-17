@@ -414,7 +414,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 $node instanceof Mention => $this->renderMention($node),
                 $node instanceof Link => $this->renderLink($node),
                 $node instanceof Delete => '~' . $this->renderChildren($node) . '~',
-                $node instanceof Substitution => '~' . $this->stripControls($node->getOldText()) . '~' . $this->stripControls($node->getNewText()),
+                $node instanceof Substitution => '~' . $this->renderChildren($node->getOld()) . '~' . $this->renderChildren($node->getNew()),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
                 $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
                 $node instanceof FootnoteRef && $node->isUnresolved()
