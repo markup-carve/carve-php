@@ -601,9 +601,7 @@ class ProfileFilter
             return implode("\n", $items);
         }
 
-        // A substitution keeps both texts in fields, not children. Dropping to
-        // the generic child walk below would return '' and delete the node,
-        // losing the old wording AND the new one.
+        // A substitution degrades to both halves, the old wording and the new.
         if ($node instanceof Substitution) {
             return $node->getOldText() . $node->getNewText();
         }

@@ -453,11 +453,14 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         $upstreamSchema = json_decode((string)file_get_contents($upstream), true, 512, JSON_THROW_ON_ERROR);
         $vendoredSchema = json_decode((string)file_get_contents($vendored), true, 512, JSON_THROW_ON_ERROR);
 
-        // NO CARVE-OUT. PART 9 §21a's `comment.delimited` was admitted here
-        // while it lived on a draft spec branch and this repository had to keep
-        // the released corpus pin; the pin has moved past it, so the exemption
-        // is gone with it. An allowance kept after its reason expires does not
-        // fail, it just stops comparing the field it names.
+        // ONE CARVE-OUT, WHILE A CHANGE ROLLS OUT ENGINES FIRST. The
+        // substitution node carries `old` and `new` inline arrays since the
+        // ruling on markup-carve/carve-js#1827, and markup-carve/carve#2095
+        // carries the schema for it; that PR stays red until the engines land,
+        // so the two copies differ in this one definition until the pin moves.
+        // Everything else is compared, and the exemption goes with the bump.
+        $upstreamSchema['$defs']['substitution'] = $vendoredSchema['$defs']['substitution'] ?? null;
+
         $this->assertSame($upstreamSchema, $vendoredSchema);
     }
 

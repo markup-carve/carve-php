@@ -48,8 +48,8 @@ class ASubstitutionArrowIsTopLevelTest extends TestCase
     {
         return [
             'a plain pair' => ["{~old~>new~}\n", "<p><del>old</del><ins>new</ins></p>\n"],
-            'an arrow after a closed run' => ["{~`x`~>y~}\n", "<p><del>`x`</del><ins>y</ins></p>\n"],
-            'an arrow after a comment' => ["{~a{% c %}~>b~}\n", "<p><del>a{% c %}</del><ins>b</ins></p>\n"],
+            'an arrow after a closed run' => ["{~`x`~>y~}\n", "<p><del><code>x</code></del><ins>y</ins></p>\n"],
+            'an arrow after a comment' => ["{~a{% c %}~>b~}\n", "<p><del>a</del><ins>b</ins></p>\n"],
             'the first top-level arrow wins' => ["{~a~>b~>c~}\n", "<p><del>a</del><ins>b~&gt;c</ins></p>\n"],
         ];
     }

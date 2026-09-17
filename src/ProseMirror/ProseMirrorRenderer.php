@@ -535,7 +535,9 @@ class ProseMirrorRenderer
             if ($marks !== []) {
                 $inline['marks'] = $marks;
             }
-            $children = $this->renderInlines($node->getChildren(), []);
+            // A substitution is an editor atom: both halves ride on its attrs,
+            // so its `substitution_half` children are not editor content.
+            $children = $node instanceof Substitution ? [] : $this->renderInlines($node->getChildren(), []);
             if ($children !== []) {
                 $inline['content'] = $children;
             }

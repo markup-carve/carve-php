@@ -2606,8 +2606,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderSubstitution(Substitution $node): string
     {
-        return '<del>' . $this->escape($node->getOldText()) . '</del>'
-            . '<ins>' . $this->escape($node->getNewText()) . '</ins>';
+        return '<del>' . $this->renderChildren($node->getOld()) . '</del>'
+            . '<ins>' . $this->renderChildren($node->getNew()) . '</ins>';
     }
 
     protected function renderAbbreviation(Abbreviation $node): string

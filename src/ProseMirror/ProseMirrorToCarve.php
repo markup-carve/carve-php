@@ -60,6 +60,7 @@ use MarkupCarve\Carve\Node\Inline\Strike;
 use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Substitution;
+use MarkupCarve\Carve\Node\Inline\SubstitutionHalf;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -1532,8 +1533,10 @@ class ProseMirrorToCarve
                 $node instanceof LinkReferenceDefinition && $key === 'href' => $this->setState($node, 'href', self::asString($value)),
                 $node instanceof LinkReferenceDefinition && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
                 $node instanceof Symbol && $key === 'name' => $this->setState($node, 'name', self::asString($value)),
-                $node instanceof Substitution && $key === 'oldText' => $this->setState($node, 'oldText', self::asString($value)),
-                $node instanceof Substitution && $key === 'newText' => $this->setState($node, 'newText', self::asString($value)),
+                // The editor keeps both halves as plain-text attrs; the node
+                // holds them as inline content (markup-carve/carve-php#2104).
+                $node instanceof Substitution && $key === 'oldText' => $this->fillSubstitutionHalf($node->getOld(), self::asString($value)),
+                $node instanceof Substitution && $key === 'newText' => $this->fillSubstitutionHalf($node->getNew(), self::asString($value)),
                 $node instanceof HeadingRef && $key === 'target' => $this->setState($node, 'targetId', self::asString($value)),
                 $node instanceof CitationGroup && $key === 'raw' => $this->setState($node, 'raw', self::asString($value)),
                 $node instanceof CitationGroup && $key === 'integral' => $this->setState($node, 'integral', self::asBool($value)),
@@ -1822,6 +1825,21 @@ class ProseMirrorToCarve
         // hardcoding `@` here rewrote every tag into a mention.
         $sigil = $node->getCssClass() === 'tag' ? '#' : '@';
         $node->appendChild(new Text(str_starts_with($label, $sigil) ? $label : $sigil . $label));
+
+        return true;
+    }
+
+    /**
+     * Put an editor attribute's text into one half of a substitution.
+     */
+    protected function fillSubstitutionHalf(SubstitutionHalf $half, string $text): bool
+    {
+        foreach ($half->getChildren() as $child) {
+            $half->removeChild($child);
+        }
+        if ($text !== '') {
+            $half->appendChild(new Text($text));
+        }
 
         return true;
     }

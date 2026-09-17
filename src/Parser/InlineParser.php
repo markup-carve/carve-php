@@ -3276,10 +3276,18 @@ class InlineParser
                     $content = substr($text, $pos + 2, $searchPos - $pos - 2);
                     $arrow = $this->topLevelSubstitutionArrow($content);
                     if ($arrow !== null) {
-                        return [
-                            'node' => new Substitution(substr($content, 0, $arrow), substr($content, $arrow + 2)),
-                            'pos' => $searchPos + 2,
-                        ];
+                        // Both halves are inline content, each a braced scope of its own.
+                        $node = new Substitution();
+                        $outer = $this->openSpanKinds;
+                        $this->openSpanKinds = [];
+                        try {
+                            $this->parseInlinesAt($node->getOld(), substr($content, 0, $arrow), $pos + 2);
+                            $this->parseInlinesAt($node->getNew(), substr($content, $arrow + 2), $pos + 2 + $arrow + 2);
+                        } finally {
+                            $this->openSpanKinds = $outer;
+                        }
+
+                        return ['node' => $node, 'pos' => $searchPos + 2];
                     }
 
                     break;
@@ -4065,7 +4073,7 @@ class InlineParser
      * Offset of the `~>` that splits a substitution, or null where the pair
      * holds none at its own level (markup-carve/carve#2083).
      *
-     * Verbatim content and a delimited comment are skipped, and an escaped
+     * Verbatim content, a delimited comment and an editorial comment are skipped, and an escaped
      * `~` is not an arrow, so a pair whose only `~>` sits in one of those is a
      * forced strikethrough instead.
      */
@@ -4090,8 +4098,8 @@ class InlineParser
 
                 continue;
             }
-            if ($char === '{' && ($content[$at + 1] ?? '') === '%') {
-                $end = strpos($content, '%}', $at + 2);
+            if ($char === '{' && in_array($content[$at + 1] ?? '', ['%', '#'], true)) {
+                $end = strpos($content, $content[$at + 1] . '}', $at + 2);
                 if ($end === false) {
                     return null;
                 }
