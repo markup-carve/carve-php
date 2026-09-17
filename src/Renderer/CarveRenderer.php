@@ -2534,6 +2534,9 @@ class CarveRenderer implements RendererInterface
         return implode("\n", $out);
     }
 
+    /**
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     */
     protected function renderTable(Table $node): string
     {
         $rows = [];
@@ -2616,6 +2619,10 @@ class CarveRenderer implements RendererInterface
                     && ($headerValigns[$column] ?? null) === $cell->getVerticalAlignment();
                 $cells[] = $this->renderTableCell($cell, $markHeader, $inherited, $inheritedVertical);
                 $column++;
+            }
+            // A row whose every cell is blank is not a table row (markup-carve/carve#1954).
+            if ($cells !== [] && array_diff($cells, [' ', '= ']) === []) {
+                throw new SourceUnspellableException('table_row', 'a table row whose every cell is blank has no Carve source spelling');
             }
             $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
         }
