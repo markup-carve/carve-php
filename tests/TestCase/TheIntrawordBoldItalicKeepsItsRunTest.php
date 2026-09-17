@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -78,8 +79,29 @@ class TheIntrawordBoldItalicKeepsItsRunTest extends TestCase
         $this->assertSame($expected . "\n", $this->md($source . "\n"));
     }
 
+    /**
+     * The tree is built rather than parsed: PART 9 section 9 E3 reached forced
+     * openers, so no Carve source spells a same-kind nesting
+     * (markup-carve/carve#2078).
+     */
     public function testASameStrengthNestingKeepsItsInlineHtmlForm(): void
     {
-        $this->assertSame("a <em>*x*</em> b\n", $this->md("a /{/x/}/ b\n"));
+        $document = (new AstCodec())->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'text', 'value' => 'a '],
+                        ['type' => 'emphasis', 'children' => [['type' => 'emphasis', 'children' => [['type' => 'text', 'value' => 'x']]]]],
+                        ['type' => 'text', 'value' => ' b'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame("a <em>*x*</em> b\n", CarveConverter::markdown()->render($document));
     }
 }

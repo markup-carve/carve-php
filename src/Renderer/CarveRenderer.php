@@ -515,8 +515,8 @@ class CarveRenderer implements RendererInterface
         // below agree on them.
         $this->verbatimSentinels = $this->pickVerbatimSentinels($this->collectStrings($document));
         $this->treeCacheSource = null;
-        $this->treeCache = null;
         $this->bracedSpans = [];
+        $this->treeCache = null;
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
         if ($minimal === $conservative) {
@@ -3370,32 +3370,83 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * Refuse a braced span holding a braced span of the same kind at any depth:
-     * PART 9 §9 E3 leaves the inner opener literal (PART 11 §1c).
+     * The span kinds PART 9 section 9 keeps on the E1-E5 stack.
+     *
+     * @var array<int, class-string<\MarkupCarve\Carve\Node\Node>>
+     */
+    protected const SPAN_KINDS = [
+        Emphasis::class,
+        Strong::class,
+        Underline::class,
+        Strike::class,
+        Superscript::class,
+        Subscript::class,
+        Highlight::class,
+        Insert::class,
+        Delete::class,
+    ];
+
+    /**
+     * Spell a span so a span of its kind inside it reads back.
+     *
+     * E3 leaves an opener of an open kind literal, bare or forced, but a braced
+     * inline starts its own scope (markup-carve/carve#2078, #2091). So a span
+     * between two spans of one kind is written braced, and a span of the same
+     * kind reachable without a braced span between has no spelling.
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
     protected function spellSameKind(Node $node, string $delimiter, string $written): string
     {
-        $braced = str_starts_with($written, '{' . $delimiter);
-        if ($braced) {
-            $pending = $node->getChildren();
-            while ($pending !== []) {
-                $child = array_shift($pending);
-                if ($child::class === $node::class && isset($this->bracedSpans[spl_object_id($child)])) {
-                    throw new SourceUnspellableException(
-                        $node->getType(),
-                        'a braced span inside a braced span of the same kind has no Carve source spelling',
-                    );
-                }
+        if (!str_starts_with($written, '{') && $this->separatesAnOuterKind($node)) {
+            $written = '{' . $written . '}';
+        }
+
+        $pending = $node->getChildren();
+        while ($pending !== []) {
+            $child = array_shift($pending);
+            if ($child::class === $node::class) {
+                throw new SourceUnspellableException(
+                    $node->getType(),
+                    'a span inside a span of the same kind has no Carve source spelling',
+                );
+            }
+            if (!isset($this->bracedSpans[spl_object_id($child)])) {
                 array_push($pending, ...$child->getChildren());
             }
+        }
+        if (str_starts_with($written, '{')) {
             $this->bracedSpans[spl_object_id($node)] = true;
-        } else {
-            unset($this->bracedSpans[spl_object_id($node)]);
         }
 
         return $written;
+    }
+
+    /**
+     * Does a span of an enclosing kind other than this node's sit inside it?
+     */
+    protected function separatesAnOuterKind(Node $node): bool
+    {
+        $outer = [];
+        for ($parent = $node->getParent(); $parent instanceof InlineNode; $parent = $parent->getParent()) {
+            if (in_array($parent::class, self::SPAN_KINDS, true) && $parent::class !== $node::class) {
+                $outer[$parent::class] = true;
+            }
+        }
+        if ($outer === []) {
+            return false;
+        }
+
+        $pending = $node->getChildren();
+        while ($pending !== []) {
+            $child = array_shift($pending);
+            if (isset($outer[$child::class])) {
+                return true;
+            }
+            array_push($pending, ...$child->getChildren());
+        }
+
+        return false;
     }
 
     protected function renderStrongNode(Strong $node, string $prevChar, string $nextChar): string
