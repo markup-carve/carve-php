@@ -59,7 +59,7 @@ class AFenceInANestedMarkdownItemIsCodeTest extends TestCase
             ],
             'a nested item fence ended by a dedented line' => [
                 "- a\n\n  - b\n\n    ```\n    code\n\n  more",
-                "- a\n\n  - b\n\n    ```\n    code\n\n    ```\n  more",
+                "- a\n\n  - b\n\n    ```\n    code\n\n    ```\n\n  more",
             ],
             'a body line indented no further than its item' => [
                 "- b\n\n     ```\n  code\n     ```",
