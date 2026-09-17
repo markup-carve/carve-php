@@ -114,15 +114,6 @@ class CarveWriterMentionTest extends TestCase
     }
 
     /**
-     * A mention with no destination was already written as plain text; that
-     * path is unchanged, since there is no link to degrade to.
-     */
-    public function testAMentionWithoutADestinationStaysPlainText(): void
-    {
-        $this->assertSame("o'brien", $this->mention("o'brien", ''));
-    }
-
-    /**
      * The label as TYPED, read back off a parsed tree.
      *
      * Escapes come back as `EscapedText` and typography as a node carrying both

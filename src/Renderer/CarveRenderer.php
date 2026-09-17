@@ -3645,10 +3645,6 @@ class CarveRenderer implements RendererInterface
             );
         }
 
-        if (($node->getDestination() ?? '') === '') {
-            return $this->plainInlineText($node);
-        }
-
         // The plain text, not the rendered inlines: a name is tested against
         // what the author wrote, and `renderInlines()` has already escaped the
         // dot in `john.doe` into `john\.doe`, which is not a name.
@@ -3657,6 +3653,19 @@ class CarveRenderer implements RendererInterface
         // ONE sigil, not a run of them: `ltrim($label, '@')` read `@@user` as
         // the name `user` and wrote back one `@` fewer than it was handed.
         $name = str_starts_with($label, $sigil) ? substr($label, 1) : $label;
+
+        if (($node->getDestination() ?? '') === '') {
+            // No link form to fall back to: `@Lea Thompson` would read back as
+            // the mention `Lea` (markup-carve/carve-php#2159).
+            if (!$this->isMentionName($name)) {
+                throw new SourceUnspellableException(
+                    $node->getCssClass() === 'tag' ? 'tag' : 'mention',
+                    'its name has no Carve source spelling',
+                );
+            }
+
+            return $label;
+        }
 
         // A mention name carries no escape, so a label holding anything else
         // has no spelling in this syntax. It degrades to the link form rather
