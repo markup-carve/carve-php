@@ -1199,6 +1199,13 @@ class AstCodec
                 continue;
             }
 
+            // The encoder writes two adjacent text nodes as one, so the input
+            // is merged the same way before the two lists are walked in step.
+            // Without it the lists slide apart at the first pair, and the next
+            // node of another type is compared against a text node and reported
+            // as lost - which threw on a payload that decoded correctly.
+            $value = self::mergeAdjacentText($value);
+
             foreach ($value as $index => $child) {
                 $mirror = $mirrors[$index] ?? null;
                 if (!is_array($child) || !is_array($mirror)) {
@@ -1212,6 +1219,47 @@ class AstCodec
                 $this->compareNode($childNode, $mirrorNode, $here . '.' . $key, $lost);
             }
         }
+    }
+
+    /**
+     * Join neighboring text nodes, the way the encoder does.
+     *
+     * @param array<mixed> $children
+     *
+     * @return array<mixed>
+     */
+    private static function mergeAdjacentText(array $children): array
+    {
+        $merged = [];
+        foreach ($children as $child) {
+            $previous = $merged !== [] ? array_key_last($merged) : null;
+            if (
+                $previous !== null
+                && self::isPlainText($child)
+                && self::isPlainText($merged[$previous])
+            ) {
+                $merged[$previous]['value'] .= $child['value'];
+
+                continue;
+            }
+
+            $merged[] = $child;
+        }
+
+        return $merged;
+    }
+
+    /**
+     * A text node carrying nothing the merge would drop.
+     *
+     * @param mixed $node
+     */
+    private static function isPlainText(mixed $node): bool
+    {
+        return is_array($node)
+            && ($node['type'] ?? null) === 'text'
+            && is_string($node['value'] ?? null)
+            && array_diff(array_keys($node), ['type', 'value', 'pos']) === [];
     }
 
     /**
