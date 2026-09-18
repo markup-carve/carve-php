@@ -1233,12 +1233,10 @@ class AstCodec
         $merged = [];
         foreach ($children as $child) {
             $previous = $merged !== [] ? array_key_last($merged) : null;
-            if (
-                $previous !== null
-                && self::isPlainText($child)
-                && self::isPlainText($merged[$previous])
-            ) {
-                $merged[$previous]['value'] .= $child['value'];
+            $left = $previous !== null ? self::plainTextValue($merged[$previous]) : null;
+            $right = self::plainTextValue($child);
+            if ($previous !== null && $left !== null && $right !== null) {
+                $merged[$previous] = ['type' => 'text', 'value' => $left . $right];
 
                 continue;
             }
@@ -1250,16 +1248,24 @@ class AstCodec
     }
 
     /**
-     * A text node carrying nothing the merge would drop.
+     * The value of a text node carrying nothing the join would drop.
+     *
+     * `code`, `escaped_text` and `smart_punctuation` hold a `value` too, and
+     * the encoder does not join those, so the type is part of the question.
      *
      * @param mixed $node
      */
-    private static function isPlainText(mixed $node): bool
+    private static function plainTextValue(mixed $node): ?string
     {
-        return is_array($node)
-            && ($node['type'] ?? null) === 'text'
-            && is_string($node['value'] ?? null)
-            && array_diff(array_keys($node), ['type', 'value', 'pos']) === [];
+        if (!is_array($node) || ($node['type'] ?? null) !== 'text') {
+            return null;
+        }
+        if (array_diff(array_keys($node), ['type', 'value', 'pos']) !== []) {
+            return null;
+        }
+        $value = $node['value'] ?? null;
+
+        return is_string($value) ? $value : null;
     }
 
     /**
