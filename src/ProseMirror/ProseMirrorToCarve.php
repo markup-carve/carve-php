@@ -1849,6 +1849,7 @@ class ProseMirrorToCarve
                 'the name is not a Carve %1$s name, so the %1$s is written as text',
                 $flavor,
             );
+            $this->reportAttributesTheTextPathHolds($attrs);
             $this->mentionsAsText ??= new WeakMap();
             $this->mentionsAsText[$node] = $this->withSigil($node, $label !== '' ? $label : $id);
 
@@ -1867,6 +1868,33 @@ class ProseMirrorToCarve
         }
 
         return $consumed;
+    }
+
+    /**
+     * Report the mention's own attributes, which the Text node cannot hold.
+     *
+     * A spellable name keeps them until the writer refuses them
+     * (markup-carve/carve-php#2083). The text path replaces the node, so
+     * without this nothing says they are gone. carve-rs reports the same set
+     * (markup-carve/carve-rs#1763).
+     *
+     * @param array<mixed> $attrs
+     */
+    protected function reportAttributesTheTextPathHolds(array $attrs): void
+    {
+        foreach ($attrs as $key => $value) {
+            $name = (string)$key;
+            if (in_array($name, ['id', 'label', 'mentionSuggestionChar', 'cssClass'], true)) {
+                continue;
+            }
+            // A non-string value is reported by applyAttributes with its own
+            // reason, and editor bookkeeping under `carve*` is not the
+            // author's attribute.
+            if (!is_string($value) || str_starts_with($name, 'carve')) {
+                continue;
+            }
+            $this->droppedAttributes[$name] = 'the mention is written as text, which holds no attribute';
+        }
     }
 
     /**
