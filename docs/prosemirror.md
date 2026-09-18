@@ -97,6 +97,17 @@ if ($renderer->droppedTypes() !== []) {
 
 Going the other way, an unknown ProseMirror name is an **error**, not a skip: an
 editor that grew a node nobody mapped is exactly where silent loss is worst.
+What the payload carried but the Carve source cannot is reported in the same two
+categories, keyed by attribute rather than by node type:
+
+```php
+$converter->droppedAttributes();   // ['data-team' => 'a mention has no Carve spelling …']
+$converter->degradedAttributes();  // ['id' => 'the name has no Carve mention spelling …']
+```
+
+carve-rs and carve-grammars key and word each row the same way, so an
+application can compare the reports of two engines
+(markup-carve/carve-php#2167).
 
 ## Fidelity
 

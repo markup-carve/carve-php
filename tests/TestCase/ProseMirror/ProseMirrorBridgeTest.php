@@ -812,7 +812,7 @@ class ProseMirrorBridgeTest extends TestCase
         $this->assertSame('@alice', $mention->getChildren()[0]->getContent());
         $this->assertCount(1, $mention->getChildren());
         $this->assertSame([], $mention->getAttributes());
-        $this->assertArrayHasKey('label', $this->converter->droppedAttributes());
+        $this->assertArrayHasKey('label', $this->converter->degradedAttributes());
     }
 
     /**

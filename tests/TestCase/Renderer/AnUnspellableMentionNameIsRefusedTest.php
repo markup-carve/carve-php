@@ -125,7 +125,7 @@ class AnUnspellableMentionNameIsRefusedTest extends TestCase
         $document = $converter->convert(self::proseMirror(['type' => 'mention', 'attrs' => ['id' => 'Lea Thompson', 'label' => null]]));
 
         $this->assertSame("ping \\@Lea Thompson\n", CarveConverter::carve()->render($document));
-        $this->assertArrayHasKey('id', $converter->droppedAttributes());
+        $this->assertArrayHasKey('id', $converter->degradedAttributes());
     }
 
     /**

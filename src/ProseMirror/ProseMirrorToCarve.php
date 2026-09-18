@@ -138,6 +138,11 @@ class ProseMirrorToCarve
     protected array $droppedAttributes = [];
 
     /**
+     * @var array<string, string> attribute name => why it is carried in a lesser form
+     */
+    protected array $degradedAttributes = [];
+
+    /**
      * Stock mentions whose name the mention grammar rejects, with the text
      * each is written as instead.
      *
@@ -176,6 +181,7 @@ class ProseMirrorToCarve
         }
 
         $this->droppedAttributes = [];
+        $this->degradedAttributes = [];
         $this->mentionsAsText = new WeakMap();
 
         $rootAttrs = is_array($document['attrs'] ?? null) ? $document['attrs'] : [];
@@ -329,6 +335,22 @@ class ProseMirrorToCarve
     public function droppedAttributes(): array
     {
         return $this->droppedAttributes;
+    }
+
+    /**
+     * What the last conversion carried in a lesser form, as name => reason.
+     *
+     * A name the mention grammar rejects is here rather than in
+     * `droppedAttributes()`, because its text survives as literal text; so is a
+     * display label the mention writes no slot for. carve-rs and
+     * carve-grammars key and word each row the same way
+     * (markup-carve/carve-php#2167).
+     *
+     * @return array<string, string>
+     */
+    public function degradedAttributes(): array
+    {
+        return $this->degradedAttributes;
     }
 
     public function convertJson(string $json): Document
@@ -1847,19 +1869,29 @@ class ProseMirrorToCarve
         $id = is_scalar($attrs['id'] ?? null) ? self::asString($attrs['id']) : '';
         $label = is_scalar($attrs['label'] ?? null) ? self::asString($attrs['label']) : '';
         $labelIsText = array_key_exists('label', $attrs) && ($attrs['label'] === null || is_scalar($attrs['label']));
+        if (array_key_exists('label', $attrs) && !$labelIsText) {
+            // A label the node cannot carry, on either path below. Reported
+            // here rather than by the generic loop, so it reads as a lesser
+            // form of the same slot a differing label lands in.
+            $consumed['label'] = true;
+            $this->degradedAttributes['label'] = sprintf(
+                'a Carve attribute holds a string, and this value is of type %s',
+                get_debug_type($attrs['label']),
+            );
+        }
         $name = $id !== '' ? $id : $label;
+        $flavor = $node->getCssClass() === 'tag' ? 'tag' : 'mention';
         $hasDestination = is_scalar($attrs['href'] ?? null) && self::asString($attrs['href']) !== '';
         if ($name !== '' && !$hasDestination && !$this->isMentionName($node, $name)) {
             // Written as the text Tiptap shows (`label ?? id`), never as a
             // normalized name the resolver would read as someone else.
             $consumed['id'] = array_key_exists('id', $attrs);
-            $consumed['label'] = $labelIsText;
-            $flavor = $node->getCssClass() === 'tag' ? 'tag' : 'mention';
-            $this->droppedAttributes[$id !== '' ? 'id' : 'label'] = sprintf(
-                'the name is not a Carve %1$s name, so the %1$s is written as text',
+            $consumed['label'] = $consumed['label'] ?? $labelIsText;
+            $this->degradedAttributes[$id !== '' ? 'id' : 'label'] = sprintf(
+                'the name has no Carve %s spelling, so it is written as literal text',
                 $flavor,
             );
-            $this->reportAttributesTheTextPathHolds($attrs);
+            $this->reportAttributesTheTextPathHolds($attrs, $flavor);
             $this->mentionsAsText ??= new WeakMap();
             $this->mentionsAsText[$node] = $this->withSigil($node, $label !== '' ? $label : $id);
 
@@ -1871,7 +1903,7 @@ class ProseMirrorToCarve
                 $consumed['label'] = true;
             } elseif ($label !== '') {
                 $consumed['label'] = true;
-                $this->droppedAttributes['label'] = 'the mention name is its id, so a different display label is not carried';
+                $this->degradedAttributes['label'] = 'the mention name is its id, so a different display label is not carried';
             }
         } elseif ($label !== '') {
             $consumed['label'] = $this->addMentionLabel($node, $label);
@@ -1918,8 +1950,9 @@ class ProseMirrorToCarve
      * gone. carve-rs reports the same set (markup-carve/carve-rs#1763).
      *
      * @param array<mixed> $attrs
+     * @param string $flavor
      */
-    protected function reportAttributesTheTextPathHolds(array $attrs): void
+    protected function reportAttributesTheTextPathHolds(array $attrs, string $flavor): void
     {
         foreach ($attrs as $key => $value) {
             $name = (string)$key;
@@ -1932,7 +1965,10 @@ class ProseMirrorToCarve
             if (!is_string($value) || str_starts_with($name, 'carve')) {
                 continue;
             }
-            $this->droppedAttributes[$name] = 'the mention is written as text, which holds no attribute';
+            $this->droppedAttributes[$name] = sprintf(
+                'the %s is written as text, which holds no attribute',
+                $flavor,
+            );
         }
     }
 
