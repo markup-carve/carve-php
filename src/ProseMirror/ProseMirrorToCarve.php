@@ -151,6 +151,14 @@ class ProseMirrorToCarve
     protected ?WeakMap $mentionsAsText = null;
 
     /**
+     * Stock mentions and tags that carry no name at all, which the bridge
+     * leaves out of the document (markup-carve/carve-php#2176).
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Inline\Mention, true>|null
+     */
+    protected ?WeakMap $namelessMentions = null;
+
+    /**
      * @var array<string, \Closure(array<string, mixed>): \MarkupCarve\Carve\Node\Node>
      */
     protected array $factories = [];
@@ -183,6 +191,7 @@ class ProseMirrorToCarve
         $this->droppedAttributes = [];
         $this->degradedAttributes = [];
         $this->mentionsAsText = new WeakMap();
+        $this->namelessMentions = new WeakMap();
 
         $rootAttrs = is_array($document['attrs'] ?? null) ? $document['attrs'] : [];
         $incomingAbbreviations = $rootAttrs['carveAbbreviations'] ?? [];
@@ -983,6 +992,9 @@ class ProseMirrorToCarve
         $this->applyAttributes($node, $data);
         if ($node instanceof Mention && isset($this->mentionsAsText[$node])) {
             return [$this->wrapInMarks(new Text($this->mentionsAsText[$node]), $data['marks'] ?? [])];
+        }
+        if ($node instanceof Mention && isset($this->namelessMentions[$node])) {
+            return [];
         }
         foreach ($this->childrenOf($data) as $child) {
             foreach ($this->buildInlines($child) as $built) {
@@ -1907,6 +1919,16 @@ class ProseMirrorToCarve
             }
         } elseif ($label !== '') {
             $consumed['label'] = $this->addMentionLabel($node, $label);
+        } else {
+            // Neither field holds a name, so there is nothing to write and no
+            // field to key the loss on (markup-carve/carve-php#2176). A bare
+            // sigil would invent a character the payload never carried.
+            $this->namelessMentions ??= new WeakMap();
+            $this->namelessMentions[$node] = true;
+            $this->droppedAttributes[$flavor] = sprintf(
+                'a %s with no name has nothing to write',
+                $flavor,
+            );
         }
 
         return $consumed;

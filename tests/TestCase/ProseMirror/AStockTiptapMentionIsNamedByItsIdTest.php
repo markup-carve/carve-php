@@ -305,6 +305,68 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
         CarveConverter::carve()->render($document);
     }
 
+    /**
+     * @return array<string, array{string, array<string, mixed>, string}>
+     */
+    public static function namelessShapes(): array
+    {
+        return [
+            'a mention with no attributes' => ['mention', [], 'mention'],
+            'a mention with a null id' => ['mention', ['id' => null], 'mention'],
+            'a mention with a null label' => ['mention', ['label' => null], 'mention'],
+            'a mention with both null' => ['mention', ['id' => null, 'label' => null], 'mention'],
+            'a stock mention with both null' => ['mention', ['id' => null, 'label' => null, 'mentionSuggestionChar' => '@'], 'mention'],
+            'a tag with no attributes' => ['carveTag', [], 'tag'],
+            'a tag with a null id' => ['carveTag', ['id' => null], 'tag'],
+            'a tag with a null label' => ['carveTag', ['label' => null], 'tag'],
+            'a tag with both null' => ['carveTag', ['id' => null, 'label' => null], 'tag'],
+            'a stock tag with both null' => ['carveTag', ['id' => null, 'label' => null, 'mentionSuggestionChar' => '#'], 'tag'],
+        ];
+    }
+
+    /**
+     * Neither field holds a name, so the bridge leaves the node out and reports
+     * it under the node kind (markup-carve/carve-php#2176). A bare `@` would
+     * invent a character the payload never carried.
+     *
+     * @param string $type
+     * @param array<string, mixed> $attrs
+     * @param string $flavor
+     */
+    #[DataProvider('namelessShapes')]
+    public function testANodeWithNoNameIsDroppedAndReported(string $type, array $attrs, string $flavor): void
+    {
+        $converter = new ProseMirrorToCarve();
+        $document = $converter->convert(self::paragraph($type, $attrs));
+
+        $this->assertSame("ping\n", CarveConverter::carve()->render($document));
+        $this->assertSame(
+            [$flavor => sprintf('a %s with no name has nothing to write', $flavor)],
+            $converter->droppedAttributes(),
+        );
+        $this->assertSame([], $converter->degradedAttributes());
+        $this->assertNull(self::firstMention($document));
+    }
+
+    public function testTheWriterStillRefusesATreeACallerBuildsWithNoName(): void
+    {
+        // CONTROL: the bridge drops the node because it can report the loss;
+        // the writer has no channel, so it refuses (markup-carve/carve-php#2176).
+        $document = (new AstCodec())->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [['type' => 'mention', 'user' => '']],
+                ],
+            ],
+        ]);
+
+        $this->expectException(SourceUnspellableException::class);
+        CarveConverter::carve()->render($document);
+    }
+
     private static function plainText(Node $node): string
     {
         if ($node instanceof ContentNodeInterface) {
