@@ -829,7 +829,10 @@ class ProseMirrorBridgeTest extends TestCase
 
     /**
      * A payload that spells the text out keeps what it spelled: the label is
-     * only a substitute for a missing child, never a second copy of one.
+     * only a substitute for a missing child, never a second copy of one. It
+     * does not become an attribute either, since no mention can spell one
+     * (markup-carve/carve-php#2167); keeping it used to make the whole document
+     * unwritable.
      */
     public function testALabelDoesNotDuplicateAnExplicitTextChild(): void
     {
@@ -837,7 +840,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $this->assertCount(1, $mention->getChildren());
         $this->assertSame('@alice', $mention->getChildren()[0]->getContent());
-        $this->assertSame('Alice', $mention->getAttribute('label'));
+        $this->assertSame([], $mention->getAttributes());
     }
 
     /**

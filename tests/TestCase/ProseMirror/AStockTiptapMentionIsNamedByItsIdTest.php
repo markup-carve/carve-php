@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\ProseMirror;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\ContentNodeInterface;
@@ -41,6 +42,16 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
      * @var string
      */
     private const ATTRIBUTE_AS_TEXT = 'the mention is written as text, which holds no attribute';
+
+    /**
+     * @var string
+     */
+    private const NO_SPELLING_MENTION = 'a mention has no Carve spelling for an attribute';
+
+    /**
+     * @var string
+     */
+    private const NO_SPELLING_TAG = 'a tag has no Carve spelling for an attribute';
 
     /**
      * @return array<string, array{string, array<string, mixed>, string, string, array<string, string>}>
@@ -145,14 +156,41 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
         $this->assertSame([], $converter->droppedAttributes());
     }
 
-    public function testAMentionWithARealAttributeStillHasNoSpelling(): void
+    /**
+     * @return array<string, array{string, array<string, mixed>, string, array<string, string>}>
+     */
+    public static function realAttributes(): array
     {
-        $document = (new ProseMirrorToCarve())->convert(
-            self::paragraph('mention', ['id' => 'alice', 'label' => null, 'mentionSuggestionChar' => '@', 'data-team' => 'core']),
-        );
+        return [
+            'a mention with data-team' => ['mention', ['id' => 'alice', 'label' => null, 'mentionSuggestionChar' => '@', 'data-team' => 'core'], "ping @alice\n", ['data-team' => self::NO_SPELLING_MENTION]],
+            'a mention with a class' => ['mention', ['id' => 'alice', 'class' => 'x'], "ping @alice\n", ['class' => self::NO_SPELLING_MENTION]],
+            'a tag with data-team' => ['carveTag', ['id' => 'release', 'label' => null, 'data-team' => 'core'], "ping #release\n", ['data-team' => self::NO_SPELLING_TAG]],
+            'a mention whose label is dropped too' => ['mention', ['id' => 'u123', 'label' => 'Alice', 'data-team' => 'core'], "ping @u123\n", ['label' => self::LABEL_DROPPED, 'data-team' => self::NO_SPELLING_MENTION]],
+        ];
+    }
 
-        $this->expectException(SourceUnspellableException::class);
-        CarveConverter::carve()->render($document);
+    /**
+     * The bridge has a report channel, so it writes the mention and names the
+     * attribute it cannot spell (markup-carve/carve-php#2167). It used to hand
+     * the writer a tree the writer refuses, which cost the whole document.
+     *
+     * @param string $type
+     * @param array<string, mixed> $attrs
+     * @param string $carve
+     * @param array<string, string> $dropped
+     */
+    #[DataProvider('realAttributes')]
+    public function testARealAttributeIsDroppedAndReported(string $type, array $attrs, string $carve, array $dropped): void
+    {
+        $converter = new ProseMirrorToCarve();
+        $document = $converter->convert(self::paragraph($type, $attrs));
+
+        $this->assertSame($carve, CarveConverter::carve()->render($document));
+        $this->assertSame($dropped, $converter->droppedAttributes());
+
+        $mention = self::firstMention(CarveConverter::carve()->parse($carve));
+        $this->assertInstanceOf(Mention::class, $mention);
+        $this->assertSame([], $mention->getAttributes());
     }
 
     public function testALabelThatIsNotTextIsReportedAsUncarried(): void
@@ -222,14 +260,24 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
         );
     }
 
-    public function testASpellableNameStillCarriesTheAttributeToTheWriter(): void
+    public function testTheWriterStillRefusesATreeACallerBuildsWithAnAttribute(): void
     {
-        // CONTROL: the attribute is not lost on this path, so the writer is
-        // where the caller finds out (markup-carve/carve-php#2083).
-        $converter = new ProseMirrorToCarve();
-        $document = $converter->convert(self::paragraph('mention', ['id' => 'lea', 'data-team' => 'core']));
+        // CONTROL: the writer has no report channel, so a caller who builds the
+        // tree itself still finds out by exception (markup-carve/carve-php#2083).
+        $document = (new AstCodec())->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
 
-        $this->assertSame([], $converter->droppedAttributes());
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'mention', 'user' => 'alice', 'attrs' => ['keyValues' => ['data-team' => 'core']]],
+                    ],
+                ],
+            ],
+        ]);
+
         $this->expectException(SourceUnspellableException::class);
         CarveConverter::carve()->render($document);
     }
