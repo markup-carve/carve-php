@@ -1483,7 +1483,7 @@ class CarveRenderer implements RendererInterface
 
         return match (true) {
             $node instanceof Frontmatter => $withAttrs($this->renderFrontmatter($node)),
-            $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->trimHeadingText($this->collapseBreaksUntrimmed($this->renderInlines($node->getChildren())))),
+            $node instanceof Heading => $withAttrs(str_repeat('#', $node->getLevel()) . ' ' . $this->headingText($this->renderInlines($node->getChildren()))),
             // A REFERENCE image cannot carry its attributes inline: the writer
             // returns the authored `rawRef` verbatim, and an attribute block
             // that came from the block-attribute LINE above is not part of that
@@ -2805,7 +2805,14 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
-     * The hard breaks with no content token before or after them in a cell.
+     * The hard breaks a cell can drop instead of writing a space for them.
+     *
+     * A cell is one line, so a break becomes a space. The space is worth
+     * dropping only where the cell's own trim would eat it anyway, which is the
+     * cell's outer edge and nothing else. A break INSIDE an inline construct is
+     * never at that edge: the construct's own closer stands between them, so
+     * dropping the space emptied `{+ +}` to `{++}` - an empty brace pair, which
+     * reads back as literal text rather than the `<ins>` it was written for.
      *
      * @param array<\MarkupCarve\Carve\Node\Node> $children
      *
@@ -2814,18 +2821,13 @@ class CarveRenderer implements RendererInterface
     protected function edgeHardBreaks(array $children): array
     {
         $sequence = [];
-        $walk = function (array $nodes) use (&$walk, &$sequence): void {
-            foreach ($nodes as $node) {
-                if ($node instanceof HardBreak) {
-                    $sequence[] = $node;
-                } elseif ($node->getChildren() !== []) {
-                    $walk($node->getChildren());
-                } elseif (!$node instanceof Text || trim($node->getContent()) !== '') {
-                    $sequence[] = true;
-                }
+        foreach ($children as $node) {
+            if ($node instanceof HardBreak) {
+                $sequence[] = $node;
+            } elseif (!$node instanceof Text || trim($node->getContent()) !== '') {
+                $sequence[] = true;
             }
-        };
-        $walk($children);
+        }
 
         $edges = [];
         foreach ([$sequence, array_reverse($sequence)] as $run) {
@@ -4490,6 +4492,27 @@ class CarveRenderer implements RendererInterface
     protected function trimHeadingText(string $text): string
     {
         return rtrim(ltrim($text, " \n\r"), " \t\n\r");
+    }
+
+    /**
+     * A heading's text, keeping a hard break that ends it.
+     *
+     * `heading = hashes " "+ inline+ lineEnd` and `hardBreak = "\" (newline |
+     * &end)`, so a trailing `\` stays inside the heading: `## x\` re-reads as
+     * `<h2>x<br></h2>`. Every other break has nowhere to go, because a heading
+     * ends at its newline, and collapses to a space the way carve-rs writes it.
+     * A break nested in an inline construct is never the trailing one: the
+     * construct still has to close after it.
+     */
+    protected function headingText(string $rendered): string
+    {
+        if (preg_match('/(?<!\\\\)((?:\\\\\\\\)*)\\\\\\n[ \\t]*$/', $rendered, $match, PREG_OFFSET_CAPTURE)) {
+            $body = substr($rendered, 0, $match[0][1] + strlen($match[1][0]));
+
+            return ltrim($this->collapseBreaksUntrimmed($body), " \n\r") . '\\';
+        }
+
+        return $this->trimHeadingText($this->collapseBreaksUntrimmed($rendered));
     }
 
     protected function trimEndNonNbsp(string $text): string

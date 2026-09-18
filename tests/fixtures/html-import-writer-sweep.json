@@ -1,0 +1,579 @@
+[
+    {
+        "id": "h2|span|28|alone",
+        "group": "heading-break",
+        "html": "<h2><span>x<br></span></h2>",
+        "carve": "## x\\\n",
+        "htmlBack": "<section id=\"x\">\n  <h2>x<br>\n</h2>\n</section>\n"
+    },
+    {
+        "id": "h2|span|28|spaced",
+        "group": "heading-break",
+        "html": "<h2>a <span>x<br></span> b</h2>",
+        "carve": "## a x b\n",
+        "htmlBack": "<section id=\"a-x-b\">\n  <h2>a x b</h2>\n</section>\n"
+    },
+    {
+        "id": "h2|span|29|alone",
+        "group": "heading-break",
+        "html": "<h2><span><br></span></h2>",
+        "carve": "## \\\n",
+        "htmlBack": "<section id=\"s\">\n  <h2><br>\n</h2>\n</section>\n"
+    },
+    {
+        "id": "h2|span|29|spaced",
+        "group": "heading-break",
+        "html": "<h2>a <span><br></span> b</h2>",
+        "carve": "## a  b\n",
+        "htmlBack": "<section id=\"a-b\">\n  <h2>a  b</h2>\n</section>\n"
+    },
+    {
+        "id": "h2|span|29|twice",
+        "group": "heading-break",
+        "html": "<h2><span><br></span><span><br></span></h2>",
+        "carve": "## \\\n",
+        "htmlBack": "<section id=\"s\">\n  <h2><br>\n</h2>\n</section>\n"
+    },
+    {
+        "id": "heading|trailing-break",
+        "group": "heading-break",
+        "html": "<h2>x<br></h2>",
+        "carve": "## x\\\n",
+        "htmlBack": "<section id=\"x\">\n  <h2>x<br>\n</h2>\n</section>\n"
+    },
+    {
+        "id": "heading|only-break",
+        "group": "heading-break",
+        "html": "<h2><br></h2>",
+        "carve": "## \\\n",
+        "htmlBack": "<section id=\"s\">\n  <h2><br>\n</h2>\n</section>\n"
+    },
+    {
+        "id": "heading|interior-break",
+        "group": "heading-break",
+        "html": "<h2>a<br>b</h2>",
+        "carve": "## a b\n",
+        "htmlBack": "<section id=\"a-b\">\n  <h2>a b</h2>\n</section>\n"
+    },
+    {
+        "id": "heading|space-then-break",
+        "group": "heading-break",
+        "html": "<h2>x <br></h2>",
+        "carve": "## x \\\n",
+        "htmlBack": "<section id=\"x\">\n  <h2>x <br>\n</h2>\n</section>\n"
+    },
+    {
+        "id": "heading|break-in-strong",
+        "group": "heading-break",
+        "html": "<h2><strong>x<br></strong></h2>",
+        "carve": "## {*x *}\n",
+        "htmlBack": "<section id=\"x\">\n  <h2><strong>x </strong></h2>\n</section>\n"
+    },
+    {
+        "id": "heading|break-in-em-interior",
+        "group": "heading-break",
+        "html": "<h3>a <em><br></em> b</h3>",
+        "carve": "### a {/ /} b\n",
+        "htmlBack": "<section id=\"a-b\">\n  <h3>a <em> </em> b</h3>\n</section>\n"
+    },
+    {
+        "id": "td-mid|ins|29|alone",
+        "group": "cell-break",
+        "html": "<table><tr><td>a</td><td><ins><br></ins></td><td>c</td></tr></table>",
+        "carve": "| a | {+ +} | c |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td>a</td><td><ins> </ins></td><td>c</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "td-mid|u|29|emptycode",
+        "group": "cell-break",
+        "html": "<table><tr><td>a</td><td>x<code></code><u><br></u></td><td>c</td></tr></table>",
+        "carve": "| a | x{_ _} | c |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td>a</td><td>x<u> </u></td><td>c</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "td-mid|kbd|28|alone",
+        "group": "cell-break",
+        "html": "<table><tr><td>a</td><td><kbd>x<br></kbd></td><td>c</td></tr></table>",
+        "carve": "| a | [x ]{kbd} | c |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td>a</td><td><kbd>x </kbd></td><td>c</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "th|ins|29|alone",
+        "group": "cell-break",
+        "html": "<table><thead><tr><th><ins><br></ins></th><th>h</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>",
+        "carve": "|= {+ +} |= h |\n| 1 | 2 |\n",
+        "htmlBack": "<table>\n  <thead>\n    <tr><th scope=\"col\"><ins> </ins></th><th scope=\"col\">h</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>1</td><td>2</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "th|u|29|emptycode",
+        "group": "cell-break",
+        "html": "<table><thead><tr><th>x<code></code><u><br></u></th><th>h</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>",
+        "carve": "|= x{_ _} |= h |\n| 1 | 2 |\n",
+        "htmlBack": "<table>\n  <thead>\n    <tr><th scope=\"col\">x<u> </u></th><th scope=\"col\">h</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>1</td><td>2</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "th|kbd|28|alone",
+        "group": "cell-break",
+        "html": "<table><thead><tr><th><kbd>x<br></kbd></th><th>h</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>",
+        "carve": "|= [x ]{kbd} |= h |\n| 1 | 2 |\n",
+        "htmlBack": "<table>\n  <thead>\n    <tr><th scope=\"col\"><kbd>x </kbd></th><th scope=\"col\">h</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>1</td><td>2</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|two-tokens",
+        "group": "cell-break",
+        "html": "<table><tr><td>x<br>y</td></tr></table>",
+        "carve": "| x y |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td>x y</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|trailing-direct",
+        "group": "cell-break",
+        "html": "<table><tr><td>x<br></td><td>c</td></tr></table>",
+        "carve": "| x | c |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td>x</td><td>c</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|both-edges-direct",
+        "group": "cell-break",
+        "html": "<table><tr><td>a</td><td><br>x<br></td></tr></table>",
+        "carve": "| a | x |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td>a</td><td>x</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|only-break",
+        "group": "cell-break",
+        "html": "<table><tr><td><br></td><td>c</td></tr></table>",
+        "carve": "| | c |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td></td><td>c</td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|inside-strong",
+        "group": "cell-break",
+        "html": "<table><tr><td><strong>x<br>y</strong></td></tr></table>",
+        "carve": "| *x y* |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td><strong>x y</strong></td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|edge-of-strike",
+        "group": "cell-break",
+        "html": "<table><tr><td><s>x<br></s></td></tr></table>",
+        "carve": "| {~x ~} |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td><s>x </s></td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|edge-of-ins",
+        "group": "cell-break",
+        "html": "<table><tr><td><ins>x<br></ins></td></tr></table>",
+        "carve": "| {+x +} |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td><ins>x </ins></td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|edge-of-em",
+        "group": "cell-break",
+        "html": "<table><tr><td><em>x<br></em></td></tr></table>",
+        "carve": "| {/x /} |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td><em>x </em></td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|only-break-in-kbd",
+        "group": "cell-break",
+        "html": "<table><tr><td><kbd><br></kbd></td></tr></table>",
+        "carve": "| [ ]{kbd} |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td><kbd> </kbd></td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "cell|leading-break-in-u",
+        "group": "cell-break",
+        "html": "<table><tr><td><u><br>x</u></td></tr></table>",
+        "carve": "| {_ x_} |\n",
+        "htmlBack": "<table>\n  <tbody>\n    <tr><td><u> x</u></td></tr>\n  </tbody>\n</table>\n"
+    },
+    {
+        "id": "figcaption|b|49|spaced",
+        "group": "caption-hash",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption>a <b># x</b> b</figcaption></figure>",
+        "carve": "![f](f)\n^ a *\\# x* b\n",
+        "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption>a <strong># x</strong> b</figcaption>\n</figure>\n"
+    },
+    {
+        "id": "figcaption|u|49|alone",
+        "group": "caption-hash",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><u># x</u></figcaption></figure>",
+        "carve": "![f](f)\n^ _\\# x_\n",
+        "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption><u># x</u></figcaption>\n</figure>\n"
+    },
+    {
+        "id": "figcaption|a.k|49|emptycode",
+        "group": "caption-hash",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption>x<code></code><a href=\"\" class=\"k\"># x</a></figcaption></figure>",
+        "carve": "![f](f)\n^ x[\\# x]{.k}\n",
+        "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption>x<span class=\"k\"># x</span></figcaption>\n</figure>\n"
+    },
+    {
+        "id": "figcaption|cite|49|touch",
+        "group": "caption-hash",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption>a<cite># x</cite>b</figcaption></figure>",
+        "carve": "![f](f)\n^ a[\\# x]{cite}b\n",
+        "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption>a<span cite=\"\"># x</span>b</figcaption>\n</figure>\n"
+    },
+    {
+        "id": "blockquote|b|38|twice",
+        "group": "repair",
+        "html": "<blockquote><p><b><code>`</code></b><b><code>`</code></b></p></blockquote>",
+        "carve": "> *`` ` ``*{*`` ` ``*}\n"
+    },
+    {
+        "id": "blockquote|code|4|twice",
+        "group": "repair",
+        "html": "<blockquote><p><code> x </code><code> x </code></p></blockquote>",
+        "carve": "> `  x  `{%  %}`  x  `\n"
+    },
+    {
+        "id": "blockquote|em|39|twice",
+        "group": "repair",
+        "html": "<blockquote><p><em><img src=\"i\" alt=\"a\"></em><em><img src=\"i\" alt=\"a\"></em></p></blockquote>",
+        "carve": "> /![a](i)/{/![a](i)/}\n"
+    },
+    {
+        "id": "blockquote|em>code|41|twice",
+        "group": "repair",
+        "html": "<blockquote><p><em><code>&nbsp;x</code></em><em><code>&nbsp;x</code></em></p></blockquote>",
+        "carve": "> /` x`/{/` x`/}\n"
+    },
+    {
+        "id": "blockquote|i|39|twice",
+        "group": "repair",
+        "html": "<blockquote><p><i><img src=\"i\" alt=\"a\"></i><i><img src=\"i\" alt=\"a\"></i></p></blockquote>",
+        "carve": "> /![a](i)/{/![a](i)/}\n"
+    },
+    {
+        "id": "blockquote|mark|39|twice",
+        "group": "repair",
+        "html": "<blockquote><p><mark><img src=\"i\" alt=\"a\"></mark><mark><img src=\"i\" alt=\"a\"></mark></p></blockquote>",
+        "carve": "> =![a](i)={=![a](i)=}\n"
+    },
+    {
+        "id": "blockquote|s|38|twice",
+        "group": "repair",
+        "html": "<blockquote><p><s><code>`</code></s><s><code>`</code></s></p></blockquote>",
+        "carve": "> ~`` ` ``~{~`` ` ``~}\n"
+    },
+    {
+        "id": "blockquote|span|35|touch",
+        "group": "repair",
+        "html": "<blockquote><p>a<span><em>x</em></span>b</p></blockquote>",
+        "carve": "> a{/x/}b\n"
+    },
+    {
+        "id": "blockquote|strong|38|twice",
+        "group": "repair",
+        "html": "<blockquote><p><strong><code>`</code></strong><strong><code>`</code></strong></p></blockquote>",
+        "carve": "> *`` ` ``*{*`` ` ``*}\n"
+    },
+    {
+        "id": "blockquote|strong>em|39|twice",
+        "group": "repair",
+        "html": "<blockquote><p><strong><em><img src=\"i\" alt=\"a\"></em></strong><strong><em><img src=\"i\" alt=\"a\"></em></strong></p></blockquote>",
+        "carve": "> */![a](i)/*{*/![a](i)/*}\n"
+    },
+    {
+        "id": "blockquote|u|36|twice",
+        "group": "repair",
+        "html": "<blockquote><p><u><code>x</code></u><u><code>x</code></u></p></blockquote>",
+        "carve": "> _`x`_{_`x`_}\n"
+    },
+    {
+        "id": "dd|b|41|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><b>&nbsp;x</b><b>&nbsp;x</b></dd></dl>",
+        "carve": ":: t\n: * x*{* x*}\n"
+    },
+    {
+        "id": "dd|code|4|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><code> x </code><code> x </code></dd></dl>",
+        "carve": ":: t\n: `  x  `{%  %}`  x  `\n"
+    },
+    {
+        "id": "dd|em|41|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><em>&nbsp;x</em><em>&nbsp;x</em></dd></dl>",
+        "carve": ":: t\n: / x/{/ x/}\n"
+    },
+    {
+        "id": "dd|em>code|41|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><em><code>&nbsp;x</code></em><em><code>&nbsp;x</code></em></dd></dl>",
+        "carve": ":: t\n: /` x`/{/` x`/}\n"
+    },
+    {
+        "id": "dd|i|41|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><i>&nbsp;x</i><i>&nbsp;x</i></dd></dl>",
+        "carve": ":: t\n: / x/{/ x/}\n"
+    },
+    {
+        "id": "dd|mark|41|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><mark>&nbsp;x</mark><mark>&nbsp;x</mark></dd></dl>",
+        "carve": ":: t\n: = x={= x=}\n"
+    },
+    {
+        "id": "dd|s|41|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><s>&nbsp;x</s><s>&nbsp;x</s></dd></dl>",
+        "carve": ":: t\n: ~ x~{~ x~}\n"
+    },
+    {
+        "id": "dd|strong|41|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><strong>&nbsp;x</strong><strong>&nbsp;x</strong></dd></dl>",
+        "carve": ":: t\n: * x*{* x*}\n"
+    },
+    {
+        "id": "dd|strong>em|41|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><strong><em>&nbsp;x</em></strong><strong><em>&nbsp;x</em></strong></dd></dl>",
+        "carve": ":: t\n: */ x/*{*/ x/*}\n"
+    },
+    {
+        "id": "dd|u|41|twice",
+        "group": "repair",
+        "html": "<dl><dt>t</dt><dd><u>&nbsp;x</u><u>&nbsp;x</u></dd></dl>",
+        "carve": ":: t\n: _ x_{_ x_}\n"
+    },
+    {
+        "id": "div|b|38|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><b><code>`</code></b><b><code>`</code></b></div>",
+        "carve": "::: d\n*`` ` ``*{*`` ` ``*}\n:::\n"
+    },
+    {
+        "id": "div|code|42|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><code>x&nbsp;</code><code>x&nbsp;</code></div>",
+        "carve": "::: d\n`x `{%  %}`x `\n:::\n"
+    },
+    {
+        "id": "div|em|39|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><em><img src=\"i\" alt=\"a\"></em><em><img src=\"i\" alt=\"a\"></em></div>",
+        "carve": "::: d\n/![a](i)/{/![a](i)/}\n:::\n"
+    },
+    {
+        "id": "div|em>code|41|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><em><code>&nbsp;x</code></em><em><code>&nbsp;x</code></em></div>",
+        "carve": "::: d\n/` x`/{/` x`/}\n:::\n"
+    },
+    {
+        "id": "div|i|39|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><i><img src=\"i\" alt=\"a\"></i><i><img src=\"i\" alt=\"a\"></i></div>",
+        "carve": "::: d\n/![a](i)/{/![a](i)/}\n:::\n"
+    },
+    {
+        "id": "div|mark|39|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><mark><img src=\"i\" alt=\"a\"></mark><mark><img src=\"i\" alt=\"a\"></mark></div>",
+        "carve": "::: d\n=![a](i)={=![a](i)=}\n:::\n"
+    },
+    {
+        "id": "div|s|38|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><s><code>`</code></s><s><code>`</code></s></div>",
+        "carve": "::: d\n~`` ` ``~{~`` ` ``~}\n:::\n"
+    },
+    {
+        "id": "div|span|35|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><span><em>x</em></span><span><em>x</em></span></div>",
+        "carve": "::: d\n/x/{/x/}\n:::\n"
+    },
+    {
+        "id": "div|strong|38|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><strong><code>`</code></strong><strong><code>`</code></strong></div>",
+        "carve": "::: d\n*`` ` ``*{*`` ` ``*}\n:::\n"
+    },
+    {
+        "id": "div|strong>em|39|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><strong><em><img src=\"i\" alt=\"a\"></em></strong><strong><em><img src=\"i\" alt=\"a\"></em></strong></div>",
+        "carve": "::: d\n*/![a](i)/*{*/![a](i)/*}\n:::\n"
+    },
+    {
+        "id": "div|u|36|twice",
+        "group": "repair",
+        "html": "<div class=\"d\"><u><code>x</code></u><u><code>x</code></u></div>",
+        "carve": "::: d\n_`x`_{_`x`_}\n:::\n"
+    },
+    {
+        "id": "figcaption|b|41|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><b>&nbsp;x</b><b>&nbsp;x</b></figcaption></figure>",
+        "carve": "![f](f)\n^ * x*{* x*}\n"
+    },
+    {
+        "id": "figcaption|code|4|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><code> x </code><code> x </code></figcaption></figure>",
+        "carve": "![f](f)\n^ `  x  `{%  %}`  x  `\n"
+    },
+    {
+        "id": "figcaption|em|41|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><em>&nbsp;x</em><em>&nbsp;x</em></figcaption></figure>",
+        "carve": "![f](f)\n^ / x/{/ x/}\n"
+    },
+    {
+        "id": "figcaption|em>code|41|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><em><code>&nbsp;x</code></em><em><code>&nbsp;x</code></em></figcaption></figure>",
+        "carve": "![f](f)\n^ /` x`/{/` x`/}\n"
+    },
+    {
+        "id": "figcaption|i|41|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><i>&nbsp;x</i><i>&nbsp;x</i></figcaption></figure>",
+        "carve": "![f](f)\n^ / x/{/ x/}\n"
+    },
+    {
+        "id": "figcaption|mark|41|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><mark>&nbsp;x</mark><mark>&nbsp;x</mark></figcaption></figure>",
+        "carve": "![f](f)\n^ = x={= x=}\n"
+    },
+    {
+        "id": "figcaption|s|41|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><s>&nbsp;x</s><s>&nbsp;x</s></figcaption></figure>",
+        "carve": "![f](f)\n^ ~ x~{~ x~}\n"
+    },
+    {
+        "id": "figcaption|strong|41|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><strong>&nbsp;x</strong><strong>&nbsp;x</strong></figcaption></figure>",
+        "carve": "![f](f)\n^ * x*{* x*}\n"
+    },
+    {
+        "id": "figcaption|strong>em|41|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><strong><em>&nbsp;x</em></strong><strong><em>&nbsp;x</em></strong></figcaption></figure>",
+        "carve": "![f](f)\n^ */ x/*{*/ x/*}\n"
+    },
+    {
+        "id": "figcaption|u|41|twice",
+        "group": "repair",
+        "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><u>&nbsp;x</u><u>&nbsp;x</u></figcaption></figure>",
+        "carve": "![f](f)\n^ _ x_{_ x_}\n"
+    },
+    {
+        "id": "h2|b|38|twice",
+        "group": "repair",
+        "html": "<h2><b><code>`</code></b><b><code>`</code></b></h2>",
+        "carve": "## *`` ` ``*{*`` ` ``*}\n"
+    },
+    {
+        "id": "h2|code|4|twice",
+        "group": "repair",
+        "html": "<h2><code> x </code><code> x </code></h2>",
+        "carve": "## `  x  `{%  %}`  x  `\n"
+    },
+    {
+        "id": "h2|em|39|twice",
+        "group": "repair",
+        "html": "<h2><em><img src=\"i\" alt=\"a\"></em><em><img src=\"i\" alt=\"a\"></em></h2>",
+        "carve": "## /![a](i)/{/![a](i)/}\n"
+    },
+    {
+        "id": "h2|em>code|41|twice",
+        "group": "repair",
+        "html": "<h2><em><code>&nbsp;x</code></em><em><code>&nbsp;x</code></em></h2>",
+        "carve": "## /` x`/{/` x`/}\n"
+    },
+    {
+        "id": "h2|i|39|twice",
+        "group": "repair",
+        "html": "<h2><i><img src=\"i\" alt=\"a\"></i><i><img src=\"i\" alt=\"a\"></i></h2>",
+        "carve": "## /![a](i)/{/![a](i)/}\n"
+    },
+    {
+        "id": "h2|mark|39|twice",
+        "group": "repair",
+        "html": "<h2><mark><img src=\"i\" alt=\"a\"></mark><mark><img src=\"i\" alt=\"a\"></mark></h2>",
+        "carve": "## =![a](i)={=![a](i)=}\n"
+    },
+    {
+        "id": "h2|s|38|twice",
+        "group": "repair",
+        "html": "<h2><s><code>`</code></s><s><code>`</code></s></h2>",
+        "carve": "## ~`` ` ``~{~`` ` ``~}\n"
+    },
+    {
+        "id": "h2|span|35|touch",
+        "group": "repair",
+        "html": "<h2>a<span><em>x</em></span>b</h2>",
+        "carve": "## a{/x/}b\n"
+    },
+    {
+        "id": "h2|strong|38|twice",
+        "group": "repair",
+        "html": "<h2><strong><code>`</code></strong><strong><code>`</code></strong></h2>",
+        "carve": "## *`` ` ``*{*`` ` ``*}\n"
+    },
+    {
+        "id": "h2|strong>em|3|twice",
+        "group": "repair",
+        "html": "<h2><strong><em>x </em></strong><strong><em>x </em></strong></h2>",
+        "carve": "## *{/x /}*{*/x/*}\n"
+    },
+    {
+        "id": "h2|u|36|twice",
+        "group": "repair",
+        "html": "<h2><u><code>x</code></u><u><code>x</code></u></h2>",
+        "carve": "## _`x`_{_`x`_}\n"
+    },
+    {
+        "id": "li|b|38|twice",
+        "group": "repair",
+        "html": "<ul><li><b><code>`</code></b><b><code>`</code></b></li></ul>",
+        "carve": "- *`` ` ``*{*`` ` ``*}\n"
+    },
+    {
+        "id": "li|code|42|twice",
+        "group": "repair",
+        "html": "<ul><li><code>x&nbsp;</code><code>x&nbsp;</code></li></ul>",
+        "carve": "- `x `{%  %}`x `\n"
+    },
+    {
+        "id": "li|em|39|twice",
+        "group": "repair",
+        "html": "<ul><li><em><img src=\"i\" alt=\"a\"></em><em><img src=\"i\" alt=\"a\"></em></li></ul>",
+        "carve": "- /![a](i)/{/![a](i)/}\n"
+    },
+    {
+        "id": "li|em>code|41|twice",
+        "group": "repair",
+        "html": "<ul><li><em><code>&nbsp;x</code></em><em><code>&nbsp;x</code></em></li></ul>",
+        "carve": "- /` x`/{/` x`/}\n"
+    },
+    {
+        "id": "li|i|39|twice",
+        "group": "repair",
+        "html": "<ul><li><i><img src=\"i\" alt=\"a\"></i><i><img src=\"i\" alt=\"a\"></i></li></ul>",
+        "carve": "- /![a](i)/{/![a](i)/}\n"
+    },
+    {
+        "id": "li|mark|39|twice",
+        "group": "repair",
+        "html": "<ul><li><mark><img src=\"i\" alt=\"a\"></mark><mark><img src=\"i\" alt=\"a\"></mark></li></ul>",
+        "carve": "- =![a](i)={=![a](i)=}\n"
+    },
+    {
+        "id": "li|s|38|twice",
+        "group": "repair",
+        "html": "<ul><li><s><code>`</code></s><s><code>`</code></s></li></ul>",
+        "carve": "- ~`` ` ``~{~`` ` ``~}\n"
+    }
+]
