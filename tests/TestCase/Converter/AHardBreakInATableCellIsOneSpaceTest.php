@@ -98,9 +98,13 @@ class AHardBreakInATableCellIsOneSpaceTest extends TestCase
         ]));
     }
 
+    /**
+     * Only a DIRECT child at the cell edge writes nothing; a break at the edge
+     * of an emphasis inside the cell keeps its space (markup-carve/carve#2067).
+     */
     public function testTheWriterWritesNothingAtACellEdge(): void
     {
-        $this->assertSame("| z{/w/} |\n", $this->write([
+        $this->assertSame("| z{/w /} |\n", $this->write([
             ['type' => 'hard_break'],
             ['type' => 'text', 'value' => 'z'],
             ['type' => 'emphasis', 'children' => [['type' => 'text', 'value' => 'w'], ['type' => 'hard_break']]],
