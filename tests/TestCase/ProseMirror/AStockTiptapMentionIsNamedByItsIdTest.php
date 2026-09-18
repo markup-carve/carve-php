@@ -38,6 +38,11 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
     private const TAG_AS_TEXT = 'the name is not a Carve tag name, so the tag is written as text';
 
     /**
+     * @var string
+     */
+    private const ATTRIBUTE_AS_TEXT = 'the mention is written as text, which holds no attribute';
+
+    /**
      * @return array<string, array{string, array<string, mixed>, string, string, array<string, string>}>
      */
     public static function stockShapes(): array
@@ -179,6 +184,54 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    public function testTheTextPathReportsTheMentionSOwnAttributes(): void
+    {
+        $converter = new ProseMirrorToCarve();
+        $document = $converter->convert(
+            self::paragraph('mention', ['id' => 'Lea Thompson', 'label' => null, 'data-team' => 'core', 'class' => 'vip']),
+        );
+
+        $this->assertSame("ping \\@Lea Thompson\n", CarveConverter::carve()->render($document));
+        $this->assertSame(
+            [
+                'id' => self::MENTION_AS_TEXT,
+                'data-team' => self::ATTRIBUTE_AS_TEXT,
+                'class' => self::ATTRIBUTE_AS_TEXT,
+            ],
+            $converter->droppedAttributes(),
+        );
+    }
+
+    public function testEditorBookkeepingIsNotReportedAsALostAttribute(): void
+    {
+        $converter = new ProseMirrorToCarve();
+        $converter->convert(self::paragraph('mention', [
+            'id' => 'Lea Thompson',
+            'label' => null,
+            'mentionSuggestionChar' => '@',
+            'cssClass' => 'mention',
+            'carveAttrOrder' => 'data-team',
+            'data-team' => ['core'],
+        ]));
+
+        $this->assertSame(
+            ['id' => self::MENTION_AS_TEXT, 'data-team' => 'a Carve attribute holds a string, and this value is of type array'],
+            $converter->droppedAttributes(),
+        );
+    }
+
+    public function testASpellableNameStillCarriesTheAttributeToTheWriter(): void
+    {
+        // CONTROL: the attribute is not lost on this path, so the writer is
+        // where the caller finds out (markup-carve/carve-php#2083).
+        $converter = new ProseMirrorToCarve();
+        $document = $converter->convert(self::paragraph('mention', ['id' => 'lea', 'data-team' => 'core']));
+
+        $this->assertSame([], $converter->droppedAttributes());
+        $this->expectException(SourceUnspellableException::class);
+        CarveConverter::carve()->render($document);
     }
 
     private static function plainText(Node $node): string
