@@ -192,28 +192,28 @@
         "id": "figcaption|b|49|spaced",
         "group": "caption-hash",
         "html": "<figure><img src=\"f\" alt=\"f\"><figcaption>a <b># x</b> b</figcaption></figure>",
-        "carve": "![f](f)\n^ a *\\# x* b\n",
+        "carve": "![f](f)\n^ a *# x* b\n",
         "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption>a <strong># x</strong> b</figcaption>\n</figure>\n"
     },
     {
         "id": "figcaption|u|49|alone",
         "group": "caption-hash",
         "html": "<figure><img src=\"f\" alt=\"f\"><figcaption><u># x</u></figcaption></figure>",
-        "carve": "![f](f)\n^ _\\# x_\n",
+        "carve": "![f](f)\n^ _# x_\n",
         "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption><u># x</u></figcaption>\n</figure>\n"
     },
     {
         "id": "figcaption|a.k|49|emptycode",
         "group": "caption-hash",
         "html": "<figure><img src=\"f\" alt=\"f\"><figcaption>x<code></code><a href=\"\" class=\"k\"># x</a></figcaption></figure>",
-        "carve": "![f](f)\n^ x[\\# x]{.k}\n",
+        "carve": "![f](f)\n^ x[# x]{.k}\n",
         "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption>x<span class=\"k\"># x</span></figcaption>\n</figure>\n"
     },
     {
         "id": "figcaption|cite|49|touch",
         "group": "caption-hash",
         "html": "<figure><img src=\"f\" alt=\"f\"><figcaption>a<cite># x</cite>b</figcaption></figure>",
-        "carve": "![f](f)\n^ a[\\# x]{cite}b\n",
+        "carve": "![f](f)\n^ a[# x]{cite}b\n",
         "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption>a<span cite=\"\"># x</span>b</figcaption>\n</figure>\n"
     },
     {

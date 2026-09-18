@@ -304,6 +304,12 @@ class InlineParser
 
     protected bool $captionNumberEmitted = false;
 
+    /**
+     * The nesting depth the caption's own inline run is parsed at, so a nested
+     * call can tell it is inside markup.
+     */
+    protected int $captionContextDepth = 0;
+
     protected bool $wordAttributesEnabled = true;
 
     /**
@@ -552,9 +558,13 @@ class InlineParser
         }
         $previousCaptionContext = $this->captionContextEnabled;
         $previousCaptionNumberEmitted = $this->captionNumberEmitted;
+        $previousCaptionContextDepth = $this->captionContextDepth;
         $this->captionContextEnabled = $captionContext;
         if ($captionContext) {
             $this->captionNumberEmitted = false;
+            // parseInlines() increments before it scans, so the caption's own
+            // run is one past the depth this call was made at.
+            $this->captionContextDepth = $this->inlineDepth + 1;
         }
 
         try {
@@ -562,6 +572,7 @@ class InlineParser
         } finally {
             $this->captionContextEnabled = $previousCaptionContext;
             $this->captionNumberEmitted = $previousCaptionNumberEmitted;
+            $this->captionContextDepth = $previousCaptionContextDepth;
         }
     }
 
@@ -1454,6 +1465,14 @@ class InlineParser
     protected function isCaptionNumberPlaceholder(string $text, int $pos): bool
     {
         if (!$this->captionContextEnabled || $this->captionNumberEmitted) {
+            return false;
+        }
+
+        // TOP-LEVEL TEXT ONLY (PART 9 section 4c, markup-carve/carve#2112). A
+        // span's content is parsed by a nested call, so a `#` inside emphasis,
+        // a link or a braced span is literal and a later top-level `#` is still
+        // the placeholder.
+        if ($this->inlineDepth > $this->captionContextDepth) {
             return false;
         }
 
