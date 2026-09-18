@@ -133,6 +133,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The ProseMirror bridge reports a mention's own attributes when the name has no Carve spelling** (#2162), so `data-team` on a mention written as text is named in `droppedAttributes()` instead of vanishing with the node.
 - **The ProseMirror bridge drops a mention's or tag's own attribute and reports it** (#2167), so `data-team` on a mention is named in `droppedAttributes()` and the mention is still written. It used to reach the writer, which refused the whole document. `CarveRenderer` still throws for a tree an API caller builds that way (markup-carve/carve-rs#1766).
 - **The Carve writer refuses a mention or tag whose name the grammar rejects** (#2159). A name with a space, an apostrophe, a stray dot or a non-ASCII letter and no destination used to be written bare, so it read back as a different mention. It now throws `SourceUnspellableException`.
+- **A hard break that ends a heading keeps its backslash** (#2169). `## x\` re-reads as a heading with a break, so dropping it lost the break; a heading whose only content was one came out as a bare `##`, which `carve fmt` then rewrote into a paragraph.
+- **A hard break at the edge of an inline construct in a table cell keeps its space** (#2169), so `{+ +}` is no longer written `{++}`, an empty brace pair that reads back as literal text. A break that is a direct child at the cell's edge still writes nothing (markup-carve/carve#2067).
 
 ## [0.1.7] - 2026-09-07
 
