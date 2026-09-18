@@ -1575,6 +1575,11 @@ class ProseMirrorToCarve
 
         foreach ($attrs as $key => $value) {
             if ($key === 'carveKeyValues') {
+                if ($node instanceof Mention) {
+                    $this->dropAttributesAMentionCannotSpell($node, is_array($value) ? $value : []);
+
+                    continue;
+                }
                 $this->applyKeyValues($node, $value);
 
                 continue;
@@ -1583,6 +1588,11 @@ class ProseMirrorToCarve
                 continue;
             }
             if (is_scalar($value)) {
+                if ($node instanceof Mention) {
+                    $this->dropAttributesAMentionCannotSpell($node, [$key => $value]);
+
+                    continue;
+                }
                 $node->setAttribute((string)$key, self::asString($value));
 
                 continue;
@@ -1871,12 +1881,41 @@ class ProseMirrorToCarve
     }
 
     /**
+     * Drop the mention's or tag's own attributes and name each one.
+     *
+     * No mention or tag can spell an attribute (markup-carve/carve-php#2083),
+     * and this bridge has a report channel, so it writes the mention and names
+     * the loss; only the writer throws (markup-carve/carve-php#2167). A key
+     * already reported keeps its first reason, which is how the text path's
+     * own wording survives.
+     *
+     * @param \MarkupCarve\Carve\Node\Inline\Mention $node
+     * @param array<mixed> $attrs
+     */
+    protected function dropAttributesAMentionCannotSpell(Mention $node, array $attrs): void
+    {
+        $flavor = $node->getCssClass() === 'tag' ? 'tag' : 'mention';
+        foreach ($attrs as $key => $value) {
+            if (!is_scalar($value)) {
+                continue;
+            }
+            $name = (string)$key;
+            // Editor state, never an attribute, on any path.
+            if ($name === 'mentionSuggestionChar' || isset($this->droppedAttributes[$name])) {
+                continue;
+            }
+            $this->droppedAttributes[$name] = sprintf(
+                'a %s has no Carve spelling for an attribute',
+                $flavor,
+            );
+        }
+    }
+
+    /**
      * Report the mention's own attributes, which the Text node cannot hold.
      *
-     * A spellable name keeps them until the writer refuses them
-     * (markup-carve/carve-php#2083). The text path replaces the node, so
-     * without this nothing says they are gone. carve-rs reports the same set
-     * (markup-carve/carve-rs#1763).
+     * The text path replaces the node, so without this nothing says they are
+     * gone. carve-rs reports the same set (markup-carve/carve-rs#1763).
      *
      * @param array<mixed> $attrs
      */
