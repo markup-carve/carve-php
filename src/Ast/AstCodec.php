@@ -1199,6 +1199,13 @@ class AstCodec
                 continue;
             }
 
+            // The encoder writes two adjacent text nodes as one, so the input
+            // is merged the same way before the two lists are walked in step.
+            // Without it the lists slide apart at the first pair, and the next
+            // node of another type is compared against a text node and reported
+            // as lost - which threw on a payload that decoded correctly.
+            $value = self::mergeAdjacentText($value);
+
             foreach ($value as $index => $child) {
                 $mirror = $mirrors[$index] ?? null;
                 if (!is_array($child) || !is_array($mirror)) {
@@ -1212,6 +1219,53 @@ class AstCodec
                 $this->compareNode($childNode, $mirrorNode, $here . '.' . $key, $lost);
             }
         }
+    }
+
+    /**
+     * Join neighboring text nodes, the way the encoder does.
+     *
+     * @param array<mixed> $children
+     *
+     * @return array<mixed>
+     */
+    private static function mergeAdjacentText(array $children): array
+    {
+        $merged = [];
+        foreach ($children as $child) {
+            $previous = $merged !== [] ? array_key_last($merged) : null;
+            $left = $previous !== null ? self::plainTextValue($merged[$previous]) : null;
+            $right = self::plainTextValue($child);
+            if ($previous !== null && $left !== null && $right !== null) {
+                $merged[$previous] = ['type' => 'text', 'value' => $left . $right];
+
+                continue;
+            }
+
+            $merged[] = $child;
+        }
+
+        return $merged;
+    }
+
+    /**
+     * The value of a text node carrying nothing the join would drop.
+     *
+     * `code`, `escaped_text` and `smart_punctuation` hold a `value` too, and
+     * the encoder does not join those, so the type is part of the question.
+     *
+     * @param mixed $node
+     */
+    private static function plainTextValue(mixed $node): ?string
+    {
+        if (!is_array($node) || ($node['type'] ?? null) !== 'text') {
+            return null;
+        }
+        if (array_diff(array_keys($node), ['type', 'value', 'pos']) !== []) {
+            return null;
+        }
+        $value = $node['value'] ?? null;
+
+        return is_string($value) ? $value : null;
     }
 
     /**
