@@ -131,6 +131,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The ProseMirror bridge writes a mention or tag whose name the grammar rejects as text** (#2154). Tiptap's `{"id": "Lea Thompson", "label": null}` becomes the displayed text with its sigil escaped, not a mention of `Lea`, and `droppedAttributes()` names the attribute that held the name.
 - **`AstCodec::decode()` no longer refuses a payload whose adjacent text nodes it joins** (#2165). Two text nodes followed by a node of another kind threw `AstDecodeException` although nothing was lost, which an HTML import of a `<q cite=...>` holding a `<br>` reached.
 - **The ProseMirror bridge reports a mention's own attributes when the name has no Carve spelling** (#2162), so `data-team` on a mention written as text is named in `droppedAttributes()` instead of vanishing with the node.
+- **The ProseMirror bridge drops a mention's or tag's own attribute and reports it** (#2167), so `data-team` on a mention is named in `droppedAttributes()` and the mention is still written. It used to reach the writer, which refused the whole document. `CarveRenderer` still throws for a tree an API caller builds that way (markup-carve/carve-rs#1766).
 - **The Carve writer refuses a mention or tag whose name the grammar rejects** (#2159). A name with a space, an apostrophe, a stray dot or a non-ASCII letter and no destination used to be written bare, so it read back as a different mention. It now throws `SourceUnspellableException`.
 
 ## [0.1.7] - 2026-09-07
