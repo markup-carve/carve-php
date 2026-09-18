@@ -7,7 +7,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.8] - 2026-09-17
+## [0.1.8] - 2026-09-18
 
 ### Added
 
@@ -19,6 +19,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   without construct-level evidence fail closed as dropped with fallback confidence (#1939).
 - **Include expansion** (#373). A document's include directives are resolved before rendering, with a containment root, a byte budget and a warning for every denial the resolver answers.
 - **Forward references survive the heading reparse** (#1938), so a cross-reference to a heading defined later in the document resolves.
+- **`MarkdownRenderer` takes a `symbols` map** (#2151), the same one `HtmlRenderer` takes, and returns it from `getSymbols()`. A symbol keeps its `:name:` spelling on this target.
 
 ### Changed
 
@@ -44,6 +45,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The native `|=` header form survives a trailing colspan run** (#2003) in both the Carve writer and the HTML importer.
 - **The Djot importer is named for what it reads** (#1988), rather than calling this engine's own format Djot.
 - **The Carve writer throws `SourceUnspellableException` for an empty code span it cannot spell** (#2055): one with content or attributes after it, inside a link or span label, or in a table cell that is not the row's last. It used to write source that read back as a different tree.
+- **HTML imports are written by the canonical Carve writer** (#2108), which replaces the importer's own writer. Output moves in several shapes: a second adjacent formatting element survives where it used to be lost, and the public AST exit reports `srcByteLength` of the HTML input rather than of the emitted source, drops a generated heading id, and no longer carries the `order` key of an attribute map.
 - **A substitution carries its two halves as inline content** (#2150, markup-carve/carve-js#1827). This breaks AST consumers: the wire `substitution` node holds `old` and `new` arrays of inline nodes instead of the `oldText` and `newText` strings, and `AstCodec::VERSION` is 5. `Substitution::getOld()` and `getNew()` return the halves; `getOldText()` and `getNewText()` still return plain text.
 
 ### Fixed
@@ -127,6 +129,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The ProseMirror bridge reports a substitution half that holds more than plain text as degraded** (#2068).
 - **The ProseMirror bridge names a stock Tiptap mention or tag by its `id`** (#2154). A `null` label counts as absent, `mentionSuggestionChar` is not written as an attribute, and a label that differs from the `id` is reported in `droppedAttributes()`.
 - **The ProseMirror bridge writes a mention or tag whose name the grammar rejects as text** (#2154). Tiptap's `{"id": "Lea Thompson", "label": null}` becomes the displayed text with its sigil escaped, not a mention of `Lea`, and `droppedAttributes()` names the attribute that held the name.
+- **`AstCodec::decode()` no longer refuses a payload whose adjacent text nodes it joins** (#2165). Two text nodes followed by a node of another kind threw `AstDecodeException` although nothing was lost, which an HTML import of a `<q cite=...>` holding a `<br>` reached.
+- **The ProseMirror bridge reports a mention's own attributes when the name has no Carve spelling** (#2162), so `data-team` on a mention written as text is named in `droppedAttributes()` instead of vanishing with the node.
 - **The Carve writer refuses a mention or tag whose name the grammar rejects** (#2159). A name with a space, an apostrophe, a stray dot or a non-ASCII letter and no destination used to be written bare, so it read back as a different mention. It now throws `SourceUnspellableException`.
 
 ## [0.1.7] - 2026-09-07
