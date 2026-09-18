@@ -26,22 +26,27 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
     /**
      * @var string
      */
-    private const LABEL_DROPPED = 'the mention name is its id, so a different display label is not carried';
+    private const LABEL_DEGRADED = 'the mention name is its id, so a different display label is not carried';
 
     /**
      * @var string
      */
-    private const MENTION_AS_TEXT = 'the name is not a Carve mention name, so the mention is written as text';
+    private const MENTION_AS_TEXT = 'the name has no Carve mention spelling, so it is written as literal text';
 
     /**
      * @var string
      */
-    private const TAG_AS_TEXT = 'the name is not a Carve tag name, so the tag is written as text';
+    private const TAG_AS_TEXT = 'the name has no Carve tag spelling, so it is written as literal text';
 
     /**
      * @var string
      */
     private const ATTRIBUTE_AS_TEXT = 'the mention is written as text, which holds no attribute';
+
+    /**
+     * @var string
+     */
+    private const TAG_ATTRIBUTE_AS_TEXT = 'the tag is written as text, which holds no attribute';
 
     /**
      * @var string
@@ -54,21 +59,21 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
     private const NO_SPELLING_TAG = 'a tag has no Carve spelling for an attribute';
 
     /**
-     * @return array<string, array{string, array<string, mixed>, string, string, array<string, string>}>
+     * @return array<string, array{string, array<string, mixed>, string, string, array<string, string>, array<string, string>}>
      */
     public static function stockShapes(): array
     {
         return [
             'id with a null label' => ['mention', ['id' => 'alice', 'label' => null, 'mentionSuggestionChar' => '@'], "ping @alice\n", '@alice', []],
             'id and an equal label' => ['mention', ['id' => 'alice', 'label' => 'alice', 'mentionSuggestionChar' => '@'], "ping @alice\n", '@alice', []],
-            'id and a different label' => ['mention', ['id' => 'u123', 'label' => 'Alice', 'mentionSuggestionChar' => '@'], "ping @u123\n", '@u123', ['label' => self::LABEL_DROPPED]],
+            'id and a different label' => ['mention', ['id' => 'u123', 'label' => 'Alice', 'mentionSuggestionChar' => '@'], "ping @u123\n", '@u123', [], ['label' => self::LABEL_DEGRADED]],
             'a null id and a label' => ['mention', ['id' => null, 'label' => 'Alice', 'mentionSuggestionChar' => '@'], "ping @Alice\n", '@Alice', []],
             'id alone' => ['mention', ['id' => 'alice'], "ping @alice\n", '@alice', []],
             'label alone' => ['mention', ['label' => 'Alice'], "ping @Alice\n", '@Alice', []],
             'an id that carries its sigil' => ['mention', ['id' => '@alice', 'label' => null], "ping @alice\n", '@alice', []],
             'a dotted id' => ['mention', ['id' => 'john.doe', 'label' => null], "ping @john.doe\n", '@john.doe', []],
             'a tag with a null label' => ['carveTag', ['id' => 'release', 'label' => null, 'mentionSuggestionChar' => '#'], "ping #release\n", '#release', []],
-            'a tag with a different label' => ['carveTag', ['id' => 'release', 'label' => 'Release', 'mentionSuggestionChar' => '#'], "ping #release\n", '#release', ['label' => self::LABEL_DROPPED]],
+            'a tag with a different label' => ['carveTag', ['id' => 'release', 'label' => 'Release', 'mentionSuggestionChar' => '#'], "ping #release\n", '#release', [], ['label' => self::LABEL_DEGRADED]],
         ];
     }
 
@@ -78,9 +83,10 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
      * @param string $carve
      * @param string $name
      * @param array<string, string> $dropped
+     * @param array<string, string> $degraded
      */
     #[DataProvider('stockShapes')]
-    public function testTheMentionWritesItsNameAndReadsBack(string $type, array $attrs, string $carve, string $name, array $dropped): void
+    public function testTheMentionWritesItsNameAndReadsBack(string $type, array $attrs, string $carve, string $name, array $dropped, array $degraded = []): void
     {
         $converter = new ProseMirrorToCarve();
         $document = $converter->convert(self::paragraph($type, $attrs));
@@ -88,6 +94,7 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
         $written = CarveConverter::carve()->render($document);
         $this->assertSame($carve, $written);
         $this->assertSame($dropped, $converter->droppedAttributes());
+        $this->assertSame($degraded, $converter->degradedAttributes());
 
         $mention = self::firstMention(CarveConverter::carve()->parse($written));
         $this->assertInstanceOf(Mention::class, $mention);
@@ -118,17 +125,18 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
      * @param array<string, mixed> $attrs
      * @param string $carve
      * @param string $text
-     * @param array<string, string> $dropped
+     * @param array<string, string> $degraded
      */
     #[DataProvider('unspellableNames')]
-    public function testANameTheGrammarRejectsIsWrittenAsText(string $type, array $attrs, string $carve, string $text, array $dropped): void
+    public function testANameTheGrammarRejectsIsWrittenAsText(string $type, array $attrs, string $carve, string $text, array $degraded): void
     {
         $converter = new ProseMirrorToCarve();
         $document = $converter->convert(self::paragraph($type, $attrs));
 
         $written = CarveConverter::carve()->render($document);
         $this->assertSame($carve, $written);
-        $this->assertSame($dropped, $converter->droppedAttributes());
+        $this->assertSame([], $converter->droppedAttributes());
+        $this->assertSame($degraded, $converter->degradedAttributes());
 
         $parsed = CarveConverter::carve()->parse($written);
         $this->assertNull(self::firstMention($parsed));
@@ -141,9 +149,10 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
         $document = $converter->convert(self::paragraph('mention', ['id' => 'Lea Thompson', 'label' => ['Lea']]));
 
         $this->assertSame("ping \\@Lea Thompson\n", CarveConverter::carve()->render($document));
+        $this->assertSame([], $converter->droppedAttributes());
         $this->assertSame(
-            ['id' => self::MENTION_AS_TEXT, 'label' => 'a Carve attribute holds a string, and this value is of type array'],
-            $converter->droppedAttributes(),
+            ['label' => 'a Carve attribute holds a string, and this value is of type array', 'id' => self::MENTION_AS_TEXT],
+            $converter->degradedAttributes(),
         );
     }
 
@@ -154,10 +163,11 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
 
         $this->assertInstanceOf(Mention::class, self::firstMention($document));
         $this->assertSame([], $converter->droppedAttributes());
+        $this->assertSame([], $converter->degradedAttributes());
     }
 
     /**
-     * @return array<string, array{string, array<string, mixed>, string, array<string, string>}>
+     * @return array<string, array{string, array<string, mixed>, string, array<string, string>, array<string, string>}>
      */
     public static function realAttributes(): array
     {
@@ -165,7 +175,7 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
             'a mention with data-team' => ['mention', ['id' => 'alice', 'label' => null, 'mentionSuggestionChar' => '@', 'data-team' => 'core'], "ping @alice\n", ['data-team' => self::NO_SPELLING_MENTION]],
             'a mention with a class' => ['mention', ['id' => 'alice', 'class' => 'x'], "ping @alice\n", ['class' => self::NO_SPELLING_MENTION]],
             'a tag with data-team' => ['carveTag', ['id' => 'release', 'label' => null, 'data-team' => 'core'], "ping #release\n", ['data-team' => self::NO_SPELLING_TAG]],
-            'a mention whose label is dropped too' => ['mention', ['id' => 'u123', 'label' => 'Alice', 'data-team' => 'core'], "ping @u123\n", ['label' => self::LABEL_DROPPED, 'data-team' => self::NO_SPELLING_MENTION]],
+            'a mention whose label is not carried too' => ['mention', ['id' => 'u123', 'label' => 'Alice', 'data-team' => 'core'], "ping @u123\n", ['data-team' => self::NO_SPELLING_MENTION], ['label' => self::LABEL_DEGRADED]],
         ];
     }
 
@@ -178,15 +188,17 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
      * @param array<string, mixed> $attrs
      * @param string $carve
      * @param array<string, string> $dropped
+     * @param array<string, string> $degraded
      */
     #[DataProvider('realAttributes')]
-    public function testARealAttributeIsDroppedAndReported(string $type, array $attrs, string $carve, array $dropped): void
+    public function testARealAttributeIsDroppedAndReported(string $type, array $attrs, string $carve, array $dropped, array $degraded = []): void
     {
         $converter = new ProseMirrorToCarve();
         $document = $converter->convert(self::paragraph($type, $attrs));
 
         $this->assertSame($carve, CarveConverter::carve()->render($document));
         $this->assertSame($dropped, $converter->droppedAttributes());
+        $this->assertSame($degraded, $converter->degradedAttributes());
 
         $mention = self::firstMention(CarveConverter::carve()->parse($carve));
         $this->assertInstanceOf(Mention::class, $mention);
@@ -199,9 +211,10 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
         $document = $converter->convert(self::paragraph('mention', ['id' => 'alice', 'label' => ['Alice'], 'mentionSuggestionChar' => '@']));
 
         $this->assertSame("ping @alice\n", CarveConverter::carve()->render($document));
+        $this->assertSame([], $converter->droppedAttributes());
         $this->assertSame(
             ['label' => 'a Carve attribute holds a string, and this value is of type array'],
-            $converter->droppedAttributes(),
+            $converter->degradedAttributes(),
         );
     }
 
@@ -233,13 +246,22 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
 
         $this->assertSame("ping \\@Lea Thompson\n", CarveConverter::carve()->render($document));
         $this->assertSame(
-            [
-                'id' => self::MENTION_AS_TEXT,
-                'data-team' => self::ATTRIBUTE_AS_TEXT,
-                'class' => self::ATTRIBUTE_AS_TEXT,
-            ],
+            ['data-team' => self::ATTRIBUTE_AS_TEXT, 'class' => self::ATTRIBUTE_AS_TEXT],
             $converter->droppedAttributes(),
         );
+        $this->assertSame(['id' => self::MENTION_AS_TEXT], $converter->degradedAttributes());
+    }
+
+    public function testTheTextPathNamesTheTagItWroteAsText(): void
+    {
+        $converter = new ProseMirrorToCarve();
+        $document = $converter->convert(
+            self::paragraph('carveTag', ['id' => 'big release', 'label' => null, 'data-team' => 'core']),
+        );
+
+        $this->assertSame("ping \\#big release\n", CarveConverter::carve()->render($document));
+        $this->assertSame(['data-team' => self::TAG_ATTRIBUTE_AS_TEXT], $converter->droppedAttributes());
+        $this->assertSame(['id' => self::TAG_AS_TEXT], $converter->degradedAttributes());
     }
 
     public function testEditorBookkeepingIsNotReportedAsALostAttribute(): void
@@ -255,9 +277,10 @@ class AStockTiptapMentionIsNamedByItsIdTest extends TestCase
         ]));
 
         $this->assertSame(
-            ['id' => self::MENTION_AS_TEXT, 'data-team' => 'a Carve attribute holds a string, and this value is of type array'],
+            ['data-team' => 'a Carve attribute holds a string, and this value is of type array'],
             $converter->droppedAttributes(),
         );
+        $this->assertSame(['id' => self::MENTION_AS_TEXT], $converter->degradedAttributes());
     }
 
     public function testTheWriterStillRefusesATreeACallerBuildsWithAnAttribute(): void
