@@ -73,7 +73,7 @@ class CarveConverter
      *
      * @var string
      */
-    public const LIB_VERSION = '0.1.8';
+    public const LIB_VERSION = '0.1.9';
 
     protected BlockParser $parser;
 
