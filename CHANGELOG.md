@@ -7,6 +7,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-19
+
+### Added
+
+- `ProseMirrorToCarve::degradedAttributes()`, a second report channel for what a conversion carried in a lesser form (#2175).
+
+### Changed
+
+- **A mention loss that keeps the text is reported as degraded, not dropped** (#2175). A display label that differs from the `id`, a label that is not text, and a name the mention grammar rejects move from `droppedAttributes()` to `degradedAttributes()`, keyed and worded as carve-rs and carve-grammars write them. An attribute on the text path stays dropped, and its reason names the node kind, so a tag is no longer described as a mention.
+
+### Fixed
+
+- **The ProseMirror bridge drops a mention or tag that carries no name and reports it** (#2176), so a node with neither an `id` nor a `label` is left out and named in `droppedAttributes()` under its node kind, no field having held a name. It used to reach the writer, which refused the whole document. `CarveRenderer` still throws for a tree an API caller builds that way.
+- **A caption's `#` placeholder is literal inside inline markup** (#2181, markup-carve/carve#2112). `^ a *# x* b` keeps its `#`, a later top-level `#` still numbers, and the Carve writer stops escaping the bare one, which is what the other engines write.
+
 ## [0.1.8] - 2026-09-18
 
 ### Added
@@ -127,14 +142,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The Markdown importer keeps a line after a nested item's unclosed fence out of the item** (#2129).
 - **The Markdown importer keeps the outer brackets literal when a link's text holds a link** (#2115), as CommonMark reads it.
 - **The ProseMirror bridge reports a substitution half that holds more than plain text as degraded** (#2068).
-- **The ProseMirror bridge names a stock Tiptap mention or tag by its `id`** (#2154, #2175). A `null` label counts as absent, `mentionSuggestionChar` is not written as an attribute, and a label that differs from the `id` is reported in `degradedAttributes()`, since the field survives in a lesser form.
-- **The ProseMirror bridge writes a mention or tag whose name the grammar rejects as text** (#2154, #2175). Tiptap's `{"id": "Lea Thompson", "label": null}` becomes the displayed text with its sigil escaped, not a mention of `Lea`, and `degradedAttributes()` names the field that held the name, which survives as that text.
+- **The ProseMirror bridge names a stock Tiptap mention or tag by its `id`** (#2154). A `null` label counts as absent, `mentionSuggestionChar` is not written as an attribute, and a label that differs from the `id` is reported in `droppedAttributes()`.
+- **The ProseMirror bridge writes a mention or tag whose name the grammar rejects as text** (#2154). Tiptap's `{"id": "Lea Thompson", "label": null}` becomes the displayed text with its sigil escaped, not a mention of `Lea`, and `droppedAttributes()` names the attribute that held the name.
 - **`AstCodec::decode()` no longer refuses a payload whose adjacent text nodes it joins** (#2165). Two text nodes followed by a node of another kind threw `AstDecodeException` although nothing was lost, which an HTML import of a `<q cite=...>` holding a `<br>` reached.
 - **The ProseMirror bridge reports a mention's own attributes when the name has no Carve spelling** (#2162), so `data-team` on a mention written as text is named in `droppedAttributes()` instead of vanishing with the node.
 - **The ProseMirror bridge drops a mention's or tag's own attribute and reports it** (#2167), so `data-team` on a mention is named in `droppedAttributes()` and the mention is still written. It used to reach the writer, which refused the whole document. `CarveRenderer` still throws for a tree an API caller builds that way (markup-carve/carve-rs#1766).
-- **The ProseMirror bridge drops a mention or tag that carries no name and reports it** (#2176), so a node with neither an `id` nor a `label` is left out and named in `droppedAttributes()` under its node kind, no field having held a name. It used to reach the writer, which refused the whole document. `CarveRenderer` still throws for a tree an API caller builds that way.
 - **The Carve writer refuses a mention or tag whose name the grammar rejects** (#2159). A name with a space, an apostrophe, a stray dot or a non-ASCII letter and no destination used to be written bare, so it read back as a different mention. It now throws `SourceUnspellableException`.
-- **A caption's `#` placeholder is literal inside inline markup** (#2181, markup-carve/carve#2112). `^ a *# x* b` keeps its `#`, a later top-level `#` still numbers, and the Carve writer stops escaping the bare one, which is what the other engines write.
 - **A hard break that ends a heading keeps its backslash** (#2169). `## x\` re-reads as a heading with a break, so dropping it lost the break; a heading whose only content was one came out as a bare `##`, which `carve fmt` then rewrote into a paragraph.
 - **A hard break at the edge of an inline construct in a table cell keeps its space** (#2169), so `{+ +}` is no longer written `{++}`, an empty brace pair that reads back as literal text. A break that is a direct child at the cell's edge still writes nothing (markup-carve/carve#2067).
 
@@ -2671,7 +2684,8 @@ Composer: `composer require markup-carve/carve-php`.
 - `HtmlToCarve` `data-djot-src` XSS closed (P0); `trustedRoundTrip` default-off
 - Output-byte budgets on all reverse converters against amplification DoS
 
-[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.8...HEAD
+[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.9...HEAD
+[0.1.9]: https://github.com/markup-carve/carve-php/compare/0.1.8...0.1.9
 [0.1.8]: https://github.com/markup-carve/carve-php/compare/0.1.7...0.1.8
 [0.1.7]: https://github.com/markup-carve/carve-php/compare/0.1.6...0.1.7
 [0.1.6]: https://github.com/markup-carve/carve-php/compare/0.1.5...0.1.6
