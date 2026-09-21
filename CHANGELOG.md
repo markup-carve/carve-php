@@ -7,6 +7,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-21
+
+### Fixed
+
+- **A node pulled in by a sliced include keeps its own file's coordinates** (#2187). A child included with `@lines:N-M` reported positions measured inside the slice under the whole file's id; `docs/includes.md` requires the file's own lines and offsets, which it now reports, CRLF and multibyte sources included.
+
 ## [0.1.9] - 2026-09-19
 
 ### Added
@@ -2684,7 +2690,8 @@ Composer: `composer require markup-carve/carve-php`.
 - `HtmlToCarve` `data-djot-src` XSS closed (P0); `trustedRoundTrip` default-off
 - Output-byte budgets on all reverse converters against amplification DoS
 
-[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.9...HEAD
+[Unreleased]: https://github.com/markup-carve/carve-php/compare/0.1.10...HEAD
+[0.1.10]: https://github.com/markup-carve/carve-php/compare/0.1.9...0.1.10
 [0.1.9]: https://github.com/markup-carve/carve-php/compare/0.1.8...0.1.9
 [0.1.8]: https://github.com/markup-carve/carve-php/compare/0.1.7...0.1.8
 [0.1.7]: https://github.com/markup-carve/carve-php/compare/0.1.6...0.1.7
