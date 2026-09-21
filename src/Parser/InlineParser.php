@@ -4210,6 +4210,31 @@ class InlineParser
     }
 
     /**
+     * The index of the quote closing the title run opened at $open, or null
+     * when nothing after it closes.
+     *
+     * A backslash escapes the next character, which is the rule the title
+     * regexes below read, so `[t](/u "a\"b")` keeps its escaped quote.
+     */
+    protected function closingTitleQuote(string $text, int $open): ?int
+    {
+        $quote = $text[$open];
+        $length = strlen($text);
+        for ($i = $open + 1; $i < $length; $i++) {
+            if ($text[$i] === '\\') {
+                $i++;
+
+                continue;
+            }
+            if ($text[$i] === $quote) {
+                return $i;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The inline destination whose `(` sits just before $urlStart: the index of
      * its `)`, and a null url when the run is not a destination. Null when no
      * `)` closes it.
@@ -4245,12 +4270,29 @@ class InlineParser
         $length = strlen($text);
         $urlEnd = $urlStart;
         $depth = 0;
+        // A quoted title is opaque to the scan. `link_title` admits any
+        // character but its own quote, so a `)` inside one does not close the
+        // tail; reading it as the closer left `[t](/u "T)")` literal text
+        // (markup-carve/carve-php#2191). The destination admits no whitespace,
+        // so a quote opening the slot is one that follows a space.
         while ($urlEnd < $length) {
             $char = $text[$urlEnd];
             if ($char === '\\' && $urlEnd + 1 < $length) {
                 $urlEnd += 2;
 
                 continue;
+            }
+            if (
+                ($char === '"' || $char === "'")
+                && $urlEnd > $urlStart
+                && $text[$urlEnd - 1] === ' '
+            ) {
+                $close = $this->closingTitleQuote($text, $urlEnd);
+                if ($close !== null) {
+                    $urlEnd = $close + 1;
+
+                    continue;
+                }
             }
             if ($char === '(') {
                 $depth++;
