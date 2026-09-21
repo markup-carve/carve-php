@@ -621,6 +621,45 @@ class IncludeExpanderTest extends TestCase
         );
     }
 
+    public function testALineSliceKeepsTheCompleteChildsCoordinates(): void
+    {
+        $converter = new CarveConverter();
+        $converter->getParser()->enablePositionTracking();
+        $source = "é\r\n\r\npad\r\n\r\n## Deep heading\r\n\r\nBody.\r\n";
+        $document = $converter->parse("{{ child.crv @lines:5-7 }}\n");
+        $expander = new IncludeExpander($this->resolver(['child.crv' => $source]), 'main.crv');
+
+        $expanded = $converter->transform($document, $expander);
+        $positions = array_map(
+            static fn ($node) => $node->getPos()?->toWireArray(),
+            array_values($expanded->getChildren()),
+        );
+
+        $this->assertSame(5, $positions[0]['startLine']);
+        $this->assertSame(12, $positions[0]['startOffset']);
+        $this->assertSame(7, $positions[1]['startLine']);
+        $this->assertSame(31, $positions[1]['startOffset']);
+        $this->assertSame(['child.crv', 'child.crv'], array_column($positions, 'file'));
+    }
+
+    public function testAParentsLineSliceBaseDoesNotShiftItsGrandchild(): void
+    {
+        $converter = new CarveConverter();
+        $converter->getParser()->enablePositionTracking();
+        $document = $converter->parse("{{ child.crv @lines:3-3 }}\n");
+        $expander = new IncludeExpander($this->resolver([
+            'child.crv' => "pad\n\n{{ deep.crv }}\n",
+            'deep.crv' => "Deep one.\n",
+        ]), 'main.crv');
+
+        $expanded = $converter->transform($document, $expander);
+        $position = array_values($expanded->getChildren())[0]?->getPos();
+
+        $this->assertSame('deep.crv', $position?->file);
+        $this->assertSame(1, $position?->startLine);
+        $this->assertSame(0, $position?->startOffset);
+    }
+
     public function testIncludeContextExposesItsFields(): void
     {
         $context = new IncludeContext('parent.crv', 'current.crv', ['a.crv'], 2);

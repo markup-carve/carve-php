@@ -724,11 +724,17 @@ class IncludeExpander implements TransformerInterface
             return null;
         }
 
+        $sliceLineBase = 0;
+        $completeSource = $source;
         if ($directive['lines'] !== null) {
+            $sliceLineBase = $directive['lines']['start'] - 1;
             $source = $this->sliceLines($source, $directive['lines']['start'], $directive['lines']['end']);
         }
 
         $document = $this->parseChild($source);
+        if ($directive['lines'] !== null) {
+            $this->shiftSourcePositions($document, $completeSource, $source, $sliceLineBase);
+        }
         if ($directive['section'] !== null) {
             $document = $this->selectSection($document, $directive['section']);
             if ($document === null) {
@@ -1015,6 +1021,42 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
+     * Restore positions parsed from an @lines slice to the coordinates of the
+     * complete source. This runs before nested includes are expanded, so only
+     * nodes belonging to this file receive its slice base.
+     */
+    protected function shiftSourcePositions(Node $node, string $completeSource, string $slice, int $lineBase): void
+    {
+        foreach ($node->getChildren() as $child) {
+            $pos = $child->getPos();
+            if ($pos !== null) {
+                $child->setPos(new SourceSpan(
+                    $pos->startLine + $lineBase,
+                    $pos->endLine + $lineBase,
+                    $pos->startColumn,
+                    $pos->endColumn,
+                    $this->sourceOffset($completeSource, $slice, $pos->startLine, $pos->startOffset, $lineBase),
+                    $this->sourceOffset($completeSource, $slice, $pos->endLine, $pos->endOffset, $lineBase),
+                    $pos->file,
+                ));
+            }
+            $this->shiftSourcePositions($child, $completeSource, $slice, $lineBase);
+        }
+    }
+
+    /**
+     * Offset in the complete source for an offset parsed from a line slice.
+     * A slice normalizes every physical ending to LF, so its offset cannot be
+     * restored with a single base when the original uses CRLF.
+     */
+    protected function sourceOffset(string $completeSource, string $slice, int $sliceLine, int $offset, int $lineBase): int
+    {
+        return $this->lineStartOffset($completeSource, $sliceLine + $lineBase)
+            + $offset
+            - $this->lineStartOffset($slice, $sliceLine);
+    }
+
+    /**
      * Whether any node in the document has a position, which is how a host's
      * opt-in reaches this pass: the flag itself lives on the parser.
      */
@@ -1047,6 +1089,24 @@ class IncludeExpander implements TransformerInterface
         $lines = preg_split('/\r\n|\n|\r/', $source) ?: [];
 
         return implode("\n", array_slice($lines, max(0, $start - 1), $end - $start + 1));
+    }
+
+    /**
+     * Codepoint offset at which a 1-based physical line starts in raw source.
+     */
+    protected function lineStartOffset(string $source, int $line): int
+    {
+        if ($line <= 1) {
+            return 0;
+        }
+
+        preg_match_all('/\r\n|\n|\r/', $source, $matches, PREG_OFFSET_CAPTURE);
+        $ending = $matches[0][$line - 2] ?? null;
+        $prefixBytes = $ending === null
+            ? strlen($source)
+            : $ending[1] + strlen($ending[0]);
+
+        return mb_strlen(substr($source, 0, $prefixBytes), 'UTF-8');
     }
 
     protected function selectSection(Document $document, string $section): ?Document
