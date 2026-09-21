@@ -114,10 +114,11 @@ class MarkdownRendererTest extends TestCase
 
     public function testLinkDestinationsEncodeMarkdownBreakoutCharacters(): void
     {
-        // A `)` reaching a destination via a reference definition (URL runs to
-        // end-of-line, not `)`-delimited) is percent-encoded so it cannot break
-        // out of the `(...)` in Markdown output.
-        $document = $this->converter->parse("[x][r]\n\n[r]: https://e.com/a)b");
+        // A `)` reaches a destination only escaped, in a definition as in an
+        // inline tail (`destination_escape`; markup-carve/carve-php#2190). It is
+        // percent-encoded so it cannot break out of the `(...)` in Markdown
+        // output.
+        $document = $this->converter->parse("[x][r]\n\n[r]: https://e.com/a\\)b");
 
         $this->assertSame("[x](https://e.com/a%29b)\n", $this->renderer->render($document));
     }
