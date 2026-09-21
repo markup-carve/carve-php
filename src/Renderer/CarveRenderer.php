@@ -2922,13 +2922,16 @@ class CarveRenderer implements RendererInterface
     /**
      * Write an authored `[label]: /url "title" {attrs}` line back as written.
      *
-     * The destination and title are emitted verbatim; the trailing attribute
-     * block is the node's own attributes (PART 9 §15 A2b), which transfer to
-     * every link or image resolving the label rather than styling this line.
+     * The href is re-escaped the way the inline tail's is: the reader resolves
+     * `\(`, `\)` and `\\`, so writing the resolved value bare would hand back a
+     * line whose parentheses no longer balance. The title is emitted verbatim;
+     * the trailing attribute block is the node's own attributes (PART 9 §15
+     * A2b), which transfer to every link or image resolving the label rather
+     * than styling this line.
      */
     protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
     {
-        $out = '[' . $node->getLabel() . ']: ' . $node->getHref();
+        $out = '[' . $node->getLabel() . ']: ' . $this->escapeDestinationEscapes($node->getHref());
         $title = $node->getTitle();
         if ($title !== null) {
             $out .= ' "' . str_replace('"', '\\"', $title) . '"';

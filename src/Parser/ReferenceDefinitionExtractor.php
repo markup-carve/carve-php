@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
+use MarkupCarve\Carve\Parser\Utility\LinkDestination;
 use MarkupCarve\Carve\Util\StringUtil;
 
 class ReferenceDefinitionExtractor
@@ -617,7 +618,14 @@ class ReferenceDefinitionExtractor
         if (preg_match('/^([^\p{Z}\x{0009}-\x{000D}\x{0085}]+)(.*)$/us', $tail, $dm) !== 1) {
             return null;
         }
-        $url = $dm[1];
+        // The run still has to BE a `link_destination`: a parenthesis reaches
+        // one only through `balanced_parens` or `destination_escape`, so
+        // `[a]: a(b` and `[a]: a)b` leave content over and the anchor below
+        // disposes of them like any other leftover.
+        $url = LinkDestination::value($dm[1]);
+        if ($url === null) {
+            return null;
+        }
         $rest = $dm[2];
 
         // EXACTLY ONE SPACE before the quoted title, and it is a SPACE. This is

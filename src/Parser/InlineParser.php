@@ -41,6 +41,7 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
+use MarkupCarve\Carve\Parser\Utility\LinkDestination;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -4333,7 +4334,7 @@ class InlineParser
         // anything else is an ordinary URL character (grammar
         // url_char) kept verbatim, matching carve-js / carve-rs, so
         // `[t](a\b)` still links to `a\b`.
-        $url = strtr($url, ['\\(' => '(', '\\)' => ')', '\\\\' => '\\']);
+        $url = LinkDestination::unescape($url);
 
         return $this->destinationScans[$urlStart] = ['end' => $urlEnd, 'url' => $url, 'title' => $title];
     }
