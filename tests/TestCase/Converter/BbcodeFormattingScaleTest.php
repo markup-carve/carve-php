@@ -34,6 +34,7 @@ class BbcodeFormattingScaleTest extends TestCase
             'empty tags' => ['[b][/b]', 8000],
             'unclosed tags' => ['[b]', 10000],
             'escaped delimiters' => ['*[b]x[/b] ', 5000],
+            'constructs the repair escapes' => ['#x [b]y[/b] =z= ', 3000],
         ];
     }
 
