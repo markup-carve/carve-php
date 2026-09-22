@@ -923,15 +923,7 @@ class InlineParser
                 continue;
             }
 
-            if (
-                $char === '%' && $nextChar === '%'
-                && (
-                    $pos === 0
-                    || $text[$pos - 1] === ' '
-                    || $text[$pos - 1] === "\t"
-                    || $text[$pos - 1] === "\n"
-                )
-            ) {
+            if ($this->isLineCommentOpener($text, $pos)) {
                 $nl = strpos($text, "\n", $pos);
                 $end = $nl === false ? $length : $nl;
                 $content = substr($text, $pos + 2, $end - ($pos + 2));
@@ -1477,17 +1469,20 @@ class InlineParser
             return false;
         }
 
-        // PHP accepts negative string offsets, so `$text[-1] ?? ''` reads the
-        // LAST byte when the placeholder is first. Guard the boundary before
-        // indexing or a leading `#` is flanked by the caption's final letter.
-        $previous = $pos > 0 ? $text[$pos - 1] : '';
-        if ($previous !== '' && ($previous === '_' || ctype_alnum($previous))) {
+        $next = $text[$pos + 1] ?? '';
+
+        return $next === '' || preg_match('/[A-Za-z0-9_-]/', $next) !== 1;
+    }
+
+    protected function isLineCommentOpener(string $text, int $pos): bool
+    {
+        if (substr($text, $pos, 2) !== '%%') {
             return false;
         }
 
-        $next = $text[$pos + 1] ?? '';
+        $previous = $pos > 0 ? $text[$pos - 1] : '';
 
-        return $next === '' || !preg_match('/[A-Za-z]/', $next);
+        return $previous === '' || $previous === ' ' || $previous === "\t" || $previous === "\n";
     }
 
     protected function flushText(Node $parent, string $text): void
@@ -3058,6 +3053,14 @@ class InlineParser
                 return null;
             }
 
+            // A line comment consumes the rest of its source line before the
+            // delimiter stack can decide whether a later delimiter closes this
+            // run. Leave the opener literal so the outer inline scan reaches
+            // and consumes the comment.
+            if ($this->isLineCommentOpener($text, $searchPos)) {
+                return null;
+            }
+
             // Skip escape sequences
             if ($char === '\\' && $searchPos + 1 < $length) {
                 $searchPos += 2;
@@ -3183,6 +3186,10 @@ class InlineParser
 
                 // Unclosed backtick run: opaque to the end of the block, so no
                 // closer can follow it.
+                return null;
+            }
+
+            if ($this->isLineCommentOpener($text, $searchPos)) {
                 return null;
             }
 

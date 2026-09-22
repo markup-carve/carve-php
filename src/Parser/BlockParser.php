@@ -6420,8 +6420,27 @@ class BlockParser
                 count($itemLines) > 1
                 && $this->fencedBlockParser->parseDivFenceOpener($itemContent) !== null
             ) {
-                $itemLines = [implode("\n", $itemLines)];
-                $itemLineMap = [$itemLineMap[0] ?? -1];
+                $split = count($itemLines);
+                foreach (array_keys($authoredBaseEligible) as $candidate) {
+                    if ($candidate > 0) {
+                        $split = min($split, $candidate);
+                    }
+                }
+                $itemLines = [
+                    implode("\n", array_slice($itemLines, 0, $split)),
+                    ...array_slice($itemLines, $split),
+                ];
+                $itemLineMap = [
+                    $itemLineMap[0] ?? -1,
+                    ...array_slice($itemLineMap, $split),
+                ];
+                $eligible = [];
+                foreach (array_keys($authoredBaseEligible) as $candidate) {
+                    if ($candidate >= $split) {
+                        $eligible[$candidate - $split + 1] = true;
+                    }
+                }
+                $authoredBaseEligible = $eligible;
             }
 
             // For tight lists with continuation lines, check if content starts with
@@ -8164,6 +8183,7 @@ class BlockParser
         array &$authoredBaseEligible = [],
     ): array {
         $sawIndentedUnclaimedColonFence = false;
+        $interruptedParagraphFence = false;
         $wrappedAttributeLinesRemaining = max(0, ($this->wrappedItemAttributeLength(
             $itemLines[0] ?? '',
             $lines,
@@ -8288,6 +8308,8 @@ class BlockParser
                 // (carve-php#1866). The lazy branch below leaves the flag off,
                 // which is what keeps corpus 183 and 214-2 folding a comment
                 // written BELOW the column.
+                $wasOpenParagraph = $trailingState['openParagraph'];
+                $wasInFence = $trailingState['inFence'];
                 $trailingState = $this->advanceTrailingBlockStateWithFenceLookahead(
                     $trailingState,
                     $contentLine,
@@ -8296,6 +8318,11 @@ class BlockParser
                     true,
                     $contentIndent,
                 );
+                if ($wasInFence && !$trailingState['inFence']) {
+                    $interruptedParagraphFence = false;
+                } elseif ($wasOpenParagraph && !$wasInFence && $trailingState['inFence']) {
+                    $interruptedParagraphFence = true;
+                }
                 if ($wrappedAttributeLinesRemaining > 0) {
                     $wrappedAttributeLinesRemaining--;
                     if ($wrappedAttributeLinesRemaining === 0) {
@@ -8342,6 +8369,16 @@ class BlockParser
                 && ($nextIndent === 0 || !$trailingState['afterComment'])
                 && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationAttachesAtColumnZero($i))
             ) {
+                // The closer lookahead can find a closer beyond the line that
+                // ends this item. Preserve that decision when the collected
+                // item is parsed on its own: without the synthetic boundary
+                // closer, the second parse sees a truncated stream and turns
+                // the same opener back into inline code.
+                if ($trailingState['inFence'] && $interruptedParagraphFence) {
+                    $itemLines[] = str_repeat($trailingState['fenceChar'], $trailingState['fenceLength']);
+                    $itemLineMap[] = -1;
+                }
+
                 break;
             }
 
@@ -9016,20 +9053,32 @@ class BlockParser
                     // (corpus `444-*-7` against `444-*-8`).
                     $attributePastTheColumn = $indent > $continuationColumn
                         && $this->isBlockAttributeLine($trimmedCont);
+                    $paragraphFence = $this->fencedBlockParser->parseRawBlockOpener($trimmedCont)
+                        ?? $this->fencedBlockParser->parseCodeFenceOpener($trimmedCont);
+                    $paragraphFenceHasNoCloser = $paragraphFence !== null
+                        && !$this->hasFenceCloserInView(
+                            $lines,
+                            $i,
+                            $paragraphFence,
+                            IndentationHelper::getLeadingColumns($contLine),
+                        );
                     if (
                         !IndentationHelper::isBlankLine($contLine)
                         && $indent > 0
-                        && $indent !== $continuationColumn
+                        && ($indent !== $continuationColumn || $paragraphFenceHasNoCloser)
                         && !$definitionPastTheColumn
                         && !$attributePastTheColumn
                         && !$formABlockOpen
                         && $lastBodyKey !== null
                         && $lastBodyEntry !== ''
                         && $lastBodyOpener !== false
-                        && !$this->lineOpensBlockForLooseness(
-                            $trimmedCont,
-                            true,
-                            invisibleArms: false,
+                        && (
+                            $paragraphFenceHasNoCloser
+                            || !$this->lineOpensBlockForLooseness(
+                                $trimmedCont,
+                                true,
+                                invisibleArms: false,
+                            )
                         )
                         && !$this->startsNewBlock($lastBodyOpener)
                         && $this->listParser->parseListItemMarker($lastBodyOpener) === null
@@ -9257,6 +9306,37 @@ class BlockParser
                     }
 
                     break;
+                }
+                $bodyHasFenceLine = false;
+                foreach ($body as $entry) {
+                    $head = strtok($entry, "\n");
+                    if (
+                        $head !== false
+                        && (
+                            $this->fencedBlockParser->parseRawBlockOpener($head) !== null
+                            || $this->fencedBlockParser->parseCodeFenceOpener($head) !== null
+                        )
+                    ) {
+                        $bodyHasFenceLine = true;
+
+                        break;
+                    }
+                }
+                if ($bodyLazy !== [] && $bodyHasFenceLine) {
+                    $foldedBody = [];
+                    $foldedBodyMap = [];
+                    foreach ($body as $bodyIndex => $entry) {
+                        if (isset($bodyLazy[$bodyIndex]) && $foldedBody !== []) {
+                            $last = count($foldedBody) - 1;
+                            $foldedBody[$last] .= "\n" . ltrim($entry, " \t");
+
+                            continue;
+                        }
+                        $foldedBody[] = $entry;
+                        $foldedBodyMap[] = $bodyMap[$bodyIndex] ?? -1;
+                    }
+                    $body = $foldedBody;
+                    $bodyMap = $foldedBodyMap;
                 }
                 $body = $this->rebaseOverindentedItemBlocks(
                     $body,
@@ -13991,6 +14071,12 @@ class BlockParser
         $char = $opener['char'] ?? $opener['fence'][0];
         $count = count($lines);
         for ($i = $index + 1; $i < $count; $i++) {
+            if (
+                $stripColumns > 0
+                && IndentationHelper::getLeadingColumns($lines[$i], $stripColumns + 1) !== $stripColumns
+            ) {
+                continue;
+            }
             $line = $stripColumns > 0
                 ? IndentationHelper::stripLeadingColumns($lines[$i], $stripColumns)
                 : $lines[$i];
