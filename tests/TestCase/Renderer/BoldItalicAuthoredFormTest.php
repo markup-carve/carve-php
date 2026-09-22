@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -111,5 +115,58 @@ class BoldItalicAuthoredFormTest extends TestCase
                 "meaning changed: {$source}",
             );
         }
+    }
+
+    /**
+     * @return array<string, array{string|null}>
+     */
+    public static function unhuggableContentProvider(): array
+    {
+        return [
+            'empty' => [null],
+            'leading space' => [' x'],
+            'trailing space' => ['x '],
+            'leading tab' => ["\tx"],
+        ];
+    }
+
+    /**
+     * A tree built by hand or imported can flag content the combined form
+     * cannot spell: the grammar needs a content character against each
+     * delimiter.
+     */
+    #[DataProvider('unhuggableContentProvider')]
+    public function testFlaggedContentThatCannotHugTheDelimitersIsNested(?string $content): void
+    {
+        $document = $this->converter->parse("a /*x*/ b\n");
+        $strong = null;
+        foreach ($document->getChildren()[0]->getChildren() as $child) {
+            if ($child instanceof Strong) {
+                $strong = $child;
+            }
+        }
+        $this->assertInstanceOf(Strong::class, $strong);
+        $emphasis = $strong->getChildren()[0];
+        $this->assertInstanceOf(Emphasis::class, $emphasis);
+        $text = $emphasis->getChildren()[0];
+        $this->assertInstanceOf(Text::class, $text);
+        if ($content === null) {
+            $emphasis->setChildren([]);
+        } else {
+            $text->setContent($content);
+        }
+
+        $renderer = new CarveRenderer();
+        $withFlag = $renderer->render($document);
+        $strong->setBoldItalic(false);
+        $this->assertSame($renderer->render($document), $withFlag);
+        if ($content !== null && !str_contains($content, "\t")) {
+            $this->assertSame($this->converter->render($document), $this->converter->convert($withFlag));
+        }
+    }
+
+    public function testFlaggedContentThatHugsTheDelimitersKeepsTheCombinedForm(): void
+    {
+        $this->assertSame("a /*\u{00A0}x*/ b\n", CarveConverter::toCarve("a /*\u{00A0}x*/ b\n"));
     }
 }
