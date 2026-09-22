@@ -30,7 +30,7 @@ class BbcodeFormattingSpellsLikeTheWriterTest extends TestCase
      */
     public static function emptyTagProvider(): array
     {
-        return ['b' => ['b'], 'i' => ['i'], 'u' => ['u'], 's' => ['s']];
+        return ['b' => ['b'], 'i' => ['i'], 'u' => ['u'], 's' => ['s'], 'sup' => ['sup'], 'sub' => ['sub']];
     }
 
     /**

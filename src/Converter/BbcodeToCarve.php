@@ -1023,11 +1023,20 @@ class BbcodeToCarve
         ) ?? $text;
 
         // [sup]...[/sup] -> {^...^}. Forced brace form: BBCode tags are often
-        // intraword (e.g. E=mc[sup]2[/sup]), where a bare ^2^ is literal.
-        $text = preg_replace('/\[sup\](.*?)\[\/sup\]/is', '{^$1^}', $text) ?? $text;
+        // intraword (e.g. E=mc[sup]2[/sup]), where a bare ^2^ is literal. An
+        // empty one has no spelling and goes (ruling markup-carve/carve-rs#1719).
+        $text = preg_replace_callback(
+            '/\[sup\](.*?)\[\/sup\]/is',
+            fn (array $m): string => $m[1] === '' ? '' : '{^' . $m[1] . '^}',
+            $text,
+        ) ?? $text;
 
         // [sub]...[/sub] -> {,...,}. Forced brace form for the same reason.
-        $text = preg_replace('/\[sub\](.*?)\[\/sub\]/is', '{,$1,}', $text) ?? $text;
+        $text = preg_replace_callback(
+            '/\[sub\](.*?)\[\/sub\]/is',
+            fn (array $m): string => $m[1] === '' ? '' : '{,' . $m[1] . ',}',
+            $text,
+        ) ?? $text;
 
         return $text;
     }
