@@ -14,9 +14,8 @@ use PHPUnit\Framework\TestCase;
  * The formatting-tag pass is linear in the number of tags, including runs of
  * empty and unclosed ones, which an earlier draft rescanned per tag.
  *
- * It measures that pass alone: the list and quote passes are superlinear on
- * some of these shapes on their own, and would fail the ratio for a reason
- * that is not this pass's.
+ * It measures that pass alone; `BbcodeListQuoteScaleTest` guards the list
+ * and quote passes.
  */
 #[Group('scaling')]
 class BbcodeFormattingScaleTest extends TestCase
