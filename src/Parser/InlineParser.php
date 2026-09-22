@@ -3189,8 +3189,22 @@ class InlineParser
                 return null;
             }
 
+            // CARVE-P9-042: the combined token's `*/` is an explicit closer a
+            // `%%` comment does not cross, so the comment ends there rather
+            // than defeating the search for it - a line break still ends it
+            // first where one comes sooner. Skip past the comment's own span
+            // and keep looking for the closer; the content this scan hands to
+            // parseInlinesAt() still holds the comment's raw source, which the
+            // ordinary top-level scan there consumes.
             if ($this->isLineCommentOpener($text, $searchPos)) {
-                return null;
+                $nl = strpos($text, "\n", $searchPos + 2);
+                $closer = strpos($text, '*/', $searchPos + 2);
+                if ($closer === false && $nl === false) {
+                    return null;
+                }
+                $searchPos = $nl === false ? $closer : ($closer === false ? $nl : min($nl, $closer));
+
+                continue;
             }
 
             if ($text[$searchPos] === '*' && $text[$searchPos + 1] === '/') {

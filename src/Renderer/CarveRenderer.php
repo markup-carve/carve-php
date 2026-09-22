@@ -3401,13 +3401,13 @@ class CarveRenderer implements RendererInterface
             // Strong, and W4 escalated the whole document to conservative
             // (carve#374).
             $node instanceof EscapedText => '\\' . $node->getContent(),
-            $node instanceof Emphasis => $withAttrs($this->spellSameKind($node, '/', $this->renderEmphasis('/', $this->renderMarked('emphasis', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Emphasis => $withAttrs($this->spellSameKind($node, '/', $this->renderEmphasis('/', $this->renderMarked('emphasis', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
             $node instanceof Strong => $withAttrs($this->spellSameKind($node, '*', $this->renderStrongNode($node, $prevChar, $nextChar))),
-            $node instanceof Underline => $withAttrs($this->spellSameKind($node, '_', $this->renderEmphasis('_', $this->renderMarked('underline', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
-            $node instanceof Strike => $withAttrs($this->spellSameKind($node, '~', $this->renderEmphasis('~', $this->renderMarked('strike', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Underline => $withAttrs($this->spellSameKind($node, '_', $this->renderEmphasis('_', $this->renderMarked('underline', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
+            $node instanceof Strike => $withAttrs($this->spellSameKind($node, '~', $this->renderEmphasis('~', $this->renderMarked('strike', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
             $node instanceof Superscript => $withAttrs($this->spellSameKind($node, '^', $this->renderForcedEmphasis('^', $this->renderMarked('superscript', $node)))),
             $node instanceof Subscript => $withAttrs($this->spellSameKind($node, ',', $this->renderForcedEmphasis(',', $this->renderMarked('subscript', $node)))),
-            $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderMarked('highlight', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderMarked('highlight', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
             $node instanceof Code => $node->getContent() === '' && !self::emptyCodeSpanIsSpellable($node)
                 ? throw new SourceUnspellableException('code', 'an empty code span has no Carve source spelling where its open run does not end')
                 : $withAttrs($this->renderCode($node->getContent())),
@@ -3553,7 +3553,14 @@ class CarveRenderer implements RendererInterface
             }
         }
 
-        return $this->renderEmphasis('*', $this->renderMarked('strong', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node));
+        return $this->renderEmphasis(
+            '*',
+            $this->renderMarked('strong', $node),
+            $prevChar,
+            $nextChar,
+            self::endsInEmptyCodeSpan($node),
+            self::holdsLineComment($node),
+        );
     }
 
     /**
@@ -3860,6 +3867,27 @@ class CarveRenderer implements RendererInterface
     }
 
     /**
+     * A `%%` comment runs to the end of its line and does not cross an EXPLICIT
+     * closer (CARVE-P9-042), so a span holding one reads back only in the
+     * braced form: a bare closer behind the comment is swallowed with it.
+     */
+    protected static function holdsLineComment(InlineNode $node): bool
+    {
+        $pending = $node->getChildren();
+        while ($pending !== []) {
+            $child = array_shift($pending);
+            // A DELIMITED `{% … %}` comment carries its own closer and stops
+            // there, so only the line form takes the span's closer with it.
+            if ($child instanceof Comment && !$child->isDelimited()) {
+                return true;
+            }
+            array_push($pending, ...$child->getChildren());
+        }
+
+        return false;
+    }
+
+    /**
      * Does the open run of this empty code span end where the span does? It
      * ends at the end of a block or at a braced closer (PART 3, UNCLOSED RUN);
      * anything else behind it is read into the span, and an enclosing link or
@@ -3913,10 +3941,23 @@ class CarveRenderer implements RendererInterface
         return true;
     }
 
-    protected function renderEmphasis(string $delimiter, string $content, string $prevChar, string $nextChar, bool $endsInEmptyCodeSpan = false): string
-    {
+    protected function renderEmphasis(
+        string $delimiter,
+        string $content,
+        string $prevChar,
+        string $nextChar,
+        bool $endsInEmptyCodeSpan = false,
+        bool $holdsLineComment = false,
+    ): string {
+        // A line comment ends at ITS line break, so it takes the bare closer
+        // with it only when it opens on the closer's own line. The node gate
+        // keeps a `%%` that is merely code-span content out of this.
+        $commentTakesTheCloser = $holdsLineComment
+            && preg_match('/[ \t\n]%%(?![^\n]*\n)/', $content) === 1;
+
         // The characters `bare_opener` refuses before a marker (CARVE-P3-013).
         $needsForced = $endsInEmptyCodeSpan
+            || $commentTakesTheCloser
             || preg_match('/[A-Za-z0-9_]/', $prevChar) === 1
             || $prevChar === $delimiter
             || ($prevChar === '/' && ($delimiter === '/' || $delimiter === '_'))
