@@ -669,6 +669,17 @@ class BbcodeToCarve
         $top = 0;
 
         while ($i < $length) {
+            // Copied up to the next `[` in one step: the `\G` matches below
+            // scan ahead for a `[` before failing, O(n) per byte (#2214).
+            if ($text[$i] !== '[') {
+                $next = strpos($text, '[', $i);
+                $end = $next === false ? $length : $next;
+                $contents[$top] .= substr($text, $i, $end - $i);
+                $i = $end;
+
+                continue;
+            }
+
             if (preg_match('/\\G\[quote(?:[= ]([^\]]*))?\]/i', $text, $m, 0, $i)) {
                 $contents[] = '';
                 $authors[] = $m[1] ?? null;
@@ -818,6 +829,17 @@ class BbcodeToCarve
         $top = 0;
 
         while ($i < $length) {
+            // Copied up to the next `[` in one step: the `\G` matches below
+            // scan ahead for a `[` before failing, O(n) per byte (#2214).
+            if ($text[$i] !== '[') {
+                $next = strpos($text, '[', $i);
+                $end = $next === false ? $length : $next;
+                $contents[$top] .= substr($text, $i, $end - $i);
+                $i = $end;
+
+                continue;
+            }
+
             if (preg_match('/\G\[list(?:=([^\]]*))?\]/i', $text, $m, 0, $i) === 1) {
                 $contents[] = '';
                 $ordered[] = ($m[1] ?? '') !== '';
