@@ -80,8 +80,29 @@ class InlineCommentTest extends TestCase
     public function testLineCommentConsumesBareEmphasisClosers(): void
     {
         $this->assertSame(
-            "<p>*a</p>\n<p>_a</p>\n<p>/a</p>\n<p>/*a</p>",
-            $this->html("*a %% b* y\n\n_a %% b_ y\n\n/a %% b/ y\n\n/*a %% b*/ y"),
+            "<p>*a</p>\n<p>_a</p>\n<p>/a</p>",
+            $this->html("*a %% b* y\n\n_a %% b_ y\n\n/a %% b/ y"),
+        );
+    }
+
+    /**
+     * CARVE-P9-042: the combined token's closer and a forced span's `X}` are
+     * EXPLICIT closers a comment does not cross, unlike the bare delimiters
+     * above. Corpus section 490 pins all three shapes.
+     */
+    public function testLineCommentEndsAtAnExplicitCloser(): void
+    {
+        $this->assertSame(
+            '<p><strong><em>a</em></strong> y</p>',
+            $this->html('/*a %% b*/ y'),
+        );
+        $this->assertSame(
+            '<p><strong>a</strong> y</p>',
+            $this->html('{*a %% b*} y'),
+        );
+        $this->assertSame(
+            "<p><strong><em>a\nb</em></strong> y</p>",
+            $this->html("/*a %%c\nb*/ y"),
         );
     }
 }
