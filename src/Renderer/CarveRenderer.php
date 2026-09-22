@@ -3545,7 +3545,12 @@ class CarveRenderer implements RendererInterface
         $children = $node->getChildren();
         $inner = $children[0] ?? null;
         if ($node->isBoldItalic() && count($children) === 1 && $inner instanceof Emphasis) {
-            return '/*' . $this->renderInlines($inner->getChildren()) . '*/';
+            $content = $this->renderInlines($inner->getChildren());
+            // `/*` needs content that hugs it: `/* x*/` or `/**/` reparses as an
+            // emphasis holding literal stars, so fall back to the nested spelling.
+            if ($content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content)) {
+                return '/*' . $content . '*/';
+            }
         }
 
         return $this->renderEmphasis('*', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node));
