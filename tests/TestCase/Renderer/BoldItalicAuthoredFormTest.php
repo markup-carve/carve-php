@@ -118,15 +118,15 @@ class BoldItalicAuthoredFormTest extends TestCase
     }
 
     /**
-     * @return array<string, array{string|null}>
+     * @return array<string, array{string}>
      */
     public static function unhuggableContentProvider(): array
     {
         return [
-            'empty' => [null],
             'leading space' => [' x'],
             'trailing space' => ['x '],
             'leading tab' => ["\tx"],
+            'leading line break' => ["\nx"],
         ];
     }
 
@@ -136,7 +136,7 @@ class BoldItalicAuthoredFormTest extends TestCase
      * delimiter.
      */
     #[DataProvider('unhuggableContentProvider')]
-    public function testFlaggedContentThatCannotHugTheDelimitersIsNested(?string $content): void
+    public function testFlaggedContentThatCannotHugTheDelimitersIsNested(string $content): void
     {
         $document = $this->converter->parse("a /*x*/ b\n");
         $strong = null;
@@ -150,19 +150,13 @@ class BoldItalicAuthoredFormTest extends TestCase
         $this->assertInstanceOf(Emphasis::class, $emphasis);
         $text = $emphasis->getChildren()[0];
         $this->assertInstanceOf(Text::class, $text);
-        if ($content === null) {
-            $emphasis->setChildren([]);
-        } else {
-            $text->setContent($content);
-        }
+        $text->setContent($content);
 
         $renderer = new CarveRenderer();
         $withFlag = $renderer->render($document);
         $strong->setBoldItalic(false);
         $this->assertSame($renderer->render($document), $withFlag);
-        if ($content !== null && !str_contains($content, "\t")) {
-            $this->assertSame($this->converter->render($document), $this->converter->convert($withFlag));
-        }
+        $this->assertSame($this->converter->render($document), $this->converter->convert($withFlag));
     }
 
     public function testFlaggedContentThatHugsTheDelimitersKeepsTheCombinedForm(): void

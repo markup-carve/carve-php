@@ -2643,8 +2643,12 @@ final class HtmlAstBuilder
 
             $span['children'] = $children;
 
-            if ($span['children'] === [] && $attrs === []) {
-                return [];
+            // An element the HTML left empty is dropped without a row (ruling
+            // markup-carve/carve-rs#1719): an empty brace pair has no spelling.
+            // Its attributes can still matter (an `id` is a link target), and an
+            // empty span is spellable, so they move onto one.
+            if ($children === []) {
+                return $attrs === [] ? [] : [['type' => 'span', 'attrs' => $attrs, 'children' => []]];
             }
 
             return [$span];
