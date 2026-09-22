@@ -358,19 +358,14 @@ class BbcodeToCarve
         ) ?? $text;
     }
 
+    /**
+     * @var array<string, string>
+     */
+    protected const MARK_DELIMS = ['b' => '*', 'i' => '/', 'u' => '_', 's' => '~'];
+
     protected function convertBasicFormatting(string $text): string
     {
-        // Bold [b]...[/b] -> *...*
-        $text = preg_replace('/\[b\](.*?)\[\/b\]/is', '*$1*', $text) ?? $text;
-
-        // Italic [i]...[/i] -> /.../
-        $text = preg_replace('/\[i\](.*?)\[\/i\]/is', '/$1/', $text) ?? $text;
-
-        // Underline [u]...[/u] -> _..._
-        $text = preg_replace('/\[u\](.*?)\[\/u\]/is', '_$1_', $text) ?? $text;
-
-        // Strikethrough [s]...[/s] -> ~...~
-        $text = preg_replace('/\[s\](.*?)\[\/s\]/is', '~$1~', $text) ?? $text;
+        $text = $this->writeMarks($this->flattenSameKind($this->parseMarks($text)), '', '');
 
         // Size [size=X]...[/size] - no direct equivalent, strip tags
         $text = preg_replace('/\[size=[^\]]*\](.*?)\[\/size\]/is', '$1', $text) ?? $text;
@@ -382,6 +377,188 @@ class BbcodeToCarve
         $text = preg_replace('/\[font=[^\]]*\](.*?)\[\/font\]/is', '$1', $text) ?? $text;
 
         return $text;
+    }
+
+    /**
+     * The formatting tags as a tree. A close tag that does not match the
+     * innermost open one stays literal text, and so does an open tag never
+     * closed (marked, and unwound by flattenSameKind()).
+     *
+     * @return array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark>
+     */
+    protected function parseMarks(string $text): array
+    {
+        $root = new BbcodeMark('', '');
+        $stack = [$root];
+        $from = 0;
+        preg_match_all('/\[(\/?)(b|i|u|s)\]/i', $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        foreach ($matches as $match) {
+            [$whole, $offset] = $match[0];
+            $kind = strtolower($match[2][0]);
+            $top = $stack[count($stack) - 1];
+            $top->children[] = substr($text, $from, $offset - $from);
+            $from = $offset + strlen($whole);
+            if ($match[1][0] === '') {
+                $node = new BbcodeMark($kind, $whole);
+                $top->children[] = $node;
+                $stack[] = $node;
+            } elseif ($top->kind === $kind) {
+                array_pop($stack);
+            } else {
+                $top->children[] = $whole;
+            }
+        }
+        $stack[count($stack) - 1]->children[] = substr($text, $from);
+        foreach (array_slice($stack, 1) as $node) {
+            $node->unclosed = true;
+        }
+
+        return $root->children;
+    }
+
+    /**
+     * An unclosed tag becomes its literal text followed by its content. Carve
+     * has no second level of one kind (E3), so a tag inside an open tag of its
+     * own kind adds nothing and is replaced by its content. Iterative, because
+     * nesting depth is the author's; with four kinds the tree left behind is at
+     * most four deep, which keeps writeMarks() recursion bounded.
+     *
+     * @param array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark> $pieces
+     *
+     * @return array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark>
+     */
+    protected function flattenSameKind(array $pieces): array
+    {
+        $root = new BbcodeMark('', '');
+        /** @var array<int, array{src: array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark>, i: int, out: \MarkupCarve\Carve\Converter\BbcodeMark, open: array<string, true>}> $frames */
+        $frames = [['src' => $pieces, 'i' => 0, 'out' => $root, 'open' => []]];
+        while ($frames !== []) {
+            $last = count($frames) - 1;
+            if ($frames[$last]['i'] >= count($frames[$last]['src'])) {
+                array_pop($frames);
+
+                continue;
+            }
+            $frame = $frames[$last];
+            $piece = $frame['src'][$frame['i']];
+            $frames[$last]['i']++;
+            if (is_string($piece)) {
+                $frame['out']->children[] = $piece;
+            } elseif ($piece->unclosed) {
+                $frame['out']->children[] = $piece->open;
+                $frames[] = ['src' => $piece->children, 'i' => 0, 'out' => $frame['out'], 'open' => $frame['open']];
+            } elseif (isset($frame['open'][$piece->kind])) {
+                $frames[] = ['src' => $piece->children, 'i' => 0, 'out' => $frame['out'], 'open' => $frame['open']];
+            } else {
+                $node = new BbcodeMark($piece->kind, $piece->open);
+                $frame['out']->children[] = $node;
+                $frames[] = ['src' => $piece->children, 'i' => 0, 'out' => $node, 'open' => $frame['open'] + [$piece->kind => true]];
+            }
+        }
+
+        return $root->children;
+    }
+
+    /**
+     * For each piece, the first character written after it, or '' when nothing
+     * is. One pass from the right, so a run of empty tags costs nothing per tag.
+     *
+     * @param array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark> $pieces
+     *
+     * @return array<int, string>
+     */
+    protected function markNextChars(array $pieces): array
+    {
+        $next = [];
+        $after = '';
+        for ($k = count($pieces) - 1; $k >= 0; $k--) {
+            $next[$k] = $after;
+            $piece = $pieces[$k];
+            if (is_string($piece)) {
+                if ($piece !== '') {
+                    $after = $piece[0];
+                }
+            } elseif ($piece->hasContent()) {
+                $after = '{';
+            }
+        }
+
+        return $next;
+    }
+
+    /**
+     * Write the tree the way the Carve writer would. An empty tag holds nothing
+     * a reader sees and has no spelling, so it goes (ruling
+     * markup-carve/carve-rs#1719). A bare pair the CARVE-P3-013 guards would not
+     * read back, or that the writer would brace, takes the braced form, as does
+     * a `/` around content that would read back as bold-italic.
+     *
+     * @param array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark> $pieces
+     * @param string $outerNext
+     * @param string $prev
+     */
+    protected function writeMarks(array $pieces, string $outerNext, string $prev): string
+    {
+        // Chunks rather than one growing string, so escaping the byte before an
+        // opener rewrites only the text chunk holding it.
+        $parts = [];
+        $last = $prev;
+        $textPart = -1;
+        $escapeBrace = false;
+        $nexts = $this->markNextChars($pieces);
+        foreach ($pieces as $index => $piece) {
+            if (is_string($piece)) {
+                if ($piece === '') {
+                    continue;
+                }
+                // A `{` before a bare opener and a `}` after its closer would read
+                // as the braced form, eating both braces; the writer escapes the `}`.
+                $chunk = $escapeBrace && str_starts_with($piece, '}') ? '\\' . $piece : $piece;
+                $parts[] = $chunk;
+                $last = $chunk[strlen($chunk) - 1];
+                $escapeBrace = false;
+                $textPart = count($parts) - 1;
+
+                continue;
+            }
+            $delim = self::MARK_DELIMS[$piece->kind];
+            // The parent's own delimiters are not text: a child at its edge has
+            // no neighbor there, which is how the writer spells `/_x_/`.
+            $body = $this->writeMarks($piece->children, '', '');
+            if ($body === '') {
+                continue;
+            }
+            // The post's own text was escaped while the tags were still tags, so a
+            // literal delimiter now touching an opener was never seen: escape it.
+            if ($textPart >= 0 && $textPart === count($parts) - 1 && str_contains('*/_~=', $last)) {
+                $chunk = $parts[$textPart];
+                // Already escaped only behind an ODD run of backslashes.
+                $run = 0;
+                $at = strlen($chunk) - 2;
+                while ($at - $run >= 0 && $chunk[$at - $run] === '\\') {
+                    $run++;
+                }
+                if ($run % 2 === 0) {
+                    $parts[$textPart] = substr($chunk, 0, -1) . '\\' . $last;
+                }
+            }
+            $before = $last;
+            $next = $nexts[$index] !== '' ? $nexts[$index] : $outerNext;
+            $braced = preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $body) === 1
+                || preg_match('/^[A-Za-z0-9_]$/', $before) === 1
+                || $before === $delim
+                || ($before === '/' && ($delim === '/' || $delim === '_'))
+                || preg_match('/^[A-Za-z0-9_]$/', $next) === 1
+                || str_starts_with($body, $delim)
+                || str_ends_with($body, $delim)
+                || ($delim === '/' && str_starts_with($body, '*') && str_ends_with($body, '*'));
+            $chunk = $braced ? '{' . $delim . $body . $delim . '}' : $delim . $body . $delim;
+            $parts[] = $chunk;
+            $last = $chunk[strlen($chunk) - 1];
+            $escapeBrace = !$braced && $before === '{';
+        }
+
+        return implode('', $parts);
     }
 
     protected function convertLinks(string $text): string
@@ -846,11 +1023,20 @@ class BbcodeToCarve
         ) ?? $text;
 
         // [sup]...[/sup] -> {^...^}. Forced brace form: BBCode tags are often
-        // intraword (e.g. E=mc[sup]2[/sup]), where a bare ^2^ is literal.
-        $text = preg_replace('/\[sup\](.*?)\[\/sup\]/is', '{^$1^}', $text) ?? $text;
+        // intraword (e.g. E=mc[sup]2[/sup]), where a bare ^2^ is literal. An
+        // empty one has no spelling and goes (ruling markup-carve/carve-rs#1719).
+        $text = preg_replace_callback(
+            '/\[sup\](.*?)\[\/sup\]/is',
+            fn (array $m): string => $m[1] === '' ? '' : '{^' . $m[1] . '^}',
+            $text,
+        ) ?? $text;
 
         // [sub]...[/sub] -> {,...,}. Forced brace form for the same reason.
-        $text = preg_replace('/\[sub\](.*?)\[\/sub\]/is', '{,$1,}', $text) ?? $text;
+        $text = preg_replace_callback(
+            '/\[sub\](.*?)\[\/sub\]/is',
+            fn (array $m): string => $m[1] === '' ? '' : '{,' . $m[1] . ',}',
+            $text,
+        ) ?? $text;
 
         return $text;
     }
