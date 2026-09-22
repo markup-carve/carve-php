@@ -8,15 +8,10 @@
 [![PHP Version](https://img.shields.io/badge/php-%3E%3D8.2-8892BF.svg?style=flat-square)](https://php.net)
 [![Software License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
 
-PHP parser and renderer for [Carve](https://github.com/markup-carve/carve), a post-Markdown lightweight markup language with visual mnemonics and human-centered design.
+PHP parser and renderer for [Carve](https://markup-carve.github.io/carve/), a
+lightweight markup language for readable source and structured documents.
 
 Implements **Carve spec 0.1** (see [Versioning & Changelog](https://markup-carve.github.io/carve/versioning)).
-
-## Origins
-
-Carve-PHP is a hard fork of [djot-php](https://github.com/php-collective/djot-php) by the PHP Collective. The fork preserves the architecture, AST, renderer pipeline, profiles, and extensions, and replaces Djot's syntax rules with Carve's. The MIT license carries over; copyright lines remain in `LICENSE`.
-
-For the original Djot implementation, use [`php-collective/djot`](https://packagist.org/packages/php-collective/djot) instead.
 
 ## Installation
 
