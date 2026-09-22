@@ -276,9 +276,14 @@ class BlockParser
      * A definition-term MARKER, where the caller checks only that the line
      * opens one.
      *
+     * Content-guarded like the body prefix below, for the same carve#755
+     * reason: `:: ` with only whitespace after it is the empty marker `::`
+     * (PART 2, CARVE-P2-025), opens no term, and must not end a body or break
+     * a term's fold where `::` does not (markup-carve/carve-php#2218).
+     *
      * @var string
      */
-    protected const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) [ \t]*/';
+    protected const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) [ \t]*(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/';
 
     /**
      * A definition body: its separator run, then its content.
