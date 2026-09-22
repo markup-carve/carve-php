@@ -4316,8 +4316,8 @@ class InlineParser
         }
 
         // Optional title after the destination, separated by
-        // whitespace (a soft line break counts): "title",
-        // 'title', or (title). A double/single quote delimiter may
+        // whitespace (a soft line break counts): "title" or 'title'. A
+        // double/single quote delimiter may
         // be backslash-escaped INSIDE the title and is kept as a
         // literal quote (CommonMark-style; grammar.ebnf link_title,
         // decision D). This escape applies to inline-link titles
@@ -4341,7 +4341,6 @@ class InlineParser
         if (
             preg_match('/^([\s\S]*?) "((?:\\\\"|[^"])*)"$/', $raw, $tm)
             || preg_match('/^([\s\S]*?) \'((?:\\\\\'|[^\'])*)\'$/', $raw, $tm)
-            || preg_match('/^([\s\S]*?) \(([^()]*)\)$/', $raw, $tm)
         ) {
             $raw = $tm[1];
             // Unescape any backslash + ASCII-punctuation inside the

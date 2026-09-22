@@ -115,16 +115,12 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
             ];
         }
 
-        // The slot is one production with three delimiter spellings, so all
-        // three move together or the code and the grammar disagree about which
-        // quote makes a title.
+        // The slot is one production with two delimiter spellings, so both
+        // move together or the code and the grammar disagree about which quote
+        // makes a title.
         $rows['single-quoted title slot, a tab'] = [
             "[t](/u\t'T')",
             "<p>[t](/u\t\u{2018}T\u{2019})</p>\n",
-        ];
-        $rows['parenthesized title slot, a tab'] = [
-            "[t](/u\t(T))",
-            "<p>[t](/u\t(T))</p>\n",
         ];
 
         return $rows;
@@ -141,7 +137,6 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
             'link, one space' => ['[t](/u "T")', 'title="T"'],
             'image, one space' => ['![a](/p.png "T")', 'title="T"'],
             'link, single quotes, one space' => ["[t](/u 'T')", 'title="T"'],
-            'link, parentheses, one space' => ['[t](/u (T))', 'title="T"'],
             'link with attributes, one space' => ['[t](/u "T"){.x}', 'title="T"'],
         ];
     }
@@ -172,9 +167,9 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
      * alone. It is not left alone any more, and the four artifacts that agreed
      * with each other about the run were the ones that moved.
      *
-     * All three delimiter spellings are here because they are ONE production:
-     * a fix that narrowed the double-quoted alternative alone would leave the
-     * code and the grammar disagreeing about which quote makes a title.
+     * Both delimiter spellings are here because they are ONE production: a fix
+     * that narrowed the double-quoted alternative alone would leave the code
+     * and the grammar disagreeing about which quote makes a title.
      *
      * @return array<string, array{0: string, 1: string}>
      */
@@ -185,7 +180,6 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
             'link, three spaces' => ['[t](/u   "T")', "<p>[t](/u   \u{201C}T\u{201D})</p>\n"],
             'image, two spaces' => ['![a](/p.png  "T")', "<p>![a](/p.png  \u{201C}T\u{201D})</p>\n"],
             'link, single quotes, two spaces' => ["[t](/u  'T')", "<p>[t](/u  \u{2018}T\u{2019})</p>\n"],
-            'link, parentheses, two spaces' => ['[t](/u  (T))', "<p>[t](/u  (T))</p>\n"],
         ];
     }
 
@@ -235,9 +229,9 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
         // old class was `[ \t\n\r\f\v]` and every member of it that is not a
         // space is represented, here or in the line-break test.
         $this->assertCount(5, self::NON_SPACE_RUNS);
-        $this->assertCount(12, self::titleSlotProvider());
-        $this->assertCount(5, self::spacedTitleSlotProvider());
-        $this->assertCount(5, self::runFilledTitleSlotProvider());
+        $this->assertCount(11, self::titleSlotProvider());
+        $this->assertCount(4, self::spacedTitleSlotProvider());
+        $this->assertCount(4, self::runFilledTitleSlotProvider());
 
         $this->assertSame(
             ["\t", "\v", "\f", " \t", "\t "],
