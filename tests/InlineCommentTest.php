@@ -76,4 +76,12 @@ class InlineCommentTest extends TestCase
     {
         $this->assertSame("<p>x</p>\n<p>y</p>", $this->html("x\n  %% c\ny"));
     }
+
+    public function testLineCommentConsumesBareEmphasisClosers(): void
+    {
+        $this->assertSame(
+            "<p>*a</p>\n<p>_a</p>\n<p>/a</p>\n<p>/*a</p>",
+            $this->html("*a %% b* y\n\n_a %% b_ y\n\n/a %% b/ y\n\n/*a %% b*/ y"),
+        );
+    }
 }

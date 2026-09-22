@@ -128,14 +128,14 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
 
     /**
      * Corpus row 7: a fence opened on a CONTINUATION line rather than on the
-     * marker line. The same clause decides it, and what the truncated item then
-     * holds is §10 I4's business - the fence left inside has no closer, so it
-     * does not interrupt the item's open paragraph and stays inline content.
+     * marker line. The interruption decision is made against the full source
+     * before the below-column line ends the item, so parsing the collected item
+     * does not reverse that decision.
      */
     public function testAFenceOpenedOnAContinuationLineEndsAtTheSameLine(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n<code>\nb</code></li>\n</ul>\n<p>y\n<code></code></p>\n",
+            "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>\n",
             $this->converter->convert("- a\n  ```\n  b\n y\n  ```\n"),
         );
     }

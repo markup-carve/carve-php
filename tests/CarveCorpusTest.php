@@ -942,7 +942,12 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '276-a-fence-opened-on-a-list-marker-line-body-below-the-content-column-7' => [
+            'reason' => 'The current spec reads the interruption once before the below-column line ends the item.',
+            'html' => "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>\n",
+        ],
+    ];
 
     protected CarveConverter $converter;
 
