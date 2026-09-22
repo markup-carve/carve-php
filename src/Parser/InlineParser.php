@@ -3298,30 +3298,22 @@ class InlineParser
         // Editorial substitution {~old~>new~} -> <del>old</del><ins>new</ins>.
         // Skip the forward scan when no `~}` closer lies ahead (a run of `{~`
         // openers would otherwise each walk to end-of-text -> O(n^2)).
-        if ($marker === '~' && $this->closerExistsFrom($text, '~}', $pos + 2)) {
-            $searchPos = $pos + 2;
-            while ($searchPos < $length - 1) {
-                if ($text[$searchPos] === '~' && $text[$searchPos + 1] === '}') {
-                    $content = substr($text, $pos + 2, $searchPos - $pos - 2);
-                    $arrow = $this->topLevelSubstitutionArrow($content);
-                    if ($arrow !== null) {
-                        // Both halves are inline content, each a braced scope of its own.
-                        $node = new Substitution();
-                        $outer = $this->openSpanKinds;
-                        $this->openSpanKinds = [];
-                        try {
-                            $this->parseInlinesAt($node->getOld(), substr($content, 0, $arrow), $pos + 2);
-                            $this->parseInlinesAt($node->getNew(), substr($content, $arrow + 2), $pos + 2 + $arrow + 2);
-                        } finally {
-                            $this->openSpanKinds = $outer;
-                        }
-
-                        return ['node' => $node, 'pos' => $searchPos + 2];
-                    }
-
-                    break;
+        if ($marker === '~') {
+            $bounds = $this->substitutionBounds($text, $pos);
+            if ($bounds !== null) {
+                [$arrow, $close] = $bounds;
+                // Both halves are inline content, each a braced scope of its own.
+                $node = new Substitution();
+                $outer = $this->openSpanKinds;
+                $this->openSpanKinds = [];
+                try {
+                    $this->parseInlinesAt($node->getOld(), substr($text, $pos + 2, $arrow - $pos - 2), $pos + 2);
+                    $this->parseInlinesAt($node->getNew(), substr($text, $arrow + 2, $close - $arrow - 2), $arrow + 2);
+                } finally {
+                    $this->openSpanKinds = $outer;
                 }
-                $searchPos++;
+
+                return ['node' => $node, 'pos' => $close + 2];
             }
         }
 
@@ -4111,45 +4103,60 @@ class InlineParser
     }
 
     /**
-     * Offset of the `~>` that splits a substitution, or null where the pair
-     * holds none at its own level (markup-carve/carve#2083).
+     * Offsets of the top-level `~>` and `~}` of the substitution opened at
+     * $pos, or null where the pair is a forced strikethrough instead.
      *
-     * Verbatim content, a delimited comment and an editorial comment are skipped, and an escaped
-     * `~` is not an arrow, so a pair whose only `~>` sits in one of those is a
-     * forced strikethrough instead.
+     * Both searches are one scan (PART 9 section 22, markup-carve/carve#2083):
+     * an escape, a closed code span, a delimited comment and an editorial
+     * comment are skipped whole, so neither delimiter is read inside them. An
+     * unclosed backtick run reaches the next `~}`.
+     *
+     * @return array{0: int, 1: int}|null
      */
-    protected function topLevelSubstitutionArrow(string $content): ?int
+    protected function substitutionBounds(string $text, int $pos): ?array
     {
-        $length = strlen($content);
-        for ($at = 0; $at < $length; $at++) {
-            $char = $content[$at];
+        if (!$this->closerExistsFrom($text, '~}', $pos + 2)) {
+            return null;
+        }
+        $length = strlen($text);
+        $arrow = null;
+        for ($at = $pos + 2; $at < $length; $at++) {
+            $char = $text[$at];
             if ($char === '\\') {
                 $at++;
 
                 continue;
             }
             if ($char === '`') {
-                $end = $this->findCodeSpanEnd($content, $at);
-                // A run nothing closes reaches the end of the content, so no
-                // arrow behind it is top level.
+                $end = $this->findCodeSpanEnd($text, $at);
                 if ($end === null) {
-                    return null;
+                    $end = strpos($text, '~}', $at);
+                    if ($end === false || $arrow === null) {
+                        return null;
+                    }
+
+                    return [$arrow, $end];
                 }
                 $at = $end - 1;
 
                 continue;
             }
-            if ($char === '{' && in_array($content[$at + 1] ?? '', ['%', '#'], true)) {
-                $end = strpos($content, $content[$at + 1] . '}', $at + 2);
-                if ($end === false) {
-                    return null;
-                }
-                $at = $end + 1;
+            $next = $text[$at + 1] ?? '';
+            if ($char === '{' && ($next === '%' || $next === '#')) {
+                $end = strpos($text, $next . '}', $at + 2);
+                // An editorial comment needs content; `{##}` is not one.
+                if ($end !== false && ($next === '%' || $end > $at + 2)) {
+                    $at = $end + 1;
 
-                continue;
+                    continue;
+                }
             }
-            if ($char === '~' && ($content[$at + 1] ?? '') === '>') {
-                return $at;
+            if ($char === '~' && $next === '}') {
+                return $arrow === null ? null : [$arrow, $at];
+            }
+            if ($char === '~' && $next === '>' && $arrow === null) {
+                $arrow = $at;
+                $at++;
             }
         }
 
@@ -4168,15 +4175,12 @@ class InlineParser
      */
     protected function substitutionEnd(string $text, int $pos): ?int
     {
-        if (($text[$pos + 1] ?? '') !== '~' || !$this->closerExistsFrom($text, '~}', $pos + 2)) {
+        if (($text[$pos + 1] ?? '') !== '~') {
             return null;
         }
-        $close = strpos($text, '~}', $pos + 2);
-        if ($close === false) {
-            return null;
-        }
+        $bounds = $this->substitutionBounds($text, $pos);
 
-        return str_contains(substr($text, $pos + 2, $close - $pos - 2), '~>') ? $close + 2 : null;
+        return $bounds === null ? null : $bounds[1] + 2;
     }
 
     protected function bracedInlineEnd(string $text, int $pos): ?int
