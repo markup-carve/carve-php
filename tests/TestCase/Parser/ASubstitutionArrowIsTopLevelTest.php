@@ -51,6 +51,10 @@ class ASubstitutionArrowIsTopLevelTest extends TestCase
             'an arrow after a closed run' => ["{~`x`~>y~}\n", "<p><del><code>x</code></del><ins>y</ins></p>\n"],
             'an arrow after a comment' => ["{~a{% c %}~>b~}\n", "<p><del>a</del><ins>b</ins></p>\n"],
             'the first top-level arrow wins' => ["{~a~>b~>c~}\n", "<p><del>a</del><ins>b~&gt;c</ins></p>\n"],
+            // The closer search is the same scan (markup-carve/carve-php#2209).
+            'a closer inside a closed run' => ["{~a ```~}``` b~>c~} d\n", "<p><del>a <code>~}</code> b</del><ins>c</ins> d</p>\n"],
+            'a closer inside the second half\'s run' => ["{~a~>`~}` b~} c\n", "<p><del>a</del><ins><code>~}</code> b</ins> c</p>\n"],
+            'a closer inside an editorial comment' => ["{~a {#~}#} b~>c~}\n", "<p><del>a <span class=\"critic-comment\">~}</span> b</del><ins>c</ins></p>\n"],
         ];
     }
 
