@@ -6,6 +6,22 @@ namespace MarkupCarve\Carve\Converter;
 
 use Closure;
 use InvalidArgumentException;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\Image;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
+use MarkupCarve\Carve\Node\Inline\Strike;
+use MarkupCarve\Carve\Node\Inline\Strong;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 
 /**
@@ -99,7 +115,17 @@ class BbcodeToCarve
         $codeStash = [];
         $djot = $this->stashCodeContent($djot, $codeStash);
 
-        [$this->listBoundary] = DocumentSentinels::pick($djot, 1, self::BOUNDARY_KEY);
+        // The second one marks each link the link and image passes write, so the
+        // formatting pass can tell those from a link the post's own brackets
+        // formed once a tag beside them turned literal. It is stripped again
+        // before the formatting pass returns.
+        // Only a post with a link or image to convert needs the second one.
+        if (preg_match('/\[(?:url|email|img)\b/i', $djot) === 1) {
+            [$this->listBoundary, $this->writtenLink] = DocumentSentinels::pick($djot, 2, self::BOUNDARY_KEY);
+        } else {
+            [$this->listBoundary] = DocumentSentinels::pick($djot, 1, self::BOUNDARY_KEY);
+            $this->writtenLink = '';
+        }
 
         // Links and images first (before basic formatting escapes brackets)
         $djot = $this->convertLinks($djot);
@@ -363,9 +389,29 @@ class BbcodeToCarve
      */
     protected const MARK_DELIMS = ['b' => '*', 'i' => '/', 'u' => '_', 's' => '~'];
 
+    /**
+     * @var int
+     */
+    protected const REPAIR_ROUNDS = 16;
+
+    /**
+     * Block tags a later pass turns into structure; `sup` and `sub` become a
+     * braced span, which is just as closed to its neighbors.
+     *
+     * @var string
+     */
+    protected const LATER_BLOCK_TAGS = '/^(?:\*|quote|list|code|c|icode|sup|sub|center|left|right|youtube|table|tr|td|th|noparse)$/i';
+
+    protected ?CarveConverter $repairConverter = null;
+
+    protected string $writtenLink = '';
+
     protected function convertBasicFormatting(string $text): string
     {
-        $text = $this->writeMarks($this->flattenSameKind($this->parseMarks($text)), '', '');
+        $text = $this->repairUnwrittenConstructs($this->writeMarks($this->flattenSameKind($this->parseMarks($text)), '', ''));
+        if ($this->writtenLink !== '') {
+            $text = str_replace($this->writtenLink, '', $text);
+        }
 
         // Size [size=X]...[/size] - no direct equivalent, strip tags
         $text = preg_replace('/\[size=[^\]]*\](.*?)\[\/size\]/is', '$1', $text) ?? $text;
@@ -404,9 +450,10 @@ class BbcodeToCarve
                 $stack[] = $node;
             } elseif ($top->kind === $kind) {
                 array_pop($stack);
-            } else {
-                $top->children[] = $whole;
             }
+            // A close tag that matches no open one is dropped here rather than by
+            // cleanup(): left in, it would be the content of the tag around it,
+            // and that tag written as a pair around nothing once cleanup() took it.
         }
         $stack[count($stack) - 1]->children[] = substr($text, $from);
         foreach (array_slice($stack, 1) as $node) {
@@ -496,12 +543,16 @@ class BbcodeToCarve
      * @param array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark> $pieces
      * @param string $outerNext
      * @param string $prev
+     *
+     * @return array{text: string, marks: array<int, array{int, int}>} The text,
+     *   and each written pair as [start, end) of the whole mark, in bytes.
      */
-    protected function writeMarks(array $pieces, string $outerNext, string $prev): string
+    protected function writeMarks(array $pieces, string $outerNext, string $prev): array
     {
         // Chunks rather than one growing string, so escaping the byte before an
         // opener rewrites only the text chunk holding it.
-        $parts = [];
+        $texts = [];
+        $partMarks = [];
         $last = $prev;
         $textPart = -1;
         $escapeBrace = false;
@@ -514,24 +565,26 @@ class BbcodeToCarve
                 // A `{` before a bare opener and a `}` after its closer would read
                 // as the braced form, eating both braces; the writer escapes the `}`.
                 $chunk = $escapeBrace && str_starts_with($piece, '}') ? '\\' . $piece : $piece;
-                $parts[] = $chunk;
+                $texts[] = $chunk;
+                $partMarks[] = [];
                 $last = $chunk[strlen($chunk) - 1];
                 $escapeBrace = false;
-                $textPart = count($parts) - 1;
+                $textPart = count($texts) - 1;
 
                 continue;
             }
             $delim = self::MARK_DELIMS[$piece->kind];
             // The parent's own delimiters are not text: a child at its edge has
             // no neighbor there, which is how the writer spells `/_x_/`.
-            $body = $this->writeMarks($piece->children, '', '');
+            $inner = $this->writeMarks($piece->children, '', '');
+            $body = $inner['text'];
             if ($body === '') {
                 continue;
             }
             // The post's own text was escaped while the tags were still tags, so a
             // literal delimiter now touching an opener was never seen: escape it.
-            if ($textPart >= 0 && $textPart === count($parts) - 1 && str_contains('*/_~=', $last)) {
-                $chunk = $parts[$textPart];
+            if ($textPart >= 0 && $textPart === count($texts) - 1 && str_contains('*/_~=', $last)) {
+                $chunk = $texts[$textPart];
                 // Already escaped only behind an ODD run of backslashes.
                 $run = 0;
                 $at = strlen($chunk) - 2;
@@ -539,7 +592,7 @@ class BbcodeToCarve
                     $run++;
                 }
                 if ($run % 2 === 0) {
-                    $parts[$textPart] = substr($chunk, 0, -1) . '\\' . $last;
+                    $texts[$textPart] = substr($chunk, 0, -1) . '\\' . $last;
                 }
             }
             $before = $last;
@@ -548,17 +601,222 @@ class BbcodeToCarve
                 || preg_match('/^[A-Za-z0-9_]$/', $before) === 1
                 || $before === $delim
                 || ($before === '/' && ($delim === '/' || $delim === '_'))
+                // `#_x_` is a hashtag, `@_x_` a mention, `:_x_:` a symbol.
+                || ($delim === '_' && ($before === '#' || $before === '@' || $before === ':'))
                 || preg_match('/^[A-Za-z0-9_]$/', $next) === 1
                 || str_starts_with($body, $delim)
                 || str_ends_with($body, $delim)
                 || ($delim === '/' && str_starts_with($body, '*') && str_ends_with($body, '*'));
-            $chunk = $braced ? '{' . $delim . $body . $delim . '}' : $delim . $body . $delim;
-            $parts[] = $chunk;
+            $open = $braced ? '{' . $delim : $delim;
+            $close = $braced ? $delim . '}' : $delim;
+            $chunk = $open . $body . $close;
+            $marks = [[0, strlen($chunk)]];
+            foreach ($inner['marks'] as [$from, $to]) {
+                $marks[] = [strlen($open) + $from, strlen($open) + $to];
+            }
+            $texts[] = $chunk;
+            $partMarks[] = $marks;
             $last = $chunk[strlen($chunk) - 1];
             $escapeBrace = !$braced && $before === '{';
         }
+        $text = '';
+        $marks = [];
+        foreach ($texts as $k => $chunk) {
+            foreach ($partMarks[$k] as [$from, $to]) {
+                $marks[] = [strlen($text) + $from, strlen($text) + $to];
+            }
+            $text .= $chunk;
+        }
 
-        return implode('', $parts);
+        return ['text' => $text, 'marks' => $marks];
+    }
+
+    /**
+     * The post's text was escaped while the tags were still tags, so once they
+     * are delimiters a literal character can combine with them, or with text a
+     * dropped tag brought together, into a construct nobody wrote: `#[/i]x`
+     * reads as the hashtag `#x`, and `~}[s]x[/s]` as a strikethrough of `}`.
+     * Rather than predict every such construct, parse the result and escape the
+     * first character of each one that is not a written pair, until none is
+     * left. A written pair that closes early was closed by a literal delimiter
+     * inside it, and that delimiter is the one escaped.
+     *
+     * @param array{text: string, marks: array<int, array{int, int}>} $written
+     */
+    protected function repairUnwrittenConstructs(array $written): string
+    {
+        $text = $written['text'];
+        $marks = $written['marks'];
+        for ($round = 0; $round < self::REPAIR_ROUNDS; $round++) {
+            [$copy, $origin] = $this->asLaterPassesLeaveIt($text);
+            $bytes = $this->codepointBytes($copy);
+            $index = static fn (int $offset): int => $origin[$bytes[$offset] ?? strlen($copy)];
+            $pairs = [];
+            foreach ($marks as [$from, $to]) {
+                $pairs[$from] = $to;
+            }
+            $escapeAt = [];
+            $stack = $this->repairParser()->parse($copy)->getChildren();
+            while ($stack !== []) {
+                $node = array_pop($stack);
+                foreach ($node->getChildren() as $child) {
+                    $stack[] = $child;
+                }
+                $pos = $node->getPos();
+                if (!$node instanceof InlineNode || $pos === null) {
+                    continue;
+                }
+                $at = $index($pos->startOffset);
+                if ($node instanceof Strong || $node instanceof Emphasis || $node instanceof Underline || $node instanceof Strike) {
+                    if (!isset($pairs[$at])) {
+                        $escapeAt[$at] = true;
+                    } else {
+                        $end = $index($pos->endOffset - 1) + 1;
+                        if ($end < $pairs[$at]) {
+                            $escapeAt[$end - 1] = true;
+                        }
+                    }
+                } elseif ($this->isUnwritten($node)) {
+                    $escapeAt[$at] = true;
+                } elseif ($node instanceof Link || $node instanceof Image) {
+                    // The link and image passes mark what they write; any other
+                    // link was formed by the post's own brackets once a tag beside
+                    // them turned literal (`[x[b](y)`), or is a reference link,
+                    // which as an unresolved one shows its label raw.
+                    $mark = strlen($this->writtenLink);
+                    if ($mark === 0 || $at < $mark || substr($text, $at - $mark, $mark) !== $this->writtenLink) {
+                        $escapeAt[$node instanceof Image ? $at + 1 : $at] = true;
+                    }
+                }
+            }
+            if ($escapeAt === []) {
+                break;
+            }
+            $cuts = array_keys($escapeAt);
+            sort($cuts);
+            $out = '';
+            $copied = 0;
+            foreach ($cuts as $at) {
+                $out .= substr($text, $copied, $at - $copied) . '\\';
+                $copied = $at;
+            }
+            $text = $out . substr($text, $copied);
+            // Each offset moves by the number of escapes inserted before it.
+            $shift = static function (int $k) use ($cuts): int {
+                $lo = 0;
+                $hi = count($cuts);
+                while ($lo < $hi) {
+                    $mid = ($lo + $hi) >> 1;
+                    if ($cuts[$mid] < $k) {
+                        $lo = $mid + 1;
+                    } else {
+                        $hi = $mid;
+                    }
+                }
+
+                return $k + $lo;
+            };
+            $marks = array_map(static fn (array $mark): array => [$shift($mark[0]), $shift($mark[1])], $marks);
+        }
+
+        return $text;
+    }
+
+    /**
+     * Inline constructs bbcode has no way to ask for at this stage. Links,
+     * images and autolinks were converted before it, as inline links; a
+     * reference link or image came from the post's own brackets, and an
+     * unresolved one shows its label raw, backslashes and all.
+     */
+    protected function isUnwritten(Node $node): bool
+    {
+        // A mention or hashtag is a Link subclass here, and never written.
+        if ($node instanceof Mention) {
+            return true;
+        }
+        if ($node instanceof Link || $node instanceof Image) {
+            return false;
+        }
+
+        return !($node instanceof Text || $node instanceof RawText || $node instanceof EscapedText
+            || $node instanceof SoftBreak || $node instanceof HardBreak || $node instanceof SmartPunctuation);
+    }
+
+    /**
+     * The text as the later passes will leave it around inline content, so the
+     * repair parse sees the neighbors the reader will: a close tag or a valued
+     * open tag is deleted, which joins the text either side of it, and a block
+     * tag becomes structure, which separates it. A formatting tag left unclosed,
+     * or one this pass does not know, stays the literal text it is.
+     *
+     * @return array{string, array<int, int>} The copy, and for each of its bytes
+     *   (and one past its end) the byte in `$text` it came from.
+     */
+    protected function asLaterPassesLeaveIt(string $text): array
+    {
+        $copy = '';
+        $origin = [];
+        $from = 0;
+        preg_match_all('/\[(\/?)(\*|[a-z][a-z0-9]*)(=[^\]\n]*)?\]/i', $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        foreach ($matches as $match) {
+            [$whole, $at] = $match[0];
+            if ($at > 0 && $text[$at - 1] === '\\') {
+                continue;
+            }
+            $removed = $match[1][0] !== '' || (isset($match[3]) && $match[3][1] >= 0);
+            if (!$removed && preg_match(self::LATER_BLOCK_TAGS, $match[2][0]) !== 1) {
+                continue;
+            }
+            for ($k = $from; $k < $at; $k++) {
+                $origin[] = $k;
+            }
+            $copy .= substr($text, $from, $at - $from);
+            if (!$removed) {
+                $width = strlen($whole);
+                for ($k = 0; $k < $width; $k++) {
+                    $origin[] = $at + $k;
+                }
+                $copy .= str_repeat("\x01", $width);
+            }
+            $from = $at + strlen($whole);
+        }
+        $length = strlen($text);
+        for ($k = $from; $k < $length; $k++) {
+            $origin[] = $k;
+        }
+        $copy .= substr($text, $from);
+        $origin[] = strlen($text);
+
+        return [$copy, $origin];
+    }
+
+    /**
+     * Byte offset of each codepoint offset in `$text`, plus one past the end.
+     *
+     * @return array<int, int>
+     */
+    protected function codepointBytes(string $text): array
+    {
+        $bytes = [];
+        $length = strlen($text);
+        for ($k = 0; $k < $length; $k++) {
+            if ((ord($text[$k]) & 0xC0) !== 0x80) {
+                $bytes[] = $k;
+            }
+        }
+        $bytes[] = $length;
+
+        return $bytes;
+    }
+
+    protected function repairParser(): CarveConverter
+    {
+        if ($this->repairConverter === null) {
+            $this->repairConverter = new CarveConverter();
+            $this->repairConverter->getParser()->enablePositionTracking();
+        }
+
+        return $this->repairConverter;
     }
 
     protected function convertLinks(string $text): string
@@ -566,21 +824,21 @@ class BbcodeToCarve
         // [url=http://...]text[/url] -> [text](url)
         $text = preg_replace(
             '/\[url=([^\]]+)\](.*?)\[\/url\]/is',
-            '[$2]($1)',
+            $this->writtenLink . '[$2]($1)',
             $text,
         ) ?? $text;
 
         // [url]http://...[/url] -> <url> (autolink)
         $text = preg_replace(
             '/\[url\](.*?)\[\/url\]/is',
-            '<$1>',
+            $this->writtenLink . '<$1>',
             $text,
         ) ?? $text;
 
         // [email]...[/email] -> <mailto:...>
         $text = preg_replace(
             '/\[email\](.*?)\[\/email\]/is',
-            '<mailto:$1>',
+            $this->writtenLink . '<mailto:$1>',
             $text,
         ) ?? $text;
 
@@ -592,14 +850,14 @@ class BbcodeToCarve
         // [img]url[/img] -> ![](url)
         $text = preg_replace(
             '/\[img\](.*?)\[\/img\]/is',
-            '![]($1)',
+            $this->writtenLink . '![]($1)',
             $text,
         ) ?? $text;
 
         // [img=WxH]url[/img] -> ![](url)
         $text = preg_replace(
             '/\[img=[^\]]*\](.*?)\[\/img\]/is',
-            '![]($1)',
+            $this->writtenLink . '![]($1)',
             $text,
         ) ?? $text;
 
