@@ -3467,8 +3467,20 @@ class InlineParser
             }
         }
 
+        // A flushed run of plain text flanks as its own last character. The
+        // unclosed-link fallback appends `](` as a node of its own, so reading
+        // this state as word-adjacent hid the `(` that `isQuoteOpenContext`
+        // lists as an opener and closed the quote in `[t]("` (#2199).
+        if ($previous instanceof Text) {
+            $literal = $this->lastCharOf($previous->getContent());
+            if ($literal !== '') {
+                return $literal;
+            }
+        }
+
         // Any other flushed state with prior output is word-adjacent, i.e.
-        // closing context (carve-js treats this the same way).
+        // closing context: a link, a code span or an emphasis run ends on a
+        // construct, not on a character a quote can flank against.
         return $previous === null ? '' : 'x';
     }
 
