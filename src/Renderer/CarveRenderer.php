@@ -3401,13 +3401,13 @@ class CarveRenderer implements RendererInterface
             // Strong, and W4 escalated the whole document to conservative
             // (carve#374).
             $node instanceof EscapedText => '\\' . $node->getContent(),
-            $node instanceof Emphasis => $withAttrs($this->spellSameKind($node, '/', $this->renderEmphasis('/', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Emphasis => $withAttrs($this->spellSameKind($node, '/', $this->renderEmphasis('/', $this->renderMarked('emphasis', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
             $node instanceof Strong => $withAttrs($this->spellSameKind($node, '*', $this->renderStrongNode($node, $prevChar, $nextChar))),
-            $node instanceof Underline => $withAttrs($this->spellSameKind($node, '_', $this->renderEmphasis('_', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
-            $node instanceof Strike => $withAttrs($this->spellSameKind($node, '~', $this->renderEmphasis('~', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
-            $node instanceof Superscript => $withAttrs($this->spellSameKind($node, '^', $this->renderForcedEmphasis('^', $this->renderInlines($node->getChildren())))),
-            $node instanceof Subscript => $withAttrs($this->spellSameKind($node, ',', $this->renderForcedEmphasis(',', $this->renderInlines($node->getChildren())))),
-            $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Underline => $withAttrs($this->spellSameKind($node, '_', $this->renderEmphasis('_', $this->renderMarked('underline', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Strike => $withAttrs($this->spellSameKind($node, '~', $this->renderEmphasis('~', $this->renderMarked('strike', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
+            $node instanceof Superscript => $withAttrs($this->spellSameKind($node, '^', $this->renderForcedEmphasis('^', $this->renderMarked('superscript', $node)))),
+            $node instanceof Subscript => $withAttrs($this->spellSameKind($node, ',', $this->renderForcedEmphasis(',', $this->renderMarked('subscript', $node)))),
+            $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderMarked('highlight', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node)))),
             $node instanceof Code => $node->getContent() === '' && !self::emptyCodeSpanIsSpellable($node)
                 ? throw new SourceUnspellableException('code', 'an empty code span has no Carve source spelling where its open run does not end')
                 : $withAttrs($this->renderCode($node->getContent())),
@@ -3435,8 +3435,8 @@ class CarveRenderer implements RendererInterface
             // (PART 11 §7c) - see verseLineBreak().
             // A pipe cell is one line and has no hard break: one space (PART 11 §1b).
             $node instanceof HardBreak => $this->tableCellDepth === 0 ? "\\\n" : (isset($this->edgeCellBreaks[spl_object_id($node)]) ? '' : ' '),
-            $node instanceof Insert => $withAttrs($this->spellSameKind($node, '+', '{+' . $this->renderInlines($node->getChildren()) . '+}')),
-            $node instanceof Delete => $withAttrs($this->spellSameKind($node, '-', '{-' . $this->renderInlines($node->getChildren()) . '-}')),
+            $node instanceof Insert => $withAttrs($this->spellSameKind($node, '+', '{+' . $this->renderMarked('insert', $node) . '+}')),
+            $node instanceof Delete => $withAttrs($this->spellSameKind($node, '-', '{-' . $this->renderMarked('delete', $node) . '-}')),
             $node instanceof Substitution => '{~' . $this->renderInlines($node->getOld()->getChildren()) . '~>' . $this->renderInlines($node->getNew()->getChildren()) . '~}',
             $node instanceof HeadingRef => '</#' . $this->escapeCrossrefTarget($node->getTargetId()) . '>',
             $node instanceof CaptionNumber => '#',
@@ -3553,7 +3553,23 @@ class CarveRenderer implements RendererInterface
             }
         }
 
-        return $this->renderEmphasis('*', $this->renderInlines($node->getChildren()), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node));
+        return $this->renderEmphasis('*', $this->renderMarked('strong', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node));
+    }
+
+    /**
+     * An empty brace pair is not a construct, and `{--}` is the braced en dash
+     * (markup-carve/carve#1608), so an empty mark has no spelling.
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     */
+    protected function renderMarked(string $nodeType, Node $node): string
+    {
+        $content = $this->renderInlines($node->getChildren());
+        if ($content === '') {
+            throw new SourceUnspellableException($nodeType, "an empty {$nodeType} has no Carve source spelling");
+        }
+
+        return $content;
     }
 
     protected function renderLink(Link $node): string
@@ -3907,12 +3923,10 @@ class CarveRenderer implements RendererInterface
             || preg_match('/[A-Za-z0-9_]/', $nextChar) === 1
             || str_starts_with($content, $delimiter)
             || str_ends_with($content, $delimiter)
-            || str_starts_with($content, ' ')
-            || str_ends_with($content, ' ')
-            // A trailing hard break puts the closer at the start of the next
+            // Whitespace against a bare delimiter stops it opening or closing,
+            // and a trailing line break puts the closer at the start of the next
             // line, where only the braced closer closes.
-            || str_ends_with($content, "\n")
-            || $content === ''
+            || preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) === 1
             // `/*` opens `bold_italic` and `*/` closes it, so a bare emphasis
             // whose content has both would read back as a strong wrapping an
             // emphasis -- the other nesting (carve-php#2012).
