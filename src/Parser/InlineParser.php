@@ -3365,6 +3365,11 @@ class InlineParser
         // For braced syntax, we allow spaces inside (unlike bare delimiters)
         $searchPos = $pos + 2;
         while ($searchPos < $length - 1) {
+            if ($this->skipsEscapedBacktick($text, $searchPos)) {
+                $searchPos += 2;
+
+                continue;
+            }
             // A CLOSER INSIDE A CLOSED VERBATIM RUN IS CODE, not this span's
             // closer: the run is closed by an equal-length backtick run
             // anywhere later in the block (markup-carve/carve#2079).
@@ -4183,6 +4188,18 @@ class InlineParser
         return $bounds === null ? null : $bounds[1] + 2;
     }
 
+    /**
+     * Whether the closer scans step over a backslash pair here: an escaped
+     * backtick opens no verbatim run, so it must not send the scan past this
+     * span's closer, and an escaped backslash must not make the backtick after
+     * it look escaped. An escaped MARKER is left alone - `{_x\_}` closes on
+     * it, as in the other engines.
+     */
+    protected function skipsEscapedBacktick(string $text, int $at): bool
+    {
+        return $text[$at] === '\\' && in_array($text[$at + 1] ?? '', ['`', '\\'], true);
+    }
+
     protected function bracedInlineEnd(string $text, int $pos): ?int
     {
         $marker = $text[$pos + 1] ?? '';
@@ -4209,6 +4226,11 @@ class InlineParser
         $searchPos = $pos + 2;
         $length = strlen($text);
         while ($searchPos < $length - 1) {
+            if ($this->skipsEscapedBacktick($text, $searchPos)) {
+                $searchPos += 2;
+
+                continue;
+            }
             if ($text[$searchPos] === '`') {
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
