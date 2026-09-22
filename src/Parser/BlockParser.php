@@ -9188,7 +9188,7 @@ class BlockParser
                         (
                             $indent === 0
                             || (
-                                $bodyState['nestedColumn'] > 0
+                                ($bodyState['nestedColumn'] > 0 || $indent > 0)
                                 && !$this->lineOpensBlockForLooseness($trimmedCont, true, invisibleArms: false)
                             )
                         )
@@ -9212,7 +9212,10 @@ class BlockParser
                         // bare body gets this from the appending branch above,
                         // which refuses a body whose last entry opens a block,
                         // so this is where that body has to be answered
-                        // (carve-php#1875).
+                        // (carve-php#1875). A bare body folds a non-opener
+                        // between column 0 and its own column the same way, once
+                        // a line at the column has ended the appending branch's
+                        // reach (carve-php#2210).
                         //
                         // NO COLUMN BOUND IS SPELLED because none can fire: the
                         // push branch above takes every line at or past the
