@@ -1,0 +1,223 @@
+name: Guards
+
+# THE TWO LONGEST JOBS IN THIS REPOSITORY, NEITHER OF WHICH A REVIEW READS.
+# Measured over the 30 days to 2026-09-22, 135 pull-request runs, per-step
+# timings from run 35684958449:
+#
+#   | job              | the step that costs |        |
+#   | ---------------- | ------------------- | ------ |
+#   | Code Coverage    | test-coverage-parallel | 5m54s |
+#   | Scaling Guards   | test-scaling           | 3m36s |
+#   | PHP 8.5          | test-parallel          | 1m33s |
+#   | PHP 8.2          | test-parallel          | 1m27s |
+#   | Coding Standards | stan + cs-check        |   36s |
+#
+# CI averaged 6m37s of wall clock and coverage set it on every run, so a review
+# waited about five extra minutes for two numbers it does not act on: a coverage
+# delta, and wall-clock ratios over a 50000-repeat input. Neither is a merge
+# decision, and the second is the least trustworthy thing to measure on a shared
+# runner beside five other jobs.
+#
+# `composer install` is NOT what to optimize here and was checked before this
+# change: it is 4 to 5 seconds in every job, so caching the vendor tree would
+# buy nothing. The cost is test EXECUTION.
+#
+# Where they run now: every push to main, nightly at 04:15 UTC, and on demand.
+# The push trigger is what keeps them guards - a merge that slows the parser or
+# drops coverage goes red within one run, and the run names that merge, which a
+# pull-request check could not do for a branch that never lands. Codecov keeps
+# receiving main, so the project trend is unbroken; what stops is the per-pull-
+# request patch status.
+#
+# To measure a branch before it merges:
+#   gh workflow run guards.yml -R markup-carve/carve-php --ref <branch>
+# A performance or coverage pull request should do exactly that.
+#
+# `Code Coverage` and `Scaling Guards` were required status checks on `main`
+# until this file existed. Both were removed from that list in the same change:
+# a required check that no pull request can ever report is a branch nothing can
+# merge into.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 04:15 UTC, ahead of the 05:00 drift jobs elsewhere in the org.
+    - cron: '15 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guards-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+
+jobs:
+  scaling:
+    runs-on: ubuntu-latest
+    name: Scaling Guards
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      # Excluded from the default suite (see phpunit.xml.dist): they convert a
+      # 50000-repeat input several times per data set and measure wall clock, so
+      # they need a runner to themselves rather than a slot in the test matrix.
+      - name: Run scaling guards
+        run: composer test-scaling
+
+  coverage:
+    runs-on: ubuntu-latest
+    name: Code Coverage
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      # PHP 8.5 resolves PHPUnit 13, whose coverage files are a tenth the size
+      # of PHPUnit 12's. On 8.3 paratest's merge of them peaked at 14.9 GB on a
+      # 16 GB runner, and the runner killed the job with exit 143 (#2156).
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: pcov
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      # pcov collects per process and paratest merges the reports.
+      - name: Run tests with coverage
+        run: composer test-coverage-parallel
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # NEITHER JOB ABOVE GATES A PULL REQUEST ANY MORE, so their result has to
+  # reach a person by itself. Without this the change would buy five minutes of
+  # review time and spend it on two guards going red into an Actions tab nobody
+  # opens, which is how a check stops being one.
+  #
+  # Same shape as the verdict step in markup-carve/carve's ast-conformance
+  # workflow: ONE tracking issue, EDITED by each later red run and CLOSED by the
+  # first green one, matched on a body marker rather than on a title so a rename
+  # cannot fork it into two. The failing steps are read back from the run rather
+  # than listed here, so a step added later cannot fail invisibly.
+  verdict:
+    name: The verdict reaches a person
+    runs-on: ubuntu-latest
+    needs: [scaling, coverage]
+    if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+
+    steps:
+      - name: File the verdict where someone reads it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEAD_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          MARKER="<!-- guards-verdict ref=$REF_NAME -->"
+
+          # Read back which steps failed, rather than trusting the needs
+          # contexts: "one job failed" and "which measurement moved" are
+          # different facts, and only the second is actionable.
+          failed="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+            --jq '.jobs[] | select(.name != "The verdict reaches a person") | .steps[]
+                  | select(.conclusion == "failure") | "- `" + .name + "`"')"
+          bad_jobs="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+            --jq '.jobs[] | select(.name != "The verdict reaches a person")
+                  | select(.conclusion == "timed_out" or .conclusion == "cancelled")
+                  | "- `" + .name + "` (" + .conclusion + ")"')"
+          failed="${failed}${failed:+$'\n'}${bad_jobs}"
+
+          # Listed rather than searched: the search index lags a fresh issue by
+          # long enough to file a duplicate.
+          issue="$(gh api "repos/$REPO/issues?state=open&per_page=100" --paginate \
+            | jq -r --arg m "$MARKER" \
+                '.[] | select(.pull_request == null) | select((.body // "") | contains($m)) | .number' \
+            | head -n1)"
+
+          if [ -z "$failed" ]; then
+            echo "Both guards are green on $HEAD_SHA."
+            if [ -n "$issue" ]; then
+              gh issue comment "$issue" --repo "$REPO" --body \
+                "Green again: run $RUN_URL on \`$HEAD_SHA\`. Closing. The next red run files a fresh ticket rather than reopening this one, so a closed ticket always means the last run passed."
+              gh issue close "$issue" --repo "$REPO"
+              echo "Closed #$issue."
+            fi
+            echo "Guards green on \`$HEAD_SHA\`. Nothing filed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "$MARKER"
+            echo
+            echo "A guard is failing on \`$REF_NAME\`. These jobs do not run on pull"
+            echo "requests, so a branch can show a green CI run while this is red."
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| run | $RUN_URL |"
+            echo "| commit | \`$HEAD_SHA\` |"
+            echo "| trigger | \`$EVENT_NAME\` |"
+            echo
+            echo "### Failing steps"
+            echo
+            printf '%s\n' "$failed"
+            echo
+            echo "### Before acting on this"
+            echo
+            echo "\`Run scaling guards\` measures WALL CLOCK over a 50000-repeat input, so read"
+            echo "the reported ratio rather than an absolute time, and reproduce with"
+            echo "\`composer test-scaling\` on an idle machine before concluding the parser got"
+            echo "slower. A ratio near its threshold on one run is not yet a regression."
+            echo
+            echo "\`Run tests with coverage\` failing is usually not a coverage number at all:"
+            echo "paratest merging pcov reports has run a 16 GB runner out of memory before"
+            echo "(exit 143, #2156), which is why this leg is pinned to PHP 8.5."
+            echo
+            echo "To measure a candidate fix before it merges:"
+            echo "\`gh workflow run guards.yml -R $REPO --ref <branch>\`."
+            echo
+            echo "This ticket is filed and maintained by the workflow. It is EDITED by each"
+            echo "later red run and CLOSED by the first green one. Closing it by hand does"
+            echo "not silence it: the next red run files a new one."
+          } > /tmp/guards-verdict.md
+
+          if [ -n "$issue" ]; then
+            gh issue edit "$issue" --repo "$REPO" --body-file /tmp/guards-verdict.md
+            echo "Updated #$issue."
+          else
+            url="$(gh issue create --repo "$REPO" \
+              --title "A guard is failing on $REF_NAME" \
+              --label bug --label area:tooling \
+              --body-file /tmp/guards-verdict.md)"
+            echo "Filed $url."
+          fi
