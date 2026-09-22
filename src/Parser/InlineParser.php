@@ -3198,7 +3198,16 @@ class InlineParser
                 // The inner emphasis of a combined `/*...*/`: its source is the
                 // body between the delimiters, which the outer Strong wraps.
                 $this->placeAt($emphasis, $start, $searchPos);
-                $this->parseInlinesAt($emphasis, $content, $start);
+                // `/*` opens both delimiter kinds at once. E3 therefore keeps
+                // a further bare `*` or `/` literal inside the combined body;
+                // the other delimiter kinds remain available to nest.
+                $outer = $this->openSpanKinds;
+                $this->openSpanKinds = [...$outer, '/', '*'];
+                try {
+                    $this->parseInlinesAt($emphasis, $content, $start);
+                } finally {
+                    $this->openSpanKinds = $outer;
+                }
                 $strong = new Strong();
                 // Record that the author used the COMBINED form. The nested
                 // spelling yields the same Strong>Emphasis tree, so the writer
