@@ -10,26 +10,48 @@ use MarkupCarve\Carve\CarveConverter;
 /**
  * Shared measurement for the inline-scanner scaling guards.
  *
- * These guards exist to catch a reintroduced O(n^2) scan. They used to compare
- * two total wall-clock durations taken back to back and require the larger to
- * be under 3x the smaller. That is mis-calibrated rather than merely unlucky:
- * a healthy scan measures ~2x when the input doubles, so the threshold sat only
- * 1.5x above the expected value, and either sample could be taken while the
- * runner was busy. Observed CI failures of 3.32x and 4.39x were ordinary CPU
- * contention, not regressions.
+ * These guards exist to catch a reintroduced O(n^2) scan. They compare the cost
+ * PER INPUT BYTE of a small and a large sample of the same shape: a linear scan
+ * costs the same per byte at any size, and a quadratic one costs the size
+ * multiple more, so with a 4x multiple the reading separates 1x from 4x.
  *
- * Three changes make the assertion robust without weakening it:
+ * Three things had to change for that reading to be trustworthy. None of them
+ * moves the threshold: it is still 2.0, because a bound that does not flake is
+ * worth more than a loose one.
  *
- * - Compare cost PER INPUT BYTE, not total elapsed. "Linear" means the per-byte
- *   cost is constant as the input grows, so a healthy scan measures ~1 whatever
- *   the size multiple is, and a quadratic scan measures the size multiple
- *   itself. With a 4x multiple the threshold now sits midway between 1 and 4
- *   instead of between 2 and 4.
- * - INTERLEAVE the two sizes. Timing all the small runs and then all the large
- *   runs lets a runner that is busy for only part of the test skew one side of
- *   the ratio; alternating them means load drift hits both.
- * - Take the MEDIAN of several rounds. A mean is still dragged by one stall,
- *   and a minimum discards the information that the machine was loaded at all.
+ * THE TWO SAMPLES NOW DO THE SAME AMOUNT OF WORK. Timing one large conversion
+ * against one small one compares a long timer window with a short one, and the
+ * two are not equally exposed to a busy machine: the short window can fall
+ * entirely inside a quiet moment, the long one cannot. That asymmetry does not
+ * average out, it BIASES the ratio upward, and it defeats the usual defense of
+ * taking a best-of-N. Running the small input `multiple` times inside one timed
+ * window makes both windows the same length over the same byte count, so a
+ * stall is equally likely to land on either side.
+ *
+ * THE ESTIMATOR IS THE MINIMUM, NOT THE MEDIAN. Contention only ever makes a
+ * conversion slower, so each side's floor across a few rounds is the cleanest
+ * available estimate of its true cost, and it converges in very few samples. A
+ * median still carries whatever load was present for most of the run.
+ *
+ * Measured on one machine, 15 trials per estimator on the shape that flaked
+ * (`*[b]x[/b] ` through the BBCode formatting pass, markup-carve/carve-php#2232
+ * and #2235):
+ *
+ * - median of 5 over unequal work, the old calibration: 1.398 to 1.798.
+ * - minimum of 5 over unequal work: 1.568 to 1.985.
+ * - minimum of 3 over equal work, this one: 1.500 to 1.768.
+ *
+ * The middle row is why the equal-work part is not optional: a best-of-N on
+ * unequally sized windows reads HIGHER than the median it replaced, because it
+ * finds the small sample's floor far more easily than the large sample's.
+ *
+ * THE CYCLE COLLECTOR IS HELD OFF THE TIMER. See timeConvert(): this was the
+ * largest error of the three, and the only one that got worse the longer the
+ * suite ran.
+ *
+ * Set `CARVE_SCALING_REPORT=1` to print every shape's reading to stderr, pass
+ * or fail. A guard going red asks which shapes moved, and only a run that
+ * reports them all can answer that.
  */
 trait ScalingGuardTrait
 {
@@ -49,35 +71,46 @@ trait ScalingGuardTrait
     private const SCALE_LARGE_REPEATS = 50000;
 
     /**
-     * Rounds to sample. Interleaving with an alternating order cancels load
-     * drift -- a stall lands on both sizes, and neither size is systematically
-     * measured later -- and the median then discards a round that stalled
-     * unevenly. Five rounds (an odd count, so the median is a real sample)
-     * survived both suites running concurrently.
+     * Rounds to sample, per side. Three is enough BECAUSE the estimator is a
+     * minimum over equal-length windows: the floor is reached quickly, where a
+     * median needs enough samples for the loaded ones to be outnumbered.
      *
-     * Deliberately NOT reduced to buy runtime. These 49 data sets used to be
-     * most of the default suite's wall clock, but they now run as their own
-     * `scaling` group on a runner of their own, so what this count costs is off
-     * the critical path -- and a smaller sample is exactly what makes the ratio
-     * flaky on a loaded machine, which is the failure this calibration was
-     * chosen to end.
+     * Three rounds of equal work cost slightly less than five rounds of the old
+     * unequal work: the small side runs 4 conversions per round instead of 1,
+     * and two fewer rounds more than pay for it. `composer test-scaling` went
+     * from 250s to 195s over ten runs each. Raising this buys a little more
+     * spread reduction at a directly proportional cost.
      *
      * @var int
      */
-    private const SCALE_ROUNDS = 5;
+    private const SCALE_ROUNDS = 3;
 
     /**
-     * A healthy scan measures ~1.0 and the worst real shape measured 1.21; a
-     * quadratic scan measures ~4.0 (the size multiple). Sitting at 2.0 leaves
-     * roughly a 1.65x margin above the noisiest healthy shape and a 2x margin
-     * below a genuine regression.
+     * Bound on the per-byte ratio. UNCHANGED at 2.0 across this rework: the
+     * flakes came from the measurement, not from the threshold, and widening
+     * it would have bought quiet by giving up the half of the range where a
+     * real regression first shows.
+     *
+     * A quadratic scan reads ~4.0 here, and the deliberate one used to check
+     * that - the #2214 bracket skip taken back out of convertLists() and
+     * convertQuotes() - read 3.18 to 3.46 where the same four shapes read
+     * 0.57 to 0.65 healthy.
+     *
+     * The shapes are NOT all flat, and the bound does not pretend otherwise.
+     * Most measure ~1.0; the dearest, the BBCode formatting pass over
+     * `*[b]x[/b] `, measures about 1.6 because `repairUnwrittenConstructs()`
+     * re-parses the document per round - genuinely n^1.7 over a 64x sweep,
+     * filed as markup-carve/carve-php#2238. That is the true cost of the shape
+     * and not noise, which is why its CI readings of 2.03 and 2.02 were so
+     * hard to read: a measurement that lands within its own error of the bound
+     * says nothing either way.
      */
     private const SCALE_MAX_PER_BYTE_RATIO = 2.0;
 
     /**
-     * Catastrophic backstop per sample. The pre-fix O(n^2) scan took minutes at
-     * these sizes, so this still catches a full regression outright while
-     * leaving headroom for coverage-instrumented CI.
+     * Catastrophic backstop per conversion. The pre-fix O(n^2) scan took
+     * minutes at these sizes, so this still catches a full regression outright
+     * while leaving headroom for coverage-instrumented CI.
      */
     private const SCALE_MAX_SECONDS = 20.0;
 
@@ -157,99 +190,119 @@ trait ScalingGuardTrait
         $smallBytes = strlen($small);
         $largeBytes = strlen($large);
 
+        // How many small conversions make one timed window the same size as the
+        // large one's. Taken from BYTES rather than repeats so a shape whose
+        // unit is not one line still balances exactly.
+        $batch = max(1, (int)round($largeBytes / max($smallBytes, 1)));
+
         // Prime any per-instance caches so round 1 does not measure setup. The
         // small sample is the same shape as the large one, so it warms the same
         // caches; priming with the large sample as well bought nothing and cost
         // a full 50000-repeat convert per data set.
         $convert($small);
 
-        $smallPerByte = [];
-        $largePerByte = [];
-        $worstSmall = 0.0;
-        $worstLarge = 0.0;
+        $bestSmall = INF;
+        $bestLarge = INF;
 
         for ($round = 0; $round < self::SCALE_ROUNDS; $round++) {
-            // ALTERNATE which size is timed first. Interleaving alone still
-            // leaves an ordering bias: within a round the second sample is
-            // always taken later, so a load that ramps during the test pushes
-            // it up systematically. Swapping the order every round cancels
-            // that -- observed as a 2.59x reading for a shape that measures a
-            // flat 1.00-1.04x across a 16x range when run alone.
+            // ALTERNATE which side is timed first, so neither is systematically
+            // measured later than the other while load ramps during the test.
             if ($round % 2 === 0) {
-                $elapsedSmall = $this->timeConvert($convert, $small);
-                $elapsedLarge = $this->timeConvert($convert, $large);
+                $elapsedSmall = $this->timeConvert($convert, $small, $batch);
+                $elapsedLarge = $this->timeConvert($convert, $large, 1);
             } else {
-                $elapsedLarge = $this->timeConvert($convert, $large);
-                $elapsedSmall = $this->timeConvert($convert, $small);
+                $elapsedLarge = $this->timeConvert($convert, $large, 1);
+                $elapsedSmall = $this->timeConvert($convert, $small, $batch);
             }
 
-            $smallPerByte[] = $elapsedSmall / $smallBytes;
-            $largePerByte[] = $elapsedLarge / $largeBytes;
-
-            $worstSmall = max($worstSmall, $elapsedSmall);
-            $worstLarge = max($worstLarge, $elapsedLarge);
+            $bestSmall = min($bestSmall, $elapsedSmall / ($batch * $smallBytes));
+            $bestLarge = min($bestLarge, $elapsedLarge / $largeBytes);
         }
 
         $shape = $label;
 
         $this->assertLessThan(
             $maxSeconds,
-            $worstSmall,
-            sprintf('%dx %s took %.3fs (quadratic regression?)', $smallRepeats, $shape, $worstSmall),
+            $bestSmall * $smallBytes,
+            sprintf('%dx %s took %.3fs (quadratic regression?)', $smallRepeats, $shape, $bestSmall * $smallBytes),
         );
         $this->assertLessThan(
             $maxSeconds,
-            $worstLarge,
-            sprintf('%dx %s took %.3fs (quadratic regression?)', $largeRepeats, $shape, $worstLarge),
+            $bestLarge * $largeBytes,
+            sprintf('%dx %s took %.3fs (quadratic regression?)', $largeRepeats, $shape, $bestLarge * $largeBytes),
         );
 
-        $medianSmall = $this->median($smallPerByte);
-        $medianLarge = $this->median($largePerByte);
-
-        $ratio = $medianLarge / max($medianSmall, PHP_FLOAT_EPSILON);
+        $ratio = $bestLarge / max($bestSmall, PHP_FLOAT_EPSILON);
         $multiple = intdiv($largeRepeats, $smallRepeats);
+
+        if (getenv('CARVE_SCALING_REPORT') !== false) {
+            fprintf(
+                STDERR,
+                "\nSCALING %-56s ratio %.3f / %.2f  small %.4fus/B large %.4fus/B\n",
+                $shape,
+                $ratio,
+                self::SCALE_MAX_PER_BYTE_RATIO,
+                $bestSmall * 1e6,
+                $bestLarge * 1e6,
+            );
+        }
 
         $this->assertLessThan(
             self::SCALE_MAX_PER_BYTE_RATIO,
             $ratio,
             sprintf(
-                'Per-byte cost grew %.2fx for %s at %dx the input (linear ~1x, quadratic ~%dx): '
-                    . 'small=%.4fus/byte large=%.4fus/byte',
+                'Per-byte cost grew %.2fx for %s at %dx the input (bound %.2f, quadratic ~%dx): '
+                    . 'small=%.4fus/byte large=%.4fus/byte. This is wall clock over %d rounds: '
+                    . 'rerun with CARVE_SCALING_REPORT=1 to see every shape, and reproduce on an '
+                    . 'idle machine before concluding the parser got slower.',
                 $ratio,
                 $shape,
                 $multiple,
+                self::SCALE_MAX_PER_BYTE_RATIO,
                 $multiple,
-                $medianSmall * 1e6,
-                $medianLarge * 1e6,
+                $bestSmall * 1e6,
+                $bestLarge * 1e6,
+                self::SCALE_ROUNDS,
             ),
         );
     }
 
     /**
-     * One timed conversion, in seconds.
+     * One timed window, in seconds, over `$times` conversions of one input.
      *
      * @param \Closure $convert Runs the conversion under test on one input.
      * @param string $input Input to convert.
+     * @param int $times Conversions inside the window.
      *
      * @return float
      */
-    private function timeConvert(Closure $convert, string $input): float
+    private function timeConvert(Closure $convert, string $input, int $times): float
     {
+        // COLLECT OUTSIDE THE TIMER, so a cycle-collector pass over the whole
+        // suite's heap cannot land inside one side's window. PHP triggers a
+        // pass every 10000 buffered roots, so the larger sample triggers
+        // proportionally more of them, and each pass costs in proportion to
+        // everything ALIVE in the process - including the documents every
+        // earlier scaling test is still holding. That reads as the large
+        // sample being dearer per byte, which is precisely what this guard
+        // takes as evidence of a quadratic scan.
+        //
+        // Measured on `\_` through the Markdown renderer, whose true per-byte
+        // cost is flat (0.8788us/byte at 12500 repeats, 0.9013 at 50000, a
+        // ratio of 1.03): run alone it read 1.30-1.39, run in its place in the
+        // suite it read 1.62-1.97 against a 2.0 bound. The shape never changed;
+        // the heap around it did.
+        gc_collect_cycles();
+        gc_disable();
+
         $start = hrtime(true);
-        $convert($input);
+        for ($i = 0; $i < $times; $i++) {
+            $convert($input);
+        }
+        $elapsed = (hrtime(true) - $start) / 1e9;
 
-        return (hrtime(true) - $start) / 1e9;
-    }
+        gc_enable();
 
-    /**
-     * @param array<int, float> $values Non-empty sample list.
-     *
-     * @return float
-     */
-    private function median(array $values): float
-    {
-        sort($values);
-
-        return $values[intdiv(count($values), 2)];
+        return $elapsed;
     }
 }
