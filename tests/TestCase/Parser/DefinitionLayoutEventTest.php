@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\AbbreviationLayoutTracker;
-use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\DefinitionLayoutEvent;
 use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
 use PHPUnit\Framework\TestCase;
@@ -64,32 +64,16 @@ class DefinitionLayoutEventTest extends TestCase
         }
     }
 
-    public function testTheIsolatedFootnoteCollectorRetainsItsOpaqueFallback(): void
+    public function testAFootnoteDefinitionInsideAnOpaqueBlockRegistersNothing(): void
     {
-        $parser = new class extends BlockParser {
-            /**
-             * @param list<string> $lines
-             *
-             * @return array<string, \MarkupCarve\Carve\Node\FootnoteDefinition>
-             */
-            public function collectFootnotes(array $lines): array
-            {
-                $this->extractFootnotes($lines);
-
-                return $this->footnotes;
-            }
-        };
-
-        $this->assertSame(
-            [],
-            $parser->collectFootnotes([
-                '```',
-                '[^code]: hidden',
-                '```',
-                '%%% comment',
-                '[^comment]: hidden',
-                '%%%',
-            ]),
+        // The retired footnote pre-pass carried this as its own fallback
+        // (carve-php#2244 removed it). The structural walk owes the same
+        // answer: a definition shown inside a code fence or a fenced comment
+        // is sample text, not a definition.
+        $html = (new CarveConverter())->convert(
+            "```\n[^code]: hidden\n```\n\n%%% comment\n[^comment]: hidden\n%%%\n",
         );
+
+        $this->assertStringNotContainsString('doc-endnotes', $html);
     }
 }
