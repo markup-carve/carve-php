@@ -37,6 +37,12 @@ class BbcodeFormattingScaleTest extends TestCase
             'unclosed tags' => ['[b]', 10000],
             'escaped delimiters' => ['*[b]x[/b] ', 5000],
             'constructs the repair escapes' => ['#x [b]y[/b] =z= ', 3000],
+            // What a forum post is actually made of, and the only shape here
+            // that `writtenTextNeedsNoRepairParse()` declines: an unescaped
+            // comma or period disqualifies a post from the fast path, so
+            // without this shape no guard measures the repair parse at all
+            // (carve-php#2238).
+            'punctuated prose' => ['Hi, [b]x[/b]. ', 4000],
         ];
     }
 

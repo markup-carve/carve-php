@@ -213,15 +213,33 @@ final class SourceMap
             return $at;
         }
 
-        $run = substr($this->source, $lineStart, $column - 1);
-        $crossed = substr_count($run, "\n");
+        // COUNTED THROUGH THE DOCUMENT'S INDEX, not by re-reading the prefix.
+        // This runs once per resolved position, and the prefix it walks is the
+        // run from the line start to the position - which on a document that is
+        // one long line is the whole document so far, making the parse
+        // quadratic in the line's length (carve-php#2238).
+        [$crossed, $lastBreak] = $this->index !== null
+            ? $this->index->lineFeedsIn($lineStart, $offset)
+            : self::countLineFeeds($this->source, $lineStart, $offset);
         if ($crossed === 0) {
             return $at;
         }
 
-        $lastBreak = strrpos($run, "\n");
+        return [$offset, $line + $crossed, $offset - $lastBreak];
+    }
 
-        return [$offset, $line + $crossed, $column - 1 - (int)$lastBreak];
+    /**
+     * The same reading for a map given a source but no index, which
+     * {@see self::withSource()} allows.
+     *
+     * @return array{int, int}
+     */
+    private static function countLineFeeds(string $source, int $from, int $to): array
+    {
+        $run = substr($source, $from, $to - $from);
+        $crossed = substr_count($run, "\n");
+
+        return [$crossed, $crossed === 0 ? -1 : $from + (int)strrpos($run, "\n")];
     }
 
     /**

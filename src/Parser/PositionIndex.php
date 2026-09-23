@@ -32,6 +32,14 @@ final class PositionIndex
 
     private bool $ascii;
 
+    /**
+     * Byte offset of every line feed in the source, ascending. Built on first
+     * use, because most documents never ask.
+     *
+     * @var array<int, int>|null
+     */
+    private ?array $lineFeeds = null;
+
     public function __construct(private string $source)
     {
         // A pure-ASCII document needs no table at all: byte offset IS codepoint
@@ -70,6 +78,56 @@ final class PositionIndex
         $lastKey = array_key_last($this->codepoints);
 
         return $lastKey === null ? 0 : $this->codepoints[$lastKey];
+    }
+
+    /**
+     * How many line feeds sit in `[$from, $to)`, and where the last one is.
+     *
+     * Here rather than at the caller because the answer is a property of the
+     * DOCUMENT, and this is the one object per document that holds it. A caller
+     * that re-reads the source per node pays for the prefix it walks, which on
+     * a single-line document is the whole document - see SourceMap::resolve().
+     *
+     * @return array{int, int} The count, and the byte offset of the last line
+     *   feed in the range, or -1 when the range holds none.
+     */
+    public function lineFeedsIn(int $from, int $to): array
+    {
+        if ($this->lineFeeds === null) {
+            $this->lineFeeds = [];
+            $at = strpos($this->source, "\n");
+            while ($at !== false) {
+                $this->lineFeeds[] = $at;
+                $at = strpos($this->source, "\n", $at + 1);
+            }
+        }
+
+        $low = self::lowerBound($this->lineFeeds, $from);
+        $high = self::lowerBound($this->lineFeeds, $to);
+
+        return [$high - $low, $high > $low ? $this->lineFeeds[$high - 1] : -1];
+    }
+
+    /**
+     * The first index of `$offsets` holding a value at or above `$value`.
+     *
+     * @param array<int, int> $offsets
+     * @param int $value
+     */
+    private static function lowerBound(array $offsets, int $value): int
+    {
+        $low = 0;
+        $high = count($offsets);
+        while ($low < $high) {
+            $mid = ($low + $high) >> 1;
+            if ($offsets[$mid] < $value) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $low;
     }
 
     /**
