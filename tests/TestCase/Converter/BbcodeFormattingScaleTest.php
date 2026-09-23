@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * The formatting-tag pass is linear in the number of tags, including runs of
@@ -62,6 +64,26 @@ class BbcodeFormattingScaleTest extends TestCase
             $fragment,
             $smallRepeats,
             $largeRepeats,
+        );
+    }
+
+    public function testSafeWrittenSeamsDoNotNeedARepairParse(): void
+    {
+        $bbcode = new class extends BbcodeToCarve {
+            protected function repairParser(): CarveConverter
+            {
+                throw new RuntimeException('The safe seam reached the repair parser');
+            }
+
+            public function formatting(string $text): string
+            {
+                return $this->convertBasicFormatting($text);
+            }
+        };
+
+        $this->assertSame(
+            str_repeat('\\*{*x*} ', 100),
+            $bbcode->formatting(str_repeat('*[b]x[/b] ', 100)),
         );
     }
 }
