@@ -1988,6 +1988,7 @@ class MarkdownToCarve
         }
 
         $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
+        $line = $this->restoreNumericReferenceHashes($line);
 
         $stash = [];
         $hold = function (string $span) use (&$stash): string {

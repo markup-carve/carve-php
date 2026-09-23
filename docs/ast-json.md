@@ -223,7 +223,7 @@ at all.
 
 ## Upgrading a stored payload
 
-Five payload shapes this package used to read no longer decode. They predate
+Four payload shapes this package used to read no longer decode. They predate
 PART 12 §7, neither carve-js nor carve-rs ever accepted them, and normalizing
 them on every ingest meant reasoning about every future schema addition twice,
 once for each shape.
@@ -240,7 +240,6 @@ What each becomes:
 | a root `abbreviations` map, with `abbreviationsBeforeBody` | `abbreviation_def` block nodes, before the body or after it as the flag said |
 | a root `frontmatter` object | a leading `frontmatter` block node |
 | a root `footnoteDefs` map | trailing `footnote` block nodes, one per label |
-| a `footnote` node keyed `id` | the same node keyed `label` |
 | a `raw_text` node | the `text` node the encoder already published it as |
 | a `caption` node | the `paragraph` it holds inline content as |
 | a `section` node | the `div` it wraps blocks as |

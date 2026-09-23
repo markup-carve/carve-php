@@ -123,6 +123,8 @@ class CarveCorpusTest extends TestCase
         'an-attribute-block-reaches-the-nested-list-it-precedes',
         'an-attribute-line-after-a-continuation-marker-attributes-the-attached-block',
         'an-empty-brace-pair-is-not-a-construct',
+        'adjacent-strong-spans-use-html-only-where-their-delimiters-merge',
+        'empty-containers-share-one-html-body-shape',
         'an-escaped-hash-keeps-its-escape-at-a-container-s-content-position',
         'an-unclosed-bare-colon-fence-opens-a-div',
         'an-unclosed-inline-literal-reaches-the-end-of-its-block',

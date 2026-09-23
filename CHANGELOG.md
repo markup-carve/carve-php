@@ -8,6 +8,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ## [0.1.10] - 2026-09-25
+### Changed
+
+- **Empty block containers keep a blank HTML body line** (CARVE-P10-001). Divs, line blocks, local hard-break blocks and figure groups now use the same body shape as admonitions and block quotes.
+
+### Fixed
+
+- **The plain-text escaper freezes a hash after an ampersand**, so numeric-reference text cannot become a Carve tag.
+
+### Removed
+
+- **Stored-payload migration no longer accepts `footnote.id`.** A footnote definition uses `label`; `id` is rejected like any other unnamed AST property.
+
+## [0.1.10] - 2026-09-21
 
 ### Changed
 

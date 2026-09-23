@@ -144,7 +144,7 @@ class ConformanceBatchTest extends TestCase
         $html = $this->converter->convert("- ::: note\n  - para text\n:::\n");
 
         $this->assertStringContainsString('<aside class="admonition note" aria-label="Note">', $html);
-        $this->assertStringContainsString("<div>\n</div>", $html);
+        $this->assertStringContainsString("<div>\n\n</div>", $html);
     }
 
     /**

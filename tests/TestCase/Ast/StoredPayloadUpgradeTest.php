@@ -117,22 +117,6 @@ class StoredPayloadUpgradeTest extends TestCase
                     ],
                 ],
             ],
-            'a footnote definition keyed id' => [
-                [
-                    'type' => 'document',
-                    'srcByteLength' => 0,
-                    'children' => [
-                        ['type' => 'footnote', 'id' => 'stored', 'children' => [$paragraph('note')]],
-                    ],
-                ],
-                [
-                    'type' => 'document',
-                    'srcByteLength' => 0,
-                    'children' => [
-                        ['type' => 'footnote', 'label' => 'stored', 'children' => [$paragraph('note')]],
-                    ],
-                ],
-            ],
             'a raw_text node' => [
                 [
                     'type' => 'document',
@@ -181,10 +165,10 @@ class StoredPayloadUpgradeTest extends TestCase
                     'children' => [$paragraph('cap')],
                 ],
             ],
-            // All five in one payload, because each of the five used to be
+            // All four in one payload, because each used to be
             // handled by its own branch and nothing pinned them running
             // together.
-            'all five at once' => [
+            'all four at once' => [
                 [
                     'type' => 'document',
                     'srcByteLength' => 3,
@@ -196,7 +180,7 @@ class StoredPayloadUpgradeTest extends TestCase
                                 ['type' => 'footnote_ref', 'id' => 'r'],
                             ],
                         ],
-                        ['type' => 'footnote', 'id' => 'q', 'children' => [$paragraph('qq')]],
+                        ['type' => 'footnote', 'label' => 'q', 'children' => [$paragraph('qq')]],
                     ],
                     'frontmatter' => ['format' => 'json', 'content' => '{}'],
                     'footnoteDefs' => ['r' => [$paragraph('note')]],
@@ -593,17 +577,15 @@ class StoredPayloadUpgradeTest extends TestCase
         $this->assertSame(
             [
 
-                'type' => 'footnote',
-                'label' => 'r',
+                'type' => 'paragraph',
                 'children' => [
-                    ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => '[a][]']]],
+                    ['type' => 'text', 'value' => '[a][]'],
                 ],
             ],
             StoredPayloadUpgrade::upgrade([
-                'type' => 'footnote',
-                'id' => 'r',
+                'type' => 'paragraph',
                 'children' => [
-                    ['type' => 'paragraph', 'children' => [['type' => 'raw_text', 'content' => '[a][]']]],
+                    ['type' => 'raw_text', 'content' => '[a][]'],
                 ],
             ]),
         );
