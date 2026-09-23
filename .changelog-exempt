@@ -8,3 +8,5 @@
 #
 # Empty on purpose. The released 0.1.9 section passes over all 3 of its
 # shipped-source merges without one.
+
+2242: Drops the private $integratedDefinitionPass flag and the six branches on it. Every document has collected its definitions in the structural walk since markup-carve/carve#1895, so the flag selected nothing; output over all 1855 corpus documents and throughput are both unchanged, and no public or protected signature moves.
