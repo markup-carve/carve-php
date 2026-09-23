@@ -52,6 +52,7 @@ use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
+use WeakMap;
 
 /**
  * Block-level parser for Carve
@@ -372,9 +373,16 @@ class BlockParser
      * Caption slots consumed for a reference image whose definition had not
      * been seen yet, settled once resolution has run (carve-php#1851).
      *
-     * @var array<int, array{parent: \MarkupCarve\Carve\Node\Node, index: int, paragraph: \MarkupCarve\Carve\Node\Block\Paragraph, image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>}>
+     * Keyed WEAKLY by the paragraph holding the slot. The walk discards
+     * subtrees, and a strong reference kept every discarded one alive to the
+     * end of the parse - two thirds of the slots in a 321 KB document pointed
+     * at trees nothing else referenced (carve-php#2230). Settling walks the
+     * finished document instead of these references, so a slot in a discarded
+     * subtree is neither held nor patched.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, array{image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>}>|null
      */
-    private array $deferredImageCaptions = [];
+    private ?WeakMap $deferredImageCaptions = null;
 
     /**
      * A probe's scratch parser fails open instead of recursively probing.
@@ -1371,45 +1379,80 @@ class BlockParser
      * lines back as paragraph text, which is what they would have folded into
      * had the slot never been held.
      */
-    private function settleDeferredImageCaptions(): void
+    private function settleDeferredImageCaptions(Document $document): void
     {
-        foreach ($this->deferredImageCaptions as $deferred) {
-            $paragraph = $deferred['paragraph'];
-            $image = $deferred['image'];
+        if ($this->deferredImageCaptions === null || count($this->deferredImageCaptions) === 0) {
+            return;
+        }
 
-            if (UnresolvedReference::sourceOf($image) !== null) {
-                foreach ($deferred['rawLines'] as $rawLine) {
-                    $paragraph->appendChild(new SoftBreak());
-                    $paragraph->appendChild(new Text($rawLine));
-                }
+        $this->settleDeferredImageCaptionsIn($document);
+        $this->deferredImageCaptions = null;
+    }
+
+    /**
+     * Settle every held slot reachable from $parent.
+     *
+     * Reachability is the point: only a paragraph still in the finished
+     * document gets its slot settled, so a slot recorded in a subtree the walk
+     * later discarded resolves to nothing rather than to a patch nobody reads.
+     */
+    private function settleDeferredImageCaptionsIn(Node $parent, int $depth = 0): void
+    {
+        if ($this->deferredImageCaptions === null || $depth >= self::MAX_HEADING_WALK_DEPTH) {
+            return;
+        }
+
+        foreach ($parent->getChildren() as $child) {
+            $deferred = $this->deferredImageCaptions[$child] ?? null;
+            if ($deferred === null) {
+                $this->settleDeferredImageCaptionsIn($child, $depth + 1);
 
                 continue;
             }
 
-            $figure = new Figure();
-            foreach ($paragraph->getAttributes() as $key => $value) {
-                $figure->setAttribute($key, $value);
+            $this->settleDeferredImageCaption($parent, $child, $deferred);
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Node $paragraph
+     * @param array{image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>} $deferred
+     */
+    private function settleDeferredImageCaption(Node $parent, Node $paragraph, array $deferred): void
+    {
+        $image = $deferred['image'];
+
+        if (UnresolvedReference::sourceOf($image) !== null) {
+            foreach ($deferred['rawLines'] as $rawLine) {
+                $paragraph->appendChild(new SoftBreak());
+                $paragraph->appendChild(new Text($rawLine));
             }
 
-            $caption = new Caption();
-            $this->inlineParser->parse(
-                $caption,
-                $deferred['captionText'],
-                $deferred['start'],
-                true,
-                $this->captionSourceMap(
-                    $deferred['start'],
-                    array_values($deferred['captionLines']),
-                    $deferred['markerWidth'],
-                ),
-            );
-
-            $figure->appendChild($image);
-            $figure->appendChild($caption);
-            $deferred['parent']->replaceChild($deferred['index'], $figure);
+            return;
         }
 
-        $this->deferredImageCaptions = [];
+        $figure = new Figure();
+        foreach ($paragraph->getAttributes() as $key => $value) {
+            $figure->setAttribute($key, $value);
+        }
+
+        $caption = new Caption();
+        $this->inlineParser->parse(
+            $caption,
+            $deferred['captionText'],
+            $deferred['start'],
+            true,
+            $this->captionSourceMap(
+                $deferred['start'],
+                array_values($deferred['captionLines']),
+                $deferred['markerWidth'],
+            ),
+        );
+
+        $figure->appendChild($image);
+        $figure->appendChild($caption);
+        $parent->replaceChildNode($paragraph, $figure);
     }
 
     /**
@@ -1480,7 +1523,7 @@ class BlockParser
         foreach ($this->footnotes as $footnote) {
             $this->resolveForwardReferences($footnote);
         }
-        $this->settleDeferredImageCaptions();
+        $this->settleDeferredImageCaptions($document);
         $this->warnings = array_values(array_filter(
             $this->warnings,
             function (ParseWarning $warning): bool {
@@ -13268,10 +13311,8 @@ class BlockParser
                 // Hold the slot rather than binding it: whether this is a
                 // figure is not decided until every definition is known.
                 if (UnresolvedReference::sourceOf($image) !== null) {
-                    $this->deferredImageCaptions[] = [
-                        'parent' => $parent,
-                        'index' => count($children) - 1,
-                        'paragraph' => $lastChild,
+                    $this->deferredImageCaptions ??= new WeakMap();
+                    $this->deferredImageCaptions[$lastChild] = [
                         'image' => $image,
                         'captionText' => $captionText,
                         'captionLines' => $captionLines,
