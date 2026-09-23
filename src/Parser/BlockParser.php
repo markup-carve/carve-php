@@ -362,8 +362,6 @@ class BlockParser
      */
     private array $discoveredAbbreviationLines = [];
 
-    private bool $integratedDefinitionPass = false;
-
     /**
      * Remaining source bytes available to the parser-backed definition probe.
      */
@@ -1077,17 +1075,13 @@ class BlockParser
             $this->extractHeadingReferences($lines);
         }
 
-        if ($this->integratedDefinitionPass) {
-            $this->discoveringDefinitions = true;
-        }
+        $this->discoveringDefinitions = true;
 
-        // Mixed-definition documents collect definitions in this authoritative
-        // structural walk; forward inline references are resolved afterwards.
+        // Definitions are collected by this authoritative structural walk, and
+        // forward inline references are resolved afterwards.
         $this->parseBlocks($document, $lines, 0, topLevel: true);
-        if ($this->integratedDefinitionPass) {
-            $this->discoveringDefinitions = false;
-            $this->finishIntegratedDefinitionPass($document, $lines);
-        }
+        $this->discoveringDefinitions = false;
+        $this->finishIntegratedDefinitionPass($document, $lines);
 
         // Third pass, and ONLY when the document needs it: an implicit
         // `[Heading][]` reference that found no definition.
@@ -1333,41 +1327,24 @@ class BlockParser
     }
 
     /**
-     * Run only definition prepasses whose opening bytes occur in the source.
+     * Reset the layout collection the definition extractor reads.
      *
-     * These are deliberately broad byte gates, not recognizers: the real
-     * collectors still decide whether a candidate is escaped, nested, fenced,
-     * or malformed. A missing marker, however, proves that collector cannot
-     * produce anything and avoids a complete document scan.
+     * EVERY DOCUMENT COLLECTS ITS DEFINITIONS IN THE STRUCTURAL WALK
+     * (markup-carve/carve#1895, carve-php#2241). The specialized collectors
+     * this used to gate cannot see whether a paragraph is open, so they asked
+     * by reparsing the run once per candidate - quadratic work against a
+     * budget that grows linearly with the source. It ran out after nine
+     * marker-led definitions and then, conforming to PART 9R R1a's fallback,
+     * collected nothing. The structural walk never asks, because a definition
+     * line only reaches it when no paragraph is open.
      *
      * @param array<string> $lines
      * @param string $input
      */
     protected function extractDefinitions(array $lines, string $input): void
     {
-        $hasReferences = str_contains($input, ']:');
-        $hasFootnotes = str_contains($input, '[^');
-        $hasAbbreviations = str_contains($input, '*[');
         $this->collectAbbreviationLayout = false;
         $this->collectDefinitionLayout = false;
-        $kinds = (int)$hasReferences + (int)$hasFootnotes + (int)$hasAbbreviations;
-        if ($kinds === 0) {
-            return;
-        }
-        // ONE KIND TAKES THE STRUCTURAL PATH TOO (markup-carve/carve#1895).
-        // The specialized collectors cannot see whether a paragraph is open, so
-        // they ask by reparsing the run once per candidate - quadratic work
-        // against a budget that grows linearly with the source. It ran out
-        // after nine marker-led definitions and then, conforming to PART 9R
-        // R1a's fallback, collected nothing: a list of ten link definitions
-        // stopped resolving, and ten is an ordinary document.
-        //
-        // The structural walk never asks, because a definition line only
-        // reaches it when no paragraph is open. This was kept as a cost
-        // optimization and is the opposite of one on that shape: 800 marker-led
-        // definitions take 39ms through this path against 706ms through the
-        // probe, which spends the time reparsing and then declines to answer.
-        $this->integratedDefinitionPass = true;
     }
 
     /**
@@ -1543,7 +1520,6 @@ class BlockParser
                 return true;
             },
         ));
-        $this->integratedDefinitionPass = false;
     }
 
     private function resolveForwardReferences(Node $node, int $depth = 0): void
@@ -2700,7 +2676,6 @@ class BlockParser
         $this->abbreviationSpans = [];
         $this->discoveredFootnoteBodies = [];
         $this->discoveredAbbreviationLines = [];
-        $this->integratedDefinitionPass = false;
         $this->discoveringDefinitions = false;
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
@@ -12954,22 +12929,18 @@ class BlockParser
         // promotion does keeps the two answers from disagreeing: a paragraph
         // the caption cannot attach to must not be split by it.
         if ($children[0] instanceof Image) {
-            // ON THE INTEGRATED PATH THE ANSWER IS NOT KNOWN YET
-            // (carve-php#1851). Definitions are collected during this same
-            // walk, so a reference defined BELOW the image is still unresolved
-            // here and this gate would fold the caption line into the
-            // paragraph - a decision nothing later can take back, because the
-            // line stops being a separate line at all.
+            // THE ANSWER IS NOT KNOWN YET (carve-php#1851). Definitions are
+            // collected during this same walk, so a reference defined BELOW
+            // the image is still unresolved here, and answering no would fold
+            // the caption line into the paragraph - a decision nothing later
+            // can take back, because the line stops being a separate line at
+            // all.
             //
             // A lone image paragraph is therefore captionable either way, and
             // the caption becomes the UNBOUND SLOT that PART 9R R7 describes.
             // settleDeferredImageCaptions() binds it where the reference
             // resolved and hands every source line back where it did not.
-            if ($this->integratedDefinitionPass) {
-                return true;
-            }
-
-            return UnresolvedReference::sourceOf($children[0]) === null;
+            return true;
         }
 
         return $children[0] instanceof Math && self::isCaptionableDisplayMath($children[0]);
@@ -13358,18 +13329,15 @@ class BlockParser
             if (
                 count($paragraphChildren) === 1
                 && $paragraphChildren[0] instanceof Image
+            ) {
                 // An UNRESOLVED reference image is not an image: `[nope]`
                 // resolves to nothing, so every writer emits the author's
                 // source text and there is no rendered image for a caption to
-                // attach to. Promoting it built a `<figure>` around literal
+                // attach to. Promoting it builds a `<figure>` around literal
                 // text, which carve-js and carve-rs both decline
                 // (carve-php#751). PART 12 §3a keeps the node with `ref` and
-                // `rawRef` precisely so it can be recognized here.
-                && (
-                    UnresolvedReference::sourceOf($paragraphChildren[0]) === null
-                    || $this->integratedDefinitionPass
-                )
-            ) {
+                // `rawRef` precisely so it can be recognized below, where the
+                // slot is held until resolution settles the question.
                 $image = $paragraphChildren[0];
 
                 // Hold the slot rather than binding it: whether this is a
@@ -15650,15 +15618,12 @@ class BlockParser
 
         $document = new Document();
         $this->extractDefinitions($lines, $this->normalizedSource);
-        // ARMED THE SAME WAY parse() ARMS IT. `extractDefinitions()` only sets
-        // the flag; the definitions themselves are collected by the structural
-        // walk below, and only while discovery is on. The first pass turns it
-        // OFF before finishing, so without this the second walk collected no
-        // definitions at all and every reference in the rebuilt tree was
-        // unresolvable (carve-php#1937).
-        if ($this->integratedDefinitionPass) {
-            $this->discoveringDefinitions = true;
-        }
+        // ARMED THE SAME WAY parse() ARMS IT. The definitions are collected by
+        // the structural walk below, and only while discovery is on. The first
+        // pass turns it OFF before finishing, so without this the second walk
+        // collected no definitions at all and every reference in the rebuilt
+        // tree was unresolvable (carve-php#1937).
+        $this->discoveringDefinitions = true;
         $this->extractHeadingReferences($lines);
         $this->seedHeadingReferences($headingReferences);
         $this->parseBlocks($document, $lines, 0, topLevel: true);
@@ -15674,14 +15639,11 @@ class BlockParser
         // (carve-php#1937).
         //
         // Calling the whole finish rather than the forward-reference walk
-        // alone is deliberate: `extractDefinitions()` above re-arms the
-        // integrated pass, and the work it defers - footnote bodies discovered
-        // mid-walk, caption slots, the collected definitions themselves - has
-        // to land before anything can be resolved against it.
-        if ($this->integratedDefinitionPass) {
-            $this->discoveringDefinitions = false;
-            $this->finishIntegratedDefinitionPass($document, $lines);
-        }
+        // alone is deliberate: the work the walk defers - footnote bodies
+        // discovered mid-walk, caption slots, the collected definitions
+        // themselves - has to land before anything can be resolved against it.
+        $this->discoveringDefinitions = false;
+        $this->finishIntegratedDefinitionPass($document, $lines);
         $document->setSourceLength($sourceLength);
 
         return $document;
