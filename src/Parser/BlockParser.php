@@ -423,6 +423,23 @@ class BlockParser
     protected bool $sawUnresolvedCollapsedReference = false;
 
     /**
+     * Folded labels of the references that found no definition, in the key
+     * space the heading index uses.
+     *
+     * A heading can only rescue a reference that NAMES it, so this is what the
+     * second pass is filtered by (carve-php#2245).
+     *
+     * @var array<string, true>
+     */
+    protected array $unresolvedReferenceLabels = [];
+
+    /**
+     * An unresolved reference arrived without its label, so which headings
+     * could rescue it is unknown and every one of them has to be tried.
+     */
+    protected bool $unresolvedReferenceLabelUnknown = false;
+
+    /**
      * @var array<string, \MarkupCarve\Carve\Node\Block\Footnote>
      */
     protected array $footnotes = [];
@@ -1113,10 +1130,18 @@ class BlockParser
             foreach (array_keys($this->references) as $label) {
                 $definedFolded[mb_strtolower((string)$label, 'UTF-8')] = true;
             }
+            // AND ONLY FOR HEADINGS THAT COULD RESCUE A FAILED REFERENCE
+            // (carve-php#2245). The flag above fires for any reference that
+            // found no definition, which includes the ordinary case of a
+            // definition written below its use. Filtering on headings alone
+            // then reparsed the whole document because it contained a heading
+            // - any heading, related to the failed label or not.
             $headingReferences = array_filter(
                 $headingReferences,
                 fn (string $folded): bool => !isset($this->headingReferencesByFoldedLabel[$folded])
-                    && !isset($definedFolded[$folded]),
+                    && !isset($definedFolded[$folded])
+                    && ($this->unresolvedReferenceLabelUnknown
+                        || isset($this->unresolvedReferenceLabels[$folded])),
                 ARRAY_FILTER_USE_KEY,
             );
             if ($headingReferences !== []) {
@@ -2677,6 +2702,8 @@ class BlockParser
         $this->discoveredFootnoteBodies = [];
         $this->discoveredAbbreviationLines = [];
         $this->discoveringDefinitions = false;
+        $this->unresolvedReferenceLabels = [];
+        $this->unresolvedReferenceLabelUnknown = false;
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
         $this->warnings = [];
@@ -15615,6 +15642,8 @@ class BlockParser
         $this->headingIds = [];
         $this->lineOffset = 0;
         $this->sawUnresolvedCollapsedReference = false;
+        $this->unresolvedReferenceLabels = [];
+        $this->unresolvedReferenceLabelUnknown = false;
 
         $document = new Document();
         $this->extractDefinitions($lines, $this->normalizedSource);
@@ -15734,9 +15763,19 @@ class BlockParser
      * The second pass only runs when this fired, so a document whose
      * references all resolved parses exactly once.
      */
-    public function markCollapsedReferenceUnresolved(): void
+    public function markCollapsedReferenceUnresolved(string $label = ''): void
     {
         $this->sawUnresolvedCollapsedReference = true;
+        if ($label === '') {
+            // An inline parser outside this package may not pass one.
+            $this->unresolvedReferenceLabelUnknown = true;
+
+            return;
+        }
+
+        $this->unresolvedReferenceLabels[$this->foldReferenceLabel(
+            trim((string)preg_replace('/\s+/', ' ', $label)),
+        )] = true;
     }
 
     /**
