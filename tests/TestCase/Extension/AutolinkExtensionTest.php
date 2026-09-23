@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\AutolinkExtension;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class AutolinkExtensionTest extends TestCase
@@ -155,5 +156,64 @@ class AutolinkExtensionTest extends TestCase
         $html = $converter->convert('Visit https://example.com');
 
         $this->assertStringContainsString('href="https://example.com"', $html);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function escapedUrlProvider(): array
+    {
+        return [
+            'escaped hyphens' => ['See http://e.com/a\-\-b now.', 'http://e.com/a--b'],
+            'an escaped underscore' => ['See http://e.com/a\_b\_c now.', 'http://e.com/a_b_c'],
+            'an escaped asterisk' => ['See http://e.com/a\*b\* now.', 'http://e.com/a*b*'],
+        ];
+    }
+
+    #[DataProvider('escapedUrlProvider')]
+    public function testDecodesBackslashEscapes(string $source, string $url): void
+    {
+        $this->assertSame("<p>See <a href=\"{$url}\">{$url}</a> now.</p>\n", $this->autolinked($source));
+    }
+
+    public function testEscapedTrailingPeriodStaysOutsideTheLink(): void
+    {
+        $this->assertSame(
+            "<p>See <a href=\"http://e.com/a\">http://e.com/a</a>.</p>\n",
+            $this->autolinked('See http://e.com/a\.'),
+        );
+    }
+
+    public function testLoneBackslashIsKept(): void
+    {
+        $this->assertSame(
+            "<p>See <a href=\"http://e.com/a\\b\">http://e.com/a\\b</a> now.</p>\n",
+            $this->autolinked('See http://e.com/a\b now.'),
+        );
+    }
+
+    public function testLinkedTextMatchesCoreRendering(): void
+    {
+        $source = 'See http://e.com/a\-\-b\_c now.';
+        $linked = (string)preg_replace('/<a href="[^"]*">([^<]*)<\/a>/', '$1', $this->autolinked($source));
+
+        $this->assertSame((new CarveConverter())->convert($source), $linked);
+    }
+
+    public function testLinksALongEscapedUrl(): void
+    {
+        $path = str_repeat('a', 20000) . str_repeat('\-', 3000) . str_repeat('a.', 20000) . 'a';
+        $html = $this->autolinked('See http://e.com/' . $path . '\. now.');
+
+        $url = 'http://e.com/' . str_replace('\-', '-', $path);
+        $this->assertStringContainsString('<a href="' . $url . '">' . $url . '</a>. now.', $html);
+    }
+
+    protected function autolinked(string $source): string
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new AutolinkExtension());
+
+        return $converter->convert($source);
     }
 }

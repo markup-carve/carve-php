@@ -47,14 +47,20 @@ class AutolinkExtension implements ExtensionInterface
         // Build pattern for allowed schemes
         $schemes = implode('|', array_map('preg_quote', $this->allowedSchemes));
 
-        // Pattern for URLs - matches scheme:// followed by non-whitespace, non-special chars
-        // Handles trailing punctuation gracefully
-        $pattern = '/(' . $schemes . '):\/\/[^\s<>\[\]()]*[^\s<>\[\]().,;:!?\'"]/';
+        // A backslash escape is one unit of the URL, so the match never ends
+        // inside one, and a run of sentence marks (escaped or not) belongs to the
+        // URL only when more of it follows. Every repeat is possessive, so the
+        // match stays linear and needs no backtracking stack.
+        $punct = '[!-\/:-@\[-`{-~]';
+        $sentence = '[.,;:!?\'"]';
+        $unit = '(?:[^\\\\\s<>\[\]().,;:!?\'"]++|\\\\(?!' . $sentence . ')' . $punct . '|\\\\(?!' . $punct . '))';
+        $pattern = '/(' . $schemes . '):\/\/(?:' . $unit . '|(?:' . $sentence . '|\\\\' . $sentence . ')++(?=' . $unit . '))++/';
+        $escape = '/\\\\(' . $punct . ')/';
 
         $inlineParser->addInlinePattern(
             $pattern,
-            function (string $match, array $_groups): Link {
-                $url = $match;
+            function (string $match, array $_groups) use ($escape): Link {
+                $url = (string)preg_replace($escape, '$1', $match);
 
                 $link = new Link($url);
                 $link->appendChild(new Text($url));
