@@ -9,9 +9,33 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.10] - 2026-09-21
 
+### Changed
+
+- **A bold-italic strong is written nested when its content cannot hug `/*`** (#2204). Empty content, or content that starts or ends in a space, tab, CR or LF, takes the spelling an unflagged tree gets, instead of a combined form that read back as an emphasis holding literal stars.
+- **A whitespace-edged mark is written braced, and an empty one is refused** (#2207). Only a space was checked before, so a tab or a leading line break left a bare delimiter that read back as text, and an empty emphasis-family mark now throws `SourceUnspellableException` rather than writing an empty brace pair. The HTML importer reads an empty mark carrying attributes as an empty span with them, so `<em id="t"></em>` becomes `[]{#t}`.
+- **A span holding a line comment on the closer's own line is written braced** (#2208). The bare spelling cannot read back, because nothing stands between the comment and the end of the line; a comment on a line of its own, as a line block writes one, still takes the bare form.
+- **The BBCode importer spells formatting tags the way the Carve writer would** (#2213). The four formatting tags are parsed into a tree and written from it, so an empty tag is dropped, a tag inside its own kind adds nothing, and a bare pair the CARVE-P3-013 guards would not read back takes the braced form. For the same 26 test posts the output is byte for byte what carve-js writes.
+- **The BBCode importer escapes what a post's own text forms beside converted tags** (#2225). The formatting pass re-reads its own output and escapes the first character of every inline construct it did not write, a link it did not write is escaped, a stray close tag is dropped, and a character reference is kept as its text.
+
 ### Fixed
 
 - **A node pulled in by a sliced include keeps its own file's coordinates** (#2187). A child included with `@lines:N-M` reported positions measured inside the slice under the whole file's id; `docs/includes.md` requires the file's own lines and offsets, which it now reports, CRLF and multibyte sources included.
+- **A definition's destination is read as `link_destination`** (#2192). A parenthesis reaches the destination only through a balanced pair or an escape, so `[a]: a(b` and `[a]: a)b` are paragraphs rather than definitions, and the writer re-escapes what the reader resolved, so one `fmt` pass no longer loses the definition and every link resolving it.
+- **A link or image title may contain a closing parenthesis** (#2193). A quoted run is opaque to the scan that looks for the tail's closer, in both quote forms and for images, so `[t](/u "T)")` builds the construct instead of staying literal text.
+- **A parenthesized link or image title is rejected** (#2195). The grammar has a double-quoted spelling and a single-quoted one and no parenthesized form, so `[t](/u (T))` is prose, as the executable reference, carve-js and carve-rs all read it.
+- **Combined span delimiters stay literal** (#2198). The `/*...*/` opener opens both the bold and the italic delimiter kind, so a bare `*` or `/` pair inside its body no longer forms a run of its own.
+- **A flushed run of text flanks a quote as its own last character** (#2200). The unclosed-link fallback appends `](` as a node of its own, which left the character before a straight quote unread, so `[t]("()` curled the quote the wrong way.
+- **A substitution's closer comes from the scan that finds its arrow** (#2215). One scan now steps over an escape, a closed code span, a delimited comment and an editorial comment for both delimiters, so a `~}` inside a code span no longer ends the pair and drops it to a forced strikethrough.
+- **A line below a description body's column folds into its open paragraph** (#2217). The fold reached only column 0, or a body that had opened a container of its own, so a non-opener at column 1 ended the description; an opener below the column still ends the body.
+- **An empty term marker with trailing whitespace reads as the bare marker** (#2219). `:: ` matched the prefix that ends a body but not the pattern that opens a term, so the line left the list as a paragraph; it now reads exactly as `::` does, per CARVE-P2-025 and CARVE-P2-017.
+- **The BBCode list and quote passes copy text up to the next bracket** (#2220). Both walked the input a byte at a time and tried two anchored tag patterns at every byte, which is superlinear on the bracket-free text the formatting pass hands them. Output is unchanged, and a scaling guard now pins the per-byte cost.
+- **A braced span's closer scan steps over an escaped backtick** (#2223). An escaped backtick no longer pairs with a later real one and hides the closer, while an escaped marker is still left alone, since `{_x\_}` closes on it in all three engines.
+- **A fence in a list item is read one way when its closer lies past a below-column line** (#2229). The item used to end at the below-column line as though a code block were open while the fence itself rendered as paragraph text; the interruption decision now holds when that line ends the container.
+- **A fence closer counts only when it is written at the opener's container column** (#2229). A flush-left run, or one a column short, is searched past and never matched (CARVE-P0-014), so a fence with no closer inside the container opens nothing and the lines fold into the item's paragraph as text.
+- **A colon run at the content column opens after a marker-line opener was demoted to text** (#2229). A `:::` on an item's marker line whose body arrives by lazy folding is text, and the closer-shaped line is then read on its own, interrupting the paragraph and opening an empty div that closes with the item.
+- **A line comment consumes a bare emphasis closer through the end of the line** (#2229). A bare delimiter is not a boundary the structure supplies, so `*a %% b* y` produces `*a` and nothing after it, which is what CARVE-P9-041 requires.
+- **A caption numbers only a bare `#`** (#2229). `#1`, `#_` and `#-a` begin tag names and are left alone, while a `#` glued to the word before it is numbered where no tag name follows.
+- **A line comment ends at the combined bold-italic token's closer** (#2208). The closer scan gave up on the token when it met a comment opener, so `/*a %% b*/ y` came back as the literal `/*a`; it now steps over the comment's span, bounded by its line break or the token's closer, whichever comes first.
 
 ## [0.1.9] - 2026-09-19
 
