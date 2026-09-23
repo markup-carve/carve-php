@@ -647,6 +647,9 @@ class BbcodeToCarve
     {
         $text = $written['text'];
         $marks = $written['marks'];
+        if ($this->writtenTextNeedsNoRepairParse($text, $marks)) {
+            return $text;
+        }
         for ($round = 0; $round < self::REPAIR_ROUNDS; $round++) {
             [$copy, $origin] = $this->asLaterPassesLeaveIt($text);
             $bytes = $this->codepointBytes($copy);
@@ -720,6 +723,56 @@ class BbcodeToCarve
         }
 
         return $text;
+    }
+
+    /**
+     * Prove the common case without asking the full parser to prove it again.
+     *
+     * writeMarks() has already chosen a safe spelling for every generated pair.
+     * If everything else is words, whitespace, or escaped ASCII punctuation,
+     * there is no remaining Carve opener that a removed or converted tag could
+     * have manufactured. Anything less obvious keeps the parser repair path.
+     *
+     * @param string $text
+     * @param array<int, array{int, int}> $marks
+     */
+    protected function writtenTextNeedsNoRepairParse(string $text, array $marks): bool
+    {
+        $generated = [];
+        foreach ($marks as [$from, $to]) {
+            if ($text[$from] === '{') {
+                $generated[$from] = true;
+                $generated[$from + 1] = true;
+                $generated[$to - 2] = true;
+                $generated[$to - 1] = true;
+            } else {
+                $generated[$from] = true;
+                $generated[$to - 1] = true;
+            }
+        }
+
+        $length = strlen($text);
+        for ($at = 0; $at < $length; $at++) {
+            if (isset($generated[$at])) {
+                continue;
+            }
+            $byte = ord($text[$at]);
+            if ($byte >= 0x80 || ctype_alnum($text[$at]) || str_contains(" \t\r\n", $text[$at])) {
+                continue;
+            }
+            if ($text[$at] === '\\' && $at + 1 < $length && !isset($generated[$at + 1])) {
+                $escaped = ord($text[$at + 1]);
+                if ($escaped >= 0x21 && $escaped <= 0x7E && !ctype_alnum($text[$at + 1])) {
+                    $at++;
+
+                    continue;
+                }
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
