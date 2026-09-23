@@ -1,0 +1,47 @@
+name: Release Gate
+
+# Packagist indexes a tag through its own webhook, so there is no publish job
+# here for a gate to sit in front of. This runs on the tag instead: it cannot
+# hold the release back, but a red run on the tag is what tells a maintainer
+# the notes went out incomplete, while the tag is still young enough to move.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+  # A rehearsal against whatever LIB_VERSION currently declares, so the first
+  # time this runs is not the moment a tag makes it awkward.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    name: The changelog section accounts for every merge in this release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # The gate walks every merge back to the previous tag, so it needs
+          # the tags and the history behind them.
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      # A `chore: cut X.Y.Z` commit writes the `## [X.Y.Z]` section and then
+      # development carries on over it. Nobody reopens the section, so the tag
+      # ships notes describing only cut day - 0.1.10 documented 1 of 22 merges.
+      # Asking whether the section EXISTS passes on that; this asks whether it
+      # is COMPLETE. The script reports the absent-section case too.
+      - name: Every merge since the previous tag is cited
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            php scripts/changelog-completeness.php
+          else
+            php scripts/changelog-completeness.php "${GITHUB_REF_NAME}"
+          fi
