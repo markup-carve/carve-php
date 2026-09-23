@@ -362,7 +362,7 @@ class BlockParser
      * finished document instead of these references, so a slot in a discarded
      * subtree is neither held nor patched.
      *
-     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, array{image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>}>|null
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, array{image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>, rawSpans: list<array{break: \MarkupCarve\Carve\Ast\SourceSpan|null, text: \MarkupCarve\Carve\Ast\SourceSpan|null}>}>|null
      */
     private ?WeakMap $deferredImageCaptions = null;
 
@@ -1337,38 +1337,68 @@ class BlockParser
      * Reachability is the point: only a paragraph still in the finished
      * document gets its slot settled, so a slot recorded in a subtree the walk
      * later discarded resolves to nothing rather than to a patch nobody reads.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param int $depth
+     * @param array<\MarkupCarve\Carve\Node\Node> $ancestors Every node above $parent, outermost first.
      */
-    private function settleDeferredImageCaptionsIn(Node $parent, int $depth = 0): void
+    private function settleDeferredImageCaptionsIn(Node $parent, int $depth = 0, array $ancestors = []): void
     {
         if ($this->deferredImageCaptions === null || $depth >= self::MAX_HEADING_WALK_DEPTH) {
             return;
         }
 
+        $chain = $ancestors;
+        $chain[] = $parent;
+
         foreach ($parent->getChildren() as $child) {
             $deferred = $this->deferredImageCaptions[$child] ?? null;
             if ($deferred === null) {
-                $this->settleDeferredImageCaptionsIn($child, $depth + 1);
+                $this->settleDeferredImageCaptionsIn($child, $depth + 1, $chain);
 
                 continue;
             }
 
-            $this->settleDeferredImageCaption($parent, $child, $deferred);
+            $this->settleDeferredImageCaption($parent, $child, $deferred, $chain);
         }
     }
 
     /**
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param \MarkupCarve\Carve\Node\Node $paragraph
-     * @param array{image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>} $deferred
+     * @param array{image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>, rawSpans: list<array{break: \MarkupCarve\Carve\Ast\SourceSpan|null, text: \MarkupCarve\Carve\Ast\SourceSpan|null}>} $deferred
+     * @param array<\MarkupCarve\Carve\Node\Node> $chain The paragraph's ancestors, outermost first.
      */
-    private function settleDeferredImageCaption(Node $parent, Node $paragraph, array $deferred): void
-    {
+    private function settleDeferredImageCaption(
+        Node $parent,
+        Node $paragraph,
+        array $deferred,
+        array $chain = [],
+    ): void {
         $image = $deferred['image'];
 
         if (UnresolvedReference::sourceOf($image) !== null) {
-            foreach ($deferred['rawLines'] as $rawLine) {
-                $paragraph->appendChild(new SoftBreak());
-                $paragraph->appendChild(new Text($rawLine));
+            $reach = null;
+            foreach (array_values($deferred['rawLines']) as $offset => $rawLine) {
+                $spans = $deferred['rawSpans'][$offset] ?? ['break' => null, 'text' => null];
+
+                $softBreak = new SoftBreak();
+                $softBreak->setPos($spans['break']);
+                $paragraph->appendChild($softBreak);
+
+                $text = new Text($rawLine);
+                $text->setPos($spans['text']);
+                $paragraph->appendChild($text);
+
+                $reach = $spans['text'] ?? $reach;
+            }
+
+            // The paragraph and every container holding it stopped at the
+            // image, because that was the last child they had when the walk
+            // stamped them. They own the given-back lines now.
+            $this->widenSpanTo($paragraph, $reach);
+            foreach ($chain as $ancestor) {
+                $this->widenSpanTo($ancestor, $reach);
             }
 
             return;
@@ -2765,10 +2795,6 @@ class BlockParser
      * -1 and the stamp fell back to the opener, so a code block ended on its
      * own fence line with its content on the line below, outside its own span
      * (carve-php#2251). Walk back to the last line the source does hold.
-     *
-     * @param int $first
-     * @param int $consumed
-     * @param int $fallback
      */
     private function blockEndSourceLine(int $first, int $consumed, int $fallback): int
     {
@@ -11182,6 +11208,80 @@ class BlockParser
     }
 
     /**
+     * Where each line an unresolved caption slot gives back sits in the source.
+     *
+     * The slot comes back as a soft break plus a text run per line. Both are
+     * verbatim source, so §4 places them: the break covers the line ending and
+     * whatever container prefix follows it, the text covers the line's own
+     * content. Publishing neither ended the paragraph at the image
+     * (carve-php#2250).
+     *
+     * @param int $start Index of the slot's first line in `$lines`.
+     * @param array<string> $rawLines
+     *
+     * @return list<array{break: \MarkupCarve\Carve\Ast\SourceSpan|null, text: \MarkupCarve\Carve\Ast\SourceSpan|null}>
+     */
+    private function givenBackLineSpans(int $start, array $rawLines): array
+    {
+        $spans = [];
+        foreach (array_values($rawLines) as $offset => $rawLine) {
+            $spans[] = $this->givenBackLineSpan($start + $offset, $rawLine);
+        }
+
+        return $spans;
+    }
+
+    /**
+     * @return array{break: \MarkupCarve\Carve\Ast\SourceSpan|null, text: \MarkupCarve\Carve\Ast\SourceSpan|null}
+     */
+    private function givenBackLineSpan(int $index, string $rawLine): array
+    {
+        $unplaced = ['break' => null, 'text' => null];
+        if (!$this->trackPositions) {
+            return $unplaced;
+        }
+
+        $sourceLine = $this->sourceLineFor($index);
+        $lineStart = $this->lineStartOffsets[$sourceLine] ?? null;
+        $sourceText = $this->sourceLines[$sourceLine] ?? null;
+        $aboveStart = $this->lineStartOffsets[$sourceLine - 1] ?? null;
+        $above = $this->sourceLines[$sourceLine - 1] ?? null;
+        if ($lineStart === null || $sourceText === null || $aboveStart === null || $above === null) {
+            return $unplaced;
+        }
+
+        // Only the SUFFIX relation is trusted, as everywhere else in this file:
+        // a body line that is not the tail of the source line it maps to was
+        // rewritten rather than un-prefixed, and §4 rates an absent span above
+        // a guessed one.
+        $prefix = strlen($sourceText) - strlen($rawLine);
+        if ($prefix < 0 || substr($sourceText, $prefix) !== $rawLine) {
+            return $unplaced;
+        }
+
+        $textStart = $lineStart + $prefix;
+
+        return [
+            'break' => $this->positionIndex?->span(
+                $aboveStart + strlen($above),
+                $textStart,
+                $sourceLine,
+                $sourceLine + 1,
+                $aboveStart,
+                $lineStart,
+            ),
+            'text' => $this->positionIndex?->span(
+                $textStart,
+                $lineStart + strlen($sourceText),
+                $sourceLine + 1,
+                $sourceLine + 1,
+                $lineStart,
+                $lineStart,
+            ),
+        ];
+    }
+
+    /**
      * The span of the newline that ends a source line.
      *
      * A hard break in a line block has no text of its own: what it represents
@@ -12624,6 +12724,7 @@ class BlockParser
                 // Hold the slot rather than binding it: whether this is a
                 // figure is not decided until every definition is known.
                 if (UnresolvedReference::sourceOf($image) !== null) {
+                    $rawLines = array_slice($lines, $start, $linesConsumed);
                     $this->deferredImageCaptions ??= new WeakMap();
                     $this->deferredImageCaptions[$lastChild] = [
                         'image' => $image,
@@ -12631,7 +12732,11 @@ class BlockParser
                         'captionLines' => $captionLines,
                         'start' => $start,
                         'markerWidth' => $markerWidth,
-                        'rawLines' => array_slice($lines, $start, $linesConsumed),
+                        'rawLines' => $rawLines,
+                        // Measured HERE, not where the slot settles: settling
+                        // runs after the walk, when the line map these indices
+                        // resolve through belongs to some other container.
+                        'rawSpans' => $this->givenBackLineSpans($start, $rawLines),
                     ];
 
                     return $linesConsumed;
