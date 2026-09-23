@@ -923,9 +923,10 @@ class CarveCorpusTest extends TestCase
         'a-caption-s-placeholder-is-any-that-does-not-begin-a-tag',
         // Arrived with the same bump. Five more categories, 30 documents.
         // carve-php#2229 (merged on main after this branch forked) fixed the
-        // container/fence work most of them needed; two rows across two
-        // categories still fold a below-column line the wrong way and are
-        // deferred below in KNOWN_GAPS (carve-php#2210).
+        // container/fence work most of them needed; the two rows that still
+        // folded a below-column line into a description body's OPEN fence were
+        // carve-php#2233, and every document in all five categories renders
+        // byte-identically to its pinned HTML now.
         'an-item-s-fence-is-read-once-whatever-block-it-follows',
         'a-definition-body-s-open-code-fence-ends-at-a-line-below-its-column',
         'a-closer-below-the-container-s-column-does-not-count',
@@ -961,17 +962,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        // Bump to carve 1cbd2c3. carve-php#2229 landed on main between this
-        // branch and the pin bump and fixed the container/fence work the
-        // bump's other new categories (476, 479, 482) needed; measured after
-        // rebasing onto it, only one row in each of two categories still
-        // folds a below-column line into the wrong body.
-        '478-a-definition-body-s-open-code-fence-ends-at-a-line-below-its-column-3'
-            => 'carve-php#2210: a below-column line does not fold into a description paragraph that follows a closed fence',
-        '480-a-bare-colon-opener-in-a-description-body-is-an-opener-7'
-            => 'carve-php#2210: a below-column line does not fold into a description paragraph that follows a closed fence',
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED

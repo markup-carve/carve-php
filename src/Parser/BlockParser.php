@@ -8985,6 +8985,11 @@ class BlockParser
                 $bodyLazy = [];
                 /** @var array<int, true> $bodyDefinition Body indexes holding a definition written PAST the content column. */
                 $bodyDefinition = [];
+                /** @var array<int, array{index: int, opener: array{fence: string, length: int, char?: string}, columns: int}> $bodyFenceSource Fence-shaped body entries, by body index. */
+                $bodyFenceSource = [];
+                // Whether the fence the tracker has open interrupted a paragraph
+                // on the strength of a closer the collected body cannot see.
+                $bodyInterruptedParagraphFence = false;
                 $bodyNestedState = self::INITIAL_TRAILING_BLOCK_STATE;
                 $bodyNestedCursor = 0;
                 $bodyAttributeThrough = -1;
@@ -9134,6 +9139,30 @@ class BlockParser
                     }
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= $continuationColumn) {
                         $formABlockOpen = true;
+                        // §10 I4'S CLOSER IS SOUGHT IN THE SOURCE, NOT IN WHAT
+                        // THE BODY HAS COLLECTED SO FAR (carve-php#2233). The
+                        // tracker below asks the same question of `$body`, which
+                        // stops at the line being read - so a closer written
+                        // under a below-column line was invisible, the fence
+                        // never armed, and the body reported the open paragraph
+                        // `CARVE-P0-013` says a fenced body does not leave. The
+                        // search does not stop at the below-column line either
+                        // (`CARVE-P0-014`), which is why the SOURCE view is the
+                        // one that can answer it.
+                        //
+                        // ONLY THE SOURCE POSITION IS RECORDED HERE; the search
+                        // itself runs in the tracker walk below, and only where
+                        // the answer changes a reading. Settling it eagerly per
+                        // fence-shaped line is a forward scan per line, which a
+                        // body of N openers before one closer pays N times
+                        // (raised by codex review).
+                        if ($paragraphFence !== null) {
+                            $bodyFenceSource[count($body)] = [
+                                'index' => $i,
+                                'opener' => $paragraphFence,
+                                'columns' => IndentationHelper::getLeadingColumns($contLine),
+                            ];
+                        }
                         $entry = IndentationHelper::stripLeadingColumns(
                             $contLine,
                             $continuationColumn,
@@ -9233,6 +9262,23 @@ class BlockParser
                             $bodyStateCursor,
                             $bodyOpenerBase,
                         );
+                        $wasOpenParagraph = $bodyState['openParagraph'];
+                        $wasInFence = $bodyState['inFence'];
+                        // ASKED ONLY WHERE THE VETO WOULD FIRE. Inside a fence,
+                        // or with no paragraph open, the lookahead delegates
+                        // whatever the answer is, so the scan buys nothing -
+                        // and once this arms a fence, every later entry is
+                        // inside it and asks nothing at all.
+                        $closerKnownAhead = isset($bodyFenceSource[$bodyStateCursor])
+                            && $wasOpenParagraph
+                            && !$wasInFence
+                            && $this->descriptionBodyCloserAhead(
+                                $lines,
+                                $bodyFenceSource[$bodyStateCursor]['index'],
+                                $bodyFenceSource[$bodyStateCursor]['opener'],
+                                $continuationColumn,
+                                $bodyFenceSource[$bodyStateCursor]['columns'],
+                            );
                         $bodyState = $this->advanceTrailingBlockStateWithFenceLookahead(
                             $bodyState,
                             $bodyLine,
@@ -9247,7 +9293,13 @@ class BlockParser
                             // body reports a paragraph a closed fence does not
                             // leave (markup-carve/carve#1930, carve-php#1899).
                             $bodyOpenerBase ?? 0,
+                            closerKnownAhead: $closerKnownAhead,
                         );
+                        if ($wasInFence && !$bodyState['inFence']) {
+                            $bodyInterruptedParagraphFence = false;
+                        } elseif ($wasOpenParagraph && !$wasInFence && $bodyState['inFence']) {
+                            $bodyInterruptedParagraphFence = true;
+                        }
                         if (isset($bodyDefinition[$bodyStateCursor])) {
                             $bodyState['openParagraph'] = false;
                         }
@@ -9279,6 +9331,18 @@ class BlockParser
                     // closes it. The single-line form is already answered there;
                     // this is the same rule for the form that spans lines.
                     if (!$bodyState['openParagraph'] || $bodyEndsWithAttribute) {
+                        // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
+                        // the list-item collector synthesizes it: the closer
+                        // that armed this fence stands past the line ending the
+                        // body, so the body is parsed on its own from a
+                        // truncated stream and §10 I4 turns the same opener back
+                        // into inline code. Carried with no source line, because
+                        // the authored closer is still the document's to read.
+                        if ($bodyState['inFence'] && $bodyInterruptedParagraphFence) {
+                            $body[] = str_repeat($bodyState['fenceChar'], $bodyState['fenceLength']);
+                            $bodyMap[] = -1;
+                        }
+
                         break;
                     }
                     if (
@@ -14068,12 +14132,20 @@ class BlockParser
      * whether a closer exists, so container collectors that own the remaining
      * lines ask here before arming `inFence` (carve#1414, corpus 367).
      *
+     * `$closerKnownAhead` is that same answer, settled against the SOURCE. A
+     * collector that hands its OWN collected lines here shows a view that stops
+     * at the line it is classifying, so a closer written under a below-column
+     * line is invisible to the search below while `CARVE-P0-014` has it count
+     * (carve-php#2233). Such a collector settles the question where it can see
+     * the source and says so here.
+     *
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param string $line
      * @param array<string> $lines
      * @param int $index
      * @param bool $atContentColumn
      * @param int $stripColumns
+     * @param bool $closerKnownAhead
      *
      * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
      */
@@ -14084,8 +14156,9 @@ class BlockParser
         int $index,
         bool $atContentColumn = false,
         int $stripColumns = 0,
+        bool $closerKnownAhead = false,
     ): array {
-        if ($state['openParagraph'] && !$state['inFence']) {
+        if ($state['openParagraph'] && !$state['inFence'] && !$closerKnownAhead) {
             $opener = $this->fencedBlockParser->parseRawBlockOpener($line)
                 ?? $this->fencedBlockParser->parseCodeFenceOpener($line);
             if (
@@ -14099,6 +14172,93 @@ class BlockParser
         }
 
         return $this->advanceTrailingBlockState($state, $line, $atContentColumn);
+    }
+
+    /**
+     * Does a description body's fence find its closer in the SOURCE?
+     *
+     * §10 I4 opens a fence after a paragraph only when a closer follows, and
+     * `CARVE-P0-014` does not stop that search at a line below the body's
+     * column - the line ends the body, but the closer under it still counts.
+     * The body collector's own tracker asks {@see self::hasFenceCloserInView()}
+     * of the lines it has COLLECTED, which stop at the line being classified,
+     * so it cannot see such a closer and left the fence unarmed
+     * (carve-php#2233).
+     *
+     * BOUNDED WHERE THE BODY REALLY ENDS, which is the half `hasFenceCloserInView()`
+     * has no way to spell: a new entry marker and a blank line no later line
+     * continues both end the description, and a closer written past either of
+     * them belongs to the document rather than to this body (corpus `478-*-5`).
+     *
+     * AT THE OPENER'S OWN COLUMN, which is what the sibling lookahead
+     * {@see self::hasFenceCloserInView()} already asks: a closer below it is
+     * not written inside the body at all (markup-carve/carve#2145) and one
+     * indented past it is body text, so an opener written deeper than the
+     * body's column answers to the column the AUTHOR gave it.
+     *
+     * REFUTED FROM THE INDEX FIRST, as the other closer lookaheads are: the
+     * index is a SUPERSET of what the matcher below accepts, so a negative
+     * answer is final, and a body of fences no closer can ever match pays one
+     * binary search each instead of one forward scan each.
+     *
+     * @param array<string> $lines
+     * @param int $openIndex Source index of the fence-shaped line.
+     * @param array{fence: string, length: int, char?: string} $opener
+     * @param int $bodyColumn The description body's content column.
+     * @param int $openerColumns Leading columns of the fence-shaped line.
+     */
+    private function descriptionBodyCloserAhead(
+        array $lines,
+        int $openIndex,
+        array $opener,
+        int $bodyColumn,
+        int $openerColumns,
+    ): bool {
+        $char = $opener['char'] ?? $opener['fence'][0];
+        if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $openIndex)) {
+            return false;
+        }
+
+        $count = count($lines);
+        for ($j = $openIndex + 1; $j < $count; $j++) {
+            $line = $lines[$j];
+            if (
+                preg_match(self::DEFINITION_TERM_LINE_PREFIX, $line)
+                || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $line)
+            ) {
+                return false;
+            }
+            if (IndentationHelper::isBlankLine($line)) {
+                $look = $j;
+                while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
+                    $look++;
+                }
+                $after = $lines[$look] ?? null;
+                if (
+                    $after === null
+                    || IndentationHelper::getLeadingColumns($after, $bodyColumn) < $bodyColumn
+                ) {
+                    return false;
+                }
+                $j = $look - 1;
+
+                continue;
+            }
+            if (IndentationHelper::getLeadingColumns($line, $openerColumns + 1) !== $openerColumns) {
+                continue;
+            }
+            if (
+                $this->fencedBlockParser->isCodeFenceCloser(
+                    IndentationHelper::stripLeadingColumns($line, $openerColumns),
+                    $char,
+                    $opener['length'],
+                )
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
