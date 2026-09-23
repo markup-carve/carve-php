@@ -2554,7 +2554,7 @@ class BlockParser
                         $parent,
                         $childrenBefore,
                         $sourceLine,
-                        $matchConsumed > 0 ? $this->sourceLineFor($i + $matchConsumed - 1) : $sourceLine,
+                        $this->blockEndSourceLine($i, $matchConsumed, $sourceLine),
                     );
                     $i += $matchConsumed;
 
@@ -2593,7 +2593,7 @@ class BlockParser
                     $parent,
                     $childrenBefore,
                     $sourceLine,
-                    $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
+                    $this->blockEndSourceLine($i, $consumed, $sourceLine),
                 );
                 $i += $consumed;
 
@@ -2624,7 +2624,7 @@ class BlockParser
                     $parent,
                     $childrenBefore,
                     $sourceLine,
-                    $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
+                    $this->blockEndSourceLine($i, $consumed, $sourceLine),
                 );
                 $i += $consumed;
 
@@ -2650,7 +2650,7 @@ class BlockParser
                     $parent,
                     $childrenBefore,
                     $sourceLine,
-                    $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
+                    $this->blockEndSourceLine($i, $consumed, $sourceLine),
                 );
                 $i += $consumed;
 
@@ -2687,7 +2687,7 @@ class BlockParser
                         $parent,
                         $childrenBefore,
                         $sourceLine,
-                        $matchConsumed > 0 ? $this->sourceLineFor($i + $matchConsumed - 1) : $sourceLine,
+                        $this->blockEndSourceLine($i, $matchConsumed, $sourceLine),
                     );
                     $i += $matchConsumed;
 
@@ -2704,7 +2704,7 @@ class BlockParser
                 $parent,
                 $childrenBefore,
                 $sourceLine,
-                $consumed > 0 ? $this->sourceLineFor($i + $consumed - 1) : $sourceLine,
+                $this->blockEndSourceLine($i, $consumed, $sourceLine),
             );
             $i += $consumed;
         }
@@ -2754,6 +2754,32 @@ class BlockParser
     private function sourceLineFor(int $index): int
     {
         return $this->currentLineMap[$index] ?? ($this->currentLineMap === null ? $index : -1);
+    }
+
+    /**
+     * The source line a block ending `$consumed` lines after `$first` sits on.
+     *
+     * A container body can hold a line the source never did: an item closes an
+     * unterminated fence by appending the closer its author never wrote, and
+     * that line maps to nothing. Resolving the last consumed line then answered
+     * -1 and the stamp fell back to the opener, so a code block ended on its
+     * own fence line with its content on the line below, outside its own span
+     * (carve-php#2251). Walk back to the last line the source does hold.
+     *
+     * @param int $first
+     * @param int $consumed
+     * @param int $fallback
+     */
+    private function blockEndSourceLine(int $first, int $consumed, int $fallback): int
+    {
+        for ($index = $first + $consumed - 1; $index >= $first; $index--) {
+            $sourceLine = $this->sourceLineFor($index);
+            if ($sourceLine >= 0) {
+                return $sourceLine;
+            }
+        }
+
+        return $fallback;
     }
 
     /**
