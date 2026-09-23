@@ -9,7 +9,6 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Exception\ParseException;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
-use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -143,16 +142,6 @@ class BlockParser
      *
      * @var string
      */
-    /**
-     * BULLETS ARE `-` AND `*` ONLY. `+` is not a Carve bullet -- it is the
-     * list-continuation marker (PART 9 §17). The bare `.` remains an ordered
-     * marker. This guard must recognize exactly the markers the block parser
-     * recognizes.
-     *
-     * @var string
-     */
-    private const LIST_ITEM_CONTEXT_PATTERN = '/^[ \t]*(?:[-*]|\.|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]) +[ \t]*[^ \t]/';
-
     /**
      * `abbreviation_definition = "*[", term, "]:", space+, expansion, newline`.
      *
@@ -363,11 +352,6 @@ class BlockParser
     private array $discoveredAbbreviationLines = [];
 
     /**
-     * Remaining source bytes available to the parser-backed definition probe.
-     */
-    private int $definitionProbeBudget = 0;
-
-    /**
      * Caption slots consumed for a reference image whose definition had not
      * been seen yet, settled once resolution has run (carve-php#1851).
      *
@@ -383,27 +367,9 @@ class BlockParser
     private ?WeakMap $deferredImageCaptions = null;
 
     /**
-     * A probe's scratch parser fails open instead of recursively probing.
-     */
-    private bool $probingDefinitionMarker = false;
-
-    /**
      * @var array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>
      */
     protected array $references = [];
-
-    /**
-     * Shared opacity/container facts collected while references are scanned.
-     *
-     * @var list<\MarkupCarve\Carve\Parser\DefinitionLayoutEvent>
-     */
-    protected array $definitionLayoutEvents = [];
-
-    protected bool $definitionLayoutCollected = false;
-
-    private bool $collectDefinitionLayout = false;
-
-    private bool $collectAbbreviationLayout = false;
 
     /**
      * Heading-derived references keyed by folded heading text. Used only for
@@ -772,14 +738,7 @@ class BlockParser
         $this->listParser = new ListParser();
         $this->tableParser = new TableParser();
         $this->fencedBlockParser = new FencedBlockParser();
-        $this->referenceDefinitionExtractor = new ReferenceDefinitionExtractor(
-            $this->inlineParser,
-            fn (array $lines, int $index, string $bare): bool => $this->definitionMarkerOpensBlock(
-                $lines,
-                $index,
-                $bare,
-            ),
-        );
+        $this->referenceDefinitionExtractor = new ReferenceDefinitionExtractor($this->inlineParser);
     }
 
     public function enablePositionTracking(): self
@@ -1082,7 +1041,6 @@ class BlockParser
         // Each physical byte may be inspected a small constant number of times
         // by the parser-backed marker probe below. Exhaustion deliberately
         // collects: metadata disappearing is the unsafe failure mode.
-        $this->definitionProbeBudget = max(1024, $sourceLength * 8);
 
         // First pass: extract reference definitions, footnotes, abbreviations, and heading references
         $this->extractDefinitions($lines, $input);
@@ -1336,22 +1294,6 @@ class BlockParser
     }
 
     /**
-     * Extract reference link definitions from the document
-     *
-     * @param array<string> $lines
-     */
-    protected function extractReferences(array $lines): void
-    {
-        $this->references = $this->referenceDefinitionExtractor->extract(
-            $lines,
-            $this->collectDefinitionLayout,
-            $this->collectAbbreviationLayout,
-        );
-        $this->definitionLayoutEvents = $this->referenceDefinitionExtractor->getLayoutEvents();
-        $this->definitionLayoutCollected = true;
-    }
-
-    /**
      * Reset the layout collection the definition extractor reads.
      *
      * EVERY DOCUMENT COLLECTS ITS DEFINITIONS IN THE STRUCTURAL WALK
@@ -1368,8 +1310,6 @@ class BlockParser
      */
     protected function extractDefinitions(array $lines, string $input): void
     {
-        $this->collectAbbreviationLayout = false;
-        $this->collectDefinitionLayout = false;
     }
 
     /**
@@ -1685,522 +1625,6 @@ class BlockParser
     }
 
     /**
-     * Ask the block reader whether a definition-shaped marker line starts a
-     * block or merely folds into the paragraph already at that container.
-     *
-     * The candidate's definition payload is replaced with ordinary prose so
-     * the metadata prepasses cannot answer the question for the block reader.
-     * Comparing child counts down the trailing block chain then has the exact
-     * grammar meaning we need: a lazy line adds no node at any level, while a
-     * list, quote, div or extension block changes a count. Work is bounded by a
-     * source-sized budget; exhaustion fails open and collects the definition.
-     *
-     * @param array<string> $lines
-     * @param int $index Candidate line index.
-     * @param string $bare Candidate line with its container markers removed.
-     */
-    private function definitionMarkerOpensBlock(array $lines, int $index, string $bare): bool
-    {
-        if ($this->probingDefinitionMarker) {
-            return true;
-        }
-
-        $start = $index;
-        while ($start > 0 && !IndentationHelper::isBlankLine($lines[$start - 1])) {
-            $start--;
-        }
-
-        $before = array_slice($lines, $start, $index - $start);
-        $candidate = $lines[$index];
-        $at = strrpos($candidate, $bare);
-        if ($at === false) {
-            return true;
-        }
-        $prefix = substr($candidate, 0, $at);
-        if (
-            preg_match(
-                '/(?:^|>[ \t]*)[ \t]*(?:[-*]|\.|[0-9]+[.)]|[ivxlcdm]+[.)]|[a-z][.)])[ \t]+/i',
-                $prefix,
-            ) !== 1
-        ) {
-            return true;
-        }
-        $candidate = substr($candidate, 0, $at) . 'probe';
-        $cost = strlen(implode("\n", $before)) * 2 + strlen($candidate);
-        if ($cost > $this->definitionProbeBudget) {
-            // OUT OF BUDGET IS NOT AN ANSWER (PART 9R R1a, carve#1881).
-            // Answering "it opens a block" collected a definition from a line
-            // this had established nothing about, so a document that grew past
-            // the allowance started resolving references its smaller self left
-            // literal. The fallback is conservative: it collects nothing, which
-            // can decline a definition an affordable probe would have taken,
-            // and never removes a character the author typed.
-            return false;
-        }
-        $this->definitionProbeBudget -= $cost;
-
-        return $this->definitionProbeChain($before)
-        !== $this->definitionProbeChain([...$before, $candidate]);
-    }
-
-    /**
-     * @param array<string> $lines
-     *
-     * @return list<int>
-     */
-    private function definitionProbeChain(array $lines): array
-    {
-        $probe = new self();
-        $probe->probingDefinitionMarker = true;
-        foreach ($this->blockMatchers as $entry) {
-            $pattern = $entry['pattern'];
-            if ($pattern !== null) {
-                // addBlockPattern() wraps the legacy callback in a closure whose
-                // $self supplies currentMatcherParent. Re-register it so that
-                // $self is this scratch parser, not the parser being probed.
-                $probe->addBlockPattern($pattern, $this->customBlockPatterns[$pattern]);
-
-                continue;
-            }
-
-            // Extension matchers deliberately run during the probe. Preserve
-            // their priority and their position relative to legacy patterns.
-            $probe->registerBlockMatcher($entry['matcher'], $entry['priority']);
-        }
-        $node = $probe->parse(implode("\n", $lines));
-        $chain = [];
-
-        while (true) {
-            $blocks = array_values(array_filter(
-                $node->getChildren(),
-                // A COLLECTED DEFINITION IS NOT BLOCK STRUCTURE (carve-php#1849).
-                // These kinds are hoisted to document level and hold no blocks,
-                // so one of them is always the last child and the walk stopped
-                // there - never reaching the container the candidate changed.
-                // The second marker-led definition in a run was invisible for
-                // that reason, because the first one created the masking node.
-                static fn (Node $child): bool => $child instanceof BlockNode
-                    && !$child instanceof LinkReferenceDefinition
-                    && !$child instanceof Footnote
-                    && !$child instanceof AbbreviationDefinition,
-            ));
-            $chain[] = count($blocks);
-            if ($blocks === []) {
-                break;
-            }
-            $node = $blocks[array_key_last($blocks)];
-        }
-
-        return $chain;
-    }
-
-    /**
-     * Extract footnote definitions from the document
-     *
-     * @param array<string> $lines
-     */
-    protected function extractFootnotes(array $lines): void
-    {
-        $i = 0;
-        $count = count($lines);
-        // Track an open fenced code block so a `[^a]: ...` (or `> [^a]: ...`)
-        // shown inside a ``` / ~~~ sample is treated as literal code, never
-        // registered -- mirroring the fence-opacity guard in extractReferences.
-        // A single leading blockquote marker is stripped first so a code fence
-        // INSIDE a blockquote (`> ``` ` / `> [^a]: note` / `> ``` `) is tracked
-        // too: without this the container stripping below would wrongly read the
-        // quoted code content as a real definition.
-        $fence = $this->definitionLayoutCollected ? null : new PrepassFenceTracker();
-        // Track an open LINE BLOCK the same way. A line block's body is inline
-        // content (`line_block_line = {whitespace}, inline_content, newline`),
-        // so the block-level definition form cannot occur there: a `[^a]: note`
-        // inside `::: |` is literal text and must register nothing. Without
-        // this the scan registered it, and the line then rendered as a live
-        // footnote REFERENCE with `: note` beside it plus an endnote nobody
-        // referenced (carve-php#685). Only the `|` type token opens one --
-        // an ordinary `::: note` div holds blocks, so a definition there still
-        // registers.
-        $lineBlockLen = 0;
-        // The blockquote depth the open line block was opened at, so its closer
-        // is read at that depth instead of after every marker is stripped.
-        $lineBlockDepth = 0;
-        // The item content column the open line block was opened at, so its
-        // closer is read at that column instead of after arbitrary indentation.
-        $lineBlockColumn = 0;
-        $commentFence = $this->definitionLayoutCollected ? null : new PrepassCommentFence($lines);
-        // Footnote bodies are parsed AFTER the scan registers every label, so a
-        // forward reference inside a body resolves (`[^1]: a[^2]` before
-        // `[^2]: b`). label -> raw content lines.
-        $deferredBodies = [];
-        // The item content column a definition on a CONTINUATION line has to
-        // reach, tracked exactly as the link-reference prepass tracks it.
-        $contentColumns = $this->definitionLayoutCollected ? null : new ListContentColumns();
-        $footnoteLayoutByLine = [];
-        if ($this->definitionLayoutCollected) {
-            foreach ($this->definitionLayoutEvents as $event) {
-                if ($event->kind === DefinitionLayoutEvent::FOOTNOTE) {
-                    $footnoteLayoutByLine[$event->line] = $event;
-                }
-            }
-        }
-
-        while ($i < $count) {
-            $line = $lines[$i];
-            $layoutEvent = $footnoteLayoutByLine[$i] ?? null;
-            if ($this->definitionLayoutCollected && $layoutEvent === null) {
-                $i++;
-
-                continue;
-            }
-            if ($layoutEvent !== null) {
-                $contentCol = $layoutEvent->contentColumn;
-                $reachedCol = $layoutEvent->reachedColumn;
-            } else {
-                $fence ??= new PrepassFenceTracker();
-                $commentFence ??= new PrepassCommentFence($lines);
-                $contentColumns ??= new ListContentColumns();
-            // Inside a code fence a `- x` line is sample text, not a marker.
-            // Content columns are measured INSIDE a block quote (carve#658);
-            // see the same strip in ReferenceDefinitionExtractor. Only a
-            // COLUMN-0 marker is stripped: an indented one sits at an item's
-            // content column, and eating that indentation loses it.
-                $contentCol = $contentColumns->observe($line, $fence->isOpen());
-            // One line can open SEVERAL items (`- - b` opens two, columns 2 and
-            // 4), and a definition written under it belongs to whichever open
-            // item's column it lands on - not necessarily the innermost
-            // (carve-php#764).
-            // COMPOSED, not the leading whitespace: a quote marker in the
-            // prefix is columns the line supplies, and a definition behind
-            // an alternating prefix sits past them
-            // (markup-carve/carve-php#1431).
-                $reachedCol = $contentColumns->reachedByLine($line);
-
-                if ($fence->isOpen()) {
-                    // LEFT means the line dropped out of the blockquote the fence
-                    // was opened in, so the region ended without a closer and this
-                    // line is read normally.
-                    if ($fence->advance($line) !== PrepassFenceTracker::LEFT) {
-                        $i++;
-
-                        continue;
-                    }
-                }
-            // A LINE BLOCK's body is verse, so a `%%%` written in one is text
-            // and opens nothing. The open-region tests therefore all run before
-            // any opener test: whichever region the line is already in owns it.
-                if ($lineBlockLen > 0) {
-                    $closerView = ContainerPrefix::atColumnAndDepth($line, $lineBlockColumn, $lineBlockDepth);
-                    // A blank line is inside the block, not out of its container:
-                    // it reaches no column and ends nothing. Out of the QUOTE the
-                    // block sits in it does end, which is why this is asked only of
-                    // a block that has a column of its own.
-                    if ($closerView === null && $lineBlockColumn > 0 && IndentationHelper::isBlankLine($line)) {
-                        $closerView = '';
-                    }
-                    if ($closerView === null) {
-                        // Out of the blockquote, or dedented past the column the
-                        // block was opened at: the container ended and took the
-                        // unclosed line block with it.
-                        $lineBlockLen = 0;
-                    } elseif ($this->fencedBlockParser->isDivFenceCloser($closerView, $lineBlockLen)) {
-                        $lineBlockLen = 0;
-                        $i++;
-
-                        continue;
-                    } else {
-                        $i++;
-
-                        continue;
-                    }
-                }
-            // A comment fence's closer is a leading `%` run of the SAME length --
-            // trailing text is allowed, so `%%% end` closes a `%%%` fence. Matching
-            // only a bare fence missed real closers and left the state open.
-                if ($commentFence->isOpen()) {
-                    $commentFence->advance($line);
-                    // The body is opaque: a code fence opener in there is comment
-                    // TEXT, and letting it reach the fence scanner below opened a
-                    // code block that swallowed the real comment closer.
-                    $i++;
-
-                    continue;
-                }
-            // Only a fence that CLOSES, and an indented one only when its
-            // closer arrives before its container ends. An unterminated `%%%`
-            // is not a fenced comment -- the block parser degrades it to a
-            // single-line comment -- and treating it as open here stayed open
-            // for the rest of the document, suppressing every later line block.
-            //
-            // Still BEFORE the line-block opener below: a `::: |` inside a
-            // comment is comment text and opens no verse (carve-php#698).
-                if ($commentFence->opensOn($line, $i, $contentCol)) {
-                    $i++;
-
-                    continue;
-                }
-                if ($fence->opensOn($line, $contentCol)) {
-                    $i++;
-
-                    continue;
-                }
-                $openerWalk = $fence->containerOpenerView($line, $contentCol);
-                $openerColumn = $contentCol;
-                $openerView = $openerWalk['line'];
-                $openerDepth = $openerWalk['quoteDepth'];
-                $fc0 = $openerView[0] ?? '';
-                if ($fc0 === ':') {
-                    $lineBlockOpener = $this->parseLineBlockOpener($openerView);
-                    if ($lineBlockOpener !== null) {
-                        $lineBlockLen = $lineBlockOpener['length'];
-                        $lineBlockDepth = $openerDepth;
-                        $lineBlockColumn = $openerColumn;
-                        $i++;
-
-                        continue;
-                    }
-                }
-            }
-
-            if (!str_contains($line, '[^')) {
-                $i++;
-
-                continue;
-            }
-
-            $container = $this->footnoteContainerPrefix($line, $reachedCol, $lines[$i - 1] ?? '');
-            $prefix = $container['prefix'];
-            $bare = $prefix === '' ? $line : substr($line, strlen($prefix));
-
-            $columnBare = $container['kind'] === 'none'
-                ? ContainerPrefix::atComposedColumn($line, $reachedCol)
-                : null;
-            if ($columnBare !== null && preg_match('/^\[\^[^\]]+\]:/', $columnBare) === 1) {
-                $container = [
-                    'kind' => 'columnContainer',
-                    'prefix' => substr($line, 0, $reachedCol),
-                ];
-                $bare = $columnBare;
-            }
-
-            // Match footnote definition: [^label]: content. The marker line
-            // must carry inline content (grammar PART 9 §16 production:
-            // `"]:", space, inline_content`); a bare `[^label]:` is an
-            // ordinary paragraph line, and a following indented line folds
-            // into it as paragraph text.
-            if (($bare[0] ?? '') === '[' && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $bare, $matches)) {
-                $label = $matches[1];
-                $key = LabelKey::normalize($label);
-                $content = $matches[2];
-                if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
-                    $i++;
-
-                    continue;
-                }
-
-                if ($container['kind'] !== 'none') {
-                    $opensBlock = $this->definitionMarkerOpensBlock($lines, $i, $bare);
-                    if ($opensBlock && trim($content, StringUtil::WHITESPACE_CHARS) !== '' && !isset($this->footnotes[$key])) {
-                        $footnote = new Footnote($label);
-                        if ($this->trackSourceLines) {
-                            $footnote->setAttribute('data-source-line', (string)($i + 1));
-                        }
-                        $this->recordFootnoteDefinitionSpan($key, $i, $line, $bare);
-                        $this->footnotes[$key] = $footnote;
-                        $bodyLines = [$content];
-                        $bodyLineMap = [$i];
-                        if ($container['kind'] === 'columnContainer') {
-                            $bodyIndent = $reachedCol + 2;
-                            $k = $i + 1;
-                            while ($k < $count) {
-                                $continuation = $lines[$k];
-                                if (IndentationHelper::isBlankLine($continuation)) {
-                                    $ahead = $this->footnoteBodyResumesAfter(
-                                        $lines,
-                                        $k,
-                                        $count,
-                                        $bodyIndent,
-                                        false,
-                                    );
-                                    if ($ahead === null) {
-                                        break;
-                                    }
-                                    for (; $k < $ahead; $k++) {
-                                        $bodyLines[] = '';
-                                        $bodyLineMap[] = $k;
-                                    }
-
-                                    continue;
-                                }
-                                if (IndentationHelper::getLeadingColumns($continuation, $bodyIndent) < $bodyIndent) {
-                                    break;
-                                }
-                                // STRIPPED IN COLUMNS TOO. A byte slice ate
-                                // four bytes of a tab-indented body where the
-                                // tab is one byte and four columns, so `more`
-                                // arrived as `e` - the measure and the strip
-                                // have to agree or the body is corrupted rather
-                                // than merely mis-bounded.
-                                $bodyLines[] = IndentationHelper::stripLeadingColumns($continuation, $bodyIndent);
-                                $bodyLineMap[] = $k;
-                                $k++;
-                            }
-                            $this->extendFootnoteDefinitionToLineStart(
-                                $label,
-                                (int)end($bodyLineMap) + 1,
-                            );
-                            $i = $k - 1;
-                        }
-                        $deferredBodies[$label] = [
-                            'lines' => $bodyLines,
-                            'lineMap' => $bodyLineMap,
-                        ];
-                    }
-
-                    $i++;
-
-                    continue;
-                }
-
-                // Collect continuation lines (indented or blank). A footnote
-                // body extends only to lines indented by the base indentation
-                // (2 spaces or a tab); see the continuation regex below.
-                $contentLines = [];
-                $contentLineMap = [];
-                if (trim($content, StringUtil::WHITESPACE_CHARS) !== '') {
-                    $contentLines[] = $content;
-                    $contentLineMap[] = $i;
-                }
-                $j = $i + 1;
-                while ($j < $count) {
-                    $nextLine = $lines[$j];
-                    if (IndentationHelper::isBlankLine($nextLine)) {
-                        // Add blank line to preserve structure
-                        $contentLines[] = '';
-                        $contentLineMap[] = $j;
-                        $j++;
-
-                        continue;
-                    }
-                    // Form B: a lone `+` attaches the FOLLOWING flush-left block
-                    // to the note with no indentation (the same continuation
-                    // marker lists, block quotes and definition bodies use). The
-                    // attached block ends at a blank line, another `+`, or the
-                    // next footnote definition.
-                    if (preg_match('/^\+[ \t]*$/', $nextLine)) {
-                        $j++;
-                        // ...AND THE NOTE ENDS WHERE A COMMENT ENDS IT
-                        // (markup-carve/carve#1814). The gate below decides
-                        // whether this `+` is a marker at all; when it is not
-                        // the line is an ordinary invisible line at document
-                        // column 0, and a footnote body ends at one of those
-                        // exactly as it ends at a comment line there. Asked ONE
-                        // LINE EARLY because this loop's own continuation
-                        // branch would otherwise claim the following line
-                        // before any extent is measured. The `+` is consumed
-                        // either way, so the enclosing parse resumes on the
-                        // line the marker did not take.
-                        if (!$this->continuationAttachesAtColumnZero($j)) {
-                            break;
-                        }
-                        [$j, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
-                            $lines,
-                            $j,
-                            $count,
-                            static fn (string $a): bool => (bool)preg_match('/^\[\^[^\]]+\]:/', $a),
-                        );
-                        if ($attached) {
-                            $contentLines[] = '';
-                            $contentLineMap[] = -1;
-                            foreach ($attached as $attachedIndex => $a) {
-                                $contentLines[] = $a;
-                                $contentLineMap[] = $attachedLineMap[$attachedIndex];
-                            }
-                        }
-
-                        continue;
-                    }
-                    // A footnote body extends only to lines reaching the body's
-                    // column, which PART 9 §16 puts at 2. The measure is COLUMNS:
-                    // §24 C1 gives a tab a column value, so a bare tab, two
-                    // spaces and `<SPACE><TAB>` all reach it. This matched
-                    // `/^(?:[ ]{2}|\t)/` - two spaces or a tab, never the
-                    // mixture - while carve-js and carve-rs took the mixture and
-                    // refused the bare tab (carve#796, carve-php#887). A line
-                    // reaching only column 1 is a top-level block, not part of
-                    // the note.
-                    if (IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN) {
-                        $contentLines[] = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
-                        $contentLineMap[] = $j;
-                        $j++;
-                    } else {
-                        break;
-                    }
-                }
-
-                // Remove trailing blank lines
-                $lineCount = count($contentLines);
-                while ($lineCount > 0 && $contentLines[$lineCount - 1] === '') {
-                    array_pop($contentLines);
-                    array_pop($contentLineMap);
-                    $lineCount--;
-                }
-
-                // The first definition of a label wins (grammar / carve-js): a
-                // later top-level def never overwrites an earlier one, whether
-                // that earlier one was top-level or container-nested.
-                if (!isset($this->footnotes[$key])) {
-                    $footnote = new Footnote($label);
-                    if ($this->trackSourceLines) {
-                        $footnote->setAttribute('data-source-line', (string)($i + 1));
-                    }
-                    $this->recordFootnoteDefinitionSpan($key, $i, $line, $bare);
-                    $this->extendFootnoteDefinitionToLineStart(
-                        $key,
-                        (int)end($contentLineMap) + 1,
-                    );
-                    $this->footnotes[$key] = $footnote;
-                    if ($contentLines) {
-                        $contentLines = $this->rebaseOverindentedItemBlocks(
-                            $contentLines,
-                            includeSublists: true,
-                        );
-                        $deferredBodies[$key] = [
-                            'lines' => $contentLines,
-                            'lineMap' => $contentLineMap,
-                        ];
-                    }
-                }
-            }
-
-            $i++;
-        }
-
-        // Every footnote label is now registered; parse the bodies so a forward
-        // reference to a later-defined footnote inside a body resolves.
-        foreach ($deferredBodies as $label => $body) {
-            // A note body's PENDING ATTRIBUTES do not survive it. `parseBlocks()`
-            // leaves the state set when a body ends with an attribute line that
-            // has nothing to attach to, and the next block in the DOCUMENT then
-            // collected it - so a class written inside a note landed on body
-            // text outside the note (carve-php#816). Section 15 A4 drops a
-            // pending attribute with no following block element; the note body
-            // ending is that condition for anything written inside it.
-            $outerPendingAttributes = $this->pendingAttributes;
-            $outerPendingAttributeOrder = $this->pendingAttributeOrder;
-            $this->pendingAttributes = [];
-            $this->pendingAttributeOrder = [];
-            $this->footnoteBodyDepth++;
-            try {
-                $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
-            } finally {
-                $this->footnoteBodyDepth--;
-                $this->pendingAttributes = $outerPendingAttributes;
-                $this->pendingAttributeOrder = $outerPendingAttributeOrder;
-            }
-        }
-    }
-
-    /**
      * Classify the leading container context of a footnote definition line, so
      * the pre-pass collects a footnote defined inside one or more nested
      * containers (carve spec #115). Strips every leading container marker --
@@ -2366,198 +1790,6 @@ class BlockParser
     }
 
     /**
-     * Extract abbreviation definitions from the document
-     *
-     * Syntax: *[ABBR]: Full Definition Text
-     *
-     * This is an extension feature inspired by PHP Markdown Extra.
-     *
-     * @param array<string> $lines
-     */
-    protected function extractAbbreviations(array $lines): void
-    {
-        if ($this->definitionLayoutCollected) {
-            $firstAbbreviationLine = null;
-            foreach ($this->definitionLayoutEvents as $event) {
-                if (
-                    $event->kind !== DefinitionLayoutEvent::ABBREVIATION
-                    || preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $event->subject, $matches) !== 1
-                ) {
-                    continue;
-                }
-                $firstAbbreviationLine ??= $event->line;
-                $abbr = $matches[1];
-                $definition = rtrim($matches[2], " \t");
-                $this->abbreviations[$abbr] = $definition;
-                $this->abbreviationDefinitions[] = ['abbr' => $abbr, 'expansion' => $definition];
-                if ($this->trackPositions) {
-                    $span = $this->wholeLineSpan($event->line);
-                    if ($span !== null) {
-                        $this->abbreviationSpans[$abbr] = $span->toArray();
-                    }
-                }
-            }
-            if ($firstAbbreviationLine !== null) {
-                $firstBodyLine = null;
-                foreach ($lines as $lineNumber => $line) {
-                    if (IndentationHelper::isBlankLine($line) || $this->isAbbreviationDefinitionLine($line)) {
-                        continue;
-                    }
-                    $firstBodyLine = $lineNumber;
-
-                    break;
-                }
-                $this->abbreviationsBeforeBody = $firstBodyLine === null || $firstAbbreviationLine < $firstBodyLine;
-            }
-
-            return;
-        }
-
-        $i = 0;
-        $count = count($lines);
-        $firstAbbreviationLine = null;
-        // OPAQUE content defines nothing. A `*[A]: x` inside a fenced code
-        // SAMPLE registered an abbreviation for the whole document, so
-        // documenting the syntax changed the prose around it; inside a LINE
-        // BLOCK it did the same and was expanded in place, showing an <abbr>
-        // in verse the author never wrote (carve#573, carve#574).
-        //
-        // The footnote scan beside this one already tracks code fences for the
-        // same reason. Both fences close on their own width, so a wider opener
-        // is not closed by a narrower run.
-        $fenceChar = null;
-        $fenceLen = 0;
-        $verseFence = 0;
-        $commentFence = new PrepassCommentFence($lines);
-        // PART 12 §7 recognizes an abbreviation definition only at document
-        // level. The pattern is anchored, so a block quote or list marker
-        // prefix already disqualifies a line. Two containers add no prefix of
-        // their own and so need tracking here: a `:::` div, and an open list
-        // item whose lazy continuation a flush-left line folds into.
-        $divs = [];
-        $inListItem = false;
-
-        while ($i < $count) {
-            $line = $lines[$i];
-
-            if (IndentationHelper::isBlankLine($line)) {
-                $inListItem = false;
-            } elseif (preg_match(self::LIST_ITEM_CONTEXT_PATTERN, $line) === 1) {
-                $inListItem = true;
-            }
-
-            if ($fenceChar !== null) {
-                if (
-                    preg_match('/^([`~]{3,})[ \t]*$/', $line, $fm)
-                    && $fm[1][0] === $fenceChar
-                    && strlen($fm[1]) >= $fenceLen
-                ) {
-                    $fenceChar = null;
-                    $fenceLen = 0;
-                }
-                $i++;
-
-                continue;
-            }
-            if ($verseFence > 0) {
-                if (preg_match('/^(:{3,})[ \t]*$/', $line, $vm) && strlen($vm[1]) >= $verseFence) {
-                    $verseFence = 0;
-                }
-                $i++;
-
-                continue;
-            }
-            if ($commentFence->isOpen()) {
-                $commentFence->advance($line);
-                $i++;
-
-                continue;
-            }
-            if ($commentFence->opensOn($line, $i, 0)) {
-                $i++;
-
-                continue;
-            }
-            if (preg_match('/^([`~]{3,})/', $line, $fo) === 1) {
-                $fenceChar = $fo[1][0];
-                $fenceLen = strlen($fo[1]);
-                $i++;
-
-                continue;
-            }
-            if (preg_match('/^(:{3,})[ \t]*\|(?:[ \t]*\{.*\})?[ \t]*$/', $line, $vo) === 1) {
-                $verseFence = strlen($vo[1]);
-                $i++;
-
-                continue;
-            }
-            // Colon fences close on an exact length match, so the stack records
-            // the opener width rather than just a depth count.
-            if (preg_match('/^(:{3,})[ \t]*(.*)$/', $line, $cm) === 1) {
-                $width = strlen($cm[1]);
-                if ($cm[2] === '' && $divs !== [] && end($divs) === $width) {
-                    array_pop($divs);
-                } else {
-                    $divs[] = $width;
-                }
-            }
-
-            // Match abbreviation definition: *[abbr]: definition. The pattern
-            // is anchored to a leading `*`, so skip it on any other line.
-            if (
-                ($line[0] ?? '') === '*'
-                && $divs === []
-                && !$inListItem
-                && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $matches)
-            ) {
-                $firstAbbreviationLine ??= $i;
-                $abbr = $matches[1];
-                $definition = rtrim($matches[2], " \t");
-
-                $j = $i + 1;
-
-                // Store the abbreviation (case-sensitive). The map answers
-                // WHICH definition wins - the last one (PART 9R) - and the
-                // list keeps every line the author wrote, shadowed ones
-                // included, because the tree is pre-resolve (PART 12 section
-                // 3a).
-                $this->abbreviations[$abbr] = $definition;
-                $this->abbreviationDefinitions[] = ['abbr' => $abbr, 'expansion' => $definition];
-                // The expansion is one physical line, as the grammar's
-                // `abbreviation_expansion ... newline` production requires.
-                if ($this->trackPositions) {
-                    $lineMap = [];
-                    for ($k = $i; $k < $j; $k++) {
-                        $lineMap[] = $this->sourceLineFor($k);
-                    }
-                    $span = $this->spanForLineMap($lineMap);
-                    if ($span !== null) {
-                        $this->abbreviationSpans[$abbr] = $span->toArray();
-                    }
-                }
-                $i = $j;
-
-                continue;
-            }
-
-            $i++;
-        }
-
-        if ($firstAbbreviationLine !== null) {
-            $firstBodyLine = null;
-            foreach ($lines as $lineNumber => $line) {
-                if (IndentationHelper::isBlankLine($line) || $this->isAbbreviationDefinitionLine($line)) {
-                    continue;
-                }
-                $firstBodyLine = $lineNumber;
-
-                break;
-            }
-            $this->abbreviationsBeforeBody = $firstBodyLine === null || $firstAbbreviationLine < $firstBodyLine;
-        }
-    }
-
-    /**
      * Is this document one where the difference between the two ways of
      * building the heading index can be observed?
      *
@@ -2685,10 +1917,6 @@ class BlockParser
     protected function resetParseState(): void
     {
         $this->references = [];
-        $this->definitionLayoutEvents = [];
-        $this->definitionLayoutCollected = false;
-        $this->collectDefinitionLayout = false;
-        $this->collectAbbreviationLayout = false;
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
         $this->footnoteDefinitionSpans = [];
@@ -11109,7 +10337,7 @@ class BlockParser
             }
             // Form B: a `+` continuation marker plus its attached flush-left
             // block (ends at a blank line, another `+`, or the next footnote
-            // definition) - mirror extractFootnotes exactly.
+            // definition) - the same rebase the footnote body reader uses.
             if (preg_match('/^\+[ \t]*$/', $nextLine)) {
                 $i++;
                 // ...AND THE NOTE ENDS WHERE A COMMENT ENDS IT
@@ -11284,7 +10512,7 @@ class BlockParser
         // nothing on HTML and is emitted as written on the non-HTML targets
         // (PART 11 §10a), and those renderers walk `children` - so a definition
         // that leaves no node cannot be put back where the author wrote it. The
-        // expansions are collected separately by extractAbbreviations(); this
+        // expansions are collected separately by the abbreviation pass; this
         // carries the AUTHORED line (markup-carve/carve-php#708).
         if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $m) === 1) {
             $node = new AbbreviationDefinition($m[1], rtrim($m[2], " \t"));
@@ -13876,10 +13104,9 @@ class BlockParser
      * `dd` host: a nested `[^g]: x` between the note's column and an item's
      * reaches the note and becomes a sibling note, exactly as `[r]: /url` does.
      *
-     * ONE CALLER, NOT TWO. `extractFootnotes()` rebases a body the same way and
-     * looks like the sibling site, but carve-php#1854 retired that pre-pass and
-     * it now has no production caller - only a test reaches it. Wiring it there
-     * would ship a call no document can execute.
+     * ONE CALLER. The retired footnote pre-pass rebased a body the same way
+     * and looked like a second site for this; carve-php#1854 took its last
+     * production caller and carve-php#2244 removed what was left.
      *
      * @param array<string> $lines Body lines, already rebased.
      *
