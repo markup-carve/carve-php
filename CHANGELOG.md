@@ -7,16 +7,12 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Removed
-
-- **Breaking:** `StoredPayloadUpgrade` and the tailored diagnostics for pre-PART 12 payloads are removed. Obsolete payloads now fail ordinary AST schema validation. Applications that still hold them must run `StoredPayloadUpgrade::upgrade()` or `upgradeJson()` with carve-php 0.1.10 or earlier before upgrading. This change requires a `0.2.0` release.
-### Changed
-
-- Figure nodes expose `getTargets()`, `getCaption()` and `getCaptions()`, so renderers, numbering and linting use one structural decomposition. A figure assembled through the node API or ProseMirror bridge renders its targets in order and normalizes every caption after them.
-
 ## [0.1.10] - 2026-09-25
 
 ### Changed
+
+- Figure nodes expose `getTargets()`, `getCaption()` and `getCaptions()`, so renderers, numbering and linting use one structural decomposition. A figure assembled through the node API or ProseMirror bridge renders its targets in order and normalizes every caption after them.
+- **Figure nodes expose `getTargets()`, `getCaption()` and `getCaptions()`** (#2260), so renderers, numbering and linting share one structural decomposition. HTML, Carve, Markdown, plain-text and ANSI rendering all use it.
 
 - **A bold-italic strong is written nested when its content cannot hug `/*`** (#2204). Empty content, or content that starts or ends in a space, tab, CR or LF, takes the spelling an unflagged tree gets, instead of a combined form that read back as an emphasis holding literal stars.
 - **A whitespace-edged mark is written braced, and an empty one is refused** (#2207). Only a space was checked before, so a tab or a leading line break left a bare delimiter that read back as text, and an empty emphasis-family mark now throws `SourceUnspellableException` rather than writing an empty brace pair. The HTML importer reads an empty mark carrying attributes as an empty span with them, so `<em id="t"></em>` becomes `[]{#t}`.
@@ -33,6 +29,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A blank inside a sibling sub-list no longer loosens the outer item** (#2262). The compact-list looseness scan measured every blank against the content column of the item's FIRST sub-list marker, so a blank belonging to a second sibling sub-list of a different marker width sat below that column. `subContentHasLooseningBlank()` now keeps a running column for the sub-list item each line sits in. HTML is byte-identical to carve-js on all 24 inputs of its matching test.
+- **Markdown import follows the shared converter corpus** (#2263), porting the rulings carve-js landed across nine PRs: fences, list markers, nested quotes, renumbering, continuation lines, item tables, tab columns, dash escaping and ordered-marker interrupts. All 22 pinned cases pass, including the canonical `expected.crv` bytes.
 - **The autolink extension decodes backslash escapes in a bare URL** (#2257). A bare URL was linked exactly as written, so `http://e.com/a\-\-b` linked to the escaped form while core rendered the text unescaped, and an escape at the end closed the link inside itself. Ports the carve-js fix.
 - **A node pulled in by a sliced include keeps its own file's coordinates** (#2187). A child included with `@lines:N-M` reported positions measured inside the slice under the whole file's id; `docs/includes.md` requires the file's own lines and offsets, which it now reports, CRLF and multibyte sources included.
 - **A definition's destination is read as `link_destination`** (#2192). A parenthesis reaches the destination only through a balanced pair or an escape, so `[a]: a(b` and `[a]: a)b` are paragraphs rather than definitions, and the writer re-escapes what the reader resolved, so one `fmt` pass no longer loses the definition and every link resolving it.
@@ -59,6 +57,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Converted BBCode holding only generated formatting skips the repair parse** (#2240). Text that carries no unescaped ASCII punctuation is proven safe and bypasses the parser repair pass, which every ambiguous shape still takes. Output is unchanged either way.
 - **A document is reparsed only for a heading the failed label could name** (#2245). Any reference the inline parser could not resolve armed the heading reparse, and the filter asked only whether each heading was already indexed, so a document holding a forward reference and any heading parsed twice even when no heading could resolve that label. The unresolved labels are recorded in the heading index's key space now and a collected heading survives the filter only when it is one of them, which takes a 48.5 KB document of 400 headings and one forward reference from 328 ms to 124 ms. `markCollapsedReferenceUnresolved()` takes the label as an optional argument, and a caller that omits it keeps the old every-heading behavior.
 - **The plain-text escaper freezes a hash after an ampersand** (#2256), so numeric-reference text cannot become a Carve tag.
+
+### Removed
+
+- **Breaking:** `StoredPayloadUpgrade` and the tailored diagnostics for pre-PART 12 payloads are removed. Obsolete payloads now fail ordinary AST schema validation. Applications that still hold them must run `StoredPayloadUpgrade::upgrade()` or `upgradeJson()` with carve-php 0.1.9 or earlier before upgrading. This change requires a `0.2.0` release.
 
 ## [0.1.9] - 2026-09-19
 
