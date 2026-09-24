@@ -29,6 +29,9 @@ class AMarkdownSetextHeadingKeepsItsContainerTest extends TestCase
             'a two-line heading at the top level' => ["b\nc\n---\n", "## b c\n"],
             'a two-line heading in a quote' => ["> b\n> c\n> ===\n", "> # b c\n"],
             'a heading on a quoted item line' => ["> - b\n>   ---\n", "> - ## b\n"],
+            'a hard break in a two-line heading' => ["foo\\\nbar\n---\n", "## foo bar\n"],
+            'an escaped backslash ending a heading line' => ["foo\\\\\nbar\n---\n", "## foo\\\\ bar\n"],
+            'an HTML block ending the paragraph' => ["foo\n<div>\n---\n", "foo\n\n```=html\n<div>\n---\n```\n"],
         ];
     }
 

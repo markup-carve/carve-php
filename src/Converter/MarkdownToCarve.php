@@ -778,7 +778,7 @@ class MarkdownToCarve
 
                 $texts = [];
                 for ($at = $i; $at < $setext; $at++) {
-                    $texts[] = trim($lines[$at]);
+                    $texts[] = $this->setextLineText($lines[$at]);
                 }
                 $marker = trim($lines[$setext])[0] === '=' ? '#' : '##';
                 $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($marker . ' ' . implode(' ', $texts));
@@ -1760,6 +1760,19 @@ class MarkdownToCarve
     }
 
     /**
+     * One line of a setext heading's paragraph as it joins the ATX line. A
+     * one-line heading has no spelling for a hard break, so a trailing
+     * backslash goes rather than turning into an escaped space.
+     */
+    protected function setextLineText(string $line): string
+    {
+        $text = trim($line);
+        $run = strlen($text) - strlen(rtrim($text, '\\'));
+
+        return $run % 2 === 1 ? substr($text, 0, -1) : $text;
+    }
+
+    /**
      * Whether a paragraph line under the first one folds into a setext heading
      * with it: plain paragraph text in the container, not a pipe row or a
      * table header, and not four columns in, which the importer writes apart.
@@ -1771,7 +1784,7 @@ class MarkdownToCarve
      */
     protected function foldsIntoSetext(array $lines, int $index, string $held, int $over): bool
     {
-        if ($over >= 4 || !$this->continuesParagraph($held) || preg_match('/^\|.*\|$/', $held) === 1) {
+        if ($over >= 4 || !$this->continuesParagraph($held) || preg_match('/^\|.*\|$/', $held) === 1 || $this->htmlBlockInterrupts($held)) {
             return false;
         }
 
@@ -1798,7 +1811,7 @@ class MarkdownToCarve
             return null;
         }
         $contentCol = $this->columnWidth($lead);
-        $texts = [trim($first)];
+        $texts = [$this->setextLineText($first)];
         for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
             if (preg_match('/^ {0,3}>/', $lines[$at]) !== 1) {
                 return null;
@@ -1820,7 +1833,7 @@ class MarkdownToCarve
             if (!$this->foldsIntoSetext([$rest], 0, trim($rest), $indent - $contentCol)) {
                 return null;
             }
-            $texts[] = trim($rest);
+            $texts[] = $this->setextLineText($rest);
         }
 
         return null;
