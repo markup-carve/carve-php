@@ -2613,6 +2613,16 @@ class HtmlToCarve
             return true;
         }
 
+        // A browser encodes a space in a URL as `%20` itself, so the writer's
+        // `a%20b` is the same destination. Not tabs or newlines: a browser
+        // deletes those, so their `%09`/`%0A` is a different URL.
+        if ((($tag === 'a' && $name === 'href') || ($tag === 'img' && $name === 'src')) && str_contains($value, ' ')) {
+            $encoded = str_replace(' ', '%20', $value);
+            if ($this->consumeSurvivingAttribute($this->importSurvivorKey($name, $encoded))) {
+                return true;
+            }
+        }
+
         // `title` IS THE ONE AUTHORED NAME CARVE RESPELLS. An element's title
         // is written under that element's own semantic-span key, so
         // `<dfn title="…">` becomes `{dfn="…"}` and reads back as a `dfn`
