@@ -543,7 +543,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
                 continue;
             }
-            if (is_array($value) && in_array($key, ['items', 'if', 'then', 'additionalProperties'], true)) {
+            if (is_array($value) && in_array($key, ['items', 'contains', 'if', 'then', 'additionalProperties'], true)) {
                 self::collectKeywords($value, $unsupported);
             }
         }

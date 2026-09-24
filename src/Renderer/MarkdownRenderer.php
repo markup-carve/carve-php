@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Block\Section;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
@@ -71,6 +72,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -1162,6 +1164,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // `<hr>`, so nothing is lost.
                 $node instanceof ThematicBreak => "---\n\n",
                 $node instanceof Div => $this->renderDiv($node),
+                $node instanceof Section => $this->renderChildren($node),
                 $node instanceof Table => $this->renderTable($node),
                 $node instanceof LineBlock => $this->renderLineBlock($node),
                 $node instanceof Footnote => $this->renderFootnote($node),
@@ -2239,7 +2242,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $layout = TableLayout::expand(
             $node,
             fn (TableCell $cell): array => [
-                'content' => trim($this->renderChildren($cell), StringUtil::TRIMMABLE_WHITESPACE),
+                'content' => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE),
                 'alignment' => $cell->getAlignment(),
             ],
         );

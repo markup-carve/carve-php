@@ -63,6 +63,18 @@ class TableCell extends BlockNode
      */
     protected bool $hasExplicitAlignment = false;
 
+    protected bool $blockContent = false;
+
+    public function hasBlockContent(): bool
+    {
+        return $this->blockContent;
+    }
+
+    public function setBlockContent(bool $blockContent): void
+    {
+        $this->blockContent = $blockContent;
+    }
+
     public function __construct(
         protected bool $isHeader = false,
         protected string $alignment = self::ALIGN_DEFAULT,

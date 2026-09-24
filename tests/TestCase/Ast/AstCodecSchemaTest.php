@@ -398,6 +398,9 @@ class AstCodecSchemaTest extends TestCase
         '{"type":"document","srcByteLength":0,"children":[{"type":"block_extension","name":"org.example.diagram",'
             . '"version":"2","fallback":{"type":"paragraph","children":[{"type":"text","value":"a"}]},'
             . '"payload":{"format":"application/json","value":{"type":"swimlane"}}}]}',
+        '{"type":"document","srcByteLength":0,"children":[{"type":"table","rows":['
+            . '{"type":"table_row","cells":[{"type":"table_cell","header":false,"blocks":['
+            . '{"type":"paragraph","children":[{"type":"text","value":"a"}]}]}]}]}]}',
     ];
 
     public function testOmittingARequiredFieldIsRejected(): void

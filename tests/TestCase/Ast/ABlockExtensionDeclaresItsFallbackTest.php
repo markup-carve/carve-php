@@ -52,6 +52,19 @@ final class ABlockExtensionDeclaresItsFallbackTest extends TestCase
         self::assertSame(self::payload(), $codec->encode(clone $document));
     }
 
+    public function testCarveReportsTheFallbackSubstitution(): void
+    {
+        $document = (new AstCodec())->decode(self::payload());
+        $writer = new CarveRenderer();
+        $writer->beginConversionDiagnosticCollection();
+        self::assertSame('A flow chart.', trim($writer->render($document)));
+        $report = $writer->finishConversionDiagnosticCollection();
+
+        self::assertSame(1, $report['totalDiagnostics']);
+        self::assertSame('structure-unspellable', $report['diagnostics'][0]['code']);
+        self::assertSame('block_extension', $report['diagnostics'][0]['node']);
+    }
+
     public function testTheFallbackIsAlsoTheNodesChildSoEveryWalkReachesIt(): void
     {
         $document = (new AstCodec())->decode(self::payload());

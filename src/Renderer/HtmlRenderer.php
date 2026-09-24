@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Block\Section;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
@@ -253,6 +254,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             ListItem::class => 'renderListItem',
             ThematicBreak::class => 'renderThematicBreak',
             Div::class => 'renderDiv',
+            Section::class => 'renderExplicitSection',
             Figure::class => 'renderFigure',
             FigureGroup::class => 'renderFigureGroup',
             Caption::class => 'renderCaption',
@@ -1727,6 +1729,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return $this->frameBlockContainer('<div' . $attrs . '>', $body, '</div>');
     }
 
+    protected function renderExplicitSection(Section $node): string
+    {
+        $attrs = $this->renderAttributeArray($this->getRenderableAttributes($node), 'section');
+        $body = $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2);
+
+        return $this->frameBlockContainer('<section' . $attrs . '>', $body, '</section>');
+    }
+
     protected function renderLineBlock(LineBlock $node): string
     {
         $attrs = $this->getRenderableAttributes($node);
@@ -2102,7 +2112,17 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $attrs = $this->mergeAttribute($attrs, 'style', 'vertical-align: ' . $verticalAlignment . ';');
         }
 
-        return '<' . $tag . $this->renderAttributeArray($attrs) . '>' . $this->renderChildren($node) . '</' . $tag . ">\n";
+        $attributes = $this->renderAttributeArray($attrs);
+        if ($node->hasBlockContent()) {
+            $body = $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2);
+            if ($body === '') {
+                return '<' . $tag . $attributes . '></' . $tag . ">\n";
+            }
+
+            return $this->frameBlockContainer('<' . $tag . $attributes . '>', $body, '</' . $tag . '>');
+        }
+
+        return '<' . $tag . $attributes . '>' . $this->renderChildren($node) . '</' . $tag . ">\n";
     }
 
     protected function renderText(Text $node): string

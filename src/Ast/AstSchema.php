@@ -47,6 +47,8 @@ final class AstSchema
         'required',
         'additionalProperties',
         'items',
+        'contains',
+        'maxContains',
         'const',
         'enum',
         'anyOf',
@@ -345,6 +347,17 @@ final class AstSchema
                 if ($failure !== null) {
                     return $failure;
                 }
+            }
+        }
+        if (isset($schema['contains']) && is_array($schema['contains']) && array_is_list($value)) {
+            $matches = 0;
+            foreach ($value as $index => $item) {
+                if (self::check($item, $schema['contains'], $root, sprintf('%s[%d]', $path, $index), $exempt) === null) {
+                    $matches++;
+                }
+            }
+            if ($matches === 0 || (isset($schema['maxContains']) && $matches > $schema['maxContains'])) {
+                return sprintf('%s must contain one matching item', $path);
             }
         }
 

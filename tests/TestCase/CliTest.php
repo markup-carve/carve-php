@@ -648,6 +648,27 @@ class CliTest extends TestCase
         $this->assertSame('', $result['err']);
     }
 
+    public function testConversionDiagnosticsAreSeparateFromRenderLosses(): void
+    {
+        $ast = '{"type":"document","srcByteLength":0,"children":[{"type":"section","children":['
+            . '{"type":"paragraph","children":[{"type":"text","value":"Part"}]}]}]}';
+        $result = $this->runCliInput(
+            ['--from-json', '--carve', '--report-conversion-diagnostics', '-', '--max-conversion-diagnostics', '0'],
+            $ast,
+        );
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame("Part\n", $result['out']);
+        $report = json_decode($result['err'], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([], $report['diagnostics']);
+        $this->assertSame(1, $report['totalDiagnostics']);
+        $this->assertTrue($report['truncated']);
+
+        $wrongTarget = $this->runCliInput(['--from-json', '--html', '--report-conversion-diagnostics', '-'], $ast);
+        $this->assertSame(2, $wrongTarget['exit']);
+        $this->assertSame('', $wrongTarget['out']);
+    }
+
     public function testRubyLossCanBeAllowedWithAZeroRowLimit(): void
     {
         $ast = json_encode([

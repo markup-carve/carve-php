@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -131,7 +132,7 @@ class AstCodec
         'mention' => ['user'],
         // The halves are FIELDS holding inline content, not child containers.
         'substitution' => ['old', 'new'],
-        'table_cell' => ['header', 'rowspan', 'colspan'],
+        'table_cell' => ['header', 'rowspan', 'colspan', 'blocks'],
         'tag' => ['name'],
     ];
 
@@ -1831,7 +1832,11 @@ class AstCodec
         // no children, and dropping the key made it differ from every other cell
         // in field set rather than in content.
         $container = ReferenceShape::containerFor($type);
-        if ($children === [] && in_array($type . '.' . $container, self::ALWAYS_PUBLISHED, true)) {
+        if ($node instanceof TableCell && $node->hasBlockContent()) {
+            $container = 'blocks';
+            unset($encoded['children']);
+        }
+        if ($children === [] && ($container === 'blocks' || in_array($type . '.' . $container, self::ALWAYS_PUBLISHED, true))) {
             $encoded[$container] = [];
         }
         if ($children !== []) {
@@ -2762,10 +2767,34 @@ class AstCodec
         }
 
         $container = ReferenceShape::containerFor($type);
+        if ($node instanceof TableCell && array_key_exists('blocks', $data)) {
+            $container = 'blocks';
+            $node->setBlockContent(true);
+        }
         /** @var array<int, array<string, mixed>> $children */
         $children = is_array($data[$container] ?? null) ? $data[$container] : [];
         foreach ($children as $child) {
             $node->appendChild($this->decodeNode($child));
+        }
+        if ($node instanceof LineBlock && $node->getLines() !== null) {
+            $lines = $node->getLines();
+            if (count($lines) !== count($node->getChildren())) {
+                throw new AstDecodeException('line_block.lines must have one entry per child stanza');
+            }
+            foreach ($lines as $index => $stanza) {
+                if (end($stanza) !== '/children/-') {
+                    throw new AstDecodeException('Each line_block.lines entry must end at /children/-');
+                }
+                $boundaries = [];
+                self::collectLineBoundaries($children[$index], '', $boundaries);
+                $previous = -1;
+                foreach (array_slice($stanza, 0, -1) as $pointer) {
+                    if (!isset($boundaries[$pointer]) || $boundaries[$pointer] <= $previous) {
+                        throw new AstDecodeException('line_block.lines boundaries must name hard_break nodes in document order');
+                    }
+                    $previous = $boundaries[$pointer];
+                }
+            }
         }
 
         $this->applyDerivedFields($node, $data);
@@ -2781,6 +2810,25 @@ class AstCodec
         }
 
         return $node;
+    }
+
+    /**
+     * @param array<string|int, mixed> $value
+     * @param string $path
+     * @param array<string, int> $boundaries
+     */
+    private static function collectLineBoundaries(array $value, string $path, array &$boundaries): void
+    {
+        if (($value['type'] ?? null) === 'hard_break') {
+            $boundaries[$path] = count($boundaries);
+        }
+        foreach ($value as $key => $child) {
+            if (!is_array($child) || in_array($key, ['attrs', 'pos', 'payload'], true)) {
+                continue;
+            }
+            $segment = str_replace(['~', '/'], ['~0', '~1'], (string)$key);
+            self::collectLineBoundaries($child, $path . '/' . $segment, $boundaries);
+        }
     }
 
     /**

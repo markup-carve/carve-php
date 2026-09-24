@@ -185,7 +185,15 @@ Carve writer cannot spell them back.
 - `section` (PART 12 §30) wraps the blocks it encloses and may carry `level`,
   the heading level the SOURCE FORMAT stated - not what the nesting implies. An
   importer reading HTML5 `<section>`, JATS `sec` or DocBook keeps its nesting
-  through the codec; the Carve writer flattens it back to its headings.
+  through the codec. HTML renders the explicit wrapper. The Carve writer
+  flattens it back to its headings and reports `structure-unspellable`.
+- `table_cell.blocks` (PART 12 §27) holds block content in place of inline
+  `children`. HTML renders those blocks in the cell. Carve, Markdown, plain
+  text and ANSI flatten them to one line; the Carve writer reports
+  `field-unspellable` for `blocks`.
+- `line_block.lines` (PART 12 §36) holds line-end JSON Pointers for each stanza.
+  It preserves a boundary inside an inline run without copying or splitting
+  that run.
 - `math.label` and `math.number` (PART 12 §29) carry a display equation's
   authored numbering prefix and the number resolution assigns beside it. A
   number needs a label and a `display: true` node; either without the other is
@@ -199,6 +207,18 @@ Carve writer cannot spell them back.
   single child, so a walk over the tree reaches it without knowing the type.
   `payload` is opaque: a `type` key inside `payload.value` is data, and no core
   target renders any of it.
+
+Named `:::` containers for `bibliography`, `footnotes`, `glossary`, `index`,
+`references` and `toc` publish `directive` (PART 12 §35). These are source
+spelled; an unknown named kind publishes `admonition`.
+
+To collect source conversion diagnostics, call
+`CarveRenderer::beginConversionDiagnosticCollection($maximum)` before rendering
+and `finishConversionDiagnosticCollection()` afterwards. The report carries
+`diagnostics`, `totalDiagnostics` and `truncated`, following the spec's
+`conversion-diagnostics.schema.json`. The CLI writes the same report with
+`--carve --report-conversion-diagnostics FILE`. It is separate from render
+losses.
 
 ## What an ingest refuses
 
