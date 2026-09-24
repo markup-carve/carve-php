@@ -28,7 +28,7 @@ class ADefinitionShapedParagraphLineStaysTextTest extends TestCase
             'after an invalid definition' => ["[x]: a b c\n[x]: /u", "[x]: a b c\n\\[x]: /u"],
             'consecutive definitions' => ["[a]: /a\n[b]: /b\n\n[t][b]", "[t][b]\n\n[a]: /a\n\n[b]: /b"],
             'after a heading' => ["# h\n[p]: /x\n\n[t][p]", "# h\n\n[t][p]\n\n[p]: /x"],
-            'in a quote after a blank quote line' => [">\n> [p]: /x\n>\n> [t][p]", "> \n> [t][p]\n\n[p]: /x"],
+            'in a quote after a blank quote line' => [">\n> [p]: /x\n>\n> [t][p]", ">\n> [t][p]\n\n[p]: /x"],
         ];
     }
 

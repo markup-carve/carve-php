@@ -52,7 +52,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("a\n\n> [x]: /u\n\nb\n");
 
-        $this->assertSame("a\n\n> \n\nb\n\n[x]: /u\n", $imported);
+        $this->assertSame("a\n\n>\n\nb\n\n[x]: /u\n", $imported);
         $this->assertSame("<p>a</p>\n<blockquote>\n\n</blockquote>\n<p>b</p>\n", (new CarveConverter())->convert($imported));
     }
 
