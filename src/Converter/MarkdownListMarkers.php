@@ -71,6 +71,16 @@ class MarkdownListMarkers
     }
 
     /**
+     * Whether a line at `$col` is held by the innermost open item.
+     */
+    public function holdsItemAt(int $col): bool
+    {
+        $last = array_key_last($this->open);
+
+        return $last !== null && $this->open[$last]['content'] <= $col;
+    }
+
+    /**
      * Whether a marker at `$col` would belong to an open list's level: the list
      * open directly in the item holding the marker, when the marker is within
      * three columns of that item's content.
