@@ -760,25 +760,29 @@ class MarkdownToCarve
                 continue;
             }
 
-            $underline = $i + 1 < $lineCount ? trim($lines[$i + 1]) : '';
-            if (
-                !$isHeading
-                && !$isBlockquote
-                && !$isList
+            // A setext heading: its paragraph lines, all in this container, and
+            // the underline under them, folded into the one ATX line Carve
+            // spells it with at the container's column.
+            $setext = !$isHeading && !$isBlockquote && !$isList
                 // A line that is ITSELF a Markdown thematic break (`***`,
                 // `---`, `- - -`) is a rule, not setext heading text.
                 // CommonMark reads `***\n---` as two thematic breaks, not an
                 // h2 titled `***`.
                 && !preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $line)
-                && (preg_match('/^=+$/', $underline) || preg_match('/^-+$/', $underline))
-            ) {
+                ? $this->setextParagraphEnd($lines, $i, min($contentCol, $holderCol))
+                : null;
+            if ($setext !== null) {
                 if ($prevLineType !== 'blank' && $prevLineType !== 'heading') {
                     $result[] = '';
                 }
 
-                $marker = $underline[0] === '=' ? '#' : '##';
-                $result[] = $this->convertInlineFormatting($marker . ' ' . $trimmed);
-                $i++;
+                $texts = [];
+                for ($at = $i; $at < $setext; $at++) {
+                    $texts[] = trim($lines[$at]);
+                }
+                $marker = trim($lines[$setext])[0] === '=' ? '#' : '##';
+                $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($marker . ' ' . implode(' ', $texts));
+                $i = $setext;
                 if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
                     $result[] = '';
                 }
@@ -825,7 +829,16 @@ class MarkdownToCarve
                     continue;
                 }
                 if (str_starts_with($body, '>') && preg_match('/^((?:> )+)(.*)$/s', $body, $quoted) === 1) {
-                    $body = $this->respellQuotedLine($lines, $i, $quoted[1], $quoted[2], $prevLineType === 'blockquote', $quoteMarkers, $quotePrev, $quoteLazy, $result);
+                    $quotedText = $quoted[2];
+                    if (trim($quotedText) === '') {
+                        $sourceBlanks[count($result)] = true;
+                    } elseif (!($quotePrev !== null && $prevLineType === 'blockquote' && $quotePrev['prefix'] === $quoted[1] && $this->quoteParagraphIsOpen($quotePrev['text']))) {
+                        $setext = $this->foldQuotedSetext($lines, $i, $quoted[1], $quotedText);
+                        if ($setext !== null) {
+                            [$quotedText, $i] = $setext;
+                        }
+                    }
+                    $body = $this->respellQuotedLine($lines, $i, $quoted[1], $quotedText, $prevLineType === 'blockquote', $quoteMarkers, $quotePrev, $quoteLazy, $result);
                 }
             }
             // Carve has only `-`/`*` bullets (no `+`, which is the
@@ -1708,6 +1721,109 @@ class MarkdownToCarve
         }
 
         return $text;
+    }
+
+    /**
+     * The index of the setext underline that ends the paragraph starting at
+     * `$start` in the container holding its content at `$contentCol`, or null
+     * when no underline in that container ends it.
+     *
+     * @param array<int, string> $lines
+     * @param int $contentCol
+     * @param int $start
+     */
+    protected function setextParagraphEnd(array $lines, int $start, int $contentCol): ?int
+    {
+        for ($at = $start, $count = count($lines); $at < $count; $at++) {
+            $line = $lines[$at];
+            $indent = $this->indentWidth($line);
+            if (trim($line) === '' || $indent < $contentCol) {
+                return null;
+            }
+            $held = trim($line);
+            if ($at === $start) {
+                if ($indent - $contentCol >= 4 || !$this->continuesParagraph($held)) {
+                    return null;
+                }
+
+                continue;
+            }
+            if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', $held) === 1) {
+                return $at;
+            }
+            if (!$this->foldsIntoSetext($lines, $at, $held, $indent - $contentCol)) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a paragraph line under the first one folds into a setext heading
+     * with it: plain paragraph text in the container, not a pipe row or a
+     * table header, and not four columns in, which the importer writes apart.
+     *
+     * @param array<int, string> $lines
+     * @param int $over
+     * @param string $held
+     * @param int $index
+     */
+    protected function foldsIntoSetext(array $lines, int $index, string $held, int $over): bool
+    {
+        if ($over >= 4 || !$this->continuesParagraph($held) || preg_match('/^\|.*\|$/', $held) === 1) {
+            return false;
+        }
+
+        return !$this->startsTableHeader($lines, $index);
+    }
+
+    /**
+     * A setext heading a quote holds, its paragraph lines under the same quote
+     * prefix folded into one ATX line, as `[text, underline index]`. `$text`
+     * may open with the markers of an item the quote holds.
+     *
+     * @param array<int, string> $lines
+     * @param string $text
+     * @param string $prefix
+     * @param int $start
+     *
+     * @return array{string, int}|null
+     */
+    protected function foldQuotedSetext(array $lines, int $start, string $prefix, string $text): ?array
+    {
+        $lead = preg_match('/^[ \t]*(?:(?:[-*+]|\d{1,9}[.)]) {1,4}(?=\S))*/', $text, $markers) === 1 ? $markers[0] : '';
+        $first = substr($text, strlen($lead));
+        if (!$this->quoteParagraphIsOpen($first) || !$this->continuesParagraph($first)) {
+            return null;
+        }
+        $contentCol = $this->columnWidth($lead);
+        $texts = [trim($first)];
+        for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
+            if (preg_match('/^ {0,3}>/', $lines[$at]) !== 1) {
+                return null;
+            }
+            $body = $this->normalizeBlockquoteMarkers(ltrim($lines[$at], ' '));
+            if (!str_starts_with($body, $prefix) || preg_match('/^((?:> )+)(.*)$/s', $body, $next) !== 1 || $next[1] !== $prefix) {
+                return null;
+            }
+            $rest = $next[2];
+            $indent = $this->indentWidth($rest);
+            if (trim($rest) === '' || $indent < $contentCol) {
+                return null;
+            }
+            if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest)) === 1) {
+                $heading = (trim($rest)[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
+
+                return [$lead . $heading, $at];
+            }
+            if (!$this->foldsIntoSetext([$rest], 0, trim($rest), $indent - $contentCol)) {
+                return null;
+            }
+            $texts[] = trim($rest);
+        }
+
+        return null;
     }
 
     /**

@@ -447,7 +447,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             ],
             [
                 "> - item\n>\n>   <footer>x</footer>\n",
-                "> - item\n>\n" . self::rawBlock('<footer>x</footer>', '>   '),
+                "> {loose}\n> - item\n>\n" . self::rawBlock('<footer>x</footer>', '>   '),
             ],
         ];
         foreach ($pairs as [$markdown, $expected]) {
