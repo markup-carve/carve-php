@@ -118,6 +118,15 @@ class MarkdownToCarve
     protected array $movedDefinitions = [];
 
     /**
+     * Footnote definitions taken out of the body, each already written the way
+     * `carve fmt` writes it: the label line, then its continuation lines two
+     * columns in. They precede the reference definitions at the end.
+     *
+     * @var array<array<string>>
+     */
+    protected array $movedFootnotes = [];
+
+    /**
      * When true, carry `::: note` fences across as Carve containers (Pandoc /
      * Quarto fenced divs). Default false: in CommonMark both fence lines are
      * paragraph text, and left bare they disappeared from the render and
@@ -1029,9 +1038,17 @@ class MarkdownToCarve
         // 0 off `---` so every rule stays a rule. Real frontmatter already
         // occupies line 0, so the guard is skipped there - it would only inject
         // a stray blank after the closing fence.
-        if ($this->movedDefinitions !== []) {
+        if ($this->movedFootnotes !== [] || $this->movedDefinitions !== []) {
             while ($result !== [] && trim((string)end($result)) === '') {
                 array_pop($result);
+            }
+            foreach ($this->movedFootnotes as $footnote) {
+                if ($result !== []) {
+                    $result[] = '';
+                }
+                foreach ($footnote as $line) {
+                    $result[] = $this->convertInlineFormatting($line);
+                }
             }
             foreach ($this->movedDefinitions as $definition) {
                 if ($result !== []) {
@@ -1078,6 +1095,14 @@ class MarkdownToCarve
     {
         return $this->unverifiedMigrationResult($this->convert($markdown), 'markdown');
     }
+
+    /**
+     * The list marker a reference definition kept in place may sit behind:
+     * `carve fmt` writes one on a nested item's marker line.
+     *
+     * @var string
+     */
+    protected const DEFINITION_MARKER = '(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?';
 
     /**
      * Tag names that open a CommonMark condition-6 HTML block, verbatim from
@@ -3146,6 +3171,16 @@ class MarkdownToCarve
         if ($opensNoParagraph) {
             return $line;
         }
+        // A defined label is a reference link in that text, not a name to
+        // escape, and the full form is the only one Carve has.
+        if (preg_match('/^([ \t]*(?:>[ \t]?)*[ \t]*)\[((?:[^\]\\\\\n]|\\\\.)+)\]:/', $line, $at) === 1) {
+            $label = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($at[2]))] ?? null;
+            if ($label !== null) {
+                $tail = $label === $at[2] && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 ? '[]' : '[' . $label . ']';
+
+                return $at[1] . '[' . $at[2] . ']' . $tail . substr($line, strlen($at[0]) - 1);
+            }
+        }
 
         return preg_replace('/^([ \t]*(?:>[ \t]?)*[ \t]*)\[(?=(?:[^\]\\\\\n]|\\\\.)+\]:)/', '$1\\\\[', $line, 1) ?? $line;
     }
@@ -3319,7 +3354,13 @@ class MarkdownToCarve
         $line = preg_replace_callback('/<[A-Za-z][A-Za-z0-9+.-]*:[^>\s]+>/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         $line = preg_replace_callback('/<[^>\s@]+@[^>\s]+>/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         $line = preg_replace_callback('/\bhttps?:\/\/[^\s<>`]+/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
-        $line = preg_replace_callback('/^\s*\[[^^\]][^\]]*\]:\s*\S.*$/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
+        // A definition kept where it stands is a definition, not link text -
+        // on a nested item's marker line too, which is where fmt writes it.
+        $line = preg_replace_callback(
+            '/^([ \t]*' . self::DEFINITION_MARKER . ')(\[[^^\]][^\]]*\]:\s*\S.*)$/',
+            fn (array $match): string => $match[1] . $protect($match[2]),
+            $line,
+        ) ?? $line;
         // Carve has no shortcut reference, so a defined `[r]` is written in the
         // full form, collapsed only where Carve's exact label match still holds.
         if ($this->referenceDefinitionLabels !== []) {
@@ -3333,7 +3374,7 @@ class MarkdownToCarve
                     if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
                         return $match[0][0];
                     }
-                    if (($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*$/', substr($subject, 0, $match[0][1])) === 1) {
+                    if (($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
                         return $match[0][0];
                     }
                     $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
@@ -3602,6 +3643,7 @@ class MarkdownToCarve
     {
         $this->emptyDestinationLabels = [];
         $this->movedDefinitions = [];
+        $this->movedFootnotes = [];
         $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
         $quote = '/^((?: {0,3}>[ \t]?)*)/';
         $defined = [];
@@ -3615,18 +3657,35 @@ class MarkdownToCarve
         $depth = 0;
         $listIndent = 0;
         $count = count($lines);
+        $outdent = 0;
         for ($i = 0; $i < $count; $i++) {
+            // A definition that closed an item's fence closed the item too, so
+            // what the item held below it stands at the top level now.
+            if ($outdent > 0 && trim($lines[$i]) !== '') {
+                if (strspn($lines[$i], ' ') < $outdent) {
+                    $outdent = 0;
+                } else {
+                    $lines[$i] = substr($lines[$i], $outdent);
+                }
+            }
             $line = $lines[$i];
             $prefix = preg_match($quote, $line, $parts) === 1 ? $parts[1] : '';
             $content = substr($line, strlen($prefix));
             $quotePrefix = $prefix;
             $lineDepth = substr_count($prefix, '>');
             $opensItem = false;
+            $fenceCloser = null;
             // Leaving the container ends a fence or HTML block opened in it.
             if (
                 ($fence !== null || $htmlCloser !== null)
                 && ($lineDepth < $blockDepth || ($blockList > 0 && $quotePrefix === '' && trim($line) !== '' && strspn($line, ' ') < $blockList))
             ) {
+                // The line that ends the item ends the fence with it. Where the
+                // line then moves out of the body, the fence is left with
+                // nothing to close it, so its closer is written here.
+                if ($fence !== null && $blockList > 0 && $quotePrefix === '') {
+                    $fenceCloser = str_repeat(' ', $blockList) . $fence;
+                }
                 $fence = null;
                 $htmlCloser = null;
                 $canStart = true;
@@ -3681,6 +3740,17 @@ class MarkdownToCarve
                 $kept[] = $line;
                 $depth = $lineDepth;
                 $canStart = true;
+
+                continue;
+            }
+            if (
+                $canStart
+                && $prefix === ''
+                && $listIndent === 0
+                && preg_match('/^ {0,3}\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $content) === 1
+                && $this->collectFootnoteDefinition($lines, $i)
+            ) {
+                $depth = 0;
 
                 continue;
             }
@@ -3744,6 +3814,10 @@ class MarkdownToCarve
                     if (!$repeated) {
                         $this->movedDefinitions[] = '[' . $definition[1] . ']: ' . $target;
                     }
+                    if ($fenceCloser !== null) {
+                        $kept[] = $fenceCloser;
+                        $outdent = strspn($fenceCloser, ' ');
+                    }
                     if ($opensItem) {
                         $this->emptyDefinitionItem($lines, $i, $prefix, $quotePrefix, $kept);
 
@@ -3770,6 +3844,11 @@ class MarkdownToCarve
                 }
                 $defined[$key] = true;
                 $canStart = true;
+                if ($opensItem) {
+                    $this->emptyDefinitionItem($lines, $i, $prefix, $quotePrefix, $kept);
+
+                    continue;
+                }
                 if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
                     $canStart = false;
                 }
@@ -3788,6 +3867,58 @@ class MarkdownToCarve
         $this->referenceDefinitionLabels = $labels;
 
         return $kept;
+    }
+
+    /**
+     * Take a footnote definition out of the body for the end of the document,
+     * reporting whether it was taken. `carve fmt` writes footnotes there, ahead
+     * of the reference definitions.
+     *
+     * A footnote body can run over several lines, and it moves as one block, so
+     * only a body of paragraph text moves: every continuation line reaches the
+     * footnote's paragraph, and none of them is a block of its own. Each is
+     * written two columns in, which is the formatter's spelling. A footnote
+     * whose body holds a blank line, a block, or indented code stays where the
+     * source had it, and so does one inside a quote or a list item.
+     *
+     * @param array<string> $lines
+     * @param int $index Advanced past the block taken.
+     */
+    protected function collectFootnoteDefinition(array $lines, int &$index): bool
+    {
+        $count = count($lines);
+        $end = $index;
+        for ($at = $index + 1; $at < $count; $at++) {
+            $line = $this->expandLeadingTabs($lines[$at], 8);
+            if (
+                trim($line) === ''
+                || strspn($line, ' ') >= 8
+                || $this->opensMarkdownBlock(ltrim($line, ' '))
+                || preg_match('/^ *\[(?:[^[\]\\\\]|\\\\.)+\]:/', $line) === 1
+            ) {
+                break;
+            }
+            $end = $at;
+        }
+        // Content past a blank line belongs to the footnote too, and this move
+        // would leave it behind.
+        for ($at = $end + 1; $at < $count; $at++) {
+            if (trim($lines[$at]) !== '') {
+                if (strspn($this->expandLeadingTabs($lines[$at], 4), ' ') >= 4) {
+                    return false;
+                }
+
+                break;
+            }
+        }
+        $block = [ltrim($lines[$index], ' ')];
+        for ($at = $index + 1; $at <= $end; $at++) {
+            $block[] = '  ' . ltrim($this->expandLeadingTabs($lines[$at], 8), ' ');
+        }
+        $this->movedFootnotes[] = $block;
+        $index = $end;
+
+        return true;
     }
 
     /**
@@ -3877,8 +4008,7 @@ class MarkdownToCarve
     }
 
     /**
-     * Drop the definition ending at `$index`. An emptied list item goes with
-     * it, as Carve cannot spell one, and a blank after it goes too where
+     * Drop the definition ending at `$index`. A blank after it goes too where
      * nothing of its container comes before it or a blank does. A quote left
      * with nothing else keeps an empty line, so it still renders.
      *
