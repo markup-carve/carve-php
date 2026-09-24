@@ -248,6 +248,81 @@ class RoundtripPreservesWhatCarveCannotExpressTest extends TestCase
     }
 
     /**
+     * Refused attributes INSIDE a preserved element are in the kept bytes too,
+     * so each is reported as `attribute-preserved` after the element's own rows
+     * and its `raw-preserved` row (markup-carve/carve#2261).
+     *
+     * @return array<string, array{string, array<int, array{string, string, string, string}>}>
+     */
+    public static function descendantProvider(): array
+    {
+        return [
+            'a form with a live link inside' => [
+                '<p>x</p><form onclick="a()" action="javascript:b()"><a href="javascript:alert(1)" onclick="y()">t</a></form>',
+                [
+                    ['attribute-preserved', 'error', '/form[2]', 'Preserved event-handler attribute onclick on <form> in the raw HTML this element is kept as'],
+                    ['attribute-preserved', 'error', '/form[2]', 'Preserved action with a denied URL scheme on <form> in the raw HTML this element is kept as'],
+                    ['raw-preserved', 'warning', '/form[2]', 'Preserved unsupported <form> element as raw HTML'],
+                    ['attribute-preserved', 'error', '/form[2]/a[1]', 'Preserved href with a denied URL scheme on <a> inside the raw HTML <form> is kept as'],
+                    ['attribute-preserved', 'error', '/form[2]/a[1]', 'Preserved event-handler attribute onclick on <a> inside the raw HTML <form> is kept as'],
+                ],
+            ],
+            'a nested descendant, and an id that is not news' => [
+                '<form id="f"><div id="d"><img src="data:image/png;base64,AA" alt="i" id="m"></div></form>',
+                [
+                    ['raw-preserved', 'warning', '/form[1]', 'Preserved unsupported <form> element as raw HTML'],
+                    ['attribute-preserved', 'error', '/form[1]/div[1]/img[1]', 'Preserved src with a denied URL scheme on <img> inside the raw HTML <form> is kept as'],
+                ],
+            ],
+            'a denied candidate past the head of a srcset' => [
+                '<form><img src="a.png" srcset="a.png 1x, javascript:x 2x" title="see javascript:x" alt="i"></form>',
+                [
+                    ['raw-preserved', 'warning', '/form[1]', 'Preserved unsupported <form> element as raw HTML'],
+                    ['attribute-preserved', 'error', '/form[1]/img[1]', 'Preserved srcset with a denied URL scheme on <img> inside the raw HTML <form> is kept as'],
+                ],
+            ],
+            'an OS-handler scheme from the renderer denylist' => [
+                '<form><a href="ms-msdt:x">t</a></form>',
+                [
+                    ['raw-preserved', 'warning', '/form[1]', 'Preserved unsupported <form> element as raw HTML'],
+                    ['attribute-preserved', 'error', '/form[1]/a[1]', 'Preserved href with a denied URL scheme on <a> inside the raw HTML <form> is kept as'],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param string $html
+     * @param array<int, array{string, string, string, string}> $expectedRows
+     */
+    #[DataProvider('descendantProvider')]
+    public function testRefusedAttributesInsideAPreservedElementAreReported(string $html, array $expectedRows): void
+    {
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport($html);
+
+        $rows = [];
+        foreach ($result->diagnostics as $diagnostic) {
+            $row = $diagnostic->toArray();
+            $rows[] = [$row['code'], $row['severity'], $row['path'] ?? '', $row['message']];
+        }
+        $this->assertSame($expectedRows, $rows);
+    }
+
+    /**
+     * The untrusted modes still drop what they drop and say so.
+     */
+    public function testSafeModeReportsTheDescendantsAsDropped(): void
+    {
+        $result = (new HtmlToCarve(importMode: 'safe'))
+            ->convertWithReport('<p>x</p><form onclick="a()" action="javascript:b()"><a href="javascript:alert(1)" onclick="y()">t</a></form>');
+
+        $this->assertStringNotContainsString('javascript:', $result->value);
+        $codes = array_column(array_map(static fn ($d) => $d->toArray(), $result->diagnostics), 'code');
+        $this->assertNotContains('attribute-preserved', $codes);
+        $this->assertNotContains('raw-preserved', $codes);
+    }
+
+    /**
      * AN ELEMENT THAT IS NOT PRESERVED STILL REPORTS ITS REAL LOSSES, which is
      * what keeps the arm from being a blanket silence. A `<section>` maps to a
      * container and goes on mapping; an `<article>` the same.

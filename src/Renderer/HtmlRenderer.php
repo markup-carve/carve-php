@@ -2919,6 +2919,21 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * Does the baseline blank this attribute value for its URL scheme? The
+     * value-wide probe for every name, plus the per-candidate probe for a
+     * URL-list attribute, as `sanitizeAttributeValue()` applies them.
+     */
+    public static function attributeValueHasDeniedScheme(string $name, string $value): bool
+    {
+        if (trim($value) !== '' && self::blankDangerousScheme($value) === '') {
+            return true;
+        }
+        $separators = self::URL_LIST_ATTRIBUTE_SEPARATORS[strtolower($name)] ?? null;
+
+        return $separators !== null && !self::urlListIsClean($separators, $value);
+    }
+
+    /**
      * The value-wide leading-scheme probe, unchanged in what it denies.
      *
      * Named rather than inlined because the URL-list rule adds a second pass

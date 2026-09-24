@@ -868,6 +868,7 @@ class HtmlToCarve
                 'warning',
                 $path,
             );
+            $this->inspectPreservedDescendants($node, $tag, $path, $diagnostics);
 
             return true;
         }
@@ -1695,6 +1696,7 @@ class HtmlToCarve
      * @param string $value
      * @param string $path
      * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     * @param string|null $keptTag The preserved ancestor's tag, for a descendant's row.
      */
     protected function reportPreservedAttribute(
         string $tag,
@@ -1702,45 +1704,70 @@ class HtmlToCarve
         string $value,
         string $path,
         array &$diagnostics,
+        ?string $keptTag = null,
     ): void {
         $handler = str_starts_with($name, 'on');
         $sink = $name === 'srcdoc' || $name === 'formaction';
-        $live = $handler || $sink || $this->valueCarriesADeniedScheme($value);
-        $subject = $handler
-            ? 'event-handler attribute ' . $name
-            : ($sink ? 'injection-sink attribute ' . $name : 'attribute ' . $name);
+        $denied = HtmlRenderer::attributeValueHasDeniedScheme($name, $value);
+        if ($handler) {
+            $subject = 'event-handler attribute ' . $name;
+        } elseif ($sink) {
+            $subject = 'injection-sink attribute ' . $name;
+        } elseif ($denied) {
+            $subject = $name . ' with a denied URL scheme';
+        } else {
+            $subject = 'attribute ' . $name;
+        }
+        $where = $keptTag === null
+            ? 'in the raw HTML this element is kept as'
+            : 'inside the raw HTML <' . $keptTag . '> is kept as';
 
         $this->addImportDiagnostic(
             $diagnostics,
             'attribute-preserved',
-            'Preserved ' . $subject . ' on <' . $tag . '> in the raw HTML this element is kept as',
-            $live ? 'error' : 'info',
+            'Preserved ' . $subject . ' on <' . $tag . '> ' . $where,
+            $handler || $sink || $denied ? 'error' : 'info',
             $path,
         );
     }
 
     /**
-     * Does this value carry a URL scheme a renderer refuses?
+     * Every element inside a preserved one is in the kept bytes as well, so its
+     * refused attributes get the same rows, in document order
+     * (markup-carve/carve#2261).
      *
-     * PART 9 section 25 blanks a value whose scheme LEADS it, and a list-valued
-     * attribute hides one past its head. In preserved raw bytes the renderer
-     * never runs at all, so either shape is live in the output and the row says
-     * so.
+     * @param \DOMElement $node
+     * @param string $keptTag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
      */
-    protected function valueCarriesADeniedScheme(string $value): bool
+    protected function inspectPreservedDescendants(DOMElement $node, string $keptTag, string $path, array &$diagnostics): void
     {
-        foreach (preg_split('/[\s,]+/', $value) ?: [] as $token) {
-            $colon = strpos($token, ':');
-            if ($colon === false) {
+        $index = 0;
+        foreach ($node->childNodes as $child) {
+            $index++;
+            if (!$child instanceof DOMElement) {
                 continue;
             }
-            $scheme = strtolower(preg_replace('/[\s\x00-\x1f]/', '', substr($token, 0, $colon)) ?? '');
-            if (in_array($scheme, ['javascript', 'vbscript', 'data'], true)) {
-                return true;
+            $tag = strtolower($child->tagName);
+            $childPath = $this->importChildPath($path, $child, $index);
+            foreach ($child->attributes as $attribute) {
+                $name = strtolower($attribute->name);
+                if ($this->preservedAttributeIsNews($tag, $name, $attribute->value)) {
+                    $this->reportPreservedAttribute($tag, $name, $attribute->value, $childPath, $diagnostics, $keptTag);
+                }
             }
+            $this->inspectPreservedDescendants($child, $keptTag, $childPath, $diagnostics);
         }
+    }
 
-        return false;
+    /**
+     * A preserved attribute is reported when this importer would have refused
+     * it, or when its value carries a scheme the renderer blanks.
+     */
+    protected function preservedAttributeIsNews(string $tag, string $name, string $value): bool
+    {
+        return $this->importWouldRefuseAttribute($tag, $name) || HtmlRenderer::attributeValueHasDeniedScheme($name, $value);
     }
 
     /**
@@ -1769,7 +1796,7 @@ class HtmlToCarve
                 // would NOT have written, because that is the one whose
                 // presence in the document is news: an `id` would have been
                 // kept either way and is not.
-                if ($this->importWouldRefuseAttribute($tag, $name)) {
+                if ($this->preservedAttributeIsNews($tag, $name, $attribute->value)) {
                     $this->reportPreservedAttribute($tag, $name, $attribute->value, $path, $diagnostics);
                 }
 
