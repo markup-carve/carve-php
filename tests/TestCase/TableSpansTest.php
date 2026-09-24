@@ -1189,4 +1189,19 @@ HTML;
 HTML;
         $this->assertSame($expected, trim($this->converter->convert($source)));
     }
+
+    public function testUncoveredCaretBelowColspanCanSpanNextRow(): void
+    {
+        $source = "| A | < | X |\n| B | ^ | Y |\n| C | ^ | Z |\n";
+        $expected = <<<'HTML'
+<table>
+  <tbody>
+    <tr><td colspan="2">A</td><td>X</td></tr>
+    <tr><td>B</td><td rowspan="2"></td><td>Y</td></tr>
+    <tr><td>C</td><td>Z</td></tr>
+  </tbody>
+</table>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert($source)));
+    }
 }
