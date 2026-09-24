@@ -231,6 +231,9 @@ class MarkdownToCarve
         $quoteMarkers = [];
         $quotePrev = null;
         $quoteLazy = null;
+        // Whether a line of the quote run so far has a tab among its markers or
+        // indentation, which the quote's list tracking does not count.
+        $quoteTabbed = false;
         // Whether the last line left a paragraph open inside a list item, and
         // the quote prefix and column of a quote paragraph it left open there:
         // a lazy line continues either.
@@ -551,6 +554,7 @@ class MarkdownToCarve
                 $quoteMarkers = [];
                 $quotePrev = null;
                 $quoteLazy = null;
+                $quoteTabbed = false;
             }
 
             // Inside an open raw-HTML block the line is literal content, not a
@@ -846,6 +850,39 @@ class MarkdownToCarve
 
                     continue;
                 }
+                // An open paragraph holds the line unless a deeper quote opens
+                // here. Lazy lines keep one open, which `$quoteLazy` records.
+                $depth = substr_count($this->quotePrefixOf($body), '>');
+                $paragraphOpen = $prevLineType === 'blockquote' && (
+                    $quotePrev !== null
+                        ? $this->quoteParagraphIsOpen($quotePrev['text']) && $depth <= substr_count($quotePrev['prefix'], '>')
+                        : $quoteLazy !== null && ($quoteLazy === '' || $depth <= substr_count($quoteLazy, '>'))
+                );
+                // A quote inside a list item is left as it is, and so is one whose
+                // item columns a tab would put off.
+                $quoteCode = $paragraphOpen || $listCols !== [] ? null : $this->collectQuotedIndentedCode($lines, $i, $quoteMarkers, $quoteTabbed);
+                $quoteTabbed = $quoteTabbed || preg_match('/^[ >]*\t/', $line) === 1;
+                if ($quoteCode !== null) {
+                    $quotePrefix = rtrim($quoteCode['prefix']);
+                    if ($prevLineType === 'blockquote' && rtrim((string)end($result)) !== $quotePrefix) {
+                        $result[] = $quotePrefix;
+                    }
+                    array_push($result, ...$quoteCode['lines']);
+                    for ($at = $i + 1; $at <= $quoteCode['end']; $at++) {
+                        $quoteTabbed = $quoteTabbed || preg_match('/^[ >]*\t/', $lines[$at]) === 1;
+                    }
+                    $i = $quoteCode['end'];
+                    $prevLineType = 'blockquote';
+                    // A line after the code that leaves the quote starts a block of its own.
+                    if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '' && !str_starts_with(ltrim($lines[$i + 1]), '>')) {
+                        $result[] = '';
+                        $prevLineType = 'blank';
+                    }
+                    $quotePrev = null;
+                    $quoteLazy = null;
+
+                    continue;
+                }
                 if (str_starts_with($body, '>') && preg_match('/^((?:> )+)(.*)$/s', $body, $quoted) === 1) {
                     $quotedText = $quoted[2];
                     // A tab after a quoted item's marker pads to the tab stop of
@@ -925,7 +962,10 @@ class MarkdownToCarve
             // line has to be part of the same paragraph: non-blank, and not the
             // start of another block. Heading and list lines are excluded for
             // the same reason - a break has nothing to break there.
-            if (
+            // A quote line holding only spaces is a blank line of the quote.
+            if (trim(ltrim($body, '> ')) === '') {
+                $converted = $this->quotePrefixOf($body);
+            } elseif (
                 !$isHeading
                 && preg_match('/ {2,}$/', $body)
                 && $i + 1 < $lineCount
@@ -2514,6 +2554,111 @@ class MarkdownToCarve
         $output[] = $prefix . $canonical;
 
         return ['lines' => $output, 'end' => $end, 'prefix' => $prefix];
+    }
+
+    /**
+     * Collect an indented code block opened inside a block quote, four columns
+     * past the item the quote holds it in or past the quote itself, and write
+     * it as a fence at that column. It runs while the quote goes on at the
+     * same depth.
+     *
+     * @param array<int, string> $lines
+     * @param int $start
+     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $markers
+     * @param bool $tabbed Whether an earlier line of the quote has a tab among its
+     *   markers or indentation, which the quote's item columns do not count.
+     *
+     * @return array{lines: array<int, string>, end: int, prefix: string}|null
+     */
+    protected function collectQuotedIndentedCode(array $lines, int $start, array $markers, bool $tabbed): ?array
+    {
+        $opener = $this->normalizeBlockquoteMarkers(ltrim($this->expandLeadingTabs($lines[$start]), ' '));
+        if (preg_match('/^((?:> )+)(.*)$/s', $opener, $open) !== 1 || trim($open[2]) === '') {
+            return null;
+        }
+        [, $prefix, $text] = $open;
+        $holder = isset($markers[$prefix]) ? $markers[$prefix]->contentAt($this->indentWidth($text)) : 0;
+        if ($this->indentWidth($text) < $holder + 4 || ($tabbed && $holder > 0)) {
+            return null;
+        }
+        $virtual = [];
+        for ($at = $start, $count = count($lines); $at < $count; $at++) {
+            $inner = $this->quotedCodeLine($lines[$at], $prefix, $holder + 4);
+            if ($inner === null || str_starts_with($inner, '>')) {
+                break;
+            }
+            // The first line the code does not take still tells the collector
+            // to set the code apart from it.
+            if (trim($inner) !== '' && $this->indentWidth($inner) < $holder + 4) {
+                $virtual[] = $inner;
+
+                break;
+            }
+            $virtual[] = $inner;
+        }
+        $code = $this->collectIndentedCode($virtual, 0, $holder);
+        $written = [];
+        foreach ($code['lines'] as $line) {
+            $written[] = $line === '' ? rtrim($prefix) : $prefix . $line;
+        }
+        // A shallower quote line after it is back in an outer quote, which a
+        // blank at that depth tells Carve.
+        $after = $start + $code['end'] < count($lines) ? $this->quotePrefixOf($this->normalizeBlockquoteMarkers(ltrim($lines[$start + $code['end']], ' '))) : '';
+        if ($after !== '' && substr_count($after, '>') < substr_count($prefix, '>') && end($written) !== rtrim($prefix)) {
+            $written[] = rtrim($after);
+        }
+
+        return ['lines' => $written, 'end' => $start + $code['end'] - 1, 'prefix' => $prefix];
+    }
+
+    /**
+     * The text of a line in the quote `$prefix` opens, with the tabs before
+     * column `$body` of that text written as spaces, or null when the line is
+     * not in that quote.
+     */
+    protected function quotedCodeLine(string $line, string $prefix, int $body): ?string
+    {
+        $text = $this->quotedText($this->expandLeadingTabs($line), $prefix);
+        if ($text === null || trim($text) === '') {
+            return $text;
+        }
+        $expanded = $this->expandLeadingTabs($line);
+        $offset = strlen($expanded) - strlen($text);
+
+        return $this->quotedText($this->expandLeadingTabs($line, $offset + $body), $prefix);
+    }
+
+    /**
+     * What follows the quote markers `$prefix` of a line, '' for a blank line
+     * of that quote, or null when the line is not in it.
+     */
+    protected function quotedText(string $line, string $prefix): ?string
+    {
+        $normalized = $this->normalizeBlockquoteMarkers(ltrim($line, ' '));
+        if (str_starts_with($normalized, $prefix)) {
+            return substr($normalized, strlen($prefix));
+        }
+
+        return rtrim($normalized) === rtrim($prefix) ? '' : null;
+    }
+
+    /**
+     * The line with the tabs before its text, up to column `$limit`, written as
+     * the spaces that reach the same tab stop, so quote markers and indentation
+     * count real columns. A tab past the limit is the code's own and stays.
+     */
+    protected function expandLeadingTabs(string $line, int $limit = PHP_INT_MAX): string
+    {
+        $out = '';
+        $column = 0;
+        $length = strlen($line);
+        for ($i = 0; $i < $length && $column < $limit && str_contains(" \t>", $line[$i]); $i++) {
+            $width = $line[$i] === "\t" ? 4 - $column % 4 : 1;
+            $out .= $line[$i] === "\t" ? str_repeat(' ', $width) : $line[$i];
+            $column += $width;
+        }
+
+        return $out . substr($line, $i);
     }
 
     protected function normalizeBlockquoteMarkers(string $line): string
