@@ -1673,9 +1673,15 @@ class MarkdownToCarve
             && $this->quoteParagraphIsOpen($prev['text']) && $this->isHeldOrderedMarker($text, $list);
         if ($heldMarker) {
             $written = substr($text, 0, strlen($text) - strlen(ltrim($text, " \t"))) . $this->escapeBlockOpener(ltrim($text, " \t"));
+        } elseif ($continues && $list->openItemContentColumn() !== null) {
+            $written = str_repeat(' ', max($list->openItemContentColumn(), $this->indentWidth($text)))
+                . $this->escapeBlockOpener(ltrim($text, " \t"));
         } elseif (preg_match('/^([ \t]*)(?:[-*+]|\d+[.)])[ \t]/', $text) === 1 && !$continues) {
             $free = $this->quotedPaddingIsFree($lines, $index, $prefix, $text);
-            $step = $list->write($text, $free, !$free);
+            $hasWidePadding = preg_match('/^[ \t]*(?:[-*+]|\d+[.)]) {2,4}\S/', $text) === 1;
+            $trial = clone $list;
+            $preview = $trial->write($text, $free);
+            $step = $list->write($text, $free, !$free && ($hasWidePadding || $preview['shift'] > 0));
             $markerCol = $this->indentWidth($text);
             $written = $this->moveIndent($step['line'], $markerCol, $markerCol + $step['outer']);
             if ($step['separate'] && $prev !== null && $prev['prefix'] === $prefix) {
