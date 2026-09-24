@@ -315,6 +315,14 @@
     ],
     "required": []
   },
+  "ruby": {
+    "fields": [
+      "pairs"
+    ],
+    "required": [
+      "pairs"
+    ]
+  },
   "smart_punctuation": {
     "fields": [
       "kind",

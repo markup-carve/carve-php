@@ -675,6 +675,7 @@ class CarveConverter
             $this->renderer instanceof MarkdownRenderer => 'markdown',
             $this->renderer instanceof PlainTextRenderer => 'plain',
             $this->renderer instanceof AnsiRenderer => 'ansi',
+            $this->renderer instanceof CarveRenderer => 'carve',
             default => throw new LogicException('Checked rendering requires a renderer with a declared target.'),
         };
         $this->renderer->beginRenderLossCollection($target, $maxRenderLosses);
@@ -683,7 +684,7 @@ class CarveConverter
         } finally {
             $report = $this->renderer->finishRenderLossCollection();
         }
-        $result = new RenderResult($value, $report['losses'], $report['totalLosses'], $report['truncated']);
+        $result = new RenderResult($value, $report['losses'], $report['totalLosses'], $report['truncated'], $report['lossCounts']);
         if ($strictLosses && $result->totalLosses > 0) {
             throw new RenderLossException($result);
         }

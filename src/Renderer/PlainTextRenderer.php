@@ -47,6 +47,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -412,6 +413,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 $node instanceof Image => $this->stripControls($node->getAlt()),
                 $node instanceof Mention => $this->renderMention($node),
                 $node instanceof Link => $this->renderLink($node),
+                $node instanceof Ruby => $this->renderRuby($node),
                 $node instanceof Delete => '~' . $this->renderChildren($node) . '~',
                 $node instanceof Substitution => '~' . $this->renderChildren($node->getOld()) . '~' . $this->renderChildren($node->getNew()),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
@@ -554,6 +556,24 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         }
 
         return $text;
+    }
+
+    protected function renderRuby(Ruby $node): string
+    {
+        $this->recordRubyFlattened($node);
+        $out = '';
+        foreach ($node->getPairs() as $pair) {
+            foreach ($pair['base'] as $base) {
+                $out .= $this->renderNode($base);
+            }
+            $out .= '(';
+            foreach ($pair['annotation'] as $annotation) {
+                $out .= $this->renderNode($annotation);
+            }
+            $out .= ')';
+        }
+
+        return $out;
     }
 
     /**

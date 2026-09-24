@@ -647,4 +647,31 @@ class CliTest extends TestCase
         $this->assertSame("<p>[@x]</p>\n", $result['out']);
         $this->assertSame('', $result['err']);
     }
+
+    public function testRubyLossCanBeAllowedWithAZeroRowLimit(): void
+    {
+        $ast = json_encode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        [
+                            'type' => 'ruby',
+                            'pairs' => [['base' => [['type' => 'text', 'value' => 'x']], 'annotation' => [['type' => 'text', 'value' => 'a']]]],
+                        ],
+                    ],
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+        $denied = $this->runCliInput(['--from-json', '--plain', '--strict-losses', '--max-render-losses', '0'], $ast);
+        $allowed = $this->runCliInput(['--from-json', '--plain', '--strict-losses', '--max-render-losses', '0', '--allow-loss', 'ruby-flattened'], $ast);
+
+        $this->assertSame(1, $denied['exit']);
+        $this->assertSame('', $denied['out']);
+        $this->assertSame(0, $allowed['exit']);
+        $this->assertSame("x(a)\n", $allowed['out']);
+        $this->assertSame('', $allowed['err']);
+    }
 }

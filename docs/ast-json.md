@@ -162,8 +162,15 @@ AstCodec::schema();
 //  'citation' => ['fields' => ['key', ...], 'required' => ['key', 'suppressAuthor']], ...]
 ```
 
-Five types currently have required fields: `abbreviation`, `citation`,
-`citation_group`, `heading_ref`, `inline_extension`.
+Six types currently have required fields: `abbreviation`, `citation`,
+`citation_group`, `heading_ref`, `inline_extension`, `ruby`.
+
+Ruby annotations use ordered `pairs`. Each pair has a nonempty `base` inline
+array and an `annotation` inline array, which may be empty. HTML and Markdown
+render ruby with `<ruby>`, `<rt>`, and generated `<rp>` elements. Carve, plain
+text, and ANSI render each pair as `base(annotation)` and report one
+`ruby-flattened` loss per ruby node. The CLI accepts `--allow-loss ruby-flattened`
+when that fallback is intentional.
 
 ## What an ingest refuses
 

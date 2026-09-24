@@ -51,6 +51,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -1204,6 +1205,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // disagree about whether the document says it.
                 $node instanceof CriticComment => $this->escapeText($this->stripControls($node->getContent())),
                 $node instanceof Span => $this->renderSpan($node),
+                $node instanceof Ruby => $this->renderRuby($node),
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
                 $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
@@ -2672,6 +2674,23 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $title = htmlspecialchars($this->stripControls($authored), ENT_QUOTES, 'UTF-8');
 
         return '<abbr title="' . $title . '">' . $inner . '</abbr>';
+    }
+
+    protected function renderRuby(Ruby $node): string
+    {
+        $out = '<ruby' . $this->htmlAttributes($node) . '>';
+        foreach ($node->getPairs() as $pair) {
+            foreach ($pair['base'] as $base) {
+                $out .= $this->renderNode($base);
+            }
+            $out .= '<rp>(</rp><rt>';
+            foreach ($pair['annotation'] as $annotation) {
+                $out .= $this->renderNode($annotation);
+            }
+            $out .= '</rt><rp>)</rp>';
+        }
+
+        return $out . '</ruby>';
     }
 
     protected function renderMath(Math $node): string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Ast;
 
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 
@@ -32,6 +33,17 @@ class TextRunCoalescer
      */
     public static function apply(Node $node): void
     {
+        if ($node instanceof Ruby) {
+            $pairs = $node->getPairs();
+            foreach ($pairs as &$pair) {
+                $pair['base'] = self::coalesceList($pair['base']);
+                $pair['annotation'] = self::coalesceList($pair['annotation']);
+            }
+            unset($pair);
+            $node->setPairs($pairs);
+
+            return;
+        }
         foreach ($node->getChildren() as $child) {
             self::apply($child);
         }

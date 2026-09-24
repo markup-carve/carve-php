@@ -442,7 +442,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
      * copy that can drift from its source is a rule that quietly stops being
      * the one that was ruled.
      */
-    public function testTheVendoredSchemaMatchesTheSpecSubmodule(): void
+    public function testTheVendoredSchemaMatchesTheSpecSubmoduleWithRubyOverlay(): void
     {
         $vendored = dirname(__DIR__, 3) . '/resources/ast-schema.json';
         $upstream = dirname(__DIR__, 3) . '/tests/spec/resources/ast-schema.json';
@@ -453,8 +453,19 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         $upstreamSchema = json_decode((string)file_get_contents($upstream), true, 512, JSON_THROW_ON_ERROR);
         $vendoredSchema = json_decode((string)file_get_contents($vendored), true, 512, JSON_THROW_ON_ERROR);
 
-        // NO CARVE-OUT. The substitution definition was exempt while
-        // markup-carve/carve#2095 was ahead of the pin; the pin now includes it.
+        // The merged ruby contract is ahead of this repository's spec pin.
+        // Remove exactly its two definitions and inline dispatch entries, then
+        // require the rest of the vendored schema to match the pin.
+        unset($vendoredSchema['$defs']['ruby'], $vendoredSchema['$defs']['rubyPair']);
+        $inline = &$vendoredSchema['$defs']['inlineNode'];
+        $inline['properties']['type']['enum'] = array_values(array_filter(
+            $inline['properties']['type']['enum'],
+            static fn (string $type): bool => $type !== 'ruby',
+        ));
+        $inline['allOf'] = array_values(array_filter(
+            $inline['allOf'],
+            static fn (array $branch): bool => ($branch['if']['properties']['type']['const'] ?? null) !== 'ruby',
+        ));
         $this->assertSame($upstreamSchema, $vendoredSchema);
     }
 

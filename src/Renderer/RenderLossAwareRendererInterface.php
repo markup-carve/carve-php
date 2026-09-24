@@ -9,7 +9,7 @@ interface RenderLossAwareRendererInterface
     public function beginRenderLossCollection(string $target, int $maximum): void;
 
     /**
-     * @return array{losses: list<array<string, mixed>>, totalLosses: int, truncated: bool}
+     * @return array{losses: list<array<string, mixed>>, totalLosses: int, lossCounts: array<string, int>, truncated: bool}
      */
     public function finishRenderLossCollection(): array;
 }

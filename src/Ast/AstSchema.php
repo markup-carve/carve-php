@@ -52,6 +52,7 @@ final class AstSchema
         'if',
         'then',
         'minimum',
+        'minItems',
         'exclusiveMinimum',
         'maximum',
     ];
@@ -151,6 +152,7 @@ final class AstSchema
                 'const' => 'checkConst',
                 'enum' => 'checkEnum',
                 'minimum' => 'checkMinimum',
+                'minItems' => 'checkMinItems',
                 'exclusiveMinimum' => 'checkExclusiveMinimum',
                 'maximum' => 'checkMaximum',
                 'required' => 'checkRequired',
@@ -466,6 +468,24 @@ final class AstSchema
         return $value >= $bound
             ? null
             : sprintf('%s is %s, below the schema minimum %s', $path, self::number($value), self::number($bound));
+    }
+
+    /**
+     * @param mixed $value
+     * @param mixed $bound
+     * @param string $path
+     *
+     * @return string|null
+     */
+    private static function checkMinItems(mixed $value, mixed $bound, string $path): ?string
+    {
+        if (!is_array($value) || !is_int($bound)) {
+            return sprintf('%s has an invalid array bound', $path);
+        }
+
+        return count($value) >= $bound
+            ? null
+            : sprintf('%s has fewer than %d items', $path, $bound);
     }
 
     /**

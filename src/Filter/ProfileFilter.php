@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -155,6 +156,14 @@ class ProfileFilter
                 $this->filterImage($child, $parent, $profile);
             }
 
+            if ($child instanceof Ruby) {
+                if (!$this->filterRubyPairs($child, $profile, $depth + 1)) {
+                    $this->stripNode($child, $parent);
+                }
+
+                continue;
+            }
+
             // Recursively filter children
             $this->filterChildren($child, $profile, $depth + 1);
             if ($child instanceof CitationGroup) {
@@ -202,6 +211,32 @@ class ProfileFilter
         }
         unset($item);
         $group->setItems($items);
+    }
+
+    protected function filterRubyPairs(Ruby $ruby, Profile $profile, int $depth): bool
+    {
+        $pairs = [];
+        foreach ($ruby->getPairs() as $pair) {
+            foreach (['base', 'annotation'] as $field) {
+                $holder = new Paragraph();
+                $holder->setChildren($pair[$field]);
+                $this->filterChildren($holder, $profile, $depth);
+                $pair[$field] = array_values(array_filter(
+                    $holder->getChildren(),
+                    static fn (Node $child): bool => $child instanceof InlineNode,
+                ));
+            }
+            if ($pair['base'] === []) {
+                $pair['base'] = [new Text('')];
+            }
+            $pairs[] = $pair;
+        }
+        if ($pairs === []) {
+            return false;
+        }
+        $ruby->setPairs($pairs);
+
+        return true;
     }
 
     protected function filterLink(Link $node, Node $parent, Profile $profile): void
@@ -610,6 +645,21 @@ class ProfileFilter
         // author's source form, which is the closest honest degradation.
         if ($node instanceof CitationGroup) {
             return $node->getRaw();
+        }
+        if ($node instanceof Ruby) {
+            $text = '';
+            foreach ($node->getPairs() as $pair) {
+                foreach ($pair['base'] as $base) {
+                    $text .= $this->extractTextContent($base, $depth + 1);
+                }
+                $text .= '(';
+                foreach ($pair['annotation'] as $annotation) {
+                    $text .= $this->extractTextContent($annotation, $depth + 1);
+                }
+                $text .= ')';
+            }
+
+            return $text;
         }
 
         // Special handling for symbols - use the symbol name

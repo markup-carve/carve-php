@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Ast;
 
+use InvalidArgumentException;
 use JsonException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
@@ -24,6 +25,7 @@ use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
@@ -1774,6 +1776,11 @@ class AstCodec
         }
 
         $children = $node->getChildren();
+        if ($node instanceof Ruby) {
+            // The same inlines are exposed as children for ordinary tree walks.
+            // The wire owns them only through pairs, never through children.
+            $children = [];
+        }
         if ($node instanceof Abbreviation) {
             // `abbr` carries the abbreviation and `expansion` what it stands
             // for; the Text child holds the abbreviation again, and publishing
@@ -2588,6 +2595,13 @@ class AstCodec
                 continue;
             }
             $property->setValue($node, $this->decodeValue($data[$name], $property));
+        }
+        if ($node instanceof Ruby) {
+            try {
+                $node->setPairs($node->getPairs());
+            } catch (InvalidArgumentException $exception) {
+                throw new AstDecodeException($exception->getMessage(), previous: $exception);
+            }
         }
 
         /** @var array<string, mixed> $wire */
