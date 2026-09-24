@@ -85,7 +85,9 @@ class ProfileVocabularyConformanceTest extends TestCase
             'comment' => ["%% a comment\n", $block],
             'figure' => ["![alt](/i.png)\n^ caption\n", $block],
             'figure_group' => ["::: figure\n![alt](/i.png)\n^ caption\n:::\n^ Figure #: group\n", $block],
-            'caption' => ["![alt](/i.png)\n^ caption\n", $block],
+            // No `caption` entry: the spec does not list one, because a caption is
+            // part of its host rather than a type of its own (carve#2207). What it
+            // is instead is pinned by ACaptionIsNotDeniableTest.
 
             'text' => ['plain words', $inline],
             'emphasis' => ['a /em/ b', $inline],

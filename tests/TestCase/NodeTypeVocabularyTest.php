@@ -28,17 +28,11 @@ class NodeTypeVocabularyTest extends TestCase
     {
         $spec = self::specVocabulary('Block');
 
-        // `caption` is the one name this engine adds, and it is not an invented
-        // synonym: carve#2207 took the type out of profiles.md because a
-        // caption is an inline array on its figure or table, which is true of
-        // carve-js and carve-rs and not here, where the parse tree holds a
-        // Caption block that a profile really does deny
-        // (ProfileVocabularyConformanceTest pins that). Dropping the name
-        // instead would make `isTypeAllowed('caption')` answer false under any
-        // profile with an allow list. Whether profiles.md means to forbid an
-        // engine naming a node it genuinely has is a question for the spec.
+        // Exact both ways, `caption` included: this engine's Caption block is an
+        // internal parse artifact, not a name a host can deny, so it is no longer
+        // in the vocabulary either (carve#2207, ACaptionIsNotDeniableTest).
         $this->assertSame([], array_values(array_diff($spec, NodeType::allBlockTypes())), 'spec lists a block type NodeType cannot name');
-        $this->assertSame(['caption'], array_values(array_diff(NodeType::allBlockTypes(), $spec)), 'NodeType names a block type the spec does not list');
+        $this->assertSame([], array_values(array_diff(NodeType::allBlockTypes(), $spec)), 'NodeType names a block type the spec does not list');
     }
 
     /**
