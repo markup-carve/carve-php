@@ -48,12 +48,12 @@ class AnExtendedFenceInfoStringKeepsItsLanguageTest extends TestCase
             ],
             'on a tilde fence' => [
                 "~~~js title=x\na\n~~~",
-                "~~~js\na\n~~~",
+                "```js\na\n```",
                 'js',
             ],
             'in a list item after its text' => [
                 "- b\n  ```js title=x\n  a\n  ```",
-                "- b\n\n  ```js\n  a\n  ```",
+                "- b\n  ```js\n  a\n  ```",
                 'js',
             ],
             'on a list item line' => [
@@ -68,7 +68,7 @@ class AnExtendedFenceInfoStringKeepsItsLanguageTest extends TestCase
             ],
             'with only whitespace after the language on an item line' => [
                 "- ~~~js  \n  a\n  ~~~",
-                "- ~~~js\n  a\n  ~~~",
+                "- ```js\n  a\n  ```",
                 'js',
             ],
             'in a quote' => [
@@ -78,7 +78,7 @@ class AnExtendedFenceInfoStringKeepsItsLanguageTest extends TestCase
             ],
             'on a tilde fence in a quote' => [
                 "> ~~~js title=x\n> a\n> ~~~",
-                "> ~~~js\n> a\n> ~~~",
+                "> ```js\n> a\n> ```",
                 'js',
             ],
         ];

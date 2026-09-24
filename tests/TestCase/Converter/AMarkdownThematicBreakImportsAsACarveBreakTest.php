@@ -96,7 +96,7 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
     public static function containerProvider(): array
     {
         return [
-            'in a list item' => ["- a\n\n  * * *", "- a\n\n  ---"],
+            'in a list item' => ["- a\n\n  * * *", "{loose}\n- a\n\n  ---"],
             'on an item continuation line' => ["- a\n  - - -", "- a\n  ---"],
             'in a quote' => ["> a\n>\n> * * *", "> a\n> \n> ---"],
             'abutting the quote marker' => ['>* * *', '> ---'],

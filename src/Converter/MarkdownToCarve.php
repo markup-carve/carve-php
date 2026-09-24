@@ -8,7 +8,10 @@ use Closure;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use RuntimeException;
 use Throwable;
@@ -165,6 +168,12 @@ class MarkdownToCarve
         $fenceStrip = 0;
         // The list item content column an open fence sits in; 0 at top level.
         $fenceItemCol = 0;
+        // Where the open fence's opener sits in $result, what precedes its
+        // fence run there, and its info string. The opener is rewritten at the
+        // closer, once the body says how long the canonical fence has to be.
+        $fenceOut = -1;
+        $fenceRun = 0;
+        $fenceInfo = '';
         // Stack of enclosing list items' content columns (outermost first), so
         // a fence is re-based to the DEEPEST item that still contains it.
         $listCols = [];
@@ -174,17 +183,16 @@ class MarkdownToCarve
         $prevBlank = true;
         $prevLineType = 'blank';
 
-        // Bullet-marker run tracking, so adjacent bullet lists stay distinct in
-        // Carve. `$activeBulletMd` is the Markdown marker (-,*,+) of the current
-        // run, `$activeBulletCarve` the `-`/`*` emitted for it, and
-        // `$bulletRunBroken` is true once a non-list block separates this from
-        // the previous bullet list.
-        $activeBulletMd = null;
-        $activeBulletCarve = null;
-        $bulletRunBroken = true;
-        // The markers of the nested bullet lists copied through the item-text
-        // branch, by indent: the Markdown marker and the Carve one it became.
-        $nestedBullets = [];
+        // List markers as `carve fmt` writes them. A marker of another width
+        // moves its item's content column, and the lines the item holds move
+        // with it: those written in one iteration at or past `$shiftCol` by
+        // `$shiftBy` columns, applied once the iteration is done. Branches that
+        // place their lines themselves set `$shiftBy` to 0.
+        $listMarkers = new MarkdownListMarkers();
+        $shiftFrom = 0;
+        $shiftCol = 0;
+        $shiftBy = 0;
+        $fenceShift = 0;
 
         // Raw-HTML block tracking. `$htmlCloser` is the terminator pattern of an
         // open CommonMark condition 1-5 block (`</script>`, `-->`, ...),
@@ -201,11 +209,59 @@ class MarkdownToCarve
         $htmlPrevHadContent = false;
         $htmlContainer = null;
 
+        // The column count of the GFM table whose body rows are being written,
+        // or 0 outside one.
+        $tableWidth = 0;
+
+        // Where $result holds a blank line of the source, as opposed to one the
+        // conversion put in to separate two blocks.
+        $sourceBlanks = [];
+        // Top-level quote runs: the list markers each quote prefix holds, the
+        // previous quote line as prefix and text (null once the run breaks),
+        // and the prefix a lazy line of the open quote paragraph takes ('' when
+        // the paragraph's lines sit at different depths, null for none).
+        $quoteMarkers = [];
+        $quotePrev = null;
+        $quoteLazy = null;
+        // Whether the last line left a paragraph open inside a list item, and
+        // the quote prefix and column of a quote paragraph it left open there:
+        // a lazy line continues either.
+        $itemParagraph = false;
+        $itemQuote = null;
+        // The column a GFM table under way is written at.
+        $tableCol = 0;
+        // Whether the last item line was code or a table the item holds; a
+        // block that then leaves every item is set apart from the list.
+        $closedItem = false;
+
         $lineCount = count($lines);
         for ($i = 0; $i < $lineCount; $i++) {
+            $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
+            // A tab after the marker of an item this line opens pads it to the
+            // next tab stop; Carve reads no tab there. Not on a line four columns
+            // past the item holding it, which is code or text.
+            if (!$inCodeBlock && str_contains($lines[$i], "\t") && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]/', $lines[$i]) === 1) {
+                $at = $this->indentWidth($lines[$i]);
+                $holder = 0;
+                foreach ($listCols as $col) {
+                    if ($col <= $at) {
+                        $holder = $col;
+                    }
+                }
+                if ($at - $holder < 4) {
+                    $lines[$i] = $this->spaceMarkerPadding($lines[$i]);
+                }
+            }
             $line = $lines[$i];
             $trimmed = trim($line);
             $wasPrevBlank = $prevBlank;
+            $lazyAllowed = $itemParagraph;
+            $itemParagraph = false;
+            $lazyQuote = $itemQuote;
+            $itemQuote = null;
+            $overMarker = false;
+            $afterClosedItem = $closedItem;
+            $closedItem = false;
             $prevBlank = $trimmed === '';
 
             // Maintain the list-item content-column stack. A marker opens an
@@ -224,11 +280,36 @@ class MarkdownToCarve
                 // A raw-HTML block opener interrupts lazy continuation the same
                 // way a heading or a fence does, so a dedented one leaves the
                 // item rather than being read as more of its paragraph.
-                $startsBlock = preg_match('/^(#{1,6}([ \t]|$)|>|`{3,}|~{3,}|-{3,}$|\*{3,}$|_{3,}$)/', $trimmed) === 1
+                // Four columns past the item holding it, an opener starts nothing.
+                $holderCol = 0;
+                foreach ($listCols as $col) {
+                    if ($col <= $indent) {
+                        $holderCol = $col;
+                    }
+                }
+                $startsBlock = $indent - $holderCol < 4 && (
+                    preg_match('/^(#{1,6}([ \t]|$)|>|`{3,}|~{3,}|-{3,}$|\*{3,}$|_{3,}$)/', $trimmed) === 1
                     || preg_match(self::THEMATIC_BREAK, $trimmed) === 1
-                    || $this->htmlBlockInterrupts($trimmed);
+                    || $this->htmlBlockInterrupts($trimmed)
+                );
+                // Four columns past the item holding it, a marker under an open
+                // paragraph is text of that paragraph (indented code cannot
+                // interrupt one).
+                if (($lazyAllowed || $lazyQuote !== null) && preg_match('/^([ \t]*)(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)/', $line, $any) === 1) {
+                    $markerIndent = $this->columnWidth($any[1]);
+                    $parentContent = 0;
+                    foreach ($listCols as $col) {
+                        if ($col <= $markerIndent) {
+                            $parentContent = $col;
+                        }
+                    }
+                    $overMarker = $markerIndent >= $parentContent + 4;
+                }
                 if (
-                    preg_match('/^([ \t]*)(?:[-*+]|[0-9]+[.)]) +/', $line, $lm) === 1
+                    !$overMarker
+                    && $indent - $holderCol < 4
+                    && !($prevLineType === 'text' && preg_match('/^[ \t]*0*(?:[2-9]|1\d)\d*[.)]/', $line) === 1 && !$listMarkers->hasListAt($indent))
+                    && preg_match('/^([ \t]*)(?:[-*+]|[0-9]+[.)]) +/', $line, $lm) === 1
                     && preg_match('/\S/', substr($line, strlen($lm[0]))) === 1
                     // A thematic break outranks a list marker in CommonMark, so
                     // `- - -` opens no item and closes the ones it dedents past.
@@ -238,12 +319,93 @@ class MarkdownToCarve
                     while ($listCols !== [] && end($listCols) > $markerIndent) {
                         array_pop($listCols);
                     }
-                    $listCols[] = $this->columnWidth($lm[0]);
-                } elseif ($trimmed !== '' && ($wasPrevBlank || $startsBlock)) {
-                    while ($listCols !== [] && end($listCols) > $indent) {
-                        array_pop($listCols);
+                    $listCols[] = $this->itemContentColumn($lm[0]);
+                    // And the items the line nests (`- - a`), the innermost perhaps
+                    // holding indented code, one column past its marker.
+                    $nestedEnd = strlen($lm[0]);
+                    foreach (MarkdownListMarkers::nestedItemsOnLine($line, strlen($lm[0])) as $inner) {
+                        $listCols[] = $inner['content'];
+                        $nestedEnd = $inner['end'];
+                    }
+                    if (preg_match('/^(?:[-*+]|\d{1,9}[.)])(?= {5,}\S)/', substr($line, $nestedEnd), $codeItem) === 1) {
+                        $listCols[] = $this->columnWidth(substr($line, 0, $nestedEnd + strlen($codeItem[0]))) + 1;
+                    }
+                } else {
+                    // A fence takes no lazy line, so a line left of the item after
+                    // one leaves the item too.
+                    if ($trimmed !== '' && ($wasPrevBlank || $startsBlock || in_array($prevLineType, ['code', 'code_fence'], true))) {
+                        while ($listCols !== [] && end($listCols) > $indent) {
+                            array_pop($listCols);
+                        }
+                    }
+                    if ($trimmed !== '') {
+                        $listMarkers->end($listCols === [] ? 0 : (int)end($listCols));
                     }
                 }
+            }
+            if ($afterClosedItem && $trimmed !== '' && ($listCols === [] || $listCols[0] > $this->indentWidth($line)) && end($result) !== '') {
+                $result[] = '';
+            }
+            $shiftCol = $inCodeBlock ? $fenceItemCol : ($listCols === [] ? 0 : (int)end($listCols));
+            $shiftBy = $inCodeBlock ? $fenceShift : $listMarkers->shiftAt($shiftCol);
+
+            if ($overMarker) {
+                $text = $this->escapeBlockOpener(ltrim($line, " \t"));
+                if ($lazyQuote !== null) {
+                    $shiftCol = $lazyQuote['col'];
+                    $shiftBy = $listMarkers->shiftAt($shiftCol);
+                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text);
+                    $itemQuote = $lazyQuote;
+                } else {
+                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $listCols === [] ? 0 : (int)end($listCols)) . $text);
+                    $itemParagraph = true;
+                }
+                $prevLineType = 'list';
+
+                continue;
+            }
+
+            // A lazy line continues the paragraph of the item above it, or of
+            // the quote that item holds (CommonMark 5.2), and is written at that
+            // item's content column, as fmt writes it. Four columns past the item
+            // holding it a line opens nothing, since indented code cannot
+            // interrupt a paragraph.
+            $lazyCol = $listCols === [] ? 0 : (int)end($listCols);
+            $lineIndent = $this->indentWidth($line);
+            if (
+                !$inCodeBlock
+                && ($lazyAllowed || $lazyQuote !== null)
+                && $listCols !== []
+                && $lineIndent < $lazyCol
+                && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $line) !== 1
+                && ($this->isParagraphLine($lines, $i) || $lineIndent - $holderCol >= 4)
+            ) {
+                $text = ltrim($line, " \t");
+                $text = $lineIndent - $holderCol >= 4 ? $this->escapeBlockOpener($text) : $text;
+                if ($lazyQuote !== null) {
+                    $shiftCol = $lazyQuote['col'];
+                    $shiftBy = $listMarkers->shiftAt($shiftCol);
+                    $lazyLine = str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text;
+                    $lazyLine = $this->escapeDefinitionContinuation($lazyLine, $lines[$i - 1] ?? '', (string)end($result));
+                    $result[] = $this->convertInlineFormatting($lazyLine);
+                    $itemQuote = $lazyQuote;
+                } else {
+                    $lazyLine = $this->escapeDefinitionContinuation(str_repeat(' ', $lazyCol) . $text, $lines[$i - 1] ?? '', (string)end($result));
+                    $result[] = $this->convertInlineFormatting($lazyLine);
+                    $itemParagraph = true;
+                }
+                $prevLineType = 'list';
+
+                continue;
+            }
+            // The same four columns under a paragraph outside any item.
+            if (!$inCodeBlock && $prevLineType === 'text' && $listCols === [] && $trimmed !== '' && $lineIndent >= 4) {
+                $leading = substr($line, 0, strlen($line) - strlen(ltrim($line, " \t")));
+                // An ordered marker other than 1 interrupts no paragraph anyway.
+                $opener = preg_match('/^0*(?:[2-9]|1\d)\d*[.)]/', $trimmed) === 1 ? $trimmed : $this->escapeBlockOpener($trimmed);
+                $result[] = $this->convertInlineFormatting($leading . $opener);
+
+                continue;
             }
 
             // A fence may be indented up to three columns past its CONTAINER's
@@ -258,7 +420,8 @@ class MarkdownToCarve
                 // item's first line.
                 && !($matches[2][0] === '`' && str_contains($matches[3], '`'))
             ) {
-                if ($prevLineType !== 'blank' && $result !== []) {
+                // A fence interrupts the paragraph of the item holding it.
+                if ($prevLineType !== 'blank' && !($prevLineType === 'list' && $fenceContentCol > 0) && $result !== []) {
                     $result[] = '';
                 }
 
@@ -274,9 +437,12 @@ class MarkdownToCarve
                 $openerIndent = $this->columnWidth($matches[1]);
                 $fenceStrip = max(0, $openerIndent - $fenceContentCol);
                 $fenceItemCol = $fenceContentCol;
+                $fenceShift = $shiftBy;
+                $fenceOut = count($result);
+                $fenceRun = strlen($matches[2]);
+                $fenceInfo = $info;
                 $result[] = $this->stripColumns($matches[1], $fenceStrip) . $matches[2] . $info;
                 $prevLineType = 'code_fence';
-                $bulletRunBroken = true;
 
                 continue;
             }
@@ -284,7 +450,7 @@ class MarkdownToCarve
             // A fence in a list item ends where the item does (CommonMark), so
             // a dedented line closes it and is read again outside it.
             if ($inCodeBlock && $fenceItemCol > 0 && trim($line) !== '' && $this->indentWidth($line) < $fenceItemCol) {
-                $result[] = str_repeat(' ', $fenceItemCol) . str_repeat($fenceChar, $fenceLength);
+                $result[] = $this->closeFence($result, $fenceOut, $fenceRun, $fenceInfo, $fenceItemCol);
                 // After a nested item's closer Carve reads the line as lazy content of
                 // the parent item: keep the Markdown blank line, and add one when the line leaves the list.
                 if (count($listCols) > 1 && ($wasPrevBlank || $this->indentWidth($line) < (int)$listCols[0])) {
@@ -301,7 +467,6 @@ class MarkdownToCarve
             }
 
             if ($inCodeBlock) {
-                $bulletRunBroken = true;
                 $closerIndent = $this->indentWidth($line);
                 // The strip never reaches below the item's own column: a body
                 // line indented no further than the item keeps its place in it.
@@ -315,8 +480,7 @@ class MarkdownToCarve
                     $fenceChar = '';
                     $fenceLength = 0;
                     $fenceStrip = 0;
-                    // An item's closer is written at the item column, whatever its tabs.
-                    $result[] = $fenceItemCol > 0 ? str_repeat(' ', $fenceItemCol) . rtrim(ltrim($line, " \t")) : $dedented;
+                    $result[] = $this->closeFence($result, $fenceOut, $fenceRun, $fenceInfo, $fenceItemCol);
                     $fenceItemCol = 0;
                     if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
                         $result[] = '';
@@ -350,6 +514,27 @@ class MarkdownToCarve
 
             $contentCol = $listCols === [] ? 0 : (int)end($listCols);
 
+            // A line with no marker lazily continues the quote's open paragraph
+            // (CommonMark 5.1) unless it opens a block of its own; four columns in
+            // it opens none, since indented code cannot interrupt a paragraph.
+            // fmt writes it with the quote's marker.
+            if ($prevLineType === 'blockquote' && $quoteLazy !== null && $trimmed !== '' && $listCols === [] && !str_starts_with($trimmed, '>')) {
+                $plain = preg_match('/^[ \t]*(?:[-*+]|\d+[.)]) +/', $line) !== 1 && $this->isParagraphLine($lines, $i);
+                if ($plain || $this->indentWidth($line) >= 4) {
+                    $text = $plain ? $line : $this->escapeBlockOpener(ltrim($line, " \t"));
+                    $text = $this->escapeDefinitionContinuation($quoteLazy . $text, $lines[$i - 1] ?? '', (string)end($result));
+                    $result[] = $this->convertInlineFormatting($text);
+                    $quotePrev = null;
+
+                    continue;
+                }
+            }
+            if (!str_starts_with($trimmed, '>')) {
+                $quoteMarkers = [];
+                $quotePrev = null;
+                $quoteLazy = null;
+            }
+
             // Inside an open raw-HTML block the line is literal content, not a
             // break, so nothing respells it there.
             $inHtmlBlock = $this->convertRawHtml && ($htmlCloser !== null || $htmlBlockOpen);
@@ -360,7 +545,6 @@ class MarkdownToCarve
             if ($rule !== null) {
                 $result[] = $rule;
                 $prevLineType = 'blank';
-                $bulletRunBroken = true;
 
                 continue;
             }
@@ -379,7 +563,7 @@ class MarkdownToCarve
                         && $this->stripContainerPrefix($lines[$i - 1], $contentCol) === '';
                     $lastResultKey = array_key_last($result);
                     if ($previousWasContainerBlank && $lastResultKey !== null) {
-                        $result[$lastResultKey] = rtrim($result[$lastResultKey]);
+                        $result[$lastResultKey] = rtrim((string)$result[$lastResultKey]);
                     }
                     if ($container === '0|0' && !$previousWasContainerBlank && $prevLineType !== 'blank' && $result !== []) {
                         $result[] = '';
@@ -394,7 +578,6 @@ class MarkdownToCarve
                     $prevLineType = $container === '0|0'
                         ? 'code_fence'
                         : (str_ends_with($container, '|0') ? 'list' : 'blockquote');
-                    $bulletRunBroken = true;
 
                     continue;
                 }
@@ -414,7 +597,6 @@ class MarkdownToCarve
                         $result[] = $this->containerSeparator($line, $contentCol);
                     }
                     $prevLineType = 'text';
-                    $bulletRunBroken = true;
 
                     continue;
                 }
@@ -456,6 +638,7 @@ class MarkdownToCarve
             }
 
             if ($isBlank) {
+                $sourceBlanks[count($result)] = true;
                 $result[] = $line;
                 $prevLineType = 'blank';
 
@@ -492,23 +675,41 @@ class MarkdownToCarve
                 continue;
             }
 
-            // A GFM table header: a `|...|` row whose NEXT line is a delimiter
-            // row (the table's second row). Emit the Carve-canonical `|=` header
-            // with alignment markers and drop the separator; body rows pass
-            // through unchanged. Native `|=` and separatorless tables are left
-            // as-is (no following delimiter row triggers this).
+            // A body row of the table above, rebuilt so its padding is what the
+            // formatter writes and its cells are fitted to the header, as GFM
+            // reads them.
+            if ($tableWidth > 0 && $this->indentWidth($line) >= $tableCol && $this->continuesGfmTableBody($this->stripColumns($line, $tableCol))) {
+                $result[] = str_repeat(' ', $tableCol) . $this->writeTableRow($this->splitPipeCells($trimmed), [], $tableWidth);
+
+                continue;
+            }
+            $tableWidth = 0;
+
+            // A GFM table header: a row whose NEXT line is a delimiter row with
+            // as many cells. Emit the Carve-canonical `|=` header with alignment
+            // markers and drop the separator. Native `|=` and separatorless
+            // tables are left as-is (no following delimiter row triggers this).
+            // An item or quote line is left to its own branch, which finds a
+            // table the item holds; and the delimiter row has to sit in the
+            // container the header is in.
+            $delimiterOver = $this->indentWidth($lines[$i + 1] ?? '') - $contentCol;
             if (
-                preg_match('/^\|.*\|$/', $trimmed)
-                && $i + 1 < $lineCount
-                && $this->isGfmDelimiterRow(trim($lines[$i + 1]))
+                !$isList
+                && !$isBlockquote
+                && !$isHeading
+                && $delimiterOver >= 0
+                && $delimiterOver < 4
+                && $this->startsTableHeader($lines, $i)
             ) {
-                if ($prevLineType !== 'blank' && $result !== []) {
+                // A table interrupts the paragraph of the item holding it.
+                if ($prevLineType !== 'blank' && !($prevLineType === 'list' && $contentCol > 0) && $result !== []) {
                     $result[] = '';
                 }
-                $result[] = $this->gfmHeaderToCarve($trimmed, trim($lines[$i + 1]));
+                $result[] = str_repeat(' ', $contentCol) . $this->gfmHeaderToCarve($trimmed, trim($lines[$i + 1]));
+                $tableWidth = count($this->splitPipeCells($trimmed));
+                $tableCol = $contentCol;
                 $i++; // skip the delimiter row
                 $prevLineType = 'text';
-                $bulletRunBroken = true;
 
                 continue;
             }
@@ -516,17 +717,48 @@ class MarkdownToCarve
             // An indented line after a list line is that item's own text, EXCEPT
             // when it opens a nested item on a fence: that is code, and the
             // fence branch further down owns it.
-            if ($prevLineType === 'list' && $indent >= 1 && $this->opensItemFence($line, $isList) === null) {
-                if ($isList && $ordered === null) {
-                    $line = $this->respellNestedBullet($line, $indent, $nestedBullets);
+            if ($prevLineType === 'list' && $indent >= 1 && count($listCols) > ($isList ? 1 : 0) && $this->opensItemFence($line, $isList) === null) {
+                if ($isList) {
+                    // A list under a quote an item holds is set apart from it, or
+                    // Carve reads the marker line as the quote's lazy continuation.
+                    if ($lazyQuote !== null && $this->indentWidth($line) >= $lazyQuote['col']) {
+                        $result[] = '';
+                    }
+                    $line = $this->writeListMarker($listMarkers, $lines, $i, $line, $listCols);
+                    $shiftBy = 0;
+                    $item = $this->writeItemContent($lines, $i, $line, $contentCol);
+                    if ($item !== null) {
+                        array_push($result, ...$item['lines']);
+                        $i = $item['end'];
+                        $closedItem = $item['closes'];
+                        $shiftCol = $contentCol;
+                        $shiftBy = $listMarkers->shiftAt($contentCol);
+                        if ($item['table'] > 0) {
+                            $tableWidth = $item['table'];
+                            $tableCol = $contentCol;
+                        }
+                        $prevLineType = 'list';
+
+                        continue;
+                    }
+                } else {
+                    // One to three columns past the item's content read as none;
+                    // four or more under paragraph text only continue it, since
+                    // indented code cannot interrupt a paragraph.
+                    $held = $this->stripColumns($line, $contentCol);
+                    $slack = $this->indentWidth($line) - $contentCol;
+                    if ($slack >= 1 && ($slack <= 3 || $lazyAllowed)) {
+                        $text = ltrim($held, " \t");
+                        $line = str_repeat(' ', $contentCol) . ($slack >= 4 ? $this->escapeBlockOpener($text) : $text);
+                    }
                 }
+                $held = ltrim($this->stripColumns($line, $contentCol), " \t");
                 $result[] = $this->convertInlineFormatting($this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)));
+                $this->trackItemParagraph($line, $isList, $contentCol, $itemParagraph, $itemQuote);
                 $prevLineType = 'list';
 
                 continue;
             }
-
-            $nestedBullets = [];
 
             $underline = $i + 1 < $lineCount ? trim($lines[$i + 1]) : '';
             if (
@@ -551,7 +783,6 @@ class MarkdownToCarve
                     $result[] = '';
                 }
                 $prevLineType = 'heading';
-                $bulletRunBroken = true;
 
                 continue;
             }
@@ -566,8 +797,11 @@ class MarkdownToCarve
                 $result[] = '';
             }
 
-            $dedent = $indent >= 1 && $indent <= 3 && ($isHeading || $isBlockquote);
-            $body = $dedent ? substr($line, $indent) : $line;
+            // The 1-3 columns of slack are measured from the container's content
+            // column, and the block goes back to it rather than to column 0.
+            $relIndent = $this->indentWidth($line) - $contentCol;
+            $dedent = $relIndent >= 1 && $relIndent <= 3 && ($isHeading || $isBlockquote);
+            $body = $dedent ? str_repeat(' ', $contentCol) . ltrim($line, " \t") : $line;
             if ($isHeading) {
                 $body = preg_replace('/[ \t]+#+[ \t]*$/', '', $body) ?? $body;
             }
@@ -585,46 +819,58 @@ class MarkdownToCarve
                         $result[] = $quotePrefix;
                     }
                     $prevLineType = 'blockquote';
-                    $bulletRunBroken = true;
+                    $quotePrev = null;
+                    $quoteLazy = null;
 
                     continue;
                 }
+                if (str_starts_with($body, '>') && preg_match('/^((?:> )+)(.*)$/s', $body, $quoted) === 1) {
+                    $body = $this->respellQuotedLine($lines, $i, $quoted[1], $quoted[2], $prevLineType === 'blockquote', $quoteMarkers, $quotePrev, $quoteLazy, $result);
+                }
             }
             // Carve has only `-`/`*` bullets (no `+`, which is the
-            // continuation marker), and two adjacent bullet lists must use
-            // different markers or Carve merges them into one. Keep the
-            // Markdown marker when it does not collide with an adjacent
-            // preceding list; otherwise flip to the other marker.
-            if ($isList && $ordered === null) {
-                $mdMarker = $trimmed[0];
-                if (!$bulletRunBroken && $mdMarker === $activeBulletMd) {
-                    $carveMarker = (string)$activeBulletCarve;
-                } else {
-                    $preferred = $mdMarker === '+' ? '-' : $mdMarker;
-                    $carveMarker = !$bulletRunBroken && $preferred === $activeBulletCarve
-                        ? ($activeBulletCarve === '-' ? '*' : '-')
-                        : $preferred;
+            // continuation marker), and two adjacent lists must differ in
+            // marker or Carve merges them into one, so fmt sets them apart.
+            if ($isList) {
+                $separate = false;
+                $body = $this->writeListMarker($listMarkers, $lines, $i, $body, $listCols, $separate);
+                if (($separate && $prevLineType === 'list') || ($lazyQuote !== null && $this->indentWidth($line) >= $lazyQuote['col'])) {
+                    $result[] = '';
                 }
-                $body = preg_replace('/^(\s*)[-*+](\s)/', '${1}' . $carveMarker . '$2', $body) ?? $body;
-                $activeBulletMd = $mdMarker;
-                $activeBulletCarve = $carveMarker;
-                $bulletRunBroken = false;
+                $shiftBy = 0;
+                $item = $this->writeItemContent($lines, $i, $body, $contentCol);
+                if ($item !== null) {
+                    array_push($result, ...$item['lines']);
+                    $i = $item['end'];
+                    $closedItem = $item['closes'];
+                    $shiftCol = $contentCol;
+                    $shiftBy = $listMarkers->shiftAt($contentCol);
+                    if ($item['table'] > 0) {
+                        $tableWidth = $item['table'];
+                        $tableCol = $contentCol;
+                    }
+                    $prevLineType = 'list';
+
+                    continue;
+                }
+                $this->trackItemParagraph($body, true, $contentCol, $itemParagraph, $itemQuote);
             }
 
             // A fence opening a list item's first line: the rest of the item is
             // its code, read by the fenced-code branch above.
             $itemFence = $this->opensItemFence($body, $isList);
             if ($itemFence !== null) {
-                $result[] = $itemFence[1] . $itemFence[2] . $this->fenceLanguage($itemFence[3]);
+                $fenceOut = count($result);
+                $fenceRun = strlen($itemFence[2]);
+                $fenceInfo = $this->fenceLanguage($itemFence[3]);
+                $result[] = $itemFence[1] . $itemFence[2] . $fenceInfo;
                 $inCodeBlock = true;
                 $fenceChar = $itemFence[2][0];
                 $fenceLength = strlen($itemFence[2]);
                 $fenceStrip = 0;
                 $fenceItemCol = $listCols === [] ? 0 : (int)end($listCols);
+                $fenceShift = $listMarkers->shiftAt($fenceItemCol);
                 $prevLineType = 'code_fence';
-                if ($ordered !== null) {
-                    $bulletRunBroken = true;
-                }
 
                 continue;
             }
@@ -663,20 +909,27 @@ class MarkdownToCarve
 
             if ($isHeading) {
                 $prevLineType = 'heading';
-                $bulletRunBroken = true;
             } elseif ($isList) {
                 $prevLineType = 'list';
-                if ($ordered !== null) {
-                    // An ordered list between two bullet lists keeps them
-                    // separate, so it breaks the bullet-marker run.
-                    $bulletRunBroken = true;
-                }
             } elseif ($isBlockquote) {
                 $prevLineType = 'blockquote';
-                $bulletRunBroken = true;
             } else {
                 $prevLineType = 'text';
-                $bulletRunBroken = true;
+            }
+        }
+
+        $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
+        // A fence the document never closed runs to its end and is closed
+        // there; the line the final newline leaves stays last.
+        if ($inCodeBlock) {
+            $finalNewline = end($lines) === '' && end($result) === '';
+            if ($finalNewline) {
+                array_pop($result);
+            }
+            $closer = $this->closeFence($result, $fenceOut, $fenceRun, $fenceInfo, $fenceItemCol);
+            $result[] = $this->moveIndent($closer, $fenceItemCol, $fenceItemCol + $fenceShift);
+            if ($finalNewline) {
+                $result[] = '';
             }
         }
 
@@ -687,20 +940,25 @@ class MarkdownToCarve
         // 0 off `---` so every rule stays a rule. Real frontmatter already
         // occupies line 0, so the guard is skipped there - it would only inject
         // a stray blank after the closing fence.
+        $fromSource = [];
+        foreach (array_keys($result) as $at) {
+            $fromSource[] = isset($sourceBlanks[$at]);
+        }
         if ($frontmatter === [] && ($result[0] ?? null) === '---') {
             foreach (array_slice($result, 1) as $bodyLine) {
                 // $result is inferred as string|null (preg_replace can return
                 // null upstream); implode() coerces the same way at the end.
                 if (preg_match('/^---\s*$/', (string)$bodyLine)) {
                     array_unshift($result, '');
+                    array_unshift($fromSource, false);
 
                     break;
                 }
             }
         }
 
-        $carve = preg_replace('/\n{3,}/', "\n\n", implode("\n", $result)) ?? implode("\n", $result);
-        $carve = $this->keepLooseListsLoose($carve);
+        [$carve, $writtenBlanks] = $this->joinOutput(array_values($result), $fromSource);
+        $carve = $this->separateLooseItems($carve, $writtenBlanks);
         $carve = $this->applyHeadingIdPreservation($carve, $markdown);
 
         if ($frontmatter === []) {
@@ -1085,8 +1343,8 @@ class MarkdownToCarve
      * on every emitted Carve line.
      *
      * @param array<int, string> $lines
-     * @param int $contentCol
      * @param int $start
+     * @param int $contentCol
      *
      * @return array{lines: array<int, string>, end: int}|null
      */
@@ -1167,34 +1425,530 @@ class MarkdownToCarve
     }
 
     /**
-     * A nested bullet's Carve marker (#2125). Carve has no `+` bullet, and a
-     * change of Markdown marker at one indent starts a new list, which Carve
-     * only reads where the Carve marker changes too.
+     * Move the lines written since `$from` that sit at or past `$col` by `$by`
+     * columns, then start the next iteration's range.
+     *
+     * @param array<int, string|null> $result
+     * @param int $by
+     * @param int $col
+     * @param int $from
+     */
+    protected function applyShift(array &$result, int &$from, int $col, int &$by): void
+    {
+        if ($by !== 0) {
+            for ($at = $from, $count = count($result); $at < $count; $at++) {
+                $moved = [];
+                foreach (explode("\n", (string)$result[$at]) as $text) {
+                    $moved[] = $this->moveIndent($text, $col, $col + $by);
+                }
+                $result[$at] = implode("\n", $moved);
+            }
+        }
+        $from = count($result);
+        $by = 0;
+    }
+
+    /**
+     * `$line` with its first `$from` columns of indent written as `$to` spaces,
+     * so a line an item holds follows the item's moved content column. What
+     * sits past `$from` is kept byte for byte; a blank line stays as it is.
+     */
+    protected function moveIndent(string $line, int $from, int $to): string
+    {
+        if ($from === $to || trim($line) === '' || $this->indentWidth($line) < $from) {
+            return $line;
+        }
+
+        return str_repeat(' ', max(0, $to)) . $this->stripColumns($line, $from);
+    }
+
+    /**
+     * `$line` with its indent and the padding after each marker it opens with
+     * written as the spaces they span. CommonMark counts a tab there to the
+     * next tab stop, and Carve reads no tab after a marker.
+     */
+    protected function spaceMarkerPadding(string $line): string
+    {
+        $indent = substr($line, 0, strlen($line) - strlen(ltrim($line, " \t")));
+        $out = str_repeat(' ', $this->columnWidth($indent)) . substr($line, strlen($indent));
+        $at = 0;
+        while (preg_match('/^([ \t]*)(?:[-*+]|\d{1,9}[.)])([ \t]+)(?=\S)/', substr($out, $at), $m) === 1) {
+            $padAt = $at + strlen($m[0]) - strlen($m[2]);
+            $width = $this->columnWidth(substr($out, 0, $at + strlen($m[0]))) - $this->columnWidth(substr($out, 0, $padAt));
+            $out = substr($out, 0, $padAt) . str_repeat(' ', $width) . substr($out, $at + strlen($m[0]));
+            // Past four columns the rest is indented code, which nests no marker.
+            if ($width > 4) {
+                break;
+            }
+            $at = $padAt + $width;
+        }
+
+        return $out;
+    }
+
+    /**
+     * The content column of the item a marker match (`- `, `1. `) opens. Five
+     * or more columns of padding put it one column past the marker, the rest
+     * being indented code (CommonMark 5.2).
+     */
+    protected function itemContentColumn(string $prefix): int
+    {
+        $marker = $this->columnWidth(rtrim($prefix, " \t"));
+        $content = $this->columnWidth($prefix);
+
+        return $content - $marker > 4 ? $marker + 1 : $content;
+    }
+
+    /**
+     * An item line with the marker `carve fmt` writes, moved with the items
+     * around it. `$separate` reports that it starts a list apart from the one
+     * above it at its level.
+     *
+     * @param \MarkupCarve\Carve\Converter\MarkdownListMarkers $markers
+     * @param array<int, string> $lines
+     * @param int $index
+     * @param string $line
+     * @param array<int, int> $listCols The content columns of the open items.
+     * @param bool $separate
+     */
+    protected function writeListMarker(MarkdownListMarkers $markers, array $lines, int $index, string $line, array $listCols, bool &$separate = false): string
+    {
+        $markerCol = $this->indentWidth($line);
+        $parents = array_values(array_filter($listCols, static fn (int $col): bool => $col <= $markerCol));
+        $onePad = $this->paddingIsFree($lines, $index, $parents);
+        $trial = clone $markers;
+        $written = $trial->write($line, $onePad);
+        if ($written['shift'] < 0 && !$this->itemMovesFreely($lines, $index, $written['content'], $written['content'] + $written['shift'], $parents)) {
+            $written = $markers->write($line, false, true);
+        } else {
+            $markers->write($line, $onePad);
+        }
+        $separate = $written['separate'];
+
+        return $this->moveIndent($written['line'], $markerCol, $markerCol + $written['outer']);
+    }
+
+    /**
+     * One line of a top-level quote, with the list markers and block spacing
+     * `carve fmt` writes: list markers through one MarkdownListMarkers per
+     * quote prefix, and an empty quote line wherever fmt separates two blocks
+     * the source wrote adjacent, two lists or a nested quote under the
+     * paragraph above it.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     * @param string $prefix
+     * @param string $text
+     * @param bool $inRun
+     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $markers
+     * @param array{prefix: string, text: string}|null $prev
+     * @param string|null $lazy
+     * @param array<int, string|null> $result
+     */
+    protected function respellQuotedLine(
+        array $lines,
+        int $index,
+        string $prefix,
+        string $text,
+        bool $inRun,
+        array &$markers,
+        ?array &$prev,
+        ?string &$lazy,
+        array &$result,
+    ): string {
+        if (!$inRun) {
+            $prev = null;
+        }
+        $blank = trim($text) === '';
+        if (
+            $prev !== null
+            && strlen($prefix) > strlen($prev['prefix'])
+            && str_starts_with($prefix, $prev['prefix'])
+            && trim($prev['text']) !== ''
+        ) {
+            $result[] = rtrim($prev['prefix']);
+        }
+        // A quote opened inside an outer one ends the lists the outer one holds.
+        foreach ($markers as $outer => $list) {
+            if (strlen($prefix) > strlen($outer) && str_starts_with($prefix, $outer)) {
+                $list->end(0);
+            }
+        }
+        $list = $markers[$prefix] ??= new MarkdownListMarkers();
+        $written = $text;
+        $continues = $prev !== null && $prev['prefix'] === $prefix
+            && $this->quoteParagraphIsOpen($prev['text']) && $this->continuesParagraph($text);
+        if (preg_match('/^([ \t]*)(?:[-*+]|\d+[.)])[ \t]/', $text) === 1 && !$continues) {
+            $free = $this->quotedPaddingIsFree($lines, $index, $prefix, $text);
+            $step = $list->write($text, $free, !$free);
+            $markerCol = $this->indentWidth($text);
+            $written = $this->moveIndent($step['line'], $markerCol, $markerCol + $step['outer']);
+            if ($step['separate'] && $prev !== null && $prev['prefix'] === $prefix) {
+                $result[] = rtrim($prefix);
+            }
+        } elseif (!$blank && !$continues) {
+            $list->end($this->indentWidth($text));
+        }
+
+        if ($blank) {
+            $prev = null;
+            $lazy = null;
+        } else {
+            $open = $this->quoteParagraphIsOpen($text);
+            $mixed = $prev !== null && $prev['prefix'] !== $prefix && $this->quoteParagraphIsOpen($prev['text']);
+            $lazy = !$open ? null : ($mixed || ($continues && $lazy === '') ? '' : $prefix);
+            $prev = ['prefix' => $prefix, 'text' => $text];
+        }
+
+        return $prefix . $written;
+    }
+
+    /**
+     * Whether a quoted item can drop the slack in its marker padding: it holds
+     * no other line, and nothing it could take in follows it. The quote ends,
+     * or the next quote line is another item of this list or an outer one.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     * @param string $prefix
+     * @param string $text
+     */
+    protected function quotedPaddingIsFree(array $lines, int $index, string $prefix, string $text): bool
+    {
+        if (preg_match('/^([ \t]*)(?:[-*+]|\d+[.)]) {2,4}(?=\S)/', $text, $item) !== 1) {
+            return false;
+        }
+        $markerCol = $this->columnWidth($item[1]);
+        $content = $this->columnWidth($item[0]);
+        for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
+            $body = $this->normalizeBlockquoteMarkers(ltrim($lines[$at], ' '));
+            if (!str_starts_with($body, '>')) {
+                // The quote ends, or a lazy line continues the item's paragraph.
+                return true;
+            }
+            preg_match('/^((?:> )+)(.*)$/s', $body, $next);
+            if (($next[1] ?? '') !== $prefix) {
+                return true;
+            }
+            $rest = $next[2] ?? '';
+            if (trim($rest) === '') {
+                return false;
+            }
+            if ($this->indentWidth($rest) >= $content) {
+                return false;
+            }
+
+            return preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $rest) === 1 && $this->indentWidth($rest) <= $markerCol + 3;
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether a quote line leaves a paragraph open for a lazy line to continue.
+     */
+    protected function quoteParagraphIsOpen(string $text): bool
+    {
+        $trimmed = trim($text);
+        if ($trimmed === '' || preg_match('/^ {0,3}(`{3,}|~{3,})/', $text) === 1) {
+            return false;
+        }
+
+        return preg_match('/^#{1,6}(?:\s|$)/', $trimmed) !== 1
+            && preg_match(self::THEMATIC_BREAK, $trimmed) !== 1
+            && preg_match('/^\|.*\|$/', $trimmed) !== 1;
+    }
+
+    /**
+     * Whether the line at `$index` is paragraph text rather than the start of a
+     * block of its own, read after a line of paragraph text.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     */
+    protected function isParagraphLine(array $lines, int $index): bool
+    {
+        $line = $lines[$index];
+        $trimmed = trim($line);
+        if ($trimmed === '' || preg_match('/^ {0,3}(`{3,}|~{3,})/', $line) === 1) {
+            return false;
+        }
+        if (preg_match('/^#{1,6}\s/', $trimmed) === 1 || str_starts_with($trimmed, '>')) {
+            return false;
+        }
+        $underline = trim($lines[$index + 1] ?? '');
+        if (preg_match(self::THEMATIC_BREAK, $trimmed) === 1 || preg_match('/^(?:=+|-+)$/', $underline) === 1) {
+            return false;
+        }
+        if ($this->startsTableHeader($lines, $index) || preg_match('/^\|.*\|$/', $trimmed) === 1 || $this->htmlBlockInterrupts($trimmed)) {
+            return false;
+        }
+
+        return preg_match('/^(?:[-*+]\s|1[.)]\s)/', $trimmed) !== 1;
+    }
+
+    /**
+     * Paragraph text that would open a block once it sits at its container's
+     * column, with a Markdown escape on what opens it.
+     */
+    protected function escapeBlockOpener(string $text): string
+    {
+        if (preg_match('/^(\d{1,9})([.)])(?=[ \t]|$)/', $text, $ordered) === 1) {
+            return $ordered[1] . '\\' . substr($text, strlen($ordered[1]));
+        }
+        if (preg_match(self::THEMATIC_BREAK, $text) === 1) {
+            return preg_replace('/[^ \t]/', '\\\\${0}', $text) ?? $text;
+        }
+        if (
+            preg_match('/^(?:=+|-+)[ \t]*$/', $text) === 1
+            || preg_match('/^(?:>|[-*+](?=[ \t]|$)|#{1,6}(?=[ \t]|$)|\|)/', $text) === 1
+            || preg_match('/^ {0,3}\[[^\]]*\]:[ \t]*\S/', $text) === 1
+        ) {
+            return '\\' . $text;
+        }
+
+        return $text;
+    }
+
+    /**
+     * Record whether a written item line leaves a paragraph open for a lazy
+     * line: plain paragraph text, or the paragraph of a quote the item holds.
      *
      * @param string $line
-     * @param int $indent
-     * @param array<int, array{md: string, carve: string}> $nestedBullets
+     * @param bool $isItemLine
+     * @param int $contentCol
+     * @param bool $itemParagraph
+     * @param array{prefix: string, col: int}|null $itemQuote
      */
-    protected function respellNestedBullet(string $line, int $indent, array &$nestedBullets): string
+    protected function trackItemParagraph(string $line, bool $isItemLine, int $contentCol, bool &$itemParagraph, ?array &$itemQuote): void
     {
-        $markdown = $line[$indent];
-        $previous = $nestedBullets[$indent] ?? null;
-        if ($previous !== null && $previous['md'] === $markdown) {
-            $carve = $previous['carve'];
-        } else {
-            $carve = $markdown === '+' ? '-' : $markdown;
-            if ($previous !== null && $previous['carve'] === $carve) {
-                $carve = $carve === '-' ? '*' : '-';
-            }
+        $text = $line;
+        if ($isItemLine && preg_match('/^[ \t]*(?:(?:[-*+]|\d+[.)]) +)+/', $line, $markers) === 1) {
+            $text = substr($line, strlen($markers[0]));
+        } elseif ($this->indentWidth($line) < $contentCol) {
+            return;
         }
-        foreach (array_keys($nestedBullets) as $deeper) {
-            if ($deeper > $indent) {
-                unset($nestedBullets[$deeper]);
+        $text = ltrim($text, " \t");
+        if (preg_match('/^((?:> ?)+)(.*)$/', $text, $quote) === 1) {
+            if (trim($quote[2]) !== '' && $this->quoteParagraphIsOpen($quote[2])) {
+                $itemQuote = ['prefix' => $this->normalizeBlockquoteMarkers($quote[1] . 'x') === '' ? '' : substr($this->normalizeBlockquoteMarkers($quote[1] . 'x'), 0, -1), 'col' => $contentCol];
             }
-        }
-        $nestedBullets[$indent] = ['md' => $markdown, 'carve' => $carve];
 
-        return substr($line, 0, $indent) . $carve . substr($line, $indent + 1);
+            return;
+        }
+        $itemParagraph = $this->quoteParagraphIsOpen($text) && preg_match('/^(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $text) !== 1;
+    }
+
+    /**
+     * What a list item's first line holds when it is more than paragraph
+     * text, written with the lines it takes: indented code on the item line
+     * (five or more columns of padding), a GFM table header whose delimiter row
+     * is the item's next line, or a setext heading whose underline sits in the
+     * item. Null for anything else.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     * @param string $written
+     * @param int $contentCol
+     *
+     * @return array{lines: array<int, string>, end: int, table: int, closes: bool}|null
+     */
+    protected function writeItemContent(array $lines, int $index, string $written, int $contentCol): ?array
+    {
+        $line = $lines[$index];
+        if (preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?=[ \t])/', $line, $own) !== 1) {
+            return null;
+        }
+        $nested = MarkdownListMarkers::nestedItemsOnLine($line, strlen($own[0]) + 1);
+        $end = $nested === [] ? null : $nested[count($nested) - 1]['end'];
+        if ($end === null) {
+            $afterMarker = substr($line, strlen($own[0]));
+            $end = strlen($own[0]) + strlen($afterMarker) - strlen(ltrim($afterMarker, " \t"));
+        }
+        $text = substr($line, $end);
+        if (trim($text) === '' || !str_ends_with($written, $text)) {
+            return null;
+        }
+        $lead = substr($written, 0, strlen($written) - strlen($text));
+        $count = count($lines);
+
+        // Indented code on the item line, or on the innermost item it nests:
+        // its content column is one past the marker, and the code starts four
+        // columns further.
+        $codeMarker = null;
+        if ($nested === [] && $this->columnWidth(substr($line, 0, $end)) - $this->columnWidth($own[0]) > 4) {
+            $codeMarker = strlen($own[0]);
+        } elseif (preg_match('/^(?:[-*+]|\d{1,9}[.)])(?= {5,}\S)/', $text, $inner) === 1) {
+            $codeMarker = $end + strlen($inner[0]);
+            $lead .= $inner[0];
+        }
+        if ($codeMarker !== null) {
+            $virtual = $lines;
+            $virtual[$index] = str_repeat(' ', $this->columnWidth(substr($line, 0, $codeMarker))) . substr($line, $codeMarker);
+            $code = $this->collectIndentedCode($virtual, $index, $contentCol);
+            if ($code['end'] <= $index) {
+                return null;
+            }
+            $code['lines'][0] = rtrim($lead) . ' ' . ltrim($code['lines'][0]);
+            // What follows is the item's or its list's, so no blank line parts it.
+            if (end($code['lines']) === '') {
+                array_pop($code['lines']);
+            }
+
+            return ['lines' => $code['lines'], 'end' => $code['end'] - 1, 'table' => 0, 'closes' => true];
+        }
+
+        $next = $lines[$index + 1] ?? null;
+        $nextIndent = $next === null ? 0 : $this->indentWidth($next);
+        if ($next !== null && $nextIndent >= $contentCol && $nextIndent - $contentCol < 4) {
+            $held = [$text, $this->stripColumns($next, $contentCol)];
+            if ($this->startsTableHeader($held, 0)) {
+                return [
+                    'lines' => [$lead . $this->gfmHeaderToCarve(trim($text), trim($held[1]))],
+                    'end' => $index + 1,
+                    'table' => count($this->splitPipeCells(trim($text))),
+                    'closes' => true,
+                ];
+            }
+        }
+
+        // A setext heading the item holds, its paragraph lines folded into the
+        // one ATX line Carve spells it with.
+        if (!$this->quoteParagraphIsOpen($text) || preg_match('/^[ \t]*(?:>|(?:[-*+]|\d+[.)])(?:[ \t]|$))/', $text) === 1) {
+            return null;
+        }
+        $texts = [trim($text)];
+        for ($at = $index + 1; $at < $count; $at++) {
+            $candidate = $lines[$at];
+            $indent = $this->indentWidth($candidate);
+            if (trim($candidate) === '' || $indent < $contentCol) {
+                return null;
+            }
+            $held = trim($this->stripColumns($candidate, $contentCol));
+            if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', $held) === 1) {
+                $heading = ($held[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
+
+                return ['lines' => [$lead . $this->convertInlineFormatting($heading)], 'end' => $at, 'table' => 0, 'closes' => false];
+            }
+            $slice = [$held, $lines[$at + 1] ?? ''];
+            if ($indent - $contentCol < 4 && !$this->continuesParagraph($held)) {
+                return null;
+            }
+            if ($indent - $contentCol < 4 && $this->startsTableHeader($slice, 0)) {
+                return null;
+            }
+            $texts[] = $held;
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether an item's content column can move left from `$from` to `$to`
+     * without taking in a line it did not hold: no line up to the end of the
+     * item may sit between the two columns.
+     *
+     * @param array<int, string> $lines
+     * @param int $start
+     * @param int $from
+     * @param int $to
+     * @param array<int, int> $parents
+     */
+    protected function itemMovesFreely(array $lines, int $start, int $from, int $to, array $parents): bool
+    {
+        $markerCol = $this->indentWidth($lines[$start]);
+        $afterBlank = false;
+        for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
+            if (trim($lines[$at]) === '') {
+                $afterBlank = true;
+
+                continue;
+            }
+            $indent = $this->indentWidth($lines[$at]);
+            if ($indent >= $from) {
+                $afterBlank = false;
+
+                continue;
+            }
+            if ($indent < $to || $this->opensItemAtOrLeftOf($lines[$at], $markerCol, $parents)) {
+                return true;
+            }
+            $holder = 0;
+            foreach ($parents as $col) {
+                if ($col <= $indent) {
+                    $holder = $col;
+                }
+            }
+            // A lazy paragraph line, or one four columns past its holder, is
+            // written where the item's content goes, or as a fence of its own,
+            // so the move cannot take it in. Anything else could land in the item.
+            $over = $indent - $holder >= 4;
+            if ($afterBlank ? !$over : !($over || $this->isParagraphLine($lines, $at))) {
+                return false;
+            }
+            $afterBlank = false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether the item opening at `$start` can drop the slack in its marker
+     * padding: only when nothing but the next item of this list or an outer
+     * one follows the lines it holds. A line past them, or one left of its
+     * content, could land in another item once the content column moves.
+     *
+     * @param array<int, string> $lines
+     * @param int $start
+     * @param array<int, int> $parents
+     */
+    protected function paddingIsFree(array $lines, int $start, array $parents): bool
+    {
+        if (preg_match('/^([ \t]*)(?:[-*+]|\d+[.)]) +/', $lines[$start], $marker) !== 1) {
+            return false;
+        }
+        $markerCol = $this->columnWidth($marker[1]);
+        $contentCol = $this->columnWidth($marker[0]);
+        $count = count($lines);
+        $at = $start + 1;
+        while (
+            $at < $count
+            && trim($lines[$at]) !== ''
+            && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $lines[$at]) !== 1
+            && $this->indentWidth($lines[$at]) >= $contentCol
+        ) {
+            $at++;
+        }
+        while ($at < $count && trim($lines[$at]) === '') {
+            $at++;
+        }
+
+        return $at === $count || $this->opensItemAtOrLeftOf($lines[$at], $markerCol, $parents);
+    }
+
+    /**
+     * Whether `$line` opens an item of the list whose markers sit at
+     * `$markerCol`, or of an outer one: a marker no more than three columns
+     * past it, and less than four past the item holding it, or it is text.
+     *
+     * @param string $line
+     * @param int $markerCol
+     * @param array<int, int> $parents
+     */
+    protected function opensItemAtOrLeftOf(string $line, int $markerCol, array $parents): bool
+    {
+        if (preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $line) !== 1) {
+            return false;
+        }
+        $indent = $this->indentWidth($line);
+        $holder = 0;
+        foreach ($parents as $col) {
+            if ($col <= $indent) {
+                $holder = $col;
+            }
+        }
+
+        return $indent <= $markerCol + 3 && $indent - $holder < 4;
     }
 
     /**
@@ -1234,117 +1988,165 @@ class MarkdownToCarve
     }
 
     /**
-     * CommonMark loosens a list when a blank line separates an item's block from
-     * its sublist, but Carve reads that blank as no separator (PART 9 §17). Such
-     * a list is respelled as the writer spells a loose list: a blank line
-     * between its items, or a `{loose}` line above a single item.
+     * The written lines joined, 3+ consecutive newlines collapsed to 2, and
+     * which lines of the result are blank lines of the source.
+     *
+     * @param array<int, string|null> $result
+     * @param array<int, bool> $fromSource
+     *
+     * @return array{string, array<int, true>}
      */
-    protected function keepLooseListsLoose(string $carve): string
+    protected function joinOutput(array $result, array $fromSource): array
     {
-        $lines = explode("\n", $carve);
+        $lines = [];
+        $flags = [];
+        foreach ($result as $index => $entry) {
+            foreach (explode("\n", (string)$entry) as $line) {
+                $lines[] = $line;
+                $flags[] = ($fromSource[$index] ?? false) && preg_match('/^[ \t>]*$/', $line) === 1;
+            }
+        }
+        $text = [];
+        $sourceBlanks = [];
         $count = count($lines);
-        $inFence = $this->fencedLineMask($lines);
-        $markers = [];
-        foreach ($lines as $i => $line) {
-            $marker = $inFence[$i] ? null : $this->carveListMarker($line);
-            if ($marker !== null) {
-                $markers[$i] = $marker;
-            }
-        }
+        for ($at = 0; $at < $count;) {
+            if ($lines[$at] !== '') {
+                if ($flags[$at]) {
+                    $sourceBlanks[count($text)] = true;
+                }
+                $text[] = $lines[$at++];
 
-        // Line index => the line to insert above it. Respelling one list never
-        // changes how Carve reads another, so every list is decided first.
-        $insertions = [];
-        // Item line => the first item line of its list, once that list is decided.
-        $listStart = [];
-        foreach ($markers as $n => [$markerCol]) {
-            if ($n < 2 || trim($lines[$n - 1]) !== '') {
                 continue;
             }
-
-            // The nearest line reaching left of the sublist must be its parent item.
-            $parent = null;
-            for ($k = $n - 2; $k >= 0; $k--) {
-                if ($inFence[$k] || trim($lines[$k]) === '') {
-                    continue;
+            $flagged = false;
+            for ($end = $at; $end < $count && $lines[$end] === ''; $end++) {
+                $flagged = $flagged || $flags[$end];
+            }
+            // A run of empty lines is that many newlines, one more between two
+            // lines, and a run of 3+ newlines keeps 2.
+            $inner = $at > 0 && $end < $count;
+            $newlines = $end - $at + ($inner ? 1 : 0);
+            $keep = $newlines < 3 ? $end - $at : ($inner ? 1 : 2);
+            for ($k = 0; $k < $keep; $k++) {
+                if ($flagged) {
+                    $sourceBlanks[count($text)] = true;
                 }
-                if (!isset($markers[$k])) {
-                    if ($this->indentWidth($lines[$k]) >= $markerCol) {
-                        continue;
+                $text[] = '';
+            }
+            $at = $end;
+        }
+
+        return [implode("\n", $text), $sourceBlanks];
+    }
+
+    /**
+     * A blank line between every two items of each list the written source
+     * reads loose, and between the blocks of each of its items, which is how
+     * `carve fmt` spells a loose list.
+     *
+     * A blank line between two blocks of an item makes the list loose in
+     * CommonMark, but in Carve only before a second paragraph (PART 9 §17). A
+     * list Carve reads tight despite one is made loose the way fmt spells it:
+     * blank lines between its items, or `{loose}` above a list of one item.
+     *
+     * @param string $source
+     * @param array<int, true> $sourceBlanks Lines that are blank in the source.
+     */
+    protected function separateLooseItems(string $source, array $sourceBlanks): string
+    {
+        if (preg_match('/\n[ \t>]*\n/', $source) !== 1) {
+            return $source;
+        }
+        try {
+            $document = CarveConverter::carve()->parse($source);
+        } catch (Throwable) {
+            return $source;
+        }
+        $lines = explode("\n", $source);
+        $before = [];
+        $looseKeys = [];
+        $moved = [];
+        // Whether a blank line of the source parts two blocks of one of the
+        // items. Not one the conversion put in, which parts nothing.
+        $parted = static function (array $items) use ($sourceBlanks): bool {
+            foreach ($items as $item) {
+                $previous = null;
+                foreach ($item->getChildren() as $child) {
+                    $from = $previous?->getPos();
+                    $to = $child->getPos();
+                    if ($from !== null && $to !== null) {
+                        for ($at = $from->endLine; $at < $to->startLine - 1; $at++) {
+                            if (isset($sourceBlanks[$at])) {
+                                return true;
+                            }
+                        }
                     }
-
-                    break;
-                }
-                if ($markers[$k][1] <= $markerCol) {
-                    $parent = $k;
-                }
-
-                break;
-            }
-            if ($parent === null) {
-                continue;
-            }
-
-            if (isset($listStart[$parent])) {
-                continue;
-            }
-            [$column, , $kind] = $markers[$parent];
-            $sameList = fn (int $k): bool => isset($markers[$k]) && $markers[$k][0] === $column && $markers[$k][2] === $kind;
-            $start = $parent;
-            for ($k = $parent - 1; $k >= 0; $k--) {
-                if ($sameList($k)) {
-                    $start = $k;
-                } elseif (!$inFence[$k] && trim($lines[$k]) !== '' && $this->indentWidth($lines[$k]) <= $column) {
-                    break;
-                }
-            }
-            $end = $parent;
-            $items = [];
-            for ($k = $start; $k < $count; $k++) {
-                if ($sameList($k)) {
-                    $items[] = $k;
-                    $listStart[$k] = $start;
-                } elseif (!$inFence[$k] && trim($lines[$k]) !== '' && $this->indentWidth($lines[$k]) <= $column) {
-                    break;
-                }
-                if (trim($lines[$k]) !== '') {
-                    $end = $k;
+                    $previous = $child;
                 }
             }
 
-            $segment = [];
-            for ($k = $start; $k <= $end; $k++) {
-                $segment[] = $this->indentWidth($lines[$k]) >= $column
-                    ? $this->stripColumns($lines[$k], $column)
-                    : ltrim($lines[$k], " \t");
+            return false;
+        };
+        $visit = function (Node $node) use (&$visit, &$before, &$looseKeys, &$moved, $parted, $lines): void {
+            if ($node instanceof Paragraph || $node instanceof Heading) {
+                return;
             }
-            try {
-                $list = (new CarveConverter())->parse(implode("\n", $segment))->getChildren()[0] ?? null;
-            } catch (Throwable) {
-                $list = null;
-            }
-            if (!$list instanceof ListBlock || !$list->isTight()) {
-                continue;
-            }
-
-            if (count($items) === 1) {
-                $insertions[$start] = str_repeat(' ', $column) . '{loose}';
-
-                continue;
-            }
-            foreach (array_slice($items, 1) as $item) {
-                if (trim($lines[$item - 1]) !== '') {
-                    $insertions[$item] = '';
+            if ($node instanceof ListBlock) {
+                $items = $node->getChildren();
+                $loose = !$node->isTight();
+                $pos = $node->getPos();
+                if (!$loose && $pos !== null && $parted($items)) {
+                    $at = $pos->startLine - 1;
+                    $lead = substr($lines[$at] ?? '', 0, $pos->startColumn - 1);
+                    if (count($items) > 1) {
+                        $loose = true;
+                    } elseif (preg_match('/^([ \t>]*)((?:(?:[-*+]|\d{1,9}[.)]) +)*)$/', $lead, $outer) === 1) {
+                        // A list opening on an outer item's line (`- - a`) moves to
+                        // the next line under its key, as fmt writes it.
+                        $looseKeys[$at] = $lead . '{loose}';
+                        if ($outer[2] !== '') {
+                            $moved[$at] = $outer[1] . str_repeat(' ', strlen($outer[2])) . substr($lines[$at], strlen($lead));
+                        }
+                        $loose = true;
+                    }
+                }
+                if ($loose) {
+                    foreach ($items as $index => $item) {
+                        $starts = array_slice($item->getChildren(), 1);
+                        if ($index > 0) {
+                            $starts[] = $item;
+                        }
+                        foreach ($starts as $start) {
+                            $startPos = $start->getPos();
+                            if ($startPos !== null) {
+                                $before[$startPos->startLine - 1] = true;
+                            }
+                        }
+                    }
                 }
             }
+            foreach ($node->getChildren() as $child) {
+                $visit($child);
+            }
+        };
+        $visit($document);
+        if ($before === [] && $looseKeys === []) {
+            return $source;
         }
 
-        krsort($insertions);
-        foreach ($insertions as $index => $insertion) {
-            array_splice($lines, $index, 0, [$insertion]);
+        $written = [];
+        foreach ($lines as $at => $line) {
+            if (isset($looseKeys[$at])) {
+                $written[] = $looseKeys[$at];
+            }
+            if (isset($before[$at]) && $at > 0 && preg_match('/^[ \t>]*$/', $lines[$at - 1]) !== 1) {
+                $prefix = preg_match('/^[ \t]*(?:>[ \t]?)*/', $line, $lead) === 1 ? rtrim($lead[0]) : '';
+                $written[] = trim($prefix) === '' ? '' : $prefix;
+            }
+            $written[] = $moved[$at] ?? $line;
         }
 
-        return implode("\n", $lines);
+        return implode("\n", $written);
     }
 
     /**
@@ -1470,9 +2272,9 @@ class MarkdownToCarve
         }
         $info = $this->fenceLanguage($info);
         $depth = substr_count($prefix, '>');
-        $output = [$prefix . $fence . $info];
+        $output = [''];
+        $body = [];
         $end = $start;
-        $closed = false;
         for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
             $rest = $lines[$i];
             for ($level = 0; $level < $depth; $level++) {
@@ -1483,17 +2285,15 @@ class MarkdownToCarve
             }
             $end = $i;
             if (preg_match('/^ {0,3}' . preg_quote($fence[0], '/') . '{' . strlen($fence) . ',}[ \t]*$/', $rest) === 1) {
-                $output[] = $prefix . $fence;
-                $closed = true;
-
                 break;
             }
             $content = preg_replace('/^ {0,' . strlen($indent) . '}/', '', $rest) ?? $rest;
+            $body[] = $content;
             $output[] = $content === '' ? rtrim($prefix) : $prefix . $content;
         }
-        if (!$closed) {
-            $output[] = $prefix . $fence;
-        }
+        $canonical = $this->canonicalFence($body);
+        $output[0] = $prefix . $canonical . $info;
+        $output[] = $prefix . $canonical;
 
         return ['lines' => $output, 'end' => $end, 'prefix' => $prefix];
     }
@@ -1588,22 +2388,84 @@ class MarkdownToCarve
     protected function gfmHeaderToCarve(string $headerLine, string $delimiterLine): string
     {
         $headers = $this->splitPipeCells($headerLine);
-        $delims = $this->splitPipeCells($delimiterLine);
-        $cells = [];
-        foreach ($headers as $idx => $header) {
-            $d = isset($delims[$idx]) ? trim($delims[$idx]) : '';
+        $prefixes = [];
+        foreach ($this->splitPipeCells($delimiterLine) as $delimiter) {
+            $d = trim($delimiter);
             $left = str_starts_with($d, ':');
             $right = str_ends_with($d, ':');
-            $marker = match (true) {
-                $left && $right => '|=~ ',
-                $right => '|=> ',
-                $left => '|=< ',
-                default => '|= ',
+            $prefixes[] = match (true) {
+                $left && $right => '=~',
+                $right => '=>',
+                $left => '=<',
+                default => '=',
             };
-            $cells[] = $marker . $this->convertInlineFormatting(trim($header));
         }
 
-        return implode(' ', $cells) . ' |';
+        return $this->writeTableRow($headers, $prefixes, count($headers));
+    }
+
+    /**
+     * One table row in the spelling `carve fmt` writes: each cell padded by
+     * one space, a lone `<` or `^` escaped so it stays text rather than a span
+     * marker, and `$width` cells, since GFM drops a body row's cells past the
+     * header's count and pads a short row where a Carve row keeps what it spells.
+     *
+     * @param array<int, string> $cells
+     * @param array<int, string> $prefixes
+     * @param int $width
+     */
+    protected function writeTableRow(array $cells, array $prefixes, int $width): string
+    {
+        $row = '';
+        for ($c = 0; $c < $width; $c++) {
+            $cell = $this->protectCodeSpans(trim($cells[$c] ?? ''), static fn (string $span): string => str_replace('\\|', '|', $span));
+            $cell = $this->convertInlineFormatting($cell);
+            if ($cell === '<' || $cell === '^') {
+                $cell = '\\' . $cell;
+            }
+            $row .= '|' . ($prefixes[$c] ?? '') . ' ' . ($cell === '' ? '' : $cell . ' ');
+        }
+
+        return $row . '|';
+    }
+
+    /**
+     * A GFM table header: a line holding a pipe whose next line is a delimiter
+     * row with as many cells.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     */
+    protected function startsTableHeader(array $lines, int $index): bool
+    {
+        $trimmed = trim($lines[$index]);
+        $next = trim($lines[$index + 1] ?? '');
+        if (!str_contains($trimmed, '|') || !str_contains($next, '-')) {
+            return false;
+        }
+        if (preg_match('/^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/', $next) !== 1) {
+            return false;
+        }
+
+        return count($this->splitPipeCells($trimmed)) === count($this->splitPipeCells($next));
+    }
+
+    /**
+     * Does a GFM table under way keep this line as a body row? GFM ends the
+     * table at a blank line or a block construct, not at a line that merely
+     * stops looking like a row: a plain line is a one-cell row.
+     */
+    protected function continuesGfmTableBody(string $line): bool
+    {
+        $trimmed = trim($line);
+        if ($trimmed === '' || $this->indentWidth($line) >= 4) {
+            return false;
+        }
+        if (preg_match('/^(#{1,6}([ \t]|$)|>|`{3,}|~{3,}|(?:[-*+]|\d+[.)])([ \t]|$))/', $trimmed) === 1) {
+            return false;
+        }
+
+        return preg_match(self::THEMATIC_BREAK, $trimmed) !== 1 && !$this->htmlBlockInterrupts($trimmed);
     }
 
     /**
@@ -2067,6 +2929,7 @@ class MarkdownToCarve
         }
 
         $line = $this->escapeCarveConstructsSpelledLikeText($line, $protected);
+        $line = $this->escapeTypographicDashes($line);
         if (!$this->convertAttributes) {
             $line = $this->escapeAttributeListsThatAttach($line);
         }
@@ -2573,6 +3436,32 @@ class MarkdownToCarve
      * as one: Carve reads `{,x,}` as a subscript wherever it stands, and this
      * converter emits that form itself for `<sub>x</sub>`.
      */
+
+    /**
+     * Escape every hyphen of a `--` or `---` run, which Carve's smart typography
+     * renders as an en or em dash and Markdown keeps as typed. A line that is
+     * only a thematic break, alone or under its containers' markers, is
+     * structure rather than text and keeps its hyphens.
+     */
+    protected function escapeTypographicDashes(string $line): string
+    {
+        if (!str_contains($line, '--')) {
+            return $line;
+        }
+        $rest = preg_replace('/^[ \t]*(?:>[ \t]?)*/', '', $line) ?? $line;
+        while (true) {
+            if (preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $rest) === 1) {
+                return $line;
+            }
+            if (preg_match('/^[ \t]*(?:(?:[-*+]|\d+[.)]) +|>[ \t]?)/', $rest, $marker) !== 1) {
+                break;
+            }
+            $rest = substr($rest, strlen($marker[0]));
+        }
+
+        return preg_replace_callback('/(?<!\\\\)-{2,}/', static fn (array $run): string => str_replace('-', '\\-', $run[0]), $line) ?? $line;
+    }
+
     protected function escapeAttributeListsThatAttach(string $line): string
     {
         $escapeUnlessDelimiterPair = function (array $match): string {
@@ -2642,6 +3531,48 @@ class MarkdownToCarve
         }
 
         return $out;
+    }
+
+    /**
+     * The fence `carve fmt` writes around a code body: backticks, one longer
+     * than the longest backtick run in the body, three at least.
+     *
+     * @param array<int, string> $body
+     */
+    protected function canonicalFence(array $body): string
+    {
+        $longest = 0;
+        foreach ($body as $line) {
+            if (preg_match_all('/`+/', $line, $runs) > 0) {
+                $longest = max($longest, ...array_map('strlen', $runs[0]));
+            }
+        }
+
+        return str_repeat('`', max(3, $longest + 1));
+    }
+
+    /**
+     * Rewrite the fence run of the opener at `$openerAt` to the canonical fence
+     * for the body written after it, and return the matching closer at the
+     * item column.
+     *
+     * @param array<int, string|null> $result
+     * @param int $openerAt
+     * @param int $run
+     * @param string $info
+     * @param int $column
+     */
+    protected function closeFence(array &$result, int $openerAt, int $run, string $info, int $column): string
+    {
+        $body = [];
+        foreach (array_slice($result, $openerAt + 1) as $line) {
+            $body[] = $this->stripColumns((string)$line, $column);
+        }
+        $fence = $this->canonicalFence($body);
+        $opener = (string)$result[$openerAt];
+        $result[$openerAt] = substr($opener, 0, strlen($opener) - $run - strlen($info)) . $fence . $info;
+
+        return str_repeat(' ', $column) . $fence;
     }
 
     protected function backtickRunLength(string $line, int $index): int

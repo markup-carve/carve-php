@@ -56,7 +56,7 @@ class ConverterCorpusTest extends TestCase
     /**
      * @throws \RuntimeException
      *
-     * @return array<string, array{slug: string, format: string, source: string, expected: string}>
+     * @return array<string, array{slug: string, format: string, source: string, expected: string, canonical: string|null}>
      */
     public static function corpusProvider(): array
     {
@@ -80,6 +80,7 @@ class ConverterCorpusTest extends TestCase
                 'format' => pathinfo($inputs[0], PATHINFO_EXTENSION),
                 'source' => (string)file_get_contents($inputs[0]),
                 'expected' => (string)file_get_contents($caseDir . '/expected.html'),
+                'canonical' => is_file($caseDir . '/expected.crv') ? (string)file_get_contents($caseDir . '/expected.crv') : null,
             ];
         }
 
@@ -87,7 +88,7 @@ class ConverterCorpusTest extends TestCase
     }
 
     #[DataProvider('corpusProvider')]
-    public function testConvertedSourceRendersTheExpectedHtml(string $slug, string $format, string $source, string $expected): void
+    public function testConvertedSourceRendersTheExpectedHtml(string $slug, string $format, string $source, string $expected, ?string $canonical): void
     {
         if (isset(self::DECLARED_DRIFT[$slug])) {
             $this->markTestSkipped('Declared converter drift - ' . self::DECLARED_DRIFT[$slug]);
@@ -100,6 +101,28 @@ class ConverterCorpusTest extends TestCase
             rtrim((new CarveConverter())->convert($carve), "\n"),
             'Converter corpus mismatch for ' . $slug . "; produced Carve:\n" . $carve,
         );
+        // A case whose ruling is a spelling pins the bytes too, final newline included.
+        if ($canonical !== null) {
+            $this->assertSame($canonical, $carve, 'Converter corpus canonical source mismatch for ' . $slug);
+        }
+    }
+
+    /**
+     * The Markdown importer writes the source `carve fmt` writes, so formatting
+     * what it produced changes nothing.
+     */
+    #[DataProvider('corpusProvider')]
+    public function testAMarkdownImportIsAWriterFixedPoint(string $slug, string $format, string $source, string $expected, ?string $canonical): void
+    {
+        if ($format !== 'md') {
+            $this->addToAssertionCount(1);
+
+            return;
+        }
+
+        $carve = $this->convertCase($slug, $format, $source);
+
+        $this->assertSame($carve, CarveConverter::toCarve($carve), 'carve fmt rewrites the import of ' . $slug);
     }
 
     /**

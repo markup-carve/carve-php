@@ -39,12 +39,12 @@ class ALineAfterANestedItemFenceIsNotLazyTest extends TestCase
             ],
             'a tilde fence' => [
                 "- a\n  - ~~~\n    code\n\nz",
-                "- a\n  - ~~~\n    code\n\n    ~~~\n\nz",
+                "- a\n  - ```\n    code\n\n    ```\n\nz",
                 "<ul>\n  <li>a\n    <ul>\n      <li>\n        <pre><code>code\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             'a paragraph of the parent item after a blank line' => [
                 "- a\n  - ```\n    code\n\n  more",
-                "- a\n  - ```\n    code\n\n    ```\n\n  more",
+                "- a\n\n  - ```\n    code\n\n    ```\n\n  more",
                 "<ul>\n  <li><p>a</p>\n    <ul>\n      <li>\n        <pre><code>code\n\n</code></pre>\n      </li>\n    </ul>\n    <p>more</p>\n  </li>\n</ul>\n",
             ],
         ];
