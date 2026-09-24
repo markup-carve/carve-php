@@ -260,6 +260,7 @@ class MarkdownToCarve
             $lazyQuote = $itemQuote;
             $itemQuote = null;
             $overMarker = false;
+            $paragraphMarker = false;
             $afterClosedItem = $closedItem;
             $closedItem = false;
             $prevBlank = $trimmed === '';
@@ -305,10 +306,18 @@ class MarkdownToCarve
                     }
                     $overMarker = $markerIndent >= $parentContent + 4;
                 }
+                // Only `1.` interrupts a paragraph, here one the item holding the marker has open.
+                $paragraphMarker = !$overMarker
+                    && $lazyAllowed
+                    && $listCols !== []
+                    && end($listCols) <= $indent
+                    && $indent - $holderCol < 4
+                    && $this->isHeldOrderedMarker($line, $listMarkers);
                 if (
                     !$overMarker
                     && $indent - $holderCol < 4
                     && !($prevLineType === 'text' && preg_match('/^[ \t]*0*(?:[2-9]|1\d)\d*[.)]/', $line) === 1 && !$listMarkers->hasListAt($indent))
+                    && !$paragraphMarker
                     && preg_match('/^([ \t]*)(?:[-*+]|[0-9]+[.)]) +/', $line, $lm) === 1
                     && preg_match('/\S/', substr($line, strlen($lm[0]))) === 1
                     // A thematic break outranks a list marker in CommonMark, so
@@ -510,7 +519,8 @@ class MarkdownToCarve
             $isBlockquote = str_starts_with($trimmed, '>');
             $ordered = preg_match('/^(\d+)[.)]\s/', $trimmed, $orderedMatches) === 1 ? $orderedMatches : null;
             $isList = ((bool)preg_match('/^[-*+]\s/', $trimmed) || $ordered !== null)
-                && !($prevLineType === 'text' && $ordered !== null && (int)$ordered[1] !== 1);
+                && !($prevLineType === 'text' && $ordered !== null && (int)$ordered[1] !== 1)
+                && !$paragraphMarker;
 
             $contentCol = $listCols === [] ? 0 : (int)end($listCols);
 
@@ -747,9 +757,9 @@ class MarkdownToCarve
                     // indented code cannot interrupt a paragraph.
                     $held = $this->stripColumns($line, $contentCol);
                     $slack = $this->indentWidth($line) - $contentCol;
-                    if ($slack >= 1 && ($slack <= 3 || $lazyAllowed)) {
+                    if ($paragraphMarker || ($slack >= 1 && ($slack <= 3 || $lazyAllowed))) {
                         $text = ltrim($held, " \t");
-                        $line = str_repeat(' ', $contentCol) . ($slack >= 4 ? $this->escapeBlockOpener($text) : $text);
+                        $line = str_repeat(' ', $contentCol) . ($slack >= 4 || $paragraphMarker ? $this->escapeBlockOpener($text) : $text);
                     }
                 }
                 $held = ltrim($this->stripColumns($line, $contentCol), " \t");
@@ -1596,7 +1606,11 @@ class MarkdownToCarve
         $written = $text;
         $continues = $prev !== null && $prev['prefix'] === $prefix
             && $this->quoteParagraphIsOpen($prev['text']) && $this->continuesParagraph($text);
-        if (preg_match('/^([ \t]*)(?:[-*+]|\d+[.)])[ \t]/', $text) === 1 && !$continues) {
+        $heldMarker = $prev !== null && $prev['prefix'] === $prefix
+            && $this->quoteParagraphIsOpen($prev['text']) && $this->isHeldOrderedMarker($text, $list);
+        if ($heldMarker) {
+            $written = substr($text, 0, strlen($text) - strlen(ltrim($text, " \t"))) . $this->escapeBlockOpener(ltrim($text, " \t"));
+        } elseif (preg_match('/^([ \t]*)(?:[-*+]|\d+[.)])[ \t]/', $text) === 1 && !$continues) {
             $free = $this->quotedPaddingIsFree($lines, $index, $prefix, $text);
             $step = $list->write($text, $free, !$free);
             $markerCol = $this->indentWidth($text);
@@ -1660,6 +1674,19 @@ class MarkdownToCarve
         }
 
         return true;
+    }
+
+    /**
+     * Whether an ordered marker other than 1 sits under the open paragraph of
+     * the item holding it: CommonMark reads it as text, Carve as a nested list.
+     */
+    protected function isHeldOrderedMarker(string $text, MarkdownListMarkers $list): bool
+    {
+        $col = $this->indentWidth($text);
+
+        return preg_match('/^[ \t]*(?!0*1[.)])\d{1,9}[.)][ \t]+\S/', $text) === 1
+            && $list->holdsItemAt($col)
+            && !$list->hasListAt($col);
     }
 
     /**
