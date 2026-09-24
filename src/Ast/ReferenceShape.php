@@ -141,6 +141,11 @@ final class ReferenceShape
      * @var array<string, array<string>>
      */
     public const INTERNAL_ONLY = [
+        // The extension's own data is OPAQUE (PART 12 §33), and the codec's
+        // reflection walk builds a node out of any nested array carrying a
+        // `type` key. A `{"type": "swimlane"}` inside a diagram spec is data, so
+        // `payload` is published and read by hand instead.
+        'block_extension' => ['extensionPayload'],
         // `user` / `name` carry the mention, and the css class says which of the
         // two it is. The destination is always empty (nothing links anywhere)
         // and the title never set, so both would publish noise the schema

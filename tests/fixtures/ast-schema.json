@@ -31,6 +31,18 @@
     ],
     "required": []
   },
+  "block_extension": {
+    "fields": [
+      "name",
+      "fallback",
+      "version",
+      "payload"
+    ],
+    "required": [
+      "name",
+      "fallback"
+    ]
+  },
   "block_quote": {
     "fields": [
       "fenced"
