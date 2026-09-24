@@ -38,6 +38,14 @@ the dropped handler is reported at:
 /table[1]/tr[2]/td[1]
 ~~~
 
+In every mode, an `<a href>` or `<img src>` whose scheme the renderer blanks
+(`javascript:`, `data:`, OS handlers such as `ms-msdt:` and the rest of the
+renderer's denylist, read after stripping whitespace and controls) is not
+written. The element imports as if its destination were empty: its content
+stays, an `id` keeps it as a span, and the report has one `attribute-dropped`
+warning for it. The exception is an element such as `<form>` that `roundtrip`
+keeps as raw HTML: its bytes, descendants included, are written unchanged.
+
 A table's head/body/foot sections are one of the things that report names. A
 Carve pipe table is a flat row list whose head is the leading run of header
 rows, and Carve 0.1 source has no spelling for the explicit partition the AST

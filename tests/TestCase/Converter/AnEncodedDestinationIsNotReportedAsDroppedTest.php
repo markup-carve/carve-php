@@ -37,13 +37,21 @@ class AnEncodedDestinationIsNotReportedAsDroppedTest extends TestCase
     {
         $result = (new HtmlToCarve())->convertWithReport("<p><a href=\"java\tscript:alert(1)\">t</a></p>");
 
-        $this->assertSame(['attribute-dropped'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
+        $this->assertSame("t\n", $result->value);
+        $this->assertSame(
+            [['attribute-dropped', 'Dropped href with a denied URL scheme on <a>', 'warning']],
+            array_map(static fn ($d): array => [$d->code, $d->message, $d->severity], $result->diagnostics),
+        );
     }
 
     public function testADeniedSchemeIsStillReportedBecauseTheRendererBlanksIt(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<p><a href="javascript:alert(1)">t</a></p>');
 
-        $this->assertSame(['attribute-dropped'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
+        $this->assertSame("t\n", $result->value);
+        $this->assertSame(
+            [['attribute-dropped', 'Dropped href with a denied URL scheme on <a>', 'warning']],
+            array_map(static fn ($d): array => [$d->code, $d->message, $d->severity], $result->diagnostics),
+        );
     }
 }
