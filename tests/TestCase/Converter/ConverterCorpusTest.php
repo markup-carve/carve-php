@@ -51,7 +51,10 @@ class ConverterCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const DECLARED_DRIFT = [];
+    protected const DECLARED_DRIFT = [
+        '69-markdown-only-one-interrupts-an-item-paragraph'
+            => 'markup-carve/carve-php#2270: `2. b` opens a nested ordered list instead of staying item text',
+    ];
 
     /**
      * @throws \RuntimeException

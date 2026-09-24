@@ -26,6 +26,27 @@ class AstCodecSchemaTest extends TestCase
 {
     private const GOLDEN = __DIR__ . '/../../fixtures/ast-schema.json';
 
+    /**
+     * Types the schema defines and `blockNode` deliberately does not list.
+     *
+     * Each exists only inside the container that owns it - `table.rows`,
+     * `table_row.cells`, `list.items`, `definition_list.items` name them
+     * directly - so a `children` array holding one is a tree no parser can
+     * produce. Listing them made that payload valid, which left PART 12 §12(d)
+     * unable to refuse it, and spec c816416 took them out
+     * (markup-carve/carve#2189). They are still encoded and still read back,
+     * through their owner.
+     *
+     * @var array<string>
+     */
+    private const CONTAINER_INTERNAL = [
+        'definition_description',
+        'definition_term',
+        'list_item',
+        'table_cell',
+        'table_row',
+    ];
+
     public function testTheEncodedSchemaMatchesTheGoldenFile(): void
     {
         /** @var array<string, array<string>> $golden */
@@ -62,9 +83,9 @@ class AstCodecSchemaTest extends TestCase
             }
             if (!self::isInline($type) && !self::isBlock($type)) {
                 // A type this codec will ENCODE that the schema does not name
-                // as a node at all. `document` is the root and cannot be a
-                // child of anything, which is the only reason left for a type to
-                // land here; it is pinned below rather than skipped quietly.
+                // as a node a `children` array may hold. `document` is the root,
+                // and the container-internal types reach the wire through their
+                // owner; both are pinned below rather than skipped quietly.
                 $outsideTheVocabulary[] = $type;
 
                 continue;
@@ -102,10 +123,12 @@ class AstCodecSchemaTest extends TestCase
         // PINNED, not tolerated. `caption` and `section` used to sit here too:
         // encodable, and not in PART 12's vocabulary, so this engine published
         // two types §12(d) refuses to read back. They are off the wire now
-        // (carve-php#1002), and `document` is left as the one entry with a
-        // reason - it is the root, and a root is not a child of anything.
+        // (carve-php#1002). What is left each has a reason: `document` is the
+        // root, and a root is not a child of anything, and the five in
+        // `CONTAINER_INTERNAL` are owned by a container rather than by a
+        // `children` array.
         //
-        // `citation_definition` is a PIN LAG rather than a second such entry:
+        // `citation_definition` is a PIN LAG rather than a further such entry:
         // PART 12 §18 lands in the schema at spec 861498b and this branch's
         // submodule pin predates it, so the pinned `blockNode` enum does not
         // name the type yet. The expectation is read FROM the pinned schema, so
@@ -113,8 +136,9 @@ class AstCodecSchemaTest extends TestCase
         // the loop above decodes the type for real rather than skipping it.
         sort($outsideTheVocabulary);
         $expected = self::isBlock('citation_definition')
-            ? ['document']
-            : ['citation_definition', 'document'];
+            ? array_merge(self::CONTAINER_INTERNAL, ['document'])
+            : array_merge(self::CONTAINER_INTERNAL, ['citation_definition', 'document']);
+        sort($expected);
         $this->assertSame($expected, $outsideTheVocabulary);
     }
 
