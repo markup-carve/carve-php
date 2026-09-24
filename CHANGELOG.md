@@ -18,14 +18,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The BBCode importer escapes what a post's own text forms beside converted tags** (#2225). The formatting pass re-reads its own output and escapes the first character of every inline construct it did not write, a link it did not write is escaped, a stray close tag is dropped, and a character reference is kept as its text.
 - **The definition prepass and its collection surface are removed** (#2244, #2249). `BlockParser` loses the protected `extractReferences()`, `extractFootnotes()` and `extractAbbreviations()` collectors and the layout-event properties behind them, and `ReferenceDefinitionExtractor` loses `extract()` and `getLayoutEvents()` together with the five classes that served only that scan: `AbbreviationLayoutTracker`, `DefinitionLayoutEvent`, `PrepassCommentFence`, `PrepassFenceTracker` and `ListContentColumns`. No document has parsed through them since markup-carve/carve#1895, so a caller that ran its own definition scan there was already getting an answer the engine disagreed with. `matchDefinitionLine()`, `opensDefinitionEntry()` and `isDefinitionHead()`, which the parser does call, stay.
 
-- **Empty block containers keep a blank HTML body line** (CARVE-P10-001). Divs, line blocks, local hard-break blocks and figure groups now use the same body shape as admonitions and block quotes.
+- **Empty block containers keep a blank HTML body line** (#2256, CARVE-P10-001). Divs, line blocks, local hard-break blocks and figure groups now use the same body shape as admonitions and block quotes.
 
 ### Removed
 
-- **Stored-payload migration no longer accepts `footnote.id`.** A footnote definition uses `label`; `id` is rejected like any other unnamed AST property.
+- **Stored-payload migration no longer accepts `footnote.id`** (#2256). A footnote definition uses `label`; `id` is rejected like any other unnamed AST property.
 
 ### Fixed
 
+- **The autolink extension decodes backslash escapes in a bare URL** (#2257). A bare URL was linked exactly as written, so `http://e.com/a\-\-b` linked to the escaped form while core rendered the text unescaped, and an escape at the end closed the link inside itself. Ports the carve-js fix.
 - **A node pulled in by a sliced include keeps its own file's coordinates** (#2187). A child included with `@lines:N-M` reported positions measured inside the slice under the whole file's id; `docs/includes.md` requires the file's own lines and offsets, which it now reports, CRLF and multibyte sources included.
 - **A definition's destination is read as `link_destination`** (#2192). A parenthesis reaches the destination only through a balanced pair or an escape, so `[a]: a(b` and `[a]: a)b` are paragraphs rather than definitions, and the writer re-escapes what the reader resolved, so one `fmt` pass no longer loses the definition and every link resolving it.
 - **A link or image title may contain a closing parenthesis** (#2193). A quoted run is opaque to the scan that looks for the tail's closer, in both quote forms and for images, so `[t](/u "T)")` builds the construct instead of staying literal text.
@@ -50,7 +51,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Resolving a position no longer re-reads its line's prefix** (#2238). `SourceMap::onItsOwnLine()` counted the line feeds before a position by scanning from the line start, once per resolved position, so a document that is one long line - which is the shape the BBCode repair parse hands it - parsed quadratically. The count comes from the document's position index instead: 3,000 lookups on an 800 KB single-line document read 3.9ms against 68.5ms, and the per-byte cost stays flat as the document grows.
 - **Converted BBCode holding only generated formatting skips the repair parse** (#2240). Text that carries no unescaped ASCII punctuation is proven safe and bypasses the parser repair pass, which every ambiguous shape still takes. Output is unchanged either way.
 - **A document is reparsed only for a heading the failed label could name** (#2245). Any reference the inline parser could not resolve armed the heading reparse, and the filter asked only whether each heading was already indexed, so a document holding a forward reference and any heading parsed twice even when no heading could resolve that label. The unresolved labels are recorded in the heading index's key space now and a collected heading survives the filter only when it is one of them, which takes a 48.5 KB document of 400 headings and one forward reference from 328 ms to 124 ms. `markCollapsedReferenceUnresolved()` takes the label as an optional argument, and a caller that omits it keeps the old every-heading behavior.
-- **The plain-text escaper freezes a hash after an ampersand**, so numeric-reference text cannot become a Carve tag.
+- **The plain-text escaper freezes a hash after an ampersand** (#2256), so numeric-reference text cannot become a Carve tag.
 
 ## [0.1.9] - 2026-09-19
 
