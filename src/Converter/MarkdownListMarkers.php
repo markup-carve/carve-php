@@ -140,8 +140,9 @@ class MarkdownListMarkers
         // A sibling goes where its list's markers were written, and a new list
         // to its container's content column, without the slack.
         $outer = $same ? $prev['col'] + $prev['outer'] - $col : $this->shiftAt($col) - ($slack <= 3 ? $slack : 0);
+        // Even a fixed item goes to its siblings' column, or it is no sibling.
         if ($fixed) {
-            $outer = 0;
+            $outer = $same ? $prev['col'] + $prev['outer'] - $col : 0;
             $onePad = false;
         }
         $bullet = '';
