@@ -325,15 +325,6 @@ class FencedBlockParser
     }
 
     /**
-     * Check if a line closes a fenced comment block.
-     *
-     * @param string $line The line to check
-     * @param int $fenceLength The exact fence length required
-     *
-     * @return bool True if this line closes the fence
-     */
-
-    /**
      * The opener seen from a position that CONSUMES the fence.
      *
      * A comment is recognized at ANY column (PART 9 §24 C3, carve#624), and the

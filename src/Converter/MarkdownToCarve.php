@@ -169,6 +169,30 @@ class MarkdownToCarve
     }
 
     /**
+     * Replace tabs after list markers only when the line opens an item in its current container.
+     * Four columns beyond that container, the line is code or text.
+     *
+     * @param string $line
+     * @param list<int> $listCols
+     */
+    private function normalizeListMarkerPadding(string $line, array $listCols): string
+    {
+        if (!str_contains($line, "\t") || preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]/', $line) !== 1) {
+            return $line;
+        }
+
+        $at = $this->indentWidth($line);
+        $holder = 0;
+        foreach ($listCols as $col) {
+            if ($col <= $at) {
+                $holder = $col;
+            }
+        }
+
+        return $at - $holder < 4 ? $this->spaceMarkerPadding($line) : $line;
+    }
+
+    /**
      * Convert Markdown text to Carve text.
      */
     public function convert(string $markdown): string
@@ -261,20 +285,8 @@ class MarkdownToCarve
         $lineCount = count($lines);
         for ($i = 0; $i < $lineCount; $i++) {
             $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
-            // A tab after the marker of an item this line opens pads it to the
-            // next tab stop; Carve reads no tab there. Not on a line four columns
-            // past the item holding it, which is code or text.
-            if (!$inCodeBlock && str_contains($lines[$i], "\t") && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]/', $lines[$i]) === 1) {
-                $at = $this->indentWidth($lines[$i]);
-                $holder = 0;
-                foreach ($listCols as $col) {
-                    if ($col <= $at) {
-                        $holder = $col;
-                    }
-                }
-                if ($at - $holder < 4) {
-                    $lines[$i] = $this->spaceMarkerPadding($lines[$i]);
-                }
+            if (!$inCodeBlock) {
+                $lines[$i] = $this->normalizeListMarkerPadding($lines[$i], $listCols);
             }
             $line = $lines[$i];
             $trimmed = trim($line);
@@ -3144,15 +3156,6 @@ class MarkdownToCarve
     }
 
     /**
-     * Whether a line continues the paragraph above it rather than opening a
-     * block of its own.
-     *
-     * Only used to decide whether a hard break has anything to break: a break
-     * before a heading, list, quote, fence or rule is a break at the end of the
-     * paragraph, which CommonMark does not recognize.
-     */
-
-    /**
      * Does the line after a trailing-space run belong to the SAME paragraph?
      *
      * The plain `continuesParagraph()` answers this at the top level, where a
@@ -3202,10 +3205,6 @@ class MarkdownToCarve
         return !preg_match('/^(?:#{1,6}\s|>|[-*+]\s|\d+[.)]\s|`{3,}|~{3,})/', $trimmed)
             && !preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $trimmed);
     }
-
-    /**
-     * Convert inline Markdown formatting to Carve on one non-code-block line.
-     */
 
     /**
      * Escape a definition-shaped line that continues a paragraph: CommonMark
@@ -4320,25 +4319,6 @@ class MarkdownToCarve
 
         return $line;
     }
-
-    /**
-     * Escape a `{…}` attribute list that would ATTACH to the construct before
-     * it (Pandoc / kramdown spelling; markup-carve/carve#1130).
-     *
-     * Runs after the delimiter rewrites, not with the rest of the escaping,
-     * because what a list attaches to is decided by what precedes it and half
-     * of those things do not exist yet earlier in the pass: `a *x*{.c} b`
-     * becomes `a /x/{.c} b` first, and a link, image, code span or autolink is
-     * a placeholder by then - `\x00` covers every placeholder in one
-     * lookbehind, since each ends with the sentinel byte. A list attaches to a
-     * Carve inline element and to nothing else, so `a x{.c} b` is left alone:
-     * the character before the brace has to be a closer. The standalone
-     * `{.cls}` line is the block-attribute form and is escaped the same way.
-     *
-     * A braced DELIMITER pair is not an attribute list and must not be escaped
-     * as one: Carve reads `{,x,}` as a subscript wherever it stands, and this
-     * converter emits that form itself for `<sub>x</sub>`.
-     */
 
     /**
      * Escape every hyphen of a `--` or `---` run, which Carve's smart typography

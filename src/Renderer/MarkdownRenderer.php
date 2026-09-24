@@ -337,10 +337,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     }
 
     /**
-     * Every abbreviation definition the author wrote, as source lines.
-     */
-
-    /**
      * Definitions the document holds only as map entries (the API path, see
      * Document::getAbbreviationDefinitionsNotInTree). They have no source line
      * of their own, so they are written together at the end the document flag
@@ -2931,13 +2927,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         return preg_replace('/<(?=[A-Za-z\/!?])/', '\\\\<', $escaped) ?? $escaped;
     }
-
-    /**
-     * Blank a URL whose (normalized) scheme is on the dangerous denylist, so a
-     * `javascript:` link/image does not survive into Markdown output (and from
-     * there into a downstream Markdown -> HTML render). Mirrors the HTML
-     * renderer's always-on URL baseline.
-     */
 
     /**
      * Escape `<`, `>`, `&` so embedded HTML cannot become live markup when the

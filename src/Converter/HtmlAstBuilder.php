@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use DOMComment;
-use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
@@ -274,14 +273,7 @@ final class HtmlAstBuilder
         $this->quoteDepth = 0;
         $this->inCaption = false;
         $this->preserveInlineWhitespace = false;
-        $document = new DOMDocument();
-        $document->encoding = 'UTF-8';
-        libxml_use_internal_errors(true);
-        $document->loadHTML(
-            '<?xml encoding="UTF-8"><carve-import-root>' . $html . '</carve-import-root>',
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
-        );
-        libxml_clear_errors();
+        $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
 
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
@@ -2965,14 +2957,7 @@ final class HtmlAstBuilder
      */
     private function inlineHtml(string $html): array
     {
-        $document = new DOMDocument();
-        $document->encoding = 'UTF-8';
-        libxml_use_internal_errors(true);
-        $document->loadHTML(
-            '<?xml encoding="UTF-8"><carve-inline-root>' . $html . '</carve-inline-root>',
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
-        );
-        libxml_clear_errors();
+        $document = HtmlDomLoader::load('<carve-inline-root>' . $html . '</carve-inline-root>');
         $root = $document->getElementsByTagName('carve-inline-root')->item(0);
 
         if (!$root instanceof DOMElement) {

@@ -120,29 +120,6 @@ class BlockParser
     protected const LAZY_FRAME = "\x00L\x00";
 
     /**
-     * Abbreviation definitions use a space-free alphanumeric term and require
-     * one space after the colon.
-     *
-     * @var string
-     */
-    /**
-     * PART 5: `abbreviation_expansion = {character - newline}+` - ONE or more,
-     * hence `(.+)` and not `(.*)`. An empty expansion is not a definition, and
-     * consuming the line DELETED it from the document (carve-php#674).
-     *
-     * `.` matches a space, so `*[A]:` followed by TWO spaces has a
-     * one-character expansion and IS a definition. That is the production as
-     * written and what carve-js does.
-     *
-     * @var string
-     */
-    /**
-     * A bullet, task or ordered marker line: it opens a list item whose lazy
-     * continuation a following flush-left line folds into.
-     *
-     * @var string
-     */
-    /**
      * `abbreviation_definition = "*[", term, "]:", space+, expansion, newline`.
      *
      * THE SEPARATOR IS A RUN OF ASCII SPACES, and the first character that is
@@ -181,19 +158,6 @@ class BlockParser
      */
     private const FOOTNOTE_DEFINITION_PATTERN = '/^\[\^([^\]]+)\]: +(?![ \t]*$)([^ ].*)$/';
 
-    /**
-     * Maximum block-container nesting depth. Every level of blockquote / div /
-     * list / footnote recurses through parseBlocks(), so unbounded nesting (e.g.
-     * `> ` repeated thousands of times) exhausts the stack or memory. Past this
-     * depth, container content is emitted as a literal paragraph instead of
-     * recursing. Far above any real document; only adversarial input reaches it.
-     *
-     * Public because `AstCodec` derives its ingest bound from this number
-     * rather than repeating it: the decoder has to accept anything parsing can
-     * produce, so raising this must raise that with it.
-     *
-     * @var int
-     */
     /**
      * A footnote body's own column: the indent PART 9 §16 asks a continuation
      * line for, and the amount the body is dedented by - never the first
@@ -234,22 +198,6 @@ class BlockParser
      */
     protected const MAX_HEADING_WALK_DEPTH = 512;
 
-    /**
-     * A definition term, with its content.
-     *
-     * The separator after `::` is the SPACE character:
-     * `definition_term = "::", space, inline_content, newline` and
-     * `space = ' '`, so a tab does not open a term and the line stays
-     * paragraph text - the rule every other space-separated marker already
-     * followed (carve#532).
-     *
-     * The three shapes below are one decision spelled for three callers, and
-     * they are constants because they had eleven copies between them: a fix
-     * applied to the one a bug report named would have left the rest deciding
-     * the old way.
-     *
-     * @var string
-     */
     /**
      * @var string
      */
@@ -1203,14 +1151,6 @@ class BlockParser
             $node->setChildren($children);
         }
     }
-
-    /**
-     * Append a node per AUTHORED link reference definition (PART 12 §10).
-     *
-     * Document order, matching the line each definition was written on, so a
-     * writer reproduces them where the author had them. A definition DERIVED
-     * from a heading (PART 11 R1) has no authored line and is skipped.
-     */
 
     /**
      * PART 12 §7: "Definitions appear in DOCUMENT ORDER by source position."
@@ -3781,12 +3721,6 @@ class BlockParser
      * @param array<string> $lines
      * @param int $start
      */
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Node $parent
-     * @param array<string> $lines
-     * @param int $start
-     */
     protected function tryParseDiv(Node $parent, array $lines, int $start): ?int
     {
         $line = $lines[$start];
@@ -4606,16 +4540,6 @@ class BlockParser
     }
 
     /**
-     * Track verbatim/paragraph state across a blockquote's collected inner lines.
-     *
-     * A non-">" line lazily continues a blockquote only when an open paragraph is
-     * available to extend (the djot/CommonMark lazy-continuation rule). Inside an
-     * open code fence or fenced comment, or after a structural line that leaves no
-     * open paragraph (a just-opened div, a closed fence), such a line must instead
-     * terminate the quote - otherwise it is wrongly swallowed into the fence/div.
-     */
-
-    /**
      * A quote's lazy tracker before it has read a line.
      *
      * @return array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null}
@@ -5042,6 +4966,62 @@ class BlockParser
     }
 
     /**
+     * @param \MarkupCarve\Carve\Node\Block\ListBlock $list
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param int $baseIndent
+     */
+    private function attachListContinuation(ListBlock $list, array $lines, int $i, int $count, int $baseIndent): ?int
+    {
+        $lastItem = $this->listParser->getLastListItem($list);
+        if ($lastItem === null) {
+            return null;
+        }
+
+        [$next, $attached, $lineMap] = $this->collectListContinuationBlock($lines, $i + 1, $count, $baseIndent);
+        if ($attached !== []) {
+            $this->parseItemBlocks($lastItem, $attached, $lineMap);
+        }
+
+        return $next;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $contentIndent
+     */
+    private function indentedContinuationOpensBlock(array $lines, int $i, int $contentIndent): bool
+    {
+        $line = IndentationHelper::stripLeadingColumns($lines[$i], $contentIndent);
+        $trimmed = ltrim($line, " \t");
+        if (
+            $trimmed !== $line
+            && $this->listParser->parseListItemMarker($trimmed) === null
+            && $this->lineOpensBlockForLooseness($trimmed)
+        ) {
+            $line = $trimmed;
+        }
+
+        if (!$this->lineOpensBlockForLooseness($line)) {
+            return false;
+        }
+
+        // Invisible lines do not separate two paragraphs.
+        if (
+            $this->isInvisibleOrAttributeLine($line)
+            && $this->fencedBlockParser->parseFencedCommentOpener($line) === null
+        ) {
+            $next = $this->firstVisibleLineAfterInvisible($lines, $i, $contentIndent);
+
+            return $next === null || $this->lineOpensBlockForLooseness($next);
+        }
+
+        return true;
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
@@ -5129,20 +5109,10 @@ class BlockParser
                 break;
             }
 
-            // List-continuation marker (Carve): a lone `+` at the marker column
-            // attaches the FOLLOWING flush-left block to the current item, with
-            // no blank line, keeping the list tight. A bare `+` is never a bullet
-            // (a bullet needs `+ ` + content), so this does not collide with
-            // `+`-bulleted lists; lets you attach a code block, table or quote to
-            // an item without indenting its body.
             if ($currentIndent === $baseIndent && $this->isContinuationMarker(ltrim($currentLine, " \t"))) {
-                $lastItem = $this->listParser->getLastListItem($list);
-                if ($lastItem !== null) {
-                    [$i, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i + 1, $count, $baseIndent);
-                    if ($attached !== []) {
-                        $this->parseItemBlocks($lastItem, $attached, $attachedLineMap);
-                    }
-                    // The continuation attaches content but does not loosen the list.
+                $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent);
+                if ($next !== null) {
+                    $i = $next;
                     $lastItemHadBlankAfter = false;
 
                     continue;
@@ -5169,57 +5139,7 @@ class BlockParser
                 // Content after blank line with indentation belongs to previous item
                 $lastItem = $this->listParser->getLastListItem($list);
                 if ($lastItem !== null) {
-                    // Compact list blocks (Carve): a blank line before indented
-                    // content does not loosen the list when that content OPENS A
-                    // BLOCK (sub-list, block quote, fenced code, fenced div,
-                    // heading, table). Only a genuine second prose paragraph makes
-                    // the list loose. Block recognition and the uniformity
-                    // principle are unchanged -- only tight/loose RENDERING moves.
-                    // Recognize the block opener at the item body's COLUMN 0 (the
-                    // content column), not after a full trim: content indented
-                    // PAST the content column carries residual spaces, so - like
-                    // ` # h` at the top level - it is not a block opener but lazy
-                    // paragraph text, which loosens the item (content-column
-                    // model, carve#295). A list marker still nests at any indent
-                    // (Rule B re-recognizes it after the residual), so it keeps
-                    // the item tight.
-                    $strippedCurrent = IndentationHelper::stripLeadingColumns($currentLine, $lastItemContentIndent);
-                    $authoredCurrent = ltrim($strippedCurrent, " \t");
-                    if (
-                        $authoredCurrent !== $strippedCurrent
-                        && $this->listParser->parseListItemMarker($authoredCurrent) === null
-                        && $this->lineOpensBlockForLooseness($authoredCurrent)
-                    ) {
-                        $strippedCurrent = $authoredCurrent;
-                    }
-                    // The shared looseness predicate, not a second spelling of
-                    // it: a list marker at any indent, a block opener, and a
-                    // line that renders NOTHING all leave the item tight. A
-                    // comment or a definition here used to loosen it, wrapping
-                    // the item in `<p>` because of a line the reader never sees
-                    // (carve-php#744).
-                    $firstContentOpensBlock = $this->lineOpensBlockForLooseness($strippedCurrent);
-                    // §17 L1b: an invisible line is not the second paragraph,
-                    // AND it is not a separator either - it cannot stand
-                    // between the blank line and the paragraph that follows.
-                    // Testing only the FIRST line after the blank stopped at
-                    // the comment and left the item tight, so deleting the
-                    // comment changed how both paragraphs render - a line that
-                    // outputs nothing making a visible difference (carve#630,
-                    // carve-php#771).
-                    if (
-                        $firstContentOpensBlock
-                        && $this->isInvisibleOrAttributeLine($strippedCurrent)
-                        && $this->fencedBlockParser->parseFencedCommentOpener($strippedCurrent) === null
-                    ) {
-                        $behind = $this->firstVisibleLineAfterInvisible($lines, $i, $lastItemContentIndent);
-                        if ($behind !== null && !$this->lineOpensBlockForLooseness($behind)) {
-                            $firstContentOpensBlock = false;
-                        }
-                    }
-                    if (!$firstContentOpensBlock) {
-                        // Indented plain text (or above-column lazy text) after a
-                        // blank line = a second paragraph in the item => loose.
+                    if (!$this->indentedContinuationOpensBlock($lines, $i, $lastItemContentIndent)) {
                         $list->setTight(false);
                     }
 
@@ -6664,19 +6584,6 @@ class BlockParser
     }
 
     /**
-     * Is this the §17 L3 continuation marker?
-     */
-    /**
-     * Does the continuation marker's candidate block begin at document column 0?
-     *
-     * Returns TRUE when the answer cannot be recovered, so a synthetic or
-     * rewritten line keeps the behavior it had rather than silently losing its
-     * attachment. A quote prefix is stripped first: inside a quote the marker's
-     * column 0 is the quote's content column, which is what the executable spec
-     * measures there too.
-     */
-
-    /**
      * Is the bottom block of a marker line's content a lone `+`?
      *
      * `* +` is the outer item's content and the CONTINUATION MARKER one level
@@ -8093,6 +8000,86 @@ class BlockParser
     }
 
     /**
+     * @param \MarkupCarve\Carve\Node\Block\DefinitionList $dl
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     */
+    private function appendDefinitionTerms(DefinitionList $dl, array $lines, int &$i, int $count): void
+    {
+        while ($i < $count && preg_match(self::DEFINITION_TERM_PATTERN, $lines[$i], $m)) {
+            $termStart = $i;
+            $termText = trim($m[1], StringUtil::WHITESPACE_CHARS);
+            $termLines = [$termText];
+            $i++;
+            // A term folds a following plain line like a heading (soft
+            // break), so a wrapped term line does not strand the definition.
+            // A blank line, a new marker (`::` / `:  `), or a block opener /
+            // list marker ends the term.
+            while ($i < $count) {
+                $nextLine = $lines[$i];
+                if (
+                    IndentationHelper::isBlankLine($nextLine)
+                    || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $nextLine)
+                    || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $nextLine)
+                    || $this->endsDefinitionTerm($nextLine, $lines, $i)
+                    // A construct that renders nothing is not term text. The
+                    // term was folding a comment, a reference / footnote /
+                    // abbreviation definition and a block-attribute line in
+                    // as continuation, putting their SOURCE in the `<dt>`.
+                    // A comment BLOCK already ended the term, so this engine
+                    // disagreed with itself as well as with the other two
+                    // (carve-php#671).
+                    || $this->isInvisibleOrAttributeLine($nextLine)
+                ) {
+                    break;
+                }
+                // A term line is a CONTENT LINE, so the trailing-whitespace
+                // rule applies to it as it does to a paragraph's: a
+                // `whitespace` run at the end of one is dropped. The strip
+                // is on the SOURCE line, before the term reaches the inline
+                // parser, because a renderer cannot tell an authored
+                // trailing space from one a construct produced - trimming
+                // rendered output instead would eat the content of an
+                // all-space verbatim span (markup-carve/carve#926).
+                $nextLine = rtrim($nextLine, " \t");
+                $termLines[] = $nextLine;
+                $termText .= "\n" . $nextLine;
+                $i++;
+            }
+            // A term folds continuation lines exactly as a paragraph does,
+            // so it needs the same per-line map rather than the single-line
+            // one - which found nothing the moment a term wrapped.
+            $termContentLines = [];
+            $termFirstLine = $this->sourceLineFor($termStart);
+            foreach ($termLines as $offsetInTerm => $termLine) {
+                $termContentLines[] = [
+                    $termFirstLine < 0 ? -1 : $termFirstLine + $offsetInTerm,
+                    0,
+                    strlen($termLine),
+                    $termLine,
+                ];
+            }
+
+            $term = new DefinitionTerm();
+            $termSource = $this->sourceLineFor($termStart);
+            $term->setPos($this->wholeLinesSpan(
+                $termStart,
+                $i - 1,
+                $this->currentContentColumns[$termSource] ?? 0,
+            ));
+            $this->inlineParser->parse(
+                $term,
+                $termText,
+                $termStart,
+                sourceMap: $this->foldedLinesMap($termContentLines),
+            );
+            $this->stampNodeSourceLine($term, $this->sourceLineFor($termStart));
+            $dl->appendChild($term);
+        }
+    }
+
+    /**
      * Carve definition list (§4.5): `:: term` (exactly two colons, not a
      * `:::` div) lines, then `: definition` (colon + two spaces) lines.
      * Deeper-indented lines continue a definition; a single blank line may
@@ -8116,76 +8103,7 @@ class BlockParser
 
         while ($i < $count && preg_match(self::DEFINITION_TERM_PATTERN, $lines[$i])) {
             // An entry: one or more terms, then one or more definitions.
-            while ($i < $count && preg_match(self::DEFINITION_TERM_PATTERN, $lines[$i], $m)) {
-                $termStart = $i;
-                $termText = trim($m[1], StringUtil::WHITESPACE_CHARS);
-                $termLines = [$termText];
-                $i++;
-                // A term folds a following plain line like a heading (soft
-                // break), so a wrapped term line does not strand the definition.
-                // A blank line, a new marker (`::` / `:  `), or a block opener /
-                // list marker ends the term.
-                while ($i < $count) {
-                    $nextLine = $lines[$i];
-                    if (
-                        IndentationHelper::isBlankLine($nextLine)
-                        || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $nextLine)
-                        || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $nextLine)
-                        || $this->endsDefinitionTerm($nextLine, $lines, $i)
-                        // A construct that renders nothing is not term text. The
-                        // term was folding a comment, a reference / footnote /
-                        // abbreviation definition and a block-attribute line in
-                        // as continuation, putting their SOURCE in the `<dt>`.
-                        // A comment BLOCK already ended the term, so this engine
-                        // disagreed with itself as well as with the other two
-                        // (carve-php#671).
-                        || $this->isInvisibleOrAttributeLine($nextLine)
-                    ) {
-                        break;
-                    }
-                    // A term line is a CONTENT LINE, so the trailing-whitespace
-                    // rule applies to it as it does to a paragraph's: a
-                    // `whitespace` run at the end of one is dropped. The strip
-                    // is on the SOURCE line, before the term reaches the inline
-                    // parser, because a renderer cannot tell an authored
-                    // trailing space from one a construct produced - trimming
-                    // rendered output instead would eat the content of an
-                    // all-space verbatim span (markup-carve/carve#926).
-                    $nextLine = rtrim($nextLine, " \t");
-                    $termLines[] = $nextLine;
-                    $termText .= "\n" . $nextLine;
-                    $i++;
-                }
-                // A term folds continuation lines exactly as a paragraph does,
-                // so it needs the same per-line map rather than the single-line
-                // one - which found nothing the moment a term wrapped.
-                $termContentLines = [];
-                $termFirstLine = $this->sourceLineFor($termStart);
-                foreach ($termLines as $offsetInTerm => $termLine) {
-                    $termContentLines[] = [
-                        $termFirstLine < 0 ? -1 : $termFirstLine + $offsetInTerm,
-                        0,
-                        strlen($termLine),
-                        $termLine,
-                    ];
-                }
-
-                $term = new DefinitionTerm();
-                $termSource = $this->sourceLineFor($termStart);
-                $term->setPos($this->wholeLinesSpan(
-                    $termStart,
-                    $i - 1,
-                    $this->currentContentColumns[$termSource] ?? 0,
-                ));
-                $this->inlineParser->parse(
-                    $term,
-                    $termText,
-                    $termStart,
-                    sourceMap: $this->foldedLinesMap($termContentLines),
-                );
-                $this->stampNodeSourceLine($term, $this->sourceLineFor($termStart));
-                $dl->appendChild($term);
-            }
+            $this->appendDefinitionTerms($dl, $lines, $i, $count);
             while ($i < $count) {
                 // A blank line before a `:  ` definition is a separator (djot
                 // parity): a definition may be separated from its term or a
@@ -10785,39 +10703,6 @@ class BlockParser
     }
 
     /**
-     * A source map for inline text that is a verbatim run of ONE source line.
-     *
-     * The dominant case - a single-line paragraph, a heading, a cell - where the
-     * only difference from the source is leading and trailing whitespace, so the
-     * content sits at a known offset within the line and nothing was joined or
-     * re-indented.
-     *
-     * Returns null the moment that does not hold (a multi-line paragraph, text
-     * the block layer rebuilt). The inline parser then places nothing, which is
-     * what PART 12 section 4 requires of a position it cannot know.
-     */
-
-    /**
-     * A source map for one table cell's content.
-     *
-     * The cell's own offset comes from the split (TableParser::splitCells), not
-     * from searching the row - `| a | a |` has two cells with identical text,
-     * and a span selecting the right BYTES at the wrong cell would pass every
-     * check a consumer could apply. Searching WITHIN the cell is fine, and is
-     * how the alignment marker and surrounding whitespace are skipped.
-     *
-     * @param int $index
-     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool} $cellData
-     * @param string $content
-     */
-    /**
-     * The span covering one whole source line, for a node that IS its line.
-     *
-     * A table row is the case: it has no content of its own beyond the cells,
-     * and its extent is exactly the line it was read from.
-     */
-
-    /**
      * The span covering every source line a nested block was built from.
      *
      * A list item is the case: its content is a re-indented copy of several
@@ -10873,18 +10758,6 @@ class BlockParser
             $lastStart,
         );
     }
-
-    /**
-     * A source map for text folded from one or more whole lines.
-     *
-     * A paragraph's continuation lines are joined with "\n" after their
-     * indentation is stripped, so the built string is not a slice of anything -
-     * but each line within it IS. One segment per line is enough to resolve any
-     * position in the result, which is what lets a multi-line paragraph place
-     * its inlines instead of declining wholesale.
-     *
-     * @param list<array{int, int, int}> $contentLines line index, column, length
-     */
 
     /**
      * The span from the first folded line's content to the last line's end.
@@ -11012,19 +10885,6 @@ class BlockParser
 
         return $any ? $map->withSource($this->positionSource(), $this->positionIndex) : null;
     }
-
-    /**
-     * Give a container the extent of the children it holds.
-     *
-     * A node that wraps others - a figure around an image and its caption, a
-     * footnote around its body, an emphasis around its text - has no source of
-     * its own to measure, but its extent is exactly the span of what it
-     * contains. Deriving it is not inventing a position (PART 12 §4): every
-     * number comes from a child that was placed by measurement.
-     *
-     * Runs bottom-up so a container of containers resolves too, and never
-     * overwrites a span the parser already set, which is always more precise.
-     */
 
     /**
      * The markup an EMPTIED container of each kind spans, and null for a node
@@ -11498,23 +11358,6 @@ class BlockParser
             $lastStart,
         );
     }
-
-    /**
-     * @param int $index
-     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool} $cellData
-     * @param string $content
-     */
-
-    /**
-     * The span of a cell's own source, from what the split measured.
-     *
-     * Independent of whether the cell's TEXT can be verified: an escaped pipe
-     * collapses two source bytes into one of content, so the text lookup fails
-     * and declines, but the cell still occupied a known stretch of the line.
-     *
-     * @param int $index
-     * @param array{content: string, attributes: string, offset?: int|null, verbatim?: bool, rawLength?: int|null} $cellData
-     */
 
     /**
      * The span of a cell's trimmed CONTENT, located inside its raw source slice.
@@ -12010,34 +11853,6 @@ class BlockParser
     }
 
     /**
-     * A line that renders no block of its own: a block-attribute line, a
-     * reference / footnote / abbreviation definition, or a `%%` comment.
-     *
-     * Shared so the two places that need it cannot drift. A definition TERM was
-     * folding every one of these in as continuation text - rendering their
-     * SOURCE inside the `<dt>` - because its own break test knew only about
-     * headings and quotes (carve-php#671).
-     *
-     * A `%%` line comment may be indented: leading whitespace before `%%` does
-     * not matter, so an indented comment line counts exactly like a column-0
-     * one (matches carve-js / carve-rs and the grammar
-     * `comment_line = [whitespace], "%%", …`).
-     *
-     * @param string $line
-     * @param bool $abbreviationCounts
-     */
-
-    /**
-     * The subset of {@see isInvisibleOrAttributeLine} that FOLDS below a
-     * content column: definitions and attribute lines, but never a comment.
-     *
-     * PART 9 §24 C3: a comment is recognized at ANY column and stays
-     * invisible, because folding it would make it VISIBLE - the one outcome a
-     * comment may never have. Every other invisible line folds as text there
-     * (carve#618).
-     */
-
-    /**
      * Where a comment fence opened by $line ends, or null if it opens none.
      *
      * A `%%` line below an item's content column already stays a comment
@@ -12189,17 +12004,6 @@ class BlockParser
     {
         return ($line[$at] ?? '') === '{';
     }
-
-    /**
-     * The last newline that is NOT the line's final byte, or -1 for none.
-     *
-     * The marker walk refuses a subject with an INTERIOR newline, because the
-     * fast marker form misreads one. Asked per level over a suffix, that screen
-     * is itself an O(rest) scan and puts back the cost the offset walk removes,
-     * so it is answered ONCE for the whole line: an interior newline exists at
-     * or after `$at` exactly when this position is at or after it
-     * (markup-carve/carve-php#1437).
-     */
 
     /**
      * The subject a branch reads when its own HEAD says it could match.
@@ -14485,15 +14289,6 @@ class BlockParser
     }
 
     /**
-     * Does this line OPEN a block (vs plain prose)? Used by the compact-list
-     * looseness scan: a blank inside a list item loosens only when the content
-     * after it is a plain paragraph; a blank followed by a block opener keeps
-     * the item tight. Mirrors carve-js lineOpensBlock -- list markers count at
-     * ANY indent, every other opener only at column 0. Lexer-free: a
-     * colon-fence-shaped opener counts regardless of closer lookahead.
-     */
-
-    /**
      * The first line after `$index` that renders something, skipping blanks and
      * invisible lines, stripped to the item's content column - or null when the
      * item ends first.
@@ -15112,10 +14907,6 @@ class BlockParser
     {
         return $this->abbreviations[$abbr] ?? null;
     }
-
-    /**
-     * Add warning for undefined reference (called from InlineParser)
-     */
 
     /**
      * Record that a collapsed `[text][]` reference found no definition.

@@ -439,25 +439,6 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * Every abbreviation definition the author wrote, dimmed.
-     *
-     * PART 11 §10a: a definition NOTHING references is still emitted by this
-     * target - see the note in MarkdownRenderer. They live on the document
-     * rather than in `children` here, so this renderer places them itself.
-     *
-     * FROM THE NODES, not from the document's side list. A profile removes the
-     * AbbreviationDefinition NODE; the list is a second source of truth, so
-     * reading it emitted the line for a definition the host had denied - on this
-     * target and not on HTML, where the line never appears anyway
-     * (carve-php#858). Same shape as the numbering that lived in the render
-     * context (#843) and the profile that reached only the render path (#853).
-     *
-     * The expansion still comes from the map, and must: denying the definition
-     * denies the definition, and the inline `abbreviation` it feeds is a separate
-     * profile entry that keeps rendering.
-     */
-
-    /**
      * The first private-use code point this target's definition placeholder
      * prefers.
      *

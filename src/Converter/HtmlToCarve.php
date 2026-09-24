@@ -514,11 +514,7 @@ class HtmlToCarve
 
         $isDocument = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1;
         $wrapped = $isDocument ? $html : '<div>' . $html . '</div>';
-        $doc = new DOMDocument();
-        $doc->encoding = 'UTF-8';
-        libxml_use_internal_errors(true);
-        $doc->loadHTML('<?xml encoding="UTF-8">' . $wrapped, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        libxml_clear_errors();
+        $doc = HtmlDomLoader::load($wrapped);
 
         $diagnostics = [];
         $root = $doc->documentElement ?? $doc;
@@ -671,130 +667,8 @@ class HtmlToCarve
             return;
         }
 
-        $parent = $node->parentNode;
-        if (
-            $parent instanceof DOMElement
-            && $this->formattingKind($node) !== null
-            && $this->formattingKind($node) === $this->formattingKind($parent)
-        ) {
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'structure-unspellable',
-                'Unwrapped a span inside a span of the same kind, which has no Carve spelling',
-                'warning',
-                $path,
-            );
-        }
-
-        if (
-            $tag !== 'colgroup'
-            && !($tag === 'math' && $node->attributes->length === 0)
-            && $this->directAstRawPreserves($node)
-        ) {
-            $this->inspectImportAttributeList($node, $tag, $path, $diagnostics, true);
-            // The figure says WHY in its own words, matching carve-js: it is
-            // not an unsupported element - Carve has figures - it is a figure
-            // around a target no `^ ` line reproduces.
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'raw-preserved',
-                $tag === 'figure'
-                    ? 'Preserved a <figure> as raw HTML: no Carve spelling reproduces a figure around this target'
-                    : 'Preserved unsupported <' . $tag . '> element as raw HTML',
-                'warning',
-                $path,
-            );
-
+        if ($this->inspectImportNodeStructure($node, $tag, $path, $diagnostics)) {
             return;
-        }
-
-        if ($tag === 'colgroup' && $this->isDirectTableChild($node)) {
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'element-dropped',
-                'Dropped <colgroup>: Carve has no column model, and a table\'s columns are only the cells its rows carry',
-                'warning',
-                $path,
-            );
-
-            return;
-        }
-
-        if (
-            $tag === 'tr'
-            && $this->directAstBlankTableRow($node)
-        ) {
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'structure-unspellable',
-                'Dropped a row whose every cell is empty: Carve reads such a row as text',
-                'warning',
-                $path,
-            );
-            if ($this->directAstBlankRowDropsCaption($node)) {
-                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a caption whose table has no row left', 'warning', $path);
-            }
-        }
-
-        if ($this->directAstUnwraps($node)) {
-            $hasContent = $this->directAstHasSurvivingContent($node);
-            if ($hasContent) {
-                $this->addImportDiagnostic(
-                    $diagnostics,
-                    'element-unwrapped',
-                    'Unwrapped unsupported <' . $tag . '> element',
-                    'info',
-                    $path,
-                );
-            } else {
-                $this->addImportDiagnostic(
-                    $diagnostics,
-                    'element-dropped',
-                    'Dropped empty <' . $tag . '> element',
-                    'warning',
-                    $path,
-                );
-            }
-        }
-
-        if ($tag === 'figure' && $this->directAstFigureOutcome($node) === 'table-rebuild') {
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'structure-unspellable',
-                'A figure wrapping a table has no Carve spelling; the caption is written on the table, '
-                    . 'which renders <caption> inside it',
-                'warning',
-                $path,
-            );
-        }
-
-        if (
-            $tag === 'figcaption'
-            && $node->parentNode instanceof DOMElement
-            && strtolower($node->parentNode->tagName) === 'figure'
-            && $this->directAstFigureOutcome($node->parentNode) === 'table-detach'
-        ) {
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'element-unwrapped',
-                'Detached a <figcaption> into a paragraph after the table: the table\'s own <caption> fills '
-                    . "Carve's one caption slot, so the figure's caption keeps its text and loses its role",
-                'warning',
-                $path,
-            );
-        }
-
-        if (
-            $tag === 'figure'
-            && $this->directAstFigureOutcome($node) === 'unwrap'
-        ) {
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'element-unwrapped',
-                'Unwrapped unsupported <figure> element',
-                'info',
-                $path,
-            );
         }
 
         $outerConsumedCheckbox = $this->inspectedConsumedCheckbox;
@@ -803,29 +677,8 @@ class HtmlToCarve
             : null;
 
         try {
-            // THE ELEMENT'S OWN OUTCOME IS REPORTED FIRST, ahead of the rows
-            // naming what it carried. A consumer reads the rows in order, and
-            // in the other order it was told what happened to a `<video>`'s
-            // `src` before it was told the `<video>` was gone - attributes
-            // reported against an element nothing had yet said anything about
-            // (carve-php#1737).
-            //
-            // This was the last site in this file writing the element row
-            // AFTER the attribute rows. Every other one - the sectioning
-            // wrappers, the unwrapped figures, the active elements, a
-            // `<colgroup>`, an orphan caption - already reports the element
-            // first, and both sibling engines report the element first for
-            // every one of these shapes too.
-            //
-            // THE TWO BUDGETS ARE INDEPENDENT, which is what makes the order a
-            // free choice rather than a behavior change: the element question
-            // spends from `emittedImportValues` and the attribute questions
-            // spend from `survivingImportAttributes`, so neither can consume
-            // the other's survivor whichever runs first.
+            // Report the element first; element and attribute checks use separate survivor budgets.
             if ($tag === 'q') {
-                // Its own arm because neither generic answer fits: an empty
-                // `<q>` still leaves marks behind, so it is not a drop, and the
-                // marks are not span metadata.
                 $this->addImportDiagnostic(
                     $diagnostics,
                     'element-unwrapped',
@@ -843,28 +696,13 @@ class HtmlToCarve
         }
 
         if ($tag === 'math') {
-            // Report the element, then stop - AFTER the attribute loop above,
-            // so a `<math onclick=...>` still reports its handler. What stops
-            // is the descent: the token stream below is consumed whole rather
-            // than unwrapped, and walking it produced a row per `<mi>` and
-            // `<mn>` claiming span metadata that is never emitted, with none
-            // of those rows naming `<math>` as the thing at stake.
+            // Check attributes first, then consume math descendants as one unit.
             $this->inspectMath($node, $path, $diagnostics);
 
             return;
         }
 
         if ($this->isOrphanImportCaption($node, $tag) && !$this->importContentSurvived($node)) {
-            // A CAPTION WITH NOTHING TO CAPTION. Both tags are mapped, and
-            // correctly so - inside their own container they come through - so
-            // the outcome above is never asked of them and the walk went on to
-            // their children. The writer has no slot for this one, so its text
-            // left the document and the report had no arm that fired
-            // (carve-php#1386).
-            //
-            // Reported and then STOPPED, like the other drops above it: the
-            // element went and everything under it went with it, so a row per
-            // descendant would name losses inside a loss already reported.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-dropped',
@@ -881,11 +719,6 @@ class HtmlToCarve
         }
 
         if ($tag === 'details' && $this->isInsideTableCell($node)) {
-            // A pipe-table cell is one line of inline content, so the colon
-            // fence a disclosure needs cannot open inside one and the whole
-            // container degrades to its text (carve-php#1164). The degradation
-            // stands - a cell has no lines to give it - but the disclosure
-            // going missing is worth a line in the report.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
@@ -896,9 +729,6 @@ class HtmlToCarve
         }
 
         if ($tag === 'summary' && trim($node->textContent) !== '' && $this->detailsSummaryTitle($node) === null) {
-            // The label role is what goes: the text becomes ordinary block
-            // content inside the disclosure, and the widget comes back with
-            // the extension's default summary instead of this one.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
@@ -915,16 +745,6 @@ class HtmlToCarve
             && $this->importParagraphIsWrittenAsABlock($node)
             && !($node->parentNode instanceof DOMElement && strtolower($node->parentNode->tagName) === 'figure')
         ) {
-            // A DECLARED LOSS IS A CEILING, NOT A LICENCE
-            // (`docs/html-import.md`). Carve source has no spelling for a
-            // paragraph whose whole content is one image - `![G](g.jpg)`
-            // re-reads as a BLOCK image, and the indented reading a writer
-            // might reach for does not exist inside a list item or a
-            // definition description, where the marker absorbs the padding at
-            // every width. So there is no other output to write, and what was
-            // missing is the row: the writer already dropped the `<p>` and said
-            // nothing, which is exactly the half the ceiling does not cover
-            // (carve-php#1667, ported from markup-carve/carve-js#1422).
             $paragraphAttrs = $this->writtenImportAttributeNames($node);
             $lost = [
                 'attributed' => $paragraphAttrs !== [] || $node->hasAttribute('class'),
@@ -932,13 +752,6 @@ class HtmlToCarve
             ];
             $head = 'A paragraph holding nothing but an image has no Carve spelling; '
                 . 'the image is written as a block';
-            // THREE OUTCOMES, AND THE MESSAGE SAYS WHICH ONE HAPPENED. The
-            // plain one loses the `<p>` and nothing else. An attributed one
-            // re-attaches what the paragraph carried to the image, which is a
-            // different element to carry it. And where the image sets the SAME
-            // name its own value wins, so the paragraph's is gone too - a
-            // message that stopped at "written on the image instead" would
-            // leave that loss undeclared.
             if (!$lost['attributed']) {
                 $message = $head . ', which renders without the <p> around it';
             } elseif ($lost['overwritten'] === []) {
@@ -953,18 +766,6 @@ class HtmlToCarve
         }
 
         if ($tag === 'p' && $this->holdsOnlyLayoutCharacters($node)) {
-            // PART 11 §7 DECIDES WHAT AN IMPORT KEEPS, and it draws the line
-            // at the two-character `whitespace` terminal. A block whose
-            // every character is layout builds nothing - a lone space or
-            // tab line is a blank line, so a paragraph there is a node no
-            // Carve source spells. This engine already wrote nothing for
-            // it; what it did not do was SAY so, and an element that left
-            // the document is what `element-dropped` is for.
-            //
-            // A block holding a character §7 calls content keeps it and
-            // keeps its paragraph, which this engine already gets right: a
-            // NO-BREAK space, U+202F and U+3000 all survive, and each reads
-            // back as a paragraph.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-dropped',
@@ -975,11 +776,6 @@ class HtmlToCarve
         }
 
         if ($tag === 'a' && $this->importDestinationIsEmpty($node->getAttribute('href'))) {
-            // A LINK THAT COMES BACK AS PROSE IS A LOSSY DECISION, and this
-            // page requires those to be observable. It is not the bare `<div>`'s
-            // case, where nothing was lost because nothing was carried: an
-            // anchor has a slot for a destination, and this one is standing
-            // empty.
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
@@ -1031,6 +827,141 @@ class HtmlToCarve
                 $path,
             );
         }
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param string $tag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    private function inspectImportNodeStructure(DOMElement $node, string $tag, string $path, array &$diagnostics): bool
+    {
+        $parent = $node->parentNode;
+        $kind = $parent instanceof DOMElement ? $this->formattingKind($node) : null;
+        if (
+            $parent instanceof DOMElement
+            && $kind !== null
+            && $kind === $this->formattingKind($parent)
+        ) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'Unwrapped a span inside a span of the same kind, which has no Carve spelling',
+                'warning',
+                $path,
+            );
+        }
+
+        if (
+            $tag !== 'colgroup'
+            && !($tag === 'math' && $node->attributes->length === 0)
+            && $this->directAstRawPreserves($node)
+        ) {
+            $this->inspectImportAttributeList($node, $tag, $path, $diagnostics, true);
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'raw-preserved',
+                $tag === 'figure'
+                    ? 'Preserved a <figure> as raw HTML: no Carve spelling reproduces a figure around this target'
+                    : 'Preserved unsupported <' . $tag . '> element as raw HTML',
+                'warning',
+                $path,
+            );
+
+            return true;
+        }
+
+        if ($tag === 'colgroup' && $this->isDirectTableChild($node)) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-dropped',
+                'Dropped <colgroup>: Carve has no column model, and a table\'s columns are only the cells its rows carry',
+                'warning',
+                $path,
+            );
+
+            return true;
+        }
+
+        if (
+            $tag === 'tr'
+            && $this->directAstBlankTableRow($node)
+        ) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'Dropped a row whose every cell is empty: Carve reads such a row as text',
+                'warning',
+                $path,
+            );
+            if ($this->directAstBlankRowDropsCaption($node)) {
+                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a caption whose table has no row left', 'warning', $path);
+            }
+        }
+
+        if ($this->directAstUnwraps($node)) {
+            $hasContent = $this->directAstHasSurvivingContent($node);
+            if ($hasContent) {
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'element-unwrapped',
+                    'Unwrapped unsupported <' . $tag . '> element',
+                    'info',
+                    $path,
+                );
+            } else {
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'element-dropped',
+                    'Dropped empty <' . $tag . '> element',
+                    'warning',
+                    $path,
+                );
+            }
+        }
+
+        $figureOutcome = $tag === 'figure' ? $this->directAstFigureOutcome($node) : null;
+        if ($figureOutcome === 'table-rebuild') {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'A figure wrapping a table has no Carve spelling; the caption is written on the table, '
+                    . 'which renders <caption> inside it',
+                'warning',
+                $path,
+            );
+        }
+
+        if (
+            $tag === 'figcaption'
+            && $node->parentNode instanceof DOMElement
+            && strtolower($node->parentNode->tagName) === 'figure'
+            && $this->directAstFigureOutcome($node->parentNode) === 'table-detach'
+        ) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Detached a <figcaption> into a paragraph after the table: the table\'s own <caption> fills '
+                    . "Carve's one caption slot, so the figure's caption keeps its text and loses its role",
+                'warning',
+                $path,
+            );
+        }
+
+        if (
+            $figureOutcome === 'unwrap'
+        ) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Unwrapped unsupported <figure> element',
+                'info',
+                $path,
+            );
+        }
+
+        return false;
     }
 
     /**
@@ -1714,13 +1645,6 @@ class HtmlToCarve
             $text[] = $child->textContent;
         }
     }
-
-    /**
-     * @param \DOMElement $node
-     * @param string $tag
-     * @param string $path
-     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
-     */
 
     /**
      * Would this importer have refused to write this attribute as a Carve one?
@@ -2745,14 +2669,7 @@ class HtmlToCarve
             return [];
         }
 
-        $doc = new DOMDocument();
-        $doc->encoding = 'UTF-8';
-        libxml_use_internal_errors(true);
-        $doc->loadHTML(
-            '<?xml encoding="UTF-8"><div>' . $html . '</div>',
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
-        );
-        libxml_clear_errors();
+        $doc = HtmlDomLoader::load('<div>' . $html . '</div>');
 
         $counts = [];
         $values = [];
@@ -3010,14 +2927,7 @@ class HtmlToCarve
         if (!$this->trustedRoundTrip) {
             return null;
         }
-        $document = new DOMDocument();
-        $document->encoding = 'UTF-8';
-        libxml_use_internal_errors(true);
-        $document->loadHTML(
-            '<?xml encoding="UTF-8"><carve-import-root>' . $html . '</carve-import-root>',
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
-        );
-        libxml_clear_errors();
+        $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
             return null;
@@ -3066,14 +2976,7 @@ class HtmlToCarve
         if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true)) {
             return $html;
         }
-        $document = new DOMDocument();
-        $document->encoding = 'UTF-8';
-        libxml_use_internal_errors(true);
-        $document->loadHTML(
-            '<?xml encoding="UTF-8"><carve-import-root>' . $html . '</carve-import-root>',
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
-        );
-        libxml_clear_errors();
+        $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
         $this->normalizeAdapterFootnotes($document);
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
@@ -3920,18 +3823,6 @@ class HtmlToCarve
     }
 
     /**
-     * The character a sibling puts next to the delimiter, or '' when it puts
-     * none there.
-     *
-     * Mirrors `CarveRenderer::inlineBoundaryText`, which answers the same
-     * question one layer down: only a text run and a verbatim span contribute a
-     * character, and every other construct contributes its own closing
-     * punctuation, which never blocks a bare delimiter. An element that is not
-     * a construct here - an attribute-less `<span>`, a wrapper the walk does
-     * not know - flattens to its children, so the search descends into it.
-     */
-
-    /**
      * Does this URL attribute name no destination at all?
      *
      * EMPTY IS A PROPERTY OF THE STRING, read the way an HTML URL attribute is
@@ -4328,21 +4219,12 @@ class HtmlToCarve
     }
 
     /**
-     * The tight alignment marker glued to a `|=` header cell: `<` left,
-     * `>` right, `~` center, empty for default.
-     */
-    /**
      * The parser that reads a cell, so this converter can ask it what a cell it
      * is about to write would come back as.
      *
      * @var \MarkupCarve\Carve\Parser\Block\TableParser|null
      */
     protected ?TableParser $cellReader = null;
-
-    /**
-     * The element kept BYTE FOR BYTE, where `roundtrip` is the mode and Carve
-     * has no construct for it (`markup-carve/carve-php#1713`).
-     */
 
     /**
      * The `#id` slot's key in the writer's slot map.

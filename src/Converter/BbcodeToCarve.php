@@ -170,23 +170,6 @@ class BbcodeToCarve
     }
 
     /**
-     * Stash the spans that must survive Carve escaping, then put them back.
-     *
-     * THE STASH KEY IS CHOSEN FROM WHAT THE INPUT DOES NOT CONTAIN. It used to
-     * be the fixed `NUL B <index> NUL`, on the assumption that no forum post
-     * carries a NUL - and unlike the Markdown converter next door, this one does
-     * not strip input NULs, so the assumption was never enforced. A post
-     * containing `<NUL>B0<NUL>` had that text REPLACED BY AN UNRELATED SPAN of
-     * the same post, and one whose index was past the end of the stash raised an
-     * uncaught TypeError out of the restore callback - a crash reachable from
-     * ordinary untrusted input (markup-carve/carve-php#1087).
-     *
-     * Picking the delimiters instead removes both: a key the input cannot
-     * contain cannot be authored, so there is no unrelated span to substitute
-     * and no index that was not put there by this method.
-     */
-
-    /**
      * Replace the CONTENT of every code run with a sentinel.
      *
      * The tags are left in place so convertCode() still sees a code run and
