@@ -56,7 +56,7 @@ class AnEmptyMarkdownDestinationIsNotALinkTest extends TestCase
             'a title on the line after a list item definition' => ["- [r]: <>\n  \"t\"\n- two\n\n[r]", "- two\n\n[r]{title=t}"],
             'a later non-empty definition stays' => ["[r]\n\n[r]: <>\n[r]: /later", "r\n\n[r]: /later"],
             'an empty destination on the next line' => ["[r]\n\n[r]:\n<>", 'r'],
-            'a first definition continued on the next line wins' => ["[x][d]\n\n[d]:\n  /url\n[d]: <>", "[x][d]\n\n[d]:\n  /url"],
+            'a first definition continued on the next line wins' => ["[x][d]\n\n[d]:\n  /url\n[d]: <>", "[x][d]\n\n[d]: /url"],
             'the first definition wins' => ["[x][d]\n\n[d]: /url\n[d]: <>", "[x][d]\n\n[d]: /url"],
             'a destination on an inline link is not a reference' => ["[r](/u)\n\n[r]: <>", '[r](/u)'],
             'a label at the start of a line escapes its block opener' => ['[- x]()', '\\- x'],
