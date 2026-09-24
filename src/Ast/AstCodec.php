@@ -1355,10 +1355,9 @@ class AstCodec
             }
             $schema[$type] = ['fields' => $fields, 'required' => $required];
         }
-        // `citation` has no PHP Node class: it cannot occur outside a
-        // citation_group, and keeping it as an item map avoids a second owner
-        // for its prefix/locator/suffix nodes. It is nevertheless a typed node
-        // on the PART 12 wire and belongs in the advertised vocabulary.
+        // `citation` has no PHP Node class: parsed citations stay inside a
+        // citation_group as item maps. The schema also permits one as a direct
+        // inline child, which this decoder refuses (docs/ast-json.md).
         // `pos` is NOT required: the wire made it optional on a citation an
         // importer or an editing API synthesized (markup-carve/carve#2192), and
         // this list mirrors the wire rather than a PHP property's default. This
@@ -2562,6 +2561,10 @@ class AstCodec
 
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
+            if ($type === 'citation') {
+                throw new AstDecodeException('Standalone citation nodes are not supported; use citation_group.items');
+            }
+
             throw new AstDecodeException(sprintf(
                 'Unknown node type: %s. Application node types must be registered with %s::register().',
                 $type,

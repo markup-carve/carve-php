@@ -7,6 +7,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- AST ingest now names its standalone `citation` limitation in the error message and AST JSON guide (#2272).
+
 ## [0.1.10] - 2026-09-25
 
 ### Changed
