@@ -206,6 +206,9 @@ class LinkPolicy
     public function isUrlAllowed(string $url, ?string $baseHost = null): bool
     {
         $url = preg_replace('/^[\x00-\x20]+|[\x00-\x20]+$/', '', $url) ?? $url;
+        // A URL parser deletes every tab and newline before reading anything,
+        // so `/\t/evil.example` is protocol-relative.
+        $url = str_replace(["\t", "\n", "\r"], '', $url);
 
         if ($url === '') {
             return true;
@@ -240,7 +243,12 @@ class LinkPolicy
         // Check for scheme
         $colonPos = strpos($url, ':');
         if ($colonPos !== false) {
-            $scheme = strtolower(substr($url, 0, $colonPos));
+            $rawScheme = strtolower(substr($url, 0, $colonPos));
+            // Deny reads the scheme a URL consumer would see, with controls and
+            // whitespace dropped; allow reads the raw text, so a split scheme is
+            // never newly allowed (carve-js#917, carve-rs#835).
+            $scheme = preg_replace('/[\p{Z}\p{Cc}\x{feff}\s]+/u', '', $rawScheme)
+                ?? (string)preg_replace('/[\x00-\x20\x7f]+/', '', $rawScheme);
 
             // Check denied schemes
             if (in_array($scheme, $this->deniedSchemes, true)) {
@@ -248,7 +256,7 @@ class LinkPolicy
             }
 
             // Check allowed schemes if set
-            if ($this->allowedSchemes !== null && !in_array($scheme, $this->allowedSchemes, true)) {
+            if ($this->allowedSchemes !== null && !in_array($rawScheme, $this->allowedSchemes, true)) {
                 return false;
             }
 
@@ -259,30 +267,31 @@ class LinkPolicy
 
             // Parse host for http/https URLs
             if (in_array($scheme, ['http', 'https'], true)) {
-                $parsed = parse_url($url);
-                $host = $parsed['host'] ?? null;
+                $host = static::specialUrlHost(substr($url, $colonPos + 1));
+                if ($host === null) {
+                    // Nothing to compare, so a host rule cannot be satisfied.
+                    return $this->deniedDomains === [] && $this->allowedDomains === null && $this->allowExternal;
+                }
 
-                if ($host !== null) {
-                    // Check denied domains
-                    if ($this->isDomainDenied($host)) {
+                // Check denied domains
+                if ($this->isDomainDenied($host)) {
+                    return false;
+                }
+
+                // Check allowed domains if set
+                if ($this->allowedDomains !== null && !$this->isDomainAllowed($host)) {
+                    return false;
+                }
+
+                // Check external policy
+                if (!$this->allowExternal) {
+                    // If we have a base host, compare
+                    if ($baseHost !== null && !$this->isSameHost($host, $baseHost)) {
                         return false;
                     }
-
-                    // Check allowed domains if set
-                    if ($this->allowedDomains !== null && !$this->isDomainAllowed($host)) {
+                    // If no base host, assume all absolute URLs are external
+                    if ($baseHost === null) {
                         return false;
-                    }
-
-                    // Check external policy
-                    if (!$this->allowExternal) {
-                        // If we have a base host, compare
-                        if ($baseHost !== null && !$this->isSameHost($host, $baseHost)) {
-                            return false;
-                        }
-                        // If no base host, assume all absolute URLs are external
-                        if ($baseHost === null) {
-                            return false;
-                        }
                     }
                 }
             }
@@ -303,8 +312,7 @@ class LinkPolicy
             }
         }
 
-        $parsed = parse_url('https:' . $url);
-        $host = $parsed['host'] ?? null;
+        $host = static::specialUrlHost($url);
 
         if ($host === null) {
             return false;
@@ -331,11 +339,53 @@ class LinkPolicy
         return true;
     }
 
+    /**
+     * The host a WHATWG URL parser reads after an http(s) scheme, or null.
+     *
+     * Not `parse_url()`: it finds no host in `https:\\evil.example` and reads
+     * `good.example` from `https://evil.example\@good.example`, where a browser
+     * goes to `evil.example` both times.
+     *
+     * @param string $afterScheme Everything after the scheme's colon.
+     */
+    protected static function specialUrlHost(string $afterScheme): ?string
+    {
+        $rest = ltrim($afterScheme, '/\\');
+        $authority = substr($rest, 0, strcspn($rest, '/\\?#'));
+
+        $at = strrpos($authority, '@');
+        if ($at !== false) {
+            $authority = substr($authority, $at + 1);
+        }
+
+        if (str_starts_with($authority, '[')) {
+            $close = strpos($authority, ']');
+            $host = $close === false ? $authority : substr($authority, 0, $close + 1);
+        } else {
+            $colon = strpos($authority, ':');
+            $host = $colon === false ? $authority : substr($authority, 0, $colon);
+        }
+
+        $host = static::normalizeHost(rawurldecode($host));
+
+        return $host === '' ? null : $host;
+    }
+
+    /**
+     * Configured domains and base hosts go through this too, so both sides of
+     * every comparison agree on case, full stops and trailing dots.
+     */
+    protected static function normalizeHost(string $host): string
+    {
+        return rtrim(strtolower(str_replace(["\u{3002}", "\u{FF0E}", "\u{FF61}"], '.', $host)), '.');
+    }
+
     protected function isDomainDenied(string $host): bool
     {
-        $host = strtolower($host);
+        $host = static::normalizeHost($host);
         foreach ($this->deniedDomains as $denied) {
-            if ($host === strtolower($denied) || str_ends_with($host, '.' . strtolower($denied))) {
+            $denied = static::normalizeHost($denied);
+            if ($host === $denied || str_ends_with($host, '.' . $denied)) {
                 return true;
             }
         }
@@ -349,9 +399,10 @@ class LinkPolicy
             return true;
         }
 
-        $host = strtolower($host);
+        $host = static::normalizeHost($host);
         foreach ($this->allowedDomains as $allowed) {
-            if ($host === strtolower($allowed) || str_ends_with($host, '.' . strtolower($allowed))) {
+            $allowed = static::normalizeHost($allowed);
+            if ($host === $allowed || str_ends_with($host, '.' . $allowed)) {
                 return true;
             }
         }
@@ -361,6 +412,6 @@ class LinkPolicy
 
     protected function isSameHost(string $host1, string $host2): bool
     {
-        return strtolower($host1) === strtolower($host2);
+        return static::normalizeHost($host1) === static::normalizeHost($host2);
     }
 }
