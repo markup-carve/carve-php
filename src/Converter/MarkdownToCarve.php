@@ -1733,6 +1733,21 @@ class MarkdownToCarve
     }
 
     /**
+     * A list marker only Carve has - a bare `.`, a letter or roman numeral, or
+     * a number past nine digits - opens a list where Markdown has text, so it
+     * is escaped wherever it starts a line's text.
+     */
+    protected function escapeCarveOnlyMarker(string $line): string
+    {
+        return preg_replace_callback(
+            '/^((?:[ \t]*>)*[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+(?:\[[ xX]\][ \t]+)?)*)(\d{10,}|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)?(?(2)[.)]|\.)(?=[ \t]|$|\{)/',
+            fn (array $m): string => $m[1] . ($m[2] ?? '') . '\\' . substr($m[0], -1),
+            $line,
+            1,
+        ) ?? $line;
+    }
+
+    /**
      * Paragraph text that would open a block once it sits at its container's
      * column, with a Markdown escape on what opens it.
      */
@@ -2820,6 +2835,7 @@ class MarkdownToCarve
 
     protected function convertInlineFormatting(string $line): string
     {
+        $line = $this->escapeCarveOnlyMarker($line);
         $protected = [];
         $protect = function (string $span) use (&$protected): string {
             $protected[] = $span;
