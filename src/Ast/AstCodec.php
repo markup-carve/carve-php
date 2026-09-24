@@ -123,7 +123,7 @@ class AstCodec
         'mention' => ['user'],
         // The halves are FIELDS holding inline content, not child containers.
         'substitution' => ['old', 'new'],
-        'table_cell' => ['header'],
+        'table_cell' => ['header', 'rowspan', 'colspan'],
         'tag' => ['name'],
     ];
 
@@ -2073,7 +2073,20 @@ class AstCodec
         }
 
         if ($node instanceof TableCell) {
-            return ['header' => $node->isHeader()];
+            $fields = ['header' => $node->isHeader()];
+            // PART 9 §13 T5 puts the resolved extent on the ORIGIN cell,
+            // alongside the `^` / `<` markers that extended it rather than
+            // instead of them. The schema's minimum is 2 and PART 12 §22 says
+            // an ingested 1 normalizes away, so a cell spanning one row or
+            // column publishes neither field (carve#2204).
+            if ($node->getRowspan() > 1) {
+                $fields['rowspan'] = $node->getRowspan();
+            }
+            if ($node->getColspan() > 1) {
+                $fields['colspan'] = $node->getColspan();
+            }
+
+            return $fields;
         }
 
         if ($node instanceof Comment) {

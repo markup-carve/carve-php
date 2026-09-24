@@ -962,12 +962,17 @@ DJOT;
      * carve-php#527: carve-js keeps a placeholder cell for every span marker
      * instead of merging it into the origin as a count, so a consumer walking
      * `rows[i].cells` gets the same length for every row. Every row of this
-     * 3-column table has 3 cells, the two markers in the last row carry `span`
-     * on the wire, and no cell - marker or origin - carries a `rowspan`/
-     * `colspan` count (the schema's `additionalProperties: false` rejects
-     * one).
+     * 3-column table has 3 cells and the two markers in the last row carry
+     * `span` on the wire.
+     *
+     * The count rides the ORIGIN cell BESIDE those markers, which is what
+     * carve#2204 added and PART 9 §13 T5 spells: "alongside the markers that
+     * extended it rather than instead of them". This test used to assert no
+     * cell carried one at all, on the grounds that the schema's
+     * `additionalProperties: false` rejected it - true of the schema then, not
+     * of the pinned one (carve-php#2298).
      */
-    public function testEveryRowHasAUniformCellCountAndNoCellCarriesACountOnTheWire(): void
+    public function testEveryRowHasAUniformCellCountAndTheOriginCarriesTheCount(): void
     {
         $djot = <<<'DJOT'
 | A | B | C |
@@ -991,12 +996,22 @@ DJOT;
         $this->assertSame('colspan', $spanRow[1]['span']);
         $this->assertArrayNotHasKey('span', $spanRow[2]);
 
-        foreach ($encoded['children'][0]['rows'] as $encodedRow) {
-            foreach ($encodedRow['cells'] as $cell) {
-                $this->assertArrayNotHasKey('rowspan', $cell);
-                $this->assertArrayNotHasKey('colspan', $cell);
-            }
+        // The origin of the `^`, and the only cell in the table that spans
+        // more than one of anything.
+        $originRow = $encoded['children'][0]['rows'][1]['cells'];
+        $this->assertSame(2, $originRow[0]['rowspan']);
+        $this->assertArrayNotHasKey('colspan', $originRow[0]);
+
+        // A cell covering one row and one column publishes neither: absent
+        // means 1, and the schema's minimum is 2.
+        foreach ([$originRow[1], $originRow[2], $spanRow[2]] as $single) {
+            $this->assertArrayNotHasKey('rowspan', $single);
+            $this->assertArrayNotHasKey('colspan', $single);
         }
+
+        // And the payload is one the decoder reads back unchanged.
+        $codec = new AstCodec();
+        $this->assertSame($encoded, $codec->encode($codec->decode($encoded)));
     }
 
     /**

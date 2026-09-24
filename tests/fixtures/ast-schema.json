@@ -387,7 +387,9 @@
       "valign",
       "align",
       "span",
-      "header"
+      "header",
+      "rowspan",
+      "colspan"
     ],
     "required": []
   },
