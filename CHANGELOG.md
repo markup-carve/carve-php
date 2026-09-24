@@ -23,6 +23,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Empty block containers keep a blank HTML body line** (#2256, CARVE-P10-001). Divs, line blocks, local hard-break blocks and figure groups now use the same body shape as admonitions and block quotes.
 
+- **AST ingest refuses two shapes it used to accept, and accepts one it used to refuse** (#2271). A bare `table_row` in a `children` array is refused, along with the other four container-internal types, where the schema admits only the block kinds a `children` array holds; a `footnote_ref` with no target is refused, since `id` is required; and a `citation` with no `pos` is accepted, positions being optional on a node an importer or an editing API synthesized. The vendored `resources/ast-schema.json` the validator reads is the spec's byte for byte, so all three follow from the pin moving past markup-carve/carve#2197. `AstCodec::schema()` drops `pos` from the citation's required list to match, having advertised a constraint ingest no longer applies; this engine still publishes it on every citation it parses.
+
 ### Removed
 
 - **Stored-payload migration no longer accepts `footnote.id`** (#2256). A footnote definition uses `label`; `id` is rejected like any other unnamed AST property.
