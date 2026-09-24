@@ -138,6 +138,13 @@
     "fields": [],
     "required": []
   },
+  "directive": {
+    "fields": [
+      "label",
+      "kind"
+    ],
+    "required": []
+  },
   "div": {
     "fields": [
       "label",

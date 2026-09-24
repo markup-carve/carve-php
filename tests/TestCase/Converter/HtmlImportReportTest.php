@@ -21,23 +21,45 @@ class HtmlImportReportTest extends TestCase
      * declares the other side of the same window itself, with a `PIN_LAG` entry
      * written in the commit that ruled the clause.
      *
-     * Each entry FAILS IN BOTH DIRECTIONS:
+     * Each DECLARED key fails in BOTH DIRECTIONS:
      *
-     *  - the written source must equal what the CURRENT spec states, so a
+     *  - what this engine produces must equal what the CURRENT spec states, so a
      *    regression is caught exactly as the fixture would have caught it;
      *  - and it must still DIFFER from the pinned golden, so the entry fails and
      *    has to be deleted in the same commit that moves the pin.
+     *
+     * The keys are independent, because a clause need not move all three. A key
+     * an entry omits is asserted against the pinned fixture as usual: a clause
+     * that moves only the tree leaves the written source under the fixture's own
+     * guard rather than under a restated copy of it.
      *
      * `diagnostics` is the code list this engine emits, given for a clause
      * that moves the rows as well as the source - which is the usual case,
      * since a row describes what the writer gave up.
      *
-     * @var array<string, array{reason: string, carve: string, diagnostics?: list<string>}>
+     * `ast` is the TREE this engine now imports, given for a clause that moves
+     * the tree without moving the written source. It is the whole document, as
+     * the fixture spells one, so the entry reads as the fixture's replacement
+     * rather than as a patch nobody can check.
+     *
+     * @var array<string, array{reason: string, carve?: string, diagnostics?: list<string>, ast?: string}>
      */
     private const AHEAD_OF_PIN = [
-        // EMPTY. `same-kind-indirect-nesting` stood here until the pin reached
-        // markup-carve/carve#2101, which re-recorded it. The slot stays for the
-        // next window.
+        // CARVE-P12-057 splits the six generated-content kinds out of
+        // `admonition` into `directive`, and this fixture records the pinned
+        // reading - `admonition` with kind `footnotes`. The WRITTEN source is
+        // unchanged (`::: footnotes` either way), so only `ast` moves, and the
+        // spec side wants the matching `PIN_LAG` row so an engine still on the
+        // old pin keeps passing. Bearbeitet markup-carve/carve#2243.
+        'endnotes-section-not-last' => [
+            'reason' => 'CARVE-P12-057: a generated-content kind is a directive, not an admonition',
+            'ast' => '{"type":"document","children":[{"type":"paragraph","children":'
+                . '[{"type":"text","value":"a"},{"type":"footnote_ref","label":"1"}]},'
+                . '{"type":"directive","kind":"footnotes"},'
+                . '{"type":"paragraph","children":[{"type":"text","value":"after"}]},'
+                . '{"type":"footnote","label":"1","children":[{"type":"paragraph",'
+                . '"children":[{"type":"text","value":"n"}]}]}]}',
+        ],
     ];
 
     /**
@@ -127,7 +149,7 @@ class HtmlImportReportTest extends TestCase
             $astResult = (new HtmlToCarve())->convertToAstWithReport($html);
             $actual = $result->report()['diagnostics'];
             $ahead = self::AHEAD_OF_PIN[basename($fixture)] ?? null;
-            if ($ahead !== null) {
+            if ($ahead !== null && array_key_exists('carve', $ahead)) {
                 $this->assertSame($ahead['carve'], $result->value, $ahead['reason']);
                 // THE STALENESS HALF. When the pin moves past the clause the
                 // fixture is rewritten to exactly this value, and the entry has
@@ -193,6 +215,23 @@ class HtmlImportReportTest extends TestCase
             }
 
             $astDifference = self::astDifference($expectedAst, $astResult->value);
+            if ($ahead !== null && array_key_exists('ast', $ahead)) {
+                /** @var array<string, mixed> $aheadAst */
+                $aheadAst = json_decode($ahead['ast'], true, flags: JSON_THROW_ON_ERROR);
+                $this->assertNull(
+                    self::astDifference($aheadAst, $astResult->value),
+                    $ahead['reason'] . ': ' . self::astDifference($aheadAst, $astResult->value),
+                );
+                // The staleness half. When the pin moves the fixture is
+                // re-recorded to exactly this tree, and the entry has to go in
+                // the same commit.
+                $this->assertNotNull(
+                    $astDifference,
+                    basename($fixture) . ' now matches the pinned tree: delete its AHEAD_OF_PIN entry',
+                );
+
+                continue;
+            }
             $declaredAstDifference = self::AST_DIVERGENCES[basename($fixture)] ?? null;
             if ($declaredAstDifference === null) {
                 $this->assertNull($astDifference, basename($fixture) . ': ' . $astDifference);

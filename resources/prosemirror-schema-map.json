@@ -191,6 +191,19 @@
         "title": "fence title"
       }
     },
+    "directive": {
+      "kind": "node",
+      "pm": "carveDiv",
+      "aliasOf": "div",
+      "notes": "profile vocabulary only: a directive is a div whose opener word names generated content (CARVE-P12-057). The editor holds it as the same carveDiv node an admonition uses, with the kind word in `class` and `carveTyped` true",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "carveTyped": "always true here: an attribute-only container is a div, not a directive",
+        "class": "the kind word plus authored classes",
+        "id": "authored id"
+      }
+    },
     "definition_list": {
       "kind": "node",
       "pm": "definitionList"

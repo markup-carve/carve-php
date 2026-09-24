@@ -99,6 +99,9 @@ final class ReferenceShape
     public const TYPE_ALIASES = [
         'autolink' => 'link',
         'admonition' => 'div',
+        // A named container whose kind names generated content (CARVE-P12-057).
+        // Same class, same flag, a third wire name - see Div::directiveKind().
+        'directive' => 'div',
         // `#tag` is its own AST type in the reference, and this engine models it
         // as a Mention carrying a `tag` css class. A profile still classifies
         // both as `mention` - that is a TRUST CLASS, not the node's identity
@@ -171,6 +174,12 @@ final class ReferenceShape
         // `title`. `label` stays: the reference has it (`[Build]` on the opener
         // is authored content, verified against carve-js).
         'admonition' => ['typed', 'header'],
+        // `headerNodes` joins the list here, and only here. The schema closes
+        // `directive` WITHOUT a `title`, so the quoted opener of a
+        // `::: toc "Contents"` has nowhere to go on the wire and must not leak
+        // under this engine's own property name. Where the title should live is
+        // markup-carve/carve#2247, not a question a single engine answers.
+        'directive' => ['typed', 'header', 'headerNodes'],
         // `isAutolink` IS the type name on the wire; the single text child is
         // published as `text`.
         'autolink' => ['isAutolink', 'referenceLabel', 'title', 'fromHeadingReference'],

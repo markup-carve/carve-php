@@ -115,6 +115,9 @@ class AstCodec
     public const HAND_WRITTEN_FIELDS = [
         'abbreviation' => ['abbr'],
         'admonition' => ['kind'],
+        // Same derivation as an admonition's: the opener word, which this engine
+        // keeps as the first class rather than as a field.
+        'directive' => ['kind'],
         // The extension's data, kept out of the reflection walk so a `type` key
         // inside an opaque payload is not read as a node.
         'block_extension' => ['payload'],
@@ -160,7 +163,8 @@ class AstCodec
         'abbreviation.abbr', 'abbreviation.expansion', 'abbreviation_def.abbr',
         'abbreviation_def.expansion', 'admonition.children', 'admonition.kind',
         'autolink.href', 'autolink.text',
-        // Interchange-only types this engine never builds from source; the
+        // `directive.kind` is produced from source now (CARVE-P12-057); the rest
+        // are interchange-only types this engine never builds from source. The
         // entries keep the list a faithful copy of the schema's `required`,
         // which is what RequiredFieldsAreAlwaysPublishedTest compares.
         'block_extension.fallback', 'block_extension.name', 'directive.kind',

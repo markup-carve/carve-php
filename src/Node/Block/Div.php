@@ -24,6 +24,21 @@ class Div extends BlockNode
     public const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
 
     /**
+     * The six kinds that name GENERATED CONTENT (grammar PART 12 §35,
+     * CARVE-P12-057). A named container carrying one of them is a `directive` on
+     * the wire and to a profile, not an admonition: a table of contents is not a
+     * callout, and a consumer dispatching on the type had to carry this list
+     * itself to find that out.
+     *
+     * The list is CLOSED by the clause, so `endnotes` and `contents` are
+     * admonitions. One list here rather than a condition spelled at each call
+     * site, for the same reason {@see ADMONITION_TYPES} is shared.
+     *
+     * @var list<string>
+     */
+    public const GENERATED_CONTENT_KINDS = ['bibliography', 'footnotes', 'glossary', 'index', 'references', 'toc'];
+
+    /**
      * Grouping label from the opener `[label]` (grammar PART 9 §12). Structured
      * metadata: NOT rendered by core, consumed by a group extension (e.g. tabs)
      * as the tab name. Mirrors {@see \MarkupCarve\Carve\Node\Block\CodeBlock::getLabel()}.
@@ -138,6 +153,32 @@ class Div extends BlockNode
         }
 
         return null;
+    }
+
+    /**
+     * The generated-content kind this container names, or null when it names
+     * none (grammar PART 12 §35, CARVE-P12-057).
+     *
+     * A NAMED container whose kind is one of {@see GENERATED_CONTENT_KINDS} is a
+     * `directive` rather than an admonition or a div. Two conditions, both from
+     * the clause:
+     *
+     * - The opener word, not any class. An attribute-only container is a `div`,
+     *   so `{.toc}` above a bare `:::` is not a directive - which is why this
+     *   reads the FIRST class (where the parser puts the opener word) instead of
+     *   scanning the list the way {@see admonitionKind()} does.
+     * - The list is CLOSED. "Every other named container is an `admonition`", so
+     *   a seventh generated-looking word like `endnotes` is an admonition.
+     */
+    public function directiveKind(): ?string
+    {
+        if (!$this->typed) {
+            return null;
+        }
+
+        $opener = $this->getClassList()[0] ?? null;
+
+        return in_array($opener, self::GENERATED_CONTENT_KINDS, true) ? $opener : null;
     }
 
     /**

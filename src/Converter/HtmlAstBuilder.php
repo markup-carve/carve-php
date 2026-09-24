@@ -11,6 +11,7 @@ use DOMNode;
 use DOMText;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 
 /**
@@ -1023,7 +1024,7 @@ final class HtmlAstBuilder
             return [];
         }
 
-        return [['type' => 'admonition', 'kind' => 'footnotes', 'children' => []]];
+        return [$this->namedContainer('footnotes', [])];
     }
 
     /**
@@ -1897,7 +1898,7 @@ final class HtmlAstBuilder
             $kind = $structuralKind !== '' ? $structuralKind : ($classKind === 'line-block' ? '|' : $classKind);
             $container = $kind === '|'
                 ? ['type' => 'line_block', 'children' => $children]
-                : ['type' => 'admonition', 'kind' => $kind, 'children' => $children];
+                : $this->namedContainer($kind, $children);
             if ($classKind !== '') {
                 unset($classes[$kindIndex]);
             }
@@ -1922,7 +1923,11 @@ final class HtmlAstBuilder
             if ($attrs !== []) {
                 $container['attrs'] = $attrs;
             }
-            if ($title !== []) {
+            // A directive is closed WITHOUT a `title`, so the quoted opener has
+            // nowhere to go - the same loss the codec exit takes on
+            // `::: toc "Contents"`, and the two exits have to agree.
+            // markup-carve/carve#2247 asks where it should live.
+            if ($title !== [] && ($container['type'] ?? null) !== 'directive') {
                 $container['title'] = $title;
             }
             if ($label !== null) {
@@ -1948,6 +1953,35 @@ final class HtmlAstBuilder
         }
 
         return [$container];
+    }
+
+    /**
+     * A named `:::` container as one of the two types its kind selects
+     * (CARVE-P12-057).
+     *
+     * A kind naming GENERATED CONTENT is a `directive`, every other named kind an
+     * `admonition`. The list of six is CLOSED, so `endnotes` is an admonition.
+     * A directive's content is generated rather than authored and the schema
+     * requires only `kind`, so an empty child list is not published - which is
+     * also what the codec exit emits for the same container.
+     *
+     * @param string $kind
+     * @param list<array<string, mixed>> $children
+     *
+     * @return array<string, mixed>
+     */
+    private function namedContainer(string $kind, array $children): array
+    {
+        if (!in_array($kind, Div::GENERATED_CONTENT_KINDS, true)) {
+            return ['type' => 'admonition', 'kind' => $kind, 'children' => $children];
+        }
+
+        $directive = ['type' => 'directive', 'kind' => $kind];
+        if ($children !== []) {
+            $directive['children'] = $children;
+        }
+
+        return $directive;
     }
 
     /**
