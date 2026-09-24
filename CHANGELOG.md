@@ -26,6 +26,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Removed
 
 - **Stored-payload migration no longer accepts `footnote.id`** (#2256). A footnote definition uses `label`; `id` is rejected like any other unnamed AST property.
+- **Breaking:** `StoredPayloadUpgrade` and the tailored diagnostics for pre-PART 12 payloads are removed. Obsolete payloads now fail ordinary AST schema validation. Applications that still hold them must run `StoredPayloadUpgrade::upgrade()` or `upgradeJson()` with carve-php 0.1.9 or earlier, the last release that carries the tool, before upgrading (#2259).
 
 ### Fixed
 
@@ -57,10 +58,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Converted BBCode holding only generated formatting skips the repair parse** (#2240). Text that carries no unescaped ASCII punctuation is proven safe and bypasses the parser repair pass, which every ambiguous shape still takes. Output is unchanged either way.
 - **A document is reparsed only for a heading the failed label could name** (#2245). Any reference the inline parser could not resolve armed the heading reparse, and the filter asked only whether each heading was already indexed, so a document holding a forward reference and any heading parsed twice even when no heading could resolve that label. The unresolved labels are recorded in the heading index's key space now and a collected heading survives the filter only when it is one of them, which takes a 48.5 KB document of 400 headings and one forward reference from 328 ms to 124 ms. `markCollapsedReferenceUnresolved()` takes the label as an optional argument, and a caller that omits it keeps the old every-heading behavior.
 - **The plain-text escaper freezes a hash after an ampersand** (#2256), so numeric-reference text cannot become a Carve tag.
-
-### Removed
-
-- **Breaking:** `StoredPayloadUpgrade` and the tailored diagnostics for pre-PART 12 payloads are removed. Obsolete payloads now fail ordinary AST schema validation. Applications that still hold them must run `StoredPayloadUpgrade::upgrade()` or `upgradeJson()` with carve-php 0.1.9 or earlier, the last release that carries the tool, before upgrading (#2259).
 
 ## [0.1.9] - 2026-09-19
 
