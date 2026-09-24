@@ -48,9 +48,22 @@ final class TableSpanGrid
                     $up = $lastNonSkip[$c];
                     /** @var array{cell: \MarkupCarve\Carve\Node\Block\TableCell, rowspan: int, colspan: int, skip: bool} $origin */
                     $origin = $rows[$up][$c];
-                    $origin['rowspan']++;
-                    $rows[$up][$c] = $origin;
-                    $entry['skip'] = true;
+                    $coveredByVisibleSpan = false;
+                    if ($origin['skip']) {
+                        $left = $c - 1;
+                        while ($left >= 0 && $rows[$up][$left]['skip']) {
+                            $left--;
+                        }
+                        if ($left >= 0) {
+                            $visible = $rows[$up][$left];
+                            $coveredByVisibleSpan = $left + $visible['colspan'] > $c && $up + $visible['rowspan'] > $r;
+                        }
+                    }
+                    if (!$origin['skip'] || $coveredByVisibleSpan) {
+                        $origin['rowspan']++;
+                        $rows[$up][$c] = $origin;
+                        $entry['skip'] = true;
+                    }
                 } elseif ($marker === '<' && $c > 0) {
                     $left = $c - 1;
                     while ($left >= 0 && $rows[$r][$left]['skip']) {
@@ -65,7 +78,7 @@ final class TableSpanGrid
                     }
                 }
                 $rows[$r][$c] = $entry;
-                if (!$entry['skip']) {
+                if (!$entry['skip'] || $marker === '<') {
                     $lastNonSkip[$c] = $r;
                 }
             }

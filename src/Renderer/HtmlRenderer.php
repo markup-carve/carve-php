@@ -1944,6 +1944,34 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return '<tr' . $this->renderAttributes($row) . '>' . $cells . '</tr>';
         };
 
+        $tableRowCount = count($tableRows);
+        $footerStart = $tableRowCount - $footerRowCount;
+        $crossesSection = false;
+        foreach ($grid as $rowIndex => $gridRow) {
+            foreach ($gridRow as $entry) {
+                $end = $rowIndex + $entry['rowspan'];
+                if (
+                    !$entry['skip'] && $entry['rowspan'] > 1
+                    && (($rowIndex < $headerRowCount && $end > $headerRowCount)
+                        || ($rowIndex < $footerStart && $end > $footerStart))
+                ) {
+                    $crossesSection = true;
+
+                    break 2;
+                }
+            }
+        }
+        if ($crossesSection) {
+            $tbody = '';
+            foreach ($tableRows as $rowIndex => $row) {
+                $inHeaderRun = $rowIndex < $headerRowCount;
+                $tbody .= '    ' . $renderRow($row, $grid[$rowIndex], $inHeaderRun, $inHeaderRun) . "\n";
+            }
+            $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
+
+            return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
+        }
+
         // A ROW IS A ROW, IN EVERY SECTION (PART 10 §7,
         // markup-carve/carve#1459). `thead` and `tfoot` used to put their rows
         // on the section's own line while `tbody` gave each row a line, and
@@ -1956,8 +1984,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $lines[] = "  <thead>\n" . rtrim($thead, "\n") . "\n  </thead>";
         }
 
-        $tableRowCount = count($tableRows);
-        $footerStart = $tableRowCount - $footerRowCount;
         if ($headerRowCount < $footerStart) {
             $tbody = '';
             for ($i = $headerRowCount; $i < $footerStart; $i++) {

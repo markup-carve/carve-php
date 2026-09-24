@@ -653,6 +653,9 @@ final class BorrowedHtmlLayout
         if ($heads === null || $delimiter === null || $heads === [] || count($heads) !== count($delimiter)) {
             return null;
         }
+        if (in_array('^', $heads, true) || in_array('<', $heads, true)) {
+            return null;
+        }
         $aligns = [];
         foreach ($delimiter as $cell) {
             $align = $this->alignment($cell);
@@ -685,6 +688,9 @@ final class BorrowedHtmlLayout
         while (isset($lines[$i]) && str_starts_with(ltrim($lines[$i]), '|')) {
             $row = $this->cells($lines[$i]);
             if ($row === null || count($row) !== count($heads)) {
+                return null;
+            }
+            if (in_array('^', $row, true) || in_array('<', $row, true)) {
                 return null;
             }
             $rendered = $renderRow($row, 'td');
