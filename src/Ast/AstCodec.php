@@ -1359,9 +1359,14 @@ class AstCodec
         // citation_group, and keeping it as an item map avoids a second owner
         // for its prefix/locator/suffix nodes. It is nevertheless a typed node
         // on the PART 12 wire and belongs in the advertised vocabulary.
+        // `pos` is NOT required: the wire made it optional on a citation an
+        // importer or an editing API synthesized (markup-carve/carve#2192), and
+        // this list mirrors the wire rather than a PHP property's default. This
+        // engine still publishes it on every citation it parses, which is what
+        // ALWAYS_PUBLISHED states.
         $schema['citation'] = [
             'fields' => ['key', 'prefix', 'locator', 'locatorLabel', 'locatorValue', 'suffix', 'suppressAuthor', 'number', 'useIndex', 'pos'],
-            'required' => ['key', 'suppressAuthor', 'pos'],
+            'required' => ['key', 'suppressAuthor'],
         ];
         ksort($schema);
 
