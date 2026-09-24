@@ -69,6 +69,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -1049,7 +1050,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $layout = TableLayout::expand(
             $node,
             fn (TableCell $cell): array => [
-                'content' => trim($this->renderChildren($cell)),
+                'content' => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell)),
                 'isHeader' => $cell->isHeader(),
             ],
         );

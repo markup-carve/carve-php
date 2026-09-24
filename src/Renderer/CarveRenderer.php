@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use MarkupCarve\Carve\Node\Block\BlockExtension;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CitationDefinition;
@@ -30,6 +31,7 @@ use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Block\Section;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
@@ -77,6 +79,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
 use ReflectionObject;
@@ -93,6 +96,7 @@ use Throwable;
 class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterface
 {
     use RenderLossCollectorTrait;
+    use ConversionDiagnosticCollectorTrait;
 
     /**
      * @var list<string>
@@ -157,6 +161,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * marker is a BLOCK line, and a cell's content is not one.
      */
     protected int $tableCellDepth = 0;
+
+    private ?TableCell $flattenedTableCell = null;
 
     /**
      * Object ids of the hard breaks at a cell's edge, which write nothing.
@@ -1517,6 +1523,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Div && $node->isTyped() && $this->canRenderTypedDiv($node) => $this->withFencedDivAttrs($node, [$node->getClassList()[0] ?? ''], $this->renderTypedDiv($node)),
             $node instanceof Div && $node->isTyped() && $this->admonitionKind($node) !== null => $this->withFencedDivAttrs($node, [$this->admonitionKind($node)], $this->renderAdmonition($node)),
             $node instanceof Div => $withAttrs($this->renderDiv($node)),
+            $node instanceof BlockExtension => $this->renderBlockExtensionFallback($node),
+            $node instanceof Section => $this->renderSection($node),
             $node instanceof LineBlock => $withAttrs($this->renderLineBlock($node)),
             // THE ATTRIBUTE LINE MOVES WITH THE LIST. It is part of how this
             // block is spelled, so raising the body alone would leave `{loose}`
@@ -1555,6 +1563,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof CitationDefinition => '',
             default => $this->renderBlocks($node->getChildren()),
         };
+    }
+
+    protected function renderSection(Section $node): string
+    {
+        $this->recordUnspellableStructure($node, 'Carve source cannot spell an explicit section');
+
+        return $this->renderBlocks($node->getChildren());
+    }
+
+    protected function renderBlockExtensionFallback(BlockExtension $node): string
+    {
+        $this->recordUnspellableStructure($node, 'Carve source can only spell the block extension fallback');
+
+        return $this->renderBlocks($node->getChildren());
     }
 
     protected function renderParagraph(Paragraph $node, bool $canUsePreviousCaptionSlot): string
@@ -2763,6 +2785,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         bool $inheritedAlign = false,
         bool $inheritedValign = false,
     ): string {
+        if ($cell->hasBlockContent()) {
+            $this->recordUnspellableField($cell, 'blocks', 'Carve table cells cannot hold blocks');
+        }
         $attrs = $this->renderAttrs($cell);
         // A lone span marker keeps a SPACE before it. Glued to the opening pipe,
         // `<` is also the left-alignment sigil, and the two readings differ: the
@@ -2796,13 +2821,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // was written.
         $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $inheritHorizontal . $valign . $attrs;
 
+        $inlines = $cell->hasBlockContent()
+            ? TableCellBlockFlattener::flatten($cell)->getChildren()
+            : $cell->getChildren();
+        $previousFlattenedCell = $this->flattenedTableCell;
+        $this->flattenedTableCell = $cell->hasBlockContent() ? $cell : null;
         $this->tableCellDepth++;
-        $this->edgeCellBreaks = $this->edgeHardBreaks($cell->getChildren());
+        $this->edgeCellBreaks = $this->edgeHardBreaks($inlines);
         try {
-            $content = $this->renderInlines($cell->getChildren());
+            $content = $this->renderInlines($inlines);
         } finally {
             $this->tableCellDepth--;
             $this->edgeCellBreaks = [];
+            $this->flattenedTableCell = $previousFlattenedCell;
         }
 
         return $this->padCell($prefix, $content);
@@ -3413,7 +3444,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Superscript => $withAttrs($this->spellSameKind($node, '^', $this->renderForcedEmphasis('^', $this->renderMarked('superscript', $node)))),
             $node instanceof Subscript => $withAttrs($this->spellSameKind($node, ',', $this->renderForcedEmphasis(',', $this->renderMarked('subscript', $node)))),
             $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderMarked('highlight', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
-            $node instanceof Code => $node->getContent() === '' && !self::emptyCodeSpanIsSpellable($node)
+            $node instanceof Code => $node->getContent() === '' && !$this->emptyCodeSpanIsSpellable($node)
                 ? throw new SourceUnspellableException('code', 'an empty code span has no Carve source spelling where its open run does not end')
                 : $withAttrs($this->renderCode($node->getContent())),
             $node instanceof Mention => $this->renderMention($node),
@@ -3469,6 +3500,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderSmallCaps(SmallCaps $node): string
     {
+        $this->recordUnspellableStructure($node, 'Carve source cannot spell small caps');
         $content = $this->renderInlines($node->getChildren());
 
         return $node->getAttributes() === [] ? $content : '[' . $content . ']' . $this->renderAttrs($node);
@@ -3870,6 +3902,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function renderMath(Math $node): string
     {
+        if ($node->getLabel() !== null) {
+            $this->recordUnspellableField($node, 'label', 'Carve source cannot spell an equation label');
+        }
+        if ($node->getNumber() !== null) {
+            $this->recordUnspellableField($node, 'number', 'Carve source cannot spell an equation number');
+        }
+
         return ($node->isDisplay() ? '$$' : '$') . $this->renderCode($node->getContent());
     }
 
@@ -3923,7 +3962,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * span label never closes. Attributes attach to a closing run, which the
      * span has not got.
      */
-    protected static function emptyCodeSpanIsSpellable(Code $node): bool
+    protected function emptyCodeSpanIsSpellable(Code $node): bool
     {
         if ($node->getAttributes() !== []) {
             return false;
@@ -3942,6 +3981,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
             }
             if (!$parent instanceof InlineNode) {
+                if ($parent instanceof Paragraph && $this->flattenedTableCell !== null) {
+                    $row = $this->flattenedTableCell->getParent();
+
+                    return !$row instanceof TableRow || $row->getChildren()[count($row->getChildren()) - 1] === $this->flattenedTableCell;
+                }
                 if ($parent instanceof TableCell) {
                     // Cells are split after the run is read, so only the last
                     // cell's run ends with its line, braced closer or not.

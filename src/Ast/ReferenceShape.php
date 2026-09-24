@@ -166,7 +166,7 @@ final class ReferenceShape
         // The RAW marker stays internal - it holds `X` and the default `[ ]`.
         // What the author chose rides as `taskState`, published by the codec.
         'list_item' => ['taskMarker'],
-        'table_cell' => ['isHeader', 'rowspan', 'colspan', 'hasExplicitAlignment', 'hasExplicitVerticalAlignment'],
+        'table_cell' => ['isHeader', 'rowspan', 'colspan', 'hasExplicitAlignment', 'hasExplicitVerticalAlignment', 'blockContent'],
         'table_row' => ['isHeader'],
         // Fence width is a writer concern, recomputed when formatting.
         'div' => ['typed', 'header'],

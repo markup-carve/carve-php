@@ -257,7 +257,9 @@
     "required": []
   },
   "line_block": {
-    "fields": [],
+    "fields": [
+      "lines"
+    ],
     "required": []
   },
   "link": {
@@ -417,7 +419,8 @@
       "span",
       "header",
       "rowspan",
-      "colspan"
+      "colspan",
+      "blocks"
     ],
     "required": []
   },

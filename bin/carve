@@ -70,6 +70,7 @@ use MarkupCarve\Carve\Lint\TableColumnLinter;
 use MarkupCarve\Carve\Lint\TemplateSourceLinter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
@@ -396,6 +397,8 @@ function parseArgs(array $argv): array
         'strict' => false,
         'strictLosses' => false,
         'reportLosses' => null,
+        'reportConversionDiagnostics' => null,
+        'maxConversionDiagnostics' => 100,
         'allowLoss' => [],
         'maxRenderLosses' => 100,
         'includeRoot' => null,
@@ -459,6 +462,19 @@ function parseArgs(array $argv): array
                 exit(2);
             }
             $options['reportLosses'] = $argv[++$i];
+        } elseif ($arg === '--report-conversion-diagnostics') {
+            if (!isset($argv[$i + 1])) {
+                fwrite(STDERR, "Error: --report-conversion-diagnostics requires a filename or -\n");
+                exit(2);
+            }
+            $options['reportConversionDiagnostics'] = $argv[++$i];
+        } elseif ($arg === '--max-conversion-diagnostics') {
+            $value = $argv[$i + 1] ?? null;
+            if ($value === null || !ctype_digit($value)) {
+                fwrite(STDERR, "Error: --max-conversion-diagnostics requires a non-negative integer\n");
+                exit(2);
+            }
+            $options['maxConversionDiagnostics'] = (int)$argv[++$i];
         } elseif ($arg === '--allow-loss') {
             if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened'], true)) {
                 fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped or ruby-flattened\n");
@@ -657,6 +673,10 @@ Rendering:
   --allow-loss CODE              Permit raw-format-dropped or ruby-flattened (repeatable)
                            Accept intentional target filtering
   --max-render-losses N    Bound detailed losses while retaining the full count (default 100)
+  --report-conversion-diagnostics FILE
+                           Write source conversion diagnostics (`-` for stderr; --carve only)
+  --max-conversion-diagnostics N
+                           Bound detailed conversion diagnostics (default 100)
 
 Formatter:
   lint                Report markup that renders as something else: Markdown
@@ -1065,6 +1085,16 @@ if ($wantIncludes) {
 }
 
 try {
+    $conversionWriter = null;
+    if ($options['reportConversionDiagnostics'] !== null) {
+        $renderer = $converter->getRenderer();
+        if (!$renderer instanceof CarveRenderer) {
+            fwrite(STDERR, "Error: --report-conversion-diagnostics requires --carve\n");
+            exit(2);
+        }
+        $conversionWriter = $renderer;
+        $conversionWriter->beginConversionDiagnosticCollection($options['maxConversionDiagnostics']);
+    }
     if ($options['format'] === 'json') {
         $output = $codec->encodeJson(
             $document ?? $converter->parse($input),
@@ -1085,6 +1115,7 @@ try {
 
     exit(1);
 }
+$conversionReport = $conversionWriter?->finishConversionDiagnosticCollection();
 
 // Handle warnings
 $exitCode = 0;
@@ -1115,6 +1146,15 @@ if ($options['reportLosses'] !== null) {
         fwrite(STDERR, $report);
     } elseif (file_put_contents($options['reportLosses'], $report) === false) {
         fwrite(STDERR, "Error: Failed to write render-loss report\n");
+        exit(2);
+    }
+}
+if ($options['reportConversionDiagnostics'] !== null) {
+    $report = json_encode($conversionReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+    if ($options['reportConversionDiagnostics'] === '-') {
+        fwrite(STDERR, $report);
+    } elseif (file_put_contents($options['reportConversionDiagnostics'], $report) === false) {
+        fwrite(STDERR, "Error: Failed to write conversion diagnostics\n");
         exit(2);
     }
 }

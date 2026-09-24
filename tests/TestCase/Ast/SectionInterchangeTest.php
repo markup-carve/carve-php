@@ -68,7 +68,7 @@ final class SectionInterchangeTest extends TestCase
         $document = (new AstCodec())->decode(self::payload(3));
 
         self::assertSame(
-            '<h3 id="topic">Topic</h3>' . "\n" . '<p>Body</p>' . "\n",
+            "<section>\n  <h3 id=\"topic\">Topic</h3>\n  <p>Body</p>\n</section>\n",
             (new HtmlRenderer())->render($document),
         );
     }

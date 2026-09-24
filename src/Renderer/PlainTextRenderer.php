@@ -24,6 +24,7 @@ use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Block\Section;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
@@ -62,6 +63,7 @@ use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -363,6 +365,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
                 $node instanceof Div => $this->renderDiv($node),
+                $node instanceof Section => $this->renderChildren($node),
                 $node instanceof AbbreviationDefinition
                 => $this->renderAbbreviationDefinition($node),
                 $node instanceof Paragraph => $this->renderParagraph($node),
@@ -785,7 +788,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         $text = '';
         $layout = TableLayout::expand(
             $node,
-            fn (TableCell $cell): string => trim($this->renderChildren($cell), StringUtil::TRIMMABLE_WHITESPACE),
+            fn (TableCell $cell): string => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE),
         );
 
         foreach ($layout['rows'] as $row) {

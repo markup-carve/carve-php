@@ -18,6 +18,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- AST interchange preserves line-block ranges, explicit sections and block
+  table cells. The Carve writer exposes a bounded conversion-diagnostics report
+  for source structures and fields it cannot spell, including the CLI flag
+  `--report-conversion-diagnostics` (#2308).
 - Ruby annotations survive AST JSON interchange as ordered base and annotation pairs. HTML import preserves paired annotations, and HTML and Markdown render native ruby. Carve, plain text, and ANSI use a readable `base(annotation)` fallback with a `ruby-flattened` loss report. The CLI accepts `--allow-loss ruby-flattened` in strict loss mode (#2281).
 
 ## [0.1.10] - 2026-09-25
