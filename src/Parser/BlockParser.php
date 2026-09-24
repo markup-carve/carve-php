@@ -14227,20 +14227,12 @@ class BlockParser
      */
     protected function subContentHasLooseningBlank(array $subLines, bool $sourceIsTheItemBody): bool
     {
-        // The first collected sub-list marker fixes the sub-list content column;
-        // content at or past it belongs to the sub-list, not this item.
-        $firstBlockIdx = -1;
-        foreach ($subLines as $idx => $sl) {
-            if ($sl === '') {
-                continue;
-            }
-            if ($this->listParser->parseListItemMarker(ltrim($sl, " \t")) !== null) {
-                $firstBlockIdx = $idx;
-
-                break;
-            }
-        }
-        $subCol = $firstBlockIdx === -1 ? -1 : $this->markerContentColumn($subLines[$firstBlockIdx]);
+        // The content column of the sub-list item the scan is in; content at or
+        // past it belongs to the sub-list, not this item. A marker at column 0
+        // opens a sibling sub-list item or a new sibling sub-list, whose own
+        // column then applies; one indented further folds into the open item
+        // (carve-php#2262, carve-js#1951). Markers inside a fence never count.
+        $subCol = -1;
 
         $n = count($subLines);
         // The last line that renders anything. A colon span reaching past it
@@ -14298,6 +14290,12 @@ class BlockParser
                 }
             }
             if ($sl !== '') {
+                if (
+                    ($subCol < 0 || IndentationHelper::getLeadingColumns($sl) === 0)
+                    && $this->listParser->parseListItemMarker(ltrim($sl, " \t")) !== null
+                ) {
+                    $subCol = $this->markerContentColumn($sl);
+                }
                 $k++;
 
                 continue;
