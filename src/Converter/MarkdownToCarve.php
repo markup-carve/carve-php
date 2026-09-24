@@ -1815,7 +1815,15 @@ class MarkdownToCarve
         $above = $first;
         for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
             if (preg_match('/^ {0,3}>/', $lines[$at]) !== 1) {
-                return null;
+                // A lazy line continues the quoted paragraph; the underline
+                // cannot be one.
+                if (preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $lines[$at]) === 1 || !$this->isParagraphLine($lines, $at)) {
+                    return null;
+                }
+                $texts[] = $this->setextLineText($lines[$at]);
+                $above = trim($lines[$at]);
+
+                continue;
             }
             $body = $this->normalizeBlockquoteMarkers(ltrim($lines[$at], ' '));
             if (!str_starts_with($body, $prefix) || preg_match('/^((?:> )+)(.*)$/s', $body, $next) !== 1 || $next[1] !== $prefix) {
