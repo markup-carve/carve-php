@@ -10,3 +10,5 @@
 # shipped-source merges without one.
 
 2242: Drops the private $integratedDefinitionPass flag and the six branches on it. Every document has collected its definitions in the structural walk since markup-carve/carve#1895, so the flag selected nothing; output over all 1855 corpus documents and throughput are both unchanged, and no public or protected signature moves.
+
+2267: A performance regression that shipped nowhere. The looseness scan walked an indentation run unbounded from 2264, which landed after 0.1.9 and is in no tag, so no Composer install ever carried it. The list-looseness fix it came in with is a separate merge and is judged on its own.
