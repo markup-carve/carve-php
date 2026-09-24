@@ -19,8 +19,21 @@ final class StandaloneCitationIngestTest extends TestCase
         return ['paragraph' => ['paragraph'], 'heading' => ['heading']];
     }
 
+    /**
+     * carve#2228 and carve#2229 took `citation` out of `inlineNode`, so the
+     * shape this test sends is no longer schema-valid and §12(d) refuses it
+     * before `decodeNode()` is reached. The refusal is what this test is for,
+     * and it now comes from the schema.
+     *
+     * `decodeNode()`'s own standalone-citation message is therefore UNREACHABLE:
+     * every call to it is downstream of `verifySchema()`, and a group's items
+     * are decoded as maps rather than through it. It stays only as the answer
+     * if a later ruling puts `citation` back in the inline dispatch, and
+     * nothing here asserts it, because an assertion on a branch that cannot run
+     * is the check this repository keeps finding.
+     */
     #[DataProvider('inlineContainers')]
-    public function testSchemaValidStandaloneCitationIsRefused(string $container): void
+    public function testStandaloneCitationIsRefused(string $container): void
     {
         $payload = [
             'type' => 'document',
@@ -42,7 +55,10 @@ final class StandaloneCitationIngestTest extends TestCase
                 is_string($input) ? $codec->decodeJson($input) : $codec->decode($input);
                 self::fail('The standalone citation was accepted');
             } catch (AstDecodeException $exception) {
-                self::assertStringContainsString('Standalone citation nodes are not supported', $exception->getMessage());
+                self::assertStringContainsString(
+                    '.type is the string "citation", which the schema does not list',
+                    $exception->getMessage(),
+                );
             }
         }
     }

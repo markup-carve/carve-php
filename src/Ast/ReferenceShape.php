@@ -25,10 +25,13 @@ final class ReferenceShape
         'code_block' => ['content' => 'content', 'language' => 'lang'],
         'link' => ['destination' => 'href', 'title' => 'title', 'referenceLabel' => 'ref', 'rawReferenceLabel' => 'rawRef'],
         'image' => ['source' => 'src', 'alt' => 'alt', 'title' => 'title', 'referenceLabel' => 'ref', 'rawReferenceLabel' => 'rawRef'],
-        // The INLINE reference, which the reference calls `footnote_ref` and
-        // keys by `id`. The block definition is a different type and publishes
-        // `label` in PART 12 §7.
-        'footnote_ref' => ['label' => 'id'],
+        // The INLINE reference keys by `label`, the same name its `footnote`
+        // definition uses (carve#2213). It published `id` until that ruling,
+        // which the schema now forbids outright, and `attrs.id` - an authored
+        // `{#x}` rather than a lookup key - is why the old name was wrong.
+        // §11's decode carve-out for the old spelling is a MAY; carve-js and
+        // carve-rs both refuse it, and so does this map.
+        'footnote_ref' => ['label' => 'label'],
         // The reference calls a caption's number `n`, and the schema pins that
         // name with `additionalProperties: false` - publishing `number` is not a
         // cosmetic difference, it is invalid (carve-php#843).

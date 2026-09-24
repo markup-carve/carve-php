@@ -82,7 +82,7 @@ class RootFieldsTest extends TestCase
                     'type' => 'paragraph',
                     'children' => [
                         ['type' => 'text', 'value' => 'x'],
-                        ['type' => 'footnote_ref', 'id' => 'r'],
+                        ['type' => 'footnote_ref', 'label' => 'r'],
                     ],
                 ],
             ],

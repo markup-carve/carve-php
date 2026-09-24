@@ -531,6 +531,9 @@ class AstCodecSchemaTest extends TestCase
      * failed it. A `section` and a `caption` reach the encoder from the
      * ProseMirror bridge, which builds both; the payload that came back named
      * them, and `decode()` refused it as a type the vocabulary does not hold.
+     *
+     * `section` now publishes under its own name - carve#2207 gave the wire the
+     * type - so only `caption` is still mapped here.
      */
     public function testAnInternalTypeIsPublishedUnderAVocabularyName(): void
     {
@@ -557,7 +560,7 @@ class AstCodecSchemaTest extends TestCase
         $codec = new AstCodec();
         $encoded = $codec->encode($document);
 
-        $this->assertSame(['div', 'paragraph'], array_column($encoded['children'], 'type'));
+        $this->assertSame(['section', 'paragraph'], array_column($encoded['children'], 'type'));
         $this->assertSame(
             'body',
             $encoded['children'][0]['children'][0]['children'][0]['value'],

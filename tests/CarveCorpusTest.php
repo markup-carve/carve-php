@@ -52,6 +52,14 @@ class CarveCorpusTest extends TestCase
         // exists - the category pins exactly that, and it is the one corpus
         // row PART 9 section 19 contributes.
         'include-directive-with-no-resolver-renders-literal',
+        // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (spec d85b13ae,
+        // markup-carve/carve#2224). A rowspan crossing the head or foot
+        // boundary keeps every row in one `tbody`, which this engine already
+        // did - both documents render byte-identically to their corpus HTML,
+        // verified per document, and the control holds: a `{header-rows=1}`
+        // table with no crossing span still emits `thead`.
+        'an-explicit-table-head-span-keeps-one-row-group',
+        'a-table-foot-span-keeps-one-row-group',
         // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (spec 95a72c8c). Both
         // categories are nested-note column-reach rulings this engine already
         // answers: carve-php#1926 placed the trailing line by reach, and
@@ -980,10 +988,10 @@ class CarveCorpusTest extends TestCase
      * @var array<string, array{reason: string, html: string}>
      */
     protected const AHEAD_OF_PIN = [
-        '101-table-header-cell-rowspan' => [
-            'reason' => 'carve#2224 keeps a crossing rowspan in one tbody',
-            'html' => "<table>\n  <tbody>\n    <tr><th scope=\"col\" rowspan=\"3\">H</th><th scope=\"col\">G</th></tr>\n    <tr><td>b</td></tr>\n    <tr><td>c</td></tr>\n  </tbody>\n</table>",
-        ],
+        // EMPTY. `101-table-header-cell-rowspan` stood here on carve#2224 and
+        // came out with the pin that merged it: the golden now states what this
+        // engine already rendered, which is the entry failing in the direction
+        // it was written to fail in.
     ];
 
     protected CarveConverter $converter;

@@ -100,6 +100,37 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
                 },
                 'children is the string "x" where the schema requires array',
             ],
+            // `minLength` and `pattern` arrived with carve#2214 and carve#2223,
+            // and a keyword the validator does not implement is SKIPPED - it
+            // accepts everything it was added to refuse. These two are the
+            // proof that both now fire; without them the implementation is a
+            // check that cannot fail.
+            'math label empty' => [
+                static function (array $d): array {
+                    $d['children'][0]['children'][] = [
+                        'type' => 'math',
+                        'display' => true,
+                        'content' => 'x',
+                        'label' => '',
+                    ];
+
+                    return $d;
+                },
+                'shorter than the schema minimum of 1 character',
+            ],
+            'math label padded with whitespace' => [
+                static function (array $d): array {
+                    $d['children'][0]['children'][] = [
+                        'type' => 'math',
+                        'display' => true,
+                        'content' => 'x',
+                        'label' => ' Eq. ',
+                    ];
+
+                    return $d;
+                },
+                'does not match the schema pattern',
+            ],
             // §12's own objection, arriving through a door the clause did not
             // cover: a reader that supplies a default has turned a truncated
             // document into an empty one.
@@ -441,8 +472,12 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
      * fixture here - so the copy in `resources/` is what §12(d) consults, and a
      * copy that can drift from its source is a rule that quietly stops being
      * the one that was ruled.
+     *
+     * The ruby overlay this comparison used to subtract is gone: the pin now
+     * reaches carve#2221, so ruby is in the upstream schema and the carve-out
+     * described a state that no longer exists.
      */
-    public function testTheVendoredSchemaMatchesTheSpecSubmoduleWithRubyOverlay(): void
+    public function testTheVendoredSchemaMatchesTheSpecSubmodule(): void
     {
         $vendored = dirname(__DIR__, 3) . '/resources/ast-schema.json';
         $upstream = dirname(__DIR__, 3) . '/tests/spec/resources/ast-schema.json';
@@ -453,19 +488,10 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         $upstreamSchema = json_decode((string)file_get_contents($upstream), true, 512, JSON_THROW_ON_ERROR);
         $vendoredSchema = json_decode((string)file_get_contents($vendored), true, 512, JSON_THROW_ON_ERROR);
 
-        // The merged ruby contract is ahead of this repository's spec pin.
-        // Remove exactly its two definitions and inline dispatch entries, then
-        // require the rest of the vendored schema to match the pin.
-        unset($vendoredSchema['$defs']['ruby'], $vendoredSchema['$defs']['rubyPair']);
-        $inline = &$vendoredSchema['$defs']['inlineNode'];
-        $inline['properties']['type']['enum'] = array_values(array_filter(
-            $inline['properties']['type']['enum'],
-            static fn (string $type): bool => $type !== 'ruby',
-        ));
-        $inline['allOf'] = array_values(array_filter(
-            $inline['allOf'],
-            static fn (array $branch): bool => ($branch['if']['properties']['type']['const'] ?? null) !== 'ruby',
-        ));
+        // The control on the assertion below: ruby is what the overlay used to
+        // remove, so a pin that lost it again would make this comparison pass
+        // for the wrong reason.
+        $this->assertArrayHasKey('ruby', $upstreamSchema['$defs']);
         $this->assertSame($upstreamSchema, $vendoredSchema);
     }
 
@@ -576,6 +602,33 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         });
 
         $this->assertSame([], $wrong);
+    }
+
+    /**
+     * `checkPattern()` wraps the schema's expression in `/.../u`, and a pattern
+     * PCRE refuses would then reject every value at that field. A schema
+     * pattern that needs a different delimiter has to fail HERE, where the
+     * message says so, rather than at ingest on a payload that did nothing
+     * wrong.
+     */
+    public function testEveryPatternInTheSchemaCompiles(): void
+    {
+        $patterns = [];
+        self::walk(AstSchema::schema(), static function (array $node) use (&$patterns): void {
+            if (is_string($node['pattern'] ?? null)) {
+                $patterns[] = $node['pattern'];
+            }
+        });
+
+        // And the walk found some, or this proves nothing.
+        $this->assertNotSame([], $patterns, 'no schema pattern was examined');
+        foreach ($patterns as $pattern) {
+            $this->assertSame(
+                0,
+                preg_match('/' . str_replace('/', '\/', $pattern) . '/u', ''),
+                sprintf('the schema pattern %s does not compile under the / delimiter', $pattern),
+            );
+        }
     }
 
     public function testEveryBoundedFieldAlsoDeclaresItsType(): void

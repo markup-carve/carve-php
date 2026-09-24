@@ -76,6 +76,28 @@ final class NodeType
     public const ADMONITION = 'admonition';
 
     /**
+     * A generated-content container (`::: toc`), split out of `admonition`
+     * because a table of contents is not a callout (carve#2195).
+     *
+     * Interchange vocabulary: this engine parses such a container as an
+     * admonition today, so a profile can name the type and no parse produces
+     * one.
+     *
+     * @var string
+     */
+    public const DIRECTIVE = 'directive';
+
+    /**
+     * A block an extension owns, carried with a core `fallback` (carve#2200).
+     *
+     * Interchange vocabulary: Carve 0.1 source spells no block extension, so a
+     * parse produces none.
+     *
+     * @var string
+     */
+    public const BLOCK_EXTENSION = 'block_extension';
+
+    /**
      * @var string
      */
     public const RAW_BLOCK = 'raw_block';
@@ -278,6 +300,16 @@ final class NodeType
     public const RUBY = 'ruby';
 
     /**
+     * An interchange-only small-caps wrapper (carve#2210).
+     *
+     * Carve 0.1 source has no spelling for it, so a parse produces none and a
+     * canonical writer drops the wrapper while keeping its attributes.
+     *
+     * @var string
+     */
+    public const SMALL_CAPS = 'small_caps';
+
+    /**
      * The resolved number inside a numbered caption (`^ Figure #: ...`).
      *
      * @var string
@@ -357,6 +389,8 @@ final class NodeType
             self::TABLE_CELL,
             self::THEMATIC_BREAK,
             self::DIV,
+            self::DIRECTIVE,
+            self::BLOCK_EXTENSION,
             self::RAW_BLOCK,
             self::FOOTNOTE,
             self::FRONTMATTER,
@@ -368,6 +402,14 @@ final class NodeType
             self::COMMENT,
             self::FIGURE,
             self::FIGURE_GROUP,
+            // `caption` STAYS, although profiles.md dropped it in carve#2207.
+            // That ruling reads a caption as an inline array on its figure or
+            // table, which is true of carve-js and carve-rs and not of this
+            // engine: the parse tree here holds a Caption block, a profile
+            // denying it reports a violation today, and taking the name out
+            // makes `isTypeAllowed('caption')` answer false under any profile
+            // that sets an allow list - silent loss, which is the hazard
+            // carve#771 fixed in the other direction.
             self::CAPTION,
             // Both definition kinds are in the normative Block vocabulary
             // (carve#771, ruled by carve#826). Without them here,
@@ -410,6 +452,7 @@ final class NodeType
             self::CITATION_GROUP,
             self::CITATION,
             self::RUBY,
+            self::SMALL_CAPS,
             self::CAPTION_NUMBER,
             self::SPAN,
             self::SUPERSCRIPT,
