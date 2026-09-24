@@ -1684,6 +1684,14 @@ class MarkdownToCarve
         } elseif (!$blank && !$continues) {
             $list->end($this->indentWidth($text));
         }
+        // A lazy line continues the paragraph of the item above it and is
+        // written at that item's content column, as fmt writes it.
+        if ($continues && !$blank) {
+            $content = $list->contentAt(PHP_INT_MAX);
+            if ($content > $this->indentWidth($text)) {
+                $written = str_repeat(' ', $content + $list->shiftAt($content)) . ltrim($written, " \t");
+            }
+        }
 
         if ($blank) {
             $prev = null;
