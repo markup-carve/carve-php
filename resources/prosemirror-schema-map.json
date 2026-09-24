@@ -376,8 +376,8 @@
         "carveKeyValues": "authored key=values",
         "class": "authored classes",
         "id": "authored id",
-        "integral": "true for the `[+@key]` form",
-        "items": "per item: key, suppressAuthor, and prefix/locator/suffix as INLINE ARRAYS",
+        "integral": "true for the `[+@key]` form; the SUMMARY of the items' own modes, and on the way in it is read down onto the items that spell none",
+        "items": "per item: key, suppressAuthor, and prefix/locator/suffix as INLINE ARRAYS. There is no per-item mode here, so a group whose items disagree is reported as degraded rather than carried",
         "raw": "the group as written"
       }
     },

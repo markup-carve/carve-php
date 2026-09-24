@@ -18,26 +18,63 @@ use MarkupCarve\Carve\Ast\SourceSpan;
  *   - locatorValue?: string (the numeric/roman portion, e.g. "33-35, 38")
  *   - suffix?: list<InlineNode> (trailing inline content after the locator value)
  *
- * The group-level `$integral` flag is set when the source opens with `[+@...`
- * (the `+` immediately follows the opening `[`). Integral groups are wrapped
- * in `<span class="citation" data-cite-mode="integral">` when rendered.
+ *   - mode?: string ("integral"; absent means parenthetical)
+ *
+ * PART 12 §31 (CARVE-P12-053) makes the ITEM's `mode` the real field, and the
+ * group's flag its summary. The source spells `[+@...` once for the whole
+ * group, so a parse stamps every item; an importer or an editing API can build
+ * a group whose items disagree, and then the group publishes no flag rather
+ * than a lie. `isIntegral()` derives from the items, which is what decides the
+ * `<span class="citation" data-cite-mode="integral">` wrapper.
  */
 class CitationGroup extends InlineNode
 {
     /**
-     * @param list<array{type?: string, key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, number?: int, useIndex?: int, pos?: array<string, int>}> $items
+     * @param list<array{type?: string, key: string, suppressAuthor: bool, mode?: string, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, number?: int, useIndex?: int, pos?: array<string, int>}> $items
      * @param string $raw
-     * @param bool $integral Whether this group carries the integral (`+`) group marker.
+     * @param bool $integral The AUTHORED `[+` shorthand, which applies to the
+     *   whole group, so it is recorded on every item rather than kept beside
+     *   them. Pass items that already carry their own `mode` to build a group
+     *   the source cannot spell.
      */
     public function __construct(
         protected array $items,
         protected string $raw,
-        protected bool $integral = false,
+        bool $integral = false,
     ) {
+        if ($integral) {
+            foreach ($this->items as &$item) {
+                $item['mode'] = 'integral';
+            }
+            unset($item);
+        }
+        $this->deriveIntegral();
     }
 
     /**
-     * @return list<array{type?: string, key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, number?: int, useIndex?: int, pos?: array<string, int>}>
+     * The group's summary of its items, never a fact of its own.
+     *
+     * A group with no items is NOT integral: `every` over an empty list is
+     * vacuously true, and a flag on a group carrying nothing to be integral
+     * about says less than its absence.
+     */
+    protected bool $integral = false;
+
+    private function deriveIntegral(): void
+    {
+        foreach ($this->items as $item) {
+            if (($item['mode'] ?? null) !== 'integral') {
+                $this->integral = false;
+
+                return;
+            }
+        }
+
+        $this->integral = $this->items !== [];
+    }
+
+    /**
+     * @return list<array{type?: string, key: string, suppressAuthor: bool, mode?: string, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, number?: int, useIndex?: int, pos?: array<string, int>}>
      */
     public function getItems(): array
     {
@@ -49,11 +86,12 @@ class CitationGroup extends InlineNode
      * `locator` and `suffix` are inline arrays that live outside `children`, so
      * a walk over the tree cannot reach them through the ordinary child list.
      *
-     * @param list<array{type?: string, key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, number?: int, useIndex?: int, pos?: array<string, int>}> $items
+     * @param list<array{type?: string, key: string, suppressAuthor: bool, mode?: string, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, number?: int, useIndex?: int, pos?: array<string, int>}> $items
      */
     public function setItems(array $items): void
     {
         $this->items = $items;
+        $this->deriveIntegral();
     }
 
     public function setPos(?SourceSpan $pos): void
@@ -63,7 +101,7 @@ class CitationGroup extends InlineNode
             return;
         }
 
-        $innerStart = $this->integral ? 2 : 1;
+        $innerStart = $this->markerWidth();
         if (strlen($this->raw) <= $innerStart || !str_ends_with($this->raw, ']')) {
             return;
         }
@@ -98,7 +136,7 @@ class CitationGroup extends InlineNode
      */
     public function itemSourceRanges(): array
     {
-        $innerStart = $this->integral ? 2 : 1;
+        $innerStart = $this->markerWidth();
         if (strlen($this->raw) <= $innerStart || !str_ends_with($this->raw, ']')) {
             return [];
         }
@@ -129,9 +167,25 @@ class CitationGroup extends InlineNode
         return $this->raw;
     }
 
+    /**
+     * Whether every item of this group is integral, which is the group-level
+     * `mode` the wire carries.
+     */
     public function isIntegral(): bool
     {
         return $this->integral;
+    }
+
+    /**
+     * How far into `raw` the first item starts.
+     *
+     * Read off the RAW SOURCE rather than off `isIntegral()`: a group an
+     * importer built can carry integral items with no `+` in its raw text, and
+     * slicing that raw at offset 2 would cut a character out of the first key.
+     */
+    private function markerWidth(): int
+    {
+        return ($this->raw[1] ?? '') === '+' ? 2 : 1;
     }
 
     public function getType(): string

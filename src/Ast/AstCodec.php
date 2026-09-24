@@ -20,6 +20,7 @@ use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
@@ -1377,7 +1378,7 @@ class AstCodec
         // engine still publishes it on every citation it parses, which is what
         // ALWAYS_PUBLISHED states.
         $schema['citation'] = [
-            'fields' => ['key', 'prefix', 'locator', 'locatorLabel', 'locatorValue', 'suffix', 'suppressAuthor', 'number', 'useIndex', 'pos'],
+            'fields' => ['key', 'prefix', 'locator', 'locatorLabel', 'locatorValue', 'suffix', 'suppressAuthor', 'mode', 'number', 'useIndex', 'pos'],
             'required' => ['key', 'suppressAuthor'],
         ];
         ksort($schema);
@@ -2410,10 +2411,6 @@ class AstCodec
     private static function citationFromWire(array $data): array
     {
         if (($data['type'] ?? null) === 'citation_group') {
-            if (array_key_exists('mode', $data)) {
-                $data['integral'] = $data['mode'] === 'integral';
-                unset($data['mode']);
-            }
             // Internally these remain group-owned maps. Removing only the wire
             // discriminator prevents decodeValue() from treating them as
             // independently constructible PHP nodes; citationShape() restores
@@ -2426,7 +2423,73 @@ class AstCodec
                 }
                 unset($item);
             }
+            $data = self::citationModeOntoItems($data);
+            // The group flag is DERIVED from the items, so it is never assigned
+            // from the wire - `CitationGroup::setItems()` recomputes it after
+            // the property walk. Assigning it here is what would let a group's
+            // summary contradict its own items.
+            unset($data['mode']);
         }
+
+        return $data;
+    }
+
+    /**
+     * Read a group's `mode` onto every item that spells none.
+     *
+     * PART 12 §31 calls the group's flag the AUTHORED SHORTHAND for a per-item
+     * fact: `[+@a; @b]` is the only spelling Carve source has and it applies to
+     * the whole group. So a tree carrying only the summary - every tree this
+     * engine wrote before the ruling - has it read down onto the items.
+     *
+     * The back-fill runs ONLY where no item spells anything, so an importer's
+     * mixed group is never flattened onto one value. Where the two disagree the
+     * ITEM is authoritative, because it is the finer statement.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @throws \MarkupCarve\Carve\Exception\AstDecodeException
+     *
+     * @return array<string, mixed>
+     */
+    private static function citationModeOntoItems(array $data): array
+    {
+        if (($data['mode'] ?? null) !== 'integral' || !is_array($data['items'] ?? null)) {
+            return $data;
+        }
+
+        $spelled = 0;
+        foreach ($data['items'] as $item) {
+            if (is_array($item) && ($item['mode'] ?? null) === 'integral') {
+                $spelled++;
+            }
+        }
+        if ($spelled !== 0) {
+            // A summary this engine cannot keep. The flag says every item is
+            // integral and at least one of them says it is not; §31 makes the
+            // ITEM authoritative, so honouring the tree means discarding the
+            // flag. This engine derives the flag rather than storing it, so
+            // there is no place to keep the contradiction and no way to report
+            // dropping it - and §12 asks for an error naming what was wrong
+            // rather than a silent repair.
+            if ($spelled !== count($data['items'])) {
+                throw new AstDecodeException(
+                    'A citation group carries `mode: "integral"` while not every item does. PART 12 '
+                        . '§31 makes the ITEM authoritative, so the group flag is the summary of its '
+                        . 'items and cannot disagree with them. Publish the mode on each integral item '
+                        . 'and leave the group flag off.',
+                );
+            }
+
+            return $data;
+        }
+
+        foreach ($data['items'] as &$item) {
+            if (is_array($item)) {
+                $item['mode'] = 'integral';
+            }
+        }
+        unset($item);
 
         return $data;
     }
@@ -2626,6 +2689,11 @@ class AstCodec
             } catch (InvalidArgumentException $exception) {
                 throw new AstDecodeException($exception->getMessage(), previous: $exception);
             }
+        }
+        if ($node instanceof CitationGroup) {
+            // `integral` is the summary of the items, and the property walk set
+            // the items without going through the setter that derives it.
+            $node->setItems($node->getItems());
         }
 
         /** @var array<string, mixed> $wire */
