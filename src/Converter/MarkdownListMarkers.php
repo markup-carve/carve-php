@@ -71,6 +71,21 @@ class MarkdownListMarkers
     }
 
     /**
+     * The content column of the innermost open item holding a line at `$col`,
+     * or 0 when no open item holds it.
+     */
+    public function contentAt(int $col): int
+    {
+        for ($at = count($this->open) - 1; $at >= 0; $at--) {
+            if ($this->open[$at]['content'] <= $col) {
+                return $this->open[$at]['content'];
+            }
+        }
+
+        return 0;
+    }
+
+    /**
      * Whether a line at `$col` is held by the innermost open item.
      */
     public function holdsItemAt(int $col): bool
