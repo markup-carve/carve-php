@@ -1812,6 +1812,7 @@ class MarkdownToCarve
         }
         $contentCol = $this->columnWidth($lead);
         $texts = [$this->setextLineText($first)];
+        $above = $first;
         for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
             if (preg_match('/^ {0,3}>/', $lines[$at]) !== 1) {
                 return null;
@@ -1822,7 +1823,8 @@ class MarkdownToCarve
             }
             $rest = $next[2];
             $indent = $this->indentWidth($rest);
-            if (trim($rest) === '' || $indent < $contentCol) {
+            // A delimiter row under the line above makes the two a table.
+            if (trim($rest) === '' || $indent < $contentCol || $this->startsTableHeader([$above, $rest], 0)) {
                 return null;
             }
             if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest)) === 1) {
@@ -1834,6 +1836,7 @@ class MarkdownToCarve
                 return null;
             }
             $texts[] = $this->setextLineText($rest);
+            $above = $rest;
         }
 
         return null;
