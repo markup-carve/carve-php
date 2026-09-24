@@ -396,7 +396,7 @@ function parseArgs(array $argv): array
         'strict' => false,
         'strictLosses' => false,
         'reportLosses' => null,
-        'allowLoss' => false,
+        'allowLoss' => [],
         'maxRenderLosses' => 100,
         'includeRoot' => null,
         'noIncludes' => false,
@@ -460,12 +460,11 @@ function parseArgs(array $argv): array
             }
             $options['reportLosses'] = $argv[++$i];
         } elseif ($arg === '--allow-loss') {
-            if (($argv[$i + 1] ?? null) !== 'raw-format-dropped') {
-                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped\n");
+            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened'], true)) {
+                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped or ruby-flattened\n");
                 exit(2);
             }
-            $i++;
-            $options['allowLoss'] = true;
+            $options['allowLoss'][] = $argv[++$i];
         } elseif ($arg === '--max-render-losses') {
             $value = $argv[$i + 1] ?? null;
             if ($value === null || !ctype_digit($value)) {
@@ -655,7 +654,7 @@ Rendering:
                            typed instead of the resolved glyphs (HTML/Markdown)
   --strict-losses          Refuse output when a raw format would be dropped
   --report-losses FILE     Write the machine-readable render-loss report (`-` for stderr)
-  --allow-loss raw-format-dropped
+  --allow-loss CODE              Permit raw-format-dropped or ruby-flattened (repeatable)
                            Accept intentional target filtering
   --max-render-losses N    Bound detailed losses while retaining the full count (default 100)
 
@@ -1090,8 +1089,18 @@ try {
 // Handle warnings
 $exitCode = 0;
 $checked ??= new RenderResult($output, [], 0, false);
-if ($options['allowLoss']) {
-    $checked = new RenderResult($checked->value, [], 0, false);
+if ($options['allowLoss'] !== []) {
+    $allowedCodes = array_unique($options['allowLoss']);
+    $allowedTotal = 0;
+    foreach ($allowedCodes as $code) {
+        $allowedTotal += $checked->lossCounts[$code] ?? 0;
+    }
+    $losses = array_values(array_filter(
+        $checked->losses,
+        static fn (array $loss): bool => !in_array($loss['code'], $allowedCodes, true),
+    ));
+    $totalLosses = $checked->totalLosses - $allowedTotal;
+    $checked = new RenderResult($checked->value, $losses, $totalLosses, $totalLosses > count($losses));
 }
 if ($checked->totalLosses > 0) {
     foreach ($checked->losses as $loss) {

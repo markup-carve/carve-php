@@ -10,6 +10,7 @@ final readonly class RenderResult
      * @param string $value
      * @param list<array<string, mixed>> $losses
      * @param bool $truncated
+     * @param array<string, int> $lossCounts
      * @param int $totalLosses
      */
     public function __construct(
@@ -17,6 +18,7 @@ final readonly class RenderResult
         public array $losses,
         public int $totalLosses,
         public bool $truncated,
+        public array $lossCounts = [],
     ) {
     }
 

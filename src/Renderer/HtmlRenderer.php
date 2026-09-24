@@ -54,6 +54,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -282,6 +283,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             SoftBreak::class => 'renderSoftBreak',
             HardBreak::class => 'renderHardBreak',
             Span::class => 'renderSpan',
+            Ruby::class => 'renderRuby',
             CriticComment::class => 'renderCriticComment',
             Highlight::class => 'renderHighlight',
             Superscript::class => 'renderSuperscript',
@@ -1056,6 +1058,23 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         return $html;
+    }
+
+    protected function renderRuby(Ruby $node): string
+    {
+        $html = '<ruby' . $this->renderAttributes($node, 'ruby') . '>';
+        foreach ($node->getPairs() as $pair) {
+            foreach ($pair['base'] as $base) {
+                $html .= $this->renderNode($base);
+            }
+            $html .= '<rp>(</rp><rt>';
+            foreach ($pair['annotation'] as $annotation) {
+                $html .= $this->renderNode($annotation);
+            }
+            $html .= '</rt><rp>)</rp>';
+        }
+
+        return $html . '</ruby>';
     }
 
     /**

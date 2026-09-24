@@ -422,6 +422,9 @@ class AstCodecSchemaTest extends TestCase
      */
     private static function sampleFor(string $type, string $field): mixed
     {
+        if ($type === 'ruby' && $field === 'pairs') {
+            return [['base' => [['type' => 'text', 'value' => 'x']], 'annotation' => []]];
+        }
         $definition = AstSchema::schema()['$defs'][$type]['properties'][$field] ?? [];
 
         return is_array($definition) ? self::minimalFor($definition) : '';

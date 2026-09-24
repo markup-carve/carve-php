@@ -21,6 +21,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -449,6 +450,22 @@ class HeadingIdTracker
         bool $sourceRuns = false,
         bool $includeSymbols = false,
     ): string {
+        if ($child instanceof Ruby) {
+            $text = '';
+            foreach ($child->getPairs() as $pair) {
+                foreach ($pair['base'] as $base) {
+                    $text .= $this->extractPlainTextFrom($base, $sourceRuns, $includeSymbols);
+                }
+                $text .= '(';
+                foreach ($pair['annotation'] as $annotation) {
+                    $text .= $this->extractPlainTextFrom($annotation, $sourceRuns, $includeSymbols);
+                }
+                $text .= ')';
+            }
+
+            return $text;
+        }
+
         return $this->inlineTextLeaf($child, $sourceRuns, $includeSymbols)
             ?? $this->extractPlainText($child, $sourceRuns, $includeSymbols);
     }
@@ -606,6 +623,11 @@ class HeadingIdTracker
             // `118-cyclic-cross-reference-resolves-to-one-level` pins
             // `<a href="#B">B </a>` for a heading that itself holds one.
             if ($child instanceof HeadingRef) {
+                continue;
+            }
+            if ($child instanceof Ruby) {
+                $this->collectDisplayNodes($child->flattenedInlines(), $insideLink, $nodes, $depth + 1);
+
                 continue;
             }
 
