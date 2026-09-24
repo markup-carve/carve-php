@@ -28,6 +28,8 @@ class AMarkdownSetextHeadingKeepsItsContainerTest extends TestCase
             'a two-line heading after a blank in an item' => ["- a\n\n  b\n  c\n  ---\n", "{loose}\n- a\n\n  ## b c\n"],
             'a two-line heading at the top level' => ["b\nc\n---\n", "## b c\n"],
             'a two-line heading in a quote' => ["> b\n> c\n> ===\n", "> # b c\n"],
+            'an ordered marker that interrupts nothing' => ["foo\n2. bar\n---\n", "## foo 2. bar\n"],
+            'the same as a lazy line in a quote' => ["> foo\n2. bar\n> ---\n", "> ## foo 2. bar\n"],
             'a lazy line in a quoted heading' => ["> foo\nbar\n> ---\n", "> ## foo bar\n"],
             'a heading on a quoted item line' => ["> - b\n>   ---\n", "> - ## b\n"],
             'a hard break in a two-line heading' => ["foo\\\nbar\n---\n", "## foo bar\n"],

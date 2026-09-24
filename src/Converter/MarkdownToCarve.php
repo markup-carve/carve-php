@@ -1784,7 +1784,9 @@ class MarkdownToCarve
      */
     protected function foldsIntoSetext(array $lines, int $index, string $held, int $over): bool
     {
-        if ($over >= 4 || !$this->continuesParagraph($held) || preg_match('/^\|.*\|$/', $held) === 1 || $this->htmlBlockInterrupts($held)) {
+        // An ordered marker other than 1 interrupts no paragraph (CommonMark 5.2).
+        $text = $this->continuesParagraph($held) || preg_match('/^0*(?:[2-9]|1\d)\d*[.)]\s/', $held) === 1;
+        if ($over >= 4 || !$text || preg_match('/^\|.*\|$/', $held) === 1 || $this->htmlBlockInterrupts($held)) {
             return false;
         }
 
@@ -1817,7 +1819,7 @@ class MarkdownToCarve
             if (preg_match('/^ {0,3}>/', $lines[$at]) !== 1) {
                 // A lazy line continues the quoted paragraph; the underline
                 // cannot be one.
-                if (preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $lines[$at]) === 1 || !$this->isParagraphLine($lines, $at)) {
+                if (preg_match('/^[ \t]*(?:[-*+]|0*1[.)])(?:[ \t]|$)/', $lines[$at]) === 1 || !$this->isParagraphLine($lines, $at)) {
                     return null;
                 }
                 $texts[] = $this->setextLineText($lines[$at]);
