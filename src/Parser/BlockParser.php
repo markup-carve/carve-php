@@ -14290,8 +14290,13 @@ class BlockParser
                 }
             }
             if ($sl !== '') {
+                // `=== 0` only needs to know whether the run reaches column 1,
+                // so the walk stops there. Unbounded it re-measures the whole
+                // indentation run of every body line at every nesting level,
+                // which is the quadratic shape NestedContainerRescanTest bounds
+                // (markup-carve/carve-php#2265, markup-carve/carve#752).
                 if (
-                    ($subCol < 0 || IndentationHelper::getLeadingColumns($sl) === 0)
+                    ($subCol < 0 || IndentationHelper::getLeadingColumns($sl, 1) === 0)
                     && $this->listParser->parseListItemMarker(ltrim($sl, " \t")) !== null
                 ) {
                     $subCol = $this->markerContentColumn($sl);
