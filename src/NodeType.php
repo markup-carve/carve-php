@@ -79,9 +79,8 @@ final class NodeType
      * A generated-content container (`::: toc`), split out of `admonition`
      * because a table of contents is not a callout (carve#2195).
      *
-     * Interchange vocabulary: this engine parses such a container as an
-     * admonition today, so a profile can name the type and no parse produces
-     * one.
+     * Produced from source: a named container whose kind is one of the six
+     * CARVE-P12-057 names ({@see \MarkupCarve\Carve\Node\Block\Div::GENERATED_CONTENT_KINDS}).
      *
      * @var string
      */

@@ -506,6 +506,13 @@ class Profile
         if ($node instanceof Link && $node->isAutolink()) {
             return NodeType::AUTOLINK;
         }
+        // Asked BEFORE the callout question, in the clause's own order. The two
+        // lists do not overlap, so nothing turns on it, but a reader checking
+        // CARVE-P12-057 against this finds the three branches in the order the
+        // clause names them.
+        if ($node instanceof Div && $node->directiveKind() !== null) {
+            return NodeType::DIRECTIVE;
+        }
         if ($node instanceof Div && $node->admonitionKind() !== null) {
             return NodeType::ADMONITION;
         }
@@ -529,6 +536,12 @@ class Profile
         return match ($type) {
             NodeType::AUTOLINK => [NodeType::AUTOLINK, NodeType::LINK],
             NodeType::ADMONITION => [NodeType::ADMONITION, NodeType::DIV],
+            // `::: toc` classified as `div` before the split, through the
+            // not-a-Tier-1-kind branch. Without the supertype, splitting the
+            // type would let it through every deny list that already names
+            // `div` - a widening nobody asked for. It stays deniable under its
+            // own name too, which the vocabulary already promised.
+            NodeType::DIRECTIVE => [NodeType::DIRECTIVE, NodeType::DIV],
             default => [$type],
         };
     }
