@@ -159,11 +159,11 @@ Inspect both, per type:
 ```php
 AstCodec::schema();
 // ['heading' => ['fields' => ['level'], 'required' => []],
-//  'mention' => ['fields' => ['cssClass', ...], 'required' => ['cssClass', 'destination', 'title']], ...]
+//  'citation' => ['fields' => ['key', ...], 'required' => ['key', 'suppressAuthor']], ...]
 ```
 
-Five types currently have required fields: `abbreviation`, `citation_group`,
-`heading_ref`, `inline_extension`, `mention`.
+Five types currently have required fields: `abbreviation`, `citation`,
+`citation_group`, `heading_ref`, `inline_extension`.
 
 ## What an ingest refuses
 
@@ -193,13 +193,24 @@ What that turns from accepted into refused:
 If you produce Carve AST JSON, validate against `resources/ast-schema.json`
 before sending it. Every future addition to the schema is a potential rejection
 for a producer that has not caught up; that is what makes the schema the
-contract rather than a description of one.
+contract rather than a description of one. The standalone citation exception
+below remains after schema validation.
 
 Two things it deliberately does not do. A registered application node type (see
 below) and its subtree are outside the schema by construction, so the rule has
 nothing to say about them. And a `srcByteLength` that is present but WRONG stays
 accepted - it is derivable, nothing in the tree depends on it, and §12(a) is
 about presence while (d) is about type and sign.
+
+### Standalone citation limitation
+
+The schema permits a `citation` as an inline child wherever `inlineNode` is
+allowed. `AstCodec::decode()` and `decodeJson()` refuse that form with
+`Standalone citation nodes are not supported`. PHP represents parsed citations
+as item maps inside `citation_group.items`; a group containing the item decodes
+and round trips. The renderers and tree walks cannot handle the item as an
+independent node. See
+[carve-php#2272](https://github.com/markup-carve/carve-php/issues/2272).
 
 ## What an ingest replaces
 
