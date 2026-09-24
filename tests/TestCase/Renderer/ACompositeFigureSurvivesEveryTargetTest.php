@@ -5,6 +5,17 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\AnsiRenderer;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -59,5 +70,91 @@ class ACompositeFigureSurvivesEveryTargetTest extends TestCase
 
         $this->assertStringContainsString('Shot the same day.', CarveConverter::markdown()->convert($source));
         $this->assertStringContainsString('Shot the same day.', CarveConverter::plainText()->convert($source));
+    }
+
+    public function testAFigureExposesItsStructuralParts(): void
+    {
+        $group = (new CarveConverter())->parse(self::SOURCE)->getChildren()[0];
+        $this->assertInstanceOf(FigureGroup::class, $group);
+        $figure = $group->getChildren()[0];
+        $this->assertInstanceOf(Figure::class, $figure);
+
+        $this->assertCount(1, $figure->getTargets());
+        $this->assertSame('image', $figure->getTargets()[0]->getType());
+        $this->assertSame('caption', $figure->getCaption()?->getType());
+        $this->assertCount(1, $figure->getCaptions());
+    }
+
+    public function testAnApiBuiltFigureKeepsEveryTargetAndCaption(): void
+    {
+        $document = new Document();
+        $document->appendChild($this->apiBuiltFigure());
+
+        foreach ($this->renderEveryTarget($document) as $renderer => $output) {
+            $firstTargetAt = strpos($output, 'target one');
+            $secondTargetAt = strpos($output, 'target two');
+            $firstCaptionAt = strpos($output, 'caption one');
+            $secondCaptionAt = strpos($output, 'caption two');
+
+            $this->assertNotFalse($firstTargetAt, $renderer);
+            $this->assertNotFalse($secondTargetAt, $renderer);
+            $this->assertNotFalse($firstCaptionAt, $renderer);
+            $this->assertNotFalse($secondCaptionAt, $renderer);
+            $this->assertLessThan($secondTargetAt, $firstTargetAt, $renderer);
+            $this->assertLessThan($firstCaptionAt, $secondTargetAt, $renderer);
+            $this->assertLessThan($secondCaptionAt, $firstCaptionAt, $renderer);
+        }
+    }
+
+    public function testAnApiBuiltFigureGroupKeepsEveryPanelTargetAndCaption(): void
+    {
+        $group = new FigureGroup();
+        $group->appendChild($this->apiBuiltFigure());
+        $document = new Document();
+        $document->appendChild($group);
+
+        foreach ($this->renderEveryTarget($document) as $renderer => $output) {
+            foreach (['target one', 'target two', 'caption one', 'caption two'] as $part) {
+                $this->assertStringContainsString($part, $output, $renderer);
+            }
+        }
+    }
+
+    private function apiBuiltFigure(): Figure
+    {
+        $figure = new Figure();
+        $parts = [
+            [Caption::class, 'caption one'],
+            [Paragraph::class, 'target one'],
+            [Paragraph::class, 'target two'],
+            [Caption::class, 'caption two'],
+        ];
+        foreach ($parts as [$class, $content]) {
+            $part = new $class();
+            $part->appendChild(new Text($content));
+            $figure->appendChild($part);
+        }
+
+        return $figure;
+    }
+
+    /**
+     * @return array<class-string, string>
+     */
+    private function renderEveryTarget(Document $document): array
+    {
+        $renderers = [
+            new HtmlRenderer(),
+            new CarveRenderer(),
+            new MarkdownRenderer(),
+            new PlainTextRenderer(),
+            new AnsiRenderer(useColors: false),
+        ];
+        $output = [];
+        foreach ($renderers as $renderer) {
+            $output[$renderer::class] = $renderer->render($document);
+        }
+
+        return $output;
     }
 }

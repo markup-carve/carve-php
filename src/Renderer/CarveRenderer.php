@@ -2844,17 +2844,18 @@ class CarveRenderer implements RendererInterface
 
     protected function renderFigure(Figure $node): string
     {
-        $target = '';
-        $caption = '';
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof Caption) {
-                $caption = '^ ' . $this->renderInlines($child->getChildren());
-            } elseif ($child instanceof Image) {
-                $target .= ($target === '' ? '' : "\n") . $this->renderImage($child);
-            } else {
-                $target .= ($target === '' ? '' : "\n") . $this->renderBlock($child);
-            }
+        $targets = [];
+        foreach ($node->getTargets() as $nodeTarget) {
+            $targets[] = $nodeTarget instanceof Image
+                ? $this->renderImage($nodeTarget)
+                : $this->renderBlock($nodeTarget);
         }
+        $target = implode("\n", $targets);
+        $captions = array_map(
+            fn (Caption $caption): string => '^ ' . $this->renderInlines($caption->getChildren()),
+            $node->getCaptions(),
+        );
+        $caption = implode("\n", $captions);
 
         return $caption === '' ? $target : $target . "\n" . $caption;
     }

@@ -1384,16 +1384,8 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Figure) {
-                $panelCaption = null;
-                $host = '';
-                foreach ($child->getChildren() as $part) {
-                    if ($part instanceof Caption) {
-                        $panelCaption = $part;
-                    } else {
-                        $host .= $this->renderNode($part);
-                    }
-                }
-                if ($panelCaption !== null) {
+                $host = implode('', array_map($this->renderNode(...), $child->getTargets()));
+                foreach ($child->getCaptions() as $panelCaption) {
                     $output .= rtrim($this->renderCaption($panelCaption), "\n") . "\n";
                 }
                 $output .= rtrim($host, "\n") . "\n\n";
@@ -1407,25 +1399,16 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderFigure(Figure $node): string
     {
-        $target = null;
-        foreach ($node->getChildren() as $child) {
-            if (!$child instanceof Caption) {
-                $target = $child;
-            }
-        }
+        $targets = $node->getTargets();
+        $target = $targets === [] ? null : $targets[count($targets) - 1];
         // The caption sits on its own line directly under the figure (`\n`),
         // matching carve-js / carve-rs; a blockquote target keeps the
         // blank-line separation.
         $sep = $target instanceof BlockQuote ? "\n\n" : "\n";
 
-        $output = '';
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof Caption) {
-                // Render caption after content, styled as italic.
-                $output = rtrim($output, "\n") . $sep . $this->renderCaption($child);
-            } else {
-                $output .= $this->renderNode($child);
-            }
+        $output = implode('', array_map($this->renderNode(...), $targets));
+        foreach ($node->getCaptions() as $caption) {
+            $output = rtrim($output, "\n") . $sep . $this->renderCaption($caption);
         }
 
         return $output;

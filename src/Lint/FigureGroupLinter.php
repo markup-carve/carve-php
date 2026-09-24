@@ -163,11 +163,7 @@ class FigureGroupLinter
         }
 
         if ($panel instanceof Figure) {
-            foreach ($panel->getChildren() as $child) {
-                if ($child instanceof Caption) {
-                    return $child;
-                }
-            }
+            return $panel->getCaption();
         }
 
         return null;

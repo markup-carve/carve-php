@@ -1738,15 +1738,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
         $attrs = $this->renderAttributeArray($attrArray);
         $body = '';
-
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof Caption) {
-                $body .= '<figcaption>' . $this->renderChildren($child) . "</figcaption>\n";
-            } elseif ($child instanceof Image) {
-                $body .= $this->renderImage($child) . "\n";
-            } else {
-                $body .= rtrim($this->renderNode($child), "\n") . "\n";
-            }
+        foreach ($node->getTargets() as $target) {
+            $body .= $target instanceof Image
+                ? $this->renderImage($target) . "\n"
+                : rtrim($this->renderNode($target), "\n") . "\n";
+        }
+        foreach ($node->getCaptions() as $caption) {
+            $body .= '<figcaption>' . $this->renderChildren($caption) . "</figcaption>\n";
         }
 
         return '<figure' . $attrs . ">\n" . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</figure>\n";

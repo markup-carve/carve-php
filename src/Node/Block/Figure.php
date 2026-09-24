@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Block;
 
+use MarkupCarve\Carve\Node\Node;
+
 /**
  * Figure block that wraps content with an optional caption.
  *
@@ -37,6 +39,38 @@ class Figure extends BlockNode
     public function getShortCaption(): ?array
     {
         return $this->shortCaption;
+    }
+
+    /**
+     * Every non-caption child, in source order.
+     *
+     * Parsed figures have one target. Keeping this plural preserves content in
+     * trees assembled through the public node API or an external bridge.
+     *
+     * @return array<int, \MarkupCarve\Carve\Node\Node>
+     */
+    public function getTargets(): array
+    {
+        return array_values(array_filter(
+            $this->getChildren(),
+            static fn (Node $child): bool => !$child instanceof Caption,
+        ));
+    }
+
+    public function getCaption(): ?Caption
+    {
+        return $this->getCaptions()[0] ?? null;
+    }
+
+    /**
+     * @return array<int, \MarkupCarve\Carve\Node\Block\Caption>
+     */
+    public function getCaptions(): array
+    {
+        return array_values(array_filter(
+            $this->getChildren(),
+            static fn (Node $child): bool => $child instanceof Caption,
+        ));
     }
 
     public function getType(): string
