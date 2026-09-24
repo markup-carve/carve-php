@@ -191,6 +191,14 @@ Carve writer cannot spell them back.
   number needs a label and a `display: true` node; either without the other is
   refused. Nothing in this engine assigns a number yet: no Carve source spells
   a label, so PART 9R R5a has nothing to count.
+- `block_extension` (PART 12 §33) carries a globally qualified `name`, a
+  REQUIRED `fallback` block, and optionally `version` and `payload`. The
+  fallback is what the document means to a reader that does not implement the
+  extension, so every target renders it and the ProseMirror bridge puts it in
+  the node's place and reports the substitution. The fallback is also the node's
+  single child, so a walk over the tree reaches it without knowing the type.
+  `payload` is opaque: a `type` key inside `payload.value` is data, and no core
+  target renders any of it.
 
 ## What an ingest refuses
 

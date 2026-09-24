@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use JsonException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
+use MarkupCarve\Carve\Node\Block\BlockExtension;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
@@ -114,6 +115,9 @@ class AstCodec
     public const HAND_WRITTEN_FIELDS = [
         'abbreviation' => ['abbr'],
         'admonition' => ['kind'],
+        // The extension's data, kept out of the reflection walk so a `type` key
+        // inside an opaque payload is not read as a node.
+        'block_extension' => ['payload'],
         'autolink' => ['text'],
         'comment' => ['block'],
         // `caption` is a FIELD holding inline content, not a child container -
@@ -1793,6 +1797,12 @@ class AstCodec
             // The wire owns them only through pairs, never through children.
             $children = [];
         }
+        if ($node instanceof BlockExtension) {
+            // The fallback is exposed as the single child so every tree walk
+            // reaches it. The wire owns it through `fallback`, and the schema
+            // gives this type no `children` at all.
+            $children = [];
+        }
         if ($node instanceof Abbreviation) {
             // `abbr` carries the abbreviation and `expansion` what it stands
             // for; the Text child holds the abbreviation again, and publishing
@@ -2037,6 +2047,12 @@ class AstCodec
             return ['kind' => self::openerKind($node) ?? ''];
         }
 
+        if ($node instanceof BlockExtension) {
+            $payload = $node->getPayload();
+
+            return $payload === null ? [] : ['payload' => $payload];
+        }
+
         if ($node instanceof Abbreviation) {
             // The reference publishes what the DOCUMENT says: the abbreviation
             // and its expansion. This engine keeps the expansion as the
@@ -2111,6 +2127,16 @@ class AstCodec
             $abbr = $data['abbr'] ?? null;
             if (is_string($abbr) && $abbr !== '') {
                 $node->appendChild(new Text($abbr));
+            }
+        }
+
+        if ($node instanceof BlockExtension && is_array($data['payload'] ?? null)) {
+            /** @var array<string, mixed> $payload */
+            $payload = $data['payload'];
+            try {
+                $node->setPayload($payload);
+            } catch (InvalidArgumentException $exception) {
+                throw new AstDecodeException($exception->getMessage(), previous: $exception);
             }
         }
 
@@ -2689,6 +2715,11 @@ class AstCodec
             } catch (InvalidArgumentException $exception) {
                 throw new AstDecodeException($exception->getMessage(), previous: $exception);
             }
+        }
+        if ($node instanceof BlockExtension) {
+            // The property walk set `fallback` without going through the setter
+            // that also makes it the node's child.
+            $node->setFallback($node->getFallback());
         }
         if ($node instanceof CitationGroup) {
             // `integral` is the summary of the items, and the property walk set

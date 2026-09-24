@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\ProseMirror;
 
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use MarkupCarve\Carve\Node\Block\BlockExtension;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
@@ -186,6 +187,18 @@ class ProseMirrorRenderer
             $children = $this->renderBlocks($node->getChildren());
 
             return $children === [] ? null : ['type' => 'carveSection', 'content' => $children];
+        }
+
+        // A block extension has no editor node, and its FALLBACK is what the
+        // document means to a reader that does not implement the extension
+        // (PART 12 §33). So the fallback takes its place and the extension's
+        // identity, version and payload are reported lost - which is the one
+        // defined answer the clause asks every consumer to have, instead of the
+        // silent drop an unmapped block otherwise gets.
+        if ($node instanceof BlockExtension) {
+            $this->degraded[$type] = SchemaMap::unmappedReason($type) ?? 'the fallback stands in for the extension';
+
+            return $this->renderBlock($node->getFallback());
         }
 
         // The definition child renders nothing here because it is already

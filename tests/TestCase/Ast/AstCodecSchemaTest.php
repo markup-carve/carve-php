@@ -301,6 +301,9 @@ class AstCodecSchemaTest extends TestCase
         foreach ($sources as $source) {
             $walk($codec->encode((new CarveConverter())->parse($source)));
         }
+        foreach (self::SHAPES_NO_SOURCE_SPELLS as $payload) {
+            $walk($codec->encode($codec->decodeJson($payload)));
+        }
 
         return self::sortedShape($seen);
     }
@@ -381,6 +384,22 @@ class AstCodecSchemaTest extends TestCase
         "| a | b |\n|---|---|\n| 1 | 2 |\n",
     ];
 
+    /**
+     * Shapes NO Carve source spells, so no parse can reach them.
+     *
+     * Each is a minimal wire payload, decoded and re-encoded rather than parsed.
+     * Without them an interchange-only field could be declared hand-written and
+     * never checked against real output, which is the gap the corpus walk
+     * exists to close.
+     *
+     * @var array<string>
+     */
+    private const SHAPES_NO_SOURCE_SPELLS = [
+        '{"type":"document","srcByteLength":0,"children":[{"type":"block_extension","name":"org.example.diagram",'
+            . '"version":"2","fallback":{"type":"paragraph","children":[{"type":"text","value":"a"}]},'
+            . '"payload":{"format":"application/json","value":{"type":"swimlane"}}}]}',
+    ];
+
     public function testOmittingARequiredFieldIsRejected(): void
     {
         // The alternative was inventing a scalar zero, which rendered a heading
@@ -424,6 +443,13 @@ class AstCodecSchemaTest extends TestCase
     {
         if ($type === 'ruby' && $field === 'pairs') {
             return [['base' => [['type' => 'text', 'value' => 'x']], 'annotation' => []]];
+        }
+        // A `blockNode` union: `minimalFor()` reads the dispatch enum and fills
+        // the `type` slot, and the branch the enum names has required fields of
+        // its own that the union does not repeat. Named here for the same reason
+        // `pairs` is, rather than teaching the resolver to follow if/then.
+        if ($type === 'block_extension' && $field === 'fallback') {
+            return ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'x']]];
         }
         $definition = AstSchema::schema()['$defs'][$type]['properties'][$field] ?? [];
 
@@ -472,13 +498,17 @@ class AstCodecSchemaTest extends TestCase
         }
 
         $floor = $definition['minimum'] ?? 0;
+        // `minLength` is part of the smallest SATISFYING value, and ignoring it
+        // made this helper build a payload the schema refuses - which reads as
+        // "the type cannot be decoded" rather than "the sample was wrong".
+        $shortest = $definition['minLength'] ?? 0;
 
         return match ($declared) {
             'array' => [],
             'integer', 'number' => is_int($floor) || is_float($floor) ? $floor : 0,
             'boolean' => false,
             'null' => null,
-            default => '',
+            default => is_int($shortest) ? str_repeat('x', $shortest) : '',
         };
     }
 
