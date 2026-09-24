@@ -140,7 +140,7 @@ class MarkdownToCarveTest extends TestCase
             ],
             'protects a reference definition with no space after the colon' => [
                 '[id]:/api/_v1_/index',
-                '[id]:/api/_v1_/index',
+                '[id]: /api/_v1_/index',
             ],
             'protects a reference definition whose URL is an http(s) link' => [
                 '[id]: https://example.com/_x_',

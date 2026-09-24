@@ -71,6 +71,21 @@ class MarkdownListMarkers
     }
 
     /**
+     * The content column of the innermost open item holding a line at `$col`,
+     * or 0 when no open item holds it.
+     */
+    public function contentAt(int $col): int
+    {
+        for ($at = count($this->open) - 1; $at >= 0; $at--) {
+            if ($this->open[$at]['content'] <= $col) {
+                return $this->open[$at]['content'];
+            }
+        }
+
+        return 0;
+    }
+
+    /**
      * Whether a line at `$col` is held by the innermost open item.
      */
     public function holdsItemAt(int $col): bool
@@ -78,6 +93,16 @@ class MarkdownListMarkers
         $last = array_key_last($this->open);
 
         return $last !== null && $this->open[$last]['content'] <= $col;
+    }
+
+    /**
+     * The written content column of the innermost open item.
+     */
+    public function openItemContentColumn(): ?int
+    {
+        $last = array_key_last($this->open);
+
+        return $last === null ? null : $this->open[$last]['content'] + $this->open[$last]['shift'];
     }
 
     /**
@@ -125,8 +150,9 @@ class MarkdownListMarkers
         // A sibling goes where its list's markers were written, and a new list
         // to its container's content column, without the slack.
         $outer = $same ? $prev['col'] + $prev['outer'] - $col : $this->shiftAt($col) - ($slack <= 3 ? $slack : 0);
+        // Even a fixed item goes to its siblings' column, or it is no sibling.
         if ($fixed) {
-            $outer = 0;
+            $outer = $same ? $prev['col'] + $prev['outer'] - $col : 0;
             $onePad = false;
         }
         $bullet = '';

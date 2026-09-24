@@ -7,6 +7,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- HTML rendering writes an ingested citation group's escaped `raw` source when the citations extension is off, including CLI JSON input (#2289).
+- Markdown import keeps fenced and indented code as code inside a block quote held by a list item (#2285).
+
+### Changed
+
+- AST ingest now names its standalone `citation` limitation in the error message and AST JSON guide (#2272).
+
+### Added
+
+- Ruby annotations survive AST JSON interchange as ordered base and annotation pairs. HTML import preserves paired annotations, and HTML and Markdown render native ruby. Carve, plain text, and ANSI use a readable `base(annotation)` fallback with a `ruby-flattened` loss report. The CLI accepts `--allow-loss ruby-flattened` in strict loss mode (#2281).
+
 ## [0.1.10] - 2026-09-25
 
 ### Changed

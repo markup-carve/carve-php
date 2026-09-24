@@ -33,6 +33,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
@@ -53,6 +54,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -240,6 +242,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             // land in the document flow - HTML moving on a change that must not
             // move it (markup-carve/carve#1276).
             CitationDefinition::class => '',
+            CitationGroup::class => 'renderCitationGroupFallback',
             RawBlock::class => 'renderRawBlock',
             BlockQuote::class => 'renderBlockQuote',
             DefinitionList::class => 'renderDefinitionList',
@@ -280,6 +283,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             SoftBreak::class => 'renderSoftBreak',
             HardBreak::class => 'renderHardBreak',
             Span::class => 'renderSpan',
+            Ruby::class => 'renderRuby',
             CriticComment::class => 'renderCriticComment',
             Highlight::class => 'renderHighlight',
             Superscript::class => 'renderSuperscript',
@@ -1054,6 +1058,23 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         return $html;
+    }
+
+    protected function renderRuby(Ruby $node): string
+    {
+        $html = '<ruby' . $this->renderAttributes($node, 'ruby') . '>';
+        foreach ($node->getPairs() as $pair) {
+            foreach ($pair['base'] as $base) {
+                $html .= $this->renderNode($base);
+            }
+            $html .= '<rp>(</rp><rt>';
+            foreach ($pair['annotation'] as $annotation) {
+                $html .= $this->renderNode($annotation);
+            }
+            $html .= '</rt><rp>)</rp>';
+        }
+
+        return $html . '</ruby>';
     }
 
     /**
@@ -1923,6 +1944,34 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return '<tr' . $this->renderAttributes($row) . '>' . $cells . '</tr>';
         };
 
+        $tableRowCount = count($tableRows);
+        $footerStart = $tableRowCount - $footerRowCount;
+        $crossesSection = false;
+        foreach ($grid as $rowIndex => $gridRow) {
+            foreach ($gridRow as $entry) {
+                $end = $rowIndex + $entry['rowspan'];
+                if (
+                    !$entry['skip'] && $entry['rowspan'] > 1
+                    && (($rowIndex < $headerRowCount && $end > $headerRowCount)
+                        || ($rowIndex < $footerStart && $end > $footerStart))
+                ) {
+                    $crossesSection = true;
+
+                    break 2;
+                }
+            }
+        }
+        if ($crossesSection) {
+            $tbody = '';
+            foreach ($tableRows as $rowIndex => $row) {
+                $inHeaderRun = $rowIndex < $headerRowCount;
+                $tbody .= '    ' . $renderRow($row, $grid[$rowIndex], $inHeaderRun, $inHeaderRun) . "\n";
+            }
+            $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
+
+            return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
+        }
+
         // A ROW IS A ROW, IN EVERY SECTION (PART 10 §7,
         // markup-carve/carve#1459). `thead` and `tfoot` used to put their rows
         // on the section's own line while `tbody` gave each row a line, and
@@ -1935,8 +1984,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $lines[] = "  <thead>\n" . rtrim($thead, "\n") . "\n  </thead>";
         }
 
-        $tableRowCount = count($tableRows);
-        $footerStart = $tableRowCount - $footerRowCount;
         if ($headerRowCount < $footerStart) {
             $tbody = '';
             for ($i = $headerRowCount; $i < $footerStart; $i++) {
@@ -2059,6 +2106,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderText(Text $node): string
     {
         return $this->escape($node->getContent());
+    }
+
+    protected function renderCitationGroupFallback(CitationGroup $node): string
+    {
+        return $this->escape($node->getRaw());
     }
 
     protected function renderEmphasis(Emphasis $node): string

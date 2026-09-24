@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Ast;
 
+use InvalidArgumentException;
 use JsonException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
@@ -24,6 +25,7 @@ use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
@@ -1355,10 +1357,9 @@ class AstCodec
             }
             $schema[$type] = ['fields' => $fields, 'required' => $required];
         }
-        // `citation` has no PHP Node class: it cannot occur outside a
-        // citation_group, and keeping it as an item map avoids a second owner
-        // for its prefix/locator/suffix nodes. It is nevertheless a typed node
-        // on the PART 12 wire and belongs in the advertised vocabulary.
+        // `citation` has no PHP Node class: parsed citations stay inside a
+        // citation_group as item maps. The schema also permits one as a direct
+        // inline child, which this decoder refuses (docs/ast-json.md).
         // `pos` is NOT required: the wire made it optional on a citation an
         // importer or an editing API synthesized (markup-carve/carve#2192), and
         // this list mirrors the wire rather than a PHP property's default. This
@@ -1775,6 +1776,11 @@ class AstCodec
         }
 
         $children = $node->getChildren();
+        if ($node instanceof Ruby) {
+            // The same inlines are exposed as children for ordinary tree walks.
+            // The wire owns them only through pairs, never through children.
+            $children = [];
+        }
         if ($node instanceof Abbreviation) {
             // `abbr` carries the abbreviation and `expansion` what it stands
             // for; the Text child holds the abbreviation again, and publishing
@@ -2562,6 +2568,10 @@ class AstCodec
 
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
+            if ($type === 'citation') {
+                throw new AstDecodeException('Standalone citation nodes are not supported; use citation_group.items');
+            }
+
             throw new AstDecodeException(sprintf(
                 'Unknown node type: %s. Application node types must be registered with %s::register().',
                 $type,
@@ -2585,6 +2595,13 @@ class AstCodec
                 continue;
             }
             $property->setValue($node, $this->decodeValue($data[$name], $property));
+        }
+        if ($node instanceof Ruby) {
+            try {
+                $node->setPairs($node->getPairs());
+            } catch (InvalidArgumentException $exception) {
+                throw new AstDecodeException($exception->getMessage(), previous: $exception);
+            }
         }
 
         /** @var array<string, mixed> $wire */

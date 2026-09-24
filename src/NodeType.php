@@ -273,6 +273,11 @@ final class NodeType
     public const CITATION = 'citation';
 
     /**
+     * @var string
+     */
+    public const RUBY = 'ruby';
+
+    /**
      * The resolved number inside a numbered caption (`^ Figure #: ...`).
      *
      * @var string
@@ -404,6 +409,7 @@ final class NodeType
             self::HEADING_REF,
             self::CITATION_GROUP,
             self::CITATION,
+            self::RUBY,
             self::CAPTION_NUMBER,
             self::SPAN,
             self::SUPERSCRIPT,

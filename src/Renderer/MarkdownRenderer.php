@@ -32,6 +32,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
@@ -51,6 +52,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -1178,6 +1180,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 $node instanceof Strike => $this->renderStrike($node),
                 $node instanceof Code => $this->renderCode($node),
                 $node instanceof Mention => $this->renderMention($node),
+                // No Citations extension: the verbatim raw rather than
+                // nothing, as carve-js and carve-rs emit here (#2289).
+                $node instanceof CitationGroup => $node->getRaw(),
                 $rawReference !== null => $this->escapeText($this->stripControls($rawReference)),
                 $node instanceof Link => $this->renderLink($node),
                 $node instanceof Image => $this->renderImage($node),
@@ -1204,6 +1209,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // disagree about whether the document says it.
                 $node instanceof CriticComment => $this->escapeText($this->stripControls($node->getContent())),
                 $node instanceof Span => $this->renderSpan($node),
+                $node instanceof Ruby => $this->renderRuby($node),
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
                 $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
@@ -2672,6 +2678,23 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $title = htmlspecialchars($this->stripControls($authored), ENT_QUOTES, 'UTF-8');
 
         return '<abbr title="' . $title . '">' . $inner . '</abbr>';
+    }
+
+    protected function renderRuby(Ruby $node): string
+    {
+        $out = '<ruby' . $this->htmlAttributes($node) . '>';
+        foreach ($node->getPairs() as $pair) {
+            foreach ($pair['base'] as $base) {
+                $out .= $this->renderNode($base);
+            }
+            $out .= '<rp>(</rp><rt>';
+            foreach ($pair['annotation'] as $annotation) {
+                $out .= $this->renderNode($annotation);
+            }
+            $out .= '</rt><rp>)</rp>';
+        }
+
+        return $out . '</ruby>';
     }
 
     protected function renderMath(Math $node): string

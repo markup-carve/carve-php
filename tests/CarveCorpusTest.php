@@ -977,16 +977,14 @@ class CarveCorpusTest extends TestCase
      * and it must still DIFFER from the pinned golden, so an entry that went
      * stale when the submodule bumped fails and has to be deleted with it.
      *
-     * EMPTY: the pin has caught up everywhere. The one entry that stood here,
-     * for carve#1442's arrow rule, named a document that was ALSO in
-     * KNOWN_GAPS - and the gap is consulted first, so the entry was skipped
-     * before either of its two assertions ran. It could not have failed in
-     * either direction, which is what `testNoCaseIsBothDeferredAndAheadOfPin`
-     * below now refuses.
-     *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '101-table-header-cell-rowspan' => [
+            'reason' => 'carve#2224 keeps a crossing rowspan in one tbody',
+            'html' => "<table>\n  <tbody>\n    <tr><th scope=\"col\" rowspan=\"3\">H</th><th scope=\"col\">G</th></tr>\n    <tr><td>b</td></tr>\n    <tr><td>c</td></tr>\n  </tbody>\n</table>",
+        ],
+    ];
 
     protected CarveConverter $converter;
 

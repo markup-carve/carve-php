@@ -58,6 +58,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -88,8 +89,10 @@ use Throwable;
  * node's kind (PART 11 section 1c). It is THE ONLY ONE THE IMPORTER CAN BUILD;
  * the other carve-outs require a hand-built or ingested tree.
  */
-class CarveRenderer implements RendererInterface
+class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterface
 {
+    use RenderLossCollectorTrait;
+
     /**
      * @var list<string>
      */
@@ -3442,8 +3445,20 @@ class CarveRenderer implements RendererInterface
             $node instanceof HeadingRef => '</#' . $this->escapeCrossrefTarget($node->getTargetId()) . '>',
             $node instanceof CaptionNumber => '#',
             $node instanceof CitationGroup => $node->getRaw(),
+            $node instanceof Ruby => $this->renderRuby($node),
             default => $this->renderInlines($node->getChildren()),
         };
+    }
+
+    protected function renderRuby(Ruby $node): string
+    {
+        $this->recordRubyFlattened($node);
+        $content = '';
+        foreach ($node->getPairs() as $pair) {
+            $content .= $this->renderInlines([...$pair['base'], new Text('('), ...$pair['annotation'], new Text(')')]);
+        }
+
+        return $node->getAttributes() === [] ? $content : '[' . $content . ']' . $this->renderAttrs($node);
     }
 
     private static function inlineHostsACaption(InlineNode $node): bool

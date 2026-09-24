@@ -1117,4 +1117,91 @@ PY;
             }
         }
     }
+
+    public function testNativeHeaderRowspanCrossingBodyUsesOneTbody(): void
+    {
+        $source = "|= H |= G |\n| ^ | b |\n| ^ | c |\n";
+        $expected = <<<'HTML'
+<table>
+  <tbody>
+    <tr><th scope="col" rowspan="3">H</th><th scope="col">G</th></tr>
+    <tr><td>b</td></tr>
+    <tr><td>c</td></tr>
+  </tbody>
+</table>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert($source)));
+    }
+
+    public function testExplicitHeaderRowspanCrossingBodyUsesOneTbody(): void
+    {
+        $source = "{header-rows=1}\n| H | G |\n| ^ | b |\n";
+        $expected = <<<'HTML'
+<table>
+  <tbody>
+    <tr><th scope="col" rowspan="2">H</th><th scope="col">G</th></tr>
+    <tr><td>b</td></tr>
+  </tbody>
+</table>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert($source)));
+    }
+
+    public function testBodyRowspanCrossingFooterUsesOneTbody(): void
+    {
+        $source = "{footer-rows=1}\n| a | b |\n| ^ | c |\n";
+        $expected = <<<'HTML'
+<table>
+  <tbody>
+    <tr><td rowspan="2">a</td><td>b</td></tr>
+    <tr><td>c</td></tr>
+  </tbody>
+</table>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert($source)));
+    }
+
+    public function testUncoveredCaretBelowColspanStaysEmpty(): void
+    {
+        $source = "| A | < | X |\n| B | ^ | Y |\n";
+        $expected = <<<'HTML'
+<table>
+  <tbody>
+    <tr><td colspan="2">A</td><td>X</td></tr>
+    <tr><td>B</td><td></td><td>Y</td></tr>
+  </tbody>
+</table>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert($source)));
+    }
+
+    public function testCaretsBelowVisibleRowAndColSpanAreAbsorbed(): void
+    {
+        $source = "{header-rows=1}\n| A | < | C |\n| ^ | ^ | Y |\n| ^ | ^ | Z |\n";
+        $expected = <<<'HTML'
+<table>
+  <tbody>
+    <tr><th scope="col" rowspan="3" colspan="2">A</th><th scope="col">C</th></tr>
+    <tr><td>Y</td></tr>
+    <tr><td>Z</td></tr>
+  </tbody>
+</table>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert($source)));
+    }
+
+    public function testUncoveredCaretBelowColspanCanSpanNextRow(): void
+    {
+        $source = "| A | < | X |\n| B | ^ | Y |\n| C | ^ | Z |\n";
+        $expected = <<<'HTML'
+<table>
+  <tbody>
+    <tr><td colspan="2">A</td><td>X</td></tr>
+    <tr><td>B</td><td rowspan="2"></td><td>Y</td></tr>
+    <tr><td>C</td><td>Z</td></tr>
+  </tbody>
+</table>
+HTML;
+        $this->assertSame($expected, trim($this->converter->convert($source)));
+    }
 }

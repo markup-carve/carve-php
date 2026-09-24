@@ -414,7 +414,11 @@ class HtmlToCarve
             ))->build($normalized, strlen($html))),
             $source->mode,
             $source->adapter,
-            $source->diagnostics,
+            array_values(array_filter(
+                $source->diagnostics,
+                static fn (HtmlImportDiagnostic $diagnostic): bool => !($diagnostic->code === 'structure-unspellable'
+                    && str_starts_with($diagnostic->message, 'Flattened <ruby> annotations')),
+            )),
         );
     }
 
@@ -658,6 +662,11 @@ class HtmlToCarve
         }
         if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
             $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $path);
+
+            return;
+        }
+        if ($tag === 'ruby' && !($this->importMode === 'roundtrip' && $this->rubyHasNoDirectAnnotation($node))) {
+            $this->inspectRubyImport($node, $path, $diagnostics);
 
             return;
         }
@@ -1018,6 +1027,133 @@ class HtmlToCarve
                 $diagnostics,
                 'element-unwrapped',
                 'Unwrapped unsupported <' . $tag . '> element',
+                'info',
+                $path,
+            );
+        }
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function inspectRubyImport(DOMElement $node, string $path, array &$diagnostics): void
+    {
+        $base = false;
+        $pendingRb = 0;
+        $paired = false;
+        $afterAnnotation = false;
+        foreach ($node->childNodes as $index => $child) {
+            if ($child instanceof DOMComment) {
+                continue;
+            }
+            if (!$child instanceof DOMElement) {
+                if ($child->textContent !== '' && !($afterAnnotation && trim($child->textContent) === '')) {
+                    $base = true;
+                    $afterAnnotation = false;
+                }
+
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            $childPath = $this->importChildPath($path, $child, $index + 1);
+            if ($tag === 'rp') {
+                $this->reportRubyComponentAttributes($child, $childPath, $diagnostics);
+                $content = trim($child->textContent);
+                if ($content !== '' && !in_array($content, ['(', ')', '（', '）'], true)) {
+                    $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped non-standard <rp> fallback content', 'warning', $childPath);
+                }
+
+                continue;
+            }
+            if ($tag === 'rt') {
+                $this->reportRubyComponentAttributes($child, $childPath, $diagnostics);
+                if ($pendingRb > 0) {
+                    $pendingRb--;
+                    $paired = true;
+                    $base = false;
+                    $afterAnnotation = true;
+                } elseif ($base) {
+                    $paired = true;
+                    $base = false;
+                    $afterAnnotation = true;
+                } else {
+                    $this->addImportDiagnostic(
+                        $diagnostics,
+                        'element-unwrapped',
+                        $afterAnnotation ? 'Flattened an additional ruby annotation level' : 'Unwrapped ruby annotation with no base',
+                        'warning',
+                        $childPath,
+                    );
+                }
+                $this->inspectImportNodes($child->childNodes, $childPath, $diagnostics);
+
+                continue;
+            }
+            if ($tag === 'rtc') {
+                $this->reportRubyComponentAttributes($child, $childPath, $diagnostics);
+                $this->addImportDiagnostic($diagnostics, 'element-unwrapped', 'Unwrapped obsolete <rtc> annotation level', 'warning', $childPath);
+                foreach ($child->childNodes as $componentIndex => $component) {
+                    if ($component instanceof DOMElement && strtolower($component->tagName) === 'rt') {
+                        $componentPath = $this->importChildPath($childPath, $component, $componentIndex + 1);
+                        $this->reportRubyComponentAttributes($component, $componentPath, $diagnostics);
+                        $this->inspectImportNodes($component->childNodes, $componentPath, $diagnostics);
+                    }
+                }
+
+                continue;
+            }
+            if ($tag === 'rb') {
+                $this->reportRubyComponentAttributes($child, $childPath, $diagnostics);
+                $pendingRb++;
+                $base = true;
+                $this->inspectImportNodes($child->childNodes, $childPath, $diagnostics);
+
+                continue;
+            }
+            $base = true;
+            $afterAnnotation = false;
+            $this->inspectImportNode($child, $childPath, $diagnostics);
+        }
+        if ($base) {
+            $this->addImportDiagnostic($diagnostics, 'element-unwrapped', 'Unwrapped ruby base with no annotation', 'info', $path);
+        }
+        if ($paired) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                'Flattened <ruby> annotations: Carve 0.1 has no source spelling for their pairing',
+                'warning',
+                $path,
+            );
+        }
+        $this->inspectImportAttributes($node, 'ruby', $path, $diagnostics);
+    }
+
+    protected function rubyHasNoDirectAnnotation(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && in_array(strtolower($child->tagName), ['rt', 'rtc'], true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param \DOMElement $component
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    protected function reportRubyComponentAttributes(DOMElement $component, string $path, array &$diagnostics): void
+    {
+        foreach ($component->attributes as $attribute) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'attribute-dropped',
+                'Dropped attribute ' . $attribute->name . ' on <' . strtolower($component->tagName) . '>',
                 'info',
                 $path,
             );

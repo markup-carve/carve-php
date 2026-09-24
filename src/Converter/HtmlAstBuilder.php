@@ -2385,6 +2385,19 @@ final class HtmlAstBuilder
                 return [$math];
             }
         }
+        if ($tag === 'ruby') {
+            $hasAnnotation = false;
+            foreach ($node->childNodes as $component) {
+                if ($component instanceof DOMElement && in_array(strtolower($component->tagName), ['rt', 'rtc'], true)) {
+                    $hasAnnotation = true;
+
+                    break;
+                }
+            }
+            if ($hasAnnotation || $this->importMode !== 'roundtrip') {
+                return $this->ruby($node);
+            }
+        }
         if ($this->importMode === 'roundtrip' && !$this->inCaption && !$this->isSupportedInlineTag($tag)) {
             $html = $node->ownerDocument?->saveHTML($node);
 
@@ -2693,6 +2706,128 @@ final class HtmlAstBuilder
         }
 
         return $this->inlines($this->children($node));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function ruby(DOMElement $element): array
+    {
+        $input = [];
+        $rtc = [];
+        foreach ($this->children($element) as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'rb') {
+                $input[] = ['rb' => $child];
+            } elseif ($child instanceof DOMElement && strtolower($child->tagName) === 'rtc') {
+                $content = [];
+                foreach ($this->children($child) as $component) {
+                    if ($component instanceof DOMElement && strtolower($component->tagName) === 'rp') {
+                        continue;
+                    }
+                    if ($component instanceof DOMElement && strtolower($component->tagName) === 'rt') {
+                        array_push($content, ...$this->inlines($this->children($component)));
+                    } else {
+                        array_push($content, ...$this->inline($component));
+                    }
+                }
+                $rtc[] = $content;
+            } else {
+                $input[] = $child;
+            }
+        }
+
+        $output = [];
+        $run = [];
+        $base = [];
+        $explicitBases = [];
+        $associated = false;
+        foreach ($input as $index => $child) {
+            if (is_array($child)) {
+                $explicitBases[] = $this->inlines($this->children($child['rb']));
+
+                continue;
+            }
+            if ($child instanceof DOMComment) {
+                continue;
+            }
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'rp') {
+                continue;
+            }
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'rt') {
+                $annotation = $this->inlines($this->children($child));
+                if ($base === [] && isset($explicitBases[0])) {
+                    $base = array_shift($explicitBases);
+                    $associated = false;
+                }
+                if ($associated || $base === []) {
+                    self::flushRubyRun($run, $output);
+                    $output[] = ['type' => 'text', 'value' => '('];
+                    array_push($output, ...$annotation);
+                    $output[] = ['type' => 'text', 'value' => ')'];
+                } else {
+                    $run[] = ['base' => $base, 'annotation' => $annotation];
+                    $base = [];
+                    $associated = true;
+                }
+
+                continue;
+            }
+            if ($associated && $child instanceof DOMText && trim($child->textContent) === '') {
+                $next = $index + 1;
+                while (isset($input[$next]) && $input[$next] instanceof DOMText && trim($input[$next]->textContent) === '') {
+                    $next++;
+                }
+                if (!isset($input[$next]) || ($input[$next] instanceof DOMElement && in_array(strtolower($input[$next]->tagName), ['rt', 'rp'], true))) {
+                    continue;
+                }
+            }
+            $associated = false;
+            array_push($base, ...$this->inline($child));
+        }
+        if ($base !== []) {
+            self::flushRubyRun($run, $output);
+            array_push($output, ...$base);
+        }
+        foreach ($explicitBases as $unpaired) {
+            self::flushRubyRun($run, $output);
+            array_push($output, ...$unpaired);
+        }
+        self::flushRubyRun($run, $output);
+        foreach ($rtc as $content) {
+            $output[] = ['type' => 'text', 'value' => '('];
+            array_push($output, ...$content);
+            $output[] = ['type' => 'text', 'value' => ')'];
+        }
+
+        if ($output === []) {
+            return [];
+        }
+        if (count($output) === 1 && ($output[0]['type'] ?? null) === 'ruby') {
+            $this->attachAttrs($output[0], $element);
+
+            return $output;
+        }
+        $span = ['type' => 'span', 'children' => $output];
+        $attrs = $this->attrs($element, []);
+        if ($attrs === []) {
+            return $output;
+        }
+        $span['attrs'] = $attrs;
+
+        return [$span];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $run
+     * @param list<array<string, mixed>> $output
+     */
+    private static function flushRubyRun(array &$run, array &$output): void
+    {
+        if ($run === []) {
+            return;
+        }
+        $output[] = ['type' => 'ruby', 'pairs' => $run];
+        $run = [];
     }
 
     private function sanitizedElementHtml(DOMElement $node): string

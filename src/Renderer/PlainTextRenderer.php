@@ -31,6 +31,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
@@ -47,6 +48,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -411,7 +413,11 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 => $this->stripControls($node->getAlt()) . "\n\n",
                 $node instanceof Image => $this->stripControls($node->getAlt()),
                 $node instanceof Mention => $this->renderMention($node),
+                // No Citations extension: the verbatim raw rather than
+                // nothing, as carve-js and carve-rs emit here (#2289).
+                $node instanceof CitationGroup => $node->getRaw(),
                 $node instanceof Link => $this->renderLink($node),
+                $node instanceof Ruby => $this->renderRuby($node),
                 $node instanceof Delete => '~' . $this->renderChildren($node) . '~',
                 $node instanceof Substitution => '~' . $this->renderChildren($node->getOld()) . '~' . $this->renderChildren($node->getNew()),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
@@ -554,6 +560,24 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         }
 
         return $text;
+    }
+
+    protected function renderRuby(Ruby $node): string
+    {
+        $this->recordRubyFlattened($node);
+        $out = '';
+        foreach ($node->getPairs() as $pair) {
+            foreach ($pair['base'] as $base) {
+                $out .= $this->renderNode($base);
+            }
+            $out .= '(';
+            foreach ($pair['annotation'] as $annotation) {
+                $out .= $this->renderNode($annotation);
+            }
+            $out .= ')';
+        }
+
+        return $out;
     }
 
     /**

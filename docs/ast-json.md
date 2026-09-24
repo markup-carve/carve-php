@@ -159,11 +159,18 @@ Inspect both, per type:
 ```php
 AstCodec::schema();
 // ['heading' => ['fields' => ['level'], 'required' => []],
-//  'mention' => ['fields' => ['cssClass', ...], 'required' => ['cssClass', 'destination', 'title']], ...]
+//  'citation' => ['fields' => ['key', ...], 'required' => ['key', 'suppressAuthor']], ...]
 ```
 
-Five types currently have required fields: `abbreviation`, `citation_group`,
-`heading_ref`, `inline_extension`, `mention`.
+Six types currently have required fields: `abbreviation`, `citation`,
+`citation_group`, `heading_ref`, `inline_extension`, `ruby`.
+
+Ruby annotations use ordered `pairs`. Each pair has a nonempty `base` inline
+array and an `annotation` inline array, which may be empty. HTML and Markdown
+render ruby with `<ruby>`, `<rt>`, and generated `<rp>` elements. Carve, plain
+text, and ANSI render each pair as `base(annotation)` and report one
+`ruby-flattened` loss per ruby node. The CLI accepts `--allow-loss ruby-flattened`
+when that fallback is intentional.
 
 ## What an ingest refuses
 
@@ -193,13 +200,36 @@ What that turns from accepted into refused:
 If you produce Carve AST JSON, validate against `resources/ast-schema.json`
 before sending it. Every future addition to the schema is a potential rejection
 for a producer that has not caught up; that is what makes the schema the
-contract rather than a description of one.
+contract rather than a description of one. The standalone citation exception
+below remains after schema validation.
 
 Two things it deliberately does not do. A registered application node type (see
 below) and its subtree are outside the schema by construction, so the rule has
 nothing to say about them. And a `srcByteLength` that is present but WRONG stays
 accepted - it is derivable, nothing in the tree depends on it, and §12(a) is
 about presence while (d) is about type and sign.
+
+### A citation is only ever an item of a group
+
+`AstCodec::decode()` and `decodeJson()` refuse a bare `citation` node with
+`Standalone citation nodes are not supported`. A group containing the item
+decodes and round trips.
+
+That is the language's rule rather than a limit of this engine. CARVE-P12-059
+states that a citation occurs in `citation_group.items` and nowhere else: the
+inline dispatch does not name it, no source can spell one, and no clause defines
+what a bare citation would render to. All three engines refuse the payload at
+decode
+([carve#2229](https://github.com/markup-carve/carve/pull/2229),
+[carve-js#1976](https://github.com/markup-carve/carve-js/pull/1976)).
+
+PHP represents parsed citations as item maps inside `citation_group.items`, so
+the item is not an independently constructible node here either.
+
+The schema copy under `tests/spec` still lists `citation` in `inlineNode` until
+the pin moves past that ruling
+([carve-php#2254](https://github.com/markup-carve/carve-php/pull/2254)); the
+refusal above does not depend on it.
 
 ## What an ingest replaces
 
