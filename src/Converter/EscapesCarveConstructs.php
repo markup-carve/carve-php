@@ -343,13 +343,6 @@ trait EscapesCarveConstructs
     }
 
     /**
-     * The braced delimiters as a regex character class, minus any the caller
-     * converts itself.
-     *
-     * @param string $handled Literal characters the caller owns.
-     */
-
-    /**
      * Escape the opening brace of every braced pair that is not escaped already.
      *
      * Scans with an explicit offset instead of one sweeping replace, for two

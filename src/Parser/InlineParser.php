@@ -518,15 +518,6 @@ class InlineParser
     }
 
     /**
-     * Parse inline content
-     *
-     * @param \MarkupCarve\Carve\Node\Node $parent
-     * @param string $text
-     * @param int $sourceLine Source line number (0-indexed) for error reporting
-     * @param bool $captionContext
-     * @param \MarkupCarve\Carve\Parser\SourceMap|null $sourceMap
-     */
-    /**
      * What an unclosed verbatim run strips from its end.
      */
     protected string $runStripCharacters = " \t\n";
@@ -693,15 +684,6 @@ class InlineParser
     protected ?SourceMap $sourceMap = null;
 
     /**
-     * Give an inline node its span, when it has one honestly.
-     *
-     * Silently does nothing without a map (positions not requested), without a
-     * recorded start (the run began somewhere this parser did not observe), or
-     * when the run was rewritten - none of which is a failure. PART 12 section 4
-     * requires a real position or none, so declining is the correct outcome.
-     */
-
-    /**
      * Place a node from the source extent the parser consumed for it.
      *
      * For nodes whose text is NOT their source: a smart quote, an escape, a code
@@ -809,10 +791,6 @@ class InlineParser
 
         $node->setPos($this->sourceMap->spanFor($start, $text));
     }
-
-    /**
-     * Remember where a buffered run begins, the first time anything lands in it.
-     */
 
     /**
      * Remember where a buffered run begins and how far it has consumed.
@@ -3441,12 +3419,6 @@ class InlineParser
     }
 
     /**
-     * Return the last (possibly multibyte UTF-8) character of $buffer, or an
-     * empty string when the buffer is empty. Used to determine the rendered
-     * character preceding a smart quote.
-     */
-
-    /**
      * The previously emitted character, for the quote open/close decision.
      *
      * The decision keys off the last character already produced. That used to
@@ -3961,17 +3933,6 @@ class InlineParser
     }
 
     /**
-     * Whether a `{...}` payload is a valid attribute block.
-     *
-     * Valid means it yields at least one attribute under the actual attribute
-     * grammar (AttributeParser), OR it is empty/whitespace/comment-only -- a
-     * valid empty block that carve-php materializes as a bare <span> so a
-     * default-attribute extension can target it. A block carrying unrecognized
-     * content (`{???}`, `{=y=}`, `{"{y}"}`) is not an attribute block at all,
-     * so the whole bracketed run stays literal text (PART 9 §14).
-     */
-
-    /**
      * Whether a `{...}` payload is a valid INLINE attribute block.
      *
      * The same oracle as `isValidAttrPayload()` plus PART 4's space-only
@@ -4188,12 +4149,6 @@ class InlineParser
 
         return null;
     }
-
-    /**
-     * End (exclusive) of the braced inline the main loop builds at $pos, or null.
-     * Mirrors parseEditorialComment() and parseBracedInline() without building
-     * nodes; a trailing attribute block is not part of it.
-     */
 
     /**
      * End (exclusive) of the substitution at $pos, or null where the pair holds

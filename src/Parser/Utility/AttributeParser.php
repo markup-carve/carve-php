@@ -216,17 +216,6 @@ class AttributeParser
     }
 
     /**
-     * Whether the WHOLE payload between `{...}` is valid attribute syntax.
-     *
-     * Strips every recognized token (quoted key=value, comments, unquoted
-     * key=value, .class, #id, boolean); if anything non-whitespace remains the
-     * block is invalid and must stay literal (§14). Explicit id/class names may
-     * start with an ASCII digit; keys may not. A hyphen-first or COLON-bearing
-     * name invalidates the whole block even mixed with valid tokens. A colon is still legal inside an
-     * unquoted VALUE (`{k=a:b}`), which `unquoted_value` admits.
-     */
-
-    /**
      * PART 4: THE INLINE INTERIOR IS SPACE-ONLY (markup-carve/carve#906).
      */
     public static function inlineInteriorIsSpaceOnly(string $attrStr): bool

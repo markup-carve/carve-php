@@ -1036,29 +1036,6 @@ class ProseMirrorToCarve
     }
 
     /**
-     * Keep the heading-reference spelling only while the link still resolves by it.
-     *
-     * Same hazard as confirmAutolink(), one attribute over. A collapsed
-     * `[text][]` resolves against the heading whose RENDERED TEXT equals the
-     * label, and `ref` holds exactly that text. An editor that retypes the
-     * visible text has changed which heading the reference would find, so
-     * writing the authored `[old text][]` back would publish a reference to a
-     * heading the document no longer names - and silently discard the edit.
-     * The flag is therefore a HINT to be re-derived, not truth: when the text
-     * no longer matches, the link falls back to its inline form, which always
-     * renders correctly.
-     *
-     * The bound this leaves is deliberate rather than overlooked. An edit that
-     * changes only the MARKUP inside the label - unbolding `[*bold* heading][]`
-     * - keeps the rendered text, so the reference still resolves to the same
-     * heading and the authored markup is restored with it. That is a real loss
-     * of the edit, and it is the lesser of the two available ones: the
-     * alternative is writing `[bold heading](#bold-heading)`, which bakes a
-     * generated id into the source on every pass, which is the loss
-     * `Link::$fromHeadingReference` exists to prevent.
-     */
-
-    /**
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string, array{0: string, 1: \MarkupCarve\Carve\Parser\ReferenceDefinition}> $headings
      */
@@ -1879,11 +1856,6 @@ class ProseMirrorToCarve
     {
         return is_scalar($value) && (bool)$value;
     }
-
-    /**
-     * Node state lives in protected properties with no setters for most classes,
-     * so it is written by reflection - the same mechanism AstCodec decodes with.
-     */
 
     /**
      * Whether the payload carries children of its own, so a label attribute

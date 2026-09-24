@@ -165,10 +165,6 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
     }
 
     /**
-     * Every abbreviation definition the author wrote, as source lines.
-     */
-
-    /**
      * The first private-use code point this target's definition placeholder
      * prefers.
      *
@@ -695,32 +691,6 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
 
         return $output;
     }
-
-    /**
-     * Drop the control characters this target does NOT emit.
-     *
-     * PART 9 §29 C0 CONTROLS ON THE RENDER TARGETS: after
-     * markup-carve/carve#963 the whitespace of the language is exactly U+0020,
-     * U+0009, U+000A and U+000D, and every OTHER C0 control - U+0000..U+0008,
-     * U+000B, U+000C, U+000E..U+001F - is ordinary CONTENT. PART 9 §29 T3 has the plain-text target EMIT the class, following the Markdown target: plain text is a text SERIALIZATION rather than a terminal format, so it takes the fidelity answer and not the device answer (§29 T3 records that half as a judgement rather than a measurement). A target that
-     * deletes it is lossy in the way markup-carve/carve#817 rejected for the
-     * wire, and the reason first offered for the strip - that a Markdown reader
-     * reclassifies these characters as whitespace - was measured against the
-     * CommonMark reference implementation and markdown-it in three modes and did
-     * not hold: all four keep them, and `-<VT>item` opens no list in any of them.
-     *
-     * WHAT STILL GOES. U+000D is WHITESPACE, not content, so it is stripped like
-     * the other whitespace this writer normalizes. DEL (U+007F) and the C1
-     * controls U+0080..U+009F stay stripped too: §29 T5 puts them outside that
-     * section, and this engine is deliberately the strict one there - CSI
-     * (U+009B) and OSC (U+009D) are single-character forms of the sequences §25
-     * exists to stop.
-     *
-     * The terminal target keeps its own broad strip; see
-     * AnsiRenderer::stripControls(). Narrowing THAT one would be a security
-     * regression, which is why the three targets spell this separately rather
-     * than sharing one function.
-     */
 
     /**
      * A lone image is a block-level image node, so it takes the block

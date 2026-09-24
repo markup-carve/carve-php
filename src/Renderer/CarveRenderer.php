@@ -4834,20 +4834,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
-     * Would a BARE `^` at this offset let a construct form?
-     *
-     * PART 11 §2 escapes a character IF AND ONLY IF omitting the escape would
-     * change the re-parsed AST, and a lone `^` no longer opens anything: bare
-     * `^sup^` was removed in favour of the braced `{^x^}`. So the caret needs
-     * an escape only where it abuts one of the two shapes that still read it -
-     * the inline footnote `^[…]` and the braced superscript's own delimiters -
-     * and `}^p` is written bare, which is what carve#581 asks for.
-     *
-     * @param string $text
-     * @param int $offset
-     */
-
-    /**
      * Does a `!` or `$` here BIND to the verbatim run that follows it?
      *
      * @param string $text

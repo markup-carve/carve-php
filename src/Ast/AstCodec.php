@@ -136,11 +136,6 @@ class AstCodec
     ];
 
     /**
-     * Fields the reference publishes even when they hold this engine's default.
-     *
-     * @var array<string>
-     */
-    /**
      * Fields the reference publishes on EVERY node of that type, so this engine
      * must too - even when the value equals this engine's property default.
      *
@@ -354,26 +349,6 @@ class AstCodec
 
         return $encoded;
     }
-
-    /**
-     * Move abbreviation definitions off the ROOT and into the tree.
-     *
-     * PART 12 §7 fixes the root at `type`, `children` and `srcByteLength`, and
-     * this engine kept two more fields there: the `abbr => expansion` map and a
-     * flag recording whether the definitions preceded the body. Both are
-     * authored content - dropping them would lose every `*[ABBR]: ...` line -
-     * so they move into `abbreviation_def` block nodes, which is where the
-     * reference publishes them.
-     *
-     * The flag does not need a field of its own: it says WHERE the definitions
-     * were, and the nodes are now somewhere. Publishing them first or last says
-     * the same thing, and `decode` reads it back off the placement - the same
-     * trick `comment.block` uses for a fence width.
-     *
-     * @param array<string, mixed> $encoded
-     *
-     * @return array<string, mixed>
-     */
 
     /**
      * @param array<string, mixed> $encoded
@@ -2015,11 +1990,6 @@ class AstCodec
 
         return $encoded;
     }
-
-    /**
-     * Node-valued state (a div's header nodes, a table caption) is encoded the
-     * same way as children, so nothing in the tree needs a second format.
-     */
 
     /**
      * Fields the reference derives from state this engine keeps differently.
