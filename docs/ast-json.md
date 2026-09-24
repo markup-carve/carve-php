@@ -59,8 +59,9 @@ a field the reference does not have. The published schema is available at
 The document root carries exactly `type`, `children`, and `srcByteLength`.
 Document content stays in the tree: leading frontmatter is the first child when
 present, and footnote definitions are `footnote` block children of the document.
-Payloads stored under the older root form are no longer accepted - see
-[Upgrading a stored payload](#upgrading-a-stored-payload).
+Payloads stored under the older root form are no longer accepted. Applications
+that still hold them must run `StoredPayloadUpgrade::upgrade()` or
+`upgradeJson()` with a pre-removal carve-php release before upgrading.
 
 Any node:
 
@@ -220,67 +221,6 @@ inside a string, so a raw control byte in JSON text is still a
 not a Carve rule. What the clause reaches is the `\u0000` escape and the value
 a host hands to `AstCodec::decode()`, which takes an array and has no JSON layer
 at all.
-
-## Upgrading a stored payload
-
-Four payload shapes this package used to read no longer decode. They predate
-PART 12 §7, neither carve-js nor carve-rs ever accepted them, and normalizing
-them on every ingest meant reasoning about every future schema addition twice,
-once for each shape.
-
-Two more shapes never decoded at all: `caption` and `section` are node types
-this package used to ENCODE and the vocabulary has never held, so a payload
-carrying one was refused by the engine that wrote it. They are off the wire now,
-and the same helper converts them.
-
-What each becomes:
-
-| Stored shape | PART 12 §7 shape |
-| --- | --- |
-| a root `abbreviations` map, with `abbreviationsBeforeBody` | `abbreviation_def` block nodes, before the body or after it as the flag said |
-| a root `frontmatter` object | a leading `frontmatter` block node |
-| a root `footnoteDefs` map | trailing `footnote` block nodes, one per label |
-| a `raw_text` node | the `text` node the encoder already published it as |
-| a `caption` node | the `paragraph` it holds inline content as |
-| a `section` node | the `div` it wraps blocks as |
-
-Convert each stored payload **once**, with the helper that ships alongside the
-removal. It works on the payload alone, so an application that no longer has the
-Carve source a payload was parsed from can still migrate:
-
-```php
-use MarkupCarve\Carve\Ast\AstCodec;
-use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
-
-$payload = StoredPayloadUpgrade::upgrade(json_decode($stored, true));
-$document = (new AstCodec())->decode($payload);
-```
-
-or, staying in JSON:
-
-```php
-$stored = StoredPayloadUpgrade::upgradeJson($stored);
-```
-
-`upgradeJson()` returns a payload that needs no conversion **unchanged**, byte
-for byte - PHP reads an empty JSON object and an empty array as the same value,
-so re-encoding one that needed nothing would rewrite `"attrs": {}` as
-`"attrs": []`. A payload that does need converting is re-encoded, and an empty
-JSON object in it is written as `[]`; decode it yourself and call `upgrade()` if
-that distinction matters to a consumer of yours.
-
-It is idempotent and leaves a payload already in the §7 shape untouched, so it
-is safe to run over a whole store, and safe to run again if a migration is
-interrupted. Decoding a payload that still carries one of these reports which
-spelling it found and names this helper. An application node type registered
-with `AstCodec::register()` is left alone, subtree included - register the class
-before running the migration, or its own fields are read as nodes.
-
-One caveat. `raw_text` existed so the writer could reproduce
-markup the parser declined, verbatim; it becomes a `text` node, and a `text`
-node is escaped on the way back out. That is not a loss the upgrade introduces -
-the node was already off the wire, so the second save of such a document
-produced the same `text` node. The upgrade brings it forward by one hop.
 
 ## Application node types
 

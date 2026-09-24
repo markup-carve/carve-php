@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
-use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
 use MarkupCarve\Carve\Exception\AstDecodeException;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -163,29 +162,14 @@ class UnnamedSlotOnIngestTest extends TestCase
     }
 
     /**
-     * The SECOND door to the same row, now closed at the door itself.
-     *
-     * A legacy root `footnoteDefs` map used to be decoded directly and dropped
-     * from the loss comparison, so a check that only walked `children` passed
-     * `attrs: {"class": "x"}` straight through there while refusing it three
-     * lines higher up. The map is refused outright now (carve-php#1002), so the
-     * payload never reaches the walk - and the walk still has to cover what the
-     * UPGRADE produces, which is the assertion below.
+     * A legacy root `footnoteDefs` map is still checked recursively before the
+     * root reaches schema validation, so an unnamed slot inside it is reported.
      */
-    public function testTheLegacyFootnoteMapIsRefusedBeforeItIsWalked(): void
+    public function testAnUnnamedSlotInsideALegacyFootnoteMapIsReported(): void
     {
         $this->expectException(AstDecodeException::class);
-        $this->expectExceptionMessage('a root `footnoteDefs` map');
-
+        $this->expectExceptionMessageMatches('/footnoteDefs\.a\.0\.paragraph\.attrs\.class/');
         $this->codec->decode(self::legacyFootnoteMapPayload());
-    }
-
-    public function testAnUnnamedSlotInsideAnUpgradedDefinitionIsStillReported(): void
-    {
-        $this->expectException(AstDecodeException::class);
-        $this->expectExceptionMessageMatches('/footnote\.children\.0\.paragraph\.attrs\.class/');
-
-        $this->codec->decode(StoredPayloadUpgrade::upgrade(self::legacyFootnoteMapPayload()));
     }
 
     /**
