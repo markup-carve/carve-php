@@ -36,11 +36,32 @@ use PHPUnit\Framework\TestCase;
  * that copy needs the per-line offset model markup-carve/carve#752 describes.
  * So the gate is what carries the bounds here, and the strip is counted for
  * liveness and as the yardstick the gate must stay under.
+ *
+ * MOSTLY OUT OF THE `scaling` GROUP, though it guards a cost. That group is
+ * excluded from the default suite because its members time a 50000-repeat input
+ * and need a runner to themselves, so `guards.yml` runs it on pushes to main
+ * rather than on pull requests. A counted guard needs neither condition: the
+ * figures above reproduce exactly under any load, so these can gate the pull
+ * request that would introduce a regression instead of naming the merge that
+ * did. That distinction cost a release day - markup-carve/carve-php#2264 merged
+ * green and put the gate 16x over its bound on main
+ * (markup-carve/carve-php#2265).
+ *
+ * What stays in the group is the seven-shape sweep: fourteen deep parses
+ * against the five everything else needs, and the broad net rather than the
+ * discriminating one. The cheap remainder fails on its own against both
+ * regressions this class has seen.
  */
-#[Group('scaling')]
 class NestedContainerRescanTest extends TestCase
 {
     private CarveConverter $converter;
+
+    /**
+     * Counted work per source, see countWork().
+     *
+     * @var array<string, array{gate: int, strip: int, total: int, bytes: int}>
+     */
+    private static array $counted = [];
 
     protected function setUp(): void
     {
@@ -95,6 +116,15 @@ class NestedContainerRescanTest extends TestCase
      */
     private function countWork(string $src): array
     {
+        // Memoized because the answer is a property of the source and of the
+        // parser, not of the run - which is the claim this whole class rests
+        // on. Four of the tests below want the same depth-200 ladder, and
+        // parsing it once is what keeps a guard that runs on every pull request
+        // affordable there.
+        if (isset(self::$counted[$src])) {
+            return self::$counted[$src];
+        }
+
         LayoutWork::reset();
         LayoutWork::$on = true;
         try {
@@ -103,7 +133,7 @@ class NestedContainerRescanTest extends TestCase
             LayoutWork::$on = false;
         }
 
-        return [
+        return self::$counted[$src] = [
             'gate' => LayoutWork::$gate,
             'strip' => LayoutWork::$strip,
             'total' => LayoutWork::total(),
@@ -189,16 +219,64 @@ class NestedContainerRescanTest extends TestCase
     }
 
     /**
+     * A ladder of $d levels, every level carrying TWO sibling sub-lists whose
+     * markers differ in width.
+     *
+     * @param int $d
+     *
+     * @return string
+     */
+    private static function siblingSubLists(int $d): string
+    {
+        $out = [];
+        for ($i = 0; $i < $d; $i++) {
+            $pad = str_repeat(' ', 2 * $i);
+            $out[] = $pad . '- e';
+            $out[] = $pad . '  1. x';
+            $out[] = $pad . '  * y';
+        }
+
+        return implode("\n", $out) . "\n";
+    }
+
+    /**
+     * THE SHAPE THAT REGRESSED. Deciding which sub-list a line sits in is the
+     * looseness scan's own question, and it asks the gate once per body line -
+     * so the scan reintroduces the quadratic whenever it asks unbounded, even
+     * though nothing about the ladder above changed. That is what happened in
+     * markup-carve/carve-php#2264: 1,035,251 characters here against 60,002
+     * now, a ratio of 7.73 against 4.00, on a document the ladder tests do not
+     * spell. The bullets-only ladder was never going to see it.
+     *
+     * @return void
+     */
+    public function testTheGateStaysLinearWhenAnItemHasSiblingSubLists(): void
+    {
+        $large = $this->countWork(self::siblingSubLists(100));
+        $this->assertLessThanOrEqual(4 * $large['bytes'], $large['gate']);
+
+        $small = $this->countWork(self::siblingSubLists(50));
+        $this->assertGreaterThan(0, $small['gate']);
+        $this->assertLessThanOrEqual(4.4, $large['gate'] / $small['gate']);
+    }
+
+    /**
      * The ladder above is made of bullets, and a guard that only ever sees one
      * line shape cannot see a residual that a different shape still pays -
      * exactly the residual markup-carve/carve-rs#742 found in its own first
      * attempt. These are the other shapes that drive the same collector.
+     *
+     * THE BROAD NET, and the bulk of this class's cost: fourteen deep parses
+     * against the five the rest needs. It stays in the `scaling` group and so
+     * runs on main rather than on pull requests, where the cheap tests above
+     * already discriminate every regression seen here.
      *
      * @param string $kind
      *
      * @return void
      */
     #[DataProvider('shapeProvider')]
+    #[Group('scaling')]
     public function testTheGateGrowsNoFasterThanTheDocument(string $kind): void
     {
         $small = $this->countWork(self::shape($kind, 100));
