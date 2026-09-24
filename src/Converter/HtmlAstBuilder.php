@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
  * Builds the public Carve AST directly from an HTML DOM.
@@ -1060,7 +1061,7 @@ final class HtmlAstBuilder
                 if (in_array($tag, ['hr', 'br'], true)) {
                     return true;
                 }
-                if ($tag === 'img' && trim($sibling->getAttribute('src')) !== '') {
+                if ($tag === 'img' && !self::carriesNoDestination($sibling->getAttribute('src'))) {
                     return true;
                 }
                 foreach ($sibling->childNodes as $child) {
@@ -1539,6 +1540,8 @@ final class HtmlAstBuilder
         if ($this->hasClass($node, 'carve-figure-group')) {
             return [$this->figureGroup($node)];
         }
+        // A denied destination imports as content, so it cannot ride along in raw HTML.
+        $keepsRaw = $this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node);
         $caption = [];
         $captionDeclared = false;
         $bodyNodes = [];
@@ -1584,7 +1587,7 @@ final class HtmlAstBuilder
             if (!$tableHasCaption || $caption === []) {
                 return [$target];
             }
-            if ($this->importMode !== 'roundtrip') {
+            if (!$keepsRaw) {
                 return [
                     $target,
                     ['type' => 'paragraph', 'children' => $caption],
@@ -1622,7 +1625,7 @@ final class HtmlAstBuilder
             return [$figure];
         }
 
-        if ($this->importMode === 'roundtrip' && $caption !== []) {
+        if ($keepsRaw && $caption !== []) {
             $html = $node->ownerDocument?->saveHTML($node);
 
             return [
@@ -2436,7 +2439,7 @@ final class HtmlAstBuilder
             ];
         }
         if ($tag === 'img') {
-            if (!$node->hasAttribute('src') || trim($node->getAttribute('src')) === '') {
+            if (self::carriesNoDestination($node->getAttribute('src'))) {
                 $alt = $node->getAttribute('alt');
                 if ($alt !== '' && $node->hasAttribute('title')) {
                     return [
@@ -2485,7 +2488,8 @@ final class HtmlAstBuilder
             return [$image];
         }
         if ($tag === 'a') {
-            if ($this->importMode === 'roundtrip') {
+            // Raw HTML would write a denied destination the report says was dropped.
+            if ($this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
                 foreach ($node->getElementsByTagName('img') as $image) {
                     if (preg_match('/[\\[\\]\\\\]/', $image->getAttribute('alt')) === 1) {
                         $html = $node->ownerDocument?->saveHTML($node);
@@ -2501,7 +2505,7 @@ final class HtmlAstBuilder
                 }
             }
             $children = $this->inlines($this->children($node));
-            if (!$node->hasAttribute('href') || trim($node->getAttribute('href')) === '') {
+            if (self::carriesNoDestination($node->getAttribute('href'))) {
                 $skip = ['href'];
                 foreach ($node->attributes as $attribute) {
                     if (str_starts_with(strtolower($attribute->nodeName), 'data-djot-')) {
@@ -3401,6 +3405,47 @@ final class HtmlAstBuilder
         }
 
         return $children;
+    }
+
+    /**
+     * Does this `href`/`src` name no destination Carve can carry? Empty, or a
+     * scheme the section 25 sink blanks, which is imported the same way
+     * (markup-carve/carve#2254).
+     */
+    public static function carriesNoDestination(string $value): bool
+    {
+        return trim($value) === '' || HtmlRenderer::blankDangerousScheme($value) === '';
+    }
+
+    /**
+     * Is this a non-empty destination whose scheme the section 25 sink blanks?
+     */
+    public static function hasDeniedScheme(string $value): bool
+    {
+        return trim($value) !== '' && HtmlRenderer::blankDangerousScheme($value) === '';
+    }
+
+    /**
+     * Would keeping this element as raw HTML write a denied destination?
+     */
+    public static function holdsADeniedDestination(DOMElement $element): bool
+    {
+        $tag = strtolower($element->tagName);
+        if (($tag === 'a' && self::hasDeniedScheme($element->getAttribute('href'))) || ($tag === 'img' && self::hasDeniedScheme($element->getAttribute('src')))) {
+            return true;
+        }
+        foreach ($element->getElementsByTagName('a') as $anchor) {
+            if (self::hasDeniedScheme($anchor->getAttribute('href'))) {
+                return true;
+            }
+        }
+        foreach ($element->getElementsByTagName('img') as $image) {
+            if (self::hasDeniedScheme($image->getAttribute('src'))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function hasClass(DOMElement $node, string $class): bool

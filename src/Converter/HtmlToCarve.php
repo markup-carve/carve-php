@@ -1148,7 +1148,7 @@ class HtmlToCarve
             if ($tag === 'hr' || $tag === 'br') {
                 return true;
             }
-            if ($tag === 'img' && trim($child->getAttribute('src')) !== '') {
+            if ($tag === 'img' && !HtmlAstBuilder::carriesNoDestination($child->getAttribute('src'))) {
                 return true;
             }
             if ($this->directAstHasSurvivingContent($child)) {
@@ -1176,7 +1176,7 @@ class HtmlToCarve
                 }
                 $tag = strtolower($child->tagName);
                 if ($tag === 'img') {
-                    if ($found !== null || trim($child->getAttribute('src')) === '') {
+                    if ($found !== null || HtmlAstBuilder::carriesNoDestination($child->getAttribute('src'))) {
                         return null;
                     }
                     $found = $child;
@@ -1223,6 +1223,7 @@ class HtmlToCarve
 
     private function directAstFigureOutcome(DOMElement $figure): string
     {
+        $keepsRaw = $this->importMode === 'roundtrip' && !HtmlAstBuilder::holdsADeniedDestination($figure);
         $caption = null;
         $captionWrites = false;
         $body = [];
@@ -1244,7 +1245,7 @@ class HtmlToCarve
             return 'unwrap';
         }
         if (count($body) !== 1 || !$body[0] instanceof DOMElement) {
-            return $this->importMode === 'roundtrip' ? 'raw' : 'unwrap';
+            return $keepsRaw ? 'raw' : 'unwrap';
         }
         $target = $body[0];
         $tag = strtolower($target->tagName);
@@ -1260,17 +1261,17 @@ class HtmlToCarve
                 count($meaningful) === 1
                 && $meaningful[0] instanceof DOMElement
                 && strtolower($meaningful[0]->tagName) === 'img'
-                && trim($meaningful[0]->getAttribute('src')) !== ''
+                && !HtmlAstBuilder::carriesNoDestination($meaningful[0]->getAttribute('src'))
             ) {
                 return 'survives';
             }
         }
-        if ($tag === 'img' && trim($target->getAttribute('src')) !== '') {
+        if ($tag === 'img' && !HtmlAstBuilder::carriesNoDestination($target->getAttribute('src'))) {
             return 'survives';
         }
         if ($tag === 'picture') {
             foreach ($target->getElementsByTagName('img') as $image) {
-                if (trim($image->getAttribute('src')) !== '') {
+                if (!HtmlAstBuilder::carriesNoDestination($image->getAttribute('src'))) {
                     return 'survives';
                 }
             }
@@ -1297,14 +1298,14 @@ class HtmlToCarve
             }
             foreach ($target->getElementsByTagName('caption') as $tableCaption) {
                 if (trim($tableCaption->textContent) !== '') {
-                    return $this->importMode === 'roundtrip' ? 'raw' : 'table-detach';
+                    return $keepsRaw ? 'raw' : 'table-detach';
                 }
             }
 
             return 'table-rebuild';
         }
 
-        return $this->importMode === 'roundtrip' ? 'raw' : 'unwrap';
+        return $keepsRaw ? 'raw' : 'unwrap';
     }
 
     private function directAstConsumesCheckbox(DOMElement $input): bool
@@ -1774,7 +1775,9 @@ class HtmlToCarve
 
                 continue;
             }
-            if (str_starts_with($name, 'on')) {
+            if ((($tag === 'a' && $name === 'href') || ($tag === 'img' && $name === 'src')) && HtmlAstBuilder::hasDeniedScheme($attribute->value)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' with a denied URL scheme on <' . $tag . '>', 'warning', $path);
+            } elseif (str_starts_with($name, 'on')) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
                 // Read as instruction or as content, never written back as an
@@ -1798,7 +1801,7 @@ class HtmlToCarve
                 // position on the way out - so it is reproduced, not dropped.
                 // Same predicate the converter uses, rather than a second one.
                 continue;
-            } elseif ($name === 'alt' && $tag === 'img' && $this->importDestinationIsEmpty($node->getAttribute('src'))) {
+            } elseif ($name === 'alt' && $tag === 'img' && HtmlAstBuilder::carriesNoDestination($node->getAttribute('src'))) {
                 // AN IMAGE'S CONTENT IS ITS ALTERNATIVE TEXT, and an image with
                 // no source is written as that content: the alt value is in the
                 // emitted document as prose, not in an attribute position, so
