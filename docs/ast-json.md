@@ -171,6 +171,27 @@ text, and ANSI render each pair as `base(annotation)` and report one
 `ruby-flattened` loss per ruby node. The CLI accepts `--allow-loss ruby-flattened`
 when that fallback is intentional.
 
+## Interchange-only shapes
+
+Some shapes have no Carve 0.1 source spelling. No parse produces them; they
+arrive from a format bridge, an importer or an editing API, and a canonical
+Carve writer cannot spell them back.
+
+- `small_caps` (PART 12 §28) wraps inline `children`. HTML and Markdown write
+  `<span class="smallcaps">`, merging the node's other attributes into the class
+  slot where the author put it. Plain text and ANSI write the children without
+  touching their letter case. The Carve writer drops the wrapper and keeps
+  `attrs` on an ordinary attributed span, so `[Nato]{#n .org}` comes back out.
+- `section` (PART 12 §30) wraps the blocks it encloses and may carry `level`,
+  the heading level the SOURCE FORMAT stated - not what the nesting implies. An
+  importer reading HTML5 `<section>`, JATS `sec` or DocBook keeps its nesting
+  through the codec; the Carve writer flattens it back to its headings.
+- `math.label` and `math.number` (PART 12 §29) carry a display equation's
+  authored numbering prefix and the number resolution assigns beside it. A
+  number needs a label and a `display: true` node; either without the other is
+  refused. Nothing in this engine assigns a number yet: no Carve source spells
+  a label, so PART 9R R5a has nothing to count.
+
 ## What an ingest refuses
 
 Decoding validates the **whole payload** against the AST schema

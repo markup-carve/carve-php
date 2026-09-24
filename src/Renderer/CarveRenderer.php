@@ -59,6 +59,7 @@ use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
+use MarkupCarve\Carve\Node\Inline\SmallCaps;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -3446,6 +3447,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof CaptionNumber => '#',
             $node instanceof CitationGroup => $node->getRaw(),
             $node instanceof Ruby => $this->renderRuby($node),
+            $node instanceof SmallCaps => $this->renderSmallCaps($node),
             default => $this->renderInlines($node->getChildren()),
         };
     }
@@ -3457,6 +3459,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         foreach ($node->getPairs() as $pair) {
             $content .= $this->renderInlines([...$pair['base'], new Text('('), ...$pair['annotation'], new Text(')')]);
         }
+
+        return $node->getAttributes() === [] ? $content : '[' . $content . ']' . $this->renderAttrs($node);
+    }
+
+    /**
+     * PART 12 §28: write the children WITHOUT the small-caps wrapper, and keep
+     * `attrs` on an ordinary attributed span around them.
+     */
+    protected function renderSmallCaps(SmallCaps $node): string
+    {
+        $content = $this->renderInlines($node->getChildren());
 
         return $node->getAttributes() === [] ? $content : '[' . $content . ']' . $this->renderAttrs($node);
     }

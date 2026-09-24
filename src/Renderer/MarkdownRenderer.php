@@ -53,6 +53,7 @@ use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
+use MarkupCarve\Carve\Node\Inline\SmallCaps;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -1210,6 +1211,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 $node instanceof CriticComment => $this->escapeText($this->stripControls($node->getContent())),
                 $node instanceof Span => $this->renderSpan($node),
                 $node instanceof Ruby => $this->renderRuby($node),
+                $node instanceof SmallCaps => $this->renderSmallCaps($node),
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
                 $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
@@ -2678,6 +2680,22 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $title = htmlspecialchars($this->stripControls($authored), ENT_QUOTES, 'UTF-8');
 
         return '<abbr title="' . $title . '">' . $inner . '</abbr>';
+    }
+
+    /**
+     * PART 11 §8c: `<span class="smallcaps">`, the node's other attributes
+     * merged under the ordinary span rules.
+     */
+    protected function renderSmallCaps(SmallCaps $node): string
+    {
+        $serializer = $this->attributeSerializer();
+        $attrs = $serializer->renderAttributeArray(
+            $serializer->attributesWithBaseClass($node, 'smallcaps'),
+            'span',
+        );
+
+        return '<span' . (string)preg_replace('/[\t\n]+/', ' ', $this->stripControls($attrs)) . '>'
+            . $this->renderChildren($node) . '</span>';
     }
 
     protected function renderRuby(Ruby $node): string

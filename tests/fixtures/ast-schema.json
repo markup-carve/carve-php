@@ -285,7 +285,9 @@
   "math": {
     "fields": [
       "content",
-      "display"
+      "display",
+      "label",
+      "number"
     ],
     "required": []
   },
@@ -324,6 +326,12 @@
     ]
   },
   "section": {
+    "fields": [
+      "level"
+    ],
+    "required": []
+  },
+  "small_caps": {
     "fields": [],
     "required": []
   },
