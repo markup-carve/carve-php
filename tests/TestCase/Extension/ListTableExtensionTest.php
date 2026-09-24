@@ -1088,12 +1088,13 @@ class ListTableExtensionTest extends TestCase
 
     public function testCrossingHeaderColspanAbsorbsBothCarets(): void
     {
-        $source = "{header-rows=1}\n::: list-table\n- - A\n  - <\n  - C\n- - ^\n  - ^\n  - Y\n:::";
+        $source = "{header-rows=1}\n::: list-table\n- - A\n  - <\n  - C\n- - ^\n  - ^\n  - Y\n- - ^\n  - ^\n  - Z\n:::";
         $expected = implode("\n", [
             '<table>',
             '  <tbody>',
-            '    <tr><th scope="col" rowspan="2" colspan="2">A</th><th scope="col">C</th></tr>',
+            '    <tr><th scope="col" rowspan="3" colspan="2">A</th><th scope="col">C</th></tr>',
             '    <tr><td>Y</td></tr>',
+            '    <tr><td>Z</td></tr>',
             '  </tbody>',
             '</table>',
         ]);

@@ -359,7 +359,7 @@ class ListTableExtension implements ExtensionInterface
         foreach ($grid as $rowIndex => $gridRow) {
             foreach ($gridRow as $entry) {
                 $end = $rowIndex + $entry['rowspan'] - 1;
-                if (!$entry['skip'] && $entry['rowspan'] > 1 && ($rowGroups[$rowIndex] ?? 0) !== ($rowGroups[$end] ?? 0)) {
+                if (!$entry['skip'] && $entry['rowspan'] > 1 && $rowGroups[$rowIndex] !== $rowGroups[$end]) {
                     $crossesGroup = true;
 
                     break 2;

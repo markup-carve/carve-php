@@ -653,6 +653,9 @@ final class BorrowedHtmlLayout
         if ($heads === null || $delimiter === null || $heads === [] || count($heads) !== count($delimiter)) {
             return null;
         }
+        if (in_array('^', $heads, true) || in_array('<', $heads, true)) {
+            return null;
+        }
         $aligns = [];
         foreach ($delimiter as $cell) {
             $align = $this->alignment($cell);
