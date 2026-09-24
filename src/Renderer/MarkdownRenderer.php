@@ -32,6 +32,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
@@ -1178,6 +1179,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 $node instanceof Strike => $this->renderStrike($node),
                 $node instanceof Code => $this->renderCode($node),
                 $node instanceof Mention => $this->renderMention($node),
+                // No Citations extension: the verbatim raw rather than
+                // nothing, as carve-js and carve-rs emit here (#2289).
+                $node instanceof CitationGroup => $node->getRaw(),
                 $rawReference !== null => $this->escapeText($this->stripControls($rawReference)),
                 $node instanceof Link => $this->renderLink($node),
                 $node instanceof Image => $this->renderImage($node),
