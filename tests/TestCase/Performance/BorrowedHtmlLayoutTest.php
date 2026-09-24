@@ -92,6 +92,8 @@ CRV;
                 "[^n]: note\n\nref[^n]\n",
                 "- loose\n\n- list\n",
                 "non-ASCII café\n",
+                "| H | G |\n| --- | --- |\n| a | ^ |\n",
+                "| H | G |\n| --- | --- |\n| a | < |\n",
             ] as $source
         ) {
             $this->assertNull($layout->render($source), $source);

@@ -259,10 +259,8 @@ class ListTableExtension implements ExtensionInterface
         // the colspan of the nearest non-skipped cell to its left (scanning past
         // already-merged columns). A merged marker is flagged `skip` and emits
         // nothing; an unmergeable marker stays a rendered-empty cell. The
-        // header-row count clamps rowspans at the header/body boundary: an HTML
-        // cell cannot reliably span across <thead>/<tbody>, so a `^` that would
-        // extend a header cell down into the body is not merged and degrades to an
-        // empty cell instead.
+        // A resolved span crossing a row-group boundary keeps its extent; the
+        // renderer then puts all rows in one tbody.
         $grid = $this->resolveSpans($rows, $headerRows, $extras, $footerStart, $rowGroups);
 
         // Flow each non-skipped cell to an output column, past any column a
@@ -357,6 +355,27 @@ class ListTableExtension implements ExtensionInterface
 
         $headGrid = array_slice($grid, 0, $headerRows);
         $footGrid = array_slice($grid, $footerStart);
+        $crossesGroup = false;
+        foreach ($grid as $rowIndex => $gridRow) {
+            foreach ($gridRow as $entry) {
+                $end = $rowIndex + $entry['rowspan'] - 1;
+                if (!$entry['skip'] && $entry['rowspan'] > 1 && ($rowGroups[$rowIndex] ?? 0) !== ($rowGroups[$end] ?? 0)) {
+                    $crossesGroup = true;
+
+                    break 2;
+                }
+            }
+        }
+        if ($crossesGroup) {
+            $tbody = '';
+            foreach ($grid as $rowIndex => $gridRow) {
+                $tbody .= '    ' . $renderRow($gridRow, $rowIndex) . "\n";
+            }
+            $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
+            $attrs = $this->renderTableAttributes($node, $renderer);
+
+            return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
+        }
 
         // One row per line, as in every other section (PART 10 §7,
         // markup-carve/carve#1459).
@@ -433,18 +452,15 @@ class ListTableExtension implements ExtensionInterface
     }
 
     /**
-     * Resolve `^` / `<` span markers into a positional grid, EXACTLY mirroring
-     * the pipe-table span model (BlockParser grid walk / carve-js render-html
-     * `renderTable`) so the output is identical to the equivalent pipe table.
+     * Resolve `^` / `<` markers into a positional grid using the pipe-table
+     * span walk. A caret below a consumed colspan position stays empty unless
+     * a visible span already covers it.
      *
      * @param array<array<\MarkupCarve\Carve\Node\Block\ListItem>> $rows
      * @param int $headerRows Number of leading rows that form the `<thead>`.
      * @param array<int, array<\MarkupCarve\Carve\Node\Node>> $extras Per-cell trailing blocks
      * @param int|null $footerStart
      * @param array<int, int>|null $rowGroups Row-group id for each source row
-     *   (keyed by cell object id). A cell that owns trailing blocks is multi-block
-     *   and is therefore never a bare span marker, even if its first paragraph is
-     *   a lone `^`/`<` - the extra block keeps it a real content cell.
      *
      * @return array<array<int, GridEntry>>
      */
@@ -483,13 +499,19 @@ class ListTableExtension implements ExtensionInterface
 
                 if ($entry['marker'] === '^' && $r > 0) {
                     $up = $lastNonSkip[$c] ?? null;
-                    // Clamp at the header/body boundary: a `^` in a body row must
-                    // not extend a cell that originated in the header rows. Leave
-                    // it unmerged (renders as an empty cell) so no <th rowspan>
-                    // crosses into <tbody>.
-                    $group = static fn (int $row): int => $rowGroups[$row] ?? ($row < $headerRows ? 0 : ($row >= $footerStart ? 2 : 1));
-                    $crossesGroup = $up !== null && $group($up) !== $group($r);
-                    if ($up !== null && isset($grid[$up][$c]) && !$crossesGroup) {
+                    $consumedSource = $up !== null && ($grid[$up][$c]['skip'] ?? false);
+                    $coveredByVisibleSpan = false;
+                    if ($consumedSource) {
+                        $left = $c - 1;
+                        while ($left >= 0 && $grid[$up][$left]['skip']) {
+                            $left--;
+                        }
+                        $origin = $left >= 0 ? $grid[$up][$left] : null;
+                        $coveredByVisibleSpan = $origin !== null
+                            && $left + $origin['colspan'] > $c
+                            && $up + $origin['rowspan'] > $r;
+                    }
+                    if ($up !== null && isset($grid[$up][$c]) && (!$consumedSource || $coveredByVisibleSpan)) {
                         $grid[$up][$c]['rowspan'] = $grid[$up][$c]['rowspan'] + 1;
                         $grid[$r][$c]['skip'] = true;
                     }
@@ -504,9 +526,9 @@ class ListTableExtension implements ExtensionInterface
                     }
                 }
 
-                // A cell that ends up non-skipped becomes the nearest source for
-                // the cells below it in this column.
-                if (!$grid[$r][$c]['skip']) {
+                // A consumed colspan position still covers this source column.
+                // A caret below it is absorbed into that invisible position.
+                if (!$grid[$r][$c]['skip'] || $entry['marker'] === '<') {
                     $lastNonSkip[$c] = $r;
                 }
             }

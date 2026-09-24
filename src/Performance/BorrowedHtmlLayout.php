@@ -687,6 +687,9 @@ final class BorrowedHtmlLayout
             if ($row === null || count($row) !== count($heads)) {
                 return null;
             }
+            if (in_array('^', $row, true) || in_array('<', $row, true)) {
+                return null;
+            }
             $rendered = $renderRow($row, 'td');
             if ($rendered === null) {
                 return null;

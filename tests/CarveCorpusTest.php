@@ -373,6 +373,8 @@ class CarveCorpusTest extends TestCase
         'table-column-alignment',
         'table-doubled-alignment-marker',
         'table-header-cell-rowspan',
+        'an-explicit-table-head-span-keeps-one-row-group',
+        'a-table-foot-span-keeps-one-row-group',
         'table-multi-line-cell-continuation',
         'table-per-cell-alignment-override',
         'table-row-attributes',

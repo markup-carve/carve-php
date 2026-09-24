@@ -556,13 +556,10 @@ class ListTableExtensionTest extends TestCase
         $this->assertSame($pipeHtml, $this->render($listTable));
     }
 
-    public function testRowspanInColumnZeroDoesNotCrossHeaderBoundary(): void
+    public function testRowspanInColumnZeroKeepsOneBodyGroup(): void
     {
-        // A `^` in a BODY row whose origin sits in the header rows must NOT pull
-        // a rowspan across the <thead>/<tbody> boundary (an HTML cell cannot
-        // reliably span row groups). The header cell stays a plain <th scope="col"> and the
-        // `^` degrades to an empty body cell. This deliberately diverges from the
-        // equivalent pipe table, which has no such row-group boundary.
+        // A header cell spanning into the body keeps its rowspan. The renderer
+        // uses one tbody so the span still occupies the authored slots.
         $djot = implode("\n", [
             '{header-rows=1}',
             '::: list-table',
@@ -577,24 +574,19 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead>',
-            '    <tr><th scope="col">A</th><th scope="col">B</th><th scope="col">C</th></tr>',
-            '  </thead>',
             '  <tbody>',
-            '    <tr><td></td><td>E</td><td>F</td></tr>',
+            '    <tr><th scope="col" rowspan="2">A</th><th scope="col">B</th><th scope="col">C</th></tr>',
+            '    <tr><td>E</td><td>F</td></tr>',
             '  </tbody>',
             '</table>',
         ]);
         $this->assertSame($expected, $this->render($djot));
     }
 
-    public function testRowspanUnderColspanBodyClampedAtHeaderBoundary(): void
+    public function testCaretBelowConsumedHeaderColspanStaysEmpty(): void
     {
-        // A `^` under the BODY column of a wide HEADER cell would extend it both
-        // down and across, but the down-span is clamped at the header/body
-        // boundary: the header cell keeps only its colspan, and the body row gets
-        // plain cells (the `^` degrades to an empty cell). HTML cannot span a
-        // <th scope="col"> from <thead> into <tbody>, so this diverges from the pipe table.
+        // The source position is consumed by a header colspan, so no visible
+        // cell can extend downward. The body marker remains an empty cell.
         $listTable = implode("\n", [
             '{header-rows=1}',
             '::: list-table',
@@ -828,11 +820,8 @@ class ListTableExtensionTest extends TestCase
         $this->assertSame(1, substr_count($withExtension, 'stray block'));
     }
 
-    public function testHeaderRowRowspanDoesNotCrossIntoBody(): void
+    public function testHeaderRowRowspanKeepsOneBodyGroup(): void
     {
-        // With header-rows=1, a `^` in the body under a header cell must not
-        // create a <th rowspan> reaching from <thead> into <tbody>. The header
-        // cell stays a plain <th scope="col"> and the `^` degrades to an empty body cell.
         $djot = implode("\n", [
             '{header-rows=1}',
             '::: list-table',
@@ -845,18 +834,16 @@ class ListTableExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<table>',
-            '  <thead>',
-            '    <tr><th scope="col">H1</th><th scope="col">H2</th></tr>',
-            '  </thead>',
             '  <tbody>',
-            '    <tr><td></td><td>x</td></tr>',
+            '    <tr><th scope="col" rowspan="2">H1</th><th scope="col">H2</th></tr>',
+            '    <tr><td>x</td></tr>',
             '  </tbody>',
             '</table>',
         ]);
 
         $html = $this->render($djot);
         $this->assertSame($expected, $html);
-        $this->assertStringNotContainsString('rowspan', $html);
+        $this->assertStringContainsString('rowspan="2"', $html);
     }
 
     public function testMultiBlockCellStartingWithMarkerCharIsNotASpanMarker(): void
@@ -1081,5 +1068,99 @@ class ListTableExtensionTest extends TestCase
         self::assertIsString($source);
         self::assertIsString($expected);
         $this->assertSame(trim($expected), trim($this->render($source)));
+    }
+
+    public function testLocalBodyGroupRowspanKeepsOneTbody(): void
+    {
+        $source = "::: list-table\n- -{header-row} Name\n  - Value\n- - Alpha\n  - 1\n- -{header-row} Next\n  - ^\n- - Beta\n  - 2\n:::";
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><th scope="col">Name</th><th scope="col">Value</th></tr>',
+            '    <tr><td>Alpha</td><td rowspan="2">1</td></tr>',
+            '    <tr><th scope="col">Next</th></tr>',
+            '    <tr><td>Beta</td><td>2</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($source));
+    }
+
+    public function testCrossingHeaderColspanAbsorbsBothCarets(): void
+    {
+        $source = "{header-rows=1}\n::: list-table\n- - A\n  - <\n  - C\n- - ^\n  - ^\n  - Y\n:::";
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><th scope="col" rowspan="2" colspan="2">A</th><th scope="col">C</th></tr>',
+            '    <tr><td>Y</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($source));
+    }
+
+    public function testUncoveredCaretInOneBodyGroupStaysEmpty(): void
+    {
+        $source = "::: list-table\n- - A\n  - <\n  - X\n- - B\n  - ^\n  - Y\n:::";
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><td colspan="2">A</td><td>X</td></tr>',
+            '    <tr><td>B</td><td></td><td>Y</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($source));
+    }
+
+    public function testBlockedCaretAcrossLocalBodyGroupsStaysEmpty(): void
+    {
+        $source = "::: list-table\n- -{header-row} H0\n  - H1\n  - H2\n- - A\n  - <\n  - R\n- -{header-row} H\n  - ^\n  - z\n:::";
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><th scope="col">H0</th><th scope="col">H1</th><th scope="col">H2</th></tr>',
+            '    <tr><td colspan="2">A</td><td>R</td></tr>',
+            '  </tbody>',
+            '  <tbody>',
+            '    <tr><th scope="col">H</th><th scope="col"></th><th scope="col">z</th></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($source));
+    }
+
+    public function testBlockedCaretAtBodyFootBoundaryStaysEmpty(): void
+    {
+        $source = "{header-rows=1 footer-rows=1}\n::: list-table\n- - A\n  - B\n  - Q\n- - C\n  - <\n  - R\n- - x\n  - ^\n  - z\n:::";
+        $expected = implode("\n", [
+            '<table>',
+            '  <thead>',
+            '    <tr><th scope="col">A</th><th scope="col">B</th><th scope="col">Q</th></tr>',
+            '  </thead>',
+            '  <tbody>',
+            '    <tr><td colspan="2">C</td><td>R</td></tr>',
+            '  </tbody>',
+            '  <tfoot>',
+            '    <tr><td>x</td><td></td><td>z</td></tr>',
+            '  </tfoot>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($source));
+    }
+
+    public function testBodyToFootRowspanKeepsOneTbody(): void
+    {
+        $source = "{footer-rows=1}\n::: list-table\n- - A\n  - B\n- - ^\n  - C\n:::";
+        $expected = implode("\n", [
+            '<table>',
+            '  <tbody>',
+            '    <tr><td rowspan="2">A</td><td>B</td></tr>',
+            '    <tr><td>C</td></tr>',
+            '  </tbody>',
+            '</table>',
+        ]);
+        $this->assertSame($expected, $this->render($source));
     }
 }
