@@ -35,6 +35,7 @@ class AMarkdownSetextHeadingKeepsItsContainerTest extends TestCase
             'an indented continuation in a quote' => ["> foo\n>     bar\n> ---\n", "> ## foo bar\n"],
             'a lazy line in a quoted heading' => ["> foo\nbar\n> ---\n", "> ## foo bar\n"],
             'a heading on a quoted item line' => ["> - b\n>   ---\n", "> - ## b\n"],
+            'a heading on a tab-padded quoted item line' => ["> -\tfoo\n>    ---\n", "> - ## foo\n"],
             'a hard break in a two-line heading' => ["foo\\\nbar\n---\n", "## foo bar\n"],
             'an escaped backslash ending a heading line' => ["foo\\\\\nbar\n---\n", "## foo\\\\ bar\n"],
             'an HTML block ending the paragraph' => ["foo\n<div>\n---\n", "foo\n\n```=html\n<div>\n---\n```\n"],

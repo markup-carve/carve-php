@@ -830,6 +830,11 @@ class MarkdownToCarve
                 }
                 if (str_starts_with($body, '>') && preg_match('/^((?:> )+)(.*)$/s', $body, $quoted) === 1) {
                     $quotedText = $quoted[2];
+                    // A tab after a quoted item's marker pads to the tab stop of
+                    // the column it stands in, which the quote markers set.
+                    if (str_contains($quotedText, "\t") && str_starts_with($line, $quoted[1]) && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]/', $quotedText) === 1) {
+                        $quotedText = substr($this->spaceMarkerPadding(str_repeat(' ', strlen($quoted[1])) . $quotedText), strlen($quoted[1]));
+                    }
                     if (trim($quotedText) === '') {
                         $sourceBlanks[count($result)] = true;
                     } elseif (!($quotePrev !== null && $prevLineType === 'blockquote' && $quotePrev['prefix'] === $quoted[1] && $this->quoteParagraphIsOpen($quotePrev['text']))) {
