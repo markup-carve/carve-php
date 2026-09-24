@@ -64,7 +64,7 @@ class ContainerFenceLookaheadTest extends TestCase
     public function testLazyMarkerLineColonOpenerDoesNotClaimAContentColumnRun(string $source, string $list): void
     {
         $this->assertSame(
-            "<{$list}>\n  <li>:::\ny\n    <div>\n    </div>\n  </li>\n</{$list}>",
+            "<{$list}>\n  <li>:::\ny\n    <div>\n\n    </div>\n  </li>\n</{$list}>",
             $this->html($source),
         );
     }

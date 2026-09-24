@@ -288,7 +288,7 @@ trait EscapesCarveConstructs
         }
 
         if (!str_contains($bareHandled, '#')) {
-            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9&])(?<!(?<!\\\\)\{)#(?=[A-Za-z0-9-])/', $line);
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9])(?<!(?<!\\\\)\{)#(?=[A-Za-z0-9-])/', $line);
         }
 
         if (!str_contains($bareHandled, '@')) {
@@ -321,6 +321,11 @@ trait EscapesCarveConstructs
         }
 
         return $line;
+    }
+
+    protected function restoreNumericReferenceHashes(string $text): string
+    {
+        return preg_replace('/&\\\\#(?=(?:[0-9]+|[xX][0-9A-Fa-f]+);)/', '&#', $text) ?? $text;
     }
 
     /**

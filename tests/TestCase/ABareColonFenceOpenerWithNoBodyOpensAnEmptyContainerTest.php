@@ -46,15 +46,15 @@ class ABareColonFenceOpenerWithNoBodyOpensAnEmptyContainerTest extends TestCase
     public static function openerProvider(): array
     {
         return [
-            'a paragraph then a bare run at top level' => ["text\n:::\n", "<p>text</p>\n<div>\n</div>"],
-            'a bare run alone at top level' => [":::\n", "<div>\n</div>"],
-            'a paragraph then a bare run in a list item' => ["- a\n  p\n  :::\n", "<ul>\n  <li>a\np\n    <div>\n    </div>\n  </li>\n</ul>"],
-            'a bare run alone in a list item' => ["- a\n  :::\n", "<ul>\n  <li>a\n    <div>\n    </div>\n  </li>\n</ul>"],
-            'a paragraph then a bare run in a quote' => ["> a\n> p\n> :::\n", "<blockquote>\n  <p>a\np</p>\n  <div>\n  </div>\n</blockquote>"],
-            'a wrong-width run inside a div opens a block' => [":::: d\np\n:::\n", "<div class=\"d\">\n  <p>p</p>\n  <div>\n  </div>\n</div>"],
-            'a wrong-width run in a note body, list item' => ["- a\n  :::: note\n  :::\n  p\n  ::::\n\nafter\n", "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <div>\n        <p>p</p>\n        <div>\n        </div>\n      </div>\n    </aside>\n  </li>\n</ul>\n<p>after</p>"],
-            'a wrong-width run in a note body, quote' => ["> a\n> :::: note\n> :::\n> p\n> ::::\n\nafter\n", "<blockquote>\n  <p>a</p>\n  <aside class=\"admonition note\" aria-label=\"Note\">\n    <div>\n      <p>p</p>\n      <div>\n      </div>\n    </div>\n  </aside>\n</blockquote>\n<p>after</p>"],
-            'a wrong-width run in a note body, footnote' => ["[^f]: a\n  :::: note\n  :::\n  p\n  ::::\n\nx[^f]\n", "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>a</p>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <div>\n          <p>p</p>\n          <div>\n          </div>\n        </div>\n      </aside>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"],
+            'a paragraph then a bare run at top level' => ["text\n:::\n", "<p>text</p>\n<div>\n\n</div>"],
+            'a bare run alone at top level' => [":::\n", "<div>\n\n</div>"],
+            'a paragraph then a bare run in a list item' => ["- a\n  p\n  :::\n", "<ul>\n  <li>a\np\n    <div>\n\n    </div>\n  </li>\n</ul>"],
+            'a bare run alone in a list item' => ["- a\n  :::\n", "<ul>\n  <li>a\n    <div>\n\n    </div>\n  </li>\n</ul>"],
+            'a paragraph then a bare run in a quote' => ["> a\n> p\n> :::\n", "<blockquote>\n  <p>a\np</p>\n  <div>\n\n  </div>\n</blockquote>"],
+            'a wrong-width run inside a div opens a block' => [":::: d\np\n:::\n", "<div class=\"d\">\n  <p>p</p>\n  <div>\n\n  </div>\n</div>"],
+            'a wrong-width run in a note body, list item' => ["- a\n  :::: note\n  :::\n  p\n  ::::\n\nafter\n", "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <div>\n        <p>p</p>\n        <div>\n\n        </div>\n      </div>\n    </aside>\n  </li>\n</ul>\n<p>after</p>"],
+            'a wrong-width run in a note body, quote' => ["> a\n> :::: note\n> :::\n> p\n> ::::\n\nafter\n", "<blockquote>\n  <p>a</p>\n  <aside class=\"admonition note\" aria-label=\"Note\">\n    <div>\n      <p>p</p>\n      <div>\n\n      </div>\n    </div>\n  </aside>\n</blockquote>\n<p>after</p>"],
+            'a wrong-width run in a note body, footnote' => ["[^f]: a\n  :::: note\n  :::\n  p\n  ::::\n\nx[^f]\n", "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>a</p>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <div>\n          <p>p</p>\n          <div>\n\n          </div>\n        </div>\n      </aside>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"],
             'nested wrong-width runs in a div body' => ["::::: outer\n:::: note\n:::\np\n::::\n:::::\n\nafter\n", "<div class=\"outer\">\n  <aside class=\"admonition note\" aria-label=\"Note\">\n    <div>\n      <p>p</p>\n      <div>\n        <div>\n          <p>after</p>\n        </div>\n      </div>\n    </div>\n  </aside>\n</div>"],
             'the same note document at top level' => [":::: note\n:::\np\n::::\n\nafter\n", "<aside class=\"admonition note\" aria-label=\"Note\">\n  <div>\n    <p>p</p>\n    <div>\n      <p>after</p>\n    </div>\n  </div>\n</aside>"],
         ];

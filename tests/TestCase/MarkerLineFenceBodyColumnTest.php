@@ -33,7 +33,7 @@ class MarkerLineFenceBodyColumnTest extends TestCase
         $html = $this->converter->convert("- ::: note\nbody\n:::");
 
         $this->assertSame(
-            "<ul>\n  <li>::: note\nbody</li>\n</ul>\n<div>\n</div>\n",
+            "<ul>\n  <li>::: note\nbody</li>\n</ul>\n<div>\n\n</div>\n",
             $html,
         );
     }

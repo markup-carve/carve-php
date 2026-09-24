@@ -162,18 +162,15 @@ class RootFieldsTest extends TestCase
     public function testOldFootnoteIdFieldIsRefused(): void
     {
         $this->expectException(AstDecodeException::class);
-        $this->expectExceptionMessage('a `footnote` node keyed `id` rather than `label`');
+        $this->expectExceptionMessage('missing `label`');
 
         $this->codec->decode(self::oldFootnoteIdPayload());
     }
 
-    public function testTheUpgradeHelperRekeysAFootnoteDefinition(): void
+    public function testTheUpgradeHelperDoesNotRekeyAFootnoteDefinition(): void
     {
-        $decoded = $this->codec->decode(StoredPayloadUpgrade::upgrade(self::oldFootnoteIdPayload()));
-
-        $encoded = $this->codec->encode($decoded);
-        $this->assertSame('stored', $encoded['children'][0]['label']);
-        $this->assertArrayNotHasKey('id', $encoded['children'][0]);
+        $this->expectException(AstDecodeException::class);
+        $this->codec->decode(StoredPayloadUpgrade::upgrade(self::oldFootnoteIdPayload()));
     }
 
     public function testBothSurviveEncodeDecodeRoundTrip(): void

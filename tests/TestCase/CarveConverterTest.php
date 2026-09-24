@@ -1137,15 +1137,11 @@ DJOT;
         $this->assertStringContainsString('Content', $result);
     }
 
-    public function testEmptyDivEmitsCompactBody(): void
+    public function testEmptyDivKeepsItsBodyLine(): void
     {
-        // An empty div has no blank body line. This assertion used to expect
-        // `<div>\n\n</div>` and claimed that matched carve-js / carve-rs; it did
-        // not - both emit the compact form, and so does the corpus. A
-        // pre-existing divergence, corrected here rather than left because the
-        // fence work touched this renderer path anyway. (The empty ADMONITION
-        // still carries a blank line in every engine; that shape is unchanged.)
-        $this->assertSame("<div>\n</div>\n", $this->converter->convert("::: \n:::"));
+        foreach ([":::\n:::", ":::\n%% hidden\n:::"] as $source) {
+            $this->assertSame("<div>\n\n</div>\n", $this->converter->convert($source));
+        }
     }
 
     public function testNestedDivs(): void

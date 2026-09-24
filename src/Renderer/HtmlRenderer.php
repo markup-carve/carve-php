@@ -1689,15 +1689,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
             $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
-            if ($body === '') {
-                // An empty admonition emits a blank body line
-                // (`<aside>\n\n</aside>`), matching the empty-blockquote shape
-                // and carve-js / carve-rs (carve spec #114).
-                return '<aside' . $this->renderAttributeArray($attrs) . ">\n\n</aside>\n";
-            }
-
-            return '<aside' . $this->renderAttributeArray($attrs) . ">\n"
-                . $body . "\n</aside>\n";
+            return $this->frameBlockContainer(
+                '<aside' . $this->renderAttributeArray($attrs) . '>',
+                $body,
+                '</aside>',
+            );
         }
 
         // Tier 2: a custom type renders as a generic <div class="{type}">,
@@ -1705,22 +1701,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $attrs = $this->renderAttributeArray($this->getRenderableAttributes($node), 'div');
         $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
-        if ($body === '') {
-            // PART 10 §4: an empty container body keeps a BLANK LINE, and the
-            // one exception is a BARE `:::` div - no type word - which closes
-            // on the next line. The split is on the opener's spelling, not on
-            // whether the div ends up with a class: `{.b}` above a bare `:::`
-            // is compact here and in carve-js / carve-rs, while `::: b` is not.
-            // This engine emitted the compact form for both, which is the one
-            // shape the corpus pinned nowhere (carve#570).
-            if ($node->isTyped()) {
-                return '<div' . $attrs . ">\n\n</div>\n";
-            }
-
-            return '<div' . $attrs . ">\n</div>\n";
-        }
-
-        return '<div' . $attrs . ">\n" . $body . "\n</div>\n";
+        return $this->frameBlockContainer('<div' . $attrs . '>', $body, '</div>');
     }
 
     protected function renderLineBlock(LineBlock $node): string
@@ -1740,7 +1721,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 : '  ' . substr($rendered, 0, $newline) . substr($rendered, $newline) . "\n";
         }
 
-        $html = '<div' . $this->renderAttributeArray($attrs, 'div') . ">\n" . $inner . "</div>\n";
+        $html = $this->frameBlockContainer(
+            '<div' . $this->renderAttributeArray($attrs, 'div') . '>',
+            rtrim($inner, "\n"),
+            '</div>',
+        );
 
         return str_replace("\u{00A0}", '&nbsp;', $html);
     }
@@ -1841,11 +1826,17 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         $body = rtrim($body, "\n");
-        if ($body === '') {
-            return '<figure' . $attrs . ">\n</figure>\n";
-        }
 
-        return '<figure' . $attrs . ">\n" . $this->indentBlock($body, 2) . "\n</figure>\n";
+        return $this->frameBlockContainer(
+            '<figure' . $attrs . '>',
+            $body === '' ? '' : $this->indentBlock($body, 2),
+            '</figure>',
+        );
+    }
+
+    private function frameBlockContainer(string $open, string $body, string $close): string
+    {
+        return $open . "\n" . ($body === '' ? "\n" : $body . "\n") . $close . "\n";
     }
 
     protected function renderTable(Table $node): string

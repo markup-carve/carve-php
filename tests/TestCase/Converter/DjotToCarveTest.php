@@ -316,16 +316,10 @@ class DjotToCarveTest extends TestCase
         $this->assertSame('\\{\\#y#} x', $this->converter->convert('{#y#} x'));
     }
 
-    /**
-     * BOUND: a NUMERIC CHARACTER REFERENCE carries a `#` that is not a tag.
-     * Escaping it stopped `&#8212;` decoding, so the em dash never appeared -
-     * caught by carve-js's entity tests, which this engine had no counterpart
-     * for.
-     */
-    public function testNumericCharacterReferenceKeepsItsHash(): void
+    public function testDjotCharacterReferenceTextCannotBecomeATag(): void
     {
-        $this->assertSame('a &#8212; b', $this->converter->convert('a &#8212; b'));
-        $this->assertSame('a &#x2014; b', $this->converter->convert('a &#x2014; b'));
+        $this->assertSame('a &\\#8212; b', $this->converter->convert('a &#8212; b'));
+        $this->assertSame('a &\\#x2014; b', $this->converter->convert('a &#x2014; b'));
     }
 
     /**

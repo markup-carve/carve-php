@@ -58,10 +58,8 @@ class ABareFigureFenceIsACompositeFigureTest extends TestCase
 
     public function testAnEmptyGroupRendersTheBareContainerEmptyBodyShape(): void
     {
-        // The oracle keeps the PART 10 §4 exception the BARE div takes: an
-        // empty uncaptioned group closes on the next line, no blank body line.
         $this->assertSame(
-            "<figure class=\"carve-figure-group\">\n</figure>\n",
+            "<figure class=\"carve-figure-group\">\n\n</figure>\n",
             (new CarveConverter())->convert("::: figure\n:::\n"),
         );
     }

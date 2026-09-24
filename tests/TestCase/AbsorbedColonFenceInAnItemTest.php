@@ -138,11 +138,11 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // Absorption belongs to ONE paragraph, so the `:::` below the heading is
         // a real div opener and `tail` ends the item.
         $this->assertSame(
-            "<ul>\n  <li>item\n:::note\n    <h1 id=\"h\">h</h1>\n    <div>\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li>item\n:::note\n    <h1 id=\"h\">h</h1>\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  :::note\n  # h\n  :::\ntail\n"),
         );
         $this->assertSame(
-            "<ul>\n  <li>item\n:::note\n    <table>\n      <tbody>\n        <tr><td>a</td></tr>\n      </tbody>\n    </table>\n    <div>\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li>item\n:::note\n    <table>\n      <tbody>\n        <tr><td>a</td></tr>\n      </tbody>\n    </table>\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  :::note\n  | a |\n  :::\ntail\n"),
         );
     }

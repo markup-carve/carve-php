@@ -65,22 +65,18 @@ final class StoredPayloadUpgrade
         }
 
         $types = [];
-        $labels = false;
         // The tree and the legacy definition map, and NOT the other retired
         // root fields: `abbreviations` is keyed by the abbreviation, so an
         // expansion map holding `type` would be read as a node.
         foreach (['children', 'footnoteDefs'] as $field) {
             if (is_array($payload[$field] ?? null)) {
-                self::scan($payload[$field], $types, $labels);
+                self::scan($payload[$field], $types);
             }
         }
         foreach (array_keys(AstCodec::NOT_ON_THE_WIRE) as $type) {
             if (isset($types[$type])) {
                 $found[] = sprintf('a `%s` node', $type);
             }
-        }
-        if ($labels) {
-            $found[] = 'a `footnote` node keyed `id` rather than `label`';
         }
 
         return $found;
@@ -116,9 +112,8 @@ final class StoredPayloadUpgrade
     /**
      * @param array<mixed> $node
      * @param array<string, true> $types
-     * @param bool $labels
      */
-    private static function scan(array $node, array &$types, bool &$labels): void
+    private static function scan(array $node, array &$types): void
     {
         $type = $node['type'] ?? null;
         if (is_string($type) && AstCodec::isApplicationType($type)) {
@@ -127,9 +122,6 @@ final class StoredPayloadUpgrade
         if (is_string($type)) {
             if (isset(AstCodec::NOT_ON_THE_WIRE[$type])) {
                 $types[$type] = true;
-            }
-            if ($type === 'footnote' && !array_key_exists('label', $node) && array_key_exists('id', $node)) {
-                $labels = true;
             }
         }
 
@@ -140,7 +132,7 @@ final class StoredPayloadUpgrade
             if ($key === 'attrs' || $key === 'pos' || !is_array($value)) {
                 continue;
             }
-            self::scan($value, $types, $labels);
+            self::scan($value, $types);
         }
     }
 
@@ -404,7 +396,7 @@ final class StoredPayloadUpgrade
     }
 
     /**
-     * The two node-level rewrites, everywhere in the tree.
+     * Rewrite retired node types everywhere in the tree.
      *
      * @param array<mixed> $node
      *
@@ -420,16 +412,6 @@ final class StoredPayloadUpgrade
             // alone for exactly that reason. Register the class before running
             // the migration, or its own fields are read as nodes.
             return $node;
-        }
-        if ($type === 'footnote' && !array_key_exists('label', $node) && array_key_exists('id', $node)) {
-            // §7 renamed a footnote definition's `id` to `label`. Rebuilt rather
-            // than assigned so the field keeps the slot `id` held, which is what
-            // makes the upgraded payload compare byte for byte with an encode.
-            $rebuilt = [];
-            foreach ($node as $key => $value) {
-                $rebuilt[$key === 'id' ? 'label' : $key] = $value;
-            }
-            $node = $rebuilt;
         }
         if (is_string($type) && isset(AstCodec::NOT_ON_THE_WIRE[$type])) {
             // A type the vocabulary has never held, published under the name it
