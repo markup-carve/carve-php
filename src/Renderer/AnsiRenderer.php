@@ -31,6 +31,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
@@ -679,6 +680,9 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $node instanceof Code => $this->renderCode($node),
                 $rawReference !== null => $this->stripControls($rawReference),
                 $node instanceof Mention => $this->renderMention($node),
+                // No Citations extension: the verbatim raw rather than
+                // nothing, as carve-js and carve-rs emit here (#2289).
+                $node instanceof CitationGroup => $node->getRaw(),
                 $node instanceof Link => $this->renderLink($node),
                 // A BLOCK-position image needs the separator a paragraph would
                 // have added; without it the image ran straight into whatever

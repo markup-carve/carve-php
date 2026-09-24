@@ -226,10 +226,18 @@ class ACitationDefinitionIsANodeTest extends TestCase
      * every renderer falls back to rendering a node's children, so a node
      * holding the entry's inlines and no arm of its own would print the
      * bibliography entry into the document flow on all five.
+     *
+     * THE DEFINITION IS WHAT RENDERS NOTHING, NOT THE CITATION. This expected
+     * string used to drop the groups as well, which pinned a divergence rather
+     * than the clause: the Citations extension renders a group through its
+     * `render.citation_group` listener on the HTML renderer alone, so on these
+     * three targets the group reached no arm and vanished. carve-js and carve-rs
+     * both print the group's verbatim `[...]` on every target, in either
+     * extension state (markup-carve/carve-php#2289).
      */
     public function testTheDefinitionRendersNothingOnEveryTarget(): void
     {
-        $expected = 'Smith  and others  agree.';
+        $expected = 'Smith [@smith2020] and others [see @jones2019, p. 4; -@doe2021] agree.';
 
         foreach ([MarkdownRenderer::class, PlainTextRenderer::class, AnsiRenderer::class] as $class) {
             $converter = $this->converter();
