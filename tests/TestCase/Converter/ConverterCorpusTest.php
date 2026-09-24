@@ -108,6 +108,24 @@ class ConverterCorpusTest extends TestCase
     }
 
     /**
+     * The Markdown importer writes the source `carve fmt` writes, so formatting
+     * what it produced changes nothing.
+     */
+    #[DataProvider('corpusProvider')]
+    public function testAMarkdownImportIsAWriterFixedPoint(string $slug, string $format, string $source, string $expected, ?string $canonical): void
+    {
+        if ($format !== 'md') {
+            $this->addToAssertionCount(1);
+
+            return;
+        }
+
+        $carve = $this->convertCase($slug, $format, $source);
+
+        $this->assertSame($carve, CarveConverter::toCarve($carve), 'carve fmt rewrites the import of ' . $slug);
+    }
+
+    /**
      * A declaration that no longer describes the engine is worse than none: it
      * hides a case that passes. Deleting the entry is the commit that proves
      * the fix, so this fails the moment the entry stops being true.

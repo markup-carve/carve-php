@@ -21,7 +21,7 @@ class ADefinitionShapedParagraphLineStaysTextTest extends TestCase
     {
         return [
             'after paragraph text' => ["text\n[p]: /x", "text\n\\[p]: /x"],
-            'a lazy line after a quote' => ["> text\n[p]: /x", "> text\n\\[p]: /x"],
+            'a lazy line after a quote' => ["> text\n[p]: /x", "> text\n> \\[p]: /x"],
             'inside a quote' => ["> text\n> [p]: /x", "> text\n> \\[p]: /x"],
             'inside a list item' => ["- item\n  [p]: /x", "- item\n  \\[p]: /x"],
             'a run of them' => ["text\n[a]: /a\n[b]: /b", "text\n\\[a]: /a\n\\[b]: /b"],

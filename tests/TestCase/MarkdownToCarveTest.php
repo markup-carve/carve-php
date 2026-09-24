@@ -184,7 +184,7 @@ class MarkdownToCarveTest extends TestCase
             ],
             'preserves a list-nested Markdown fence at its content column' => [
                 "- item\n  ``` php\n  *a*\n    indented\n  ```",
-                "- item\n\n  ```php\n  *a*\n    indented\n  ```",
+                "- item\n  ```php\n  *a*\n    indented\n  ```",
             ],
             'strips the leading space and the rest of the info' => [
                 "``` js title=\"x\"\n*a*\n```",
@@ -260,11 +260,11 @@ class MarkdownToCarveTest extends TestCase
             ],
             'separates a 1-3 space indented top-level list after text' => [
                 "text\n  - item",
-                "text\n\n  - item",
+                "text\n\n- item",
             ],
             'preserves indented sibling list items' => [
                 "  - one\n  - two",
-                "  - one\n  - two",
+                "- one\n- two",
             ],
             'keeps an indented blockquote inside a list item' => [
                 "- item\n  > quote",
@@ -276,7 +276,7 @@ class MarkdownToCarveTest extends TestCase
             ],
             'treats a leading-zero 01. marker as start 1' => [
                 "Intro\n01. item",
-                "Intro\n\n01. item",
+                "Intro\n\n1. item",
             ],
             'inserts a blank line before a blockquote following text' => [
                 "text\n> quote",
@@ -284,7 +284,7 @@ class MarkdownToCarveTest extends TestCase
             ],
             'normalizes tight Markdown blockquote markers to Carve spacing' => [
                 ">quote\n>>nested",
-                "> quote\n> > nested",
+                "> quote\n>\n> > nested",
             ],
             'collapses 3+ consecutive blank lines to 2' => [
                 "a\n\n\n\nb",
@@ -308,7 +308,7 @@ class MarkdownToCarveTest extends TestCase
             ],
             'flips a colliding marker for + then - back-to-back' => [
                 "+ a\n- b",
-                "- a\n* b",
+                "- a\n\n* b",
             ],
             // A fence is re-based to its container's content column. A
             // document-level fence has column 0, so its 1-3 space Markdown slack
@@ -321,25 +321,25 @@ class MarkdownToCarveTest extends TestCase
             // loses only the slack above it (item content column 2, fence 3).
             'strips only the slack above a list item content column' => [
                 "- item\n   ```\n   code\n   ```",
-                "- item\n\n  ```\n  code\n  ```",
+                "- item\n  ```\n  code\n  ```",
             ],
             // The task checkbox is content, not marker: the column is 2 (the
             // `- `), so a col-2 fence stays in the item rather than dedenting.
             'measures a task item column by marker width, not the checkbox' => [
                 "- [ ] task\n  ```\n  code\n  ```",
-                "- [ ] task\n\n  ```\n  code\n  ```",
+                "- [ ] task\n  ```\n  code\n  ```",
             ],
             // After a nested child list the fence re-bases to the OUTER item
             // column (2), not to document level.
             're-bases a fence to the parent column after a nested child list' => [
                 "- outer\n  - inner\n  ```\n  code\n  ```",
-                "- outer\n  - inner\n\n  ```\n  code\n  ```",
+                "- outer\n  - inner\n  ```\n  code\n  ```",
             ],
             // A column-0 line with NO blank before it is lazy continuation: the
             // item stays open and the col-2 fence keeps its indent.
             'keeps the item column across a lazy paragraph continuation' => [
                 "- item\ncontinued\n  ```\n  code\n  ```",
-                "- item\ncontinued\n\n  ```\n  code\n  ```",
+                "- item\n  continued\n  ```\n  code\n  ```",
             ],
             // A blank before a column-0 line ends the list; the fence is then
             // document-level and dedents to column 0.
@@ -379,7 +379,7 @@ class MarkdownToCarveTest extends TestCase
             ],
             'preserves a lazy blockquote continuation' => [
                 "> quote\ntext",
-                "> quote\ntext",
+                "> quote\n> text",
             ],
             'keeps a full fence info string (Carve PHP accepts c++ etc.)' => [
                 "```c++\nx\n```",

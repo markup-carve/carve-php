@@ -27,7 +27,7 @@ class AnEmptyMarkdownListItemIsAFirstBlockItemTest extends TestCase
             'after a heading' => ["# h\n-", "# h\n\n- +"],
             'after a block quote' => ["> q\n-", "> q\n\n- +"],
             'a setext underline after text' => ["text\n-", '## text'],
-            'a marker indented into the item above' => ["- a\n  -\n- b", "- a\n  -\n- b"],
+            'a marker indented into the item above' => ["- a\n  -\n- b", "- ## a\n- b"],
         ];
     }
 

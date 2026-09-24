@@ -89,17 +89,17 @@ class ABlankAboveAMarkdownSublistKeepsTheListLooseTest extends TestCase
         return [
             'a list line inside a fence' => [
                 "- a\n  ```\n  x\n\n  - y\n  ```",
-                "- a\n\n  ```\n  x\n\n  - y\n  ```",
+                "- a\n  ```\n  x\n\n  - y\n  ```",
                 "<ul><li>a<pre><code>x\n\n- y</code></pre></li></ul>",
             ],
             'a paragraph between an item and an indented list' => [
                 "- x\n\ny\n\n  - b",
-                "- x\n\ny\n\n  - b",
+                "- x\n\ny\n\n- b",
                 '<ul><li>x</li></ul><p>y</p><ul><li>b</li></ul>',
             ],
             'a list after an adjacent list of another marker' => [
                 "- a\n* b\n\n  - c",
-                "- a\n{loose}\n* b\n\n  - c",
+                "- a\n\n{loose}\n* b\n\n  - c",
                 '<ul><li>a</li></ul><ul><li><p>b</p><ul><li>c</li></ul></li></ul>',
             ],
         ];
