@@ -10,6 +10,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - HTML rendering writes an ingested citation group's escaped `raw` source when the citations extension is off, including CLI JSON input (#2289).
+- Markdown import keeps fenced and indented code as code inside a block quote held by a list item (#2285).
 
 ### Changed
 

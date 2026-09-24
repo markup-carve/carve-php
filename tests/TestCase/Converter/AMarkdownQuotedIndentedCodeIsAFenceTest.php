@@ -58,7 +58,7 @@ class AMarkdownQuotedIndentedCodeIsAFenceTest extends TestCase
             'a tab-padded item the quote holds' => [">\t- a\n>\n>\t\tcode\n", "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <p>code</p>\n    </li>\n  </ul>\n</blockquote>\n"],
             'a quote line holding only spaces after it' => [">     code\n>   \n> text\n", "<blockquote>\n  <pre><code>code\n</code></pre>\n  <p>text</p>\n</blockquote>\n"],
             'a quote line holding only spaces between paragraphs' => ["> a\n>   \n> b\n", "<blockquote>\n  <p>a</p>\n  <p>b</p>\n</blockquote>\n"],
-            'a quote an item holds stays in the item' => ["- a\n\n  >     code\n", "<ul>\n  <li><p>a</p>\n    <blockquote><p>code</p></blockquote>\n  </li>\n</ul>\n"],
+            'a quote an item holds stays in the item' => ["- a\n\n  >     code\n", "<ul>\n  <li><p>a</p>\n    <blockquote>\n      <pre><code>code\n</code></pre>\n    </blockquote>\n  </li>\n</ul>\n"],
             'after an earlier tab outside any item' => ["> \tx\n>\n>     *code*\n", "<blockquote>\n  <p>x</p>\n  <pre><code>*code*\n</code></pre>\n</blockquote>\n"],
             'under a paragraph it continues' => ["> text\n>     not code\n", "<blockquote><p>text\nnot code</p></blockquote>\n"],
         ];

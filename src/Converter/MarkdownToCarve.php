@@ -707,6 +707,19 @@ class MarkdownToCarve
             }
             $tableWidth = 0;
 
+            if ($isBlockquote && $contentCol > 0) {
+                $quotedCode = $this->collectItemQuotedCode($lines, $i, $contentCol, $lazyQuote);
+                if ($quotedCode !== null) {
+                    array_push($result, ...$quotedCode['lines']);
+                    $i = $quotedCode['end'];
+                    $prevLineType = 'list';
+                    $itemParagraph = false;
+                    $itemQuote = null;
+
+                    continue;
+                }
+            }
+
             // A GFM table header: a row whose NEXT line is a delimiter row with
             // as many cells. Emit the Carve-canonical `|=` header with alignment
             // markers and drop the separator. Native `|=` and separatorless
@@ -2568,6 +2581,103 @@ class MarkdownToCarve
         $output[] = $prefix . $canonical;
 
         return ['lines' => $output, 'end' => $end, 'prefix' => $prefix];
+    }
+
+    /**
+     * @param array<int, string> $lines
+     * @param int $contentCol
+     * @param array{prefix: string, col: int}|null $lazyQuote
+     * @param int $start
+     *
+     * @return array{lines: array<int, string>, end: int}|null
+     */
+    protected function collectItemQuotedCode(array $lines, int $start, int $contentCol, ?array $lazyQuote): ?array
+    {
+        $first = $this->normalizeBlockquoteMarkers($this->stripColumns($lines[$start], $contentCol));
+        if (preg_match('/^((?:> )+)(.+)$/s', $first, $match) !== 1) {
+            return null;
+        }
+        [, $prefix, $body] = $match;
+        $paragraphOpen = $lazyQuote !== null
+            && $lazyQuote['col'] === $contentCol
+            && substr_count($prefix, '>') <= substr_count($lazyQuote['prefix'], '>');
+        $fenced = preg_match('/^ {0,3}(?:`{3,}|~{3,})/', $body) === 1;
+        if (!$fenced && ($paragraphOpen || $this->indentWidth($body) < 4)) {
+            return null;
+        }
+
+        // A list nested in the quote has its own content column. Its first
+        // code line follows its marker, possibly with blank quote lines.
+        if ($this->indentWidth($body) > ($fenced ? 0 : 4)) {
+            for ($before = $start - 1; $before >= 0; $before--) {
+                $previous = $lines[$before];
+                if (trim($previous) !== '' && $this->indentWidth($previous) < $contentCol) {
+                    break;
+                }
+                $quotedPrevious = $this->quotedText($this->stripColumns($previous, $contentCol), $prefix);
+                if ($quotedPrevious === null) {
+                    break;
+                }
+                if (trim($quotedPrevious) === '') {
+                    continue;
+                }
+                if (preg_match('/^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]+\S/', $quotedPrevious) === 1) {
+                    return null;
+                }
+
+                break;
+            }
+        }
+        $fenceChar = '';
+        $fenceLength = 0;
+        if ($fenced) {
+            if (preg_match('/^ {0,3}(`{3,}|~{3,})(.*)$/', $body, $open) !== 1) {
+                return null;
+            }
+            $fenceChar = $open[1][0];
+            $fenceLength = strlen($open[1]);
+            if ($fenceChar === '`' && str_contains($open[2], '`')) {
+                return null;
+            }
+        }
+
+        $virtual = [];
+        for ($at = $start, $count = count($lines); $at < $count; $at++) {
+            if ($at > $start && trim($lines[$at]) !== '' && $this->indentWidth($lines[$at]) < $contentCol) {
+                break;
+            }
+            $candidate = $this->indentWidth($lines[$at]) >= $contentCol
+                ? $this->stripColumns($lines[$at], $contentCol)
+                : $lines[$at];
+            $quoted = $this->quotedText($candidate, $prefix);
+            if ($at > $start && $quoted === null) {
+                break;
+            }
+            $virtual[] = $candidate;
+            if ($at === $start) {
+                continue;
+            }
+            if ($fenced && preg_match('/^ {0,3}' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}[ \t]*$/', $quoted ?? '') === 1) {
+                break;
+            }
+            if (!$fenced && $quoted !== '' && $this->indentWidth($quoted ?? '') < 4) {
+                break;
+            }
+        }
+        $opener = $this->normalizeBlockquoteMarkers($virtual[0]);
+        $block = $this->collectQuotedFence($virtual, 0, $opener)
+            ?? ($paragraphOpen ? null : $this->collectQuotedIndentedCode($virtual, 0, [], false));
+        if ($block === null) {
+            return null;
+        }
+
+        return [
+            'lines' => array_map(
+                static fn (string $line): string => str_repeat(' ', $contentCol) . $line,
+                $block['lines'],
+            ),
+            'end' => $start + $block['end'],
+        ];
     }
 
     /**
