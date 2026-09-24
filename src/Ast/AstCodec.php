@@ -2793,7 +2793,7 @@ class AstCodec
             $boundaries[$path] = count($boundaries);
         }
         foreach ($value as $key => $child) {
-            if (!is_array($child) || in_array($key, ['attrs', 'pos', 'payload'], true)) {
+            if (!is_array($child) || ($key !== 'children' && !is_int($key))) {
                 continue;
             }
             $segment = str_replace(['~', '/'], ['~0', '~1'], (string)$key);

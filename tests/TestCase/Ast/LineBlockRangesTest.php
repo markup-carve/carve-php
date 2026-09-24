@@ -111,4 +111,25 @@ final class LineBlockRangesTest extends TestCase
         $repeated['children'][0]['lines'] = [['/children/-', '/children/-']];
         self::assertNotNull(AstSchema::firstViolation($repeated));
     }
+
+    public function testAReferencedFootnoteBreakIsNotAStanzaLineBoundary(): void
+    {
+        $payload = self::payload();
+        $payload['children'][0]['children'][0]['children'] = [
+            ['type' => 'text', 'value' => 'a'],
+            [
+                'type' => 'inline_footnote',
+                'inline' => [
+                    ['type' => 'text', 'value' => 'n1'],
+                    ['type' => 'hard_break'],
+                    ['type' => 'text', 'value' => 'n2'],
+                ],
+            ],
+            ['type' => 'text', 'value' => 'b'],
+        ];
+        $payload['children'][0]['lines'] = [['/children/1/inline/1', '/children/-']];
+
+        $this->expectException(AstDecodeException::class);
+        (new AstCodec())->decode($payload);
+    }
 }
