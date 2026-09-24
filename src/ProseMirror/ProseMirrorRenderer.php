@@ -919,6 +919,21 @@ class ProseMirrorRenderer
                 $items[] = $encoded;
             }
             $attrs['items'] = $items;
+            // CarveKit's citation atom has one whole-group `integral` and no
+            // per-item mode, so a group whose items disagree (PART 12 §31) has
+            // nothing to ride in. The flag above is its summary and would claim
+            // every item is integral, so it says false and the marking on the
+            // items that carry it is reported rather than dropped in silence.
+            if (!$node->isIntegral()) {
+                foreach ($node->getItems() as $item) {
+                    if (($item['mode'] ?? null) === 'integral') {
+                        $this->degraded['citation_group'] = 'the editor carries one integral flag for the '
+                            . 'whole group, so a group whose items disagree loses the per-item mode';
+
+                        break;
+                    }
+                }
+            }
         } elseif ($node instanceof Div) {
             $label = $node->getLabel();
             if ($label !== null && $label !== '') {

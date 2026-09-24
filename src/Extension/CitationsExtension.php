@@ -908,18 +908,18 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 if ($label === '') {
                     $label = (string)($this->numbers[$key] ?? '');
                 }
-                $parts[] = $prefixHtml
+                $parts[] = self::markedIntegral($prefixHtml
                     . '<a ' . $idAttr . $dataAttrs . ' href="#' . $renderer->escapeAttribute($refId) . '">'
                     . $this->escapeHtml($label) . '</a>'
-                    . $locatorHtml;
+                    . $locatorHtml, $item, $group);
 
                 continue;
             }
 
-            $parts[] = $prefixHtml
+            $parts[] = self::markedIntegral($prefixHtml
                 . '<a ' . $idAttr . $dataAttrs . ' href="#' . $renderer->escapeAttribute($refId) . '">'
                 . ($this->numbers[$key] ?? '') . '</a>'
-                . $locatorHtml;
+                . $locatorHtml, $item, $group);
         }
 
         $separator = $this->mode === 'author-date' ? '; ' : ', ';
@@ -932,10 +932,38 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         }
 
         if ($group->isIntegral()) {
-            return '<span class="citation" data-cite-mode="integral">' . $rendered . '</span>';
+            return self::integralWrapper($rendered);
         }
 
         return $rendered;
+    }
+
+    /**
+     * Mark ONE item integral, for a group whose items disagree.
+     *
+     * PART 12 §31 puts the mode on the item, so a group mixing an
+     * author-in-text citation with a parenthetical one has no whole-group
+     * wrapper to carry: it would claim the parenthetical item is integral too.
+     * The wrapper moves down to the items that say so. A group whose items all
+     * agree keeps the single outer wrapper, which is what a consumer reading
+     * only the group flag already expects.
+     *
+     * @param string $rendered
+     * @param array<string, mixed> $item
+     * @param \MarkupCarve\Carve\Node\Inline\CitationGroup $group
+     */
+    private static function markedIntegral(string $rendered, array $item, CitationGroup $group): string
+    {
+        if ($group->isIntegral() || ($item['mode'] ?? null) !== 'integral') {
+            return $rendered;
+        }
+
+        return self::integralWrapper($rendered);
+    }
+
+    private static function integralWrapper(string $rendered): string
+    {
+        return '<span class="citation" data-cite-mode="integral">' . $rendered . '</span>';
     }
 
     /**

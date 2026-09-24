@@ -1592,7 +1592,10 @@ class ProseMirrorToCarve
                 $node instanceof Substitution && $key === 'newText' => $this->fillSubstitutionHalf($node->getNew(), self::asString($value)),
                 $node instanceof HeadingRef && $key === 'target' => $this->setState($node, 'targetId', self::asString($value)),
                 $node instanceof CitationGroup && $key === 'raw' => $this->setState($node, 'raw', self::asString($value)),
-                $node instanceof CitationGroup && $key === 'integral' => $this->setState($node, 'integral', self::asBool($value)),
+                // The group flag is the SUMMARY of its items (PART 12 §31), so
+                // it is not assigned - it is read down onto the items after
+                // this loop, once `items` has actually been applied.
+                $node instanceof CitationGroup && $key === 'integral' => true,
                 $node instanceof CitationGroup && $key === 'items' => $this->applyCitationItems($node, $value),
                 $node instanceof Mention && $key === 'cssClass' => $this->setState($node, 'cssClass', self::asString($value)),
                 $node instanceof Link && $key === 'carveReferenceDefinition' => true,
@@ -1661,6 +1664,14 @@ class ProseMirrorToCarve
             if ($order !== []) {
                 $node->setAttributeOrder($order);
             }
+        }
+
+        // The editor's whole-group `integral` is the authored `[+` shorthand, so
+        // it applies to every item that spells nothing of its own. Done here
+        // rather than in the loop above because the flag and `items` arrive in
+        // whichever order the editor stored them.
+        if ($node instanceof CitationGroup && self::asBool($attrs['integral'] ?? false)) {
+            $this->markCitationItemsIntegral($node);
         }
 
         // Older payloads did not carry whether a `carveDiv` was opened with a
@@ -1746,6 +1757,9 @@ class ProseMirrorToCarve
                     $item[$stringField] = $entry[$stringField];
                 }
             }
+            if (($entry['mode'] ?? null) === 'integral') {
+                $item['mode'] = 'integral';
+            }
             foreach (['number', 'useIndex'] as $integerField) {
                 if (is_int($entry[$integerField] ?? null)) {
                     $item[$integerField] = $entry[$integerField];
@@ -1773,6 +1787,30 @@ class ProseMirrorToCarve
         $node->setItems($items);
 
         return true;
+    }
+
+    /**
+     * Read a group's `integral` flag down onto the items that spell no mode.
+     *
+     * Only where NONE of them does: an editor that carries a per-item mode is
+     * the finer statement, and flattening it onto one value would lose the
+     * mixed group the field exists for.
+     */
+    private function markCitationItemsIntegral(CitationGroup $node): void
+    {
+        $items = $node->getItems();
+        foreach ($items as $item) {
+            if (array_key_exists('mode', $item)) {
+                return;
+            }
+        }
+
+        foreach ($items as &$item) {
+            $item['mode'] = 'integral';
+        }
+        unset($item);
+
+        $node->setItems($items);
     }
 
     /**

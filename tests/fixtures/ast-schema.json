@@ -52,6 +52,7 @@
       "locatorValue",
       "suffix",
       "suppressAuthor",
+      "mode",
       "number",
       "useIndex",
       "pos"
