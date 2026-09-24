@@ -13,9 +13,15 @@ jobs:
   # as for one that is - right up until the commit is collected and the checkout
   # itself starts failing (markup-carve/carve#1740). Seconds, and it needs no
   # PHP, so it runs alongside everything else on every PR.
+  #
+  # REACHABLE IS ALL IT MEANS, which is why the job is named for that and not
+  # for currency. A commit five hundred behind is reachable too, so a green run
+  # here says nothing about which spec this engine implements. Whether the three
+  # engines pin the SAME commit is the spec repo's
+  # scripts/fleet-spec-pin-check.mjs, run from pre-tag-check.sh at tag time.
   spec-pin:
     runs-on: ubuntu-latest
-    name: Spec Pin Is On Spec Main
+    name: spec pin is reachable from spec main
 
     steps:
       - uses: actions/checkout@v6
