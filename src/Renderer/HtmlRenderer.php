@@ -33,6 +33,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
 use MarkupCarve\Carve\Node\Inline\Delete;
@@ -240,6 +241,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             // land in the document flow - HTML moving on a change that must not
             // move it (markup-carve/carve#1276).
             CitationDefinition::class => '',
+            CitationGroup::class => 'renderCitationGroupFallback',
             RawBlock::class => 'renderRawBlock',
             BlockQuote::class => 'renderBlockQuote',
             DefinitionList::class => 'renderDefinitionList',
@@ -2059,6 +2061,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderText(Text $node): string
     {
         return $this->escape($node->getContent());
+    }
+
+    protected function renderCitationGroupFallback(CitationGroup $node): string
+    {
+        return $this->escape($node->getRaw());
     }
 
     protected function renderEmphasis(Emphasis $node): string

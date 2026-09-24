@@ -7,6 +7,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- HTML rendering writes an ingested citation group's escaped `raw` source when the citations extension is off, including CLI JSON input (#2289).
+
 ### Changed
 
 - AST ingest now names its standalone `citation` limitation in the error message and AST JSON guide (#2272).

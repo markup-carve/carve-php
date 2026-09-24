@@ -637,4 +637,14 @@ class CliTest extends TestCase
         $this->assertSame('', $result['err']);
         $this->assertSame("<p></p>\n", $result['out']);
     }
+
+    public function testIngestedCitationGroupFallsBackInStrictMode(): void
+    {
+        $json = '{"type":"document","srcByteLength":0,"children":[{"type":"paragraph","children":[{"type":"citation_group","raw":"[@x]","items":[{"type":"citation","key":"x","suppressAuthor":false}]}]}]}';
+        $result = $this->runCliInput(['--from-json', '--strict-losses'], $json);
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame("<p>[@x]</p>\n", $result['out']);
+        $this->assertSame('', $result['err']);
+    }
 }
