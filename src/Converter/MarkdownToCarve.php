@@ -1774,8 +1774,8 @@ class MarkdownToCarve
 
     /**
      * Whether a paragraph line under the first one folds into a setext heading
-     * with it: plain paragraph text in the container, not a pipe row or a
-     * table header, and not four columns in, which the importer writes apart.
+     * with it: paragraph text in the container, not a pipe row or a table
+     * header.
      *
      * @param array<int, string> $lines
      * @param int $over
@@ -1786,7 +1786,13 @@ class MarkdownToCarve
     {
         // An ordered marker other than 1 interrupts no paragraph (CommonMark 5.2).
         $text = $this->continuesParagraph($held) || preg_match('/^0*(?:[2-9]|1\d)\d*[.)]\s/', $held) === 1;
-        if ($over >= 4 || !$text || preg_match('/^\|.*\|$/', $held) === 1 || $this->htmlBlockInterrupts($held)) {
+        if (!$text || preg_match('/^\|.*\|$/', $held) === 1 || $this->htmlBlockInterrupts($held)) {
+            return false;
+        }
+        // Four columns in the line only continues the paragraph; one shaped
+        // like an opener or a pipe row is written apart, escaped, so it stays
+        // out of the fold.
+        if ($over >= 4 && (str_contains($held, '|') || !$this->continuesParagraph($held))) {
             return false;
         }
 
