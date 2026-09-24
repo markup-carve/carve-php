@@ -110,6 +110,14 @@ class MarkdownToCarve
     protected array $referenceDefinitionLabels = [];
 
     /**
+     * Reference definitions taken out of the body, each on one line, for the
+     * end of the document where `carve fmt` writes them.
+     *
+     * @var array<string>
+     */
+    protected array $movedDefinitions = [];
+
+    /**
      * When true, carry `::: note` fences across as Carve containers (Pandoc /
      * Quarto fenced divs). Default false: in CommonMark both fence lines are
      * paragraph text, and left bare they disappeared from the render and
@@ -158,7 +166,7 @@ class MarkdownToCarve
         // the opening `---` becomes a thematic break and the closing one a
         // setext underline, turning `description: y` into an `##` heading.
         $frontmatter = $this->splitFrontmatter($allLines);
-        $lines = $this->removeEmptyDestinationDefinitions(array_slice($allLines, count($frontmatter)));
+        $lines = $this->extractReferenceDefinitions(array_slice($allLines, count($frontmatter)));
         $result = [];
         $inCodeBlock = false;
         $fenceChar = '';
@@ -968,6 +976,21 @@ class MarkdownToCarve
         // 0 off `---` so every rule stays a rule. Real frontmatter already
         // occupies line 0, so the guard is skipped there - it would only inject
         // a stray blank after the closing fence.
+        if ($this->movedDefinitions !== []) {
+            while ($result !== [] && trim((string)end($result)) === '') {
+                array_pop($result);
+            }
+            foreach ($this->movedDefinitions as $definition) {
+                if ($result !== []) {
+                    $result[] = '';
+                }
+                $result[] = $this->convertInlineFormatting($definition);
+            }
+            if (str_ends_with($markdown, "\n")) {
+                $result[] = '';
+            }
+        }
+
         $fromSource = [];
         foreach (array_keys($result) as $at) {
             $fromSource[] = isset($sourceBlanks[$at]);
@@ -3272,16 +3295,19 @@ class MarkdownToCarve
     }
 
     /**
-     * Drop reference definitions with an empty destination, recording each
-     * label whose FIRST definition is one (CommonMark: the first one wins).
+     * Take reference definitions out of the body: one with an empty destination
+     * is dropped, recording each label whose FIRST definition is one (CommonMark:
+     * the first one wins), and every other one is kept for the end of the
+     * document.
      *
      * @param array<string> $lines
      *
      * @return array<string>
      */
-    protected function removeEmptyDestinationDefinitions(array $lines): array
+    protected function extractReferenceDefinitions(array $lines): array
     {
         $this->emptyDestinationLabels = [];
+        $this->movedDefinitions = [];
         $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
         $quote = '/^((?: {0,3}>[ \t]?)*)/';
         $defined = [];
@@ -3377,18 +3403,61 @@ class MarkdownToCarve
                     trim($definition[2]) === ''
                     && $i + 1 < $count
                     && str_starts_with($lines[$i + 1], $quotePrefix)
+                    && !$this->opensMarkdownBlock(substr($lines[$i + 1], strlen($quotePrefix)))
                     && preg_match('/^[ \t]*(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix))) === 1
                 ) {
                     $continued[] = $lines[++$i];
                     $definition[2] = substr($continued[0], strlen($quotePrefix));
                 }
                 if (preg_match('/^[ \t]*<>(?:[ \t]+' . $title . ')?[ \t]*$/', $definition[2], $empty) !== 1) {
-                    if (!isset($defined[$key])) {
+                    $target = trim($definition[2]);
+                    // One with no destination is no definition at all, but paragraph text.
+                    if ($target === '') {
+                        array_push($kept, $line, ...$continued);
+                        $canStart = false;
+
+                        continue;
+                    }
+                    $canStart = true;
+                    $repeated = isset($labels[$key]);
+                    if (!$repeated) {
                         $labels[$key] = $definition[1];
                     }
                     $defined[$key] = true;
-                    array_push($kept, $line, ...$continued);
-                    $canStart = true;
+                    $marker = substr($prefix, strlen($quotePrefix));
+                    // A footnote is not a reference definition, so it stays put. So
+                    // does one on a nested item's marker line, where fmt writes it,
+                    // and one that alone keeps two lists apart.
+                    if (
+                        str_starts_with($definition[1], '^')
+                        || ($opensItem && strspn($marker, ' ') >= 2)
+                        || (!$opensItem && $this->partsTwoLists($lines, $i, $kept, $quotePrefix))
+                    ) {
+                        array_push($kept, $line, ...$continued);
+
+                        continue;
+                    }
+                    if (
+                        preg_match('/[ \t]' . $title . '$/', $target) !== 1
+                        && $i + 1 < $count
+                        && str_starts_with($lines[$i + 1], $quotePrefix)
+                        && preg_match('/^[ \t]*' . $title . '[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix)), $next) === 1
+                    ) {
+                        $target .= ' ' . $next[1];
+                        $i++;
+                    }
+                    // The first definition of a label wins, so a later one says nothing.
+                    if (!$repeated) {
+                        $this->movedDefinitions[] = '[' . $definition[1] . ']: ' . $target;
+                    }
+                    if ($opensItem) {
+                        $this->emptyDefinitionItem($lines, $i, $prefix, $quotePrefix, $kept);
+
+                        continue;
+                    }
+                    if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
+                        $canStart = false;
+                    }
 
                     continue;
                 }
@@ -3407,17 +3476,16 @@ class MarkdownToCarve
                 }
                 $defined[$key] = true;
                 $canStart = true;
-                // A quote keeps its line; an emptied list item is dropped, as Carve cannot spell one.
-                if ($quotePrefix !== '') {
-                    $kept[] = $quotePrefix;
-                } elseif (($kept === [] || trim(end($kept)) === '') && $i + 1 < $count && trim($lines[$i + 1]) === '') {
-                    $i++;
+                if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
+                    $canStart = false;
                 }
 
                 continue;
             }
             $kept[] = $line;
-            $depth = $lineDepth;
+            if ($canStart || $lineDepth >= $depth || trim($content) === '') {
+                $depth = $lineDepth;
+            }
             $canStart = trim($content) === ''
                 || preg_match('/^ {0,3}(?:#{1,6}(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$|=+[ \t]*$)/', $content) === 1;
         }
@@ -3426,6 +3494,165 @@ class MarkdownToCarve
         $this->referenceDefinitionLabels = $labels;
 
         return $kept;
+    }
+
+    /**
+     * The item whose marker line held the definition ending at `$index`: its
+     * next line takes the marker and is read again, or it is written empty,
+     * `- +`, set apart from a following block that would otherwise attach to it.
+     *
+     * @param array<string> $lines
+     * @param int $index
+     * @param string $prefix
+     * @param string $quotePrefix
+     * @param array<string> $kept
+     */
+    protected function emptyDefinitionItem(array &$lines, int $index, string $prefix, string $quotePrefix, array &$kept): void
+    {
+        $marker = substr($prefix, strlen($quotePrefix));
+        $next = $lines[$index + 1] ?? null;
+        $held = $next !== null && str_starts_with($next, $quotePrefix) ? substr($next, strlen($quotePrefix)) : null;
+        // A lazy line: the paragraph holding the definition is still open.
+        $lazy = $next !== null && $held === null && !str_starts_with(ltrim($next, ' '), '>') ? $next : $held;
+        if (
+            $lazy !== null
+            && trim($lazy) !== ''
+            && (
+                ($held !== null && strspn($held, ' ') >= strlen($marker))
+                || !$this->opensMarkdownBlock($lazy)
+            )
+        ) {
+            $lines[$index + 1] = $prefix . ($held !== null && strspn($held, ' ') >= strlen($marker) ? substr($held, strlen($marker)) : ltrim($lazy, ' '));
+
+            return;
+        }
+        $kept[] = rtrim($prefix) . ' +';
+        if (
+            $held !== null
+            && trim($held) !== ''
+            && preg_match('/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)/', $held) !== 1
+        ) {
+            $kept[] = rtrim($quotePrefix);
+        }
+    }
+
+    /**
+     * Whether the definition ending at `$index` is all that stands between a
+     * list above it and an item below it in the same container.
+     *
+     * @param array<string> $lines
+     * @param int $index
+     * @param array<string> $kept
+     * @param string $quotePrefix
+     */
+    protected function partsTwoLists(array $lines, int $index, array $kept, string $quotePrefix): bool
+    {
+        $marker = rtrim($quotePrefix);
+        $item = '/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)/';
+        $above = null;
+        for ($at = count($kept) - 1; $at >= 0 && $above === null; $at--) {
+            if (!str_starts_with($kept[$at], $marker)) {
+                return false;
+            }
+            $text = (string)substr($kept[$at], strlen($quotePrefix));
+            $above = trim($text) === '' ? null : $text;
+        }
+        if ($above === null || (preg_match($item, $above) !== 1 && preg_match('/^[ \t]+\S/', $above) !== 1)) {
+            return false;
+        }
+        for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
+            if (!str_starts_with($lines[$at], $marker)) {
+                return false;
+            }
+            $below = (string)substr($lines[$at], strlen($quotePrefix));
+            if (trim($below) !== '') {
+                return preg_match($item, $below) === 1;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a Markdown line opens a block, so it cannot continue a paragraph.
+     */
+    protected function opensMarkdownBlock(string $line): bool
+    {
+        return preg_match('/^ {0,3}(?:>|#{1,6}(?:[ \t]|$)|`{3,}|~{3,}|(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$)/', $line) === 1
+            || $this->htmlBlockInterrupts(ltrim($line, ' '));
+    }
+
+    /**
+     * Drop the definition ending at `$index`. An emptied list item goes with
+     * it, as Carve cannot spell one, and a blank after it goes too where
+     * nothing of its container comes before it or a blank does. A quote left
+     * with nothing else keeps an empty line, so it still renders.
+     *
+     * A lazy line after it continues the paragraph it sat in, so it moves into
+     * the quote, which the return value reports; and a definition that parted
+     * two quotes leaves a blank line, so they stay two.
+     *
+     * @param array<string> $lines
+     * @param int $index
+     * @param string $quotePrefix
+     * @param array<string> $kept
+     */
+    protected function dropDefinitionLine(array $lines, int &$index, string $quotePrefix, array &$kept): bool
+    {
+        $marker = rtrim($quotePrefix);
+        $after = $lines[$index + 1] ?? null;
+        if (
+            $marker !== ''
+            && $after !== null
+            && trim($after) !== ''
+            && !str_starts_with(ltrim($after, ' '), '>')
+            && !$this->opensMarkdownBlock($after)
+            && preg_match('/^ {0,3}\[(?:[^[\]\\\\]|\\\\.)+\]:/', $after) !== 1
+        ) {
+            $kept[] = $quotePrefix . ltrim($after, ' ');
+            $index++;
+
+            return true;
+        }
+        $before = end($kept);
+        $inner = is_string($before) ? substr($before, strlen($this->quotePrefixOf($before))) : '';
+        if (
+            is_string($before)
+            && (
+                substr_count($this->quotePrefixOf($before), '>') > substr_count($marker, '>')
+                || (trim($inner) !== '' && preg_match('/^(?:[ \t]+\S| {0,3}(?:[-*+]|[0-9]{1,9}[.)])[ \t])/', $inner) === 1 && strspn(substr($lines[$index], strlen($quotePrefix)), ' ') === 0)
+            )
+        ) {
+            $kept[] = $marker;
+
+            return false;
+        }
+        $holds = fn (string|false|null $line): bool => is_string($line)
+            && $marker !== ''
+            && str_starts_with(ltrim($line, ' '), $marker)
+            && trim(substr(ltrim($line, ' '), strlen($marker))) !== '';
+        $next = $lines[$index + 1] ?? null;
+        $last = end($kept);
+        $opened = is_string($last) && $marker !== '' && rtrim(ltrim($last, ' ')) === $marker;
+        if ($marker !== '' && !$holds($last) && !$holds($next) && !$opened) {
+            $kept[] = $quotePrefix;
+        }
+        if ($next === null || !str_starts_with($next, $marker) || trim(substr($next, strlen($marker))) !== '') {
+            return false;
+        }
+        if ($last === false || !str_starts_with($last, $marker) || trim(substr($last, strlen($marker))) === '') {
+            $index++;
+        }
+
+        return false;
+    }
+
+    /**
+     * The quote markers a Markdown line opens with.
+     */
+    protected function quotePrefixOf(string $line): string
+    {
+        return preg_match('/^((?: {0,3}>[ \t]?)*)/', $line, $match) === 1 ? $match[1] : '';
     }
 
     /**

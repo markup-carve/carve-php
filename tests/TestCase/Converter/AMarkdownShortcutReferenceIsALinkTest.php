@@ -29,7 +29,8 @@ class AMarkdownShortcutReferenceIsALinkTest extends TestCase
             'a colon after it mid-line' => ["x [r]: y\n\n[r]: /u", "x [r][]: y\n\n[r]: /u"],
             'an unclosed parenthesis after it' => ["[r](x\n\n[r]: /u", "[r][](x\n\n[r]: /u"],
             'inside brackets' => ["[[r]]\n\n[r]: /u", "[[r][]]\n\n[r]: /u"],
-            'the first definition names the label' => ["[R]\n\n[r]: /u\n[R]: /v", "[R][r]\n\n[r]: /u\n[R]: /v"],
+            'the first definition names the label' => ["[R]\n\n[r]: /u\n[R]: /v", "[R][r]\n\n[r]: /u"],
+            'a definition whose destination is on the next line' => ["[r]:\n/u", '[r]: /u'],
         ];
     }
 
@@ -52,7 +53,6 @@ class AMarkdownShortcutReferenceIsALinkTest extends TestCase
             'a code span' => ["`[r]`\n\n[r]: /u"],
             'an escaped bracket' => ["\\[r]\n\n[r]: /u"],
             'a footnote label' => ["[^r]\n\n[^r]: /u"],
-            'a definition whose destination is on the next line' => ["[r]:\n/u"],
         ];
     }
 
