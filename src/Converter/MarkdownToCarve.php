@@ -58,6 +58,13 @@ class MarkdownToCarve
     protected const THEMATIC_BREAK = '/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/';
 
     /**
+     * Marker for a definition item until inline conversion is complete.
+     *
+     * @var string
+     */
+    protected const EMPTY_DEFINITION_ITEM_SENTINEL = "\x00CARVE_EMPTY_DEFINITION_ITEM\x00";
+
+    /**
      * When true, rewrite paired-dollar Markdown-flavour math spans to Carve
      * math syntax. Default false because plain CommonMark treats dollars as
      * literal text.
@@ -1079,6 +1086,7 @@ class MarkdownToCarve
         }
 
         [$carve, $writtenBlanks] = $this->joinOutput(array_values($result), $fromSource);
+        $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
         $carve = $this->separateLooseItems($carve, $writtenBlanks);
         $carve = $this->applyHeadingIdPreservation($carve, $markdown);
 
@@ -3924,7 +3932,7 @@ class MarkdownToCarve
     /**
      * The item whose marker line held the definition ending at `$index`: its
      * next line takes the marker and is read again, or it is written empty,
-     * `- +`, set apart from a following block that would otherwise attach to it.
+     * `- %%`, set apart from a following block that would otherwise attach to it.
      *
      * @param array<string> $lines
      * @param int $index
@@ -3951,7 +3959,7 @@ class MarkdownToCarve
 
             return;
         }
-        $kept[] = rtrim($prefix) . ' +';
+        $kept[] = rtrim($prefix) . ' ' . self::EMPTY_DEFINITION_ITEM_SENTINEL;
         if (
             $held !== null
             && trim($held) !== ''
