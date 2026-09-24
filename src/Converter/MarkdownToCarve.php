@@ -385,10 +385,13 @@ class MarkdownToCarve
                 if ($lazyQuote !== null) {
                     $shiftCol = $lazyQuote['col'];
                     $shiftBy = $listMarkers->shiftAt($shiftCol);
-                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text);
+                    $lazyLine = str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text;
+                    $lazyLine = $this->escapeDefinitionContinuation($lazyLine, $lines[$i - 1] ?? '', (string)end($result));
+                    $result[] = $this->convertInlineFormatting($lazyLine);
                     $itemQuote = $lazyQuote;
                 } else {
-                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $lazyCol) . $text);
+                    $lazyLine = $this->escapeDefinitionContinuation(str_repeat(' ', $lazyCol) . $text, $lines[$i - 1] ?? '', (string)end($result));
+                    $result[] = $this->convertInlineFormatting($lazyLine);
                     $itemParagraph = true;
                 }
                 $prevLineType = 'list';

@@ -34,6 +34,8 @@ class AMarkdownImportWritesWhatFmtWritesTest extends TestCase
             'a marker four columns in under an item paragraph' => ["- a\n    - b\n", "- a\n  - b\n"],
             'an opener four columns in under a paragraph' => ["para\n    # x\n", "para\n    \\# x\n"],
             'a lazy quote line' => ["> a\nb\n", "> a\n> b\n"],
+            'a definition-shaped lazy line in an item' => ["1. a\nb\n[x]: <>\n", "1. a\n   b\n   \\[x]: <>\n"],
+            'a definition-shaped lazy line in an item quote' => ["- > a\n[x]: <>\n", "- > a\n  > \\[x]: <>\n"],
             'a nested quote under a quote item' => ["> - a\n> > b\n", "> - a\n>\n> > b\n"],
             'a loose list of three' => ["1. a\n\n2. b\n3. c\n", "1. a\n\n2. b\n\n3. c\n"],
             'a one-item list parted by a fence' => ["- a\n\n  ```\n  x\n  ```\n", "{loose}\n- a\n\n  ```\n  x\n  ```\n"],
