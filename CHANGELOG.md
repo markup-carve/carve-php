@@ -60,7 +60,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
-- **Breaking:** `StoredPayloadUpgrade` and the tailored diagnostics for pre-PART 12 payloads are removed. Obsolete payloads now fail ordinary AST schema validation. Applications that still hold them must run `StoredPayloadUpgrade::upgrade()` or `upgradeJson()` with carve-php 0.1.9 or earlier before upgrading. This change requires a `0.2.0` release.
+- **Breaking:** `StoredPayloadUpgrade` and the tailored diagnostics for pre-PART 12 payloads are removed. Obsolete payloads now fail ordinary AST schema validation. Applications that still hold them must run `StoredPayloadUpgrade::upgrade()` or `upgradeJson()` with carve-php 0.1.9 or earlier, the last release that carries the tool, before upgrading (#2259).
 
 ## [0.1.9] - 2026-09-19
 
