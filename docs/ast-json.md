@@ -209,15 +209,27 @@ nothing to say about them. And a `srcByteLength` that is present but WRONG stays
 accepted - it is derivable, nothing in the tree depends on it, and §12(a) is
 about presence while (d) is about type and sign.
 
-### Standalone citation limitation
+### A citation is only ever an item of a group
 
-The schema permits a `citation` as an inline child wherever `inlineNode` is
-allowed. `AstCodec::decode()` and `decodeJson()` refuse that form with
-`Standalone citation nodes are not supported`. PHP represents parsed citations
-as item maps inside `citation_group.items`; a group containing the item decodes
-and round trips. The renderers and tree walks cannot handle the item as an
-independent node. See
-[carve-php#2272](https://github.com/markup-carve/carve-php/issues/2272).
+`AstCodec::decode()` and `decodeJson()` refuse a bare `citation` node with
+`Standalone citation nodes are not supported`. A group containing the item
+decodes and round trips.
+
+That is the language's rule rather than a limit of this engine. CARVE-P12-059
+states that a citation occurs in `citation_group.items` and nowhere else: the
+inline dispatch does not name it, no source can spell one, and no clause defines
+what a bare citation would render to. All three engines refuse the payload at
+decode
+([carve#2229](https://github.com/markup-carve/carve/pull/2229),
+[carve-js#1976](https://github.com/markup-carve/carve-js/pull/1976)).
+
+PHP represents parsed citations as item maps inside `citation_group.items`, so
+the item is not an independently constructible node here either.
+
+The schema copy under `tests/spec` still lists `citation` in `inlineNode` until
+the pin moves past that ruling
+([carve-php#2254](https://github.com/markup-carve/carve-php/pull/2254)); the
+refusal above does not depend on it.
 
 ## What an ingest replaces
 
