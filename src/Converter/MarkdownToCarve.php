@@ -1979,9 +1979,11 @@ class MarkdownToCarve
     {
         // Four columns in the line opens nothing: indented code cannot
         // interrupt a paragraph, so whatever its shape it is continuation
-        // text. A pipe row stays out of the fold, where a table would form.
+        // text. That leaves no carve-out for a pipe either - a table needs a
+        // header row that interrupts the paragraph, and at this column none
+        // does.
         if ($over >= 4) {
-            return !str_contains($held, '|') && !$this->startsTableHeader($lines, $index);
+            return true;
         }
         // An ordered marker other than 1 interrupts no paragraph (CommonMark 5.2).
         $text = $this->continuesParagraph($held) || preg_match('/^0*(?:[2-9]|1\d)\d*[.)]\s/', $held) === 1;
@@ -2014,6 +2016,7 @@ class MarkdownToCarve
         $contentCol = $this->columnWidth($lead);
         $texts = [$this->setextLineText($first)];
         $above = $first;
+        $aboveOver = 0;
         for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
             if (preg_match('/^ {0,3}>/', $lines[$at]) !== 1) {
                 // A lazy line continues the quoted paragraph; the underline
@@ -2023,6 +2026,7 @@ class MarkdownToCarve
                 }
                 $texts[] = $this->setextLineText($lines[$at]);
                 $above = trim($lines[$at]);
+                $aboveOver = 0;
 
                 continue;
             }
@@ -2032,8 +2036,10 @@ class MarkdownToCarve
             }
             $rest = $next[2];
             $indent = $this->indentWidth($rest);
-            // A delimiter row under the line above makes the two a table.
-            if (trim($rest) === '' || $indent < $contentCol || $this->startsTableHeader([$above, $rest], 0)) {
+            // A delimiter row under the line above makes the two a table -
+            // unless that line sits four columns in, where it is continuation
+            // text and opens no header for the row to close.
+            if (trim($rest) === '' || $indent < $contentCol || ($aboveOver < 4 && $this->startsTableHeader([$above, $rest], 0))) {
                 return null;
             }
             if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest)) === 1) {
@@ -2046,6 +2052,7 @@ class MarkdownToCarve
             }
             $texts[] = $this->setextLineText($rest);
             $above = $rest;
+            $aboveOver = $indent - $contentCol;
         }
 
         return null;
