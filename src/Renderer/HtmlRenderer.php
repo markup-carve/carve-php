@@ -55,6 +55,7 @@ use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
+use MarkupCarve\Carve\Node\Inline\SmallCaps;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -284,6 +285,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             HardBreak::class => 'renderHardBreak',
             Span::class => 'renderSpan',
             Ruby::class => 'renderRuby',
+            SmallCaps::class => 'renderSmallCaps',
             CriticComment::class => 'renderCriticComment',
             Highlight::class => 'renderHighlight',
             Superscript::class => 'renderSuperscript',
@@ -2419,6 +2421,49 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return '<mark' . $attrs . '>' . $this->renderChildren($node) . '</mark>';
     }
 
+    /**
+     * PART 12 §28: `<span class="smallcaps">`, merging the node's other
+     * attributes under the ordinary span rules.
+     */
+    protected function renderSmallCaps(SmallCaps $node): string
+    {
+        $attrs = $this->attributesWithBaseClass($node, 'smallcaps');
+
+        return '<span' . $this->renderAttributeArray($attrs, 'span') . '>'
+            . $this->renderChildren($node) . '</span>';
+    }
+
+    /**
+     * A node's renderable attributes with a mandatory base class merged in.
+     *
+     * PART 10 §1: the base class is prepended INSIDE the class slot, and the
+     * slot stays at the FIRST-APPEARANCE position of a class in the author's
+     * order. Writing `class` unconditionally first moves it ahead of an id the
+     * author wrote before any class, which reorders what they wrote.
+     * markup-carve/carve#1168 fixed exactly this for the generic `ext-NAME`
+     * fallback; the math span carries a base class the same way and was missed,
+     * because no corpus case put an id before a class on it
+     * (markup-carve/carve#1164).
+     *
+     * @return array<string, string>
+     */
+    public function attributesWithBaseClass(Node $node, string $base): array
+    {
+        $attrs = $this->getRenderableAttributes($node);
+        $authored = $attrs['class'] ?? '';
+        $class = $authored === '' ? $base : $base . ' ' . $authored;
+
+        if (array_key_exists('class', $attrs)) {
+            // Keep the author's ordering, swapping the merged value in place.
+            $attrs['class'] = $class;
+
+            return $attrs;
+        }
+
+        // No authored class means no slot to keep, so the base class leads.
+        return ['class' => $class] + $attrs;
+    }
+
     protected function renderSuperscript(Superscript $node): string
     {
         $attrs = $this->renderAttributes($node);
@@ -3658,29 +3703,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $delimOpen = $display ? '\\[' : '\\(';
         $delimClose = $display ? '\\]' : '\\)';
 
-        // PART 10 §1: the base class is prepended INSIDE the class slot, and the
-        // slot stays at the FIRST-APPEARANCE position of a class in the author's
-        // order. Writing `class` unconditionally first moves it ahead of an id
-        // the author wrote before any class, which reorders what they wrote.
-        // markup-carve/carve#1168 fixed exactly this for the generic `ext-NAME`
-        // fallback; the math span carries a base class the same way and was
-        // missed, because no corpus case put an id before a class on it
-        // (markup-carve/carve#1164).
-        $nodeAttrs = $this->getRenderableAttributes($node);
-        $nodeClass = $nodeAttrs['class'] ?? '';
-        $class = 'math ' . ($display ? 'display' : 'inline');
-        if ($nodeClass !== '') {
-            $class .= ' ' . $nodeClass;
-        }
-
-        if (array_key_exists('class', $nodeAttrs)) {
-            // Keep the author's ordering, swapping the merged value in place.
-            $attrs = $nodeAttrs;
-            $attrs['class'] = $class;
-        } else {
-            // No authored class means no slot to keep, so the base class leads.
-            $attrs = ['class' => $class] + $nodeAttrs;
-        }
+        $attrs = $this->attributesWithBaseClass($node, 'math ' . ($display ? 'display' : 'inline'));
 
         $hasAuthoredRole = false;
         foreach (array_keys($attrs) as $name) {
