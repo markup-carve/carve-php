@@ -421,13 +421,7 @@ class CrossReferenceResolver
 
     protected function findFigureCaption(Figure $figure): ?Caption
     {
-        foreach ($figure->getChildren() as $child) {
-            if ($child instanceof Caption) {
-                return $child;
-            }
-        }
-
-        return null;
+        return $figure->getCaption();
     }
 
     /**
