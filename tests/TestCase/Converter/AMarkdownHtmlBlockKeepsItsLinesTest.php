@@ -23,6 +23,8 @@ class AMarkdownHtmlBlockKeepsItsLinesTest extends TestCase
     {
         return [
             'a line four columns in' => ["<div>\n    code\n</div>\n", "```=html\n<div>\n    code\n</div>\n```\n"],
+            'a run of blank lines' => ["<pre>\na\n\n\nb\n</pre>\n", "```=html\n<pre>\na\n\n\nb\n</pre>\n```\n"],
+            'four blank lines in a row' => ["<pre>\na\n\n\n\n\nb\n</pre>\n", "```=html\n<pre>\na\n\n\n\n\nb\n</pre>\n```\n"],
             'a line two columns in' => ["<div>\n  text\n</div>\n", "```=html\n<div>\n  text\n</div>\n```\n"],
             'a tab-indented line' => ["<div>\n\ttabbed\n</div>\n", "```=html\n<div>\n\ttabbed\n</div>\n```\n"],
             'a comment' => ["<!--\n    indented\n-->\n", "```=html\n<!--\n    indented\n-->\n```\n"],
@@ -40,6 +42,19 @@ class AMarkdownHtmlBlockKeepsItsLinesTest extends TestCase
 
         $this->assertSame($carve, $imported);
         $this->assertSame($imported, CarveConverter::toCarve($imported));
+    }
+
+    public function testABlankRunInAFenceStaysToo(): void
+    {
+        $imported = (new MarkdownToCarve())->convert("```\na\n\n\nb\n```\n");
+
+        $this->assertSame("```\na\n\n\nb\n```\n", $imported);
+        $this->assertSame("<pre><code>a\n\n\nb\n</code></pre>\n", (new CarveConverter())->convert($imported));
+    }
+
+    public function testABlankRunBetweenBlocksStillCollapses(): void
+    {
+        $this->assertSame("a\n\nb\n", (new MarkdownToCarve())->convert("a\n\n\n\nb\n"));
     }
 
     public function testALineLeavingTheItemEndsTheBlock(): void

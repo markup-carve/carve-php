@@ -58,6 +58,13 @@ class MarkdownToCarve
     protected const THEMATIC_BREAK = '/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/';
 
     /**
+     * Marker for a definition item until inline conversion is complete.
+     *
+     * @var string
+     */
+    protected const EMPTY_DEFINITION_ITEM_SENTINEL = "\x00CARVE_EMPTY_DEFINITION_ITEM\x00";
+
+    /**
      * When true, rewrite paired-dollar Markdown-flavour math spans to Carve
      * math syntax. Default false because plain CommonMark treats dollars as
      * literal text.
@@ -240,9 +247,6 @@ class MarkdownToCarve
         $quoteMarkers = [];
         $quotePrev = null;
         $quoteLazy = null;
-        // Whether a line of the quote run so far has a tab among its markers or
-        // indentation, which the quote's list tracking does not count.
-        $quoteTabbed = false;
         // Whether the last line left a paragraph open inside a list item, and
         // the quote prefix and column of a quote paragraph it left open there:
         // a lazy line continues either.
@@ -563,7 +567,6 @@ class MarkdownToCarve
                 $quoteMarkers = [];
                 $quotePrev = null;
                 $quoteLazy = null;
-                $quoteTabbed = false;
             }
 
             // Inside an open raw-HTML block the line is literal content, not a
@@ -854,7 +857,10 @@ class MarkdownToCarve
                 $body = preg_replace('/[ \t]+#+[ \t]*$/', '', $body) ?? $body;
             }
             if ($isBlockquote) {
-                $body = $this->normalizeBlockquoteMarkers($body);
+                // The markers and the indentation behind them count real
+                // columns, so a tab among them puts no item's content column
+                // off (CommonMark 2.2).
+                $body = $this->normalizeBlockquoteMarkers($this->expandLeadingTabs($body));
                 $quoteFence = $this->collectQuotedFence($lines, $i, $body);
                 if ($quoteFence !== null) {
                     $quotePrefix = rtrim($quoteFence['prefix']);
@@ -880,19 +886,14 @@ class MarkdownToCarve
                         ? $this->quoteParagraphIsOpen($quotePrev['text']) && $depth <= substr_count($quotePrev['prefix'], '>')
                         : $quoteLazy !== null && ($quoteLazy === '' || $depth <= substr_count($quoteLazy, '>'))
                 );
-                // A quote inside a list item is left as it is, and so is one whose
-                // item columns a tab would put off.
-                $quoteCode = $paragraphOpen || $listCols !== [] ? null : $this->collectQuotedIndentedCode($lines, $i, $quoteMarkers, $quoteTabbed);
-                $quoteTabbed = $quoteTabbed || preg_match('/^[ >]*\t/', $line) === 1;
+                // A quote inside a list item is left as it is.
+                $quoteCode = $paragraphOpen || $listCols !== [] ? null : $this->collectQuotedIndentedCode($lines, $i, $quoteMarkers);
                 if ($quoteCode !== null) {
                     $quotePrefix = rtrim($quoteCode['prefix']);
                     if ($prevLineType === 'blockquote' && rtrim((string)end($result)) !== $quotePrefix) {
                         $result[] = $quotePrefix;
                     }
                     array_push($result, ...$quoteCode['lines']);
-                    for ($at = $i + 1; $at <= $quoteCode['end']; $at++) {
-                        $quoteTabbed = $quoteTabbed || preg_match('/^[ >]*\t/', $lines[$at]) === 1;
-                    }
                     $i = $quoteCode['end'];
                     $prevLineType = 'blockquote';
                     // A line after the code that leaves the quote starts a block of its own.
@@ -1079,8 +1080,13 @@ class MarkdownToCarve
         }
 
         [$carve, $writtenBlanks] = $this->joinOutput(array_values($result), $fromSource);
+        $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
         $carve = $this->separateLooseItems($carve, $writtenBlanks);
         $carve = $this->applyHeadingIdPreservation($carve, $markdown);
+        // An empty quote line is written as its markers alone, which is what
+        // `carve fmt` writes. The separator space carries no content, so the
+        // markers of a quoted blank code line lose it too.
+        $carve = preg_replace('/^((?:> )*>) $/m', '$1', $carve) ?? $carve;
 
         if ($frontmatter === []) {
             return $carve;
@@ -1971,15 +1977,15 @@ class MarkdownToCarve
      */
     protected function foldsIntoSetext(array $lines, int $index, string $held, int $over): bool
     {
+        // Four columns in the line opens nothing: indented code cannot
+        // interrupt a paragraph, so whatever its shape it is continuation
+        // text. A pipe row stays out of the fold, where a table would form.
+        if ($over >= 4) {
+            return !str_contains($held, '|') && !$this->startsTableHeader($lines, $index);
+        }
         // An ordered marker other than 1 interrupts no paragraph (CommonMark 5.2).
         $text = $this->continuesParagraph($held) || preg_match('/^0*(?:[2-9]|1\d)\d*[.)]\s/', $held) === 1;
         if (!$text || preg_match('/^\|.*\|$/', $held) === 1 || $this->htmlBlockInterrupts($held)) {
-            return false;
-        }
-        // Four columns in the line only continues the paragraph; one shaped
-        // like an opener or a pipe row is written apart, escaped, so it stays
-        // out of the fold.
-        if ($over >= 4 && (str_contains($held, '|') || !$this->continuesParagraph($held))) {
             return false;
         }
 
@@ -2341,6 +2347,7 @@ class MarkdownToCarve
                 $flags[] = ($fromSource[$index] ?? false) && preg_match('/^[ \t>]*$/', $line) === 1;
             }
         }
+        $verbatim = $this->verbatimLines($lines);
         $text = [];
         $sourceBlanks = [];
         $count = count($lines);
@@ -2358,10 +2365,11 @@ class MarkdownToCarve
                 $flagged = $flagged || $flags[$end];
             }
             // A run of empty lines is that many newlines, one more between two
-            // lines, and a run of 3+ newlines keeps 2.
+            // lines, and a run of 3+ newlines keeps 2. Inside a code or raw
+            // block every one of them is content, so the run stands.
             $inner = $at > 0 && $end < $count;
             $newlines = $end - $at + ($inner ? 1 : 0);
-            $keep = $newlines < 3 ? $end - $at : ($inner ? 1 : 2);
+            $keep = $newlines < 3 || ($verbatim[$at] ?? false) ? $end - $at : ($inner ? 1 : 2);
             for ($k = 0; $k < $keep; $k++) {
                 if ($flagged) {
                     $sourceBlanks[count($text)] = true;
@@ -2372,6 +2380,44 @@ class MarkdownToCarve
         }
 
         return [implode("\n", $text), $sourceBlanks];
+    }
+
+    /**
+     * Which of the written lines stand inside a code or raw block, where a
+     * blank line is content of the block rather than a break between blocks.
+     *
+     * @param array<int, string> $lines
+     *
+     * @return array<int, bool>
+     */
+    protected function verbatimLines(array $lines): array
+    {
+        $verbatim = [];
+        $open = null;
+        foreach ($lines as $at => $line) {
+            $bare = (string)preg_replace('/^[ \t]*(?:>[ \t]?)*[ \t]*/', '', $line);
+            if ($open === null) {
+                $verbatim[$at] = false;
+                if (preg_match('/^(`{3,}|~{3,})/', $bare, $fence) === 1) {
+                    $open = $fence[1];
+                }
+
+                continue;
+            }
+            if (
+                preg_match('/^(`{3,}|~{3,})[ \t]*$/', $bare, $fence) === 1
+                && $fence[1][0] === $open[0]
+                && strlen($fence[1]) >= strlen($open)
+            ) {
+                $open = null;
+                $verbatim[$at] = false;
+
+                continue;
+            }
+            $verbatim[$at] = true;
+        }
+
+        return $verbatim;
     }
 
     /**
@@ -2716,7 +2762,7 @@ class MarkdownToCarve
         }
         $opener = $this->normalizeBlockquoteMarkers($virtual[0]);
         $block = $this->collectQuotedFence($virtual, 0, $opener)
-            ?? ($paragraphOpen ? null : $this->collectQuotedIndentedCode($virtual, 0, [], false));
+            ?? ($paragraphOpen ? null : $this->collectQuotedIndentedCode($virtual, 0, []));
         if ($block === null) {
             return null;
         }
@@ -2739,12 +2785,10 @@ class MarkdownToCarve
      * @param array<int, string> $lines
      * @param int $start
      * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $markers
-     * @param bool $tabbed Whether an earlier line of the quote has a tab among its
-     *   markers or indentation, which the quote's item columns do not count.
      *
      * @return array{lines: array<int, string>, end: int, prefix: string}|null
      */
-    protected function collectQuotedIndentedCode(array $lines, int $start, array $markers, bool $tabbed): ?array
+    protected function collectQuotedIndentedCode(array $lines, int $start, array $markers): ?array
     {
         $opener = $this->normalizeBlockquoteMarkers(ltrim($this->expandLeadingTabs($lines[$start]), ' '));
         if (preg_match('/^((?:> )+)(.*)$/s', $opener, $open) !== 1 || trim($open[2]) === '') {
@@ -2752,9 +2796,12 @@ class MarkdownToCarve
         }
         [, $prefix, $text] = $open;
         $holder = isset($markers[$prefix]) ? $markers[$prefix]->contentAt($this->indentWidth($text)) : 0;
-        if ($this->indentWidth($text) < $holder + 4 || ($tabbed && $holder > 0)) {
+        if ($this->indentWidth($text) < $holder + 4) {
             return null;
         }
+        // The item is written at the column fmt gives it, which is not always
+        // the one the source had, so the code it holds moves with it.
+        $shift = isset($markers[$prefix]) ? $markers[$prefix]->shiftAt($holder) : 0;
         $virtual = [];
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
             $inner = $this->quotedCodeLine($lines[$at], $prefix, $holder + 4);
@@ -2773,7 +2820,9 @@ class MarkdownToCarve
         $code = $this->collectIndentedCode($virtual, 0, $holder);
         $written = [];
         foreach ($code['lines'] as $line) {
-            $written[] = $line === '' ? rtrim($prefix) : $prefix . $line;
+            $written[] = $line === ''
+                ? rtrim($prefix)
+                : $prefix . $this->moveIndent($line, $holder, $holder + $shift);
         }
         // A shallower quote line after it is back in an outer quote, which a
         // blank at that depth tells Carve.
@@ -3924,7 +3973,7 @@ class MarkdownToCarve
     /**
      * The item whose marker line held the definition ending at `$index`: its
      * next line takes the marker and is read again, or it is written empty,
-     * `- +`, set apart from a following block that would otherwise attach to it.
+     * `- %%`, set apart from a following block that would otherwise attach to it.
      *
      * @param array<string> $lines
      * @param int $index
@@ -3951,7 +4000,7 @@ class MarkdownToCarve
 
             return;
         }
-        $kept[] = rtrim($prefix) . ' +';
+        $kept[] = rtrim($prefix) . ' ' . self::EMPTY_DEFINITION_ITEM_SENTINEL;
         if (
             $held !== null
             && trim($held) !== ''

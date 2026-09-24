@@ -26,10 +26,10 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
             'before a paragraph' => ["[x]: /u\nb [x]\n", "b [x][]\n\n[x]: /u\n", "<p>b <a href=\"/u\">x</a></p>\n"],
             'two in source order' => ["[b]: /2\n[a]: /1\n\n[a] [b]\n", "[a][] [b][]\n\n[b]: /2\n\n[a]: /1\n", "<p><a href=\"/1\">a</a> <a href=\"/2\">b</a></p>\n"],
             'in a quote' => ["> [x]: /u\n> b [x]\n", "> b [x][]\n\n[x]: /u\n", "<blockquote><p>b <a href=\"/u\">x</a></p></blockquote>\n"],
-            'as an item' => ["- [x]: /u\n- b [x]\n", "- +\n- b [x][]\n\n[x]: /u\n", "<ul>\n  <li></li>\n  <li>b <a href=\"/u\">x</a></li>\n</ul>\n"],
+            'as an item' => ["- [x]: /u\n- b [x]\n", "- %%\n- b [x][]\n\n[x]: /u\n", "<ul>\n  <li></li>\n  <li>b <a href=\"/u\">x</a></li>\n</ul>\n"],
             'as an item with a lazy line' => ["- [x]: /u\nb [x]\n", "- b [x][]\n\n[x]: /u\n", "<ul>\n  <li>b <a href=\"/u\">x</a></li>\n</ul>\n"],
             'in a quote with a lazy line' => ["> [x]: /u\nb [x]\n", "> b [x][]\n\n[x]: /u\n", "<blockquote><p>b <a href=\"/u\">x</a></p></blockquote>\n"],
-            'two in an item' => ["- [x]: /u\n  [y]: /v\n\n[x] [y]\n", "- +\n\n[x][] [y][]\n\n[x]: /u\n\n[y]: /v\n", "<ul>\n  <li></li>\n</ul>\n<p><a href=\"/u\">x</a> <a href=\"/v\">y</a></p>\n"],
+            'two in an item' => ["- [x]: /u\n  [y]: /v\n\n[x] [y]\n", "- %%\n\n[x][] [y][]\n\n[x]: /u\n\n[y]: /v\n", "<ul>\n  <li></li>\n</ul>\n<p><a href=\"/u\">x</a> <a href=\"/v\">y</a></p>\n"],
             'a repeated label' => ["[x]: /1\n[X]: /2\n\n[x]\n", "[x][]\n\n[x]: /1\n", "<p><a href=\"/1\">x</a></p>\n"],
             'in an item' => ["- a [x]\n\n  [x]: /u\n", "- a [x][]\n\n[x]: /u\n", "<ul>\n  <li>a <a href=\"/u\">x</a></li>\n</ul>\n"],
             'a destination on the next line' => ["[x]:\n/u\nb [x]\n", "b [x][]\n\n[x]: /u\n", "<p>b <a href=\"/u\">x</a></p>\n"],
@@ -52,7 +52,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("a\n\n> [x]: /u\n\nb\n");
 
-        $this->assertSame("a\n\n> \n\nb\n\n[x]: /u\n", $imported);
+        $this->assertSame("a\n\n>\n\nb\n\n[x]: /u\n", $imported);
         $this->assertSame("<p>a</p>\n<blockquote>\n\n</blockquote>\n<p>b</p>\n", (new CarveConverter())->convert($imported));
     }
 
@@ -86,8 +86,30 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("- [x]: <>\n- b\n");
 
-        $this->assertSame("- +\n- b\n", $imported);
+        $this->assertSame("- %%\n- b\n", $imported);
         $this->assertSame("<ul>\n  <li></li>\n  <li>b</li>\n</ul>\n", (new CarveConverter())->convert($imported));
+    }
+
+    public function testAHeadingAfterAnEmptiedDefinitionItemStaysOutsideTheItem(): void
+    {
+        $imported = (new MarkdownToCarve())->convert("- [x]: /u\n# H\n");
+
+        $this->assertSame("- %%\n\n# H\n\n[x]: /u\n", $imported);
+        $this->assertSame(
+            "<ul>\n  <li></li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n",
+            (new CarveConverter())->convert($imported),
+        );
+    }
+
+    public function testAnEmptiedDefinitionInsideAQuotedListItemKeepsItsMarker(): void
+    {
+        $imported = (new MarkdownToCarve())->convert("- a\n  > - [x]: /u\n  > - b\n");
+
+        $this->assertSame("- a\n  > - %%\n  > - b\n\n[x]: /u\n", $imported);
+        $this->assertSame(
+            "<ul>\n  <li>a\n    <blockquote>\n      <ul>\n        <li></li>\n        <li>b</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>\n",
+            (new CarveConverter())->convert($imported),
+        );
     }
 
     public function testADefinitionClosingAnItemsFenceLeavesTwoCodeBlocks(): void

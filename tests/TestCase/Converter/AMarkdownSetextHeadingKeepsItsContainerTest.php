@@ -78,7 +78,7 @@ class AMarkdownSetextHeadingKeepsItsContainerTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("> - a\n>\n>   b\n>   ---\n");
 
-        $this->assertSame("> {loose}\n> - a\n> \n>   ## b\n", $imported);
+        $this->assertSame("> {loose}\n> - a\n>\n>   ## b\n", $imported);
         $this->assertSame(
             (new CarveConverter())->convert("> {loose}\n> - a\n>\n>   ## b\n"),
             (new CarveConverter())->convert($imported),

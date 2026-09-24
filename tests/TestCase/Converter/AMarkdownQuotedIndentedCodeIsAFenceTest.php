@@ -56,6 +56,8 @@ class AMarkdownQuotedIndentedCodeIsAFenceTest extends TestCase
             'lazy in a nested quote paragraph' => ["> > a\n>     code\n", "<blockquote>\n  <blockquote><p>a\ncode</p></blockquote>\n</blockquote>\n"],
             'a tab two columns past the marker' => ["> \tx\n", "<blockquote><p>x</p></blockquote>\n"],
             'a tab-padded item the quote holds' => [">\t- a\n>\n>\t\tcode\n", "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <p>code</p>\n    </li>\n  </ul>\n</blockquote>\n"],
+            'code under a tab-padded item' => [">\t- a\n>\n>\t      code\n", "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n</blockquote>\n"],
+            'code under an item one column in' => [">  - a\n>\n>        code\n", "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n</blockquote>\n"],
             'a quote line holding only spaces after it' => [">     code\n>   \n> text\n", "<blockquote>\n  <pre><code>code\n</code></pre>\n  <p>text</p>\n</blockquote>\n"],
             'a quote line holding only spaces between paragraphs' => ["> a\n>   \n> b\n", "<blockquote>\n  <p>a</p>\n  <p>b</p>\n</blockquote>\n"],
             'a quote an item holds stays in the item' => ["- a\n\n  >     code\n", "<ul>\n  <li><p>a</p>\n    <blockquote>\n      <pre><code>code\n</code></pre>\n    </blockquote>\n  </li>\n</ul>\n"],
@@ -68,5 +70,30 @@ class AMarkdownQuotedIndentedCodeIsAFenceTest extends TestCase
     public function testTheQuoteRendersTheCode(string $markdown, string $html): void
     {
         $this->assertSame($html, (new CarveConverter())->convert((new MarkdownToCarve())->convert($markdown)));
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function tabbedItems(): array
+    {
+        return [
+            'a tab before the marker' => [">\t- a\n>\n>\t      code\n"],
+            'a space before the marker' => [">  - a\n>\n>        code\n"],
+            'the marker at the quote column' => ["> - a\n>\n>       code\n"],
+        ];
+    }
+
+    /**
+     * The item is written at the column the formatter gives it, and the code it
+     * holds is written under that column rather than the source's.
+     */
+    #[DataProvider('tabbedItems')]
+    public function testTheCodeFollowsTheItemToItsWrittenColumn(string $markdown): void
+    {
+        $imported = (new MarkdownToCarve())->convert($markdown);
+
+        $this->assertSame("> {loose}\n> - a\n>\n>   ```\n>   code\n>   ```\n", $imported);
+        $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 }
