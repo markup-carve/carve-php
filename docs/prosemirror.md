@@ -64,6 +64,30 @@ Refresh the copy from upstream and bump the `commit` in its `_provenance` block.
 `ProseMirrorCorpusTest` fails if this engine grows a node type the map has no
 decision for.
 
+### Adding an entry by hand is a divergence, and has to be declared
+
+That corpus assertion is satisfied by a *local* entry, which is what let six
+decisions accumulate here while `_provenance.commit` named a file holding none of
+them. So a second check asks the other question:
+
+```bash
+php scripts/check-schema-map.php --grammars <a carve-grammars checkout>
+```
+
+It compares every decision this copy states - `kind`, `pm`, `accepts`, whether a
+type is unmapped, and the carrier node names - against the map at
+`_provenance.commit`, and the pinned map against carve-grammars `main`. Any
+difference has to be named in `_provenance.divergences` with a reason, and an
+entry there that no longer differs is refused, so the list cannot only grow.
+
+The decision is the subject, not the commit distance: carve-grammars merges
+continuously, so a gate on distance would be red from any open pull request over
+there. The distance is printed as a number, along with the entries whose prose
+differs from the pin without their decision differing.
+
+A new editor node still belongs in carve-grammars first. A declaration is how a
+type this engine already produces gets a decision in the meantime.
+
 ## What the editor model cannot hold
 
 Roughly a third of Carve's node types have no ProseMirror equivalent. The bridge
