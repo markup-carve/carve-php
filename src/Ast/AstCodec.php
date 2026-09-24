@@ -495,7 +495,7 @@ class AstCodec
         // FIRST, ahead of every other question this method asks. `decodeJson`
         // is bounded for free because `json_decode` takes a depth argument;
         // this entry point is handed a structure somebody else decoded, and
-        // everything below here - `refuseRetiredShapes`, `verifyNoUnnamedSlots`,
+        // everything below here - `verifyNoUnnamedSlots`,
         // `AstSchema::firstViolation`, `decodeNode` - is plain recursion. A
         // payload past the bound exhausts the C stack, and a segmentation fault
         // is not a depth check failing, it is the absence of one.
@@ -562,19 +562,6 @@ class AstCodec
                 }
             }
         }
-
-        // The five pre-PART 12 §7 spellings this codec used to normalize on the
-        // way in (carve-php#1002). They are refused now, and each one is a
-        // shape the schema would refuse anyway - a root field §7 does not name,
-        // a `footnote` missing `label`, a type the vocabulary does not hold. It
-        // is asked FIRST so the answer names the spelling and the one-shot
-        // migration rather than reporting the same payload as an anonymous
-        // schema violation a reader cannot act on.
-        //
-        // None of the sixteen rows §12(d) tabulates carries one of these, so
-        // this cannot answer in their place - PayloadIsValidatedAgainstTheSchema
-        // Test measures that rather than assuming it.
-        self::refuseRetiredShapes($data);
 
         // PART 12 §11, and on the payload as the CALLER wrote it: everything
         // below rewrites `$data`, and a check asking afterwards would be asking
@@ -910,56 +897,7 @@ class AstCodec
 
     /**
      * Re-encode what was just decoded and complain if a field went missing.
-     */
-
-    /**
-     * PART 12 §7's shape, and only it: refuse the five pre-§7 spellings this
-     * codec used to normalize on the way in, and the node types this engine
-     * used to publish that the vocabulary has never held.
      *
-     * Every one of them is refused by the schema too - §7 fixes the root at
-     * three fields, `label` is required on a `footnote`, and `raw_text`,
-     * `caption` and `section` are types it does not list - so this adds no NEW
-     * refusal. What it adds is the report: the spelling by name, and the one
-     * command that converts a stored payload. Told only that a payload "does
-     * not satisfy the AST schema", an application holding documents written by
-     * an older version of this package would have to work out for itself that
-     * the fix is a rewrite rather than a re-parse.
-     *
-     * @param array<mixed> $payload
-     *
-     * @throws \MarkupCarve\Carve\Exception\AstDecodeException
-     */
-    private static function refuseRetiredShapes(array $payload): void
-    {
-        $children = $payload['children'] ?? null;
-        if (!is_array($children) || !array_is_list($children)) {
-            // A root with no usable `children` is refused by §12(a) or (d), and
-            // the upgrade cannot place a node in something that is not a list -
-            // so answering here would send a caller to a migration that returns
-            // the payload unchanged, and the second decode would say the same
-            // thing again. Let the clause that can be acted on answer.
-            return;
-        }
-
-        $found = StoredPayloadUpgrade::retiredShapesIn($payload);
-        if ($found === []) {
-            return;
-        }
-
-        throw new AstDecodeException(sprintf(
-            'The payload carries %s, which this engine no longer reads. PART 12 §7 fixes the '
-                . 'wire shape and §12(d) validates a payload as written, so a spelling that '
-                . 'predates §7 is refused rather than normalized on the way in, and a node type '
-                . 'the vocabulary has never held is refused rather than read back. Convert a '
-                . 'stored payload once with %s::upgrade(), which needs the payload only and not '
-                . 'the source it was parsed from.',
-            implode(', ', $found),
-            StoredPayloadUpgrade::class,
-        ));
-    }
-
-    /**
      * @param array<string, mixed> $input
      * @param \MarkupCarve\Carve\Node\Document $document
      *
@@ -1356,9 +1294,8 @@ class AstCodec
      *
      * PART 12 §12(d) already answers this question once: a type registered with
      * `register()` and ITS SUBTREE are outside the schema by construction, so
-     * the rule has nothing to decide about them. The passes that rewrite an
-     * encoded tree - publishing an internal type under a vocabulary name, and
-     * the stored-payload upgrade - draw the same line, and for the same reason:
+     * the rule has nothing to decide about them. The pass that publishes an
+     * internal type under a vocabulary name draws the same line for the same reason:
      * an application node's state is an array whose keys this package did not
      * choose, so a key spelled `type` there is data rather than a node
      * (carve-php#1002).

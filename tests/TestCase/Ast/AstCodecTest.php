@@ -6,7 +6,6 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use JsonException;
 use MarkupCarve\Carve\Ast\AstCodec;
-use MarkupCarve\Carve\Ast\StoredPayloadUpgrade;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
 use MarkupCarve\Carve\Node\Inline\RawText;
@@ -457,48 +456,9 @@ class AstCodecTest extends TestCase
     public function testAStoredPayloadNamingTheInternalNodeIsRefused(): void
     {
         $this->expectException(AstDecodeException::class);
-        $this->expectExceptionMessage('a `raw_text` node');
+        $this->expectExceptionMessage('"raw_text", which the schema does not list');
 
         $this->codec->decode(self::storedRawTextPayload());
-    }
-
-    /**
-     * And the upgrade produces the `text` node the ENCODER already mapped it
-     * to, which is what makes it lossless against the shape a stored document
-     * was going to end up in anyway: `raw_text` never survived being saved
-     * again, because publishing it verbatim would have made the payload
-     * schema-invalid.
-     */
-    public function testTheUpgradeHelperTurnsTheInternalNodeIntoText(): void
-    {
-        $upgraded = StoredPayloadUpgrade::upgrade(self::storedRawTextPayload());
-        $decoded = $this->codec->decode($upgraded);
-
-        $inlines = $this->codec->encode($decoded)['children'][0]['children'];
-        $this->assertSame(['text'], array_column($inlines, 'type'));
-        $this->assertSame('[a][]', $inlines[0]['value']);
-    }
-
-    /**
-     * THE ONE THING THE UPGRADE DOES NOT CARRY OVER, stated rather than left to
-     * be discovered: the node existed so the writer could reproduce declined
-     * markup verbatim, and a `text` node is escaped on the way out.
-     *
-     * It is not a loss this change introduces. The node was already off the
-     * wire, so the second save of such a document produced a `text` node and
-     * this same escaping - the upgrade only brings that forward by one hop.
-     *
-     * ONE BACKSLASH, on the OPENER. PART 11 §2 decides per opener occurrence
-     * (markup-carve/carve#1533), and a reference link opens on its first `[`:
-     * suppress that one and the rest of the run is ordinary text. The
-     * unit-scoped form wrote `\\[a\\]\\[\\]` and the last three backslashes were
-     * idle.
-     */
-    public function testTheDeclinedMarkupIsWrittenEscapedAfterTheUpgrade(): void
-    {
-        $decoded = $this->codec->decode(StoredPayloadUpgrade::upgrade(self::storedRawTextPayload()));
-
-        $this->assertSame("\\[a][]\n", (new CarveRenderer())->render($decoded));
     }
 
     /**
@@ -698,48 +658,9 @@ class AstCodecTest extends TestCase
     public function testAnOldRootAbbreviationsMapIsRefused(): void
     {
         $this->expectException(AstDecodeException::class);
-        $this->expectExceptionMessage('a root `abbreviations` map');
+        $this->expectExceptionMessage('carries `abbreviations`, which the schema does not name');
 
         $this->codec->decode(self::oldRootAbbreviationsPayload());
-    }
-
-    /**
-     * The expansions and the placement both survive the upgrade: the map
-     * becomes `abbreviation_def` nodes, and the flag becomes WHERE they sit -
-     * which is how the encoder reads it back.
-     */
-    public function testTheUpgradeHelperTurnsTheRootMapIntoDefinitionNodes(): void
-    {
-        $upgraded = StoredPayloadUpgrade::upgrade(self::oldRootAbbreviationsPayload());
-        $this->assertSame(
-            ['abbreviation_def', 'paragraph'],
-            array_column($upgraded['children'], 'type'),
-        );
-
-        $decoded = $this->codec->decode($upgraded);
-        $this->assertSame(['HTML' => 'HyperText'], $decoded->getAbbreviations());
-        $this->assertTrue($decoded->hasAbbreviationsBeforeBody());
-    }
-
-    /**
-     * CONTROL for the flag: a map recorded as sitting AFTER the body upgrades
-     * to definitions after the body, and the flag comes back false. Without it
-     * the assertion above would pass on a helper that always prepends.
-     */
-    public function testTheUpgradeHelperKeepsDefinitionsAfterTheBodyWhenTheFlagSaidSo(): void
-    {
-        $payload = self::oldRootAbbreviationsPayload();
-        $payload['abbreviationsBeforeBody'] = false;
-
-        $upgraded = StoredPayloadUpgrade::upgrade($payload);
-        $this->assertSame(
-            ['paragraph', 'abbreviation_def'],
-            array_column($upgraded['children'], 'type'),
-        );
-
-        $decoded = $this->codec->decode($upgraded);
-        $this->assertSame(['HTML' => 'HyperText'], $decoded->getAbbreviations());
-        $this->assertFalse($decoded->hasAbbreviationsBeforeBody());
     }
 
     public function testAnInlineExtensionUsesTheReferenceFieldNames(): void
