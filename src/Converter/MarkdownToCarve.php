@@ -1246,6 +1246,26 @@ class MarkdownToCarve
     }
 
     /**
+     * A line inside an open HTML block with its container prefix removed - the
+     * block quote markers, then the enclosing list item's content column - and
+     * the rest kept as it is, indentation and whitespace-only lines included:
+     * it is literal content. Null for a line dedented out of the item.
+     */
+    protected function htmlContinuationLine(string $line, int $contentCol): ?string
+    {
+        $rest = $line;
+        if (preg_match('/^[ \t]*(?:>[ \t]?)+/', $line, $matches) === 1) {
+            $rest = substr($line, strlen($matches[0]));
+            $contentCol = 0;
+        }
+        if (trim($rest) !== '' && $this->indentWidth($rest) < $contentCol) {
+            return null;
+        }
+
+        return $this->stripColumns($rest, $contentCol);
+    }
+
+    /**
      * What a blank line looks like in the container the given line sits in: its
      * block quote markers, with the list indentation trimmed off the end.
      *
@@ -1393,8 +1413,8 @@ class MarkdownToCarve
                 if ($this->containerKey($lines[$i], $contentCol) !== $container) {
                     break;
                 }
-                $rest = $this->stripContainerPrefix($lines[$i], $contentCol);
-                if ($rest === null || ($closer === null && $rest === '')) {
+                $rest = $this->htmlContinuationLine($lines[$i], $contentCol);
+                if ($rest === null || ($closer === null && trim($rest, " \t") === '')) {
                     break;
                 }
                 $parts[] = $rest;
@@ -1405,6 +1425,11 @@ class MarkdownToCarve
                 if ($closer !== null && preg_match($closer, $rest) === 1) {
                     break;
                 }
+            }
+            // The empty element after a final newline is no line of the block.
+            if ($end === count($lines) - 1 && $end > $start && $lines[$end] === '') {
+                array_pop($parts);
+                $end--;
             }
         }
 

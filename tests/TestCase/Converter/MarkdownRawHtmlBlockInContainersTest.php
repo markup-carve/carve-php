@@ -124,13 +124,14 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // carve-js closes a `<script>` block on `</script>` only, not on a
         // mismatched `</pre>`, so a non-matching end tag leaves the block open
         // and it runs to the next blank line or EOF. The trailing `after` is
-        // therefore inside the block, and carve-php matches that.
+        // therefore inside the block, and carve-php matches that. The final
+        // newline is not: carve-js takes it into the block as a blank line.
         $this->assertSame(
-            "```=html\n<script>\n</pre>\nafter\n\n```",
+            "```=html\n<script>\n</pre>\nafter\n```\n",
             $this->converter->convert("<script>\n</pre>\nafter\n"),
         );
         $this->assertSame(
-            "```=html\n<pre>\n</textarea>\nafter\n\n```",
+            "```=html\n<pre>\n</textarea>\nafter\n```\n",
             $this->converter->convert("<pre>\n</textarea>\nafter\n"),
         );
     }
