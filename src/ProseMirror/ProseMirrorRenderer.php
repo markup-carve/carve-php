@@ -41,6 +41,7 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -535,6 +536,24 @@ class ProseMirrorRenderer
 
             $name = $this->proseMirrorName($node);
             if ($name === null) {
+                // An unmapped inline still holds inline CONTENT, and the slot it
+                // sat in already accepts inline content, so its children stand
+                // in for it without inventing a shape. Reported as degraded and
+                // not dropped: the words survive where the node type does not.
+                // This is what the Carve, plain and ANSI renderers already do
+                // with these two types, so the bridge now agrees with them about
+                // what a ruby degrades to instead of losing the words outright.
+                $standIn = $this->renderInlines($this->degradeToInlines($node), $marks);
+                if ($standIn !== []) {
+                    $this->degraded[$type] = SchemaMap::unmappedReason($type)
+                        ?? 'kept as its own children, without the node';
+                    foreach ($standIn as $child) {
+                        $out[] = $child;
+                    }
+
+                    continue;
+                }
+
                 $this->dropped[$type] = SchemaMap::unmappedReason($type) ?? 'no ProseMirror name for this type';
 
                 continue;
@@ -605,6 +624,25 @@ class ProseMirrorRenderer
             $node instanceof SmartPunctuation => $node->getGlyph(),
             default => null,
         };
+    }
+
+    /**
+     * The inlines an unmodeled inline stands for once its own node is gone.
+     *
+     * A ruby holds base and annotation flat in `children`, so hoisting those
+     * would run the two together; `flattenedInlines()` is the reading the Carve,
+     * plain and ANSI renderers already use for it, and reusing it keeps one
+     * degradation for the type rather than one per output.
+     *
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function degradeToInlines(Node $node): array
+    {
+        if ($node instanceof Ruby) {
+            return $node->flattenedInlines();
+        }
+
+        return $node->getChildren();
     }
 
     /**

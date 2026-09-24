@@ -495,7 +495,7 @@
     "citation": "a citation is carried as one typed item inside citation_group.items in the Carve AST; ProseMirror keeps that item inside the carveCitation atom's items attribute rather than as a standalone editor node",
     "ruby": "the editor schema has no paired base and annotation structure for ruby",
     "block_extension": "CarveKit registers no node for an extension-owned block, and its opaque payload is not editor content. The node's own FALLBACK stands in for it, which is what PART 12 section 33 says a reader that does not implement the extension renders",
-    "small_caps": "CarveKit registers no small-caps mark, and naming one the editor schema never defined is worse than dropping it. The bridge treats it exactly as it treats ruby: measured, both are dropped on the way out",
+    "small_caps": "CarveKit registers no small-caps mark, and naming one the editor schema never defined is worse than dropping it. The bridge treats it exactly as it treats ruby: measured, both come back as their own children with the type named in the degradation report",
     "citation_definition": "the bibliography definition line (PART 12 §18) is not yet modeled; CarveKit registers no node for it, and emitting a name the editor schema never defined is worse than dropping it. The references list the Citations extension renders is what an editor holds today",
     "abbreviation_def": "abbreviation definitions ride on the doc node's attrs",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
