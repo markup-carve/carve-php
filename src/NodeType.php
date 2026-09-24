@@ -402,15 +402,6 @@ final class NodeType
             self::COMMENT,
             self::FIGURE,
             self::FIGURE_GROUP,
-            // `caption` STAYS, although profiles.md dropped it in carve#2207.
-            // That ruling reads a caption as an inline array on its figure or
-            // table, which is true of carve-js and carve-rs and not of this
-            // engine: the parse tree here holds a Caption block, a profile
-            // denying it reports a violation today, and taking the name out
-            // makes `isTypeAllowed('caption')` answer false under any profile
-            // that sets an allow list - silent loss, which is the hazard
-            // carve#771 fixed in the other direction.
-            self::CAPTION,
             // Both definition kinds are in the normative Block vocabulary
             // (carve#771, ruled by carve#826). Without them here,
             // Profile::isTypeAllowed() takes the "outside the vocabulary"

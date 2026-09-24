@@ -565,6 +565,13 @@ class Profile
     private const NON_DENIABLE_TYPES = [
         'raw_text',
         'document',
+        // A caption belongs to its host, so denying `figure`, `figure_group` or
+        // `table` is what denies a caption and there is nothing separate left to
+        // refuse (carve#2207, carve#2239). Only this engine's parse tree holds a
+        // Caption block at all; asking about it reported a violation under a name
+        // no host can act on, and turned an allowed figure's `<figcaption>` into
+        // a paragraph.
+        NodeType::CAPTION,
     ];
 
     /**

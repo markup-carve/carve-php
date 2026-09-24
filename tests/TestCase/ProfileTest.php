@@ -364,8 +364,12 @@ DJOT;
      * silently filtered out under every profile (including full). This test fails
      * the moment a new NodeType constant is added without registering it.
      *
-     * Exception: LITERAL_INLINE is intentionally not classified (folded to CODE
-     * via trustClass() before resolution).
+     * Two exceptions, both of which resolution reaches before the lists:
+     * LITERAL_INLINE folds to CODE via trustClass(), and CAPTION is not deniable
+     * at all, because a caption is part of its host (carve#2207). That second
+     * exemption is only safe while the type stays allowed - ACaptionIsNotDeniableTest
+     * asserts it, since dropping the name without that is the silent loss this
+     * test caught the first time.
      */
     public function testEveryNodeTypeConstantIsClassifiedForProfiles(): void
     {
@@ -377,7 +381,8 @@ DJOT;
             }
 
             // LITERAL_INLINE is intentionally not in either list; it folds to CODE via trustClass()
-            if ($value === NodeType::LITERAL_INLINE) {
+            // CAPTION is not deniable, so resolution answers before the lists
+            if ($value === NodeType::LITERAL_INLINE || $value === NodeType::CAPTION) {
                 continue;
             }
 
