@@ -306,7 +306,7 @@ class MarkdownToCarve
                     }
                     $overMarker = $markerIndent >= $parentContent + 4;
                 }
-                // Only `1.` interrupts a paragraph, here one the item holding the marker has open.
+                // Only an ordered marker numbered 1 interrupts a paragraph, here one the item holding it has open.
                 $paragraphMarker = !$overMarker
                     && $lazyAllowed
                     && $listCols !== []
