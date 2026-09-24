@@ -98,7 +98,7 @@
     "admonition": {
       "type": "object",
       "title": "admonition (block)",
-      "description": "A typed `::: word` container. Its own type rather than a `div` carrying a class, so a profile can deny callouts while allowing generic containers.",
+      "description": "A CALLOUT: a named `:::` container presenting the blocks written inside it, set apart - note, warning, tip, danger and the like. A container whose kind names generated content is a `directive` instead, and an anonymous or attribute-only one is a `div` (carve#2195).",
       "required": [
         "type",
         "kind",
@@ -109,7 +109,8 @@
           "const": "admonition"
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The callout kind, as authored. A kind naming generated content (`bibliography`, `footnotes`, `glossary`, `index`, `references`, `toc`) belongs on a `directive` instead. That is not yet REFUSED here: the schema names the type before the engines publish it, and `admonition.kind` gains `not` in the commit that moves the pin to a build emitting `directive` (carve#2195)."
         },
         "title": {
           "type": "array",
@@ -206,12 +207,14 @@
           "enum": [
             "abbreviation_def",
             "admonition",
+            "block_extension",
             "block_quote",
             "citation_definition",
             "code_block",
             "comment",
             "definition_list",
             "div",
+            "directive",
             "figure",
             "figure_group",
             "footnote",
@@ -223,6 +226,7 @@
             "link_reference_definition",
             "paragraph",
             "raw_block",
+            "section",
             "table",
             "thematic_break"
           ]
@@ -272,6 +276,21 @@
           },
           "then": {
             "$ref": "#/$defs/admonition"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "block_extension"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/block_extension"
           }
         },
         {
@@ -362,6 +381,21 @@
           },
           "then": {
             "$ref": "#/$defs/div"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "directive"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/directive"
           }
         },
         {
@@ -518,6 +552,21 @@
           "if": {
             "properties": {
               "type": {
+                "const": "section"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/section"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
                 "const": "table"
               }
             },
@@ -566,6 +615,59 @@
         "fenced": {
           "description": "True when the quote was authored as a ::: > container rather than with > line markers. The two spellings are one node; this records which one, so the canonical writer can write back what it read. Absent on a >-prefixed quote.",
           "const": true
+        },
+        "attrs": {
+          "$ref": "#/$defs/attrs"
+        },
+        "pos": {
+          "$ref": "#/$defs/pos"
+        }
+      },
+      "additionalProperties": false
+    },
+    "block_extension": {
+      "type": "object",
+      "title": "block_extension (block)",
+      "description": "A block construct an extension owns, carried with a core FALLBACK so a reader that does not implement the extension still has something real to render, write and report. The twin of `inline_extension`, which had no block equivalent, so a Tier-3 block whose payload is not Carve content had to smuggle it through `attrs.keyValues` as strings or lose it (carve#2200). Carve 0.1 source spells no block extension, so a parser produces none.",
+      "required": [
+        "type",
+        "name",
+        "fallback"
+      ],
+      "properties": {
+        "type": {
+          "const": "block_extension"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Globally qualified, so two extensions cannot collide: `org.example.diagram`, not `diagram`."
+        },
+        "version": {
+          "type": "string",
+          "description": "The extension's own version, opaque here. Absent means the extension does not version its payload."
+        },
+        "fallback": {
+          "$ref": "#/$defs/blockNode",
+          "description": "REQUIRED. The core block a reader that does not implement this extension renders, writes and counts instead. It is not a placeholder: it is what the document MEANS to such a reader, so the renderer, the canonical writer and the loss report all have a defined answer rather than three separate special cases."
+        },
+        "payload": {
+          "type": "object",
+          "required": [
+            "format"
+          ],
+          "properties": {
+            "format": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A media type naming how `value` is encoded, so a reader can tell whether it can parse it at all."
+            },
+            "value": {
+              "description": "The extension's own data. Opaque to this schema and to every core renderer."
+            }
+          },
+          "additionalProperties": false,
+          "description": "The extension's data, which is NOT Carve content and is never rendered by a core target. Subject to the ingest bound of §9 like any other nesting, and to §25's trust rules like any other content a renderer did not produce."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"
@@ -645,6 +747,10 @@
         "suppressAuthor": {
           "type": "boolean",
           "description": "`-@key`: suppress the author in author-date mode."
+        },
+        "mode": {
+          "const": "integral",
+          "description": "This item's citation mode. Set from the group's `+` shorthand, which is the only way Carve 0.1 source spells it, so every item of a source-spelled group carries the same value. Absent means parenthetical. It sits on the ITEM because the models a bridge reaches put it there - Pandoc's `CitationMode` is per citation - and a group whose items differ is reachable from an importer even though no Carve source spells one (carve#2203)."
         },
         "number": {
           "type": "integer",
@@ -994,6 +1100,49 @@
       },
       "additionalProperties": false
     },
+    "directive": {
+      "type": "object",
+      "title": "directive (block)",
+      "description": "A generated-content directive: a named `:::` container whose kind asks the renderer to PLACE something the document already contains, rather than to present the blocks written inside it. Split from `admonition` because a table of contents is not a callout, and a consumer deciding whether to draw one had to carry a list of kinds that are not callouts (carve#2195).",
+      "required": [
+        "type",
+        "kind"
+      ],
+      "properties": {
+        "type": {
+          "const": "directive"
+        },
+        "kind": {
+          "enum": [
+            "bibliography",
+            "footnotes",
+            "glossary",
+            "index",
+            "references",
+            "toc"
+          ],
+          "description": "Which generated content is placed here. A kind outside this list is an `admonition`, not a directive."
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/blockNode"
+          },
+          "description": "Blocks written inside the opener. Usually empty: a directive's content is generated, not authored."
+        },
+        "label": {
+          "type": "string",
+          "description": "Opener `[label]` grouping id. Inert in core."
+        },
+        "attrs": {
+          "$ref": "#/$defs/attrs"
+        },
+        "pos": {
+          "$ref": "#/$defs/pos"
+        }
+      },
+      "additionalProperties": false
+    },
     "document": {
       "type": "object",
       "title": "document (root)",
@@ -1195,18 +1344,18 @@
     "footnote_ref": {
       "type": "object",
       "title": "footnote_ref (inline)",
-      "description": "A reference to a definition. Split from `inline_footnote` because a profile has to be able to deny one without the other (carve#405).",
+      "description": "A reference to a definition. Split from `inline_footnote` because a profile has to be able to deny one without the other (carve#405). The label is spelled `label`, the same name its `footnote` definition uses; an engine that once published `id` may keep decoding that property onto this field under PART 12 section 11's narrow exception (carve#2193).",
       "required": [
         "type",
-        "id"
+        "label"
       ],
       "properties": {
         "type": {
           "const": "footnote_ref"
         },
-        "id": {
+        "label": {
           "type": "string",
-          "description": "Reference label of `[^label]`, matched against the document's `footnote` definitions."
+          "description": "Reference label of `[^label]`, matched against the document's `footnote` definitions by the same string that node carries in its own `label`."
         },
         "number": {
           "type": "integer",
@@ -1397,7 +1546,7 @@
     "inlineNode": {
       "type": "object",
       "title": "Any inline node",
-      "description": "Dispatches on `type`.",
+      "description": "Dispatches on `type`.\n\n`citation` is NOT listed. It is a declared node type and `citation_group.items` references it directly, but a citation is only ever an item of a group: PART 7 makes the bracket the unit a source spells, an item's `prefix`, `locator` and `suffix` mean nothing outside one, and no clause defines what a bare citation renders to in any target. Listing it here admitted a shape every engine refuses (carve#2227).",
       "required": [
         "type"
       ],
@@ -1407,7 +1556,6 @@
             "abbreviation",
             "autolink",
             "caption_number",
-            "citation",
             "citation_group",
             "code",
             "comment",
@@ -1429,6 +1577,7 @@
             "mention",
             "raw_inline",
             "ruby",
+            "small_caps",
             "smart_punctuation",
             "soft_break",
             "span",
@@ -1445,21 +1594,6 @@
         }
       },
       "allOf": [
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "citation"
-              }
-            },
-            "required": [
-              "type"
-            ]
-          },
-          "then": {
-            "$ref": "#/$defs/citation"
-          }
-        },
         {
           "if": {
             "properties": {
@@ -1824,6 +1958,21 @@
           "if": {
             "properties": {
               "type": {
+                "const": "small_caps"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/small_caps"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
                 "const": "smart_punctuation"
               }
             },
@@ -2105,6 +2254,16 @@
             "$ref": "#/$defs/blockNode"
           }
         },
+        "lines": {
+          "type": "array",
+          "description": "The block's LINES, each one an inline sequence. Absent means the lines are whatever splitting `children` on `hard_break` yields, which is what every consumer did before this field and is ambiguous: an authored hard break inside a verse line and a line boundary are the same node, so the split is right only because nothing else produces a `hard_break` there - an invariant no clause states. Present, it settles the question, and a hard break inside a line stays a hard break. Preserved indentation is a leading run of U+E000 per line either way (carve#2202).",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/inlineNode"
+            }
+          }
+        },
         "attrs": {
           "$ref": "#/$defs/attrs"
         },
@@ -2112,7 +2271,8 @@
           "$ref": "#/$defs/pos"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "Verse, addresses and anything else whose line breaks are content. `children` carries the blocks as every consumer already reads them; `lines` carries the same content as the lines it actually is, added alongside rather than instead (PART 12 §5)."
     },
     "link": {
       "type": "object",
@@ -2359,6 +2519,17 @@
         "content": {
           "type": "string"
         },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+          "description": "Authored equation-number label, such as `Equation` or `Eq.`. It selects the numbering bucket and supplies the visible prefix; `attrs.id` is the cross-reference key."
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Equation number assigned during resolution. Present only on display math; absent before resolution."
+        },
         "attrs": {
           "$ref": "#/$defs/attrs"
         },
@@ -2366,6 +2537,29 @@
           "$ref": "#/$defs/pos"
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "number": {}
+            },
+            "required": [
+              "number"
+            ]
+          },
+          "then": {
+            "required": [
+              "label"
+            ],
+            "properties": {
+              "label": {},
+              "display": {
+                "const": true
+              }
+            }
+          }
+        }
+      ],
       "additionalProperties": false
     },
     "mention": {
@@ -2521,54 +2715,35 @@
       },
       "additionalProperties": false
     },
-    "ruby": {
+    "section": {
       "type": "object",
-      "title": "ruby (inline)",
-      "description": "An interchange-only ruby annotation. Carve 0.1 source has no spelling for the paired base and annotation structure.",
+      "title": "section (block)",
+      "description": "An explicit sectioning wrapper. Carve 0.1 source has no spelling for one - sectioning is implicit in heading level - so a parser does not produce it and a canonical Carve writer flattens it back to its headings and reports the loss. It exists so the nesting a format with explicit sections carries (HTML5 `section`, JATS `sec`, DocBook `section`, DITA, TEI, and Pandoc's `--section-divs`) survives a bridge instead of being flattened and re-derived by every consumer that needs it (carve#2207).",
       "required": [
         "type",
-        "pairs"
+        "children"
       ],
       "properties": {
         "type": {
-          "const": "ruby"
+          "const": "section"
         },
-        "pairs": {
+        "children": {
           "type": "array",
-          "minItems": 1,
           "items": {
-            "$ref": "#/$defs/rubyPair"
+            "$ref": "#/$defs/blockNode"
           }
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6,
+          "description": "The heading level this section corresponds to, where the source format states one. Absent means the level is whatever the nesting implies."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"
         },
         "pos": {
           "$ref": "#/$defs/pos"
-        }
-      },
-      "additionalProperties": false
-    },
-    "rubyPair": {
-      "type": "object",
-      "title": "ruby base/annotation pair",
-      "required": [
-        "base",
-        "annotation"
-      ],
-      "properties": {
-        "base": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "$ref": "#/$defs/inlineNode"
-          }
-        },
-        "annotation": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/inlineNode"
-          }
         }
       },
       "additionalProperties": false
@@ -2662,6 +2837,85 @@
       "properties": {
         "type": {
           "const": "strike"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inlineNode"
+          }
+        },
+        "attrs": {
+          "$ref": "#/$defs/attrs"
+        },
+        "pos": {
+          "$ref": "#/$defs/pos"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ruby": {
+      "type": "object",
+      "title": "ruby (inline)",
+      "description": "An interchange-only ruby annotation. Carve 0.1 source has no spelling for the paired base and annotation structure.",
+      "required": [
+        "type",
+        "pairs"
+      ],
+      "properties": {
+        "type": {
+          "const": "ruby"
+        },
+        "pairs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/rubyPair"
+          }
+        },
+        "attrs": {
+          "$ref": "#/$defs/attrs"
+        },
+        "pos": {
+          "$ref": "#/$defs/pos"
+        }
+      },
+      "additionalProperties": false
+    },
+    "rubyPair": {
+      "type": "object",
+      "title": "ruby base/annotation pair",
+      "required": [
+        "base",
+        "annotation"
+      ],
+      "properties": {
+        "base": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/inlineNode"
+          }
+        },
+        "annotation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inlineNode"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "small_caps": {
+      "type": "object",
+      "title": "small_caps (inline)",
+      "description": "An interchange-only small-caps span. Carve 0.1 source has no spelling for this wrapper, so parsers do not produce it and canonical source writers omit the wrapper while preserving attributes on an ordinary attributed span. Conversion APIs with diagnostics should report the loss.",
+      "required": [
+        "type",
+        "children"
+      ],
+      "properties": {
+        "type": {
+          "const": "small_caps"
         },
         "children": {
           "type": "array",
@@ -2949,8 +3203,7 @@
       "title": "table_cell (block)",
       "required": [
         "type",
-        "header",
-        "children"
+        "header"
       ],
       "properties": {
         "type": {
@@ -2965,12 +3218,29 @@
             "$ref": "#/$defs/inlineNode"
           }
         },
+        "blocks": {
+          "type": "array",
+          "description": "Block content, in place of the inline `children`. A cell carries one or the other, never both. Carve 0.1 source has no spelling for a block inside a cell, so a parser does not produce this field; it exists so an HTML `<td>` holding flow content, or a Pandoc `Cell` holding `[Block]`, survives a bridge instead of flattening to text. A canonical Carve writer loses it and reports the loss.",
+          "items": {
+            "$ref": "#/$defs/blockNode"
+          }
+        },
         "span": {
           "enum": [
             "rowspan",
             "colspan"
           ],
           "description": "Set by a `^` (rowspan) or `<` (colspan) continuation cell."
+        },
+        "colspan": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "Resolved number of columns this cell occupies, from the span walk of PART 9 §13 T5. Published on the ORIGIN cell, alongside the `<` markers that extended it rather than instead of them. Absent means 1, and an ingested 1 is normalized away (PART 12 §22)."
+        },
+        "rowspan": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "Resolved number of rows this cell occupies, from the span walk of PART 9 §13 T5. Published on the ORIGIN cell, alongside the `^` markers that extended it rather than instead of them. Absent means 1, and an ingested 1 is normalized away (PART 12 §22)."
         },
         "align": {
           "enum": [
@@ -2995,7 +3265,28 @@
           "$ref": "#/$defs/pos"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "children"
+          ],
+          "properties": {
+            "children": true,
+            "blocks": false
+          }
+        },
+        {
+          "required": [
+            "blocks"
+          ],
+          "properties": {
+            "blocks": true,
+            "children": false
+          }
+        }
+      ],
+      "description": "A table cell. Its content is EITHER the inline `children` every source-spelled cell carries, OR the block `blocks` a format bridge needs - exactly one of the two, never both and never neither (carve#2191)."
     },
     "table_row": {
       "type": "object",

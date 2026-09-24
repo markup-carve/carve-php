@@ -67,13 +67,18 @@ class AstCodec
     /**
      * Node types this engine has and the wire does not, and what each publishes.
      *
+     * `section` LEFT this list with the pin that reached carve#2207: the wire
+     * now has the type, and flattening it to a `div` on the way out was the
+     * loss that clause exists to stop - the ProseMirror bridge builds a
+     * section, so the nesting really did arrive and really did get thrown away.
+     * No parse produces one, so nothing else about the encoder moves.
+     *
      * @var array<string, string>
      */
     public const NOT_ON_THE_WIRE = [
         'caption' => 'paragraph',
         'substitution_half' => 'span',
         'raw_text' => 'text',
-        'section' => 'div',
     ];
 
     /**
@@ -149,7 +154,13 @@ class AstCodec
     private const ALWAYS_PUBLISHED = [
         'abbreviation.abbr', 'abbreviation.expansion', 'abbreviation_def.abbr',
         'abbreviation_def.expansion', 'admonition.children', 'admonition.kind',
-        'autolink.href', 'autolink.text', 'block_quote.children',
+        'autolink.href', 'autolink.text',
+        // Interchange-only types this engine never builds from source; the
+        // entries keep the list a faithful copy of the schema's `required`,
+        // which is what RequiredFieldsAreAlwaysPublishedTest compares.
+        'block_extension.fallback', 'block_extension.name', 'directive.kind',
+        'ruby.pairs', 'section.children', 'small_caps.children',
+        'block_quote.children',
         'citation.key', 'citation.pos', 'citation.suppressAuthor',
         'citation_definition.children', 'citation_definition.key',
         'citation_group.items', 'citation_group.raw',
@@ -161,7 +172,7 @@ class AstCodec
         'document.srcByteLength', 'emphasis.children', 'escaped_text.value',
         'figure.caption', 'figure.target', 'figure_group.children',
         'footnote.children',
-        'footnote.label', 'footnote_ref.id',
+        'footnote.label', 'footnote_ref.label',
         'frontmatter.content', 'frontmatter.format',
         'heading.children', 'heading.level', 'heading_ref.target',
         'highlight.children', 'image.alt', 'image.src',

@@ -2508,7 +2508,7 @@ final class HtmlAstBuilder
                 return [
                     [
                         'type' => 'footnote_ref',
-                        'id' => $node->getAttribute('data-djot-footnote-label'),
+                        'label' => $node->getAttribute('data-djot-footnote-label'),
                     ],
                 ];
             }
@@ -2516,7 +2516,7 @@ final class HtmlAstBuilder
                 $href = $node->getAttribute('href');
                 $fragment = str_starts_with($href, '#') ? substr($href, 1) : trim($node->textContent);
 
-                return [['type' => 'footnote_ref', 'id' => $this->footnoteLabel($fragment)]];
+                return [['type' => 'footnote_ref', 'label' => $this->footnoteLabel($fragment)]];
             }
             if ($this->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
                 return [];

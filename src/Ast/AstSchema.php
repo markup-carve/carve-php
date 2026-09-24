@@ -18,8 +18,11 @@ use function is_float;
 use function is_int;
 use function is_string;
 use function json_decode;
+use function mb_strlen;
+use function preg_match;
 use function sort;
 use function sprintf;
+use function str_replace;
 use function str_starts_with;
 use function substr;
 use const JSON_THROW_ON_ERROR;
@@ -53,6 +56,8 @@ final class AstSchema
         'then',
         'minimum',
         'minItems',
+        'minLength',
+        'pattern',
         'exclusiveMinimum',
         'maximum',
     ];
@@ -153,6 +158,8 @@ final class AstSchema
                 'enum' => 'checkEnum',
                 'minimum' => 'checkMinimum',
                 'minItems' => 'checkMinItems',
+                'minLength' => 'checkMinLength',
+                'pattern' => 'checkPattern',
                 'exclusiveMinimum' => 'checkExclusiveMinimum',
                 'maximum' => 'checkMaximum',
                 'required' => 'checkRequired',
@@ -486,6 +493,56 @@ final class AstSchema
         return count($value) >= $bound
             ? null
             : sprintf('%s has fewer than %d items', $path, $bound);
+    }
+
+    /**
+     * JSON Schema counts CODE POINTS, not bytes, so `mb_strlen` and not
+     * `strlen`: a one-character label spelled outside ASCII would otherwise
+     * satisfy a bound it should have to meet on its own.
+     *
+     * @param mixed $value
+     * @param mixed $bound
+     * @param string $path
+     *
+     * @return string|null
+     */
+    private static function checkMinLength(mixed $value, mixed $bound, string $path): ?string
+    {
+        // Applies to strings only; any other instance type is unconstrained by
+        // this keyword, and `type` has already spoken where the schema pairs
+        // the two.
+        if (!is_string($value) || !is_int($bound)) {
+            return null;
+        }
+
+        return mb_strlen($value) >= $bound
+            ? null
+            : sprintf('%s is shorter than the schema minimum of %d character(s)', $path, $bound);
+    }
+
+    /**
+     * @param mixed $value
+     * @param mixed $pattern
+     * @param string $path
+     *
+     * @return string|null
+     */
+    private static function checkPattern(mixed $value, mixed $pattern, string $path): ?string
+    {
+        if (!is_string($value) || !is_string($pattern)) {
+            return null;
+        }
+
+        // ECMA-262 semantics: unanchored, so `preg_match` without `^`/`$` added
+        // is the right reading, and `u` because the payload is UTF-8 text.
+        //
+        // A pattern PCRE cannot compile makes `preg_match` return false, which
+        // reads here as a violation - fail closed, and
+        // `testEveryPatternInTheSchemaCompiles` is what makes such a pattern
+        // visible instead of leaving every payload refused.
+        return preg_match('/' . str_replace('/', '\/', $pattern) . '/u', $value) === 1
+            ? null
+            : sprintf('%s does not match the schema pattern', $path);
     }
 
     /**

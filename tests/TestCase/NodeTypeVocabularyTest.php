@@ -19,26 +19,36 @@ class NodeTypeVocabularyTest extends TestCase
     public function testTheInlineVocabularyMatchesTheSpec(): void
     {
         $spec = self::specVocabulary('Inline');
-        $expectedAhead = in_array('ruby', $spec, true) ? [] : ['ruby'];
 
         $this->assertSame([], array_values(array_diff($spec, NodeType::allInlineTypes())), 'spec lists an inline type NodeType cannot name');
-        $this->assertSame($expectedAhead, array_values(array_diff(NodeType::allInlineTypes(), $spec)), 'NodeType names an inline type the spec does not list');
+        $this->assertSame([], array_values(array_diff(NodeType::allInlineTypes(), $spec)), 'NodeType names an inline type the spec does not list');
     }
 
     public function testTheBlockVocabularyMatchesTheSpec(): void
     {
         $spec = self::specVocabulary('Block');
 
-        // PIN LAG, not a name the spec never promised. `citation_definition`
-        // is in profiles.md on spec main (861498b, PART 12 §18) and this
-        // branch's submodule pin predates it. The allowance is read from the
-        // PINNED file, so it evaporates the moment the pin moves rather than
-        // becoming a standing exemption.
-        $ahead = array_values(array_diff(NodeType::allBlockTypes(), $spec));
-        $expectedAhead = in_array('citation_definition', $spec, true) ? [] : ['citation_definition'];
-
+        // `caption` is the one name this engine adds, and it is not an invented
+        // synonym: carve#2207 took the type out of profiles.md because a
+        // caption is an inline array on its figure or table, which is true of
+        // carve-js and carve-rs and not here, where the parse tree holds a
+        // Caption block that a profile really does deny
+        // (ProfileVocabularyConformanceTest pins that). Dropping the name
+        // instead would make `isTypeAllowed('caption')` answer false under any
+        // profile with an allow list. Whether profiles.md means to forbid an
+        // engine naming a node it genuinely has is a question for the spec.
         $this->assertSame([], array_values(array_diff($spec, NodeType::allBlockTypes())), 'spec lists a block type NodeType cannot name');
-        $this->assertSame($expectedAhead, $ahead, 'NodeType names a block type the spec does not list');
+        $this->assertSame(['caption'], array_values(array_diff(NodeType::allBlockTypes(), $spec)), 'NodeType names a block type the spec does not list');
+    }
+
+    /**
+     * The control on the four assertions above, which an empty parse of
+     * `profiles.md` would satisfy without comparing anything.
+     */
+    public function testTheSpecVocabularyWasActuallyRead(): void
+    {
+        $this->assertGreaterThan(20, count(self::specVocabulary('Block')));
+        $this->assertGreaterThan(20, count(self::specVocabulary('Inline')));
     }
 
     /**

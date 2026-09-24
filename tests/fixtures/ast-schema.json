@@ -173,7 +173,7 @@
   },
   "footnote_ref": {
     "fields": [
-      "id",
+      "label",
       "number"
     ],
     "required": []
@@ -322,6 +322,10 @@
     "required": [
       "pairs"
     ]
+  },
+  "section": {
+    "fields": [],
+    "required": []
   },
   "smart_punctuation": {
     "fields": [

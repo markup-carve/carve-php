@@ -110,7 +110,6 @@ two in one table:
 | `link.destination` | `href` |
 | `image.source` | `src` |
 | `code_block.language` | `lang` |
-| `footnote_ref.label` | `id` |
 | a list's `children` | `items` |
 | a table's / row's `children` | `rows` / `cells` |
 
