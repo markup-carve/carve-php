@@ -300,15 +300,8 @@ class BlockParser
     private array $discoveredAbbreviationLines = [];
 
     /**
-     * Caption slots consumed for a reference image whose definition had not
-     * been seen yet, settled once resolution has run (carve-php#1851).
-     *
-     * Keyed WEAKLY by the paragraph holding the slot. The walk discards
-     * subtrees, and a strong reference kept every discarded one alive to the
-     * end of the parse - two thirds of the slots in a 321 KB document pointed
-     * at trees nothing else referenced (carve-php#2230). Settling walks the
-     * finished document instead of these references, so a slot in a discarded
-     * subtree is neither held nor patched.
+     * Unresolved image captions, keyed weakly so discarded paragraphs do not
+     * stay alive until the parse ends. Only surviving nodes are patched.
      *
      * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, array{image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>, rawSpans: list<array{break: \MarkupCarve\Carve\Ast\SourceSpan|null, text: \MarkupCarve\Carve\Ast\SourceSpan|null}>}>|null
      */
@@ -697,50 +690,11 @@ class BlockParser
     }
 
     /**
-     * Register a custom block pattern
+     * Register a block pattern. The callback receives the source lines, start
+     * index, parent node, and parser. It returns consumed lines or null when
+     * the pattern does not match.
      *
-     * The pattern should match the first line of the block.
-     * The callback receives the full lines array, start index, parent node, and parser,
-     * and should return the number of lines consumed (or null if not a match).
-     *
-     * Example - :::spoiler blocks:
-     * ```php
-     * $parser->addBlockPattern('/^:::spoiler\s*$/', function($lines, $start, $parent, $parser) {
-     *     $endPattern = '/^:::\s*$/';
-     *     $content = [];
-     *     $i = $start + 1;
-     *     while ($i < count($lines) && !preg_match($endPattern, $lines[$i])) {
-     *         $content[] = $lines[$i];
-     *         $i++;
-     *     }
-     *     $div = new Div();
-     *     $div->setAttribute('class', 'spoiler');
-     *     // Parse content inside
-     *     $parser->parseBlockContent($div, $content);
-     *     $parent->appendChild($div);
-     *     return $i - $start + 1; // +1 for closing :::
-     * });
-     * ```
-     *
-     * Example - custom admonitions:
-     * ```php
-     * $parser->addBlockPattern('/^!!!\s*(note|warning|danger)\s*$/', function($lines, $start, $parent, $parser) {
-     *     $type = trim(substr($lines[$start], 3));
-     *     $content = [];
-     *     $i = $start + 1;
-     *     while ($i < count($lines) && preg_match('/^\s+/', $lines[$i])) {
-     *         $content[] = ltrim($lines[$i]);
-     *         $i++;
-     *     }
-     *     $div = new Div();
-     *     $div->setAttribute('class', 'admonition ' . $type);
-     *     $parser->parseBlockContent($div, $content);
-     *     $parent->appendChild($div);
-     *     return $i - $start;
-     * });
-     * ```
-     *
-     * @param string $pattern Regex pattern to match the first line
+     * @param string $pattern Regex for the first line
      * @param callable(array<string>, int, \MarkupCarve\Carve\Node\Node, self): ?int $callback
      */
     public function addBlockPattern(string $pattern, callable $callback): void
@@ -13140,29 +13094,13 @@ class BlockParser
     }
 
     /**
-     * The shallowest content column open INSIDE a description body, counted
-     * from the body's own content column, or 0 when nothing is open there.
-     *
-     * ITS OWN RUNNING FOLD over the body's entries, carried in `$state` and
-     * `$cursor` and advanced only forward. Walking the collected entries afresh
-     * per call is the same answer and was the first spelling; it made a body of
-     * N definitions cost N squared tracker steps, which at 8000 lines was 174
-     * seconds against 0.5 before the change (raised by codex review). The fold
-     * the collector's own tracker keeps cannot be reused: it is advanced only
-     * where the body stops collecting, and it carries the attribute bookkeeping
-     * that walk owns.
-     *
-     * `$bodyLazy` mirrors the collector so both folds read the same entries the
-     * same way. Only the two invisible branches read it and neither writes
-     * `nestedColumn`, so it cannot move this answer on its own.
-     *
-     * NO CLOSER LOOKAHEAD, unlike the collector's own fold. The body it can see
-     * is the part collected so far, so a fence whose closer is still ahead
-     * looks unterminated and arms nothing - and the caller reads `inFence` to
-     * refuse the whole question. Asked without the lookahead a fence-shaped
-     * line always arms it, which errs towards leaving the line alone; that is
-     * the safe direction here, because the only thing this answer can do is
-     * take indentation off a line (raised by codex review).
+     * Track the shallowest nested content column in a description body.
+     * Return its offset from the body's content column, or zero if none is open.
+     * The cursor advances once through collected entries; rescanning each time
+     * would be quadratic. The collector's fold advances only when collection
+     * stops, so it cannot be reused here.
+     * Closer lookahead is omitted because a closer may still lie beyond the
+     * collected portion, so the caller leaves a possible fence alone.
      *
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param int $cursor
@@ -13183,64 +13121,15 @@ class BlockParser
     }
 
     /**
-     * A collected description-body entry as the BODY will read it.
-     *
-     * The collector strips the body's own content column and keeps whatever is
-     * left, so an opener written PAST that column arrives here still indented -
-     * ` # H` rather than `# H`. carve#1729 gives such an opener an AUTHORED
-     * LOCAL BASE, and `rebaseOverindentedItemBlocks()` applies it before
-     * `parseBlocks()` reads the body, so the body reads a heading there. The
-     * tracker read the authored line instead and saw prose, which is why an
-     * opener at the body's column ended its paragraph and the same opener one
-     * column further in did not (carve-php#1874, markup-carve/carve#1911).
-     *
-     * ONLY WHERE THE REBASE WOULD REACH IT. Inside a code fence or a div the
-     * indentation is content rather than a base, so there is no opener to see.
-     * `divDepth` is asked as well as `inDiv` because the div tracker clears
-     * `inDiv` on the FIRST closer while only decrementing the depth, so a
-     * nested pair leaves an outer div open with `inDiv` false (raised by codex
-     * review); it moves no bytes across the sweeps, and it is what makes the
-     * refusal mean what it says.
-     *
-     * An ABSORBING colon fence is not such a place, though it looked like one:
-     * `:::note` opens nothing, so `rebaseOverindentedItemBlocks()` does rebase
-     * the opener under it, and refusing the read there left eight documents
-     * answering against every other reading.
-     *
-     * AND ONLY WHERE NOTHING IS OPEN INSIDE THE BODY. Once the body has opened
-     * a container of its own, every line above that container's column belongs
-     * to it and its collector is what reads them; the body has no opener of its
-     * own there. `inFootnoteBody` is asked alongside the column because a
-     * footnote body is the one such container the state carries WITHOUT a
-     * nested column, so the column alone answered "nothing is open" for it
-     * (raised by codex review). MEASURED, not assumed: spelled the way
-     * carve-php#1878 spells the same guard at the push branch - where the
-     * question is which container the ENTRY arrives in, so "below the nested
-     * column" is the right test - a heading between a body's column and a
-     * nested item's closed the body, where all four readings fold the whole run
-     * into the item. That was 64 documents right to wrong over an
-     * 8370-document sweep of bodies that open a container; refusing the read
-     * outright leaves 0.
-     *
-     * NOT A SECOND REBASE PASS. Running the authored-base pass over the
-     * collected entries per line would be quadratic; this answers the one
-     * question the tracker asks, off the state it already carries.
-     *
-     * TWO CONDITIONS HERE MOVE NO BYTES and are kept anyway, which is worth
-     * saying rather than leaving for the next reader to rediscover. `$base ===
-     * 0` is a fast path: at column 0 both branches return the same string, so
-     * it only skips the opener test. And the opener test itself moved nothing
-     * over 14451 swept documents - the tracker answers "prose" for a
-     * non-opener whether or not it is indented - but it is the same gate
-     * `rebaseOverindentedItemBlocks()` applies, and dropping it would have the
-     * tracker read a base that pass would not apply.
+     * Read a collected description line at the base used by the body parser.
+     * Rebase only outside open code fences, divs, and nested containers, where
+     * authored indentation can introduce a block. An absorbing `:::` opener
+     * does not count as an open container.
      *
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param array<string> $body
      * @param int $index
-     * @param int|null $openerBase Base the OPEN block's opener was rebased by,
-     *   carried so its closer - and section 10's closer lookahead - read at the
-     *   same column. Null while nothing is open.
+     * @param int|null $openerBase Base used by the open block, if any.
      */
     private function descriptionBodyEntryAsRead(
         array $state,
