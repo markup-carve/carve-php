@@ -608,6 +608,18 @@ class MarkdownToCarve
             $rule = $inHtmlBlock ? null : $this->thematicBreakLine($line, $contentCol);
             if ($rule !== null) {
                 $result[] = $rule;
+                if (isset($lines[$i + 1]) && trim($lines[$i + 1]) !== '') {
+                    $nextText = preg_replace('/^(?:[ \t]*>[ \t]?)+/', '', $lines[$i + 1]) ?? $lines[$i + 1];
+                    $sameContainer = $this->containerKey($line, $contentCol)
+                    === $this->containerKey($lines[$i + 1], $contentCol);
+                    if (
+                        $sameContainer && $this->indentWidth($nextText) - $contentCol < 4
+                        && $this->isParagraphLine([$nextText], 0)
+                        && preg_match('/^(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/', ltrim($nextText)) !== 1
+                    ) {
+                        $result[] = $this->containerSeparator($line, $contentCol);
+                    }
+                }
                 $prevLineType = 'blank';
 
                 continue;
@@ -930,8 +942,12 @@ class MarkdownToCarve
             // The 1-3 columns of slack are measured from the container's content
             // column, and the block goes back to it rather than to column 0.
             $relIndent = $this->indentWidth($line) - $contentCol;
-            $dedent = $relIndent >= 1 && $relIndent <= 3 && ($isHeading || $isBlockquote);
+            $dedent = $relIndent >= 1 && $relIndent <= 3
+                && ($isHeading || $isBlockquote || (!$isList && $listCols === [] && !$afterClosedItem));
             $body = $dedent ? str_repeat(' ', $contentCol) . ltrim($line, " \t") : $line;
+            if ($dedent && !$isHeading && !$isBlockquote) {
+                $body = str_repeat(' ', $contentCol) . $this->escapeBlockOpener(ltrim($line, " \t"));
+            }
             if ($isHeading) {
                 $body = preg_replace('/[ \t]+#+[ \t]*$/', '', $body) ?? $body;
             }
@@ -1922,6 +1938,13 @@ class MarkdownToCarve
             }
         } elseif (!$blank && !$continues) {
             $list->end($this->indentWidth($text));
+        }
+        $slack = $this->indentWidth($text);
+        if (
+            !$blank && $openBefore === null && $slack >= 1 && $slack <= 3
+            && ($this->isParagraphLine([$text], 0) || preg_match('/^\|.*\|$/', trim($text)) === 1)
+        ) {
+            $written = ltrim($written, " \t");
         }
         // A lazy line continues the paragraph of the item above it and is
         // written at that item's content column, as fmt writes it.

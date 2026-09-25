@@ -22,9 +22,8 @@ use PHPUnit\Framework\TestCase;
  * and `1.`.
  *
  * THE TEST IS `fmt` ON THIS ENGINE ALONE, not a comparison against another. The
- * imported line keeps the source's indentation, which `fmt` takes to the
- * container column - so the question the ruling asks is whether the escape is
- * still needed once the marker stands there. A dropped escape on a structural
+ * imported line sits at the container column - so the question the ruling asks
+ * is whether the escape is still needed there. A dropped escape on a structural
  * marker shows up as a render that changes under `fmt`; a decorative one does
  * not. No second engine is needed and the answer does not go stale when one
  * changes.
@@ -38,7 +37,7 @@ final class APipeThatOpensNoRowNeedsNoEscapeTest extends TestCase
     {
         return [
             'a pipe four columns in' => ["foo\n    | bar\n", "foo\n    | bar\n"],
-            'a pipe three columns in' => ["foo\n   | bar\n", "foo\n   | bar\n"],
+            'a pipe three columns in' => ["foo\n   | bar\n", "foo\n| bar\n"],
             'a pipe with no indent' => ["foo\n| bar\n", "foo\n| bar\n"],
             'a pipe under an item paragraph' => ["- foo\n      | bar\n", "- foo\n  | bar\n"],
             'a pipe opening a cell but not closing the row' => ["foo\n    | a | b\n", "foo\n    | a | b\n"],

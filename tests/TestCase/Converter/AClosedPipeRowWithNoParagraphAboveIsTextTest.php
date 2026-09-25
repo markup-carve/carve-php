@@ -193,26 +193,23 @@ final class AClosedPipeRowWithNoParagraphAboveIsTextTest extends TestCase
                 "> | a | b |\n",
                 "> \\| a | b |\n",
             ],
-            // Carve opens a table only AT the content column, so one column in
-            // the row is a paragraph already and a backslash guards nothing. The
-            // indentation surviving the import is a separate gap, carve-php#2384:
-            // `fmt` dedents such a line and then DOES escape it, so these three
-            // are what the importer writes today rather than what it owes.
-            'a row one column in takes none' => [
+            // Markdown reads these indented rows as prose. The importer writes
+            // them at the container column, where Carve needs the escape.
+            'a row one column in takes one after dedenting' => [
                 " | a | b |\n",
-                " | a | b |\n",
+                "\\| a | b |\n",
             ],
-            'a row two columns in takes none' => [
+            'a row two columns in takes one after dedenting' => [
                 "  | a | b |\n",
-                "  | a | b |\n",
+                "\\| a | b |\n",
             ],
-            'a row three columns in takes none' => [
+            'a row three columns in takes one after dedenting' => [
                 "   | a | b |\n",
-                "   | a | b |\n",
+                "\\| a | b |\n",
             ],
-            'a quoted row indented inside its quote takes none' => [
+            'a quoted row indented inside its quote takes one after dedenting' => [
                 "> foo\n>\n>   | a | b |\n",
-                "> foo\n>\n>   | a | b |\n",
+                "> foo\n>\n> \\| a | b |\n",
             ],
             // A row at the item's own content column DOES open a table there, so
             // it still takes one.
