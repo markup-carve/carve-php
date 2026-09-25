@@ -28,6 +28,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixes
 
+- The Markdown target keeps every block a list item holds. A continuation line is
+  padded from the item's marker rather than from a task item's checkbox, and a
+  block below a nested list gets the blank line that stops GFM reading it as a
+  continuation of the last sublist item (#2446).
 - A node pulled in by a sliced include keeps its own file's coordinates, CRLF and multibyte sources included (#2187).
 - A definition's destination is read as `link_destination`, and the writer re-escapes what the reader resolved, so one `fmt` pass no longer loses the definition (#2192).
 - A link or image title may contain a closing parenthesis, in both quote forms (#2193).
