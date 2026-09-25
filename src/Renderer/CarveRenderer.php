@@ -1660,7 +1660,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         $header = $node->getHeader() ?? $node->getAttribute('title');
         if (is_string($header)) {
-            $parts[] = '"' . $this->escapeQuoted($header) . '"';
+            $parts[] = $this->quotedTitleToken($node, $header);
         }
         $label = $node->getLabel();
         if ($label !== null) {
@@ -2211,7 +2211,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $classes = $node->getClassList();
         $kind = $classes[0] ?? '';
         $title = $node->getHeader();
-        $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
+        $titlePart = is_string($title) ? ' ' . $this->quotedTitleToken($node, $title) : '';
         $label = $node->getLabel() === null ? '' : ' [' . $this->writeFlatBracketRun($node->getLabel()) . ']';
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
@@ -2223,7 +2223,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $kind = $this->admonitionKind($node) ?? 'note';
         $title = $node->getHeader();
-        $titlePart = is_string($title) ? ' "' . $this->escapeQuoted($title) . '"' : '';
+        $titlePart = is_string($title) ? ' ' . $this->quotedTitleToken($node, $title) : '';
         $label = $node->getLabel() === null ? '' : ' [' . $this->writeFlatBracketRun($node->getLabel()) . ']';
         $fence = $this->colonFenceFor($node);
         $body = $this->renderColonFenceBody($node);
@@ -5138,6 +5138,61 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function escapeQuoted(string $text): string
     {
         return str_replace(['\\', '"'], ['\\\\', '\\"'], $text);
+    }
+
+    /**
+     * The `"title"` token of a fence opener, with the one character the slot
+     * has no spelling for dropped and the loss reported.
+     *
+     * `quoted_title = '"', {character - '"'}, '"'` (PART 9 §12) states no
+     * escape mechanism, so a `"` inside the title cannot be written. Spelling
+     * it `\"` closed the title early and the rest of the opener re-parsed as a
+     * paragraph, taking the container, its own title and its whole body with it
+     * (carve-php#2375). Dropping the character keeps the opener valid, which is
+     * the answer HtmlToCarve already gives for an imported admonition title.
+     *
+     * A title that is ONLY `"` writes the empty title `""`, which parses and
+     * carries an empty title rather than destroying the opener.
+     */
+    protected function quotedTitleToken(Node $node, string $title): string
+    {
+        if (str_contains($title, '"')) {
+            $this->recordUnspellableField(
+                $node,
+                'title',
+                'Carve source cannot spell a double quote inside a quoted title',
+            );
+            $title = self::withoutQuotes($title);
+        }
+
+        return '"' . $this->escapeQuoted($title) . '"';
+    }
+
+    /**
+     * Drop every `"` from a title, taking the backslash that escapes one with
+     * it. A div's title arrives as inline source, where a literal quote is
+     * spelled `\"`, so removing the quote alone would leave a backslash the
+     * title never held. `\\"` keeps its escaped backslash and loses the quote.
+     */
+    protected static function withoutQuotes(string $title): string
+    {
+        $out = '';
+        $length = strlen($title);
+        for ($i = 0; $i < $length; $i++) {
+            if ($title[$i] === '\\' && $i + 1 < $length) {
+                if ($title[$i + 1] !== '"') {
+                    $out .= $title[$i] . $title[$i + 1];
+                }
+                $i++;
+
+                continue;
+            }
+            if ($title[$i] !== '"') {
+                $out .= $title[$i];
+            }
+        }
+
+        return $out;
     }
 
     /**
