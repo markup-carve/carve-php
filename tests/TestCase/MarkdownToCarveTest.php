@@ -561,6 +561,15 @@ class MarkdownToCarveTest extends TestCase
                 'a \/it/ and ftp://h/f',
                 '<p>a /it/ and ftp://h/f</p>',
             ],
+            // MOVED from the negative provider by carve-php#2365. A closed pipe
+            // row answers no delimiter row, so cmark-gfm reads `<p>|x|</p>` where
+            // Carve opens a headerless table of one cell - omitting the escape
+            // changes the render.
+            'escapes a closed pipe row' => [
+                '|x|',
+                '\|x|',
+                '<p>|x|</p>',
+            ],
         ];
     }
 
@@ -593,7 +602,6 @@ class MarkdownToCarveTest extends TestCase
             'plain braces mid-text' => ['a {x} b'],
             'plain brackets' => ['[x]'],
             'plain angle brackets' => ['<x>'],
-            'plain pipes' => ['|x|'],
             // `:rocket:` MOVED to the escaping provider. It sat here from
             // before anyone had ruled the symbol sigil, and PART 11 §2's test
             // decides it the other way: `parse(':rocket:')` yields a `symbol`
@@ -683,10 +691,19 @@ class MarkdownToCarveTest extends TestCase
         $this->assertSame("|=< Name |=> Age |\n| Alice | 28 |", trim($carve));
     }
 
-    public function testTableWithoutSeparatorIsUnchanged(): void
+    /**
+     * Rows with no delimiter row are no table for cmark-gfm - they are one
+     * paragraph of two lines - so they take the escape that keeps them prose in
+     * Carve, which reads bare rows as a headerless table (carve-php#2365).
+     */
+    public function testRowsWithoutSeparatorAreEscapedToStayProse(): void
     {
         $md = "| a | b |\n| c | d |";
-        $this->assertSame($md, trim($this->converter->convert($md)));
+        $this->assertSame("\\| a | b |\n\\| c | d |", trim($this->converter->convert($md)));
+        $this->assertSame(
+            '<p>| a | b | | c | d |</p>',
+            trim((string)preg_replace('/\s+/', ' ', (new CarveConverter())->convert($this->converter->convert($md)))),
+        );
     }
 
     public function testGfmTableRoundTripsToSameHtml(): void
