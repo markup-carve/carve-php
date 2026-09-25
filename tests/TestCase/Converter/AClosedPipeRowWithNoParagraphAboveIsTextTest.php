@@ -153,6 +153,12 @@ final class AClosedPipeRowWithNoParagraphAboveIsTextTest extends TestCase
                 '<p>foo</p><table><thead><tr><th>a</th><th>b</th></tr></thead>'
                     . '<tbody><tr><td>c</td><td>d</td></tr></tbody></table>',
             ],
+            // A row that has left the table is text of the item holding it, which
+            // is cmark-gfm's reading here as well.
+            'a row inside an item under a table' => [
+                "| a |\n| - |\n- x\n  | b |\n",
+                '<table><thead><tr><th>a</th></tr></thead></table><ul><li>x | b |</li></ul>',
+            ],
         ];
     }
 
@@ -221,6 +227,21 @@ final class AClosedPipeRowWithNoParagraphAboveIsTextTest extends TestCase
             'a body row of a table under way takes none' => [
                 "> | a | b |\n> | - | - |\n> | c | d |\n",
                 "> | a | b |\n> | - | - |\n> | c | d |\n",
+            ],
+            // GFM keeps a pipe-free line inside a table as a one-cell row, but
+            // this importer writes it as a paragraph, which ENDS the table in the
+            // Carve it wrote. So the row under it stands outside any table and
+            // takes its escape; reading the run GFM's way left it bare and grew a
+            // second headerless table.
+            'a row after a pipe-free line inside a quoted table takes it' => [
+                "> | a |\n> | - |\n> plain\n> | b |\n",
+                "> | a |\n> | - |\n> plain\n> \\| b |\n",
+            ],
+            // The row has left the table entirely here - it is text of the item
+            // below it, which is what cmark-gfm reads too.
+            'a row inside an item under a table takes it' => [
+                "| a |\n| - |\n- x\n  | b |\n",
+                "|= a |\n\n- x\n  \\| b |\n",
             ],
         ];
     }

@@ -125,6 +125,14 @@ class MarkdownToCarve
     protected array $unspellableOrderedTasks = [];
 
     /**
+     * Whether a GFM table is under way at each source line asked about, so the
+     * answer is built once per line. Reset by every `convert()`.
+     *
+     * @var array<int, bool>
+     */
+    protected array $tableUnderWay = [];
+
+    /**
      * Reference definitions taken out of the body, each on one line, for the
      * end of the document where `carve fmt` writes them.
      *
@@ -207,6 +215,7 @@ class MarkdownToCarve
     {
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
         $this->unspellableOrderedTasks = [];
+        $this->tableUnderWay = [];
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         // Frontmatter is opaque metadata in Markdown and in Carve alike - both
@@ -3639,36 +3648,65 @@ class MarkdownToCarve
      * the third row `| c | d |` is body, and the pair that says so is two lines
      * up.
      *
+     * The run is CLOSED PIPE ROWS, not everything GFM keeps as a body row. GFM
+     * reads a pipe-free line inside a table as a one-cell row, but this importer
+     * writes it as a paragraph, which ends the table in the written Carve - so
+     * `> | a |` / `> | - |` / `> plain` / `> | b |` leaves `| b |` outside any
+     * table and it needs its escape. Reading the run GFM's way left it bare and
+     * grew a second table.
+     *
      * Lines are compared at their own container. A quote marker sequence is
      * normalized before the comparison, `>>` and `> >` being one container, and
      * a line at another depth ends the run - a table does not reach out of the
      * quote that holds it.
+     *
+     * MEMOIZED, and each answer is built from the one below it rather than from
+     * a fresh scan. A document of lone rows is the common shape and rescanning
+     * the whole run for each row is quadratic: 500 rows cost 4.8s that way, 1000
+     * cost 20s and 2000 cost 96s.
      *
      * @param array<int, string> $lines
      * @param int $index
      */
     protected function gfmTableIsUnderWay(array $lines, int $index): bool
     {
-        $container = $this->quoteMarkerDepth($lines[$index]);
-        $rows = [];
-        for ($at = $index - 1; $at >= 0; $at--) {
-            if ($this->quoteMarkerDepth($lines[$at]) !== $container) {
+        $chain = [];
+        for ($at = $index; !array_key_exists($at, $this->tableUnderWay); $at--) {
+            $chain[] = $at;
+            if (!$this->rowRunReaches($lines, $at)) {
                 break;
             }
-            $held = $this->stripContainerMarkers($lines[$at]);
-            if (!$this->continuesGfmTableBody($held)) {
-                break;
-            }
-            array_unshift($rows, trim($held));
         }
-        $rows[] = trim($this->stripContainerMarkers($lines[$index]));
-        for ($at = 0, $count = count($rows); $at + 1 < $count; $at++) {
-            if ($this->startsTableHeader($rows, $at)) {
-                return true;
-            }
+        for ($step = count($chain) - 1; $step >= 0; $step--) {
+            $line = $chain[$step];
+            // A table is under way here when it was already under way one row
+            // back, or when the two rows back of this one are the pair that
+            // opens it. `startsTableHeader` refuses a line with no pipe, so a
+            // run shorter than two needs no length test of its own.
+            $this->tableUnderWay[$line] = $this->rowRunReaches($lines, $line)
+                && (($this->tableUnderWay[$line - 1] ?? false)
+                    || ($this->rowRunReaches($lines, $line - 1) && $this->startsTableHeader([
+                        trim($this->stripContainerMarkers($lines[$line - 2])),
+                        trim($this->stripContainerMarkers($lines[$line - 1])),
+                    ], 0)));
         }
 
-        return false;
+        return $this->tableUnderWay[$index];
+    }
+
+    /**
+     * Whether the line above `$index` is a closed pipe row of the same container,
+     * so the two stand in one run of rows.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     */
+    protected function rowRunReaches(array $lines, int $index): bool
+    {
+        return $index >= 1
+            && isset($lines[$index], $lines[$index - 1])
+            && $this->quoteMarkerDepth($lines[$index]) === $this->quoteMarkerDepth($lines[$index - 1])
+            && preg_match('/^[ \t]*(?:>[ \t]?)*[ \t]*\|.*\|[ \t]*$/', $lines[$index - 1]) === 1;
     }
 
     /**
