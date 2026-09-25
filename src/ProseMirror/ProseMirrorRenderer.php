@@ -43,6 +43,7 @@ use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
+use MarkupCarve\Carve\Node\Inline\SmallCaps;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
@@ -80,7 +81,7 @@ class ProseMirrorRenderer
      *
      * @var list<string>
      */
-    private const EMPTY_MARK_TYPES = ['link', 'carveSpan', 'carveAbbreviation', 'carveInsert', 'carveDelete'];
+    private const EMPTY_MARK_TYPES = ['link', 'carveSpan', 'carveAbbreviation', 'carveInsert', 'carveDelete', 'carveSmallCaps'];
 
     /**
      * @var array<string, string>
@@ -192,18 +193,6 @@ class ProseMirrorRenderer
             $children = $this->renderBlocks($node->getChildren());
 
             return $children === [] ? null : ['type' => 'carveSection', 'content' => $children];
-        }
-
-        // A block extension has no editor node, and its FALLBACK is what the
-        // document means to a reader that does not implement the extension
-        // (PART 12 §33). So the fallback takes its place and the extension's
-        // identity, version and payload are reported lost - which is the one
-        // defined answer the clause asks every consumer to have, instead of the
-        // silent drop an unmapped block otherwise gets.
-        if ($node instanceof BlockExtension) {
-            $this->degraded[$type] = SchemaMap::unmappedReason($type) ?? 'the fallback stands in for the extension';
-
-            return $this->renderBlock($node->getFallback());
         }
 
         $name = $this->proseMirrorName($node);
@@ -502,6 +491,30 @@ class ProseMirrorRenderer
                 continue;
             }
 
+            if ($node instanceof SmallCaps) {
+                $nestedMarks = $marks;
+                $attrs = $this->attributesFor($node);
+                if ($attrs !== []) {
+                    $this->degraded['small_caps'] = 'its authored attributes move to an enclosing span';
+                    $nestedMarks[] = ['type' => 'carveSpan', 'attrs' => $attrs];
+                }
+                $mark = ['type' => 'carveSmallCaps'];
+                $carrier = $this->emptyMarkCarrier($node, $mark);
+                if ($carrier !== null) {
+                    if ($nestedMarks !== []) {
+                        $carrier['marks'] = $nestedMarks;
+                    }
+                    $out[] = $carrier;
+
+                    continue;
+                }
+                foreach ($this->renderInlines($node->getChildren(), [...$nestedMarks, $mark]) as $child) {
+                    $out[] = $child;
+                }
+
+                continue;
+            }
+
             if (SchemaMap::isMark($type)) {
                 // An abbreviation is authored as `[text]{abbr="..."}` - a span
                 // carrying one key - and the map gives it a mark of its own.
@@ -562,9 +575,10 @@ class ProseMirrorRenderer
             if ($marks !== []) {
                 $inline['marks'] = $marks;
             }
-            // A substitution is an editor atom: both halves ride on its attrs,
-            // so its `substitution_half` children are not editor content.
-            $children = $node instanceof Substitution ? [] : $this->renderInlines($node->getChildren(), []);
+            // These editor atoms carry their nested content in attributes.
+            $children = $node instanceof Substitution || $node instanceof Ruby
+                ? []
+                : $this->renderInlines($node->getChildren(), []);
             if ($children !== []) {
                 $inline['content'] = $children;
             }
@@ -624,19 +638,10 @@ class ProseMirrorRenderer
     /**
      * The inlines an unmodeled inline stands for once its own node is gone.
      *
-     * A ruby holds base and annotation flat in `children`, so hoisting those
-     * would run the two together; `flattenedInlines()` is the reading the Carve,
-     * plain and ANSI renderers already use for it, and reusing it keeps one
-     * degradation for the type rather than one per output.
-     *
      * @return array<\MarkupCarve\Carve\Node\Node>
      */
     protected function degradeToInlines(Node $node): array
     {
-        if ($node instanceof Ruby) {
-            return $node->flattenedInlines();
-        }
-
         return $node->getChildren();
     }
 
@@ -674,6 +679,9 @@ class ProseMirrorRenderer
         }
 
         if ($node instanceof Div) {
+            if ($node->directiveKind() !== null) {
+                return (string)SchemaMap::nameFor('directive');
+            }
             $class = (string)($node->getAttribute('class') ?? '');
 
             return match (true) {
@@ -986,6 +994,10 @@ class ProseMirrorRenderer
                 }
             }
         } elseif ($node instanceof Div) {
+            $directiveKind = $node->directiveKind();
+            if ($directiveKind !== null) {
+                $attrs['kind'] = $directiveKind;
+            }
             $label = $node->getLabel();
             if ($label !== null && $label !== '') {
                 $attrs['label'] = $label;
@@ -1003,7 +1015,26 @@ class ProseMirrorRenderer
             // both `div` and `admonition`, so without this the two cannot be
             // told apart and an attributed div comes back as a typed one
             // (markup-carve/carve-grammars#239).
-            $attrs['carveTyped'] = $node->isTyped();
+            if ($directiveKind === null) {
+                $attrs['carveTyped'] = $node->isTyped();
+            }
+        } elseif ($node instanceof BlockExtension) {
+            $attrs['name'] = $node->getName();
+            if ($node->getVersion() !== null) {
+                $attrs['version'] = $node->getVersion();
+            }
+            if ($node->getPayload() !== null) {
+                $attrs['payload'] = $node->getPayload();
+            }
+        } elseif ($node instanceof Ruby) {
+            $pairs = [];
+            foreach ($node->getPairs() as $pair) {
+                $pairs[] = [
+                    'base' => $this->renderInlines($pair['base'], []),
+                    'annotation' => $this->renderInlines($pair['annotation'], []),
+                ];
+            }
+            $attrs['pairs'] = $pairs;
         }
 
         // Author attributes fill in around the structural ones; they never
@@ -1012,7 +1043,31 @@ class ProseMirrorRenderer
         // refuses to promote - so letting it win here would hand the editor a
         // destination the document does not have, and writing that model back
         // out would make it the real one.
-        return $attrs + $this->authoredAttributesFor($node);
+        $authored = $this->authoredAttributesFor($node);
+        if ($node instanceof Div && $node->directiveKind() !== null) {
+            $classes = $node->getClassList();
+            array_shift($classes);
+            if ($classes === []) {
+                unset($authored['class']);
+                if (is_array($authored['carveAttrOrder'] ?? null)) {
+                    $order = [];
+                    foreach ($authored['carveAttrOrder'] as $slot) {
+                        if (is_string($slot) && $slot !== '.class') {
+                            $order[] = $slot;
+                        }
+                    }
+                    if ($order === []) {
+                        unset($authored['carveAttrOrder']);
+                    } else {
+                        $authored['carveAttrOrder'] = $order;
+                    }
+                }
+            } else {
+                $authored['class'] = implode(' ', $classes);
+            }
+        }
+
+        return $attrs + $authored;
     }
 
     /**

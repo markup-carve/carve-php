@@ -10,7 +10,6 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
-use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmallCaps;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
@@ -18,25 +17,17 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve-php#2324. An unmapped inline lost its whole subtree, and the loss was
- * reported only as a drop, so the words were gone with nothing standing in for
- * them. Neither type has a Carve spelling, so both trees are built by hand.
+ * Mapped inline wrappers keep their content and marks. An unmapped empty atom
+ * remains a reported drop.
  */
-class AnUnmappedInlineKeepsItsWordsTest extends TestCase
+class InlineMappingTest extends TestCase
 {
     /**
-     * @return array<string, array{0: \Closure, 1: string, 2: string}>
+     * @return array<string, array{0: \Closure, 1: string}>
      */
-    public static function unmappedProvider(): array
+    public static function mappedProvider(): array
     {
         return [
-            'ruby' => [
-                static function (): InlineNode {
-                    return new Ruby([['base' => [new Text('a')], 'annotation' => [new Text('b')]]]);
-                },
-                'ruby',
-                'before a(b) after',
-            ],
             'small caps' => [
                 static function (): InlineNode {
                     $node = new SmallCaps();
@@ -44,7 +35,6 @@ class AnUnmappedInlineKeepsItsWordsTest extends TestCase
 
                     return $node;
                 },
-                'small_caps',
                 'before sc after',
             ],
             'small caps around an emphasis' => [
@@ -56,14 +46,13 @@ class AnUnmappedInlineKeepsItsWordsTest extends TestCase
 
                     return $node;
                 },
-                'small_caps',
                 'before sc after',
             ],
         ];
     }
 
-    #[DataProvider('unmappedProvider')]
-    public function testTheChildrenStandInForTheNode(Closure $make, string $type, string $expected): void
+    #[DataProvider('mappedProvider')]
+    public function testTheMappedWrapperKeepsItsWords(Closure $make, string $expected): void
     {
         $renderer = new ProseMirrorRenderer();
         $pm = $renderer->render(self::documentAround($make()));
@@ -71,22 +60,16 @@ class AnUnmappedInlineKeepsItsWordsTest extends TestCase
         $this->assertSame($expected, self::textOf($pm));
     }
 
-    #[DataProvider('unmappedProvider')]
-    public function testTheTypeIsNamedInTheReport(Closure $make, string $type, string $expected): void
+    #[DataProvider('mappedProvider')]
+    public function testTheMappedTypeIsNotReportedLost(Closure $make, string $expected): void
     {
         $renderer = new ProseMirrorRenderer();
         $renderer->render(self::documentAround($make()));
 
-        $this->assertArrayHasKey($type, $renderer->degradedTypes());
-        $this->assertNotSame('', $renderer->degradedTypes()[$type]);
+        $this->assertSame([], $renderer->degradedTypes());
         $this->assertSame([], $renderer->droppedTypes());
     }
 
-    /**
-     * The control. An unmapped inline with nothing inside it has no stand-in, so
-     * it stays a reported DROP - and a mapped inline reports neither. Both hold
-     * whichever way the unmapped-with-children branch behaves.
-     */
     public function testAnUnmappedInlineWithNoContentStaysAReportedDrop(): void
     {
         $renderer = new ProseMirrorRenderer();
@@ -111,10 +94,9 @@ class AnUnmappedInlineKeepsItsWordsTest extends TestCase
     }
 
     /**
-     * The enclosing marks reach the stand-in, since the node they were carried
-     * through is gone and its children sit in the run directly.
+     * The enclosing emphasis and small caps both reach the text.
      */
-    public function testTheEnclosingMarksReachTheStandIn(): void
+    public function testTheEnclosingMarksReachTheText(): void
     {
         $smallCaps = new SmallCaps();
         $smallCaps->appendChild(new Text('sc'));
@@ -131,8 +113,8 @@ class AnUnmappedInlineKeepsItsWordsTest extends TestCase
             static fn (array $node): bool => ($node['text'] ?? null) === 'sc',
         ));
         $this->assertCount(1, $marked);
-        $this->assertSame([['type' => 'italic']], $marked[0]['marks'] ?? null);
-        $this->assertArrayHasKey('small_caps', $renderer->degradedTypes());
+        $this->assertSame([['type' => 'italic'], ['type' => 'carveSmallCaps']], $marked[0]['marks'] ?? null);
+        $this->assertSame([], $renderer->degradedTypes());
     }
 
     private static function documentAround(InlineNode $node): Document

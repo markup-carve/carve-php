@@ -3,15 +3,22 @@
   "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently. Where two Carve types name the same ProseMirror node or mark, the one that is a vocabulary alias of the other carries `aliasOf` naming the type that owns the name; a bridge resolving a ProseMirror name back to a Carve type must not decide that by whatever order it happens to walk this file in.",
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
-    "commit": "7c7b2c65a65fc0e8e5c8476fd230554244f962f3",
-    "refresh": "copy the file from carve-grammars and update commit; the corpus test asserts every AST type still has a decision, and scripts/check-schema-map.php asserts every other decision still matches the commit named here",
-    "divergences": {
-      "block_extension": "this engine reads the type (#2323) and carve-grammars names no node for it yet; unmapped here so every schema type has a decision, and it leaves this list when upstream decides one",
-      "directive": "this engine parses the type (#2329) and carve-grammars names no key for it; mapped here through the `carveDiv` node a directive already is, rather than declared unmapped",
-      "ruby": "this engine reads the type (#2290) and carve-grammars names no node for it yet; same shape as `block_extension` above",
-      "small_caps": "this engine reads the type (#2319) and carve-grammars names no mark for it yet; same shape as `block_extension` above"
-    },
-    "divergencePolicy": "DECLARED, not tolerated: every one is a difference from upstream that somebody has to close, and scripts/check-schema-map.php refuses an entry that no longer differs so the list cannot only grow."
+    "commit": "7b5771b491346694ce1ccb01a4fdc960862410fb",
+    "refresh": "copy mapped decisions from carve-grammars and update commit; scripts/check-schema-map.php checks decisions against that pin. Attribute and prose differences are tracked in carve-php#2399",
+    "divergences": {},
+    "divergencePolicy": "The divergences list records decision differences. Attribute and prose differences are listed separately until carve-php#2399 reconciles them.",
+    "pendingDocumentationDifferences": [
+      "positionAttribute",
+      "types.list_item",
+      "types.table_cell",
+      "types.definition_list",
+      "types.comment",
+      "types.raw_inline",
+      "types.literal_inline",
+      "types.substitution",
+      "types.citation_group",
+      "unmapped.citation"
+    ]
   },
   "attributeNaming": "An attribute that carries a CARVE concept on a node or mark Tiptap already defines is spelled with a `carve` prefix (`carveRef`, `carveTight`, `carveKeyValues`), so it cannot collide with what a stock extension - or an application - puts on the same node. On a node this schema owns, the bare name is used: `carveCitation` has `raw`, not `carveRaw`. HTML-native names (`id`, `class`, `href`, `src`, `title`, `colspan`, `start`) keep their spelling wherever they appear. Two bridges to this model disagreed on every one of these before it was written down: carve-js wrote `ref`/`delim` where carve-php wrote `carveRef`/`tight`, so a document stored by one lost its reference spelling, its list tightness and its table spans when read by the other.",
   "carveSpecVocabulary": "spec/docs/profiles.md",
@@ -200,15 +207,30 @@
     },
     "directive": {
       "kind": "node",
-      "pm": "carveDiv",
-      "aliasOf": "div",
-      "notes": "profile vocabulary only: a directive is a div whose opener word names generated content (CARVE-P12-057). The editor holds it as the same carveDiv node an admonition uses, with the kind word in `class` and `carveTyped` true",
+      "pm": "carveDirective",
+      "notes": "a generated-content container (CARVE-P12-057): `::: toc`, `::: footnotes`, `::: bibliography`, `::: glossary`, `::: index`, `::: references`. ITS OWN NODE, deliberately not an alias of `div` the way `admonition` is. `kind` is what tells the three named-container types apart, so a bridge going back to the AST reads the type off the node instead of carrying its own copy of the six-kind enum - and cannot emit the `admonition` whose `kind` the AST schema refuses for exactly these six words. A directive's children are usually empty: its content is generated from the document, not authored between the markers",
       "attrs": {
         "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
         "carveKeyValues": "authored key=values",
-        "carveTyped": "always true here: an attribute-only container is a div, not a directive",
-        "class": "the kind word plus authored classes",
-        "id": "authored id"
+        "class": "authored classes; the kind word is NOT among them, it is `kind`",
+        "id": "authored id",
+        "kind": "which generated content is placed here, one of the six",
+        "label": "opener `[label]` grouping id; inert in core",
+        "title": "the opener's quoted title, as `carveDiv` carries an admonition's"
+      }
+    },
+    "block_extension": {
+      "kind": "node",
+      "pm": "carveBlockExtension",
+      "notes": "a block an extension owns (CARVE-P12-055). The REQUIRED fallback is the node's CONTENT, not an attribute: it is a real block the editor edits, and it is what the document means to a reader that does not implement the extension, so the content expression is `block` and says so. Carve 0.1 source spells none, so one reaches the editor over the AST-JSON wire only, and a canonical writer writes the fallback and reports the substitution",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id",
+        "name": "the globally qualified extension name; `org.example.diagram`, never `diagram`",
+        "payload": "the extension's own data as one object, `format` plus `value`; opaque to every core target and NOT rendered into HTML, for the reason `carveSubstitution` gives for its halves",
+        "version": "the extension's own version, opaque here"
       }
     },
     "definition_list": {
@@ -387,6 +409,18 @@
         "name": "the shortcode name, without its colons"
       }
     },
+    "ruby": {
+      "kind": "node",
+      "pm": "carveRuby",
+      "notes": "an interchange-only ruby annotation (CARVE-P12-054); inline ATOM, because `pairs` IS the association and there is no parallel `children` field a content expression could stand in for. A pair carries no type, attrs or pos of its own. Carve 0.1 source spells no ruby, so one arrives over the AST-JSON wire only, and a canonical writer flattens each pair to its base followed by its annotation in parentheses",
+      "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id",
+        "pairs": "per pair: `base` and `annotation`, each as an INLINE ARRAY, in reading order; an annotation may be empty, a base may not"
+      }
+    },
     "citation_group": {
       "kind": "node",
       "pm": "carveCitation",
@@ -456,6 +490,11 @@
     "superscript": {
       "kind": "mark",
       "pm": "superscript"
+    },
+    "small_caps": {
+      "kind": "mark",
+      "pm": "carveSmallCaps",
+      "notes": "an interchange-only small-caps wrapper (CARVE-P12-050). A MARK, not a node: it wraps inline content and nests with every other mark, where a node would make it an atom and stop the text inside being edited. Its own attribute run does NOT ride here - CARVE-P12-050 asks a canonical writer to keep it on an ordinary attributed span around the same children, so the bridge adds a `carveSpan` mark for it and this mark carries the small-caps distinction alone. Carve 0.1 source spells no small caps, so one arrives over the AST-JSON wire only, and a canonical writer drops the wrapper, leaves the letter case alone and reports the loss"
     },
     "insert": {
       "kind": "mark",
@@ -533,9 +572,6 @@
   },
   "unmapped": {
     "citation": "a citation is carried as one typed item inside citation_group.items in the Carve AST; ProseMirror keeps that item inside the carveCitation atom's items attribute rather than as a standalone editor node",
-    "ruby": "the editor schema has no paired base and annotation structure for ruby",
-    "block_extension": "CarveKit registers no node for an extension-owned block, and its opaque payload is not editor content. The node's own FALLBACK stands in for it, which is what PART 12 section 33 says a reader that does not implement the extension renders",
-    "small_caps": "CarveKit registers no small-caps mark, and naming one the editor schema never defined is worse than dropping it. The bridge treats it exactly as it treats ruby: measured, both come back as their own children with the type named in the degradation report",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",
     "escaped_text": "escaping is a source-level concern; the editor holds the escaped character as text",
@@ -568,7 +604,7 @@
       "group": "inline",
       "attrs": {
         "markAttrs": "the mark's own attributes, as one map: a link's `href`/`title` and any authored run, a span's id/class/key-values. Absent where the mark had none",
-        "markType": "the ProseMirror mark this atom stands for: `link`, `carveSpan`, `carveAbbreviation`, `carveInsert` or `carveDelete`"
+        "markType": "the ProseMirror mark this atom stands for: `link`, `carveSpan`, `carveAbbreviation`, `carveInsert`, `carveDelete`, `code` or `carveSmallCaps`. The first six have a source spelling this atom writes back; a small-caps wrapper with no children has none, so it is REPORTED as dropped rather than written"
       }
     }
   }

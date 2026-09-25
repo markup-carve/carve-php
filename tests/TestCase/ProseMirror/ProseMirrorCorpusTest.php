@@ -325,7 +325,39 @@ class ProseMirrorCorpusTest extends TestCase
                                 ],
                             ],
                         ]
-                        : ['type' => 'doc', 'content' => [['type' => $name]]];
+                        : [
+
+                            'type' => 'doc',
+                            'content' => [
+                                match ($name) {
+                            'carveDirective' => ['type' => $name, 'attrs' => ['kind' => 'toc']],
+                            'carveBlockExtension' => [
+                                'type' => $name,
+                                'attrs' => ['name' => 'org.example.block'],
+                                'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'fallback']]]],
+                            ],
+                            'carveRuby' => [
+                                'type' => 'paragraph',
+                                'content' => [
+                                    [
+
+                                        'type' => $name,
+                                        'attrs' => [
+
+                                            'pairs' => [
+                                                [
+                                                    'base' => [['type' => 'text', 'text' => 'a']],
+                                                    'annotation' => [['type' => 'text', 'text' => 'b']],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                            default => ['type' => $name],
+                                },
+                            ],
+                        ];
                     $converter->convert($payload);
                 } catch (Throwable $e) {
                     $unbuildable[$name] = $e->getMessage();

@@ -160,13 +160,14 @@ final class ABlockExtensionDeclaresItsFallbackTest extends TestCase
         self::assertSame($expected, trim($instance->render($document)));
     }
 
-    public function testTheProseMirrorBridgePutsTheFallbackInItsPlaceAndSaysSo(): void
+    public function testTheProseMirrorBridgeKeepsTheFallbackAsContent(): void
     {
         $document = (new AstCodec())->decode(self::payload());
         $renderer = new ProseMirrorRenderer();
         $editor = $renderer->render($document);
 
-        self::assertSame('paragraph', $editor['content'][0]['type']);
-        self::assertArrayHasKey('block_extension', $renderer->degradedTypes());
+        self::assertSame('carveBlockExtension', $editor['content'][0]['type']);
+        self::assertSame('paragraph', $editor['content'][0]['content'][0]['type']);
+        self::assertSame([], $renderer->degradedTypes());
     }
 }
