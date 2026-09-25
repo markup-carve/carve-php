@@ -45,6 +45,11 @@ on:
     # 04:15 UTC, ahead of the 05:00 drift jobs elsewhere in the org.
     - cron: '15 4 * * *'
   workflow_dispatch:
+    inputs:
+      verdict_selftest:
+        description: 'Run the escalation path against a synthetic failure and file nothing'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -124,7 +129,7 @@ jobs:
     name: The verdict reaches a person
     runs-on: ubuntu-latest
     needs: [scaling, coverage]
-    if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
+    if: ${{ !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.verdict_selftest) }}
     permissions:
       contents: read
       issues: write
@@ -145,34 +150,84 @@ jobs:
 
           MARKER="<!-- guards-verdict ref=$REF_NAME -->"
 
+          # Every call here shares one failure mode with the thing it reports:
+          # a transient GraphQL or REST error used to abort the step under
+          # `set -e`, so a red run escalated NOTHING and looked exactly like a
+          # green one from outside (#2452). Two defenses, and the second is the
+          # one that matters: retry, then fall back to a channel that does not
+          # touch the issues API at all.
+          try() {
+            local attempt
+            for attempt in 1 2 3; do
+              if "$@"; then
+                return 0
+              fi
+              echo "::warning::attempt $attempt failed: $*" >&2
+              sleep $((attempt * 5))
+            done
+            return 1
+          }
+
           # Read back which steps failed, rather than trusting the needs
           # contexts: "one job failed" and "which measurement moved" are
           # different facts, and only the second is actionable.
-          failed="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
-            --jq '.jobs[] | select(.name != "The verdict reaches a person") | .steps[]
-                  | select(.conclusion == "failure") | "- `" + .name + "`"')"
-          bad_jobs="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
-            --jq '.jobs[] | select(.name != "The verdict reaches a person")
+          jobs_json=/tmp/guards-jobs.json
+          if ! try gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate > "$jobs_json"; then
+            # Without the job list there is no verdict to compute, so say that
+            # rather than exiting 0 on an empty `failed`.
+            echo "::error::Could not read the job list for run $RUN_ID; the guard verdict is UNKNOWN, not green."
+            {
+              echo "## The guard verdict is UNKNOWN"
+              echo
+              echo "Reading the job list for [run $RUN_ID]($RUN_URL) failed three times, so this"
+              echo "run reports neither green nor red. Treat \`$HEAD_SHA\` as unverified and"
+              echo "re-run the workflow."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          failed="$(jq -r '.jobs[] | select(.name != "The verdict reaches a person") | .steps[]
+                  | select(.conclusion == "failure") | "- `" + .name + "`"' "$jobs_json")"
+          bad_jobs="$(jq -r '.jobs[] | select(.name != "The verdict reaches a person")
                   | select(.conclusion == "timed_out" or .conclusion == "cancelled")
-                  | "- `" + .name + "` (" + .conclusion + ")"')"
+                  | "- `" + .name + "` (" + .conclusion + ")"' "$jobs_json")"
           failed="${failed}${failed:+$'\n'}${bad_jobs}"
+
+          # A notifier nobody has watched succeed is the same class as a check
+          # nobody has watched fail, so the escalation path is runnable on
+          # demand against a synthetic failure. It files nothing.
+          SELFTEST="${{ inputs.verdict_selftest && 'true' || 'false' }}"
+          if [ "$SELFTEST" = 'true' ]; then
+            failed="- \`synthetic failure (verdict_selftest)\`"
+          fi
 
           # Listed rather than searched: the search index lags a fresh issue by
           # long enough to file a duplicate.
-          issue="$(gh api "repos/$REPO/issues?state=open&per_page=100" --paginate \
-            | jq -r --arg m "$MARKER" \
+          issue=''
+          if try gh api "repos/$REPO/issues?state=open&per_page=100" --paginate > /tmp/guards-issues.json; then
+            issue="$(jq -r --arg m "$MARKER" \
                 '.[] | select(.pull_request == null) | select((.body // "") | contains($m)) | .number' \
-            | head -n1)"
+                /tmp/guards-issues.json | head -n1)"
+          else
+            echo "::warning::Could not list open issues; will file a fresh ticket rather than editing one."
+          fi
 
           if [ -z "$failed" ]; then
             echo "Both guards are green on $HEAD_SHA."
-            if [ -n "$issue" ]; then
-              gh issue comment "$issue" --repo "$REPO" --body \
-                "Green again: run $RUN_URL on \`$HEAD_SHA\`. Closing. The next red run files a fresh ticket rather than reopening this one, so a closed ticket always means the last run passed."
-              gh issue close "$issue" --repo "$REPO"
-              echo "Closed #$issue."
-            fi
             echo "Guards green on \`$HEAD_SHA\`. Nothing filed." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "$issue" ]; then
+              if try gh issue comment "$issue" --repo "$REPO" --body \
+                   "Green again: run $RUN_URL on \`$HEAD_SHA\`. Closing. The next red run files a fresh ticket rather than reopening this one, so a closed ticket always means the last run passed." \
+                 && try gh issue close "$issue" --repo "$REPO"; then
+                echo "Closed #$issue."
+              else
+                # Leaving it open is the safe direction, but it must not read as
+                # a guard that is still red.
+                echo "::error::Guards are green but #$issue could not be closed; close it by hand."
+                echo "Guards are GREEN on \`$HEAD_SHA\`, but closing #$issue failed. Close it by hand." >> "$GITHUB_STEP_SUMMARY"
+                exit 1
+              fi
+            fi
             exit 0
           fi
 
@@ -194,10 +249,12 @@ jobs:
             echo
             echo "### Before acting on this"
             echo
-            echo "\`Run scaling guards\` measures WALL CLOCK over a 50000-repeat input, so read"
-            echo "the reported ratio rather than an absolute time, and reproduce with"
-            echo "\`composer test-scaling\` on an idle machine before concluding the parser got"
-            echo "slower. A ratio near its threshold on one run is not yet a regression."
+            echo "\`Run scaling guards\` measures process CPU time over a 50000-repeat input, so"
+            echo "read the reported ratio rather than an absolute time, and reproduce with"
+            echo "\`CARVE_SCALING_REPORT=1 composer test-scaling\` on an idle machine before"
+            echo "concluding the parser got slower. A ratio near its threshold on one run is not"
+            echo "yet a regression: the same code has measured 2.3x on a shared runner and 1.1x"
+            echo "idle, because the large sample leaves cache where the small one fits."
             echo
             echo "\`Run tests with coverage\` failing is usually not a coverage number at all:"
             echo "paratest merging pcov reports has run a 16 GB runner out of memory before"
@@ -211,13 +268,43 @@ jobs:
             echo "not silence it: the next red run files a new one."
           } > /tmp/guards-verdict.md
 
-          if [ -n "$issue" ]; then
-            gh issue edit "$issue" --repo "$REPO" --body-file /tmp/guards-verdict.md
-            echo "Updated #$issue."
-          else
-            url="$(gh issue create --repo "$REPO" \
-              --title "A guard is failing on $REF_NAME" \
-              --label bug --label area:tooling \
-              --body-file /tmp/guards-verdict.md)"
-            echo "Filed $url."
+          # The verdict reaches the run BEFORE it is sent to the issues API. This
+          # is the channel that does not share a failure mode with the tickets,
+          # so an API outage downgrades the escalation instead of erasing it.
+          {
+            echo "## A guard is failing on \`$REF_NAME\`"
+            echo
+            cat /tmp/guards-verdict.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$SELFTEST" = 'true' ]; then
+            echo "::notice::Self-test: the verdict above was produced from a synthetic failure. Nothing was filed."
+            echo "_Self-test run: nothing was filed._" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+
+          # Filing SUCCEEDS the step: the guard jobs above are already red, and a
+          # green verdict job is what tells the three outcomes apart - nothing to
+          # notify, notified, and could not notify.
+          if [ -n "$issue" ]; then
+            if try gh issue edit "$issue" --repo "$REPO" --body-file /tmp/guards-verdict.md; then
+              echo "Updated #$issue."
+              exit 0
+            fi
+          else
+            if url="$(try gh issue create --repo "$REPO" \
+                --title "A guard is failing on $REF_NAME" \
+                --label bug --label area:tooling \
+                --body-file /tmp/guards-verdict.md)"; then
+              echo "Filed $url."
+              exit 0
+            fi
+          fi
+
+          # Reached only when every attempt to write the ticket failed. The
+          # verdict is already in the step summary above, so this says which of
+          # the two things went wrong rather than leaving one silence to cover
+          # both.
+          echo "::error::A guard is failing on $HEAD_SHA AND the ticket could not be written. The verdict is in this run's summary."
+          echo "**The escalation itself failed.** The verdict above never reached a ticket." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
