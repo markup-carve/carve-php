@@ -3150,6 +3150,33 @@ final class HtmlAstBuilder
         if (is_string($type) && isset($inlineTypes[$type])) {
             return [$node];
         }
+        // A raw region keeps its bytes here rather than projecting to nothing.
+        // It reached an inline-only slot - a cell, a caption - and the generic
+        // arm below recurses into `children`, which a raw node has none of, so
+        // the element's whole content left the document in silence, and a cell
+        // it emptied took its row and perhaps the table with it
+        // (carve-php#2362).
+        //
+        // A ROW takes only a one-line region: it ends at the first newline, and
+        // the table with it. Joining the region's lines is not the way in
+        // either - that changes bytes the raw-keep report reads back, and a live
+        // event handler would come back as an `attribute-dropped` row
+        // (carve#2261). So a multi-line region in a cell stays dropped, which is
+        // what it was before this arm. A caption is not a row and takes one.
+        if ($type === 'raw_block') {
+            $content = is_string($node['content'] ?? null) ? $node['content'] : '';
+            if ($content !== '' && ($this->inCaption || !str_contains($content, "\n"))) {
+                return [
+                    [
+                        'type' => 'raw_inline',
+                        'content' => $content,
+                        'format' => is_string($node['format'] ?? null) ? $node['format'] : 'html',
+                    ],
+                ];
+            }
+
+            return [];
+        }
         if ($type === 'list') {
             $out = [];
             foreach (self::nodeList($node['items'] ?? null) as $item) {
