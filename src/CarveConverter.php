@@ -9,6 +9,8 @@ use InvalidArgumentException;
 use LengthException;
 use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\NodeIdentitySession;
+use MarkupCarve\Carve\Ast\Provenance;
 use MarkupCarve\Carve\Ast\SourceLayout;
 use MarkupCarve\Carve\Ast\TextRunCoalescer;
 use MarkupCarve\Carve\Exception\RenderLossException;
@@ -580,6 +582,26 @@ class CarveConverter
         $ast = (new AstCodec())->encode($this->parse($source));
 
         return ['ast' => $ast, 'layout' => SourceLayout::build($source, $ast)];
+    }
+
+    /**
+     * @return array{ast: array<string, mixed>, identity: array<string, mixed>}
+     */
+    public function parseWithNodeIdentity(string $source, NodeIdentitySession $session): array
+    {
+        $ast = (new AstCodec())->encode($this->parse($source));
+
+        return ['ast' => $ast, 'identity' => $session->emit($ast)];
+    }
+
+    /**
+     * @return array{ast: array<string, mixed>, provenance: array<string, mixed>}
+     */
+    public function parseWithProvenance(string $source, string $uri): array
+    {
+        $parsed = $this->parseWithSourceLayout($source);
+
+        return ['ast' => $parsed['ast'], 'provenance' => Provenance::fromSourceLayout($parsed['ast'], $parsed['layout'], $uri)];
     }
 
     /**

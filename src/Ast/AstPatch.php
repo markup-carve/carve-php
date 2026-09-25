@@ -15,6 +15,53 @@ final class AstPatch
      * @param array<string, mixed> $before
      * @param array<string, mixed> $after
      *
+     * @return array{forward: list<Operation>, inverse: list<Operation>, beforeFingerprint: string, afterFingerprint: string}
+     */
+    public static function createReversible(array $before, array $after): array
+    {
+        return [
+            'forward' => self::create($before, $after),
+            'inverse' => self::create($after, $before),
+            'beforeFingerprint' => self::fingerprint($before),
+            'afterFingerprint' => self::fingerprint($after),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     * @param array<string, mixed> $patch
+     * @param bool $inverse
+     *
+     * @throws \InvalidArgumentException
+     *
+     * @return array<string, mixed>
+     */
+    public static function applyReversible(array $document, array $patch, bool $inverse = false): array
+    {
+        $expectedKey = $inverse ? 'afterFingerprint' : 'beforeFingerprint';
+        $operationsKey = $inverse ? 'inverse' : 'forward';
+        if (!is_string($patch[$expectedKey] ?? null) || !is_array($patch[$operationsKey] ?? null) || !array_is_list($patch[$operationsKey])) {
+            throw new InvalidArgumentException('Reversible patch requires operations and fingerprints.');
+        }
+        if (!hash_equals($patch[$expectedKey], self::fingerprint($document))) {
+            throw new InvalidArgumentException('Patch precondition does not match the document.');
+        }
+
+        return self::apply($document, $patch[$operationsKey]);
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     */
+    public static function fingerprint(array $document): string
+    {
+        return 'fnv1a64:' . hash('fnv1a64', json_encode(self::clean($document), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
+     * @param array<string, mixed> $before
+     * @param array<string, mixed> $after
+     *
      * @return list<array{op: 'add'|'replace', path: string, value: mixed}|array{op: 'remove', path: string}>
      */
     public static function create(array $before, array $after): array

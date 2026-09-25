@@ -9,6 +9,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Added
+
+- Editor APIs for node identity, annotation ranges, and provenance sidecars, plus reversible AST patches with revision fingerprints. See [AST editor sidecars](docs/ast-editor-sidecars.md).
+
 ## [0.1.10] - 2026-09-25
 
 ### Breaking
