@@ -16,8 +16,9 @@ unchanged. `convertWithFidelityReport()` returns the shared version 2 envelope,
 including `sourceFormat`, import `mode` and `adapter`, plus `fidelity` and
 `confidence` for every diagnostic. The CLI equivalent is
 `carve migrate --from html --report report.json input.html`; `--check-loss`
-exits with status 1 only for degraded or dropped findings. Imports exceeding
-resource limits throw `HtmlImportLimitException` (reported by the CLI as status 2).
+exits with status 1 for degraded or dropped findings. The diagnostic cap replaces
+the last report row with `diagnostics-truncated`; conversion still returns its
+output. With a cap of zero, a report with any finding contains only that marker.
 
 Each diagnostic carries a `path` locating what was lost. It is a human-readable
 locator that all three engines spell the same way, and although it borrows

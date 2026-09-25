@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use InvalidArgumentException;
-use MarkupCarve\Carve\Converter\HtmlImportLimitException;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\TestCase;
 
@@ -373,10 +372,18 @@ class HtmlImportReportTest extends TestCase
         $this->assertSame('/p[1]/kbd[11]', $actual[0]['path']);
     }
 
-    public function testDiagnosticsLimitIsTyped(): void
+    public function testZeroDiagnosticsLimitReturnsOnlyTheTruncationMarkerWhenThereIsLoss(): void
     {
-        $this->expectException(HtmlImportLimitException::class);
-        (new HtmlToCarve(maxDiagnostics: 0))->convertWithReport('<p onclick="x()">x</p>');
+        $converter = new HtmlToCarve(maxDiagnostics: 0);
+        $result = $converter->convertWithReport('<p onclick="x()">x</p>');
+
+        $this->assertSame('x', trim($result->value));
+        $this->assertSame(['diagnostics-truncated'], array_column($result->report()['diagnostics'], 'code'));
+        $this->assertSame('error', $result->report()['diagnostics'][0]['severity']);
+        $this->assertSame('dropped', $result->report()['diagnostics'][0]['fidelity']);
+        $this->assertSame('fallback', $result->report()['diagnostics'][0]['confidence']);
+        $this->assertArrayNotHasKey('path', $result->report()['diagnostics'][0]);
+        $this->assertSame([], $converter->convertWithReport('<p>clean</p>')->diagnostics);
     }
 
     public function testCaptionDiagnosticsUseTheSameLimitAsTheMainPass(): void
@@ -384,14 +391,16 @@ class HtmlImportReportTest extends TestCase
         $html = '<p onclick="a">x</p><p onclick="b">y</p>'
             . '<figure><img src="/i" alt="x"><figcaption><p>one</p><p>two</p></figcaption></figure>';
 
-        foreach ([1, 2, 3] as $maximum) {
+        $expected = [
+            1 => ['diagnostics-truncated'],
+            2 => ['attribute-dropped', 'diagnostics-truncated'],
+            3 => ['attribute-dropped', 'attribute-dropped', 'diagnostics-truncated'],
+        ];
+        foreach ($expected as $maximum => $codes) {
             $converter = new HtmlToCarve(maxDiagnostics: $maximum);
-            try {
-                $converter->convertWithReport($html);
-                $this->fail('Expected the diagnostic limit at ' . $maximum);
-            } catch (HtmlImportLimitException) {
-                $this->addToAssertionCount(1);
-            }
+            $result = $converter->convertWithReport($html);
+            $this->assertSame($codes, array_column($result->report()['diagnostics'], 'code'));
+            $this->assertSame('error', $result->report()['diagnostics'][$maximum - 1]['severity']);
             $this->assertSame([], $converter->convertWithReport('<p>reusable</p>')->diagnostics);
         }
 

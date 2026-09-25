@@ -3007,13 +3007,17 @@ class HtmlToCarve
      * @param string $severity
      * @param string $message
      * @param string $code
-     *
-     * @throws \MarkupCarve\Carve\Converter\HtmlImportLimitException
      */
     protected function addImportDiagnostic(array &$diagnostics, string $code, string $message, string $severity, string $path): void
     {
         if (count($diagnostics) >= $this->maxDiagnostics) {
-            throw new HtmlImportLimitException('HTML import diagnostics limit exceeded');
+            $marker = new HtmlImportDiagnostic('diagnostics-truncated', 'HTML import diagnostics limit reached', 'error');
+            if ($diagnostics !== []) {
+                array_pop($diagnostics);
+            }
+            $diagnostics[] = $marker;
+
+            return;
         }
         $diagnostics[] = new HtmlImportDiagnostic($code, $message, $severity, $path);
     }
