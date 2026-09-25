@@ -919,9 +919,9 @@ HTML;
         $html = '<table><tr><td><ul><li>Item</li></ul></td></tr></table>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("| - Item |\n", $result);
+        $this->assertSame("| Item |\n", $result);
         $htmlBack = (new CarveConverter())->convert($result);
-        $this->assertStringContainsString('<td>- Item</td>', $htmlBack);
+        $this->assertStringContainsString('<td>Item</td>', $htmlBack);
     }
 
     public function testTableCellEscapesLiteralPipeCharacters(): void

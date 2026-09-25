@@ -3303,13 +3303,11 @@ final class HtmlAstBuilder
         if ($type === 'list') {
             $out = [];
             foreach (self::nodeList($node['items'] ?? null) as $item) {
-                if ($out !== []) {
+                $projected = $this->projectToInlines($item);
+                if ($out !== [] && $projected !== []) {
                     $out[] = ['type' => 'text', 'value' => ' '];
                 }
-                if (!$this->inCaption) {
-                    $out[] = ['type' => 'text', 'value' => ($node['ordered'] ?? false) ? '1. ' : '- '];
-                }
-                array_push($out, ...$this->projectToInlines($item));
+                array_push($out, ...$projected);
             }
 
             return $out;
