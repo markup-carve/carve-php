@@ -117,6 +117,14 @@ class MarkdownToCarve
     protected array $referenceDefinitionLabels = [];
 
     /**
+     * Source lines whose ordered task item Carve cannot spell, in order, for the
+     * fidelity report. Reset by every `convert()`.
+     *
+     * @var array<int, int>
+     */
+    protected array $unspellableOrderedTasks = [];
+
+    /**
      * Reference definitions taken out of the body, each on one line, for the
      * end of the document where `carve fmt` writes them.
      *
@@ -198,6 +206,7 @@ class MarkdownToCarve
     public function convert(string $markdown): string
     {
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
+        $this->unspellableOrderedTasks = [];
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         // Frontmatter is opaque metadata in Markdown and in Carve alike - both
@@ -977,6 +986,7 @@ class MarkdownToCarve
             // continuation marker), and two adjacent lists must differ in
             // marker or Carve merges them into one, so fmt sets them apart.
             if ($isList) {
+                $this->recordUnspellableOrderedTask($line, $i);
                 $separate = false;
                 $body = $this->writeListMarker($listMarkers, $lines, $i, $body, $listCols, $separate);
                 if (($separate && $prevLineType === 'list') || ($lazyQuote !== null && $this->indentWidth($line) >= $lazyQuote['col'])) {
@@ -1027,6 +1037,7 @@ class MarkdownToCarve
             // An item's own line holding a quote reaches here whole, past the
             // branches that would have folded or fenced it, so its markers are
             // still as the source spelled them (carve-php#2341, #2343).
+            $body = $this->escapeUnreadTaskMarker($body);
             if ($isList) {
                 $body = $this->normalizeHeldQuoteMarkers($this->escapeTaskItemOpener($body));
             }
@@ -1155,7 +1166,28 @@ class MarkdownToCarve
 
     public function convertWithFidelityReport(string $markdown): MigrationResult
     {
-        return $this->unverifiedMigrationResult($this->convert($markdown), 'markdown');
+        $result = $this->unverifiedMigrationResult($this->convert($markdown), 'markdown');
+        if ($this->unspellableOrderedTasks === []) {
+            return $result;
+        }
+        // `structure-unspellable` is the code the import side already uses for a
+        // shape Carve has no spelling for, and its fidelity and confidence are
+        // properties of that code rather than of this producer.
+        $diagnostics = $result->diagnostics;
+        foreach ($this->unspellableOrderedTasks as $line) {
+            $diagnostics[] = new MigrationDiagnostic(
+                'structure-unspellable',
+                'An ordered task item is not spellable as a Carve task item; the checkbox marker was kept as text',
+                'warning',
+                'dropped',
+                'exact',
+                // A source line, since Markdown has no node path to name. The
+                // schema types `path` as a free string for exactly this.
+                'line:' . ($line + 1),
+            );
+        }
+
+        return new MigrationResult($result->value, $result->sourceFormat, $diagnostics);
     }
 
     /**
@@ -3104,6 +3136,61 @@ class MarkdownToCarve
         }
 
         return $out . substr($line, $i);
+    }
+
+    /**
+     * An item's own line with a Markdown escape on a bracket pair Carve reads as
+     * a task checkbox where cmark-gfm's task-list extension does not reach.
+     *
+     * The extension takes a checkbox off a line carrying ONE marker and
+     * whitespace before it. A second container marker on that line - another
+     * item's, or a quote's - puts the list out of its scope, so `> - [ ] a` and
+     * `- - [ ] a` hold the pair as text where an indented `- [ ] a` still holds
+     * a box. Carve's task item has no such restriction, so the import grew a
+     * checkbox the reader has none of (carve-php#2366).
+     */
+    protected function escapeUnreadTaskMarker(string $line): string
+    {
+        $marker = '(?:>[ \t]?|(?:[-*+]|\d{1,9}[.)])[ \t]+)';
+        if (preg_match('/^((?:[ \t]*' . $marker . ')+)(\[[ xX_>?-]\][ \t]+\S)/', $line, $at) !== 1) {
+            return $line;
+        }
+        // Carve reads a checkbox off a BULLET item only. Behind an ordered
+        // marker the pair is already text in both readers, and escaping it
+        // would guard nothing - `> 1. [ ] a` needs no backslash.
+        if (preg_match('/[-*+][ \t]+$/', $at[1]) !== 1) {
+            return $line;
+        }
+        // One marker is in scope. The STATE is not this helper's question: the
+        // four Carve-only states (`[-]`, `[_]`, `[>]`, `[?]`) diverge at every
+        // position, in scope or out, and that is a set difference rather than
+        // the extension's reach.
+        if (preg_match('/^[ \t]*' . $marker . '$/', $at[1]) === 1) {
+            return $line;
+        }
+
+        return $at[1] . '\\' . substr($line, strlen($at[1]));
+    }
+
+    /**
+     * Note an ordered item whose checkbox Carve has no spelling for, so the
+     * fidelity report can say the marker survives only as text.
+     *
+     * `task_marker` is reachable from `unordered_item` alone (PART 3), so
+     * `1. [x] done` has no Carve task item to become. cmark-gfm reads a box
+     * there, and the characters it read are what the import keeps -
+     * `<ol><li>[x] done</li></ol>` rather than an invented bullet list or a
+     * silently shorter item. The box itself is gone, and a loss the target
+     * language forces is still a loss to report (carve-php#2366).
+     */
+    protected function recordUnspellableOrderedTask(string $line, int $index): void
+    {
+        // The scope the task-list extension reaches: ONE marker, whitespace
+        // before it. Behind a quote or a second marker cmark-gfm reads no box
+        // either, so the two readers already agree and nothing is lost.
+        if (preg_match('/^[ \t]*\d{1,9}[.)][ \t]+\[[ xX]\][ \t]+\S/', $line) === 1) {
+            $this->unspellableOrderedTasks[] = $index;
+        }
     }
 
     /**
