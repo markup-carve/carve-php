@@ -99,28 +99,40 @@ class ADeniedSchemeDestinationIsImportedAsContentTest extends TestCase
         return ['safe' => ['safe'], 'semantic' => ['semantic'], 'roundtrip' => ['roundtrip']];
     }
 
+    /**
+     * The `[x]` alternative text has no `![...]()` spelling, so the writer keeps
+     * the surviving image as a raw HTML span. That row belongs to the list: the
+     * bytes really are raw in the output, and the report used to leave the keep
+     * unsaid (markup-carve/carve#2261).
+     *
+     * @param string $html
+     * @param array<string> $messages
+     */
     #[DataProvider('rawLinkProvider')]
-    public function testRoundtripDoesNotKeepADeniedDestinationAsRawHtml(string $html, string $message): void
+    public function testRoundtripDoesNotKeepADeniedDestinationAsRawHtml(string $html, array $messages): void
     {
         $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport($html);
 
         $this->assertStringNotContainsString('javascript', $result->value);
-        $this->assertSame([$message], array_map(static fn ($d): string => $d->message, $result->diagnostics));
+        $this->assertSame($messages, array_map(static fn ($d): string => $d->message, $result->diagnostics));
     }
 
     /**
-     * @return array<string, array{string, string}>
+     * @return array<string, array{string, array<string>}>
      */
     public static function rawLinkProvider(): array
     {
         return [
             'denied href' => [
                 '<p><a href="javascript:x"><img src="a.png" alt="[x]"></a></p>',
-                'Dropped href with a denied URL scheme on <a>',
+                [
+                    'Dropped href with a denied URL scheme on <a>',
+                    'Preserved unsupported <img> element as raw HTML',
+                ],
             ],
             'denied nested src' => [
                 '<p><a href="/ok"><img src="javascript:x" alt="[x]"></a></p>',
-                'Dropped src with a denied URL scheme on <img>',
+                ['Dropped src with a denied URL scheme on <img>'],
             ],
         ];
     }
