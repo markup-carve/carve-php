@@ -118,16 +118,22 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
     }
 
     /**
+     * The blank line under each break is what `carve fmt` writes there, so the
+     * import is formatted. These five used to pin the byte-for-byte opposite,
+     * which contradicted the contract `AMarkdownImportWritesWhatFmtWritesTest`
+     * states (carve-php#2385); every reading below is unchanged and agrees with
+     * cmark-gfm 0.29.0.gfm.13.
+     *
      * @return array<string, array{string, string}>
      */
     public static function afterProvider(): array
     {
         return [
-            'an empty item' => ["***\n-", "---\n- +"],
-            'an empty ordered item' => ["***\n1.", "---\n1. +"],
-            'indented code' => ["***\n    code", "---\n```\ncode\n```"],
-            'a heading' => ["***\n# h", "---\n# h"],
-            'an ordered item that does not start at one' => ["***\n2. x", "---\n2. x"],
+            'an empty item' => ["***\n-", "---\n\n- +"],
+            'an empty ordered item' => ["***\n1.", "---\n\n1. +"],
+            'indented code' => ["***\n    code", "---\n\n```\ncode\n```"],
+            'a heading' => ["***\n# h", "---\n\n# h"],
+            'an ordered item that does not start at one' => ["***\n2. x", "---\n\n2. x"],
         ];
     }
 
@@ -139,6 +145,22 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
     public function testTheLineBelowTheBreakOpensItsOwnBlock(string $markdown, string $carve): void
     {
         $this->assertSame($carve, (new MarkdownToCarve())->convert($markdown));
+    }
+
+    /**
+     * The reading is what the blank line may not change, so it is asserted
+     * beside the bytes. A break ends every open block and nothing continues one,
+     * which is why the separator is free to be written.
+     */
+    #[DataProvider('afterProvider')]
+    public function testTheBlockBelowTheBreakReadsTheSameWithTheSeparator(string $markdown, string $carve): void
+    {
+        $converter = new CarveConverter();
+
+        $this->assertSame(
+            $converter->convert(str_replace("---\n\n", "---\n", $carve)),
+            $converter->convert($carve),
+        );
     }
 
     /**

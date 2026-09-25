@@ -298,7 +298,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // territory, and indented code interrupts nothing - the line is lazy
         // paragraph continuation, which is what both readers report.
         $this->assertSame(
-            "prose line\n" . self::COLUMN_4 . self::rawInline('<footer>x</footer>') . "\n",
+            "prose line\n" . self::rawInline('<footer>x</footer>') . "\n",
             $this->converter->convert("prose line\n" . self::COLUMN_4 . "<footer>x</footer>\n"),
         );
         $this->assertSame(

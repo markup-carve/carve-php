@@ -54,6 +54,9 @@ class ASetextHeadingFoldsAnIndentedLineTest extends TestCase
 
     public function testWithNoUnderlineTheLineStaysWhereItIs(): void
     {
-        $this->assertSame("para\n    \\# x\n", (new MarkdownToCarve())->convert("para\n    # x\n"));
+        $imported = (new MarkdownToCarve())->convert("para\n    # x\n");
+
+        $this->assertSame("para\n\\# x\n", $imported);
+        $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 }

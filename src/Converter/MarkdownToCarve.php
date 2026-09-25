@@ -461,12 +461,15 @@ class MarkdownToCarve
 
                 continue;
             }
-            // The same four columns under a paragraph outside any item.
+            // The same four columns under a paragraph outside any item. The
+            // indentation is dropped, as the item branch above drops it to the
+            // item's content column: on a line continuing a paragraph no indent
+            // is code and none is content, so `fmt` writes the line at the
+            // container's column (carve-php#2384).
             if (!$inCodeBlock && $prevLineType === 'text' && $listCols === [] && $trimmed !== '' && $lineIndent >= 4) {
-                $leading = substr($line, 0, strlen($line) - strlen(ltrim($line, " \t")));
                 // An ordered marker other than 1 interrupts no paragraph anyway.
                 $opener = preg_match('/^0*(?:[2-9]|1\d)\d*[.)]/', $trimmed) === 1 ? $trimmed : $this->escapeBlockOpener($trimmed);
-                $result[] = $this->convertInlineFormatting($leading . $opener);
+                $result[] = $this->convertInlineFormatting($opener);
 
                 continue;
             }
@@ -608,17 +611,22 @@ class MarkdownToCarve
             $rule = $inHtmlBlock ? null : $this->thematicBreakLine($line, $contentCol);
             if ($rule !== null) {
                 $result[] = $rule;
-                if (isset($lines[$i + 1]) && trim($lines[$i + 1]) !== '') {
-                    $nextText = preg_replace('/^(?:[ \t]*>[ \t]?)+/', '', $lines[$i + 1]) ?? $lines[$i + 1];
-                    $sameContainer = $this->containerKey($line, $contentCol)
-                    === $this->containerKey($lines[$i + 1], $contentCol);
-                    if (
-                        $sameContainer && $this->indentWidth($nextText) - $contentCol < 4
-                        && $this->isParagraphLine([$nextText], 0)
-                        && preg_match('/^(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/', ltrim($nextText)) !== 1
-                    ) {
-                        $result[] = $this->containerSeparator($line, $contentCol);
-                    }
+                $next = $lines[$i + 1] ?? null;
+                if ($next !== null && trim($next) !== '') {
+                    // The separator goes above ANY block, not only a paragraph.
+                    // `fmt` writes a blank line under every thematic break, and
+                    // the blank cannot change a reading, because nothing
+                    // continues a break. Gating it on the next line's kind left
+                    // a heading, a list, a fence, a quote, a table row and a
+                    // second break importing unformatted (carve-php#2385).
+                    //
+                    // It sits at the SHALLOWER of the two containers, the only
+                    // prefix both lines are inside: `> ---` over `foo` takes a
+                    // bare blank, `> > ---` over `> foo` takes `>`.
+                    $result[] = $this->containerSeparator(
+                        $this->quoteDepth($next) < $this->quoteDepth($line) ? $next : $line,
+                        $contentCol,
+                    );
                 }
                 $prevLineType = 'blank';
 
@@ -1490,11 +1498,17 @@ class MarkdownToCarve
      */
     protected function containerKey(string $line, int $contentCol): string
     {
-        $depth = preg_match('/^([ \t]*)((?:>[ \t]*)*)/', $line, $matches) === 1
+        return $contentCol . '|' . $this->quoteDepth($line);
+    }
+
+    /**
+     * How many block quotes a line sits inside.
+     */
+    protected function quoteDepth(string $line): int
+    {
+        return preg_match('/^([ \t]*)((?:>[ \t]*)*)/', $line, $matches) === 1
             ? substr_count($matches[2], '>')
             : 0;
-
-        return $contentCol . '|' . $depth;
     }
 
     /**
