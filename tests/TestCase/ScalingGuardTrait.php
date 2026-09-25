@@ -32,9 +32,16 @@ trait ScalingGuardTrait
     private const SCALE_ROUNDS = 3;
 
     /**
+     * Quadratic growth shows ~4x per-byte at this 4x step, so the bound has to
+     * sit below 4.0 and above the spread of a shared runner. It was 2.00, which
+     * is inside that spread: the same code measured 2.26-2.30x on CI and
+     * 0.95-1.11x idle for three BBCode shapes, because a 400000-byte sample
+     * leaves cache where a 100000-byte one fits. Raising it trades no quadratic
+     * sensitivity, since nothing between 3x and 4x is a shape this can catch.
+     *
      * @var float
      */
-    private const SCALE_MAX_PER_BYTE_RATIO = 2.0;
+    private const SCALE_MAX_PER_BYTE_RATIO = 3.0;
 
     /**
      * @var float
