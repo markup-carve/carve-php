@@ -860,6 +860,16 @@ class MarkdownToCarve
                     }
                 }
                 $held = ltrim($this->stripColumns($line, $contentCol), " \t");
+                // An item nested on a CONTINUATION line reaches the same task
+                // readings as one after a blank, and this path had none of them:
+                // `- a` then `  - - [ ] b` grew a box out of the reader's scope,
+                // `  1. [ ] b` lost one with nothing said, and `  - [ ] > b`
+                // grew a quote out of what cmark-gfm reads as the item's text.
+                $this->recordUnspellableOrderedTask($lines[$i], $i);
+                $line = $this->spellTaskMarkerSeparator($this->escapeUnreadTaskMarker($line));
+                if ($isList) {
+                    $line = $this->escapeTaskItemOpener($line);
+                }
                 $line = $this->normalizeHeldQuoteMarkers($line);
                 $result[] = $this->convertInlineFormatting(
                     $this->escapeRowContinuation(
@@ -1055,7 +1065,7 @@ class MarkdownToCarve
             // An item's own line holding a quote reaches here whole, past the
             // branches that would have folded or fenced it, so its markers are
             // still as the source spelled them (carve-php#2341, #2343).
-            $body = $this->escapeUnreadTaskMarker($body);
+            $body = $this->spellTaskMarkerSeparator($this->escapeUnreadTaskMarker($body));
             if ($isList) {
                 $body = $this->normalizeHeldQuoteMarkers($this->escapeTaskItemOpener($body));
             }
@@ -3166,11 +3176,21 @@ class MarkdownToCarve
      * `- - [ ] a` hold the pair as text where an indented `- [ ] a` still holds
      * a box. Carve's task item has no such restriction, so the import grew a
      * checkbox the reader has none of (carve-php#2366).
+     *
+     * The STATE narrows it the same way: cmark-gfm's extension accepts ` `, `x`
+     * and `X`, and Carve's four further states - `[-]`, `[_]`, `[>]` and `[?]` -
+     * are an ordinary bracket pair to it at every position (carve-php#2377).
+     *
+     * A pair the extension does not reach is a SHORTCUT REFERENCE where its
+     * label is defined, so cmark-gfm reads a link rather than text. The
+     * collapsed form the inline pass writes there carries the link and hides
+     * the pair from Carve's task reader at once, so a backslash would only lose
+     * the link.
      */
     protected function escapeUnreadTaskMarker(string $line): string
     {
         $marker = '(?:>[ \t]?|(?:[-*+]|\d{1,9}[.)])[ \t]+)';
-        if (preg_match('/^((?:[ \t]*' . $marker . ')+)(\[[ xX_>?-]\][ \t]+\S)/', $line, $at) !== 1) {
+        if (preg_match('/^((?:[ \t]*' . $marker . ')+)\[(?<state>[ xX_>?-])\][ \t]+\S/', $line, $at) !== 1) {
             return $line;
         }
         // Carve reads a checkbox off a BULLET item only. Behind an ordered
@@ -3179,15 +3199,54 @@ class MarkdownToCarve
         if (preg_match('/[-*+][ \t]+$/', $at[1]) !== 1) {
             return $line;
         }
-        // One marker is in scope. The STATE is not this helper's question: the
-        // four Carve-only states (`[-]`, `[_]`, `[>]`, `[?]`) diverge at every
-        // position, in scope or out, and that is a set difference rather than
-        // the extension's reach.
-        if (preg_match('/^[ \t]*' . $marker . '$/', $at[1]) === 1) {
+        if ($this->cmarkReadsTaskCheckbox($line, strlen($at[1]))) {
+            return $line;
+        }
+        $label = $this->normalizeReferenceLabel($at['state']);
+        if ($label !== '' && isset($this->referenceDefinitionLabels[$label])) {
             return $line;
         }
 
         return $at[1] . '\\' . substr($line, strlen($at[1]));
+    }
+
+    /**
+     * An item's own line with the one space Carve reads between a task marker
+     * and its content, where cmark-gfm read a checkbox off the pair.
+     *
+     * Carve's `task_marker` is followed by a literal space, so a TAB there left
+     * the box behind and the brackets read as text. cmark-gfm strips the run as
+     * the paragraph's own leading whitespace, so a space carries every character
+     * it read; a run of spaces already reads as the box and keeps its bytes
+     * (carve-php#2382). Only behind a bullet: an ordered item has no Carve box
+     * to reach, and its line keeps what the source spelled.
+     */
+    protected function spellTaskMarkerSeparator(string $line): string
+    {
+        if (preg_match('/^([ \t]*[-*+][ \t]+)(\[[ xX]\])([ \t]*\t[ \t]*)(?=\S)/', $line, $at) !== 1) {
+            return $line;
+        }
+        if (!$this->cmarkReadsTaskCheckbox($line, strlen($at[1]))) {
+            return $line;
+        }
+
+        return $at[1] . $at[2] . ' ' . substr($line, strlen($at[1]) + strlen($at[2]) + strlen($at[3]));
+    }
+
+    /**
+     * Whether cmark-gfm's task-list extension reads a checkbox from the bracket
+     * pair that starts at `$offset` on `$line`.
+     *
+     * The extension reaches an item whose line carries ONE container marker,
+     * bullet or ordered, and accepts the three states ` `, `x` and `X`. A pair
+     * it reads is a checkbox to that reader whatever else the label means, so a
+     * defined reference of the same name goes unused (`CARVE-P9-074`,
+     * markup-carve/carve#2273).
+     */
+    protected function cmarkReadsTaskCheckbox(string $line, int $offset): bool
+    {
+        return preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+$/', substr($line, 0, $offset)) === 1
+            && preg_match('/^\[[ xX]\][ \t]+\S/', substr($line, $offset)) === 1;
     }
 
     /**
@@ -3956,6 +4015,10 @@ class MarkdownToCarve
                         return $match[0][0];
                     }
                     if (($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
+                        return $match[0][0];
+                    }
+                    // A task checkbox, whose label the reader never resolves.
+                    if ($this->cmarkReadsTaskCheckbox($subject, $match[0][1])) {
                         return $match[0][0];
                     }
                     $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;

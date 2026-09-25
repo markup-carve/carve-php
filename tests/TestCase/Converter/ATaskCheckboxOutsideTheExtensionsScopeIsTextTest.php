@@ -24,9 +24,11 @@ use PHPUnit\Framework\TestCase;
  * as text and the fidelity report carries the loss; see
  * `AnOrderedTaskItemIsNotSpellableTest`.
  *
- * The rule here is the extension's SCOPE, not its state set. The four
- * Carve-only states (`[-]`, `[_]`, `[>]`, `[?]`) diverge at every position, in
- * scope or out, which is a different question and a separate ticket.
+ * The rule here is the extension's SCOPE. Its STATE SET narrows the same reading
+ * a second time and was ruled separately: the four Carve-only states (`[-]`,
+ * `[_]`, `[>]` and `[?]`) are an ordinary bracket pair to cmark-gfm at every
+ * position, in scope or out, and `TheFourCarveOnlyTaskStatesAreTextOnImportTest`
+ * pins them (carve-php#2377).
  *
  * PINNED AT THE RENDERED LEVEL, since the converter corpus compares an importer
  * by rendering its output.
@@ -235,11 +237,11 @@ final class ATaskCheckboxOutsideTheExtensionsScopeIsTextTest extends TestCase
                 "- 1. [ ] foo\n",
                 "- 1. [ ] foo\n",
             ],
-            // The scope rule reads the marker count, not the state set, so a
-            // Carve-only state in scope is left where it stands.
-            'a Carve-only state at a top-level bullet takes none' => [
+            // In scope by marker count and out of it by state, so the escape
+            // lands for the second reason (carve-php#2377).
+            'a Carve-only state at a top-level bullet takes the escape' => [
                 "- [-] foo\n",
-                "- [-] foo\n",
+                "- \\[-] foo\n",
             ],
             'a Carve-only state out of scope takes the escape with the rest' => [
                 "> - [-] foo\n",

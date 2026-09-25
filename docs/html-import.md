@@ -85,6 +85,25 @@ imports as
 An attribute block attaches to a closing run, which such a span has not got, so
 it is written bare and what it carried is reported as `attribute-dropped`.
 
+An ordered task item is a fourth. `task_marker` in Carve hangs off
+`unordered_item` alone, so a box behind an ordered marker has no spelling:
+
+~~~ html
+<ol><li><input type="checkbox" checked disabled> done</li></ol>
+~~~
+
+imports as
+
+~~~
+1. [x] done
+~~~
+
+with one `structure-unspellable` warning at the `<input>`'s own path. `checked`,
+`disabled` and a `data-task-state` character all reach the brackets, so they take
+no rows of their own; anything else on that input still reports the loss it is.
+Only a writer is affected, so `convertToAstWithReport()` keeps `checked` on the
+item and says nothing. Bullets are unaffected.
+
 Three more importers convert other markup to Carve, in the library as
 `MarkdownToCarve`, `DjotToCarve` and `BbcodeToCarve`, and on the command line
 as `carve migrate --from markdown|djot|bbcode`:
@@ -105,6 +124,14 @@ spells a checkbox behind a bullet only, so the marker survives as text and a
 by default; its two
 constructor flags opt in to the `$math$` and `==highlight==` extensions that
 neither dialect defines.
+
+Where GFM sees no checkbox but Carve would, the brackets are escaped instead and
+nothing is reported. GFM honors ` `, `x` and `X` after ONE container marker, so
+`- - [ ] a` and Carve's extra states `[-]`, `[_]`, `[>]`, `[?]` all take the
+backslash - unless a link reference definition names that label, in which case GFM
+resolves a link and the collapsed form goes in place of the escape. A label GFM did
+read leaves its definition idle: `- [x] done` above `[x]: /u` keeps both lines as
+typed and renders the box.
 
 `--adapter word` and `--adapter google-docs` add one recognition the `generic`
 default does not risk: footnote-shaped HTML. A word processor writes a note as
