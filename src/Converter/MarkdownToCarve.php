@@ -3206,7 +3206,10 @@ class MarkdownToCarve
         // The scope the task-list extension reaches: ONE marker, whitespace
         // before it. Behind a quote or a second marker cmark-gfm reads no box
         // either, so the two readers already agree and nothing is lost.
-        if (preg_match('/^[ \t]*\d{1,9}[.)][ \t]+\[[ xX]\][ \t]+\S/', $line) === 1) {
+        if (
+            preg_match('/^([ \t]*\d{1,9}[.)])([ \t]+)\[[ xX]\](?=[ \t])/', $line, $match) === 1
+            && $this->columnWidth($match[1] . $match[2]) - $this->columnWidth($match[1]) <= 4
+        ) {
             $this->unspellableOrderedTasks[] = $index;
         }
     }
