@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Profile;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
 final class DirectiveInterchangeTest extends TestCase
@@ -64,5 +65,59 @@ final class DirectiveInterchangeTest extends TestCase
         $codec = new AstCodec();
 
         self::assertEquals($wire, $codec->encode($codec->decode($wire)));
+    }
+
+    /**
+     * Every kind, and the writer. `AGeneratedContentKindIsADirectiveTest` pins
+     * the quoted opener on `toc` through the encoder and the HTML renderer;
+     * the other five kinds and the canonical writer had nothing on them, and
+     * the writer reads the RAW header the decoder recomputes from `title`
+     * rather than the title nodes a renderer reads.
+     */
+    public function testATitledDirectiveSurvivesTheWireOnEveryKind(): void
+    {
+        $codec = new AstCodec();
+        foreach (Div::GENERATED_CONTENT_KINDS as $kind) {
+            $source = "::: {$kind} \"Notes\" [End]\n\n:::\n";
+            $wire = $codec->encode(CarveConverter::carve()->parse($source));
+            $directive = $wire['children'][0];
+
+            self::assertSame('Notes', $directive['title'][0]['value'] ?? null, $kind);
+            self::assertSame('End', $directive['label'] ?? null, $kind);
+            self::assertSame($wire, $codec->encode($codec->decode($wire)), $kind);
+            self::assertSame($source, CarveConverter::carve()->render($codec->decode($wire)), $kind);
+        }
+    }
+
+    /**
+     * The ingest half on its own: a payload the parser never saw. A `title`
+     * that publishes but does not decode loses the opener here and nowhere
+     * else, and the writer then destroys the author's text.
+     */
+    public function testAnIngestedTitleReachesTheWriterAndTheRenderer(): void
+    {
+        $wire = [
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'directive',
+                    'kind' => 'footnotes',
+                    'title' => [['type' => 'text', 'value' => 'Notes']],
+                    'label' => 'End',
+                ],
+            ],
+        ];
+        $codec = new AstCodec();
+
+        self::assertEquals($wire, $codec->encode($codec->decode($wire)));
+        self::assertSame(
+            "::: footnotes \"Notes\" [End]\n\n:::\n",
+            CarveConverter::carve()->render($codec->decode($wire)),
+        );
+        self::assertStringContainsString(
+            '<p class="admonition-title">Notes</p>',
+            (new HtmlRenderer())->render($codec->decode($wire)),
+        );
     }
 }
