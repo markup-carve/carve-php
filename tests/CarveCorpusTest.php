@@ -964,6 +964,12 @@ class CarveCorpusTest extends TestCase
         // document top level; carve-php answers this already in
         // AFootnotesPlacementMarkerInsideAContainerDoesNotPlaceTest.
         'a-footnotes-placement-marker-inside-a-container-does-not-place',
+        // Arrived with the bump to carve 34e9333 (markup-carve/carve#2319): a
+        // comment line's text is a content line, a `%%%` body is payload. Four
+        // documents, each compared against its pinned HTML AND its `.fmt`
+        // sidecar, which is the half that can see a comment's text at all.
+        // carve-php#2443 already implements the rule.
+        'a-comment-line-s-text-is-content-and-a-block-body-is-payload',
     ];
 
     /**
