@@ -99,6 +99,7 @@ final class AnOrderedTaskItemIsNotSpellableTest extends TestCase
     }
 
     /**
+     * @param string $markdown
      * @param array<int, string> $paths
      */
     #[DataProvider('reportProvider')]
