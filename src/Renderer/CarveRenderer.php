@@ -5139,6 +5139,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * A title that is ONLY `"` writes the empty title `""`, which parses and
      * carries an empty title rather than destroying the opener.
+     *
+     * The token is written VERBATIM, unlike a link or image title. The slot
+     * reads its content up to the closing quote with no escape mechanism, so
+     * the value already carries the one encoding the slot has: a code fence's
+     * title is raw text and a div's is inline source, from a parse and from an
+     * AST ingest alike. Running it through `escapeQuoted()` encoded a value
+     * that was already encoded, so a backslash gained a backslash on every
+     * writer pass without bound, and the div's rendered title changed from a
+     * non-breaking space to a literal backslash (carve-php#2397).
      */
     protected function quotedTitleToken(Node $node, string $title): string
     {
