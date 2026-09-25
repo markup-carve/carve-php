@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\ProseMirror;
 
 use Closure;
+use MarkupCarve\Carve\Ast\OpaqueJsonPayloads;
 use MarkupCarve\Carve\Ast\PayloadDepth;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\CarveConverter;
@@ -400,8 +401,9 @@ class ProseMirrorToCarve
     {
         /** @var array<string, mixed> $data */
         $data = json_decode($json, true, self::MAX_JSON_DEPTH, JSON_THROW_ON_ERROR);
+        $raw = json_decode($json, false, self::MAX_JSON_DEPTH, JSON_THROW_ON_ERROR);
 
-        return $this->convert($data);
+        return $this->convert(OpaqueJsonPayloads::restore($data, $raw));
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Ast;
 
+use stdClass;
 use function is_array;
 
 /**
@@ -58,8 +59,8 @@ final class PayloadDepth
 
             $next = [];
             foreach ($level as $node) {
-                foreach ($node as $value) {
-                    if (!is_array($value)) {
+                foreach ($node instanceof stdClass ? get_object_vars($node) : $node as $value) {
+                    if (!is_array($value) && !$value instanceof stdClass) {
                         continue;
                     }
                     $next[] = $value;
