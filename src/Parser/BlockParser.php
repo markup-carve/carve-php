@@ -300,15 +300,8 @@ class BlockParser
     private array $discoveredAbbreviationLines = [];
 
     /**
-     * Caption slots consumed for a reference image whose definition had not
-     * been seen yet, settled once resolution has run (carve-php#1851).
-     *
-     * Keyed WEAKLY by the paragraph holding the slot. The walk discards
-     * subtrees, and a strong reference kept every discarded one alive to the
-     * end of the parse - two thirds of the slots in a 321 KB document pointed
-     * at trees nothing else referenced (carve-php#2230). Settling walks the
-     * finished document instead of these references, so a slot in a discarded
-     * subtree is neither held nor patched.
+     * Unresolved image captions, keyed weakly so discarded paragraphs do not
+     * stay alive until the parse ends. Only surviving nodes are patched.
      *
      * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, array{image: \MarkupCarve\Carve\Node\Inline\Image, captionText: string, captionLines: array<string>, start: int, markerWidth: int, rawLines: array<string>, rawSpans: list<array{break: \MarkupCarve\Carve\Ast\SourceSpan|null, text: \MarkupCarve\Carve\Ast\SourceSpan|null}>}>|null
      */
@@ -697,50 +690,11 @@ class BlockParser
     }
 
     /**
-     * Register a custom block pattern
+     * Register a block pattern. The callback receives the source lines, start
+     * index, parent node, and parser. It returns consumed lines or null when
+     * the pattern does not match.
      *
-     * The pattern should match the first line of the block.
-     * The callback receives the full lines array, start index, parent node, and parser,
-     * and should return the number of lines consumed (or null if not a match).
-     *
-     * Example - :::spoiler blocks:
-     * ```php
-     * $parser->addBlockPattern('/^:::spoiler\s*$/', function($lines, $start, $parent, $parser) {
-     *     $endPattern = '/^:::\s*$/';
-     *     $content = [];
-     *     $i = $start + 1;
-     *     while ($i < count($lines) && !preg_match($endPattern, $lines[$i])) {
-     *         $content[] = $lines[$i];
-     *         $i++;
-     *     }
-     *     $div = new Div();
-     *     $div->setAttribute('class', 'spoiler');
-     *     // Parse content inside
-     *     $parser->parseBlockContent($div, $content);
-     *     $parent->appendChild($div);
-     *     return $i - $start + 1; // +1 for closing :::
-     * });
-     * ```
-     *
-     * Example - custom admonitions:
-     * ```php
-     * $parser->addBlockPattern('/^!!!\s*(note|warning|danger)\s*$/', function($lines, $start, $parent, $parser) {
-     *     $type = trim(substr($lines[$start], 3));
-     *     $content = [];
-     *     $i = $start + 1;
-     *     while ($i < count($lines) && preg_match('/^\s+/', $lines[$i])) {
-     *         $content[] = ltrim($lines[$i]);
-     *         $i++;
-     *     }
-     *     $div = new Div();
-     *     $div->setAttribute('class', 'admonition ' . $type);
-     *     $parser->parseBlockContent($div, $content);
-     *     $parent->appendChild($div);
-     *     return $i - $start;
-     * });
-     * ```
-     *
-     * @param string $pattern Regex pattern to match the first line
+     * @param string $pattern Regex for the first line
      * @param callable(array<string>, int, \MarkupCarve\Carve\Node\Node, self): ?int $callback
      */
     public function addBlockPattern(string $pattern, callable $callback): void
@@ -3198,7 +3152,7 @@ class BlockParser
      *
      * The run is collected LINE BY LINE and joined only when a `}` arrives, so a
      * `{` opener followed by many lines that never close stays LINEAR rather
-     * than copying the growing run on every line (raised by codex review).
+     * than copying the growing run on every line.
      *
      * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null} $state Mutated in place.
      * @param string $content
@@ -4297,10 +4251,9 @@ class BlockParser
      * lazy continuation - which needs an open paragraph and nothing else
      * (PART 1 S4, markup-carve/carve-php#1897).
      *
-     * A FENCE INSIDE THE QUOTE LEAVES THE PARAGRAPH WHERE IT WAS. Measured over
-     * seven quote endings by two openings: after `> q` the line below is the
-     * quote's whether the fence below `q` closes or not, and after the same
-     * fence with no paragraph above it the line is the item's. So the fence
+     * A FENCE INSIDE THE QUOTE LEAVES THE PARAGRAPH WHERE IT WAS. After `> q`,
+     * the line below belongs to the quote whether the fence closes or not.
+     * With no paragraph above the fence, the line belongs to the item. The fence
      * decides nothing here and a heading, a table row, a thematic break or a
      * bare `>` decides everything, which is why the flag is carried across the
      * fence rather than recomputed inside it. Tracked locally because
@@ -6268,7 +6221,7 @@ class BlockParser
                         // A DIV'S EXTENT IS ITS FENCES, blank lines included -
                         // it stays open across one, so a run stopping at the
                         // first blank handed the rest back and opened a heading
-                        // inside it (raised by codex review). Read through
+                        // inside it. Read through
                         // `colonFenceEnd()`, which is what the parser itself
                         // uses: the closer matches the opener's EXACT width, a
                         // nested pair keeps its own, and a bare run inside a
@@ -6722,7 +6675,7 @@ class BlockParser
                 // and splits the body it was meant to keep. The invariant this
                 // index owes its callers is that it is a SUPERSET of what they
                 // can match - narrowing it is only safe once the closers
-                // themselves narrow. Raised by codex review.
+                // themselves narrow.
                 if (preg_match('/^[ \t]*(:{3,})[ \t]*$/', $line, $m) === 1) {
                     $colon[strlen($m[1])] = $i;
                 }
@@ -8354,8 +8307,7 @@ class BlockParser
                         // itself runs in the tracker walk below, and only where
                         // the answer changes a reading. Settling it eagerly per
                         // fence-shaped line is a forward scan per line, which a
-                        // body of N openers before one closer pays N times
-                        // (raised by codex review).
+                        // body of N openers before one closer pays N times.
                         if ($paragraphFence !== null) {
                             $bodyFenceSource[count($body)] = [
                                 'index' => $i,
@@ -8381,7 +8333,7 @@ class BlockParser
                         // definition. The nested column cannot say so on its
                         // own - a fence opens no content column - and without
                         // this the erasure below ate a leading space out of a
-                        // code block (raised by codex review).
+                        // code block.
                         if (
                             $definitionPastTheColumn
                             && !$bodyNestedState['inFence']
@@ -8509,7 +8461,7 @@ class BlockParser
                         // line closes it. Carried INCREMENTALLY, on the same
                         // cursor the tracker walks - rescanning the whole body
                         // per collected line made a description of N lazy lines
-                        // quadratic (raised by codex review).
+                        // quadratic.
                         if ($bodyStateCursor <= $bodyAttributeThrough) {
                             continue;
                         }
@@ -9104,7 +9056,7 @@ class BlockParser
                 // reference's LABEL, `[x [y` / `%% c` / `z][inner] w][outer]`,
                 // gives two snapshots that both contain the emptied line.
                 // Repairing only the nearest left the outer one stale, and the
-                // writer emits the outer as a whole (raised by codex review).
+                // writer emits the outer as a whole.
                 $host = $this->referenceSnapshotHost($child);
                 $this->placeVerseCommentsIn(
                     $child,
@@ -9227,8 +9179,7 @@ class BlockParser
      * U+E000 is three bytes in UTF-8 where the space it replaced is one, so an
      * ordinary segment - which maps N source bytes onto N built bytes - cannot
      * describe it, and the whole region used to be left out. Everything over it
-     * then went unplaced, including three corpus documents another engine places
-     * (carve-php#1351).
+     * then went unplaced where other engines place it (carve-php#1351).
      *
      * A preserved run holding a TAB still is skipped. A tab widens to between
      * one and four placeholders depending on the column it starts at, so no
@@ -11618,7 +11569,7 @@ class BlockParser
         // inherited run dropped here, a pipe inside it split a chunk onto a
         // cell index that does not exist, `rebuiltCellSourceMap()`'s
         // joined-content check then failed, and the nodes came back with no
-        // position at all. Raised by codex review.
+        // position at all.
         foreach ($this->tableParser->splitCells($normalizedLine, $openDelimiters) as $idx => $cell) {
             $content = trim($cell['content'], ' ');
             if ($content === '') {
@@ -11896,7 +11847,7 @@ class BlockParser
      *
      * A VERBATIM BODY INSIDE THE CONTAINER IS SKIPPED, because a definition
      * written in one is payload and not a definition at all. Without that the
-     * scan cut a div's extent at its own code content (raised by codex review).
+     * scan cut a div's extent at its own code content.
      *
      * @param array<string> $lines
      * @param int $start
@@ -13108,10 +13059,9 @@ class BlockParser
             // ARMED OFF THE DEFINITION LINE ITSELF, not off the tracker's
             // rising edge. `inFootnoteBody` stays true while a body is open, so
             // a note opened INSIDE another never raises it again and the
-            // innermost column would keep the outer one's value (raised by
-            // codex review). Reading the line directly gives every level its
-            // own column; the stack pops back to the enclosing note when a line
-            // dedents out of the inner one.
+            // innermost column would keep the outer one's value. Reading the
+            // line directly gives every level its own column. A dedent then
+            // pops the stack back to the enclosing note.
             $local = ltrim($opener, " \t");
             if (preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $local) === 1) {
                 // A NOTE THAT DOES NOT REACH THE OPEN ONE'S BODY COLUMN CLOSES
@@ -13140,29 +13090,13 @@ class BlockParser
     }
 
     /**
-     * The shallowest content column open INSIDE a description body, counted
-     * from the body's own content column, or 0 when nothing is open there.
-     *
-     * ITS OWN RUNNING FOLD over the body's entries, carried in `$state` and
-     * `$cursor` and advanced only forward. Walking the collected entries afresh
-     * per call is the same answer and was the first spelling; it made a body of
-     * N definitions cost N squared tracker steps, which at 8000 lines was 174
-     * seconds against 0.5 before the change (raised by codex review). The fold
-     * the collector's own tracker keeps cannot be reused: it is advanced only
-     * where the body stops collecting, and it carries the attribute bookkeeping
-     * that walk owns.
-     *
-     * `$bodyLazy` mirrors the collector so both folds read the same entries the
-     * same way. Only the two invisible branches read it and neither writes
-     * `nestedColumn`, so it cannot move this answer on its own.
-     *
-     * NO CLOSER LOOKAHEAD, unlike the collector's own fold. The body it can see
-     * is the part collected so far, so a fence whose closer is still ahead
-     * looks unterminated and arms nothing - and the caller reads `inFence` to
-     * refuse the whole question. Asked without the lookahead a fence-shaped
-     * line always arms it, which errs towards leaving the line alone; that is
-     * the safe direction here, because the only thing this answer can do is
-     * take indentation off a line (raised by codex review).
+     * Track the shallowest nested content column in a description body.
+     * Return its offset from the body's content column, or zero if none is open.
+     * The cursor advances once through collected entries; rescanning each time
+     * would be quadratic. The collector's fold advances only when collection
+     * stops, so it cannot be reused here.
+     * Closer lookahead is omitted because a closer may still lie beyond the
+     * collected portion, so the caller leaves a possible fence alone.
      *
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param int $cursor
@@ -13183,64 +13117,18 @@ class BlockParser
     }
 
     /**
-     * A collected description-body entry as the BODY will read it.
-     *
-     * The collector strips the body's own content column and keeps whatever is
-     * left, so an opener written PAST that column arrives here still indented -
-     * ` # H` rather than `# H`. carve#1729 gives such an opener an AUTHORED
-     * LOCAL BASE, and `rebaseOverindentedItemBlocks()` applies it before
-     * `parseBlocks()` reads the body, so the body reads a heading there. The
-     * tracker read the authored line instead and saw prose, which is why an
-     * opener at the body's column ended its paragraph and the same opener one
-     * column further in did not (carve-php#1874, markup-carve/carve#1911).
-     *
-     * ONLY WHERE THE REBASE WOULD REACH IT. Inside a code fence or a div the
-     * indentation is content rather than a base, so there is no opener to see.
-     * `divDepth` is asked as well as `inDiv` because the div tracker clears
-     * `inDiv` on the FIRST closer while only decrementing the depth, so a
-     * nested pair leaves an outer div open with `inDiv` false (raised by codex
-     * review); it moves no bytes across the sweeps, and it is what makes the
-     * refusal mean what it says.
-     *
-     * An ABSORBING colon fence is not such a place, though it looked like one:
-     * `:::note` opens nothing, so `rebaseOverindentedItemBlocks()` does rebase
-     * the opener under it, and refusing the read there left eight documents
-     * answering against every other reading.
-     *
-     * AND ONLY WHERE NOTHING IS OPEN INSIDE THE BODY. Once the body has opened
-     * a container of its own, every line above that container's column belongs
-     * to it and its collector is what reads them; the body has no opener of its
-     * own there. `inFootnoteBody` is asked alongside the column because a
-     * footnote body is the one such container the state carries WITHOUT a
-     * nested column, so the column alone answered "nothing is open" for it
-     * (raised by codex review). MEASURED, not assumed: spelled the way
-     * carve-php#1878 spells the same guard at the push branch - where the
-     * question is which container the ENTRY arrives in, so "below the nested
-     * column" is the right test - a heading between a body's column and a
-     * nested item's closed the body, where all four readings fold the whole run
-     * into the item. That was 64 documents right to wrong over an
-     * 8370-document sweep of bodies that open a container; refusing the read
-     * outright leaves 0.
-     *
-     * NOT A SECOND REBASE PASS. Running the authored-base pass over the
-     * collected entries per line would be quadratic; this answers the one
-     * question the tracker asks, off the state it already carries.
-     *
-     * TWO CONDITIONS HERE MOVE NO BYTES and are kept anyway, which is worth
-     * saying rather than leaving for the next reader to rediscover. `$base ===
-     * 0` is a fast path: at column 0 both branches return the same string, so
-     * it only skips the opener test. And the opener test itself moved nothing
-     * over 14451 swept documents - the tracker answers "prose" for a
-     * non-opener whether or not it is indented - but it is the same gate
-     * `rebaseOverindentedItemBlocks()` applies, and dropping it would have the
-     * tracker read a base that pass would not apply.
+     * Read a collected description line at the base used by the body parser.
+     * Outside open code fences, divs, and nested containers, authored
+     * indentation can introduce a block, so rebase only there. An absorbing
+     * `:::` opener does not count as an open container.
+     * Check `divDepth` even when `inDiv` is false: a nested div's first closer
+     * clears the flag. Check `inFootnoteBody` even without a nested column.
+     * Keep the opener gate aligned with `rebaseOverindentedItemBlocks()`.
      *
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param array<string> $body
      * @param int $index
-     * @param int|null $openerBase Base the OPEN block's opener was rebased by,
-     *   carried so its closer - and section 10's closer lookahead - read at the
-     *   same column. Null while nothing is open.
+     * @param int|null $openerBase Base used by the open block, if any.
      */
     private function descriptionBodyEntryAsRead(
         array $state,
@@ -13979,13 +13867,8 @@ class BlockParser
         // returns from its own branch with the paragraph closed - so `> q` over
         // `# h` over `- m` still opens the item, in this engine and in carve-js.
         //
-        // ASKED WITHOUT `$endsTheParagraph`, deliberately. That test is live
-        // here - 9 of 1623 corpus documents reach this line with it true - but
-        // never with `quoteParagraph` already set, so qualifying the re-arm with
-        // it moved no bytes over 1678 documents. Left off rather than carried as
-        // a condition nothing can exercise; if a document is ever found that
-        // reaches here inside a quote's lazy run on a heading, this is the line
-        // that decides it.
+        // Re-arm from the prior quote state. No known input reaches this line
+        // with both the quote paragraph and paragraph-end flags set.
         $state['quoteParagraph'] = $wasQuoteParagraph;
 
         return $state;

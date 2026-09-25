@@ -54,7 +54,7 @@ class IncludeExpander implements TransformerInterface
     /**
      * Include warnings retained for one document. Warnings are per-directive,
      * so a document of refused directives otherwise allocates one per
-     * directive - measured at roughly 124 MB for a megabyte of them. One
+     * directive. One
      * warning per distinct rule always survives the cap, so a capped report
      * still shows every failure class, and getSuppressedWarnings() reports the
      * remainder rather than letting it read as a clean run.

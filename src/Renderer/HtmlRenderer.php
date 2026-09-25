@@ -1311,8 +1311,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // Rendered ONCE, and the pieces serve both the framing decision below
         // and the output. Rendering a child again to test whether it is empty
-        // doubles the work at every nesting level, which is exponential in
-        // depth: a 20-deep quote went from under a millisecond to 6 seconds.
+        // doubles the work at every nesting level.
         $rendered = [];
         foreach ($children as $child) {
             $rendered[] = $this->renderNode($child);

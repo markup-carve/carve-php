@@ -18,10 +18,8 @@ use ReflectionClass;
  * operable - so a page styled with the recipe this repo publishes has tabs
  * nobody can switch without a mouse, and exposes exactly one panel.
  *
- * The docblock recipe is the only styling guidance the org publishes, so it is
- * what gets copied. This pins that it stays the visually-hidden-but-focusable
- * pattern, and that the focus ring is drawn somewhere visible - the input
- * itself is invisible, so the ring has to land on its label.
+ * Check the published CSS recipes so the hidden input stays focusable and its
+ * label shows the focus ring.
  */
 class ThePublishedRadioCssKeepsTheControlFocusableTest extends TestCase
 {
@@ -93,12 +91,21 @@ class ThePublishedRadioCssKeepsTheControlFocusableTest extends TestCase
     }
 
     /**
-     * The `Required CSS` fenced block out of the extension's own docblock.
+     * Read the CSS recipe from the extension guide or the class docblock.
      *
      * @param class-string $extension
      */
     protected function publishedCss(string $extension): string
     {
+        if ($extension === TabsExtension::class) {
+            $docs = file_get_contents(dirname(__DIR__, 3) . '/docs/extensions.md');
+            $this->assertIsString($docs);
+            $this->assertSame(1, preg_match('/^### TabsExtension\R(.*?)(?=^### |\z)/ms', $docs, $section));
+            $this->assertSame(1, preg_match('/For CSS mode,.*?~~~[ \t]*css\R(.*?)\R~~~/s', $section[1], $matches));
+
+            return $matches[1];
+        }
+
         $doc = (new ReflectionClass($extension))->getDocComment();
         $this->assertIsString($doc, $extension . ' must keep a docblock');
 

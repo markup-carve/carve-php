@@ -2624,100 +2624,19 @@ class HtmlToCarve
     }
 
     /**
-     * Did this attribute actually survive into the emitted document?
-     *
-     * THE ONE RULE that replaced the position predicate. It asks the OUTPUT,
-     * so it is right about every route without naming any of them - including
-     * the routes that did not exist when it was written.
-     *
-     * The tally is consumed as it is read: each surviving `<tag name=…>` in
-     * the output answers for exactly one occurrence in the input, so a document
-     * with two cited quotes of which the serializer keeps one reports exactly
-     * one loss. The walk runs in document order, so the occurrence a given
-     * survivor is credited to may differ from the one a human would pair it
-     * with when the values differ; the COUNT of reported losses is exact
-     * either way, which is what the invariant is about.
-     *
-     * MATCHED ON THE VALUE, in an ATTRIBUTE position - not on the element it
-     * landed on, and not on the name it landed under.
-     *
-     * Not on the TAG, because this importer re-tags constantly and correctly. A
-     * `word` document's footnote definition is a `<div id="fn1">` on the way in
-     * and an `<li id="fn1">` on the way out; the `id` plainly survived, and a
-     * tag-keyed lookup would call it dropped purely because the element around
-     * it did its job.
-     *
-     * Not on the NAME, because Carve spells several imported attributes under a
-     * name of its own: `<dfn title="…">` is `{dfn="…"}` and reads back as a
-     * `dfn` attribute, so the author's `title` survives under another name. What
-     * the author wrote is the VALUE, and the value is what is looked for.
-     *
-     * IN AN ATTRIBUTE POSITION, which is the whole point. Characters can
-     * survive into a slot that cannot hold their meaning: a cited quote in a
-     * table caption is written through the caption-line slot, which carries
-     * inline content only, so the rendered document reads
-     * `<caption>{cite=u}</caption>` - the value `u` is right there in the text,
-     * and it means nothing. Searching the output for the characters calls that
-     * preserved; asking whether any element carries them AS AN ATTRIBUTE calls
-     * it lost, which is the truth.
-     *
-     * AN EMPTY VALUE HAS NOTHING TO LOSE, so it is never a drop. `<abbr
-     * title="">` and `<time datetime="">` come back as a bare `[E]{abbr}` and
-     * `[T]{time}`, which render as `<abbr>` and `<time>` with no attribute at
-     * all - and the shared cross-engine contract fixture
-     * `html-import/semantic-span-attributes` reports neither, because an empty
-     * value carried no information for the round trip to drop. Reporting them
-     * would put this engine's report at odds with carve-js and carve-rs over a
-     * pair of attributes that say nothing.
-     *
-     * SCOPED BY NAME, so an unrelated attribute cannot vouch for this one. A
-     * pooled by-value lookup let a generated `scope="col"` answer for a dropped
-     * `cite="col"` and report nothing, which is the false negative this whole
-     * rule exists to prevent - a coincidence of values is not survival.
-     *
-     * A VALUE THAT REPEATS ITS NAME IS SCOPED BY THE ELEMENT'S CONTENT TOO,
-     * which is the same sentence one level in: a coincidence of name AND value
-     * across two DIFFERENT elements is not survival either.
-     *
-     * That pair collides by construction rather than by accident. libxml
-     * normalizes an HTML boolean attribute to `name="name"`, so every authored
-     * `disabled`, `checked`, `readonly`, `multiple`, `hidden` and `open`
-     * arrives here spelled identically, and so does every one the RENDERER
-     * writes of its own accord. A task list renders a generated
-     * `disabled="disabled"` onto its checkbox, and with the budget tallied over
-     * the whole document that stood in for the authored `disabled` on a
-     * `<button>` elsewhere, so the button's real loss went unreported
-     * (carve-php#1379).
-     *
-     * The element's content tells those two apart: the checkbox carries none
-     * and the button carries its label. It is asked instead of the tag because
-     * this importer re-tags, and asked only of this class because a round trip
-     * may legitimately REWRITE content - a footnote's `<a href="#fnref1">back</a>`
-     * comes back as the renderer's own `↩` marker, and its `href` survived on
-     * an element whose words did not.
-     *
-     * Every other name/value pair keeps the document-wide budget it had. Two
-     * elements carrying the same non-boolean value are still pooled, and the
-     * COUNT of reported losses stays exact there, because both occurrences were
-     * authored - the boolean case is the one where an occurrence NOBODY
-     * authored joins the budget.
-     *
-     * WHAT THIS STILL DOES NOT SEPARATE: two CONTENTLESS elements. A
-     * `<button disabled></button>` and a generated checkbox both key on the
-     * empty string, so the checkbox can still answer for the button when the
-     * button carries no label. Content is a witness to an element's identity,
-     * not a name for it, and an element with no content leaves none. Closing
-     * that corner needs the writer to record which input node produced which
-     * output node, which is a correlation this report - which asks the emitted
-     * document rather than the conversion - does not have.
-     *
-     * `class` IS COMPARED BY TOKEN, because it is a token list and the round
-     * trip legitimately rewrites the string around the tokens: `{.a .b}` renders
-     * `class="a b"`, so an authored class whose tokens are separated by a run
-     * of spaces never matches whole, and a
-     * `<details class="x">` comes back as `class="details x"` with the
-     * extension's own token added. The author's tokens are what survived, and
-     * asking for the string instead reported an everyday paragraph as lossy.
+     * Check whether the emitted HTML still carries this attribute value.
+     * Match values in attribute positions because the converter can change
+     * tags. Scope by attribute name so an unrelated attribute cannot answer
+     * for this one; an authored `title` may survive under a semantic span key.
+     * The tally is consumed in document order, one output occurrence per input.
+     * Empty values carry no loss. Values equal to their attribute name, as
+     * libxml spells boolean attributes, also use the element's content. This
+     * keeps a generated checkbox from answering for a labeled control.
+     * Two contentless elements can still collide without node provenance.
+     * Other attributes cannot use content as a key: a round trip may rewrite
+     * visible text while preserving their values.
+     * Classes are compared by token because the renderer may add tokens or
+     * normalize spacing.
      */
     protected function importAttributeSurvived(string $tag, string $name, string $value): bool
     {
