@@ -9,6 +9,8 @@ use MarkupCarve\Carve\Ast\PayloadDepth;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use MarkupCarve\Carve\Node\Block\BlockExtension;
+use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CitationDefinition;
@@ -55,6 +57,8 @@ use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
+use MarkupCarve\Carve\Node\Inline\SmallCaps;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
@@ -409,6 +413,35 @@ class ProseMirrorToCarve
         $name = $data['type'] ?? null;
         if (!is_string($name)) {
             throw new RuntimeException('Every ProseMirror node needs a string type');
+        }
+
+        if ($name === 'carveBlockExtension' && !isset($this->factories[$name])) {
+            $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+            $extensionName = $attrs['name'] ?? null;
+            $version = $attrs['version'] ?? null;
+            $payload = isset($attrs['payload'])
+                ? $this->stringKeyedObject($attrs['payload'], 'carveBlockExtension payload must be an object')
+                : null;
+            $children = $this->childrenOf($data);
+            if (
+                !is_string($extensionName) || $extensionName === ''
+                || ($version !== null && !is_string($version))
+                || count($children) !== 1
+            ) {
+                throw new RuntimeException('carveBlockExtension needs a name and exactly one fallback block');
+            }
+            $fallback = $this->buildBlock($children[0]);
+            if (!$fallback instanceof BlockNode) {
+                throw new RuntimeException('carveBlockExtension fallback must be a block');
+            }
+            $extension = new BlockExtension($extensionName, $fallback, $version);
+            if ($payload !== null && !is_string($payload['format'] ?? null)) {
+                throw new RuntimeException('carveBlockExtension payload needs a format');
+            }
+            $extension->setPayload($payload);
+            $this->applyAttributes($extension, $data);
+
+            return $extension;
         }
 
         // A figure's SHORT caption is state, not a child, so the generic child
@@ -865,6 +898,10 @@ class ProseMirrorToCarve
             return false;
         }
 
+        if ($name === 'carveBlockExtension' && !isset($this->factories[$name])) {
+            return true;
+        }
+
         $node = $this->instantiate($name, $data);
 
         return !($node instanceof InlineNode);
@@ -963,6 +1000,52 @@ class ProseMirrorToCarve
             );
 
             return [$this->wrapInMarks($node, $data['marks'] ?? [])];
+        }
+
+        if ($name === 'carveRuby') {
+            if (($data['content'] ?? []) !== []) {
+                throw new RuntimeException('carveRuby is an atom; its content belongs in pairs');
+            }
+            $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+            $wirePairs = $attrs['pairs'] ?? null;
+            if (!is_array($wirePairs) || $wirePairs === []) {
+                throw new RuntimeException('carveRuby needs a non-empty pairs array');
+            }
+            $pairs = [];
+            foreach ($wirePairs as $wirePair) {
+                if (
+                    !is_array($wirePair) || !is_array($wirePair['base'] ?? null)
+                    || !is_array($wirePair['annotation'] ?? null)
+                ) {
+                    throw new RuntimeException('carveRuby pair needs base and annotation arrays');
+                }
+                $pair = ['base' => [], 'annotation' => []];
+                foreach (['base', 'annotation'] as $side) {
+                    $wireInlines = $wirePair[$side];
+                    if (!is_array($wireInlines)) {
+                        throw new RuntimeException('carveRuby pair content must be inline nodes');
+                    }
+                    foreach ($wireInlines as $wireInline) {
+                        $inlineData = $this->stringKeyedObject($wireInline, 'carveRuby pair content must be inline nodes');
+                        foreach ($this->buildInlines($inlineData) as $built) {
+                            if (!$built instanceof InlineNode) {
+                                throw new RuntimeException('carveRuby pair content must be inline nodes');
+                            }
+                            $pair[$side][] = $built;
+                        }
+                    }
+                }
+                if ($pair['base'] === []) {
+                    throw new RuntimeException('carveRuby pair needs a non-empty base');
+                }
+                $pair['base'] = $this->mergeRubyInlines($pair['base']);
+                $pair['annotation'] = $this->mergeRubyInlines($pair['annotation']);
+                $pairs[] = $pair;
+            }
+            $ruby = new Ruby($pairs);
+            $this->applyAttributes($ruby, $data);
+
+            return [$this->wrapInMarks($ruby, $data['marks'] ?? [])];
         }
 
         if ($name === 'text') {
@@ -1325,10 +1408,10 @@ class ProseMirrorToCarve
      */
     protected function emptyMarkNode(string $markType, array $markAttrs): Node
     {
-        if (!in_array($markType, ['link', 'carveSpan', 'carveAbbreviation', 'carveInsert', 'carveDelete'], true)) {
+        if (!in_array($markType, ['link', 'carveSpan', 'carveAbbreviation', 'carveInsert', 'carveDelete', 'carveSmallCaps'], true)) {
             throw new RuntimeException(sprintf(
                 'carveEmptyMark stands for a mark, and "%s" is not one the schema map names: '
-                    . 'expected link, carveSpan, carveAbbreviation, carveInsert or carveDelete',
+                    . 'expected link, carveSpan, carveAbbreviation, carveInsert, carveDelete or carveSmallCaps',
                 $markType,
             ));
         }
@@ -1459,6 +1542,8 @@ class ProseMirrorToCarve
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string, mixed> $data
+     *
+     * @throws \RuntimeException
      */
     protected function applyAttributes(Node $node, array $data): void
     {
@@ -1564,8 +1649,11 @@ class ProseMirrorToCarve
                 $node instanceof Math && $key === 'display' => $this->setState($node, 'display', self::asBool($value)),
                 $node instanceof Div && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
                 $node instanceof Div && $key === 'title' => $this->setState($node, 'header', self::asString($value)),
+                $node instanceof Div && ($data['type'] ?? null) === 'carveDirective' && $key === 'kind' => true,
                 $node instanceof Div && $key === 'carveTyped' => $this->setState($node, 'typed', self::asBool($value)),
                 $node instanceof Div && $key === 'carveAttrs' => $this->applyCarveAttrs($node, $value),
+                $node instanceof BlockExtension && in_array($key, ['name', 'version', 'payload'], true) => true,
+                $node instanceof Ruby && $key === 'pairs' => true,
                 $node instanceof Abbreviation && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
                 $node instanceof InlineExtension && in_array($key, ['name', 'carveSource'], true) => $this->setState(
                     $node,
@@ -1673,6 +1761,15 @@ class ProseMirrorToCarve
             if ($order !== []) {
                 $node->setAttributeOrder($order);
             }
+        }
+
+        if ($node instanceof Div && ($data['type'] ?? null) === 'carveDirective') {
+            $kind = $attrs['kind'] ?? null;
+            if (!is_string($kind) || !in_array($kind, Div::GENERATED_CONTENT_KINDS, true)) {
+                throw new RuntimeException('carveDirective needs a valid kind');
+            }
+            $node->setAttribute('class', trim($kind . ' ' . implode(' ', $node->getClassList())));
+            $node->setTyped(true);
         }
 
         // The editor's whole-group `integral` is the authored `[+` shorthand, so
@@ -2185,6 +2282,47 @@ class ProseMirrorToCarve
     }
 
     /**
+     * @throws \RuntimeException
+     *
+     * @return array<string, mixed>
+     */
+    private function stringKeyedObject(mixed $value, string $message): array
+    {
+        if (!is_array($value)) {
+            throw new RuntimeException($message);
+        }
+        $object = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                throw new RuntimeException($message);
+            }
+            $object[$key] = $item;
+        }
+
+        return $object;
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Node\Inline\InlineNode> $nodes
+     *
+     * @throws \RuntimeException
+     *
+     * @return list<\MarkupCarve\Carve\Node\Inline\InlineNode>
+     */
+    private function mergeRubyInlines(array $nodes): array
+    {
+        $merged = [];
+        foreach ($this->mergeAdjacentMarks($nodes) as $node) {
+            if (!$node instanceof InlineNode) {
+                throw new RuntimeException('carveRuby pair content must be inline nodes');
+            }
+            $merged[] = $node;
+        }
+
+        return $merged;
+    }
+
+    /**
      * @param array<string, mixed> $data
      *
      * @return array<int, array<string, mixed>>
@@ -2227,7 +2365,9 @@ class ProseMirrorToCarve
         'footnote_ref' => FootnoteRef::class,
         'footnote' => Footnote::class,
         'div' => Div::class,
+        'directive' => Div::class,
         'admonition' => Div::class,
+        'block_extension' => BlockExtension::class,
         'definition_list' => DefinitionList::class,
         'definition_term' => DefinitionTerm::class,
         'definition_description' => DefinitionDescription::class,
@@ -2248,6 +2388,7 @@ class ProseMirrorToCarve
         'raw_inline' => RawInline::class,
         'literal_inline' => LiteralInline::class,
         'substitution' => Substitution::class,
+        'ruby' => Ruby::class,
         'symbol' => Symbol::class,
         'citation_group' => CitationGroup::class,
         'heading_ref' => HeadingRef::class,
@@ -2257,6 +2398,7 @@ class ProseMirrorToCarve
         'strike' => Strike::class,
         'code' => Code::class,
         'highlight' => Highlight::class,
+        'small_caps' => SmallCaps::class,
         'subscript' => Subscript::class,
         'superscript' => Superscript::class,
         'insert' => Insert::class,

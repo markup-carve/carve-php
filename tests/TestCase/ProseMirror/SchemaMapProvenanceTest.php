@@ -166,6 +166,6 @@ final class SchemaMapProvenanceTest extends TestCase
 
         $this->assertSame([], $provenance['failures']);
         $this->assertSame('tiptap/schema-map.json', $provenance['path']);
-        $this->assertNotSame([], $provenance['divergences'], 'every difference from upstream is named here');
+        $this->assertSame([], $provenance['divergences'], 'this refresh matches upstream without declared differences');
     }
 }
