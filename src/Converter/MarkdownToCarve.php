@@ -1802,13 +1802,29 @@ class MarkdownToCarve
         // interrupt a paragraph, so the line continues it. The shape test alone
         // read a heading, a break or a bullet there as a block of its own
         // (carve-php#2348, #2350).
-        $paragraphCol = $list->openItemContentColumn() ?? 0;
+        $openBefore = $list->openItemContentColumn();
+        $paragraphCol = $openBefore ?? 0;
         $farPastContent = $this->indentWidth($text) - $paragraphCol >= 4;
         $continues = $prev !== null && $prev['prefix'] === $prefix
             && $this->quoteParagraphIsOpen($prev['text'])
             && ($this->continuesParagraph($text) || $farPastContent);
         $heldMarker = $prev !== null && $prev['prefix'] === $prefix
             && $this->quoteParagraphIsOpen($prev['text']) && $this->isHeldOrderedMarker($text, $list);
+        // A marker that interrupts the paragraph above it has to go on
+        // interrupting it. Carve opens a block only AT its container's content
+        // column and never opens a list from under a paragraph at all, so a
+        // marker the source left within three columns was folded back into the
+        // paragraph it ended (carve-php#2340). A heading or a quote reaches its
+        // column by being dedented; a list needs the paragraph closed for it.
+        $interrupts = !$blank && !$continues && !$heldMarker
+            && $prev !== null && $prev['prefix'] === $prefix
+            && $this->quoteParagraphIsOpen($prev['text'])
+            && $this->indentWidth($text) > $paragraphCol
+            && $this->indentWidth($text) - $paragraphCol <= 3;
+        if ($interrupts && preg_match('/^[ \t]*(?:#{1,6}(?=[ \t]|$)|>)/', $text) === 1) {
+            $text = str_repeat(' ', $paragraphCol) . ltrim($text, " \t");
+            $written = $text;
+        }
         if ($heldMarker) {
             $written = substr($text, 0, strlen($text) - strlen(ltrim($text, " \t"))) . $this->escapeBlockOpener(ltrim($text, " \t"));
         } elseif ($continues && $list->openItemContentColumn() !== null) {
@@ -1822,7 +1838,19 @@ class MarkdownToCarve
             $step = $list->write($text, $free, !$free && ($hasWidePadding || $preview['shift'] > 0));
             $markerCol = $this->indentWidth($text);
             $written = $this->moveIndent($step['line'], $markerCol, $markerCol + $step['outer']);
-            if ($step['separate'] && $prev !== null && $prev['prefix'] === $prefix) {
+            // Only under the QUOTE's own paragraph. Carve opens a list from
+            // under an ITEM's paragraph already - that is what the held-ordered
+            // escape exists for - so a blank there would only make a tight list
+            // loose.
+            // Only a bullet or an ordered marker starting at 1 interrupts a
+            // paragraph (CommonMark 5.2), so any other ordered marker is text
+            // of it and closing the paragraph for it would invent a list.
+            $opensUnderParagraph = $prev !== null && $prev['prefix'] === $prefix
+                && $openBefore === null
+                && $this->quoteParagraphIsOpen($prev['text'])
+                && preg_match('/^[ \t]*(?:[-*+]|0*1[.)])(?=[ \t])/', $text) === 1
+                && $this->indentWidth($text) - $paragraphCol <= 3;
+            if (($step['separate'] || $opensUnderParagraph) && $prev !== null && $prev['prefix'] === $prefix) {
                 $result[] = rtrim($prefix);
             }
         } elseif (!$blank && !$continues) {
