@@ -1797,8 +1797,16 @@ class MarkdownToCarve
         }
         $list = $markers[$prefix] ??= new MarkdownListMarkers();
         $written = $text;
+        // Four columns past the column the open paragraph's content starts at,
+        // a line opens nothing whatever its shape: indented code cannot
+        // interrupt a paragraph, so the line continues it. The shape test alone
+        // read a heading, a break or a bullet there as a block of its own
+        // (carve-php#2348, #2350).
+        $paragraphCol = $list->openItemContentColumn() ?? 0;
+        $farPastContent = $this->indentWidth($text) - $paragraphCol >= 4;
         $continues = $prev !== null && $prev['prefix'] === $prefix
-            && $this->quoteParagraphIsOpen($prev['text']) && $this->continuesParagraph($text);
+            && $this->quoteParagraphIsOpen($prev['text'])
+            && ($this->continuesParagraph($text) || $farPastContent);
         $heldMarker = $prev !== null && $prev['prefix'] === $prefix
             && $this->quoteParagraphIsOpen($prev['text']) && $this->isHeldOrderedMarker($text, $list);
         if ($heldMarker) {
