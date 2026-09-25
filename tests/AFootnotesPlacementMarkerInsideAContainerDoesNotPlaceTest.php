@@ -12,7 +12,9 @@ use PHPUnit\Framework\TestCase;
  * A `::: footnotes` marker places the endnotes section only at document top
  * level (PART 9 §16, `CARVE-P9-073`). Inside a block-level container it renders
  * the `<div class="footnotes">` floor of §12 where it is written, and the
- * section is appended where an unmarked document puts it.
+ * section goes where it would go without THIS marker - which is the document
+ * end only when no top-level marker places it, as
+ * testAContainedMarkerDoesNotConsumeTheOnePlacement below pins.
  *
  * carve-php relocated the section into the container instead, so
  * `role="doc-endnotes"` was announced nested in a quotation and the document's

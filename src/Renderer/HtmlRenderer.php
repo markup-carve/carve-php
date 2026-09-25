@@ -1637,7 +1637,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * (CARVE-P9-073). Inside a block-level container - a block quote, a list
      * item, a div or directive body, a table cell, a definition description, a
      * footnote definition - it renders the §12 floor instead, and the section
-     * is appended where an unmarked document puts it.
+     * goes where it would go without THIS marker. Not the document end: a
+     * top-level marker elsewhere in the same document still places it.
      */
     protected function placesTheEndnotes(Div $node): bool
     {
