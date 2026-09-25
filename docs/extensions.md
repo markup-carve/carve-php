@@ -765,8 +765,39 @@ lost.
 Converts a wrapper div with class `tabs` containing child `tab` divs into an
 accessible tabbed interface. Tab labels come from the first heading or a
 `{label="..."}` attribute; `{selected}` marks the default tab. Supports a
-CSS-only mode (no JavaScript) and an ARIA mode with keyboard navigation. HTML
+CSS-only mode (no JavaScript) and an ARIA mode for scripted navigation. HTML
 output only.
+
+The extension emits markup only. CSS mode needs a stylesheet that keeps its
+radio inputs focusable; hiding them with `display: none` or
+`visibility: hidden` removes keyboard access. ARIA mode needs a client script
+to update tab selection, panel visibility, and arrow-key navigation. No script
+is bundled.
+
+For CSS mode, keep the radio controls in the focus order and show the panel
+whose control is checked. This example handles two panels; add a matching
+selector for each additional panel:
+
+~~~ css
+.tabs { display: flex; flex-wrap: wrap; }
+.tabs-radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.tabs-radio:focus-visible + .tabs-label { outline: 2px solid currentColor; }
+.tabs-panel { display: none; width: 100%; order: 1; }
+.tabs-radio:nth-of-type(1):checked ~ .tabs-panel:nth-of-type(1),
+.tabs-radio:nth-of-type(2):checked ~ .tabs-panel:nth-of-type(2) {
+  display: block;
+}
+~~~
+
+For ARIA mode, handle click and arrow, Home, and End keys on the emitted tabs.
+When selection changes, update `aria-selected`, the tabs' `tabindex`, and each
+panel's `hidden` state together.
 
 Exactly one tab is selected: the first one the document marks `{selected}`, and
 the first tab where it marks none. Marking several is not an error and is not
