@@ -2952,7 +2952,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if (preg_match('/^[A-Za-z_:][A-Za-z0-9_.:-]*$/', (string)$key) !== 1) {
                 continue;
             }
-            $out[$key] = $this->sanitizeAttributeValue($name, (string)$value);
+            $out[$key] = self::sanitizeAttributeValue($name, (string)$value);
         }
 
         return $out;
@@ -2987,7 +2987,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * for the `Cf` case, and it would give one value a third outcome when the
      * defect being fixed is that one value already had two.
      */
-    private function sanitizeAttributeValue(string $name, string $value): string
+    private static function sanitizeAttributeValue(string $name, string $value): string
     {
         if (self::hasLeadingDangerousScheme($value)) {
             return '';
@@ -2996,7 +2996,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($separators !== null && !self::urlListIsClean($separators, $value)) {
             return '';
         }
-        if ($name === 'style' && $this->hasDangerousCss($value)) {
+        if ($name === 'style' && self::hasDangerousCss($value)) {
             return '';
         }
 
@@ -3094,7 +3094,23 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     public function renderedAttributeValue(string $name, string $value): string
     {
-        return $this->sanitizeAttributeValue(strtolower($name), $value);
+        return self::baselineAttributeValue($name, $value);
+    }
+
+    /**
+     * The same answer without an instance, for a caller that only needs the
+     * baseline: the HTML importer reads a preserved `style` through it, so its
+     * refusal reading is this sanitizer's rather than a second copy of the
+     * needles (markup-carve/carve#2267).
+     *
+     * @param string $name
+     * @param string $value
+     *
+     * @return string
+     */
+    public static function baselineAttributeValue(string $name, string $value): string
+    {
+        return self::sanitizeAttributeValue(strtolower($name), $value);
     }
 
     /**
@@ -3104,7 +3120,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * `@import`, and the legacy `behavior` / `-moz-binding` script bindings.
      * Whitespace is collapsed first so `expr ession (` cannot evade.
      */
-    private function hasDangerousCss(string $value): bool
+    private static function hasDangerousCss(string $value): bool
     {
         $withoutComments = preg_replace('/\/\*.*?\*\//s', '', $value) ?? $value;
         $decoded = preg_replace_callback(

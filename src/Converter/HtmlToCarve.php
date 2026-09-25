@@ -147,6 +147,14 @@ class HtmlToCarve
     protected const TEXT_CONTENT_ELEMENTS = ['textarea', 'iframe', 'title', 'xmp', 'noembed', 'noframes', 'plaintext'];
 
     /**
+     * A `url(...)` argument in a CSS declaration value, with the quotes CSS
+     * allows around it stripped.
+     *
+     * @var string
+     */
+    protected const CSS_URL_ARGUMENT = '/url\(\s*(?:"([^"]*)"|\'([^\']*)\'|([^)]*?))\s*\)/i';
+
+    /**
      * Elements that write something with no text of their own to write.
      *
      * The companion to `ACTIVE_ELEMENTS` for `writesNothing()`: an empty
@@ -1805,6 +1813,10 @@ class HtmlToCarve
      * The safety test is DERIVED from the strip policy this importer already
      * asks everywhere else, so it cannot admit a sink that policy knows about.
      *
+     * `style` takes its own reading of the same two classes, because what is
+     * refused sits inside a declaration value rather than in the attribute's
+     * name or at the head of it (markup-carve/carve#2267).
+     *
      * @param string $tag
      * @param string $name
      * @param string $value
@@ -1820,17 +1832,23 @@ class HtmlToCarve
         array &$diagnostics,
         ?string $keptTag = null,
     ): void {
-        $handler = str_starts_with($name, 'on');
-        $sink = $name === 'srcdoc' || $name === 'formaction';
-        $denied = HtmlRenderer::attributeValueHasDeniedScheme($name, $value);
-        if ($handler) {
-            $subject = 'event-handler attribute ' . $name;
-        } elseif ($sink) {
-            $subject = 'injection-sink attribute ' . $name;
-        } elseif ($denied) {
-            $subject = $name . ' with a denied URL scheme';
+        if ($name === 'style') {
+            $subject = self::preservedStyleSubject($value);
+            $live = $subject !== 'style';
         } else {
-            $subject = 'attribute ' . $name;
+            $handler = str_starts_with($name, 'on');
+            $sink = $name === 'srcdoc' || $name === 'formaction';
+            $denied = HtmlRenderer::attributeValueHasDeniedScheme($name, $value);
+            if ($handler) {
+                $subject = 'event-handler attribute ' . $name;
+            } elseif ($sink) {
+                $subject = 'injection-sink attribute ' . $name;
+            } elseif ($denied) {
+                $subject = $name . ' with a denied URL scheme';
+            } else {
+                $subject = 'attribute ' . $name;
+            }
+            $live = $handler || $sink || $denied;
         }
         $where = $keptTag === null
             ? 'in the raw HTML this element is kept as'
@@ -1840,9 +1858,43 @@ class HtmlToCarve
             $diagnostics,
             'attribute-preserved',
             'Preserved ' . $subject . ' on <' . $tag . '> ' . $where,
-            $handler || $sink || $denied ? 'error' : 'info',
+            $live ? 'error' : 'info',
             $path,
         );
+    }
+
+    /**
+     * What a preserved `style` row names, and by naming it whether the CSS in
+     * the kept bytes is LIVE (markup-carve/carve#2267).
+     *
+     * The reason comes from a closed set of two, so the wording is derived
+     * rather than chosen per call: a denied scheme inside `url(...)`, else
+     * anything the renderer's own `style` sanitizer blanks the value for.
+     * Asking the sanitizer rather than restating its needles is what keeps this
+     * from refusing a different set than the renderer does.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    protected static function preservedStyleSubject(string $value): string
+    {
+        if (preg_match_all(self::CSS_URL_ARGUMENT, $value, $matches, PREG_SET_ORDER) > 0) {
+            foreach ($matches as $match) {
+                $url = trim(($match[1] ?? '') . ($match[2] ?? '') . ($match[3] ?? ''));
+                if ($url !== '' && HtmlRenderer::blankDangerousScheme($url) === '') {
+                    return 'style with a denied URL scheme in a declaration value';
+                }
+            }
+        }
+        // BLANKED, not empty. The sanitizer answers `''` for `style=""` too, so
+        // asking whether it CHANGED the value is what keeps an empty attribute
+        // out of the refused class.
+        if (HtmlRenderer::baselineAttributeValue('style', $value) !== $value) {
+            return 'style with a construct the CSS sanitizer refuses';
+        }
+
+        return 'style';
     }
 
     /**
