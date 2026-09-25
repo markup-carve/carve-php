@@ -732,6 +732,36 @@ class MarkdownToCarve
             $tableWidth = 0;
 
             if ($isBlockquote && $contentCol > 0) {
+                // A quoted setext heading on a line that is NOT the item's
+                // first. writeItemContent sees only that one, so without this
+                // the four indented columns reach collectItemQuotedCode below
+                // and become a code block the source never wrote.
+                //
+                // Only where the line OPENS the quoted paragraph. The item's own
+                // line leaves one open without being indented into the item, so
+                // this reads `$lazyQuote` rather than looking at the line above:
+                // a continuation line's four columns are its paragraph's, and
+                // folding from there invents a heading out of the line's own
+                // indentation.
+                $atContent = $this->stripColumns($line, $contentCol);
+                $quoteIsOpen = $lazyQuote !== null && $lazyQuote['col'] === $contentCol;
+                $quotedSetext = $quoteIsOpen ? null : $this->foldItemQuotedSetext(
+                    $lines,
+                    $i,
+                    // One to three columns of slack read as none, as they do at
+                    // the top level; four are the paragraph's own.
+                    $this->indentWidth($atContent) <= 3 ? ltrim($atContent, " \t") : $atContent,
+                    $contentCol,
+                );
+                if ($quotedSetext !== null) {
+                    $result[] = str_repeat(' ', $contentCol) . $quotedSetext[0];
+                    $i = $quotedSetext[1];
+                    $prevLineType = 'list';
+                    $itemParagraph = false;
+                    $itemQuote = null;
+
+                    continue;
+                }
                 $quotedCode = $this->collectItemQuotedCode($lines, $i, $contentCol, $lazyQuote);
                 if ($quotedCode !== null) {
                     array_push($result, ...$quotedCode['lines']);
@@ -2007,6 +2037,45 @@ class MarkdownToCarve
     }
 
     /**
+     * A setext heading inside a quote a LIST ITEM holds, folded into the one
+     * ATX line Carve spells it with, as `[written text, underline index]`.
+     *
+     * The quoted fold reads lines at the QUOTE's column, so the item's content
+     * column comes off first. Four columns past the quote marker is
+     * continuation text; measured from the ITEM's column instead, the same line
+     * is indented code and the underline below it stays a rule nobody wrote
+     * (carve-php#2333).
+     *
+     * Lines the item does not hold are CUT rather than shifted, so the fold
+     * cannot reach past the item into the document.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     * @param string $text the line at the item's content column
+     * @param int $contentCol
+     *
+     * @return array{string, int}|null
+     */
+    protected function foldItemQuotedSetext(array $lines, int $index, string $text, int $contentCol): ?array
+    {
+        $quoted = $this->normalizeBlockquoteMarkers($text);
+        if (preg_match('/^((?:> )+)(.*)$/s', $quoted, $quote) !== 1 || trim($quote[2]) === '') {
+            return null;
+        }
+        $virtual = array_slice($lines, 0, $index + 1);
+        $virtual[$index] = $text;
+        for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
+            if (trim($lines[$at]) === '' || $this->indentWidth($lines[$at]) < $contentCol) {
+                break;
+            }
+            $virtual[$at] = $this->stripColumns($lines[$at], $contentCol);
+        }
+        $folded = $this->foldQuotedSetext($virtual, $index, $quote[1], $quote[2]);
+
+        return $folded === null ? null : [$quote[1] . $this->convertInlineFormatting($folded[0]), $folded[1]];
+    }
+
+    /**
      * A setext heading a quote holds, its paragraph lines under the same quote
      * prefix folded into one ATX line, as `[text, underline index]`. `$text`
      * may open with the markers of an item the quote holds.
@@ -2170,6 +2239,17 @@ class MarkdownToCarve
                     'closes' => true,
                 ];
             }
+        }
+
+        // A setext heading inside a quote the item holds, on the item's own line.
+        $quotedSetext = $this->foldItemQuotedSetext($lines, $index, $text, $contentCol);
+        if ($quotedSetext !== null) {
+            return [
+                'lines' => [$lead . $quotedSetext[0]],
+                'end' => $quotedSetext[1],
+                'table' => 0,
+                'closes' => false,
+            ];
         }
 
         // A setext heading the item holds, its paragraph lines folded into the
