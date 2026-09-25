@@ -124,6 +124,7 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
     {
         return [
             'an empty item' => ["***\n-", "---\n- +"],
+            'an empty ordered item' => ["***\n1.", "---\n1. +"],
             'indented code' => ["***\n    code", "---\n```\ncode\n```"],
             'a heading' => ["***\n# h", "---\n# h"],
             'an ordered item that does not start at one' => ["***\n2. x", "---\n2. x"],

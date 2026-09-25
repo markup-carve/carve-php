@@ -44,6 +44,12 @@ class AMarkdownImportWritesWhatFmtWritesTest extends TestCase
             'indented code on an ordered item line' => ["1.      x\n        y\n", "1. ```\n    x\n    y\n   ```\n"],
             'dash runs in a heading and a quote' => ["# a -- b\n\n> c --- d\n", "# a \\-\\- b\n\n> c \\-\\-\\- d\n"],
             'a moved item leaves code it does not hold' => ["   1. a\n\n    b\n", "1. a\n\n```\nb\n```\n"],
+            'a paragraph after a thematic break' => ["***\nfoo\n", "---\n\nfoo\n"],
+            'a paragraph after a quoted thematic break' => ["> ***\n> foo\n", "> ---\n>\n> foo\n"],
+            'a paragraph with incidental indentation' => ["  foo\n", "foo\n"],
+            'a closed pipe row with incidental indentation' => ["  | a | b |\n", "\\| a | b |\n"],
+            'a closed pipe row continuing a paragraph' => ["foo\n  | a | b |\n", "foo\n\\| a | b |\n"],
+            'a quoted paragraph with incidental indentation' => ["> foo\n>\n>   | a | b |\n", "> foo\n>\n> \\| a | b |\n"],
         ];
     }
 
