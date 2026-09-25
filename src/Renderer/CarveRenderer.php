@@ -5151,7 +5151,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $title = self::withoutQuotes($title);
         }
 
-        return '"' . $this->escapeQuoted($title) . '"';
+        return '"' . $title . '"';
     }
 
     /**
