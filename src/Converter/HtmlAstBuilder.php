@@ -580,6 +580,7 @@ final class HtmlAstBuilder
         if (
             $this->importMode === 'roundtrip'
             && in_array($tag, ['address', 'fieldset', 'form', 'hgroup'], true)
+            && !self::aRowRefusesTheRegion($node)
         ) {
             $html = $node->ownerDocument?->saveHTML($node);
 
@@ -618,7 +619,11 @@ final class HtmlAstBuilder
         if ($tag === 'div') {
             return $this->container($node);
         }
-        if ($this->importMode === 'roundtrip' && !$this->isSupportedBlockTag($tag)) {
+        if (
+            $this->importMode === 'roundtrip'
+            && !$this->isSupportedBlockTag($tag)
+            && !self::aRowRefusesTheRegion($node)
+        ) {
             $html = $node->ownerDocument?->saveHTML($node);
 
             return [
@@ -770,6 +775,33 @@ final class HtmlAstBuilder
         }
 
         return $this->blockInlines($summary) !== [];
+    }
+
+    /**
+     * Would a raw region for this element have to fit on one line?
+     *
+     * A table row IS one line: a region holding a newline ends the row there and
+     * takes the table with it. A caption is not a row and carries one, so the
+     * nearest slot decides rather than the tag. The report walk asks the same
+     * question about a figure, which is why this is static.
+     *
+     * @see markup-carve/carve#2284
+     */
+    public static function aRowRefusesTheRegion(DOMElement $node): bool
+    {
+        for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+            $tag = strtolower($ancestor->tagName);
+            if ($tag === 'caption' || $tag === 'figcaption') {
+                return false;
+            }
+            if ($tag === 'td' || $tag === 'th') {
+                $html = $node->ownerDocument?->saveHTML($node);
+
+                return is_string($html) && str_contains(rtrim($html, "\n"), "\n");
+            }
+        }
+
+        return false;
     }
 
     private function isInsideTableCell(DOMElement $node): bool
@@ -1629,7 +1661,7 @@ final class HtmlAstBuilder
             return [$figure];
         }
 
-        if ($keepsRaw && $caption !== []) {
+        if ($keepsRaw && $caption !== [] && !self::aRowRefusesTheRegion($node)) {
             $html = $node->ownerDocument?->saveHTML($node);
 
             return [
@@ -2431,7 +2463,12 @@ final class HtmlAstBuilder
                 return $this->ruby($node);
             }
         }
-        if ($this->importMode === 'roundtrip' && !$this->inCaption && !$this->isSupportedInlineTag($tag)) {
+        if (
+            $this->importMode === 'roundtrip'
+            && !$this->inCaption
+            && !$this->isSupportedInlineTag($tag)
+            && !self::aRowRefusesTheRegion($node)
+        ) {
             $html = $node->ownerDocument?->saveHTML($node);
 
             return [

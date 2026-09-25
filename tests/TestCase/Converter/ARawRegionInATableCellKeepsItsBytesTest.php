@@ -102,21 +102,68 @@ class ARawRegionInATableCellKeepsItsBytesTest extends TestCase
     }
 
     /**
-     * A ROW is one line, so a region of several lines stays out of it: the row
-     * would end at the first newline and the table with it. Joining the lines is
-     * not the way in either - that changes the bytes the raw-keep report reads
-     * back, and the live handler above would come back as an
-     * `attribute-dropped` row. So the cell empties, which is the loss this arm
-     * inherited rather than one it added, and the TABLE survives.
+     * A ROW is one line, so a region of several lines cannot be kept in one: the
+     * row would end at the first newline and the table with it. The region
+     * UNWRAPS to its content there, which markup-carve/carve#2284 ruled from the
+     * cell's content model - `cell_content = inline_content`, so kept block bytes
+     * in that position are not spellable Carve and `roundtrip` writes Carve that
+     * has to read back. The cell used to empty instead, over a row that said the
+     * element had been unwrapped.
+     *
+     * Joining the region's lines is still not the way: that would change the
+     * bytes the raw-keep report reads back, and the live handler above would come
+     * back as `attribute-preserved` when it is gone. An unwrap discards the bytes
+     * outright, so the handler is reported dropped, which is true of it.
+     *
+     * @return array<string, array{string, string, list<string>}>
      */
-    public function testAMultiLineRegionStaysOutOfARow(): void
+    public static function multiLineRows(): array
     {
-        $result = (new HtmlToCarve(importMode: 'roundtrip'))
-            ->convertWithReport("<table><tr><td><form>\nf\n</form></td><td>b</td></tr></table>");
-        $this->assertSame('| | b |', rtrim($result->value, "\n"));
+        return [
+            'a form' => [
+                "<table><tr><td><form>\nf\n</form></td><td>b</td></tr></table>",
+                '| f | b |',
+                ['element-unwrapped'],
+            ],
+            'a form of blocks' => [
+                "<table><tr><td><form>\n<p>f</p>\n<p>g</p>\n</form></td></tr></table>",
+                '| f g |',
+                ['element-unwrapped'],
+            ],
+            'a live handler goes with the bytes' => [
+                "<table><tr><td><form onsubmit=\"x()\">\nf\n</form></td><td>b</td></tr></table>",
+                '| f | b |',
+                ['element-unwrapped', 'attribute-dropped'],
+            ],
+            'a figure the importer cannot rebuild' => [
+                "<table><tr><td><figure>\n<ul><li>i</li></ul>\n<figcaption>c</figcaption>\n</figure></td></tr></table>",
+                '| - i c |',
+                ['element-unwrapped'],
+            ],
+            'a header cell' => [
+                "<table><thead><tr><th><fieldset>\nf\n</fieldset></th></tr></thead><tbody><tr><td>z</td></tr></tbody></table>",
+                "|= f |\n| z |",
+                ['element-unwrapped'],
+            ],
+        ];
+    }
+
+    /**
+     * @param string $html
+     * @param string $carve
+     * @param list<string> $codes
+     */
+    #[DataProvider('multiLineRows')]
+    public function testAMultiLineRegionUnwrapsInARow(string $html, string $carve, array $codes): void
+    {
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport($html);
+        $this->assertSame($carve, rtrim($result->value, "\n"));
         $rendered = (new CarveConverter())->convert($result->value);
-        $this->assertStringContainsString('<table>', $rendered, 'the row ended at the newline');
-        $this->assertStringContainsString('<td>b</td>', $rendered);
+        $this->assertStringContainsString('<table>', $rendered, 'the row ended at a newline');
+        $this->assertSame(
+            $codes,
+            array_map(static fn ($diagnostic): string => $diagnostic->toArray()['code'], $result->diagnostics),
+        );
     }
 
     /**

@@ -1336,7 +1336,9 @@ class HtmlToCarve
 
     private function directAstFigureOutcome(DOMElement $figure): string
     {
-        $keepsRaw = $this->importMode === 'roundtrip' && !HtmlAstBuilder::holdsADeniedDestination($figure);
+        $keepsRaw = $this->importMode === 'roundtrip'
+            && !HtmlAstBuilder::holdsADeniedDestination($figure)
+            && !HtmlAstBuilder::aRowRefusesTheRegion($figure);
         $caption = null;
         $captionWrites = false;
         $body = [];
