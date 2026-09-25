@@ -79,6 +79,10 @@ final class ReferenceShape
         // `kind` is the admonition word (`::: warning`), which this engine keeps
         // as a class; `title` is the quoted opener.
         'admonition' => ['headerNodes' => 'title'],
+        // The schema gives a `directive` the same `title` an admonition has
+        // (CARVE-P12-057, carve#2247), so the quoted opener of a
+        // `::: toc "Contents"` publishes under the reference's name.
+        'directive' => ['headerNodes' => 'title'],
     ];
 
     /**
@@ -174,12 +178,10 @@ final class ReferenceShape
         // `title`. `label` stays: the reference has it (`[Build]` on the opener
         // is authored content, verified against carve-js).
         'admonition' => ['typed', 'header'],
-        // `headerNodes` joins the list here, and only here. The schema closes
-        // `directive` WITHOUT a `title`, so the quoted opener of a
-        // `::: toc "Contents"` has nowhere to go on the wire and must not leak
-        // under this engine's own property name. Where the title should live is
-        // markup-carve/carve#2247, not a question a single engine answers.
-        'directive' => ['typed', 'header', 'headerNodes'],
+        // `headerNodes` is NOT hidden here: the schema gained `directive.title`
+        // with carve#2247, so the quoted opener publishes through the field map
+        // above, the way an admonition's does.
+        'directive' => ['typed', 'header'],
         // `isAutolink` IS the type name on the wire; the single text child is
         // published as `text`.
         'autolink' => ['isAutolink', 'referenceLabel', 'title', 'fromHeadingReference'],

@@ -136,6 +136,17 @@ class HtmlToCarve
     protected const ACTIVE_ELEMENTS = ['script', 'style', 'template', 'noscript'];
 
     /**
+     * Elements an HTML parser reads the content of as TEXT rather than as
+     * markup, so nothing inside them can fire.
+     *
+     * The HTML tokenizer's raw-text and RCDATA sets, minus the four
+     * `ACTIVE_ELEMENTS` above, which never reach a walk that asks this.
+     *
+     * @var list<string>
+     */
+    protected const TEXT_CONTENT_ELEMENTS = ['textarea', 'iframe', 'title', 'xmp', 'noembed', 'noframes', 'plaintext'];
+
+    /**
      * Elements that write something with no text of their own to write.
      *
      * The companion to `ACTIVE_ELEMENTS` for `writesNothing()`: an empty
@@ -371,11 +382,13 @@ class HtmlToCarve
         // time - which no test of behavior catches, because the class never
         // loads.
         $this->inspectedCarve = $carve;
+        $this->emittedHasRawHtml = null;
 
         try {
             $diagnostics = $this->inspectImportLoss($html);
         } finally {
             $this->inspectedCarve = null;
+            $this->emittedHasRawHtml = null;
         }
 
         return new HtmlImportResult(
@@ -853,11 +866,7 @@ class HtmlToCarve
             );
         }
 
-        if (
-            $tag !== 'colgroup'
-            && !($tag === 'math' && $node->attributes->length === 0)
-            && $this->directAstRawPreserves($node)
-        ) {
+        if ($this->importKeepsElementRaw($node)) {
             $this->inspectImportAttributeList($node, $tag, $path, $diagnostics, true);
             $this->addImportDiagnostic(
                 $diagnostics,
@@ -1203,7 +1212,36 @@ class HtmlToCarve
         return $find($paragraph);
     }
 
-    private function directAstRawPreserves(DOMElement $node): bool
+    /**
+     * Did this element's bytes reach the output whole?
+     *
+     * ASKED OF THE OUTPUT, not of a tag roster. A roster that names what
+     * `roundtrip` keeps is a second copy of the decision the conversion already
+     * made, and it had drifted from it in both directions
+     * (markup-carve/carve#2261):
+     *
+     * - `dialog`, `menu`, `search`, and a `li` / `tr` / `tbody` / `thead` /
+     *   `tfoot` / `summary` / `colgroup` outside the parent that gives it a
+     *   Carve spelling are all kept raw, and the roster called them known, so
+     *   the report said `attribute-dropped` over an event handler and a
+     *   `javascript:` destination that are LIVE in the kept bytes. That row is
+     *   the false statement about a success this repository rates worst.
+     * - `q` and a consumed `input` are NOT kept, and the roster called them
+     *   unknown, so the report said `attribute-preserved` at `error` about a
+     *   handler the conversion had in fact removed.
+     *
+     * The emitted source is the honest oracle, the same one
+     * `importAttributeSurvived()` already asks, and there is nothing left for a
+     * roster to drift from. The open tag alone is the probe: nothing but a raw
+     * HTML region writes one, and it is bounded by the element's own attributes
+     * rather than by its subtree, so the walk stays linear. A descendant is
+     * never asked - the caller stops at the kept element and
+     * `inspectPreservedDescendants()` takes the subtree from there.
+     *
+     * `figure` keeps its own arm: whether a Carve spelling reproduces it is a
+     * property of its parts, and the answer is read in more places than this.
+     */
+    private function importKeepsElementRaw(DOMElement $node): bool
     {
         if (strtolower($node->tagName) === 'figure') {
             return $this->directAstFigureOutcome($node) === 'raw';
@@ -1211,15 +1249,89 @@ class HtmlToCarve
         if ($this->importMode !== 'roundtrip') {
             return false;
         }
-        $tag = strtolower($node->tagName);
-        if (in_array($tag, ['address', 'fieldset', 'form', 'hgroup'], true)) {
-            return true;
-        }
-        if ($tag === 'math') {
-            return $this->resolveMathTex($node)['tier'] === 3;
+        // An attribute-less `<math>` kept whole throws nothing away, and its own
+        // ruling pins no row for it. Kept as a named exception rather than folded
+        // into the oracle, because it is a statement about what the element
+        // loses, not about whether its bytes are there.
+        if (strtolower($node->tagName) === 'math' && $node->attributes->length === 0) {
+            return false;
         }
 
-        return !$this->isKnownImportElement($tag);
+        return $this->emittedKeepsElementBytes($node);
+    }
+
+    /**
+     * Does the emitted source carry this element's bytes?
+     *
+     * The probe is `saveHTML($node)`, which is not a spelling of this element
+     * chosen here but THE call `HtmlAstBuilder` makes to fill a `raw_block` or
+     * `raw_inline`. So the string can only be in the output if the builder put a
+     * raw node there for this element, and a hand-built open tag cannot disagree
+     * with the serializer over a boolean attribute (`<form hidden>`, which
+     * `saveHTML()` writes bare) and read a kept element as unwrapped.
+     *
+     * Bounded by one precondition: a conversion whose output holds no raw HTML
+     * at all answers no without serializing anything, which is every `safe` and
+     * `semantic` import and the great majority of `roundtrip` ones.
+     *
+     * The bytes must be a WHOLE raw region and not merely appear somewhere in the
+     * output, or an element whose serialization also sits INSIDE another
+     * element's kept bytes reads as kept itself. In
+     * `<form><p onclick="x()">raw</p></form><p onclick="x()">raw</p>` the second
+     * paragraph is spelled in Carve and its handler is gone, and a plain
+     * substring search finds its bytes in the form's region and calls the removed
+     * handler live. So the match has to end at a region's closing delimiter.
+     *
+     * RESIDUAL, STATED RATHER THAN HIDDEN. Bytes are not identity, so two
+     * elements with byte-identical serializations, one kept raw and one spelled
+     * in Carve, are not told apart: in
+     * `<li onclick="x()">t</li><ul><li onclick="x()">t</li></ul>` the stray `<li>`
+     * is kept and the one in the list becomes `- t`, and both get the preserved
+     * rows. Closing it needs the builder to hand back the paths it kept, and the
+     * builder walks the NORMALIZED html, whose indices are not this walk's.
+     *
+     * The direction is chosen, not accepted: the residual over-reports
+     * preservation, so a reader is sent to look at bytes that turn out to be
+     * spelled. The roster this replaced failed the other way for every document
+     * holding a `dialog`, a `menu`, a `search` or a stray table or list child - it
+     * reported a live handler as dropped, which is the reading nobody can act on.
+     *
+     * @see markup-carve/carve-php#2360
+     *
+     * @param \DOMElement $node
+     *
+     * @return bool
+     */
+    private function emittedKeepsElementBytes(DOMElement $node): bool
+    {
+        if ($this->emittedHasRawHtml === null) {
+            $this->emittedHasRawHtml = str_contains($this->inspectedCarve ?? '', '=html');
+        }
+        if ($this->emittedHasRawHtml === false) {
+            return false;
+        }
+        $html = $node->ownerDocument?->saveHTML($node);
+        if (!is_string($html) || $html === '') {
+            return false;
+        }
+        $lines = explode("\n", rtrim($html, "\n"));
+        if (!str_contains($this->inspectedCarve ?? '', $lines[0])) {
+            return false;
+        }
+        // A continuation line inside a list item or a block quote carries that
+        // container's prefix, so the bytes are matched line by line with the
+        // prefix allowed between them. Anchoring on the OPENING fence instead
+        // would have to read past the same prefix and gets the harder direction
+        // of the two wrong: a kept element read as dropped.
+        $bytes = implode('\n[ \t>]*', array_map(
+            static fn (string $line): string => preg_quote($line, '/'),
+            $lines,
+        ));
+
+        // A raw inline span closes on its backtick run and `{=html}`; a raw block
+        // closes on a newline and its fence.
+        return preg_match('/' . $bytes . '`+\{=html\}/', $this->inspectedCarve ?? '') === 1
+            || preg_match('/' . $bytes . '\n[ \t>]*`{3,}/', $this->inspectedCarve ?? '') === 1;
     }
 
     private function directAstFigureOutcome(DOMElement $figure): string
@@ -1736,6 +1848,16 @@ class HtmlToCarve
      * refused attributes get the same rows, in document order
      * (markup-carve/carve#2261).
      *
+     * EXCEPT where the kept element holds its content as TEXT. An HTML parser
+     * reads what is inside `<textarea>` or `<iframe>` as raw text, so the `<a
+     * href="javascript:...">` a validating parser hands this walk as an element
+     * is a string in the kept bytes and nothing can fire it. A row there would
+     * name a danger that is not present, which is the same false statement as a
+     * drop reported over kept bytes, pointing the other way.
+     *
+     * The element's OWN attributes are unaffected: a handler on the `<textarea>`
+     * itself is live and keeps its row.
+     *
      * @param \DOMElement $node
      * @param string $keptTag
      * @param string $path
@@ -1743,6 +1865,9 @@ class HtmlToCarve
      */
     protected function inspectPreservedDescendants(DOMElement $node, string $keptTag, string $path, array &$diagnostics): void
     {
+        if (in_array(strtolower($node->tagName), self::TEXT_CONTENT_ELEMENTS, true)) {
+            return;
+        }
         $index = 0;
         foreach ($node->childNodes as $child) {
             $index++;
@@ -4068,6 +4193,14 @@ class HtmlToCarve
      * standing would let a later walk read the previous document's output.
      */
     protected ?string $inspectedCarve = null;
+
+    /**
+     * Whether the emitted source holds any raw HTML, asked once per conversion.
+     *
+     * The precondition `emittedKeepsElementBytes()` is bounded by; null until the
+     * first element asks.
+     */
+    private ?bool $emittedHasRawHtml = null;
 
     /**
      * How many of each `name`/`value`/`content` triple the emitted document has.

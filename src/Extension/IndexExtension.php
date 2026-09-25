@@ -281,10 +281,24 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
 
         $ul = '<ul' . $this->openAttributes($div, $renderer) . ">\n" . implode("\n", $items) . "\n</ul>\n";
 
+        // A `<ul>` holds no `<p>`, so the marker's title and label sit
+        // immediately BEFORE the generated list and name nothing
+        // (CARVE-P9-072). The label was dropped here, which the
+        // unconsumed-label floor forbids.
+        $head = '';
+        if (is_string($div->getHeader())) {
+            $head .= '<p class="admonition-title">'
+                . $renderer->renderInlineNodesFragment($div->getHeaderNodes()) . "</p>\n";
+        }
+        $label = $div->getLabel();
+        if ($label !== null && $label !== '') {
+            $head .= '<p class="div-label">' . $renderer->escapeText($label) . "</p>\n";
+        }
+
         // Preserve any authored content inside the placeholder before the list.
         $body = rtrim($childrenHtml, "\n");
 
-        return ($body !== '' ? $body . "\n" : '') . $ul;
+        return $head . ($body !== '' ? $body . "\n" : '') . $ul;
     }
 
     /**

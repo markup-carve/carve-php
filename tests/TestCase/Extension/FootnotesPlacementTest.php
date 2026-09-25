@@ -45,9 +45,52 @@ class FootnotesPlacementTest extends TestCase
 
     public function testDegradesWhenNoFootnotes(): void
     {
+        // The ordinary typed-div rendering, which is what carve-js emits here
+        // too. It used to be a hand-written `<div class="footnotes"></div>`,
+        // shorter than the div any other empty container renders.
         $out = $this->html("Plain.\n\n::: footnotes\n:::\n");
-        $this->assertStringContainsString('<div class="footnotes"></div>', $out);
+        $this->assertStringContainsString("<div class=\"footnotes\">\n\n</div>", $out);
         $this->assertStringNotContainsString('doc-endnotes', $out);
+    }
+
+    public function testADegradedMarkerKeepsItsTitleAndLabel(): void
+    {
+        // Authored text never vanishes: the div a marker degrades to IS the
+        // placed element, so both tokens render inside it, and it takes no
+        // naming attribute (role `generic` prohibits one) - CARVE-P9-072.
+        $out = $this->html("::: footnotes \"Notes\" [End]\nbody\n:::\n");
+        $this->assertStringContainsString(
+            "<div class=\"footnotes\">\n  <p class=\"admonition-title\">Notes</p>\n"
+                . "  <p class=\"div-label\">End</p>\n  <p>body</p>\n</div>",
+            $out,
+        );
+        $this->assertStringNotContainsString('aria-label', $out);
+    }
+
+    public function testAPlacingMarkerNamesTheSectionWithItsTitle(): void
+    {
+        $out = $this->html("Intro[^a].\n\n::: footnotes \"Notes\" [End]\n:::\n\n[^a]: note a\n");
+        $this->assertStringContainsString(
+            "<section role=\"doc-endnotes\" aria-labelledby=\"adm-1\">\n"
+                . "  <p class=\"admonition-title\" id=\"adm-1\">Notes</p>\n"
+                . "  <p class=\"div-label\">End</p>\n  <hr>",
+            $out,
+        );
+    }
+
+    public function testTheSectionTakesItsIdBeforeItsOwnChildren(): void
+    {
+        // Document order, not render order: the marker's title precedes a titled
+        // admonition written inside the marker, so it takes `adm-1`.
+        $out = $this->html("a[^1]\n\n::: footnotes \"Notes\"\n::: note \"Inner\"\nx\n:::\n:::\n\n[^1]: body\n");
+        $this->assertStringContainsString('<section role="doc-endnotes" aria-labelledby="adm-1">', $out);
+        $this->assertStringContainsString('<p class="admonition-title" id="adm-2">Inner</p>', $out);
+    }
+
+    public function testAnUntitledMarkerRendersWhatNoMarkerRenders(): void
+    {
+        $marker = $this->html("Intro[^a].\n\n::: footnotes\n:::\n\n[^a]: note a\n");
+        $this->assertStringContainsString('<section role="doc-endnotes" aria-label="Footnotes">', $marker);
     }
 
     public function testSecondMarkerDoesNotDuplicateTheSection(): void
