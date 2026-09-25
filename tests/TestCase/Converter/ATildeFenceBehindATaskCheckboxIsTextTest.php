@@ -175,7 +175,7 @@ final class ATildeFenceBehindATaskCheckboxIsTextTest extends TestCase
             ],
             'a tilde fence four columns into a paragraph keeps its run' => [
                 "foo\n    ~~~\n",
-                "foo\n    ~~~\n",
+                "foo\n~~~\n",
             ],
         ];
     }

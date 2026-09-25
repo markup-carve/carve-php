@@ -36,11 +36,11 @@ final class APipeThatOpensNoRowNeedsNoEscapeTest extends TestCase
     public static function bareProvider(): array
     {
         return [
-            'a pipe four columns in' => ["foo\n    | bar\n", "foo\n    | bar\n"],
+            'a pipe four columns in' => ["foo\n    | bar\n", "foo\n| bar\n"],
             'a pipe three columns in' => ["foo\n   | bar\n", "foo\n| bar\n"],
             'a pipe with no indent' => ["foo\n| bar\n", "foo\n| bar\n"],
             'a pipe under an item paragraph' => ["- foo\n      | bar\n", "- foo\n  | bar\n"],
-            'a pipe opening a cell but not closing the row' => ["foo\n    | a | b\n", "foo\n    | a | b\n"],
+            'a pipe opening a cell but not closing the row' => ["foo\n    | a | b\n", "foo\n| a | b\n"],
         ];
     }
 
