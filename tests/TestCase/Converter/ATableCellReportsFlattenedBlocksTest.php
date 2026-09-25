@@ -20,7 +20,7 @@ class ATableCellReportsFlattenedBlocksTest extends TestCase
             'blockquote' => ['<blockquote>f</blockquote>', '| f |', ['blockquote[1]']],
             'heading' => ['<h1>f</h1>', '| f |', ['h1[1]']],
             'code block' => ['<pre><code>f</code></pre>', '| `f` |', ['pre[1]']],
-            'list' => ['<ul><li>f</li></ul>', '| - f |', ['ul[1]/li[1]', 'ul[1]']],
+            'list' => ['<ul><li>f</li></ul>', '| f |', ['ul[1]/li[1]', 'ul[1]']],
             'nested blocks' => ['<blockquote><p>f</p></blockquote>', '| f |', ['blockquote[1]/p[1]', 'blockquote[1]']],
         ];
     }

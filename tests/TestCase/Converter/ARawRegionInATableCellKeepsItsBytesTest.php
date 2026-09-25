@@ -137,7 +137,7 @@ class ARawRegionInATableCellKeepsItsBytesTest extends TestCase
             ],
             'a figure the importer cannot rebuild' => [
                 "<table><tr><td><figure>\n<ul><li>i</li></ul>\n<figcaption>c</figcaption>\n</figure></td></tr></table>",
-                '| - i c |',
+                '| i c |',
                 ['element-unwrapped', 'element-unwrapped', 'element-unwrapped', 'element-unwrapped'],
             ],
             'a header cell' => [
