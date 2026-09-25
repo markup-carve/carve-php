@@ -53,15 +53,17 @@ final class AstEnvelope
     private const VERSION_PATTERN = '/^[1-9][0-9]*\.(?:0|[1-9][0-9]*)$/';
 
     /**
-     * @var array
+     * Every field the envelope schema names, and nothing else.
+     *
+     * @var array<string>
      */
-    /** @var array<int, string> */
     private const ENVELOPE_FIELDS = ['astVersion', 'vocabulary', 'extensions', 'document'];
 
     /**
-     * @var array
+     * Every field an extension entry may carry.
+     *
+     * @var array<string>
      */
-    /** @var array<int, string> */
     private const EXTENSION_FIELDS = ['id', 'version', 'required'];
 
     public function __construct(private readonly AstCodec $codec = new AstCodec())
