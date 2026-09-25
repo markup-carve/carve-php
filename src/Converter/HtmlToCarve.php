@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use RuntimeException;
+use SplObjectStorage;
 use Throwable;
 
 /**
@@ -383,7 +384,12 @@ class HtmlToCarve
      */
     public function convertWithReport(string $html): HtmlImportResult
     {
-        $carve = $this->convert($html);
+        $this->captureImportIdentity = true;
+        try {
+            $carve = $this->convert($html);
+        } finally {
+            $this->captureImportIdentity = false;
+        }
 
         // Handed to the walk through a property rather than an argument:
         // `inspectImportLoss()` is protected on a non-final class, so a
@@ -399,6 +405,8 @@ class HtmlToCarve
         } finally {
             $this->inspectedCarve = null;
             $this->emittedHasRawHtml = null;
+            $this->builtImportDocument = null;
+            $this->keptRawImportElements = null;
         }
 
         return new HtmlImportResult(
@@ -541,16 +549,22 @@ class HtmlToCarve
         $this->emittedImportValues = [];
 
         $isDocument = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1;
-        $wrapped = $isDocument ? $html : '<div>' . $html . '</div>';
-        $doc = HtmlDomLoader::load($wrapped);
-        $this->normalizeAdapterFootnotes($doc);
+        $doc = $this->builtImportDocument;
+        if ($doc === null) {
+            $wrapped = $isDocument ? $html : '<div>' . $html . '</div>';
+            $doc = HtmlDomLoader::load($wrapped);
+            $this->normalizeAdapterFootnotes($doc);
+        }
 
         $diagnostics = [];
-        $root = $doc->documentElement ?? $doc;
+        $root = $this->builtImportDocument !== null
+            ? ($doc->getElementsByTagName('carve-import-root')->item(0) ?? $doc->documentElement ?? $doc)
+            : ($doc->documentElement ?? $doc);
 
         try {
             if ($isDocument) {
-                $this->inspectImportDocumentContainers($root, $diagnostics);
+                $document = HtmlDomLoader::load($html);
+                $this->inspectImportDocumentContainers($document->documentElement ?? $document, $diagnostics);
             }
             $this->inspectImportNodes($this->importTopLevelNodes($root, $isDocument), '', $diagnostics);
         } finally {
@@ -1280,35 +1294,6 @@ class HtmlToCarve
         return $find($paragraph);
     }
 
-    /**
-     * Did this element's bytes reach the output whole?
-     *
-     * ASKED OF THE OUTPUT, not of a tag roster. A roster that names what
-     * `roundtrip` keeps is a second copy of the decision the conversion already
-     * made, and it had drifted from it in both directions
-     * (markup-carve/carve#2261):
-     *
-     * - `dialog`, `menu`, `search`, and a `li` / `tr` / `tbody` / `thead` /
-     *   `tfoot` / `summary` / `colgroup` outside the parent that gives it a
-     *   Carve spelling are all kept raw, and the roster called them known, so
-     *   the report said `attribute-dropped` over an event handler and a
-     *   `javascript:` destination that are LIVE in the kept bytes. That row is
-     *   the false statement about a success this repository rates worst.
-     * - `q` and a consumed `input` are NOT kept, and the roster called them
-     *   unknown, so the report said `attribute-preserved` at `error` about a
-     *   handler the conversion had in fact removed.
-     *
-     * The emitted source is the honest oracle, the same one
-     * `importAttributeSurvived()` already asks, and there is nothing left for a
-     * roster to drift from. The open tag alone is the probe: nothing but a raw
-     * HTML region writes one, and it is bounded by the element's own attributes
-     * rather than by its subtree, so the walk stays linear. A descendant is
-     * never asked - the caller stops at the kept element and
-     * `inspectPreservedDescendants()` takes the subtree from there.
-     *
-     * `figure` keeps its own arm: whether a Carve spelling reproduces it is a
-     * property of its parts, and the answer is read in more places than this.
-     */
     private function importKeepsElementRaw(DOMElement $node): bool
     {
         if (strtolower($node->tagName) === 'figure') {
@@ -1318,51 +1303,14 @@ class HtmlToCarve
             return false;
         }
 
+        if ($this->keptRawImportElements !== null) {
+            return isset($this->keptRawImportElements[$node]);
+        }
+
+        // Stored source and standalone inspection bypass the builder's identity map.
         return $this->emittedKeepsElementBytes($node);
     }
 
-    /**
-     * Does the emitted source carry this element's bytes?
-     *
-     * The probe is `saveHTML($node)`, which is not a spelling of this element
-     * chosen here but THE call `HtmlAstBuilder` makes to fill a `raw_block` or
-     * `raw_inline`. So the string can only be in the output if the builder put a
-     * raw node there for this element, and a hand-built open tag cannot disagree
-     * with the serializer over a boolean attribute (`<form hidden>`, which
-     * `saveHTML()` writes bare) and read a kept element as unwrapped.
-     *
-     * Bounded by one precondition: a conversion whose output holds no raw HTML
-     * at all answers no without serializing anything, which is every `safe` and
-     * `semantic` import and the great majority of `roundtrip` ones.
-     *
-     * The bytes must be a WHOLE raw region and not merely appear somewhere in the
-     * output, or an element whose serialization also sits INSIDE another
-     * element's kept bytes reads as kept itself. In
-     * `<form><p onclick="x()">raw</p></form><p onclick="x()">raw</p>` the second
-     * paragraph is spelled in Carve and its handler is gone, and a plain
-     * substring search finds its bytes in the form's region and calls the removed
-     * handler live. So the match has to end at a region's closing delimiter.
-     *
-     * RESIDUAL, STATED RATHER THAN HIDDEN. Bytes are not identity, so two
-     * elements with byte-identical serializations, one kept raw and one spelled
-     * in Carve, are not told apart: in
-     * `<li onclick="x()">t</li><ul><li onclick="x()">t</li></ul>` the stray `<li>`
-     * is kept and the one in the list becomes `- t`, and both get the preserved
-     * rows. Closing it needs the builder to hand back the paths it kept, and the
-     * builder walks the NORMALIZED html, whose indices are not this walk's.
-     *
-     * The direction is chosen, not accepted: the residual over-reports
-     * preservation, so a reader is sent to look at bytes that turn out to be
-     * spelled. The roster this replaced failed the other way for every document
-     * holding a `dialog`, a `menu`, a `search` or a stray table or list child - it
-     * reported a live handler as dropped, which is the reading nobody can act on.
-     *
-     * @see markup-carve/carve-php#2360
-     *
-     * @param \DOMElement $node
-     *
-     * @return bool
-     */
     private function emittedKeepsElementBytes(DOMElement $node): bool
     {
         if ($this->emittedHasRawHtml === null) {
@@ -3163,6 +3111,8 @@ class HtmlToCarve
     public function convert(string $html): string
     {
         $this->usedStoredRoundTripSource = false;
+        $this->builtImportDocument = null;
+        $this->keptRawImportElements = null;
         if (preg_match('/^\s*<!doctype\b[^>]*>\s*$/iD', $html) === 1) {
             return '';
         }
@@ -3173,14 +3123,19 @@ class HtmlToCarve
 
             return rtrim($storedSource, "\n") . "\n";
         }
-        $tree = (new HtmlAstBuilder(
+        $builder = new HtmlAstBuilder(
             $this->listTableForBlockCells,
             $this->importMode,
             $this->trustedRoundTrip,
             true,
             $this->alignmentClasses,
             $this->labels,
-        ))->build($normalized, strlen($html));
+        );
+        $tree = $builder->build($normalized, strlen($html));
+        if ($this->captureImportIdentity) {
+            $this->builtImportDocument = $builder->builtDocument();
+            $this->keptRawImportElements = $builder->keptRawElements();
+        }
         $document = (new AstCodec())->decodeImporterTree($tree);
 
         return (new CarveRenderer())->render($document);
@@ -4318,12 +4273,15 @@ class HtmlToCarve
      */
     protected ?string $inspectedCarve = null;
 
+    private ?DOMDocument $builtImportDocument = null;
+
+    private bool $captureImportIdentity = false;
+
     /**
-     * Whether the emitted source holds any raw HTML, asked once per conversion.
-     *
-     * The precondition `emittedKeepsElementBytes()` is bounded by; null until the
-     * first element asks.
+     * @var \SplObjectStorage<\DOMElement, null>|null
      */
+    private ?SplObjectStorage $keptRawImportElements = null;
+
     private ?bool $emittedHasRawHtml = null;
 
     /**
