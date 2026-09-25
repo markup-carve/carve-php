@@ -97,7 +97,11 @@ cat post.txt | carve migrate --from bbcode
 
 `--mode` and `--adapter` are HTML-only. `--report` and `--check-loss` apply to
 every importer; Markdown, Djot and BBCode fail closed until they provide
-construct-level fidelity evidence. `MarkdownToCarve` reads CommonMark plus GFM
+construct-level fidelity evidence. Markdown names one loss beside that blanket
+row: an ordered task item. cmark-gfm reads a checkbox on `1. [x] done`, Carve
+spells a checkbox behind a bullet only, so the marker survives as text and a
+`structure-unspellable` row names the source line it was read on.
+`MarkdownToCarve` reads CommonMark plus GFM
 by default; its two
 constructor flags opt in to the `$math$` and `==highlight==` extensions that
 neither dialect defines.
