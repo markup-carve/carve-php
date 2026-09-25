@@ -56,6 +56,31 @@ final class SchemaMapProvenance
     public const CARRIER_SECTIONS = ['preservationNodes', 'markCarrierNodes'];
 
     /**
+     * What a divergence may say about upstream, and which of those a checker can
+     * test.
+     *
+     * `prose` is the escape hatch: it carries no claim about upstream, so nothing
+     * past the difference check reaches it. An unconstrained prose field cannot
+     * be gated at all, which is how a reason went false in carve-rs and stayed
+     * green through the decision that falsified it (markup-carve/carve#2270).
+     *
+     * @var array<string>
+     */
+    public const REASON_KINDS = ['upstream-has-no-node', 'upstream-names-a-node', 'prose'];
+
+    /**
+     * The kinds whose claim names a ProseMirror node, so the claim is testable.
+     *
+     * @var array<string>
+     */
+    public const NODE_KINDS = ['upstream-has-no-node', 'upstream-names-a-node'];
+
+    /**
+     * @var string
+     */
+    private const NODE_NAME = '/^carve[A-Z][A-Za-z0-9]*$/';
+
+    /**
      * @var string
      */
     private const FULL_REV = '/^[0-9a-f]{40}$/';
@@ -109,7 +134,7 @@ final class SchemaMapProvenance
      *
      * @param array<string, string> $ours
      * @param array<string, string> $theirs
-     * @param array<string, string> $divergences
+     * @param array<string, mixed> $divergences
      * @param string $what
      *
      * @return array{undeclared: array<string>, used: array<string>}
@@ -145,7 +170,7 @@ final class SchemaMapProvenance
     /**
      * Declarations that name something no longer differing from upstream.
      *
-     * @param array<string, string> $divergences
+     * @param array<string, mixed> $divergences
      * @param array<string> $used
      *
      * @return array<string>
@@ -194,7 +219,7 @@ final class SchemaMapProvenance
      *
      * @param array<string, mixed> $map
      *
-     * @return array{commit: string|null, source: string|null, path: string|null, divergences: array<string, string>, failures: array<array{check: string, message: string}>}
+     * @return array{commit: string|null, source: string|null, path: string|null, divergences: array<string, mixed>, failures: array<array{check: string, message: string}>}
      */
     public static function provenance(array $map): array
     {
@@ -217,8 +242,10 @@ final class SchemaMapProvenance
             return self::noProvenance('`_provenance.divergences` is not an object');
         }
         $divergences = [];
-        foreach ($raw as $name => $why) {
-            $divergences[(string)$name] = is_string($why) ? $why : '';
+        foreach ($raw as $name => $entry) {
+            // The ENTRY, not a prose string: a bare string is what the reason
+            // shape check has to be able to see and refuse.
+            $divergences[(string)$name] = $entry;
         }
 
         $failures = [];
@@ -254,6 +281,146 @@ final class SchemaMapProvenance
     }
 
     /**
+     * Whatever is wrong with the SHAPE of each declaration's reason.
+     *
+     * @param array<string, mixed> $divergences
+     *
+     * @return array<string>
+     */
+    public static function reasonShapes(array $divergences): array
+    {
+        $bad = [];
+        $names = array_keys($divergences);
+        sort($names);
+        foreach ($names as $name) {
+            $entry = $divergences[$name];
+            if (!is_array($entry)) {
+                $bad[] = sprintf('%s: is a %s, not an object with a `kind`', $name, get_debug_type($entry));
+
+                continue;
+            }
+            $kind = $entry['kind'] ?? null;
+            if (!is_string($kind) || !in_array($kind, self::REASON_KINDS, true)) {
+                $bad[] = sprintf(
+                    '%s: `kind` is %s, not one of %s',
+                    $name,
+                    json_encode($kind),
+                    implode(', ', self::REASON_KINDS),
+                );
+
+                continue;
+            }
+            if (!is_string($entry['why'] ?? null) || trim((string)$entry['why']) === '') {
+                $bad[] = sprintf('%s: says no `why`', $name);
+            }
+            if (!in_array($kind, self::NODE_KINDS, true)) {
+                continue;
+            }
+            $node = $entry['node'] ?? null;
+            if (!is_string($node) || $node === '') {
+                $bad[] = sprintf(
+                    '%s: `%s` names no `node`, so its claim about upstream cannot be tested',
+                    $name,
+                    $kind,
+                );
+            } elseif (preg_match(self::NODE_NAME, $node) !== 1) {
+                $bad[] = sprintf('%s: `%s` is not a ProseMirror name upstream could publish', $name, $node);
+            }
+        }
+
+        return $bad;
+    }
+
+    /**
+     * Every ProseMirror name a map publishes, mapped type or not.
+     *
+     * The carrier sections hold named nodes belonging to no Carve type, so a
+     * declaration claiming one is absent has to see them too.
+     *
+     * @param array<string, mixed> $map
+     *
+     * @return array<string>
+     */
+    public static function publishedNodeNames(array $map): array
+    {
+        $names = [];
+
+        /** @var array<string, mixed> $types */
+        $types = is_array($map['types'] ?? null) ? $map['types'] : [];
+        foreach ($types as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $pm = $entry['pm'] ?? null;
+            foreach (is_array($pm) ? $pm : [$pm] as $candidate) {
+                if (is_string($candidate) && $candidate !== '') {
+                    $names[] = $candidate;
+                }
+            }
+        }
+        foreach (self::CARRIER_SECTIONS as $section) {
+            /** @var array<string, mixed> $entries */
+            $entries = is_array($map[$section] ?? null) ? $map[$section] : [];
+            foreach ($entries as $name => $entry) {
+                if (is_array($entry)) {
+                    $names[] = (string)$name;
+                }
+            }
+        }
+
+        return array_values(array_unique($names));
+    }
+
+    /**
+     * Declarations whose claim about upstream is no longer true.
+     *
+     * Two halves per kind, and one of them is typo-proof. The NAME the entry
+     * gives is resolved against the published names, which catches a rename that
+     * left the type key alone; upstream's decision about the TYPE is read from
+     * the key the entry is filed under, which catches a misspelled name that
+     * would otherwise never resolve and let the claim stand forever.
+     *
+     * @param array<string, mixed> $divergences
+     * @param array<string, mixed> $head
+     * @param string $branch
+     *
+     * @return array<string>
+     */
+    public static function falseReasons(array $divergences, array $head, string $branch): array
+    {
+        $published = self::publishedNodeNames($head);
+        /** @var array<string, mixed> $decided */
+        $decided = is_array($head['types'] ?? null) ? $head['types'] : [];
+        $false = [];
+        $names = array_keys($divergences);
+        sort($names);
+        foreach ($names as $name) {
+            $entry = $divergences[$name];
+            if (!is_array($entry) || !in_array($entry['kind'] ?? null, self::NODE_KINDS, true)) {
+                continue;
+            }
+            $node = is_string($entry['node'] ?? null) ? (string)$entry['node'] : '';
+            $resolves = in_array($node, $published, true);
+            if ($entry['kind'] === 'upstream-has-no-node') {
+                if ($resolves) {
+                    $false[] = sprintf('%s: %s publishes `%s`', $name, $branch, $node);
+                } elseif (array_key_exists($name, $decided)) {
+                    $false[] = sprintf('%s: %s names a node for it', $name, $branch);
+                }
+
+                continue;
+            }
+            if (!$resolves) {
+                $false[] = sprintf('%s: %s publishes no `%s`', $name, $branch, $node);
+            } elseif (!array_key_exists($name, $decided)) {
+                $false[] = sprintf('%s: %s names no node for it at all', $name, $branch);
+            }
+        }
+
+        return $false;
+    }
+
+    /**
      * The upstream path `_provenance.source` names, so a rename surfaces here.
      */
     public static function sourcePath(string $source): ?string
@@ -267,7 +434,7 @@ final class SchemaMapProvenance
     }
 
     /**
-     * @return array{commit: null, source: null, path: null, divergences: array<string, string>, failures: array<array{check: string, message: string}>}
+     * @return array{commit: null, source: null, path: null, divergences: array<string, mixed>, failures: array<array{check: string, message: string}>}
      */
     private static function noProvenance(string $message): array
     {

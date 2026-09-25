@@ -227,6 +227,30 @@ if ($failures === [] && $commit !== null && $path !== null) {
                         . ($differences === [] ? 'key order differs' : implode(', ', $differences)),
                 ];
             }
+            // Ahead of the difference checks: a reason goes false while the
+            // difference persists, so the two cannot be reached through each
+            // other (markup-carve/carve#2270).
+            $shapes = SchemaMapProvenance::reasonShapes($divergences);
+            if ($shapes !== []) {
+                $failures[] = [
+                    'check' => 'divergence_reasons_are_shaped',
+                    'message' => implode('; ', $shapes),
+                ];
+            }
+            $falseReasons = $shapes === []
+                ? SchemaMapProvenance::falseReasons($divergences, $head, $branch)
+                : [];
+            if ($falseReasons !== []) {
+                $failures[] = [
+                    'check' => 'divergence_reasons_hold',
+                    'message' => sprintf(
+                        '%d declaration(s) state something about upstream that is no longer true; '
+                            . 'correct the reason or drop the entry: %s',
+                        count($falseReasons),
+                        implode('; ', $falseReasons),
+                    ),
+                ];
+            }
             $ours = SchemaMapProvenance::decisions($local);
             $atPin = SchemaMapProvenance::decisions($pinned);
             $atHead = SchemaMapProvenance::decisions($head);
@@ -281,8 +305,12 @@ if ($failures === [] && $commit !== null && $path !== null) {
                     $touching !== '' ? $touching : '?',
                 );
                 ksort($divergences);
-                foreach ($divergences as $name => $why) {
-                    printf("declared divergence: %s - %s\n", $name, $why);
+                foreach ($divergences as $name => $entry) {
+                    $fields = is_array($entry) ? $entry : ['why' => $entry];
+                    $kind = is_string($fields['kind'] ?? null) ? (string)$fields['kind'] : '';
+                    $node = is_string($fields['node'] ?? null) ? ' (' . (string)$fields['node'] . ')' : '';
+                    $why = is_string($fields['why'] ?? null) ? (string)$fields['why'] : '';
+                    printf("declared divergence: %s [%s%s] - %s\n", $name, $kind, $node, $why);
                 }
             }
         }
