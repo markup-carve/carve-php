@@ -3203,7 +3203,11 @@ class MarkdownToCarve
         if (!str_contains($trimmed, '|') || !str_contains($next, '-')) {
             return false;
         }
-        if (preg_match('/^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/', $next) !== 1) {
+        // A delimiter row needs a pipe of its own. Without one, `---` under a
+        // one-cell header counted as a row of one cell, so a lone pipe line
+        // became a table and the setext underline below it lost its heading -
+        // cmark-gfm takes the underline (carve-php#2349).
+        if (!str_contains($next, '|') || preg_match('/^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/', $next) !== 1) {
             return false;
         }
 
