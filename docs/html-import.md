@@ -20,6 +20,9 @@ exits with status 1 for degraded or dropped findings. The diagnostic cap replace
 the last report row with `diagnostics-truncated`; conversion still returns its
 output. With a cap of zero, a report with any finding contains only that marker.
 
+When trusted `data-djot-src` returns stored Carve source verbatim, the report has
+no diagnostics. The HTML descendants are not imported in that path.
+
 Each diagnostic carries a `path` locating what was lost. It is a human-readable
 locator that all three engines spell the same way, and although it borrows
 XPath's notation it is **not** an XPath expression - do not resolve it as one.

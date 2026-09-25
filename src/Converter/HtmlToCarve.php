@@ -548,6 +548,11 @@ class HtmlToCarve
         $this->survivingImportAttributes = null;
         $this->emittedImportValues = [];
 
+        if ($this->usedStoredRoundTripSource) {
+            // No HTML descendants were imported; the stored source was returned verbatim.
+            return [];
+        }
+
         $isDocument = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1;
         $doc = $this->builtImportDocument;
         if ($doc === null) {
