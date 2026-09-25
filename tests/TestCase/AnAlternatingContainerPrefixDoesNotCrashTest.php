@@ -22,11 +22,8 @@ use PHPUnit\Framework\TestCase;
  * assertion about it takes the runner with it and reports nothing. The child's
  * exit code is the whole measurement, and 139 is the failure this guards.
  *
- * IN THE DEFAULT SUITE, not in the `scaling` group. The first spelling of this
- * check sat in `QuotedMarkerLineScaleTest`, which is excluded from a plain
- * `phpunit` run because its neighbours read a clock. This one reads no clock -
- * the crash is depth - so hiding it behind the wall-clock exclusion meant an
- * ordinary run could not see the regression it exists to catch.
+ * This check runs in the default suite because it reads an exit status, not
+ * a clock.
  *
  * MORE THAN ONE SHAPE, because more than one shape crashed. With the cap check
  * mutated to `return false`, four of the alternations below exit 139 and the

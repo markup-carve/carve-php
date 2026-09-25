@@ -22,15 +22,9 @@ use PHPUnit\Framework\TestCase;
  * markup-carve/carve-php#1437 and markup-carve/carve-php#1442 each settled one
  * container over.
  *
- * COUNTED, NOT TIMED, and in the DEFAULT suite because of it. The wall-clock
- * guards live in the excluded `scaling` group and carry generous thresholds for
- * the reason `ScalingGuardTrait` records at length - CI contention reads as a
- * regression. This defect also shows exactly why a ratio guard is not enough on
- * its own: it sat under `QuotedMarkerLineScaleTest` for as long as a larger
- * linear constant hid it, and only surfaced when
- * markup-carve/carve-php#1458 removed that constant and made `main` red. A
- * character count is a property of the algorithm, reproduces under any load,
- * and cannot be hidden by a constant somewhere else.
+ * This guard counts copied characters, so its result does not depend on runner
+ * load. An earlier timing guard missed the copy path until another cost was
+ * removed. The count runs in the default suite.
  *
  * THE BOUND IS ABSOLUTE, not a ratio across doublings. The healthy walk copies
  * ONCE, at the end, so its total is a small multiple of the document however
