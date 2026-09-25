@@ -717,6 +717,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $this->sharedRenderContext,
             function () use ($document): string {
                 $this->sharedRenderContext->reset();
+                $this->sharedRenderContext->documentHasNote = $this->holdsANote($document);
                 $this->resetExpansionBudgetForDocument($document);
 
                 $html = $this->renderDocumentWithSections($document);
@@ -1612,6 +1613,79 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * The next id in the ONE `adm-{n}` sequence a titled admonition and a titled
+     * directive share (CARVE-P9-072), reserved in the document id namespace.
+     *
+     * An extension rendering a `directive` calls this instead of counting for
+     * itself: a private counter would mint `adm-1` a second time in a document
+     * that also holds a titled admonition, and the shared registry would then
+     * rename an id the other element's `aria-labelledby` points at.
+     */
+    public function mintTitleId(): string
+    {
+        $context = $this->getRenderContext();
+
+        return $context->headingIdTracker->uniqueId('adm-' . ++$context->admonitionCounter);
+    }
+
+    /**
+     * Whether the tree holds a note the endnotes section will carry: a resolved
+     * `[^label]` reference or an inline `^[...]` note. A definition nobody
+     * references renders no section, and neither does an unresolved reference.
+     */
+    protected function holdsANote(Node $node): bool
+    {
+        if ($node instanceof FootnoteRef) {
+            return !$node->isUnresolved();
+        }
+        if ($node instanceof InlineFootnote) {
+            return true;
+        }
+        foreach ($node->getChildren() as $child) {
+            // A DEFINITION'S OWN BODY DOES NOT COUNT. An unreferenced definition
+            // renders nothing, so a note inside one cannot put a section in the
+            // document; reading it would send the marker down the placement path
+            // for a section that never arrives, and its title and label would go
+            // with the swept sentinel. A note inside a REFERENCED definition is
+            // already covered by the reference that reaches it.
+            if ($child instanceof Footnote) {
+                continue;
+            }
+            if ($this->holdsANote($child)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The `aria-labelledby` and the opening child lines a placing
+     * `::: footnotes` marker contributes to the section (CARVE-P9-072). The
+     * section takes none of the marker's other attributes, so nothing here can
+     * be overridden from the source.
+     *
+     * @return array{name: string, head: string}
+     */
+    protected function placedFootnoteTokens(Div $node): array
+    {
+        $name = '';
+        $head = '';
+        if (is_string($node->getHeader())) {
+            $titleId = $this->mintTitleId();
+            $name = ' aria-labelledby="' . $this->escapeAttribute($titleId) . '"';
+            $head .= '  <p class="admonition-title" id="' . $this->escapeAttribute($titleId) . '">'
+                . $this->renderInlineNodesFragment($node->getHeaderNodes()) . "</p>\n";
+        }
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            $head .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
+        }
+
+        return ['name' => $name, 'head' => $head];
+    }
+
+    /**
      * True while rendering the endnotes section's footnote bodies. A
      * `::: footnotes` block nested inside a footnote definition must NOT emit a
      * placement sentinel (it renders as an ordinary div, matching carve-js);
@@ -1639,11 +1713,23 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // emitted while rendering footnote bodies (a nested `::: footnotes`
         // there renders as an ordinary div).
         if ($node->hasClass('footnotes') && !$this->renderingFootnoteSection) {
-            // Preserve any blocks authored inside the placeholder before the
-            // relocated endnotes (matching carve-js), then the sentinel.
-            $body = rtrim($this->renderChildren($node), "\n");
+            $context = $this->getRenderContext();
+            // Only a marker in a document that HAS a note places the section;
+            // any other one falls through below and renders as the ordinary
+            // `<div class="footnotes">` holding its own title, label and blocks,
+            // which is where an unconsumed token belongs (CARVE-P9-072).
+            if ($context->documentHasNote && !$context->footnotesPlaced) {
+                $context->footnotesPlaced = true;
+                // The marker's title takes its id HERE, before its children
+                // render, so the `adm-{n}` sequence follows document order even
+                // when a titled admonition is written inside the marker.
+                $context->placedFootnoteTokens = $this->placedFootnoteTokens($node);
+                // Preserve any blocks authored inside the placeholder before the
+                // relocated endnotes (matching carve-js), then the sentinel.
+                $body = rtrim($this->renderChildren($node), "\n");
 
-            return ($body !== '' ? $body . "\n" : '') . $this->footnotesPlacementSentinel();
+                return ($body !== '' ? $body . "\n" : '') . $this->footnotesPlacementSentinel();
+            }
         }
         $types = array_values(array_intersect($classes, Div::ADMONITION_TYPES));
 
@@ -1693,8 +1779,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $titleId = null;
             if (!$hasAuthoredName) {
                 if (is_string($titleAttr)) {
-                    $context = $this->getRenderContext();
-                    $titleId = $context->headingIdTracker->uniqueId('adm-' . ++$context->admonitionCounter);
+                    $titleId = $this->mintTitleId();
                     $attrs['aria-labelledby'] = $titleId;
                 } else {
                     $kind = $types[0];
@@ -3546,8 +3631,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $footnoteLabelsByNumber = array_flip($context->footnoteNumbers);
 
         // Indentation matches carve-js: hr/ol at 2, li at 4, body at 6.
-        $html = '<section role="doc-endnotes" aria-label="'
-            . $this->escapeAttribute($this->label('endnotes')) . '">' . "\n";
+        $tokens = $this->getRenderContext()->placedFootnoteTokens;
+        $name = $tokens['name'] !== ''
+            ? $tokens['name']
+            : ' aria-label="' . $this->escapeAttribute($this->label('endnotes')) . '"';
+        $html = '<section role="doc-endnotes"' . $name . '>' . "\n";
+        $html .= $tokens['head'];
         $html .= $this->xhtml ? "  <hr />\n" : "  <hr>\n";
         $html .= '  <ol>' . "\n";
 

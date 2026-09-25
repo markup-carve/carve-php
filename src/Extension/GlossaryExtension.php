@@ -156,7 +156,18 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
             return '<div class="' . self::KIND . '">' . "\n" . implode("\n", $parts) . "\n</div>\n";
         }
 
+        // A `<dl>` holds no `<p>`, so the marker's title and label sit immediately
+        // BEFORE the generated lists and name nothing (CARVE-P9-072). The label
+        // was dropped here, which the unconsumed-label floor forbids.
         $parts = [];
+        if (is_string($div->getHeader())) {
+            $parts[] = '<p class="admonition-title">'
+                . $renderer->renderInlineNodesFragment($div->getHeaderNodes()) . '</p>';
+        }
+        $label = $div->getLabel();
+        if ($label !== null && $label !== '') {
+            $parts[] = '<p class="div-label">' . $renderer->escapeText($label) . '</p>';
+        }
         $firstDl = true;
         foreach ($div->getChildren() as $child) {
             if ($child instanceof DefinitionList) {

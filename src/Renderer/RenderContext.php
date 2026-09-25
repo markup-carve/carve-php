@@ -46,6 +46,29 @@ class RenderContext
      */
     public array $inlineFootnoteRenderers = [];
 
+    /**
+     * Whether the document holds a note the endnotes section will carry, read
+     * off the tree before rendering starts.
+     *
+     * The first `::: footnotes` marker in such a document PLACES the section and
+     * names it with its own title, which reserves an `adm-{n}` id; a marker in a
+     * document with no note degrades to a div and reserves none. The decision
+     * has to be made where the marker renders, so the sequence follows document
+     * order, and `footnoteNumbers` cannot answer it there - a note referenced
+     * AFTER the marker has not been numbered yet (CARVE-P9-072).
+     */
+    public bool $documentHasNote = false;
+
+    public bool $footnotesPlaced = false;
+
+    /**
+     * The `aria-labelledby` and the opening child lines the placing marker
+     * contributes to the section it places.
+     *
+     * @var array{name: string, head: string}
+     */
+    public array $placedFootnoteTokens = ['name' => '', 'head' => ''];
+
     public function __construct(?HeadingIdTracker $headingIdTracker = null)
     {
         $this->headingIdTracker = $headingIdTracker ?? new HeadingIdTracker();
@@ -60,5 +83,8 @@ class RenderContext
         $this->admonitionCounter = 0;
         $this->collectedFootnotes = [];
         $this->inlineFootnoteRenderers = [];
+        $this->documentHasNote = false;
+        $this->footnotesPlaced = false;
+        $this->placedFootnoteTokens = ['name' => '', 'head' => ''];
     }
 }

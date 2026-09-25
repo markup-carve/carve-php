@@ -121,8 +121,32 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
                 return;
             }
 
-            $event->setHtml($this->renderToc($node, $event->getChildrenHtml(), $renderer, $tracker));
+            // The title takes its id BEFORE the children render, so the
+            // `adm-{n}` sequence follows document order even when a titled
+            // admonition is written inside the marker (CARVE-P9-072). Argument
+            // order is the mechanism: `getChildrenHtml()` renders them.
+            $titleId = $this->reserveTitleId($node, $renderer);
+            $event->setHtml($this->renderToc($node, $event->getChildrenHtml(), $renderer, $tracker, $titleId));
         });
+    }
+
+    /**
+     * The nav title's id: `null` where the marker has no quoted title, the empty
+     * string where it has one but the author named the nav themselves (the title
+     * still renders, with no id and nothing to point at), otherwise the next id
+     * in the shared `adm-{n}` sequence.
+     */
+    protected function reserveTitleId(Div $div, HtmlRenderer $renderer): ?string
+    {
+        if (!is_string($div->getHeader())) {
+            return null;
+        }
+
+        // A non-empty probe label, so this reads only whether the AUTHOR named
+        // the element: the helper returns [] for an authored name.
+        return $this->accessibleNameAttributes($div, $renderer, 'probe') === []
+            ? ''
+            : $renderer->mintTitleId();
     }
 
     protected function renderToc(
@@ -130,6 +154,7 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
         string $childrenHtml,
         HtmlRenderer $renderer,
         HeadingIdTracker $tracker,
+        ?string $titleId = null,
     ): string {
         [$minLevel, $maxLevel] = $this->window($div);
         $entries = [];
@@ -148,12 +173,27 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
             ];
         }
 
-        $attrs = $this->openAttributes($div, $renderer);
-        $emptyNav = '<nav' . $attrs . '></nav>';
+        // The marker's title and label are the nav's FIRST CHILDREN and the title
+        // is its accessible name (CARVE-P9-072). Column 0 like the list below
+        // them, so the fragment §8b.3 makes the cross-impl contract stays
+        // byte-identical.
+        $head = '';
+        if ($titleId !== null) {
+            $head .= '<p class="admonition-title"'
+                . ($titleId === '' ? '' : ' id="' . $renderer->escapeAttribute($titleId) . '"')
+                . '>' . $renderer->renderInlineNodesFragment($div->getHeaderNodes()) . "</p>\n";
+        }
+        $label = $div->getLabel();
+        if ($label !== null && $label !== '') {
+            $head .= '<p class="div-label">' . $renderer->escapeText($label) . "</p>\n";
+        }
+
+        $attrs = $this->openAttributes($div, $renderer, $titleId === '' ? null : $titleId);
+        $emptyNav = $head === '' ? '<nav' . $attrs . '></nav>' : '<nav' . $attrs . ">\n" . $head . '</nav>';
         if ($entries === []) {
             $nav = $emptyNav;
         } else {
-            $nav = '<nav' . $attrs . ">\n" . $this->renderTocList($entries) . '</nav>';
+            $nav = '<nav' . $attrs . ">\n" . $head . $this->renderTocList($entries) . '</nav>';
             // Bound cumulative nav bytes across all `::: toc` blocks in one
             // render: K blocks x N headings would otherwise amplify output
             // ~K*N. Once the budget is exhausted, degrade to an empty nav.
@@ -252,20 +292,26 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
      * author classes, then id / key-values, with the directive-only depth/from/to
      * keys stripped so they never render as HTML attributes.
      */
-    protected function openAttributes(Div $div, HtmlRenderer $renderer): string
+    protected function openAttributes(Div $div, HtmlRenderer $renderer, ?string $titleId = null): string
     {
+        // A quoted title on the marker IS the name, so it replaces the `tocNav`
+        // default rather than sitting beside it (CARVE-P9-072).
+        $name = $titleId !== null
+            ? ['aria-labelledby' => $titleId]
+            // The landmark's accessible name, from the SAME `labels` key the
+            // injecting TableOfContentsExtension reads - Extensions §8b.3 makes
+            // this nav fragment the cross-impl contract, and a name chosen
+            // per-extension is the one change that would break its
+            // byte-identity (§8b.1, markup-carve/carve#1509).
+            : $this->accessibleNameAttributes($div, $renderer, $renderer->label('tocNav'));
+
         return $this->renderExtensionAttributes(
             $div,
             $renderer,
             [self::KIND],
             ['title', ...self::RESERVED_ATTRS],
             [],
-            // The landmark's accessible name, from the SAME `labels` key the
-            // injecting TableOfContentsExtension reads - Extensions §8b.3 makes
-            // this nav fragment the cross-impl contract, and a name chosen
-            // per-extension is the one change that would break its
-            // byte-identity (§8b.1, markup-carve/carve#1509).
-            $this->accessibleNameAttributes($div, $renderer, $renderer->label('tocNav')),
+            $name,
         );
     }
 

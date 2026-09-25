@@ -141,6 +141,7 @@
   "directive": {
     "fields": [
       "label",
+      "title",
       "kind"
     ],
     "required": []
