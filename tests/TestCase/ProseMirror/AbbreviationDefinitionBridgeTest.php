@@ -12,13 +12,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Abbreviation definitions survive the ProseMirror bridge (carve-php#519).
  *
- * They are DOCUMENT state rather than children, so they never reached
- * renderBlocks and vanished without being reported by droppedTypes() or
- * degradedTypes(). The occurrence itself always survived - it is a
- * `carveAbbreviation` mark carrying its title - which is what made the loss
- * hard to see: the round trip produced a document that still looked right until
- * it was written back out, at which point no `*[ABBR]: ...` line existed and
- * every expansion in the document stopped working.
+ * Each definition is a block node in the editor document. The occurrence is a
+ * `carveAbbreviation` mark carrying its title.
  *
  * These assert on CANONICAL CARVE and on HTML, not on HTML alone. The existing
  * corpus round-trip test compares rendered HTML, and for this class of defect
@@ -53,20 +48,22 @@ class AbbreviationDefinitionBridgeTest extends TestCase
         );
     }
 
-    public function testTheDefinitionRidesOnTheDocNodeAttrs(): void
+    public function testTheDefinitionRidesOnItsOwnNode(): void
     {
         $document = (new CarveConverter())->parse("*[HTML]: HyperText Markup Language\n\nThe HTML spec.\n");
         $payload = (new ProseMirrorRenderer())->render($document);
+        $this->assertIsArray($payload['content']);
+        $this->assertIsArray($payload['content'][0]);
 
         $this->assertSame(
-            ['HTML' => 'HyperText Markup Language'],
-            $payload['attrs']['carveAbbreviations'] ?? null,
+            ['abbr' => 'HTML', 'expansion' => 'HyperText Markup Language'],
+            $payload['content'][0]['attrs'] ?? null,
         );
+        $this->assertArrayNotHasKey('attrs', $payload);
     }
 
     /**
-     * The flag decides whether the definitions are written before the body or
-     * after it, and it cannot be recovered from the map, so it travels with it.
+     * The first definition's position relative to body content sets the flag.
      */
     public function testTheOrderingFlagTravelsWithTheDefinitions(): void
     {

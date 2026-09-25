@@ -1482,8 +1482,7 @@ class ProseMirrorBridgeTest extends TestCase
     }
 
     /**
-     * An abbreviation without its expansion is just a word: the definition
-     * lives nowhere else in the editor model, so dropping the title lost it.
+     * The abbreviation mark carries its expansion alongside the definition node.
      */
     public function testAnAbbreviationKeepsItsExpansion(): void
     {
@@ -1491,7 +1490,7 @@ class ProseMirrorBridgeTest extends TestCase
         $document = (new CarveConverter())->parse($source);
 
         $pm = $this->renderer->render($document);
-        $marks = $pm['content'][0]['content'][1]['marks'];
+        $marks = $pm['content'][1]['content'][1]['marks'];
 
         $this->assertSame('carveAbbreviation', $marks[0]['type']);
         $this->assertSame('HyperText Markup Language', $marks[0]['attrs']['title']);

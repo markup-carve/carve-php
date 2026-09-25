@@ -37,6 +37,15 @@ The bridge builds from the AST instead, and reports what it could not carry -
 that is gone while its text survives. Prefer it for anything you intend to
 store and read back.
 
+Abbreviation and citation definitions are block nodes in the editor document.
+`carveAbbreviationDefinition` keeps each authored line in place, including
+shadowed definitions. `carveCitationDefinition` keeps its key, attributes and
+inline entry content. The bridge still reads older documents that carry
+abbreviation definitions only in the `doc` attributes. When both forms are
+present, the nodes determine the definitions so edits in the editor survive.
+New documents carry definitions only as nodes, so deleting the last node also
+deletes its definition.
+
 ## The wire shape, not only the names
 
 `resources/prosemirror-wire-fixtures.json` is a copy of the fixture set
