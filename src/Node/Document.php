@@ -110,9 +110,7 @@ class Document extends Node
      *
      * On the ingest path `sourceLength` is `srcByteLength`, which arrives
      * INSIDE the payload. Left alone it let the payload choose the size of the
-     * guard meant to bound it: rewriting one number to `1000000000` took a
-     * 214 KB payload from 1.05 MB of HTML to 102 MB, 478x, for nine extra bytes
-     * (carve-php#1052). So an ingested document is bounded by what its payload
+     * guard meant to bound it. An ingested document is bounded by what its payload
      * actually cost as well as by what it claims, and the smaller wins.
      *
      * The claim is still honored where it is smaller, because a document that

@@ -13871,13 +13871,8 @@ class BlockParser
         // returns from its own branch with the paragraph closed - so `> q` over
         // `# h` over `- m` still opens the item, in this engine and in carve-js.
         //
-        // ASKED WITHOUT `$endsTheParagraph`, deliberately. That test is live
-        // here - 9 of 1623 corpus documents reach this line with it true - but
-        // never with `quoteParagraph` already set, so qualifying the re-arm with
-        // it moved no bytes over 1678 documents. Left off rather than carried as
-        // a condition nothing can exercise; if a document is ever found that
-        // reaches here inside a quote's lazy run on a heading, this is the line
-        // that decides it.
+        // Re-arm from the prior quote state. No known input reaches this line
+        // with both the quote paragraph and paragraph-end flags set.
         $state['quoteParagraph'] = $wasQuoteParagraph;
 
         return $state;

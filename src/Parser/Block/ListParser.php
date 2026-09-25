@@ -334,11 +334,8 @@ class ListParser
      *
      * The answer `parseListItemMarker()` gives, minus the copy. Every pattern
      * there ends by CAPTURING the rest of the line, so asking the same question
-     * N times down a line of N markers copies the tail N times - the walk in
-     * `BlockParser::advanceTrailingBlockState()` did exactly that, and 8 KB of
-     * markers cost about three seconds with the ratio per doubling still
-     * climbing (carve-php#1426, and PART 9 section 25 is normative about
-     * refusing rather than degrading).
+     * N times down a line of N markers copies the tail N times. The walk in
+     * `BlockParser::advanceTrailingBlockState()` needs only the marker end.
      *
      * The tail is asserted with a zero-width LOOKAHEAD written from the same
      * heads, and the only substring this returns is bounded by the MARKER

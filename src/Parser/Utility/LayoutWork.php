@@ -52,9 +52,9 @@ final class LayoutWork
      * walk (markup-carve/carve-php#1463).
      *
      * The walk used to hand each step a fresh copy of the rest of the line, so
-     * a line of N prefix elements copied N times the line and a 128 KB line
-     * copied 4 GB. It reads the line at an offset now and copies once, so this
-     * stays within a small multiple of the document. Counted rather than timed
+     * a line of N prefix elements copied the line N times. It reads the line at
+     * an offset now and copies once, keeping work proportional to the document.
+     * Counted rather than timed
      * for the reason this whole class exists: a count is a property of the
      * algorithm, and the quadratic shape is invisible to a wall-clock ratio
      * until it already dominates.
