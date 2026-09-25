@@ -202,6 +202,13 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
             }
         }
 
+        // The generated content stays at column zero. Keep the closing nav on
+        // a real line so it takes the same ambient indent as the opening tag.
+        $closing = "\n</nav>";
+        if (str_ends_with($nav, $closing)) {
+            $nav = $renderer->guardGeneratedNewlines(substr($nav, 0, -strlen($closing))) . $closing;
+        }
+
         // Preserve any authored content inside the placeholder before the nav.
         $body = rtrim($childrenHtml, "\n");
 

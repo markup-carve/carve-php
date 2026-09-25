@@ -44,6 +44,26 @@ class TocPlacementExtensionTest extends TestCase
         $this->assertStringNotContainsString('</nav><section', $out);
     }
 
+    public function testGeneratedListStaysAtColumnZeroInsideASection(): void
+    {
+        $out = $this->html("# Heading\n\n::: toc\n:::\n");
+
+        $this->assertSame(1, preg_match('/^( +)<nav class="toc"/m', $out, $match));
+        $this->assertNotSame('', $match[1]);
+        $this->assertStringContainsString("\n<ul>\n<li><a href=\"#Heading\">Heading</a></li>\n</ul>\n", $out);
+        $this->assertStringContainsString("\n" . $match[1] . "</nav>\n", $out);
+    }
+
+    public function testNestedListKeepsColumnZeroInsideNestedContainers(): void
+    {
+        $out = $this->html("# Heading\n\n## Subheading\n\n::: note\n::: toc\n:::\n:::\n");
+
+        $this->assertSame(1, preg_match('/^( +)<nav class="toc"/m', $out, $match));
+        $this->assertGreaterThan(2, strlen($match[1]));
+        $this->assertStringContainsString("\n<ul>\n<li><a href=\"#Heading\">Heading</a>\n<ul>\n", $out);
+        $this->assertStringContainsString("\n" . $match[1] . "</nav>\n", $out);
+    }
+
     public function testLinksToResolvedDedupAwareIds(): void
     {
         $out = $this->html("# Intro\n\n## Intro\n\n::: toc\n:::\n");
