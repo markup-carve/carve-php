@@ -128,7 +128,7 @@ class ARawRegionInATableCellKeepsItsBytesTest extends TestCase
             'a form of blocks' => [
                 "<table><tr><td><form>\n<p>f</p>\n<p>g</p>\n</form></td></tr></table>",
                 '| f g |',
-                ['element-unwrapped'],
+                ['element-unwrapped', 'element-unwrapped', 'element-unwrapped'],
             ],
             'a live handler goes with the bytes' => [
                 "<table><tr><td><form onsubmit=\"x()\">\nf\n</form></td><td>b</td></tr></table>",
@@ -138,7 +138,7 @@ class ARawRegionInATableCellKeepsItsBytesTest extends TestCase
             'a figure the importer cannot rebuild' => [
                 "<table><tr><td><figure>\n<ul><li>i</li></ul>\n<figcaption>c</figcaption>\n</figure></td></tr></table>",
                 '| - i c |',
-                ['element-unwrapped'],
+                ['element-unwrapped', 'element-unwrapped', 'element-unwrapped', 'element-unwrapped'],
             ],
             'a header cell' => [
                 "<table><thead><tr><th><fieldset>\nf\n</fieldset></th></tr></thead><tbody><tr><td>z</td></tr></tbody></table>",
