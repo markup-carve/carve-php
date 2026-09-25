@@ -701,6 +701,19 @@ class HtmlToCarve
             return;
         }
         $tag = strtolower($node->tagName);
+        $parent = $node->parentNode;
+        if (
+            $parent instanceof DOMElement
+            && in_array(strtolower($parent->tagName), ['head', 'body'], true)
+            && $this->keptRawImportElements !== null
+            && isset($this->keptRawImportElements[$parent])
+        ) {
+            $keptTag = strtolower($parent->tagName);
+            $this->inspectImportAttributeList($node, $tag, $path, $diagnostics, true, $keptTag);
+            $this->inspectPreservedDescendants($node, $keptTag, $path, $diagnostics);
+
+            return;
+        }
         if ($tag === 'input' && $this->directAstConsumesCheckbox($node)) {
             $this->consumedCheckboxInputs[$path] = true;
             if ($this->checkboxStandsInAnOrderedItem($node)) {
@@ -2020,6 +2033,7 @@ class HtmlToCarve
      * @param string $path
      * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
      * @param bool $preserved Whether the element was kept byte for byte.
+     * @param string|null $keptTag Raw ancestor that kept this element, if any.
      */
     protected function inspectImportAttributeList(
         DOMElement $node,
@@ -2027,6 +2041,7 @@ class HtmlToCarve
         string $path,
         array &$diagnostics,
         bool $preserved = false,
+        ?string $keptTag = null,
     ): void {
         foreach ($node->attributes as $attribute) {
             $name = strtolower($attribute->name);
@@ -2041,7 +2056,7 @@ class HtmlToCarve
                 // presence in the document is news: an `id` would have been
                 // kept either way and is not.
                 if ($this->preservedAttributeIsNews($tag, $name, $attribute->value)) {
-                    $this->reportPreservedAttribute($tag, $name, $attribute->value, $path, $diagnostics);
+                    $this->reportPreservedAttribute($tag, $name, $attribute->value, $path, $diagnostics, $keptTag);
                 }
 
                 continue;
@@ -2118,7 +2133,12 @@ class HtmlToCarve
         }
         $tag = strtolower($root->tagName);
         $path = '/' . $tag . '[1]';
-        $this->inspectImportAttributes($root, $tag, $path, $diagnostics);
+        if (in_array($tag, ['head', 'body'], true) && $this->keepsDocumentContainerRaw($tag)) {
+            $this->inspectImportAttributeList($root, $tag, $path, $diagnostics, true);
+            $this->reportRawDocumentContainer($tag, $path, $diagnostics);
+        } else {
+            $this->inspectImportAttributes($root, $tag, $path, $diagnostics);
+        }
         if ($tag !== 'html') {
             return;
         }
@@ -2133,8 +2153,51 @@ class HtmlToCarve
             if ($childTag !== 'head' && $childTag !== 'body') {
                 continue;
             }
-            $this->inspectImportAttributes($child, $childTag, $this->importChildPath($path, $child, $index), $diagnostics);
+            $childPath = $this->importChildPath($path, $child, $index);
+            if ($this->keepsDocumentContainerRaw($childTag)) {
+                $this->inspectImportAttributeList($child, $childTag, $childPath, $diagnostics, true);
+                $this->reportRawDocumentContainer($childTag, $childPath, $diagnostics);
+            } else {
+                $this->inspectImportAttributes($child, $childTag, $childPath, $diagnostics);
+            }
         }
+    }
+
+    /**
+     * Report a document container kept as raw HTML.
+     *
+     * @param string $tag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    private function reportRawDocumentContainer(string $tag, string $path, array &$diagnostics): void
+    {
+        $this->addImportDiagnostic(
+            $diagnostics,
+            'raw-preserved',
+            'Preserved <' . $tag . '> as raw HTML',
+            'warning',
+            $path,
+        );
+    }
+
+    private function keepsDocumentContainerRaw(string $tag): bool
+    {
+        $root = $this->builtImportDocument?->getElementsByTagName('carve-import-root')->item(0);
+        if (!$root instanceof DOMElement || $this->keptRawImportElements === null) {
+            return false;
+        }
+        foreach ($root->childNodes as $child) {
+            if (
+                $child instanceof DOMElement
+                && strtolower($child->tagName) === $tag
+                && isset($this->keptRawImportElements[$child])
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
