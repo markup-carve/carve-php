@@ -7,7 +7,12 @@ namespace MarkupCarve\Carve\Test;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
@@ -22,9 +27,17 @@ use PHPUnit\Framework\TestCase;
  * blank line above it, and a reader answers that blank with `<li><p>parent</p>`
  * where the document's own HTML says `<li>parent`.
  *
- * The separator is not always wrong, which is why the writer asks per case: an
- * ordered marker that does not start at 1 cannot interrupt a paragraph, and a
- * marker with nothing after it reads as a setext underline.
+ * The clause names a nested list and a block quote as examples of an opener that
+ * interrupts a paragraph, and the property is what governs: a heading, a fence
+ * and a GFM table have it too (ruled on markup-carve/carve-rs#1914). The
+ * separator is not always wrong, which is why the writer asks per case, and the
+ * question goes to the emitted LINE - `---` under a paragraph is a setext
+ * underline, so it changes what that paragraph is instead of interrupting it.
+ *
+ * Three of the guards below score HIGHER on a corpus tightness count when
+ * removed, because gluing two quotes or two tables into one leaves the item
+ * tight while destroying a block. Each therefore carries a control asserting how
+ * the glued spelling reads back, never a count.
  */
 class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
 {
@@ -112,12 +125,103 @@ class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
         $this->assertSame("- ## a\n", $this->reader->convert("- a\n  -\n"));
     }
 
+    public function testAHeadingDoesNotLoosenTheItemAboveIt(): void
+    {
+        $source = "- a\n  # h\n";
+
+        $this->assertSame("- a\n  # h\n", $this->write($source));
+        $this->assertTrue($this->tightInSource($source));
+        $this->assertTrue($this->readsBackTight($source));
+        $this->assertSame([Paragraph::class, Heading::class], $this->blocksInTheFirstItem($this->write($source)));
+    }
+
+    public function testAFenceDoesNotLoosenTheItemAboveIt(): void
+    {
+        $source = "- a\n  ```\n  x\n  ```\n";
+
+        $this->assertSame("- a\n  ```\n  x\n  ```\n", $this->write($source));
+        $this->assertTrue($this->readsBackTight($source));
+        $this->assertSame([Paragraph::class, CodeBlock::class], $this->blocksInTheFirstItem($this->write($source)));
+    }
+
+    public function testATableDoesNotLoosenTheItemAboveIt(): void
+    {
+        $source = "- one\n  | H |\n  | --- |\n  | x |\n";
+
+        $this->assertSame("- one\n  | H |\n  | --- |\n  | x |\n", $this->write($source));
+        $this->assertTrue($this->readsBackTight($source));
+        $this->assertSame([Paragraph::class, Table::class], $this->blocksInTheFirstItem($this->write($source)));
+    }
+
+    public function testAHeadingBelowAQuoteDropsTheSeparatorToo(): void
+    {
+        // The quote closes on its own line, so the heading opens under it: the
+        // seam asks what the block BELOW writes, not what stands above it.
+        $source = "- intro\n  > q\n\n  # h\n";
+
+        $written = $this->write($source);
+        $this->assertSame("- intro\n  > q\n  # h\n", $written);
+        $this->assertTrue($this->readsBackTight($source));
+        $this->assertSame(
+            [Paragraph::class, BlockQuote::class, Heading::class],
+            $this->blocksInTheFirstItem($written),
+        );
+    }
+
+    public function testAThematicBreakKeepsTheSeparator(): void
+    {
+        // `---` under a paragraph line is a SETEXT HEADING, not a break: its
+        // opener does not interrupt the paragraph, it changes what the paragraph
+        // is. No corpus document spells this, so only this case holds it.
+        $source = "- a\n+\n---\n";
+
+        $written = $this->write($source);
+        $this->assertSame("- a\n\n  ---\n", $written);
+        $this->assertSame(
+            [Paragraph::class, ThematicBreak::class],
+            $this->blocksInTheFirstItem($written),
+        );
+        // The control: dropped, the paragraph above is underlined into a heading
+        // and the break is gone.
+        $this->assertSame([Heading::class], $this->blocksInTheFirstItem("- a\n  ---\n"));
+    }
+
+    public function testTwoSiblingTablesInATightItemKeepTheSeparator(): void
+    {
+        // A row is paragraph continuation text until a delimiter row promotes
+        // it, so a table below a table is read as more rows of the first. The
+        // merged item comes back TIGHT, which is why a count cannot hold this.
+        $source = "- x\n+\n| a |\n| --- |\n| b |\n+\n| a |\n| --- |\n| b |\n";
+
+        $written = $this->write($source);
+        $this->assertSame("- x\n  | a |\n  | --- |\n  | b |\n\n  | a |\n  | --- |\n  | b |\n", $written);
+        $this->assertSame([2, 2], $this->tableRowsInTheFirstItem($written));
+        // The control: dropped, the two become one table whose second delimiter
+        // row is a data cell.
+        $glued = "- x\n  | a |\n  | --- |\n  | b |\n  | a |\n  | --- |\n  | b |\n";
+        $this->assertSame([5], $this->tableRowsInTheFirstItem($glued));
+    }
+
+    public function testAHeaderlessTableRowKeepsTheSeparator(): void
+    {
+        // Without a delimiter row below it the row never opens a table, so
+        // unseparated it is swallowed by the paragraph above as continuation
+        // text - one block where the item held two.
+        $source = "- item\n  | a | b |\n";
+
+        $written = $this->write($source);
+        $this->assertSame("- item\n\n  | a | b |\n", $written);
+        $this->assertSame([Paragraph::class, Paragraph::class], $this->blocksInTheFirstItem($written));
+        // The control: dropped, the row folds into the paragraph above it.
+        $this->assertSame([Paragraph::class], $this->blocksInTheFirstItem("- item\n  | a | b |\n"));
+    }
+
     public function testTwoSiblingQuotesInATightItemKeepTheSeparator(): void
     {
-        // A quote marker interrupts a PARAGRAPH and nothing else. Dropped here,
-        // the second `>` is absorbed by the quote above it and the two merge
-        // into one - which CommonMark cannot spell tight, so the separator
-        // stays and the item goes out loose.
+        // An unseparated `>` under an OPEN quote continues that quote instead of
+        // opening one. Dropped here, the two merge into a single quote - which
+        // CommonMark cannot spell tight, so the separator stays and the item
+        // goes out loose.
         $source = "- x\n+\n> q\n+\n> q\n";
 
         $written = $this->write($source);
@@ -167,6 +271,49 @@ class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
     protected function readsBackTight(string $source): bool
     {
         return $this->firstList($this->readBack($source))->isTight();
+    }
+
+    /**
+     * The classes of the blocks the first item of this Markdown holds on
+     * read-back, which is where a merged block shows itself.
+     *
+     * @return list<class-string>
+     */
+    protected function blocksInTheFirstItem(string $markdown): array
+    {
+        $blocks = [];
+        foreach ($this->firstItemChildren($markdown) as $child) {
+            $blocks[] = $child::class;
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * The row count of every table the first item holds, in order.
+     *
+     * @return list<int>
+     */
+    protected function tableRowsInTheFirstItem(string $markdown): array
+    {
+        $rows = [];
+        foreach ($this->firstItemChildren($markdown) as $child) {
+            if ($child instanceof Table) {
+                $rows[] = count($child->getChildren());
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function firstItemChildren(string $markdown): array
+    {
+        $list = $this->firstList($this->parser->parse($this->reader->convert($markdown)));
+
+        return array_values($list->getChildren()[0]->getChildren());
     }
 
     /**
