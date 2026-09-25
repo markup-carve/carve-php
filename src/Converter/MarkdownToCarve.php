@@ -842,6 +842,7 @@ class MarkdownToCarve
                     }
                 }
                 $held = ltrim($this->stripColumns($line, $contentCol), " \t");
+                $line = $this->normalizeHeldQuoteMarkers($line);
                 $result[] = $this->convertInlineFormatting($this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)));
                 $this->trackItemParagraph($line, $isList, $contentCol, $itemParagraph, $itemQuote);
                 $prevLineType = 'list';
@@ -1015,6 +1016,12 @@ class MarkdownToCarve
 
             if (!$isHeading && !$isList && in_array($prevLineType, ['text', 'list', 'blockquote'], true)) {
                 $body = $this->escapeDefinitionContinuation($body, $lines[$i - 1] ?? '', (string)end($result));
+            }
+            // An item's own line holding a quote reaches here whole, past the
+            // branches that would have folded or fenced it, so its markers are
+            // still as the source spelled them (carve-php#2341, #2343).
+            if ($isList) {
+                $body = $this->normalizeHeldQuoteMarkers($this->escapeTaskItemOpener($body));
             }
             $converted = $this->convertInlineFormatting($body);
 
@@ -1304,6 +1311,14 @@ class MarkdownToCarve
     {
         $rest = $line;
         if (preg_match('/^[ \t]*(?:>[ \t]?)+/', $line, $matches) === 1) {
+            // The markers have to stand where a quote can open in the first
+            // place. Four columns past the container's content column they are
+            // indented content of it, and zeroing the column from there read a
+            // held `> ---` as a rule in a quote rather than as paragraph text.
+            $markerOver = $this->indentWidth($line) - $contentCol;
+            if ($markerOver < 0 || $markerOver > 3) {
+                return null;
+            }
             $rest = substr($line, strlen($matches[0]));
             // Inside a quote the item column belongs to the outer container, so
             // the remainder is measured from the quote's own content column.
@@ -1375,7 +1390,11 @@ class MarkdownToCarve
         }
 
         if (preg_match('/^[ \t]*(?:>[ \t]?)+/', $line, $matches) === 1) {
-            return $this->normalizeBlockquoteMarkers($matches[0] . '---');
+            // Past the indentation of the item holding the quote: the markers
+            // are what Carve reads the line by, and `normalizeBlockquoteMarkers`
+            // alone starts at the first byte, so an indented `>>` came back
+            // whole and the break was text (carve-php#2341).
+            return $this->normalizeHeldQuoteMarkers($matches[0] . '---');
         }
 
         return str_repeat(' ', $contentCol) . '---';
@@ -1947,9 +1966,14 @@ class MarkdownToCarve
         if (preg_match(self::THEMATIC_BREAK, $text) === 1) {
             return preg_replace('/[^ \t]/', '\\\\${0}', $text) ?? $text;
         }
+        // A closed pipe row IS a table at column 0 and interrupts a paragraph
+        // there, so it keeps its escape. A pipe that opens no row is not a
+        // table - a pipe table needs its delimiter row - so escaping it
+        // protects nothing (carve#2256, carve-php#2339).
         if (
             preg_match('/^(?:=+|-+)[ \t]*$/', $text) === 1
-            || preg_match('/^(?:>|[-*+](?=[ \t]|$)|#{1,6}(?=[ \t]|$)|\|)/', $text) === 1
+            || preg_match('/^(?:>|[-*+](?=[ \t]|$)|#{1,6}(?=[ \t]|$))/', $text) === 1
+            || preg_match('/^\|.*\|[ \t]*$/', $text) === 1
             || preg_match('/^ {0,3}\[[^\]]*\]:[ \t]*\S/', $text) === 1
         ) {
             return '\\' . $text;
@@ -2117,23 +2141,29 @@ class MarkdownToCarve
             }
             $rest = $next[2];
             $indent = $this->indentWidth($rest);
-            // A delimiter row under the line above makes the two a table -
-            // unless that line sits four columns in, where it is continuation
-            // text and opens no header for the row to close.
-            if (trim($rest) === '' || $indent < $contentCol || ($aboveOver < 4 && $this->startsTableHeader([$above, $rest], 0))) {
+            $over = $indent - $contentCol;
+            // A delimiter row under the line above makes the two a table - but
+            // only while BOTH lines can be one. Four columns in, a line is
+            // continuation text: the line above opens no header for the row to
+            // close, and the row itself is no delimiter row (carve-php#2342).
+            if (
+                trim($rest) === ''
+                || $indent < $contentCol
+                || ($aboveOver < 4 && $over < 4 && $this->startsTableHeader([$above, $rest], 0))
+            ) {
                 return null;
             }
-            if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest)) === 1) {
+            if ($over <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest)) === 1) {
                 $heading = (trim($rest)[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
 
                 return [$lead . $heading, $at];
             }
-            if (!$this->foldsIntoSetext([$rest], 0, trim($rest), $indent - $contentCol)) {
+            if (!$this->foldsIntoSetext([$rest], 0, trim($rest), $over)) {
                 return null;
             }
             $texts[] = $this->setextLineText($rest);
             $above = $rest;
-            $aboveOver = $indent - $contentCol;
+            $aboveOver = $over;
         }
 
         return null;
@@ -2981,6 +3011,43 @@ class MarkdownToCarve
         }
 
         return $out . substr($line, $i);
+    }
+
+    /**
+     * An item's own line with a Markdown escape on a block marker that follows
+     * its task checkbox.
+     *
+     * cmark-gfm's task-list extension only takes a checkbox off a PARAGRAPH, so
+     * everything after it on that line is text of the paragraph: `- [ ] > foo`
+     * holds no quote and `- [ ] # foo` no heading. Carve reads the marker there,
+     * so the import escaped nothing and grew a block the source did not have
+     * (carve-php#2343).
+     */
+    protected function escapeTaskItemOpener(string $line): string
+    {
+        if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+\[[ xX]\][ \t]+)(\S.*)$/s', $line, $task) !== 1) {
+            return $line;
+        }
+
+        return $task[1] . $this->escapeBlockOpener($task[2]);
+    }
+
+    /**
+     * A line whose quote markers are respelled in Carve's spaced form, reached
+     * past the indentation and the item markers that hold them.
+     *
+     * The top-level quote path normalizes on its way in, so `>> foo` is written
+     * `> > foo` there. A quote a list item holds is written from the item's own
+     * branch, which left the two characters Carve reads as text, and the quote
+     * went missing from the document (carve-php#2341).
+     */
+    protected function normalizeHeldQuoteMarkers(string $line): string
+    {
+        if (preg_match('/^([ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+(?:\[[ xX]\][ \t]+)?)*)(>.*)$/s', $line, $held) !== 1) {
+            return $line;
+        }
+
+        return $held[1] . $this->normalizeBlockquoteMarkers($held[2]);
     }
 
     protected function normalizeBlockquoteMarkers(string $line): string
