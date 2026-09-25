@@ -1229,7 +1229,7 @@ class MarkdownToCarve
         foreach ($this->unspellableOrderedTasks as $line) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
-                'An ordered task item is not spellable as a Carve task item; the checkbox marker was kept as text',
+                self::ORDERED_TASK_ITEM_UNSPELLABLE,
                 'warning',
                 'dropped',
                 'exact',

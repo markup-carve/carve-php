@@ -7,6 +7,8 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlImportDiagnostic;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Converter\MigrationDiagnostic;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -25,14 +27,19 @@ use PHPUnit\Framework\TestCase;
  *
  * Only a WRITER loses this (PART 12 section 16), so the AST exit keeps `checked`
  * on the ordered item and reports nothing.
+ *
+ * The ROW is the Markdown entry point's message, which the import contract pins
+ * for both (carve-js#2062). This side used to add "a Carve task marker is
+ * spelled behind a bullet only", which is `unordered_item` restated inside a
+ * diagnostic: one loss with one cause now reads the same whichever importer ran.
  */
 final class AnOrderedHtmlTaskItemDeclaresItsLostBoxTest extends TestCase
 {
     /**
      * @var string
      */
-    private const ROW = 'Wrote an ordered task item\'s checkbox as its bracket text: a Carve task marker is spelled '
-        . 'behind a bullet only, so the item keeps the characters and loses the task-item semantics';
+    private const ROW = 'An ordered task item is not spellable as a Carve task item; '
+        . 'the checkbox marker was kept as text';
 
     /**
      * @return array<string, array{string, string, string}>
@@ -211,6 +218,34 @@ final class AnOrderedHtmlTaskItemDeclaresItsLostBoxTest extends TestCase
             'element-dropped',
             array_map(static fn (HtmlImportDiagnostic $row): string => $row->code, $result->diagnostics),
         );
+    }
+
+    /**
+     * THE TWO ENTRY POINTS, pinned against each other. That is the ruling itself
+     * (carve-js#2062): one loss with one cause, so a consumer filtering on the
+     * message does not have to know which importer ran. The literal stays spelled
+     * out here rather than read from the importer, because a test that reads the
+     * value it is checking cannot see a wrong string.
+     */
+    public function testBothEntryPointsSayTheSameThing(): void
+    {
+        $fromHtml = (new HtmlToCarve())
+            ->convertWithReport('<ol><li><input type="checkbox" checked> done</li></ol>');
+        $this->assertSame([self::ROW], self::messagesWithCode($fromHtml->diagnostics, 'structure-unspellable'));
+
+        $fromMarkdown = (new MarkdownToCarve())->convertWithFidelityReport("1. [x] done\n");
+        $rows = array_values(array_filter(
+            $fromMarkdown->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->code === 'structure-unspellable',
+        ));
+        $this->assertSame([self::ROW], array_map(static fn (MigrationDiagnostic $row): string => $row->message, $rows));
+        // Everything but `path` matches too: an HTML importer locates the
+        // `<input>` it read and a Markdown importer names a source line.
+        foreach ($rows as $row) {
+            $this->assertSame('warning', $row->severity);
+            $this->assertSame('dropped', $row->fidelity);
+            $this->assertSame('exact', $row->confidence);
+        }
     }
 
     /**

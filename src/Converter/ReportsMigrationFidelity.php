@@ -6,6 +6,20 @@ namespace MarkupCarve\Carve\Converter;
 
 trait ReportsMigrationFidelity
 {
+    /**
+     * A checkbox read on an ordered list item, kept as the item's bracket text.
+     *
+     * One copy for every entry point that reaches the loss: it is one loss with
+     * one cause, so a consumer filtering on the message should not have to know
+     * which importer ran. The grammar clause behind it - `task_marker` hangs off
+     * `unordered_item` alone - stays in the import contract's prose rather than
+     * in the row (carve-js#2062).
+     *
+     * @var string
+     */
+    public const ORDERED_TASK_ITEM_UNSPELLABLE = 'An ordered task item is not spellable as a Carve task item; '
+        . 'the checkbox marker was kept as text';
+
     protected function unverifiedMigrationResult(string $value, string $format): MigrationResult
     {
         $diagnostics = [

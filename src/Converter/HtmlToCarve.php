@@ -454,7 +454,7 @@ class HtmlToCarve
                         // section 16): this tree keeps `checked` on the item, so
                         // the row the source exit owes would be a loss that did
                         // not happen here (carve-php#2381).
-                        || str_starts_with($diagnostic->message, 'Wrote an ordered task item'))),
+                        || $diagnostic->message === self::ORDERED_TASK_ITEM_UNSPELLABLE)),
             )),
         );
     }
@@ -760,12 +760,13 @@ class HtmlToCarve
                 // attribute rows it would otherwise spend: a Carve task marker
                 // is spelled behind a bullet only, so the characters survive and
                 // the task-item semantics do not (carve-php#2381). Named at the
-                // `<input>`'s own path, the way carve-rs#1904 pinned it.
+                // `<input>`'s own path, the way carve-rs#1904 pinned it. The
+                // message is the Markdown entry point's, pinned for both by the
+                // import contract (carve-js#2062).
                 $this->addImportDiagnostic(
                     $diagnostics,
                     'structure-unspellable',
-                    'Wrote an ordered task item\'s checkbox as its bracket text: a Carve task marker is spelled '
-                        . 'behind a bullet only, so the item keeps the characters and loses the task-item semantics',
+                    self::ORDERED_TASK_ITEM_UNSPELLABLE,
                     'warning',
                     $path,
                 );
