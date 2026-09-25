@@ -2633,6 +2633,8 @@ class HtmlToCarve
      * libxml spells boolean attributes, also use the element's content. This
      * keeps a generated checkbox from answering for a labeled control.
      * Two contentless elements can still collide without node provenance.
+     * Other attributes cannot use content as a key: a round trip may rewrite
+     * visible text while preserving their values.
      * Classes are compared by token because the renderer may add tokens or
      * normalize spacing.
      */

@@ -1686,7 +1686,8 @@ $converter->getParser()->getInlineParser()->addInlineMatcher(
 `getAbbreviation()`) and recursive parse helpers (`parseInlines()`,
 `parseBlocks()`). Matchers run by descending `priority`, then registration
 order. `addInlinePattern()` and `addBlockPattern()` remain available as regex
-sugar over the same matcher contract.
+sugar over the same matcher contract. Callback examples live in
+[`CustomPatternsTest.php`](../tests/TestCase/Parser/CustomPatternsTest.php).
 
 For a raw-closure `addInlineMatcher()`, pass `triggerChars` (the literal first
 bytes the matcher can ever fire on, e.g. `'{'` above) so the parser only invokes

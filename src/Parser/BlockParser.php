@@ -13125,6 +13125,8 @@ class BlockParser
      * Rebase only outside open code fences, divs, and nested containers, where
      * authored indentation can introduce a block. An absorbing `:::` opener
      * does not count as an open container.
+     * Check `divDepth` even when `inDiv` is false: a nested div's first closer
+     * clears the flag. Check `inFootnoteBody` even without a nested column.
      *
      * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
      * @param array<string> $body
