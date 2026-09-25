@@ -64,7 +64,7 @@ marker.
 
 A `<math>` element is another. Its TeX is read from an `<annotation>` declaring
 `application/x-tex`, `text/x-tex` or `LaTeX` as a direct child of the element's
-`<semantics>`, else from `alttext` with a `math-encoding-assumed` info, since
+`<semantics>`, else from `alttext` with an `encoding-assumed` info, since
 MathML does not declare what `alttext` holds. An element carrying neither has no
 TeX to give: `roundtrip` keeps it verbatim, while `safe` and `semantic` drop it
 with an `element-dropped` warning rather than concatenate its children, which
