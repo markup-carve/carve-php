@@ -201,6 +201,15 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
         );
     }
 
+    public function testRoundtripReportsKeptMathAsRaw(): void
+    {
+        $html = '<p><math><mi>x</mi></math></p>';
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport($html);
+
+        $this->assertSame('`<math><mi>x</mi></math>`{=html}', trim($result->value));
+        $this->assertSame(['raw-preserved'], array_column($result->report()['diagnostics'], 'code'));
+    }
+
     /**
      * MathType's own encoding, which is not TeX and must never be read as it.
      */
@@ -277,14 +286,6 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
         $this->assertSame($expected, trim((new HtmlToCarve())->convert($html)));
     }
 
-    /**
-     * The tier-3 arm `roundtrip` takes. This is not a control: the ruling
-     * records `roundtrip` as already raw-preserving the element, and this
-     * importer did not - it concatenated the children in every mode, so a
-     * trusted round trip lost the element exactly as the untrusted ones did.
-     * It keeps the whole element as a raw-HTML inline now, which is the only
-     * mode where nothing has to be thrown away.
-     */
     public function testRoundtripKeepsTheWholeElementInsteadOfDroppingIt(): void
     {
         $result = (new HtmlToCarve(trustedRoundTrip: true))
@@ -294,7 +295,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
             'Bare `<math><mfrac><mn>1</mn><mn>2</mn></mfrac></math>`{=html} here.',
             trim($result->value),
         );
-        $this->assertSame([], $result->report()['diagnostics']);
+        $this->assertSame(['raw-preserved'], array_column($result->report()['diagnostics'], 'code'));
     }
 
     /**

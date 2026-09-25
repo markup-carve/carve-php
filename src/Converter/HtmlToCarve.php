@@ -1284,13 +1284,6 @@ class HtmlToCarve
         if ($this->importMode !== 'roundtrip') {
             return false;
         }
-        // An attribute-less `<math>` kept whole throws nothing away, and its own
-        // ruling pins no row for it. Kept as a named exception rather than folded
-        // into the oracle, because it is a statement about what the element
-        // loses, not about whether its bytes are there.
-        if (strtolower($node->tagName) === 'math' && $node->attributes->length === 0) {
-            return false;
-        }
 
         return $this->emittedKeepsElementBytes($node);
     }
