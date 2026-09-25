@@ -3121,6 +3121,16 @@ class MarkdownToCarve
         if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+\[[ xX]\][ \t]+)(\S.*)$/s', $line, $task) !== 1) {
             return $line;
         }
+        // A tilde fence takes its escape HERE rather than from
+        // `escapeBlockOpener`, which the item's own continuation lines share: a
+        // fence is read at any indent there, while `~~~` interrupts no paragraph
+        // in Carve, so escaping one on a continuation line would guard nothing
+        // (carve-php#2356). One backslash is enough - it is the run that opens
+        // the fence, and a tilde in text needs no escape. A backtick run is
+        // inline-structural and already gets its escape from the inline pass.
+        if (preg_match('/^~{3,}/', $task[2]) === 1) {
+            return $task[1] . '\\' . $task[2];
+        }
 
         return $task[1] . $this->escapeBlockOpener($task[2]);
     }
