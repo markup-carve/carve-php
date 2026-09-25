@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use DOMComment;
+use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
@@ -13,6 +14,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use SplObjectStorage;
 
 /**
  * Builds the public Carve AST directly from an HTML DOM.
@@ -29,6 +31,13 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  */
 final class HtmlAstBuilder
 {
+    private ?DOMDocument $builtDocument = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    private SplObjectStorage $keptRawElements;
+
     private ?bool $tableCellAllowsEmptyCode = null;
 
     /**
@@ -232,6 +241,25 @@ final class HtmlAstBuilder
         private readonly array $alignmentClasses = [],
         private readonly array $labels = [],
     ) {
+        $this->keptRawElements = new SplObjectStorage();
+    }
+
+    public function builtDocument(): ?DOMDocument
+    {
+        return $this->builtDocument;
+    }
+
+    /**
+     * @return \SplObjectStorage<\DOMElement, null>
+     */
+    public function keptRawElements(): SplObjectStorage
+    {
+        return $this->keptRawElements;
+    }
+
+    private function keepRaw(DOMElement $node): void
+    {
+        $this->keptRawElements[$node] = null;
     }
 
     /**
@@ -273,6 +301,7 @@ final class HtmlAstBuilder
      */
     public function build(string $html, ?int $sourceByteLength = null): array
     {
+        $this->keptRawElements = new SplObjectStorage();
         $this->footnoteTargets = [];
         $this->footnoteDefinitions = [];
         $this->referenceDefinitions = [];
@@ -284,6 +313,7 @@ final class HtmlAstBuilder
         $this->inCaption = false;
         $this->preserveInlineWhitespace = false;
         $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
+        $this->builtDocument = $document;
 
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
@@ -593,6 +623,8 @@ final class HtmlAstBuilder
         ) {
             $html = $node->ownerDocument?->saveHTML($node);
 
+            $this->keepRaw($node);
+
             return [
                 [
                     'type' => 'raw_block',
@@ -634,6 +666,8 @@ final class HtmlAstBuilder
             && !self::aRowRefusesTheRegion($node)
         ) {
             $html = $node->ownerDocument?->saveHTML($node);
+
+            $this->keepRaw($node);
 
             return [
                 [
@@ -1685,6 +1719,7 @@ final class HtmlAstBuilder
 
         if ($keepsRaw && $caption !== [] && !self::aRowRefusesTheRegion($node)) {
             $html = $node->ownerDocument?->saveHTML($node);
+            $this->keepRaw($node);
 
             return [
                 [
@@ -2435,6 +2470,7 @@ final class HtmlAstBuilder
                     return [];
                 }
                 $html = $node->ownerDocument?->saveHTML($node);
+                $this->keepRaw($node);
 
                 return [
                     [
@@ -2492,6 +2528,7 @@ final class HtmlAstBuilder
             && !self::aRowRefusesTheRegion($node)
         ) {
             $html = $node->ownerDocument?->saveHTML($node);
+            $this->keepRaw($node);
 
             return [
                 [
@@ -2523,10 +2560,16 @@ final class HtmlAstBuilder
                 $this->importMode === 'roundtrip'
                 && (str_contains($node->getAttribute('alt'), '[') || str_contains($node->getAttribute('alt'), '\\'))
             ) {
+                $html = $this->sanitizedElementHtml($node);
+                $serialized = $node->ownerDocument?->saveHTML($node);
+                if (is_string($serialized) && $html === rtrim($serialized, "\n")) {
+                    $this->keepRaw($node);
+                }
+
                 return [
                     [
                         'type' => 'raw_inline',
-                        'content' => $this->sanitizedElementHtml($node),
+                        'content' => $html,
                         'format' => 'html',
                     ],
                 ];
@@ -2556,6 +2599,7 @@ final class HtmlAstBuilder
                 foreach ($node->getElementsByTagName('img') as $image) {
                     if (preg_match('/[\\[\\]\\\\]/', $image->getAttribute('alt')) === 1) {
                         $html = $node->ownerDocument?->saveHTML($node);
+                        $this->keepRaw($node);
 
                         return [
                             [
