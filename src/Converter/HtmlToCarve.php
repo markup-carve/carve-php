@@ -322,6 +322,8 @@ class HtmlToCarve
 
     protected int $maxDiagnostics = 1000;
 
+    protected bool $usedStoredRoundTripSource = false;
+
     /**
      * @param bool $trustedRoundTrip
      * @param array<string, string> $alignmentClasses text-align value => class name
@@ -541,6 +543,7 @@ class HtmlToCarve
         $isDocument = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1;
         $wrapped = $isDocument ? $html : '<div>' . $html . '</div>';
         $doc = HtmlDomLoader::load($wrapped);
+        $this->normalizeAdapterFootnotes($doc);
 
         $diagnostics = [];
         $root = $doc->documentElement ?? $doc;
@@ -875,6 +878,16 @@ class HtmlToCarve
                 $path,
             );
         }
+        if ($this->directAstCellFlattens($node)) {
+            $keepsContent = $this->directAstHasSurvivingContent($node);
+            $this->addImportDiagnostic(
+                $diagnostics,
+                $keepsContent ? 'element-unwrapped' : 'element-dropped',
+                $keepsContent ? 'Unwrapped unsupported <' . $tag . '> element' : 'Dropped empty <' . $tag . '> element',
+                $keepsContent ? 'info' : 'warning',
+                $path,
+            );
+        }
     }
 
     /**
@@ -1152,6 +1165,26 @@ class HtmlToCarve
                 return $figure instanceof DOMElement
                     && strtolower($figure->tagName) === 'figure'
                     && in_array($this->directAstFigureOutcome($figure), ['survives', 'table-rebuild'], true);
+            }
+        }
+
+        return false;
+    }
+
+    private function directAstCellFlattens(DOMElement $node): bool
+    {
+        if (
+            $this->usedStoredRoundTripSource
+            || !$this->isFlattenedInACaption(strtolower($node->tagName))
+            || $this->directAstCaptionFlattens($node)
+            || $this->directAstUnwraps($node)
+            || strtolower($node->tagName) === 'figure'
+        ) {
+            return false;
+        }
+        for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+            if (in_array(strtolower($ancestor->tagName), ['td', 'th'], true)) {
+                return !$this->cellIsWrittenAsAListTableItem($ancestor);
             }
         }
 
@@ -1548,8 +1581,13 @@ class HtmlToCarve
                 continue;
             }
             $sawCell = true;
-            if (trim($cell->textContent) !== '' || $cell->getElementsByTagName('*')->length > 0) {
+            if (trim($cell->textContent) !== '') {
                 return false;
+            }
+            foreach ($cell->getElementsByTagName('*') as $descendant) {
+                if (strtolower($descendant->tagName) !== 'hr') {
+                    return false;
+                }
             }
         }
 
@@ -3124,12 +3162,15 @@ class HtmlToCarve
      */
     public function convert(string $html): string
     {
+        $this->usedStoredRoundTripSource = false;
         if (preg_match('/^\s*<!doctype\b[^>]*>\s*$/iD', $html) === 1) {
             return '';
         }
         $normalized = $this->normalizeHtmlForDirectAst($html);
         $storedSource = $this->singleStoredRoundTripSource($normalized);
         if ($storedSource !== null) {
+            $this->usedStoredRoundTripSource = true;
+
             return rtrim($storedSource, "\n") . "\n";
         }
         $tree = (new HtmlAstBuilder(

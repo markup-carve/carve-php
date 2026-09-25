@@ -57,6 +57,17 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
         return $rows;
     }
 
+    /**
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    private function droppedAttributes(string $html): array
+    {
+        return array_values(array_filter(
+            $this->diagnostics($html),
+            static fn (array $row): bool => $row[0] === 'attribute-dropped',
+        ));
+    }
+
     private function carve(string $html): string
     {
         return trim((new HtmlToCarve())->convertWithReport($html)->value);
@@ -206,7 +217,7 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
         $this->assertStringNotContainsString('cite=u', $this->carve($html));
         $this->assertSame(
             [['attribute-dropped', 'info', 'Dropped unsupported attribute cite on <blockquote>']],
-            $this->diagnostics($html),
+            $this->droppedAttributes($html),
         );
     }
 
@@ -396,7 +407,12 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     {
         $result = (new HtmlToCarve(...$options))->convertWithReport($html);
         $survived = str_contains((new CarveConverter())->convert($result->value), 'cite="u"');
-        $reported = $result->diagnostics !== [];
+        $reported = false;
+        foreach ($result->diagnostics as $diagnostic) {
+            if ($diagnostic->code === 'attribute-dropped' && str_contains($diagnostic->message, ' cite ')) {
+                $reported = true;
+            }
+        }
 
         $this->assertSame(
             !$survived,
@@ -434,7 +450,7 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
                 ['attribute-dropped', 'info', 'Dropped unsupported attribute id on <blockquote>'],
                 ['attribute-dropped', 'info', 'Dropped unsupported attribute class on <blockquote>'],
             ],
-            $this->diagnostics($html),
+            $this->droppedAttributes($html),
         );
     }
 
