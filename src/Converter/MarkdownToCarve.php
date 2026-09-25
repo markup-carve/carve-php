@@ -846,8 +846,10 @@ class MarkdownToCarve
                 $result[] = $this->convertInlineFormatting(
                     $this->escapeRowContinuation(
                         $this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)),
+                        $lines,
+                        $i,
+                        $listCols,
                         (string)end($result),
-                        $lines[$i + 1] ?? '',
                     ),
                 );
                 $this->trackItemParagraph($line, $isList, $contentCol, $itemParagraph, $itemQuote);
@@ -1022,7 +1024,14 @@ class MarkdownToCarve
 
             if (!$isHeading && !$isList && in_array($prevLineType, ['text', 'list', 'blockquote'], true)) {
                 $body = $this->escapeDefinitionContinuation($body, $lines[$i - 1] ?? '', (string)end($result));
-                $body = $this->escapeRowContinuation($body, (string)end($result), $lines[$i + 1] ?? '');
+            }
+            // NOT under that gate. A definition only misreads a line that
+            // CONTINUES a paragraph, but a lone pipe row is prose wherever it
+            // stands - under a heading, under a break, after a blank and at the
+            // start of the document, all of which leave no paragraph open and
+            // all of which diverged (carve-php#2365).
+            if (!$isHeading && !$isList) {
+                $body = $this->escapeRowContinuation($body, $lines, $i, $listCols, (string)end($result));
             }
             // An item's own line holding a quote reaches here whole, past the
             // branches that would have folded or fenced it, so its markers are
@@ -3461,11 +3470,10 @@ class MarkdownToCarve
     }
 
     /**
-     * Escape a closed pipe row that continues an open paragraph: a LONE row is
-     * no table in GFM and interrupts nothing, so it is text of the paragraph
-     * above it, while Carve opens a headerless table at its container's content
-     * column and split the paragraph in two around a table nobody spelled
-     * (carve-php#2359).
+     * Escape a closed pipe row that answers no delimiter row: a LONE row is no
+     * table in GFM, so it is prose, while Carve opens a headerless table at its
+     * container's content column and grew a table nobody spelled
+     * (carve-php#2359, carve-php#2365).
      *
      * This is the one shape where the two readers disagree in this direction -
      * carve-php#2340 dedented markers Carve declines to read as openers, and a
@@ -3481,31 +3489,107 @@ class MarkdownToCarve
      *   asked about may be the header or the delimiter. Read at column 0 the
      *   cell counts never match inside a quote, and the escape then put a real
      *   table's own characters on the page.
-     * - the paragraph is open if the line WRITTEN above leaves one open. An
-     *   escaped row does, and a row that kept its pipes opened a table.
+     * - a table already under way keeps this row as one of its BODY rows, which
+     *   answers no delimiter and is answered by none - indistinguishable from a
+     *   lone row by the two checks above. So the run of rows above is walked
+     *   back for the pair that opened the table, rather than reading the one
+     *   line above (carve-php#2365).
      *
-     * @param string $line
+     * WHAT IT DOES NOT ASK is whether the line above leaves a paragraph OPEN.
+     * That gate was #2359's, and it left every position where none is open
+     * diverging: under a heading, under a break, under a closed fence, after a
+     * blank and at the start of the document. The under-way test covers the body
+     * row the paragraph gate was protecting by accident, so it does the whole
+     * job (carve-php#2365).
+     *
+     * AND the row has to SIT at its container's content column. Carve opens a
+     * table there and nowhere else, so an indented row is a paragraph in both
+     * readers and a backslash on it guards nothing. Measured while widening the
+     * gate: without this test the change writes 1237 escapes across a 5390-case
+     * matrix, 339 of them on lines whose render they do not touch - the
+     * decorative escape carve-php#2339 spent a fix removing.
+     *
+     * @param string $line The line to escape, as the conversion has it so far.
+     * @param array<int, string> $lines
+     * @param int $index This line's index in the source, for its neighbours.
+     * @param array<int, int> $listCols Content columns of the enclosing list items.
      * @param string $written The line written for the line above.
-     * @param string $next The source line below.
      */
-    protected function escapeRowContinuation(string $line, string $written, string $next): string
+    protected function escapeRowContinuation(string $line, array $lines, int $index, array $listCols, string $written): string
     {
-        if (preg_match('/^([ \t]*(?:>[ \t]?)*[ \t]*)(\|.*\|[ \t]*)$/', $line, $row) !== 1) {
+        if (preg_match('/^([ \t]*)((?:>[ \t]?)*)([ \t]*)(\|.*\|[ \t]*)$/', $line, $row) !== 1) {
             return $line;
         }
-        $held = trim($row[2]);
+        // Inside a quote the markers place the content column, so the row's own
+        // indent is whatever follows them. Outside one it is the line's, and it
+        // opens a table only at a column some container's content starts at -
+        // column 0, or an enclosing item's. A row one column past any of those
+        // is a paragraph already.
+        $indent = $row[2] === '' ? $this->indentWidth($row[1]) : $this->indentWidth($row[3]);
+        if (!in_array($indent, $row[2] === '' ? [0, ...$listCols] : [0], true)) {
+            return $line;
+        }
+        $held = trim($row[4]);
         $above = $this->stripContainerMarkers($written);
         if (
-            $this->startsTableHeader([$held, $this->stripContainerMarkers($next)], 0)
+            $this->startsTableHeader([$held, $this->stripContainerMarkers($lines[$index + 1] ?? '')], 0)
             || $this->startsTableHeader([$above, $held], 0)
+            || $this->gfmTableIsUnderWay($lines, $index)
         ) {
             return $line;
         }
-        if (!$this->quoteParagraphIsOpen($above)) {
-            return $line;
+
+        return $row[1] . $row[2] . $row[3] . '\\' . $row[4];
+    }
+
+    /**
+     * Whether a GFM table is already under way in this line's container, making
+     * a closed pipe row here one of its body rows.
+     *
+     * GFM opens a table at a header row ANSWERED by a delimiter row and runs it
+     * to a blank line or a block construct. So the answer is in the run of lines
+     * above rather than in the one directly above: over `| a | b |` / `| - | - |`
+     * the third row `| c | d |` is body, and the pair that says so is two lines
+     * up.
+     *
+     * Lines are compared at their own container. A quote marker sequence is
+     * normalized before the comparison, `>>` and `> >` being one container, and
+     * a line at another depth ends the run - a table does not reach out of the
+     * quote that holds it.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     */
+    protected function gfmTableIsUnderWay(array $lines, int $index): bool
+    {
+        $container = $this->quoteMarkerDepth($lines[$index]);
+        $rows = [];
+        for ($at = $index - 1; $at >= 0; $at--) {
+            if ($this->quoteMarkerDepth($lines[$at]) !== $container) {
+                break;
+            }
+            $held = $this->stripContainerMarkers($lines[$at]);
+            if (!$this->continuesGfmTableBody($held)) {
+                break;
+            }
+            array_unshift($rows, trim($held));
+        }
+        $rows[] = trim($this->stripContainerMarkers($lines[$index]));
+        for ($at = 0, $count = count($rows); $at + 1 < $count; $at++) {
+            if ($this->startsTableHeader($rows, $at)) {
+                return true;
+            }
         }
 
-        return $row[1] . '\\' . $row[2];
+        return false;
+    }
+
+    /**
+     * How many quote markers a line opens with, `>>` and `> >` counting alike.
+     */
+    protected function quoteMarkerDepth(string $line): int
+    {
+        return preg_match('/^[ \t]*(?:>[ \t]?)*/', $line, $at) === 1 ? substr_count($at[0], '>') : 0;
     }
 
     /**

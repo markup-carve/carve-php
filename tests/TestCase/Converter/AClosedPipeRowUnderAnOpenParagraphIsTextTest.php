@@ -208,13 +208,18 @@ final class AClosedPipeRowUnderAnOpenParagraphIsTextTest extends TestCase
                 "> a | b\n> | - | - |\n",
                 "> a | b\n> | - | - |\n",
             ],
-            'a row after a blank keeps no escape' => [
+            // No paragraph is open here and the row still answers no delimiter,
+            // so it is still prose: cmark-gfm reads `<p>foo</p><p>| a | b |</p>`.
+            // This case read the other way while the escape was gated on an open
+            // paragraph, which is what carve-php#2365 corrected.
+            'a row after a blank takes the escape too' => [
                 "foo\n\n| a | b |\n",
-                "foo\n\n| a | b |\n",
+                "foo\n\n\\| a | b |\n",
             ],
-            // A body row answers no delimiter and is answered by none, so only
-            // the open-paragraph test keeps it bare. It is the control for that
-            // test: without it the row is escaped and the table loses its body.
+            // A body row answers no delimiter and is answered by none, so what
+            // keeps it bare is the table already under way at its column. It is
+            // the control for that test: without it the row is escaped and the
+            // table loses its body.
             'a quoted table body row keeps its pipes' => [
                 "> | a | b |\n> | - | - |\n> | c | d |\n",
                 "> | a | b |\n> | - | - |\n> | c | d |\n",
