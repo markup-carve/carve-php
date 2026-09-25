@@ -2102,14 +2102,19 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                     $marker = '.';
                 }
                 $prefix = $counter . $marker . ' ';
+                $contentColumn = strlen($prefix);
                 $counter++;
             } elseif ($node->getListType() === ListBlock::TYPE_TASK) {
                 $marker = $node->getMarker() ?? '-';
                 $checkbox = $child->getChecked() ? '[x] ' : '[ ] ';
                 $prefix = $marker . ' ' . $checkbox;
+                // The checkbox is the item's first inline content, not part of
+                // its marker, so it does not move the content column (carve#413).
+                $contentColumn = strlen($marker) + 1;
             } else {
                 $marker = $node->getMarker() ?? '-';
                 $prefix = $marker . ' ';
+                $contentColumn = strlen($prefix);
             }
 
             $content = $this->containerContent(fn (): string => $this->renderItemBlocks($child, $tight));
@@ -2131,7 +2136,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // 7 emits such a line empty, and trailing whitespace is
                 // what editors and `git apply --whitespace=fix` rewrite
                 // behind the writer.
-                $continuation = str_repeat(' ', strlen($prefix));
+                $continuation = str_repeat(' ', $contentColumn);
                 foreach ($lines as $line) {
                     $output .= ($line === '' ? '' : $continuation . $line) . "\n";
                 }
@@ -2174,6 +2179,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         foreach ($children as $child) {
             $parts[] = $this->renderNode($child);
         }
+        $this->separateBlocksBelowANestedList($children, $parts);
         if ($tight) {
             // The seam is read off the text as it stands, not off the sibling
             // index: a child this target drops writes nothing, so the block
@@ -2201,6 +2207,39 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $this->reflankRuns($children, array_values($parts));
+    }
+
+    /**
+     * A nested list writes no blank line after itself, so a sibling block below
+     * it sits directly under the last sublist item and a reader takes it as
+     * that item's lazy continuation - the block is absorbed into the item's
+     * paragraph and its own node is gone. Put the blank in wherever that can
+     * happen (carve#2446).
+     *
+     * It can only happen while the sublist's last item leaves a paragraph open,
+     * and only for a block that does not interrupt a paragraph on its own.
+     * Writing the blank anywhere else would loosen this item for nothing.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     * @param array<int, string> $parts
+     */
+    protected function separateBlocksBelowANestedList(array $children, array &$parts): void
+    {
+        foreach ($children as $index => $child) {
+            $below = $parts[$index + 1] ?? '';
+            if (
+                !$child instanceof ListBlock
+                || $parts[$index] === ''
+                || $below === ''
+                || !str_ends_with($parts[$index], "\n")
+                || str_ends_with($parts[$index], "\n\n")
+                || !$this->leavesParagraphOpen($child)
+                || $this->opensWithParagraphInterrupter(explode("\n", $below)[0])
+            ) {
+                continue;
+            }
+            $parts[$index] .= "\n";
+        }
     }
 
     /**
@@ -2235,13 +2274,49 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if (str_starts_with($first, '>') && str_starts_with($this->lastNonBlankLine($aboveRendered), '>')) {
             return false;
         }
+
+        return $this->opensWithParagraphInterrupter($first);
+    }
+
+    /**
+     * Whether this line opens a construct that interrupts a paragraph, so a
+     * block starting with it is not read as the continuation of one.
+     */
+    protected function opensWithParagraphInterrupter(string $line): bool
+    {
         foreach (self::PARAGRAPH_INTERRUPTERS as $opener) {
-            if (preg_match($opener, $first) === 1) {
+            if (preg_match($opener, $line) === 1) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Whether this block's last line leaves a paragraph open, which is what a
+     * lazy continuation below it attaches to.
+     */
+    protected function leavesParagraphOpen(Node $node): bool
+    {
+        if ($node instanceof Paragraph) {
+            return true;
+        }
+        if (
+            !$node instanceof ListBlock
+            && !$node instanceof ListItem
+            && !$node instanceof BlockQuote
+            && !$node instanceof DefinitionList
+            && !$node instanceof DefinitionDescription
+        ) {
+            return false;
+        }
+        $children = array_values($node->getChildren());
+        if ($children === []) {
+            return false;
+        }
+
+        return $this->leavesParagraphOpen($children[count($children) - 1]);
     }
 
     protected function lastNonBlankLine(string $rendered): string
