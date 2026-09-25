@@ -2136,6 +2136,32 @@ class MarkdownToCarve
     }
 
     /**
+     * The lines from `$start` on with a quote's prefix taken off each, so a
+     * fold that measures columns INSIDE that quote reads them the way it reads
+     * them at the top level. A line that does not carry the prefix is left as
+     * it stands, since the caller's own lazy-line reading still answers for it.
+     *
+     * @param array<int, string> $lines
+     * @param int $start
+     * @param string $prefix
+     *
+     * @return array<int, string>
+     */
+    protected function linesInsideQuote(array $lines, int $start, string $prefix): array
+    {
+        $inside = $lines;
+        for ($at = $start, $count = count($lines); $at < $count; $at++) {
+            $body = $this->normalizeBlockquoteMarkers(ltrim($lines[$at], ' '));
+            if (!str_starts_with($body, $prefix)) {
+                continue;
+            }
+            $inside[$at] = substr($body, strlen($prefix));
+        }
+
+        return $inside;
+    }
+
+    /**
      * A setext heading a quote holds, its paragraph lines under the same quote
      * prefix folded into one ATX line, as `[text, underline index]`. `$text`
      * may open with the markers of an item the quote holds.
@@ -2151,6 +2177,30 @@ class MarkdownToCarve
     {
         $lead = preg_match('/^[ \t]*(?:(?:[-*+]|\d{1,9}[.)]) {1,4}(?=\S))*/', $text, $markers) === 1 ? $markers[0] : '';
         $first = substr($text, strlen($lead));
+        // A quote the item holds opens the paragraph, so two columns come off
+        // before the fold can read a line: the item's content column and then
+        // the held quote's own prefix. This one strips only its own, so the
+        // held quote's marker stayed text of the line it stands on and the
+        // underline below it stayed a rule nobody wrote (carve-php#2355). Hand
+        // the shape to the item-held fold, which measures from the item's
+        // column, with this quote's prefix off every line so it reads what it
+        // reads at the top level. Before the paragraph gate below, which asks
+        // whether THIS quote's paragraph is open and answers no for a line that
+        // opens another quote.
+        //
+        // A marker here means the item markers took a column off: both callers
+        // match a greedy `(?:> )+` over already-normalized markers, so `$text`
+        // itself never opens with one.
+        if (preg_match('/^> /', $this->normalizeBlockquoteMarkers($first)) === 1) {
+            $held = $this->foldItemQuotedSetext(
+                $this->linesInsideQuote($lines, $start, $prefix),
+                $start,
+                $first,
+                $this->columnWidth($lead),
+            );
+
+            return $held === null ? null : [$lead . $held[0], $held[1]];
+        }
         if (!$this->quoteParagraphIsOpen($first) || !$this->continuesParagraph($first)) {
             return null;
         }
