@@ -141,6 +141,18 @@ class CliTest extends TestCase
         $this->assertStringContainsString('<strong>strong</strong>', $out);
     }
 
+    public function testLintChecksReferencesPlacementOnlyWhenCitationsAreSelected(): void
+    {
+        $source = "See [@x].\n\n> ::: references\n> :::\n\n[@x]: Source\n";
+        $plain = $this->runCliInput(['lint'], $source);
+        $this->assertSame(0, $plain['exit']);
+        $this->assertSame('', $plain['out']);
+
+        $selected = $this->runCliInput(['lint', '--extension', 'citations'], $source);
+        $this->assertSame(1, $selected['exit']);
+        $this->assertStringContainsString('references-placement-in-container', $selected['out']);
+    }
+
     public function testRendersMarkdown(): void
     {
         $out = $this->runCli(['--markdown']);

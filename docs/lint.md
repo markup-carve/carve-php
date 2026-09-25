@@ -1,19 +1,20 @@
 # Linting
 
-Seven passes report constructs that parse cleanly but almost certainly do not
+Lint passes report constructs that parse cleanly but almost certainly do not
 mean what the author intended. Every finding is a `LintWarning` carrying `line`,
 `column`, `rule`, `message`, `start` and `end`, mirroring the carve-js shape so
 the two engines report the same finding in the same terms. Offsets are byte
 offsets into the source you passed.
 
-`MarkdownHabitLinter` and `TableColumnLinter` read the **source**; the other
-five parse and walk the **AST**. They are separate classes because they answer
+`MarkdownHabitLinter` and `TableColumnLinter` read the **source**; the others
+parse and walk the **AST**. They are separate classes because they answer
 separate questions, and none can be expressed in another's terms.
 
 ```php
 use MarkupCarve\Carve\Lint\FigureGroupLinter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
 use MarkupCarve\Carve\Lint\QuoteFenceLinter;
+use MarkupCarve\Carve\Lint\ReferencesPlacementLinter;
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
 use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
 use MarkupCarve\Carve\Lint\TableColumnLinter;
@@ -27,6 +28,7 @@ $warnings = array_merge(
     (new TemplateSourceLinter())->lint($source),
     (new FigureGroupLinter())->lint($source),
     (new QuoteFenceLinter())->lint($source),
+    (new ReferencesPlacementLinter())->lint($source, ['extensions' => ['citations']]),
 );
 ```
 
@@ -34,9 +36,10 @@ $warnings = array_merge(
 carve lint doc.crv
 ```
 
-`carve lint` runs all seven and exits non-zero when anything is reported.
+`carve lint` runs these passes and exits non-zero when anything is reported.
+Use `carve lint --extension citations doc.crv` to check references placement.
 
-Three passes have no section below. `TableColumnLinter` reports a table cell
+Several passes have no section below. `TableColumnLinter` reports a table cell
 alignment run with no terminating space, `aligns` / `valigns` / `widths`
 attributes that cover fewer columns than the table, `widths` totaling over 100%,
 and an `aligns` / `valigns` axis the table's own `|=` markers already set.
@@ -45,6 +48,11 @@ and an `aligns` / `valigns` axis the table's own `|=` markers already set.
 reached Carve before template rendering. `QuoteFenceLinter` reports a `::: >`
 opener at the column of the quote above it, which ends that quote instead of
 nesting inside it.
+
+`ReferencesPlacementLinter` reports a `::: references` marker inside a
+container when citations are enabled. The marker renders as an ordinary div
+there; the generated list stays at document level. A top-level marker places
+the list and draws no warning.
 
 ## Markdown habits
 
@@ -270,9 +278,9 @@ $warnings = $linter->lint('[x]{cite="V"}', [
 ]);
 ```
 
-Pass what you pass to the converter. `carve lint` reads a core render, because
-the command line has no way to be told which extensions the document will be
-published through.
+Pass what you pass to the converter. The command-line linter reads a core
+render for semantic span attributes; its `--extension citations` flag enables
+the references placement check.
 
 ## Composite figures
 
