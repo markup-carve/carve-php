@@ -22,9 +22,11 @@ report classifies findings as `preserved`, `normalized`, `degraded`, or
 the report contains degraded or dropped content.
 
 Markdown, Djot, and BBCode currently fail closed as `dropped` with `fallback`
-confidence because those importers do not yet produce construct-level evidence.
-HTML reports its import `mode` and `adapter`; its resource-limit exceptions are
-reported as command errors rather than partial migration reports.
+confidence, under the diagnostic code `fidelity-unverified`, because those
+importers do not yet produce construct-level evidence. HTML reports its import
+`mode` and `adapter`; its resource-limit exceptions are reported as command
+errors rather than partial migration reports. Opaque raw HTML is `degraded` even
+when its bytes survive, because the importer neither models nor can edit it.
 
  `--include-root DIR` sets the containment root for `{{ path }}` include
  directives. A file input already defaults to the document's own directory, so

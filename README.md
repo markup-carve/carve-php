@@ -28,17 +28,12 @@ $converter = new CarveConverter();
 $html = $converter->convert('# Hello /Carve/');
 ~~~
 
-HTML, Markdown, Djot and BBCode can return a versioned migration-fidelity report
-through each converter's `convertWithFidelityReport()` method. It uses one
-`preserved`, `normalized`, `degraded`, and `dropped` vocabulary while retaining
-format-specific diagnostic codes. HTML also has its detailed import report; see
-[docs/html-import.md](https://github.com/markup-carve/carve-php/blob/main/docs/html-import.md).
-Until Markdown, Djot and BBCode provide construct-level evidence, their reports
-fail closed with a `dropped` / `fallback` `fidelity-unverified` diagnostic.
-The migration CLI writes this envelope with `--report FILE` (or `--report -`
-for stderr), and `--check-loss` exits non-zero for degraded or dropped content.
-Opaque raw HTML is degraded even when its bytes survive because it is not
-modeled or editable by the importer.
+The HTML, Markdown, Djot and BBCode importers return a versioned
+migration-fidelity report from each converter's `convertWithFidelityReport()`
+method. One `preserved` / `normalized` / `degraded` / `dropped` vocabulary spans
+all four, with format-specific diagnostic codes underneath. The report envelope
+and the `--check-loss` gate are in [docs/cli.md](https://github.com/markup-carve/carve-php/blob/main/docs/cli.md);
+HTML also has a detailed import report, in [docs/html-import.md](https://github.com/markup-carve/carve-php/blob/main/docs/html-import.md).
 
 Besides HTML the converter renders Markdown, plain text and ANSI. The
 Markdown writer's options are in [docs/markdown-output.md](https://github.com/markup-carve/carve-php/blob/main/docs/markdown-output.md),
@@ -103,3 +98,9 @@ the author intended. The rules and options are in [docs/lint.md](https://github.
 - [AST JSON](https://github.com/markup-carve/carve-php/blob/main/docs/ast-json.md) - the interchange format.
 - [Integrated definition layout](https://github.com/markup-carve/carve-php/blob/main/docs/integrated-definition-layout.md) - collecting and resolving reference, footnote and abbreviation definitions.
 - [Configured conversion fast path](https://github.com/markup-carve/carve-php/blob/main/docs/configured-conversion-fast-path.md) - reusing a configured converter.
+
+## Development
+
+Local setup, the test suites, the style and static-analysis gates, and the rules
+for a spec-affecting change are in
+[CONTRIBUTING.md](https://github.com/markup-carve/carve-php/blob/main/CONTRIBUTING.md).

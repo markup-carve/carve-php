@@ -2,7 +2,7 @@
 
 Thanks for your interest in contributing.
 
-## Getting Started
+## Getting started
 
 ```bash
 git clone https://github.com/markup-carve/carve-php.git
@@ -16,9 +16,9 @@ git submodule update --init
 Without the submodule, corpus-driven tests fail with "the corpus was not found"
 rather than skipping.
 
-## Development Workflow
+## Development workflow
 
-### Running Tests
+### Running tests
 
 ```bash
 composer test                                  # the everyday suite
@@ -59,7 +59,7 @@ today. Implementing a feature therefore means adding its category to
 `IMPLEMENTED` (and dropping any `KNOWN_GAPS` entry), not only making the parser
 handle it.
 
-### Code Style
+### Code style
 
 PHP Collective coding standards:
 
@@ -68,7 +68,7 @@ composer cs-check
 composer cs-fix     # phpcbf, fixes most findings automatically
 ```
 
-### Static Analysis
+### Static analysis
 
 ```bash
 composer stan       # phpstan, level 9
@@ -92,10 +92,10 @@ composer fuzz         # php-fuzzer against fuzz/target.php
 composer fuzz-strict  # the strict-profile target
 ```
 
-Worth running when you touch the parser: crashes and infinite loops surface here
+Run these when you touch the parser: crashes and infinite loops surface here
 long before anyone files them.
 
-## Project Layout
+## Project layout
 
 ```
 src/
@@ -112,7 +112,7 @@ src/
 └── LinkPolicy.php       # link destination rules
 ```
 
-## Writing Tests
+## Writing tests
 
 Match the shape of the surrounding test class:
 
@@ -125,7 +125,7 @@ public function testHeadingRendersAsH1(): void
 }
 ```
 
-Three conventions worth knowing:
+Three conventions:
 
 - Prefer `assertSame()` over `assertEquals()` for rendered strings.
 - **Make the test able to fail.** Revert the fix and watch it go red before you
@@ -139,7 +139,7 @@ Three conventions worth knowing:
   that pins that documentation - see `tests/TestCase/Documentation/` for the
   pattern. A wrong security doc is worse than a missing one.
 
-## Spec Changes
+## Spec changes
 
 This repository implements the language; it does not define it. Syntax and
 semantics live in [markup-carve/carve](https://github.com/markup-carve/carve)
@@ -155,7 +155,7 @@ spec actually pins the behavior first - where it does not, all implementations
 can agree with each other and still be wrong together, which is how the scheme
 bypass above went unnoticed. Link the sibling PRs from your description.
 
-## Pull Requests
+## Pull requests
 
 - One logical change per PR, with a test that fails without it.
 - `composer check` and `composer stan` green.
