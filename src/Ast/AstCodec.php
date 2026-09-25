@@ -1545,7 +1545,7 @@ class AstCodec
         // Rebuild the map in the AUTHOR'S order, not the order this function
         // happened to collect the slots in. The renderer emits attributes in
         // storage order, so `{key=c .a #b}` came back as `{#b .a key=c}` and
-        // six corpus documents round-tripped to different HTML.
+        // authored attribute order was lost on round trip.
         //
         // An attribute the order does not name is STRUCTURAL rather than
         // authored - an admonition's kind class is set by the parser, not

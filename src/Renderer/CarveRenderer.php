@@ -265,10 +265,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * stops when the budget runs out and returns the state it has reached, which
      * is verified like every other - the escalation is wider than §2b's minimum
      * there, never narrower, and no document's output can be wrong for it.
-     *
-     * MEASURED over the 1341 pinned corpus documents: 50 reach the search at
-     * all, and once the control render has narrowed the candidates to the units
-     * the writer asks about, the widest holds five and none holds more.
      */
     protected int $narrowingBudget = 0;
 
@@ -580,14 +576,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // the same bytes in or out of the set, so offering it its minimal
             // form is a render and a parse spent to learn nothing.
             //
-            // The gap is not small on nested documents. On the deepest corpus
-            // document - 203 nested colon fences, whose overflow past the
-            // nesting cap is the text the writer must keep from re-opening a
-            // div - the walk yields 209 units and the writer asks about FOUR.
-            // The other 205 were halved over at a render and a parse each, and
-            // that document's own output is 21x its source (a colon fence
-            // widens by one per level, PART 9 section 12), so each of those
-            // cost about what parsing 42 KB costs.
+            // Deep nesting produces many units the writer never asks about.
+            // Probing each would re-render and re-parse the expanding output.
             //
             // Logging it rather than predicting it is the same choice
             // collectEscapeUnits() makes and for the same reason: the set is
@@ -1683,10 +1673,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         // Written back in the spelling it was read in
         // (markup-carve/carve#1718). Choosing structurally instead - the fence
-        // whenever the quote holds a non-paragraph block - re-canonicalizes 50
-        // corpus documents and every user document with a multi-block quote,
-        // so the node carries the author's choice rather than the writer
-        // inferring one.
+        // whenever the quote holds a non-paragraph block - rewrites authored
+        // multi-block quotes, so the node carries the author's choice.
         if ($node->isFenced()) {
             $fence = $this->colonFenceFor($node);
 
@@ -2322,8 +2310,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // An id with no `#id` slot is a GENERATED one - since carve#750
                 // a heading's slugged id is on the wire, so a decoded node
                 // carries it - and a writer reproduces what the author wrote.
-                // Emitting it here put `{#Notes}` into 39 corpus documents
-                // whose source has no attribute block at all.
+                // A generated id was not written by the author.
                 if ((string)$key === 'id' && !in_array('#id', $order, true)) {
                     continue;
                 }
@@ -4311,8 +4298,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // An id with no `#id` slot is a GENERATED one - since carve#750
                 // a heading's slugged id is on the wire, so a decoded node
                 // carries it - and a writer reproduces what the author wrote.
-                // Emitting it here put `{#Notes}` into 39 corpus documents
-                // whose source has no attribute block at all.
+                // A generated id was not written by the author.
                 if ((string)$key === 'id' && !in_array('#id', $order, true)) {
                     continue;
                 }

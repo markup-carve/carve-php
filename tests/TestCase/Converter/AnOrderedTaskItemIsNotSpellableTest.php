@@ -79,6 +79,13 @@ final class AnOrderedTaskItemIsNotSpellableTest extends TestCase
         return [
             'one ordered task item' => ["1. [x] done\n", ['line:1']],
             'two of them' => ["1. [x] a\n2. [ ] b\n", ['line:1', 'line:2']],
+            // cmark-gfm reads an empty box when whitespace follows the pair,
+            // even if the rest of the line is blank.
+            'empty task with trailing space' => ["1. [x] \n", ['line:1']],
+            'empty task with trailing tab' => ["1. [x]\t\n", ['line:1']],
+            'four columns of marker padding' => ["1.    [x] done\n", ['line:1']],
+            'a tab within four padding columns' => ["1.\t[x] done\n", ['line:1']],
+            'a CRLF empty task' => ["1. [x] \r\n", ['line:1']],
             // An ordered list a bullet item holds: the extension reaches it, the
             // marker still sits on a line of its own, and Carve still cannot
             // spell the box.
@@ -91,6 +98,9 @@ final class AnOrderedTaskItemIsNotSpellableTest extends TestCase
             'a bullet task item owes no row' => ["- [x] done\n", []],
             // Not a task line at all in either reader.
             'a plain ordered item owes no row' => ["1. done\n", []],
+            'a bracket pair without separator owes no row' => ["1. [x]\n", []],
+            'five columns of marker padding start code' => ["1.     [x] done\n", []],
+            'a tab and spaces exceed four padding columns' => ["1.\t   [x] done\n", []],
             'a two-character state owes no row' => ["1. [xx] done\n", []],
             // Inside a code block the line is content, not an item.
             'a fenced line owes no row' => ["~~~\n1. [x] done\n~~~\n", []],

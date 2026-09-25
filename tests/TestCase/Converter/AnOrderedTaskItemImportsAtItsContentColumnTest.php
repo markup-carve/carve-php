@@ -33,6 +33,10 @@ use PHPUnit\Framework\TestCase;
  * closes the item and leaves the list; a test that only caught the exception
  * could not tell the two apart. Every expectation below is what carve-js writes
  * for the same input, byte for byte.
+ *
+ * THE BRACKET PAIR IS CONTENT, so it does not move the column either: an ordered
+ * item keeps the characters its box was read from (carve-php#2381) and the body
+ * still sits at the bare marker's width.
  */
 class AnOrderedTaskItemImportsAtItsContentColumnTest extends TestCase
 {
@@ -45,42 +49,42 @@ class AnOrderedTaskItemImportsAtItsContentColumnTest extends TestCase
             // The input from the ticket, which used to throw.
             'unchecked' => [
                 '<ol><li><input type="checkbox"> a</li></ol>',
-                "1. a\n",
+                "1. [ ] a\n",
             ],
             'checked' => [
                 '<ol><li><input type="checkbox" checked> a</li></ol>',
-                "1. a\n",
+                "1. [x] a\n",
             ],
             // THE COLUMN, which is the half a clamp would have got wrong. `1. `
             // is three wide, so the body sits at column 3 and stays inside the
             // item; at column 0 it would close the list.
             'a continuation block sits at the marker width' => [
                 '<ol><li><input type="checkbox"> a<p>body</p></li></ol>',
-                "1. a\n\n   body\n",
+                "1. [ ] a\n\n   body\n",
             ],
             // MARKER ATTRIBUTES sit in the prefix too, and they are metadata:
             // they do not widen the bare marker's content column either
             // (`markup-carve/carve#1701`), so the body stays at 3.
             'marker attributes do not move it' => [
                 '<ol><li class="c"><input type="checkbox"> a<p>body</p></li></ol>',
-                "1.{.c} a\n\n   body\n",
+                "1.{.c} [ ] a\n\n   body\n",
             ],
             // The other ordered spellings go through the same branch, so one
             // fix covers them - asserted rather than assumed.
             'alphabetic markers' => [
                 '<ol type="a"><li><input type="checkbox"> a<p>body</p></li></ol>',
-                "a. a\n\n   body\n",
+                "a. [ ] a\n\n   body\n",
             ],
             'roman markers' => [
                 '<ol type="i"><li><input type="checkbox"> a<p>body</p></li></ol>',
-                "i. a\n\n   body\n",
+                "i. [ ] a\n\n   body\n",
             ],
             // A WIDER MARKER MOVES THE COLUMN WITH IT: `10. ` is four wide.
             // This is the case that would still pass under a fix that hard-coded
             // three, so it is worth its own row.
             'a two-digit start widens the column' => [
                 '<ol start="10"><li><input type="checkbox"> a<p>body</p></li></ol>',
-                "10. a\n\n    body\n",
+                "10. [ ] a\n\n    body\n",
             ],
         ];
     }

@@ -9,6 +9,9 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Markdown migration reports an empty ordered task checkbox when whitespace
+  follows its marker, and omits false loss rows when five or more columns of
+  marker padding turn the item content into code (markup-carve/carve#2288).
 - The ProseMirror bridge carries abbreviation and citation definitions as their
   CarveKit nodes. Abbreviation definitions keep their authored positions and
   duplicate lines; edited nodes take precedence over legacy document attrs.

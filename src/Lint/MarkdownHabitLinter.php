@@ -327,7 +327,7 @@ class MarkdownHabitLinter
             // `---`. A TYPED opener (`---yaml`, `--- toml`) is the canonical
             // spelling, so matching only the bare form reported every token in
             // a typed metadata block - text the renderer never puts in the body
-            // at all. Raised by codex review.
+            // at all.
             if ($index === 0 && preg_match('/^--- ?\w*\s*$/', $line) === 1) {
                 $inFrontmatter = true;
                 $skip[$index] = true;
