@@ -910,6 +910,7 @@ class InlineParser
                 if ($content !== '' && ($content[0] === ' ' || $content[0] === "\t")) {
                     $content = substr($content, 1);
                 }
+                $content = rtrim($content, " \t");
                 $textBuffer = rtrim($textBuffer, " \t");
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
