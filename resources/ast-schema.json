@@ -110,7 +110,17 @@
         },
         "kind": {
           "type": "string",
-          "description": "The callout kind, as authored. A kind naming generated content (`bibliography`, `footnotes`, `glossary`, `index`, `references`, `toc`) belongs on a `directive` instead. That is not yet REFUSED here: the schema names the type before the engines publish it, and `admonition.kind` gains `not` in the commit that moves the pin to a build emitting `directive` (carve#2195)."
+          "not": {
+            "enum": [
+              "bibliography",
+              "footnotes",
+              "glossary",
+              "index",
+              "references",
+              "toc"
+            ]
+          },
+          "description": "The callout kind, as authored. Generated-content kinds (`bibliography`, `footnotes`, `glossary`, `index`, `references`, `toc`) belong on a `directive` instead (carve#2195)."
         },
         "title": {
           "type": "array",
@@ -804,6 +814,23 @@
     "citation_group": {
       "type": "object",
       "title": "citation_group (inline)",
+      "not": {
+        "type": "object",
+        "required": ["mode"],
+        "properties": {
+          "mode": {},
+          "items": {
+            "type": "array",
+            "contains": {
+              "not": {
+                "type": "object",
+                "required": ["mode"],
+                "properties": {"mode": {}}
+              }
+            }
+          }
+        }
+      },
       "required": [
         "type",
         "items",
@@ -825,7 +852,7 @@
         },
         "mode": {
           "const": "integral",
-          "description": "Set by a leading `+` after `[`. Absent means parenthetical."
+          "description": "Set by a leading `+` after `[`. Absent means no group shorthand; each item's mode governs."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"

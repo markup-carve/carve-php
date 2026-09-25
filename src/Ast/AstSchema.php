@@ -54,6 +54,7 @@ final class AstSchema
         'anyOf',
         'oneOf',
         'allOf',
+        'not',
         'if',
         'then',
         'minimum',
@@ -239,6 +240,20 @@ final class AstSchema
             }
         }
 
+        // THE EXEMPTION IS ASKED HERE, NOT INSIDE THE INVERSION: `check()`
+        // answers null for an exempt type, and null read through a negation is
+        // a MATCH, so asking the subschema would refuse what the exemption
+        // excuses. `check()`'s own short-circuit reaches the same value first,
+        // so nothing observes the difference today - see carve-php#2410.
+        if (isset($schema['not']) && is_array($schema['not'])) {
+            if ($exempt !== [] && is_array($value) && is_string($value['type'] ?? null) && in_array($value['type'], $exempt, true)) {
+                return null;
+            }
+            if (self::check($value, $schema['not'], $root, $path, $exempt) === null) {
+                return self::refusal($value, $schema['not'], $root, $path);
+            }
+        }
+
         if (isset($schema['if']) && is_array($schema['if']) && isset($schema['then']) && is_array($schema['then'])) {
             if (self::check($value, $schema['if'], $root, $path, $exempt) === null) {
                 return self::check($value, $schema['then'], $root, $path, $exempt);
@@ -246,6 +261,54 @@ final class AstSchema
         }
 
         return null;
+    }
+
+    /**
+     * A `not` REFUSAL, SPOKEN IN THE SUBSCHEMA'S OWN VOCABULARY.
+     *
+     * An inversion has no "expected" to name, so the message is derived from
+     * the keyword that matched rather than written as one generic sentence. A
+     * subschema composing several is named by the FIRST that `check()` would
+     * evaluate, which is the order below - deterministic without a second
+     * precedence rule to keep in step with `check()`.
+     *
+     * @param mixed $value
+     * @param array<mixed> $subschema
+     * @param array<string, mixed> $root
+     * @param string $path
+     *
+     * @return string
+     */
+    private static function refusal(mixed $value, array $subschema, array $root, string $path): string
+    {
+        if (isset($subschema['$ref']) && is_string($subschema['$ref'])) {
+            $subschema = self::resolve($subschema['$ref'], $root);
+        }
+
+        if (isset($subschema['type']) && is_string($subschema['type'])) {
+            return sprintf('%s matches the %s shape the schema forbids here', $path, $subschema['type']);
+        }
+        if (array_key_exists('const', $subschema)) {
+            return sprintf('%s is %s, the value the schema forbids here', $path, self::describe($subschema['const']));
+        }
+        if (isset($subschema['enum']) && is_array($subschema['enum'])) {
+            $forbidden = [];
+            foreach ($subschema['enum'] as $member) {
+                $forbidden[] = is_string($member) ? $member : self::describe($member);
+            }
+
+            return sprintf(
+                '%s is %s, which the schema forbids here (%s)',
+                $path,
+                self::describe($value),
+                implode(', ', $forbidden),
+            );
+        }
+        if (isset($subschema['required']) && is_array($subschema['required']) && is_string($subschema['required'][0] ?? null)) {
+            return sprintf('%s carries `%s`, which the schema forbids here', $path, $subschema['required'][0]);
+        }
+
+        return sprintf('%s matches a shape the schema forbids here', $path);
     }
 
     /**

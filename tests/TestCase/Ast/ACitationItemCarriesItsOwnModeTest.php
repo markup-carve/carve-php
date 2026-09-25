@@ -110,21 +110,31 @@ final class ACitationItemCarriesItsOwnModeTest extends TestCase
         self::assertSame($payload, $codec->encode($codec->decode($payload)));
     }
 
-    public function testASummaryOnlyTreeHasTheModeReadOntoItsItems(): void
+    /**
+     * A SUMMARY-ONLY TREE IS REFUSED, not read down onto its items.
+     *
+     * The back-fill this used to assert predated carve#2257, which requires a
+     * group carrying `mode` to carry it on every item and rejects one where any
+     * item is missing it. §12(d) now says so on the way in, so the leniency has
+     * no payload left to apply to.
+     */
+    public function testASummaryOnlyTreeIsRefused(): void
     {
-        $codec = new AstCodec();
-        $decoded = $codec->decode(self::payload(self::items(null, null), '[+@a; @b]', 'integral'));
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessage('matches the object shape the schema forbids here');
 
-        self::assertSame(
-            self::payload(self::items('integral', 'integral'), '[+@a; @b]', 'integral'),
-            $codec->encode($decoded),
-        );
+        (new AstCodec())->decode(self::payload(self::items(null, null), '[+@a; @b]', 'integral'));
     }
 
+    /**
+     * The same clause answers the mixed group, so the refusal is the schema's
+     * rather than §31's own sentence in `AstCodec` - which still speaks for a
+     * payload §12(d) does not reach.
+     */
     public function testASummaryThatContradictsItsItemsIsRefused(): void
     {
         $this->expectException(AstDecodeException::class);
-        $this->expectExceptionMessage('makes the ITEM authoritative');
+        $this->expectExceptionMessage('matches the object shape the schema forbids here');
 
         (new AstCodec())->decode(self::payload(self::items('integral', null), '[+@a; @b]', 'integral'));
     }

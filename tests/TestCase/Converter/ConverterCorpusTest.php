@@ -51,11 +51,7 @@ class ConverterCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const DECLARED_DRIFT = [
-        '70-markdown-a-task-label-that-is-also-a-reference-definition' =>
-            'markup-carve/carve-php#2379 (ruled by markup-carve/carve#2291): the importer reads'
-            . ' `[x]` as a collapsed reference to the definition below it, where the checkbox wins',
-    ];
+    protected const DECLARED_DRIFT = [];
 
     /**
      * @throws \RuntimeException

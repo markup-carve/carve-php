@@ -20,14 +20,7 @@ final class CanonicalAheadOfPin
     {
         return [
             'fmt' => [],
-            'md' => [
-                // The sidecar writes a blank line between `> - a` and the
-                // heading below it, which loosens an item the same document's
-                // `.html` renders tight; CARVE-P11-047 drops it above an ATX
-                // heading. markup-carve/carve#2300 re-cuts the sidecar, and this
-                // entry leaves with the bump that carries it.
-                '84-single-line-headings-10' => "> - a\n>   ### b \\###\n",
-            ],
+            'md' => [],
         ];
     }
 
