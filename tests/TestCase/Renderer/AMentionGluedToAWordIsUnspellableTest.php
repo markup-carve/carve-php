@@ -113,6 +113,23 @@ class AMentionGluedToAWordIsUnspellableTest extends TestCase
         $this->assertMatchesRegularExpression('/"type":"(mention|tag)"/', (string)json_encode($tree));
     }
 
+    public function testASoftBreakSeparatesAWordFromAMentionOrTag(): void
+    {
+        $this->assertSame("b\n@r\n", CarveConverter::toCarve("b\n@r\n"));
+        $this->assertSame("b\n#tag\n", CarveConverter::toCarve("b\n#tag\n"));
+    }
+
+    public function testASoftBreakDoesNotJoinAnExtensionOpenerToItsBracket(): void
+    {
+        $this->assertSame(":name\n[foo]\n", CarveConverter::toCarve(":name\n[foo]\n"));
+        $tree = (new AstCodec())->encode(CarveConverter::create()->parse(":name\n[foo]\n"));
+        $this->assertSame([
+            ['type' => 'text', 'value' => ':name'],
+            ['type' => 'soft_break'],
+            ['type' => 'text', 'value' => '[foo]'],
+        ], $tree['children'][0]['children']);
+    }
+
     /**
      * @param array<int, array<string, mixed>> $children
      */
