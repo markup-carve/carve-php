@@ -595,14 +595,25 @@ class CliTest extends TestCase
         $this->assertSame('dropped', $report['diagnostics'][0]['fidelity']);
     }
 
-    public function testMigrateReportsHtmlDiagnosticLimitAsAUsageError(): void
+    public function testMigrateReportsHtmlDiagnosticTruncationAsLoss(): void
     {
         $source = str_repeat('<p onclick="x()">x</p>', 1100);
-        $result = $this->runCliInput(['migrate', '--from', 'html', '--check-loss'], $source);
+        $reportPath = tempnam(sys_get_temp_dir(), 'carve-report-');
+        $this->assertNotFalse($reportPath);
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'html', '--check-loss', '--report', $reportPath], $source);
+            $reportJson = file_get_contents($reportPath);
+        } finally {
+            unlink($reportPath);
+        }
 
-        $this->assertSame(2, $result['exit']);
-        $this->assertSame('', $result['out']);
-        $this->assertStringContainsString('HTML import diagnostics limit exceeded', $result['err']);
+        $this->assertSame(1, $result['exit']);
+        $this->assertNotSame('', $result['out']);
+        $this->assertNotFalse($reportJson);
+        $report = json_decode($reportJson, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertCount(1000, $report['diagnostics']);
+        $this->assertSame('diagnostics-truncated', $report['diagnostics'][999]['code']);
+        $this->assertSame('dropped', $report['diagnostics'][999]['fidelity']);
     }
 
     public function testMigrateLossCheckFailsForOpaquePreservedHtml(): void
