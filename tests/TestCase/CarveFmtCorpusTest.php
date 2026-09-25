@@ -235,8 +235,8 @@ class CarveFmtCorpusTest extends TestCase
     public function testFormatMatchesThePinnedCanonicalForm(string $slug, string $crv, string $fmt): void
     {
         $written = CarveConverter::toCarve($crv);
-        if (CanonicalAheadOfPin::declares($slug)) {
-            $canonical = CanonicalAheadOfPin::get($slug);
+        if (CanonicalAheadOfPin::declares('fmt', $slug)) {
+            $canonical = CanonicalAheadOfPin::get('fmt', $slug);
             $this->assertSame($canonical, $written, 'the writer disagrees with the declared canonical form for ' . $slug);
             $this->assertNotSame($canonical, $fmt, 'the spec pin has caught up; remove the declaration for ' . $slug);
 

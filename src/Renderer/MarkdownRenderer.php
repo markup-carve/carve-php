@@ -157,6 +157,31 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     private const AUTHORED_DECIDED = ['#'];
 
     /**
+     * The openers this target emits that interrupt a paragraph, matched against
+     * the EMITTED LINE rather than answered by node kind. A thematic break
+     * writes `---`, which under a paragraph line is a SETEXT HEADING and changes
+     * what that paragraph is instead of interrupting it; an empty bullet
+     * underlines the same way. `***` and `___` would interrupt, and no node
+     * emits them.
+     *
+     * @var array<string>
+     */
+    protected const PARAGRAPH_INTERRUPTERS = [
+        '/^>/',
+        '/^\#{1,6}(?:[ \t]|$)/',
+        '/^(?:`{3,}|~{3,})/',
+        '/^[-*+][ \t]+\S/',
+        '/^1[.)][ \t]+\S/',
+    ];
+
+    /**
+     * A GFM delimiter row, which is what promotes the row above it to a header.
+     *
+     * @var string
+     */
+    protected const DELIMITER_ROW = '/^\|(?:[ \t]*:?-+:?[ \t]*\|)+$/';
+
+    /**
      * The first code point of the run picked for the narrowed-escape sentinels.
      *
      * @var int
@@ -2155,13 +2180,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             // ABOVE the separator can be two positions back.
             $written = '';
             $above = null;
+            $aboveRendered = '';
             $carrier = null;
             foreach ($children as $index => $child) {
                 if (
                     $carrier !== null
-                    && $above !== null
                     && substr($written, -2) === "\n\n"
-                    && $this->interruptsAParagraph($child, $above, $parts[$index])
+                    && $this->separatorCanGo($parts[$index], $above, $aboveRendered)
                 ) {
                     $parts[$carrier] = substr($parts[$carrier], 0, -1);
                     $written = substr($written, 0, -1);
@@ -2169,6 +2194,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 $written .= $parts[$index];
                 if ($parts[$index] !== '') {
                     $above = $child;
+                    $aboveRendered = $parts[$index];
                     $carrier = $index;
                 }
             }
@@ -2178,44 +2204,51 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     }
 
     /**
-     * Whether this block's Markdown spelling opens a block directly under the
-     * one above it, with no blank line between them.
+     * Whether the separator between two of a tight item's blocks can go.
      *
-     * @param \MarkupCarve\Carve\Node\Node $node The block below the seam.
-     * @param \MarkupCarve\Carve\Node\Node $above The block above it.
-     * @param string $rendered The block below, already written.
+     * CARVE-P11-047 asks whether the block below OPENS with something that
+     * interrupts a paragraph, and the nested list and block quote the clause
+     * names are examples of that property rather than the whole of it (ruled on
+     * markup-carve/carve-rs#1914). Every answer here comes off the emitted
+     * lines, because that is what a reader sees.
+     *
+     * @param string $rendered The block below the seam, already written.
+     * @param \MarkupCarve\Carve\Node\Node|null $above The last block that wrote something.
+     * @param string $aboveRendered That block, already written.
      */
-    protected function interruptsAParagraph(Node $node, Node $above, string $rendered): bool
+    protected function separatorCanGo(string $rendered, ?Node $above, string $aboveRendered): bool
     {
-        // A quote marker interrupts a PARAGRAPH and nothing else. Under any
-        // other block the unseparated `>` is absorbed by the block above - two
-        // sibling quotes merge into one - or reparents into its last list item.
-        if ($node instanceof BlockQuote) {
-            return $above instanceof Paragraph;
+        $lines = explode("\n", $rendered);
+        $first = $lines[0];
+        if (str_starts_with($first, '|')) {
+            // A row is paragraph continuation text until a delimiter row
+            // promotes it, so a headerless table glues itself to the block above
+            // instead of opening one, and a container above takes the row
+            // lazily - a table above takes it as one more row of its own.
+            return preg_match(self::DELIMITER_ROW, $lines[1] ?? '') === 1
+                && ($above instanceof Paragraph
+                    || $above instanceof Heading
+                    || $above instanceof CodeBlock
+                    || $above instanceof ThematicBreak);
         }
-        if (!$node instanceof ListBlock) {
+        // An unseparated `>` under an OPEN quote continues that quote.
+        if (str_starts_with($first, '>') && str_starts_with($this->lastNonBlankLine($aboveRendered), '>')) {
             return false;
         }
-        // An ordered marker that does not start at 1 cannot interrupt a
-        // paragraph, and a marker with nothing after it reads as a setext
-        // underline. Both shapes need the blank to stay lists at all, and the
-        // ordered one is where CommonMark cannot express the tightness.
-        if ($node->getListType() === ListBlock::TYPE_ORDERED && $node->getStart() !== 1) {
-            return false;
+        foreach (self::PARAGRAPH_INTERRUPTERS as $opener) {
+            if (preg_match($opener, $first) === 1) {
+                return true;
+            }
         }
 
-        return !$this->isBareMarkerLine($rendered);
+        return false;
     }
 
-    /**
-     * Whether the written block opens with a list marker and nothing after it.
-     */
-    protected function isBareMarkerLine(string $rendered): bool
+    protected function lastNonBlankLine(string $rendered): string
     {
-        $newline = strpos($rendered, "\n");
-        $line = $newline === false ? $rendered : substr($rendered, 0, $newline);
+        $lines = array_values(array_filter(explode("\n", $rendered), fn (string $line): bool => trim($line) !== ''));
 
-        return preg_match('/^(?:[-*+]|\d+[.)]) *$/', $line) === 1;
+        return $lines === [] ? '' : $lines[count($lines) - 1];
     }
 
     protected function renderDefinitionList(DefinitionList $node): string

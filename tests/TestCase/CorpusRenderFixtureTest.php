@@ -66,8 +66,8 @@ class CorpusRenderFixtureTest extends TestCase
             default => throw new RuntimeException('Unknown corpus render target: ' . $target),
         };
 
-        if ($target === 'fmt' && CanonicalAheadOfPin::declares($slug)) {
-            $canonical = CanonicalAheadOfPin::get($slug);
+        if (CanonicalAheadOfPin::declares($target, $slug)) {
+            $canonical = CanonicalAheadOfPin::get($target, $slug);
             $this->assertSame($canonical, $actual, 'the renderer disagrees with the declared canonical form for ' . $slug);
             $this->assertNotSame($canonical, $expected, 'the spec pin has caught up; remove the declaration for ' . $slug);
 
