@@ -952,6 +952,18 @@ class CarveCorpusTest extends TestCase
         'a-quote-after-an-escaped-quote-closes',
         'any-character-is-content-of-the-combined-bold-italic-token',
         'a-form-feed-or-a-no-break-space-is-content-wherever-whitespace-is-tested',
+        // Arrived with the bump to carve 8bccef1. Two categories, five
+        // documents, each rendered and compared against its pinned HTML before
+        // the entry was written - all byte-exact, so both arrive IMPLEMENTED
+        // and KNOWN_GAPS stays empty.
+        //
+        // markup-carve/carve#2275 - a title or a label fills a container's body
+        // slot, so the container is not empty.
+        'a-title-or-label-fills-the-container-body-slot',
+        // markup-carve/carve#2286 - a footnotes placement marker places only at
+        // document top level; carve-php answers this already in
+        // AFootnotesPlacementMarkerInsideAContainerDoesNotPlaceTest.
+        'a-footnotes-placement-marker-inside-a-container-does-not-place',
     ];
 
     /**

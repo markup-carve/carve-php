@@ -543,7 +543,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
                 continue;
             }
-            if (is_array($value) && in_array($key, ['items', 'contains', 'if', 'then', 'additionalProperties'], true)) {
+            if (is_array($value) && in_array($key, ['items', 'contains', 'not', 'if', 'then', 'additionalProperties'], true)) {
                 self::collectKeywords($value, $unsupported);
             }
         }
@@ -719,7 +719,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
 
                 continue;
             }
-            if (in_array($key, ['items', 'if', 'then', 'additionalProperties'], true)) {
+            if (in_array($key, ['items', 'contains', 'not', 'if', 'then', 'additionalProperties'], true)) {
                 self::walk($value, $visit);
             }
         }
@@ -750,5 +750,114 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
             AstSchema::firstViolation($core, ['my_app_widget']),
             'the exemption must not reach a core type',
         );
+    }
+
+    /**
+     * AN EXEMPT TYPE UNDER A `not` IS NOT A MATCH (carve-php#2410).
+     *
+     * `check()` returns null for an exempt type, meaning "validated by
+     * nothing", and null read through an inversion is a MATCH - so a negation
+     * that asks `check()` alone turns the exemption into a refusal. This is the
+     * one direction of the keyword that fails by refusing valid documents, so
+     * it is asserted before the ordinary pair below.
+     */
+    public function testAnExemptTypeUnderANotIsNotRefused(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0]['children'][] = self::contradictoryCitationGroup();
+
+        $this->assertNotNull(
+            AstSchema::firstViolation($payload),
+            'the control: without the exemption the `not` refuses this group',
+        );
+        $this->assertNull(
+            AstSchema::firstViolation($payload, ['citation_group']),
+            'an exempt type is the schema\'s business for no keyword, `not` included',
+        );
+    }
+
+    /**
+     * THE TWO `not`s THE VENDORED SCHEMA WRITES, each refused with a message
+     * derived from the subschema rather than one generic sentence, and each
+     * paired with a value the same subschema does not match.
+     *
+     * `admonition.kind` (carve#2265) inverts an `enum`, so the message names
+     * the kind the author wrote and the forbidden set. The citation group
+     * (carve#2257) inverts a composed subschema whose first keyword in
+     * `check()`'s own order is `type`, so the message names that shape.
+     */
+    public function testANotRefusesAKindTheSchemaForbidsAndNamesTheForbiddenSet(): void
+    {
+        $payload = self::valid();
+        $payload['children'][] = ['type' => 'admonition', 'kind' => 'toc', 'children' => []];
+
+        $this->assertSame(
+            '$.children[1].kind is the string "toc", which the schema forbids here '
+                . '(bibliography, footnotes, glossary, index, references, toc)',
+            AstSchema::firstViolation($payload),
+        );
+    }
+
+    public function testAnAdmonitionKindOutsideTheForbiddenSetPasses(): void
+    {
+        $payload = self::valid();
+        $payload['children'][] = ['type' => 'admonition', 'kind' => 'note', 'children' => []];
+
+        $this->assertNull(AstSchema::firstViolation($payload));
+    }
+
+    public function testANotOverAComposedSubschemaNamesTheShapeItMatched(): void
+    {
+        $payload = self::valid();
+        $payload['children'][0]['children'][] = self::contradictoryCitationGroup();
+
+        $this->assertSame(
+            '$.children[0].children[1] matches the object shape the schema forbids here',
+            AstSchema::firstViolation($payload),
+        );
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>}>
+     */
+    public static function agreeingCitationGroups(): array
+    {
+        $group = self::contradictoryCitationGroup();
+
+        $itemAgrees = $group;
+        $itemAgrees['items'][0]['mode'] = 'integral';
+
+        $groupIsSilent = $group;
+        unset($groupIsSilent['mode']);
+
+        return ['the item carries the group mode' => [$itemAgrees], 'the group claims no mode' => [$groupIsSilent]];
+    }
+
+    /**
+     * @param array<string, mixed> $group
+     */
+    #[DataProvider('agreeingCitationGroups')]
+    public function testACitationGroupWhoseModeNoItemContradictsPasses(array $group): void
+    {
+        $payload = self::valid();
+        $payload['children'][0]['children'][] = $group;
+
+        $this->assertNull(AstSchema::firstViolation($payload));
+    }
+
+    /**
+     * An integral group whose only item claims no mode: the shape carve#2257
+     * added the `not` to refuse.
+     *
+     * @return array<string, mixed>
+     */
+    private static function contradictoryCitationGroup(): array
+    {
+        return [
+            'type' => 'citation_group',
+            'raw' => '[+@a]',
+            'mode' => 'integral',
+            'items' => [['type' => 'citation', 'key' => 'a', 'suppressAuthor' => false]],
+        ];
     }
 }
