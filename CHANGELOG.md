@@ -91,6 +91,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Improvements
 
+- `MarkupCarve\Carve\Ast\AstEnvelope` reads and writes the versioned AST interchange envelope, so a payload from a newer contract, one needing an extension this build does not implement, and a foreign vocabulary are each refused distinctly rather than all arriving as an unreadable tree (#2453).
 - The Carve writer exposes a bounded conversion-diagnostics report for the source structures and fields it cannot spell, with the CLI flag `--report-conversion-diagnostics` (#2331).
 - Ruby annotations survive AST JSON interchange as ordered base and annotation pairs, with the `base(annotation)` fallback reported as `ruby-flattened` and accepted by `--allow-loss` (#2290).
 - Line-block ranges, explicit sections and block table cells decode, render and write (#2319).
