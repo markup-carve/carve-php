@@ -2952,7 +2952,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if (preg_match('/^[A-Za-z_:][A-Za-z0-9_.:-]*$/', (string)$key) !== 1) {
                 continue;
             }
-            $out[$key] = $this->sanitizeAttributeValue($name, (string)$value);
+            $out[$key] = self::sanitizeAttributeValue($name, (string)$value);
         }
 
         return $out;
@@ -2987,7 +2987,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * for the `Cf` case, and it would give one value a third outcome when the
      * defect being fixed is that one value already had two.
      */
-    private function sanitizeAttributeValue(string $name, string $value): string
+    private static function sanitizeAttributeValue(string $name, string $value): string
     {
         if (self::hasLeadingDangerousScheme($value)) {
             return '';
@@ -2996,7 +2996,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($separators !== null && !self::urlListIsClean($separators, $value)) {
             return '';
         }
-        if ($name === 'style' && $this->hasDangerousCss($value)) {
+        if ($name === 'style' && self::hasDangerousCss($value)) {
             return '';
         }
 
@@ -3094,7 +3094,23 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     public function renderedAttributeValue(string $name, string $value): string
     {
-        return $this->sanitizeAttributeValue(strtolower($name), $value);
+        return self::baselineAttributeValue($name, $value);
+    }
+
+    /**
+     * The same answer without an instance, for a caller that only needs the
+     * baseline: the HTML importer reads a preserved `style` through it, so its
+     * refusal reading is this sanitizer's rather than a second copy of the
+     * needles (markup-carve/carve#2267).
+     *
+     * @param string $name
+     * @param string $value
+     *
+     * @return string
+     */
+    public static function baselineAttributeValue(string $name, string $value): string
+    {
+        return self::sanitizeAttributeValue(strtolower($name), $value);
     }
 
     /**
@@ -3104,10 +3120,36 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * `@import`, and the legacy `behavior` / `-moz-binding` script bindings.
      * Whitespace is collapsed first so `expr ession (` cannot evade.
      */
-    private function hasDangerousCss(string $value): bool
+    private static function hasDangerousCss(string $value): bool
+    {
+        $compact = strtolower((string)preg_replace('/\s+/', '', self::decodedStyleValue($value)));
+
+        return str_contains($compact, 'expression(')
+            || str_contains($compact, 'url(')
+            || str_contains($compact, '@import')
+            || str_contains($compact, 'behavior:')
+            || str_contains($compact, '-moz-binding');
+    }
+
+    /**
+     * A `style` value as the needle check above reads it: CSS comments removed
+     * and CSS escapes decoded, so neither a commented-out construct nor
+     * `expr\65 ssion(` can change the answer.
+     *
+     * Public because the HTML importer classifies a preserved `style` off the
+     * same text. Reading the raw bytes instead put the two out of step in both
+     * directions: a denied URL inside a comment looked live, and an escaped one
+     * looked like an unnamed construct.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public static function decodedStyleValue(string $value): string
     {
         $withoutComments = preg_replace('/\/\*.*?\*\//s', '', $value) ?? $value;
-        $decoded = preg_replace_callback(
+
+        return preg_replace_callback(
             '/\\\\([0-9A-Fa-f]{1,6}\s?|.)/s',
             static function (array $m): string {
                 $escape = $m[1];
@@ -3124,13 +3166,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             },
             $withoutComments,
         ) ?? $withoutComments;
-        $compact = strtolower((string)preg_replace('/\s+/', '', $decoded));
-
-        return str_contains($compact, 'expression(')
-            || str_contains($compact, 'url(')
-            || str_contains($compact, '@import')
-            || str_contains($compact, 'behavior:')
-            || str_contains($compact, '-moz-binding');
     }
 
     /**

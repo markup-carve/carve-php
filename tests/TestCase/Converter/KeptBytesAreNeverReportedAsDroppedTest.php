@@ -50,7 +50,7 @@ class KeptBytesAreNeverReportedAsDroppedTest extends TestCase
         $this->assertStringContainsString('<form style=', $result->value);
         $this->assertSame(
             [
-                ['attribute-preserved', 'info', '/form[1]', 'Preserved attribute style on <form> in the raw HTML this element is kept as'],
+                ['attribute-preserved', 'error', '/form[1]', 'Preserved style with a denied URL scheme in a declaration value on <form> in the raw HTML this element is kept as'],
                 ['attribute-preserved', 'error', '/form[1]', 'Preserved event-handler attribute onclick on <form> in the raw HTML this element is kept as'],
                 ['raw-preserved', 'warning', '/form[1]', 'Preserved unsupported <form> element as raw HTML'],
                 ['attribute-preserved', 'error', '/form[1]/a[1]', 'Preserved href with a denied URL scheme on <a> inside the raw HTML <form> is kept as'],
@@ -276,10 +276,9 @@ class KeptBytesAreNeverReportedAsDroppedTest extends TestCase
 
     /**
      * CONTROL 3: benign CSS inside kept bytes keeps its `attribute-preserved`
-     * row at `info`, on the element and on a descendant alike. The `style` gap
-     * markup-carve/carve#2267 reports is real and identical in all three
-     * engines, and no engine moves on it until a clause pins the wording, so
-     * this row is here to stay put.
+     * row at `info`, on the element and on a descendant alike. The class is
+     * what markup-carve/carve#2267 rules per declaration, so this is the arm
+     * that keeps the refusal reading from marking every kept `style` an error.
      */
     public function testBenignCssKeepsItsInfoRow(): void
     {
@@ -288,9 +287,9 @@ class KeptBytesAreNeverReportedAsDroppedTest extends TestCase
 
         $this->assertSame(
             [
-                ['attribute-preserved', 'info', '/form[1]', 'Preserved attribute style on <form> in the raw HTML this element is kept as'],
+                ['attribute-preserved', 'info', '/form[1]', 'Preserved style on <form> in the raw HTML this element is kept as'],
                 ['raw-preserved', 'warning', '/form[1]', 'Preserved unsupported <form> element as raw HTML'],
-                ['attribute-preserved', 'info', '/form[1]/p[1]', 'Preserved attribute style on <p> inside the raw HTML <form> is kept as'],
+                ['attribute-preserved', 'info', '/form[1]/p[1]', 'Preserved style on <p> inside the raw HTML <form> is kept as'],
             ],
             $this->rows($result->diagnostics),
         );
