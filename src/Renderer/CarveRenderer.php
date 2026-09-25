@@ -3095,7 +3095,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     }
                     // A bare `:name` the previous node ended on opens an inline
                     // extension against that `[` (markup-carve/carve#2068).
-                    if (str_starts_with($rendered, '[') && preg_match('/:[A-Za-z_][A-Za-z0-9_-]*$/', $out, $name, PREG_OFFSET_CAPTURE) === 1) {
+                    if (str_starts_with($rendered, '[') && preg_match('/:[A-Za-z_][A-Za-z0-9_-]*\z/', $out, $name, PREG_OFFSET_CAPTURE) === 1) {
                         $colon = $name[0][1];
                         if (self::backslashRunBefore($out, $colon) % 2 === 0) {
                             $out = substr($out, 0, $colon) . '\\' . substr($out, $colon);
@@ -4936,7 +4936,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     private function refuseGluedMention(Node $node, ?Node $previous, string $written, string $previousRendered, string $rendered): void
     {
-        if ($node instanceof Mention && preg_match('/^([@#])/', $rendered, $sigil) === 1 && preg_match('/[A-Za-z0-9_]$/', $written) === 1) {
+        if ($node instanceof Mention && preg_match('/^([@#])/', $rendered, $sigil) === 1 && preg_match('/[A-Za-z0-9_]\z/', $written) === 1) {
             throw new SourceUnspellableException(self::sigilType($sigil[1]), 'it has no Carve source spelling after a word character');
         }
         if ($previous instanceof Mention && preg_match('/^([@#])/', $previousRendered, $sigil) === 1 && preg_match('/^\.?[A-Za-z0-9_-]/', $rendered) === 1) {
