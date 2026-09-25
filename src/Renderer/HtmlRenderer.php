@@ -718,6 +718,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             function () use ($document): string {
                 $this->sharedRenderContext->reset();
                 $this->sharedRenderContext->documentHasNote = $this->holdsANote($document);
+                $this->sharedRenderContext->topLevelBlocks = $this->identifyBlocks($document->getChildren());
                 $this->resetExpansionBudgetForDocument($document);
 
                 $html = $this->renderDocumentWithSections($document);
@@ -1613,6 +1614,37 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * Identity set of the given blocks, for the top-level membership test a
+     * placement marker is decided by.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     *
+     * @return array<int, true>
+     */
+    protected function identifyBlocks(array $nodes): array
+    {
+        $ids = [];
+        foreach ($nodes as $node) {
+            $ids[spl_object_id($node)] = true;
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Whether a `::: footnotes` marker sits at the document's own top level,
+     * which is the only position from which it places the endnotes section
+     * (CARVE-P9-073). Inside a block-level container - a block quote, a list
+     * item, a div or directive body, a table cell, a definition description, a
+     * footnote definition - it renders the §12 floor instead, and the section
+     * is appended where an unmarked document puts it.
+     */
+    protected function placesTheEndnotes(Div $node): bool
+    {
+        return isset($this->getRenderContext()->topLevelBlocks[spl_object_id($node)]);
+    }
+
+    /**
      * The next id in the ONE `adm-{n}` sequence a titled admonition and a titled
      * directive share (CARVE-P9-072), reserved in the document id namespace.
      *
@@ -1714,11 +1746,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // there renders as an ordinary div).
         if ($node->hasClass('footnotes') && !$this->renderingFootnoteSection) {
             $context = $this->getRenderContext();
-            // Only a marker in a document that HAS a note places the section;
-            // any other one falls through below and renders as the ordinary
+            // Only a marker in a document that HAS a note, and at the document's
+            // own top level (CARVE-P9-073), places the section; any other one
+            // falls through below and renders as the ordinary
             // `<div class="footnotes">` holding its own title, label and blocks,
             // which is where an unconsumed token belongs (CARVE-P9-072).
-            if ($context->documentHasNote && !$context->footnotesPlaced) {
+            if ($context->documentHasNote && !$context->footnotesPlaced && $this->placesTheEndnotes($node)) {
                 $context->footnotesPlaced = true;
                 // The marker's title takes its id HERE, before its children
                 // render, so the `adm-{n}` sequence follows document order even
