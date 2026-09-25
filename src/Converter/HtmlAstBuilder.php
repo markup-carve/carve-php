@@ -723,7 +723,11 @@ final class HtmlAstBuilder
     private function details(DOMElement $node): array
     {
         $domChildren = $this->children($node);
-        if ($this->isInsideTableCell($node)) {
+        // An inline-only slot holds no admonition, so the title it would carry
+        // has nowhere to go and the `<summary>` left the document (carve-php#2371).
+        // A caption is such a slot as much as a cell is, and taking the cell's
+        // path keeps the summary in the same inline run as the body.
+        if ($this->isInsideTableCell($node) || $this->inCaption) {
             return [
                 'type' => 'div',
                 'children' => $this->blocks($domChildren),
@@ -3142,6 +3146,7 @@ final class HtmlAstBuilder
             'subscript' => true,
             'superscript' => true,
             'symbol' => true,
+            'ruby' => true,
             'tag' => true,
             'text' => true,
             'underline' => true,
@@ -3149,6 +3154,19 @@ final class HtmlAstBuilder
         $type = $node['type'] ?? null;
         if (is_string($type) && isset($inlineTypes[$type])) {
             return [$node];
+        }
+        // A code block reaching an inline-only slot becomes a code SPAN, which is
+        // the inline spelling of the same kind and the only one that keeps the
+        // text as code (carve-php#2371). Its newlines fold to a space: a row ends
+        // at the first one, and a caption continuation line that opens a block
+        // would end the caption instead of continuing it.
+        if ($type === 'code_block') {
+            $content = is_string($node['content'] ?? null) ? $node['content'] : '';
+            if ($content === '') {
+                return [];
+            }
+
+            return [['type' => 'code', 'value' => str_replace("\n", ' ', $content)]];
         }
         // A raw region keeps its bytes here rather than projecting to nothing.
         // It reached an inline-only slot - a cell, a caption - and the generic
@@ -3192,6 +3210,13 @@ final class HtmlAstBuilder
             return $out;
         }
         if ($type === 'table') {
+            // A nested table's own caption is inline content that reached this
+            // slot with the table, and neither arm below walks it, so it left
+            // the document while the table's cells stayed (carve-php#2371).
+            $caption = [];
+            foreach (self::nodeList($node['caption'] ?? null) as $inline) {
+                array_push($caption, ...$this->projectToInlines($inline));
+            }
             if (!$this->inCaption) {
                 $lines = [];
                 foreach (self::nodeList($node['rows'] ?? null) as $row) {
@@ -3203,10 +3228,14 @@ final class HtmlAstBuilder
                         $lines[] = '| ' . implode(' | ', $cells) . ' |';
                     }
                 }
+                $head = trim($this->plainInlineText($caption));
+                if ($head !== '') {
+                    array_unshift($lines, $head);
+                }
 
                 return $lines === [] ? [] : [['type' => 'text', 'value' => implode(' ', $lines)]];
             }
-            $out = [];
+            $out = $caption;
             foreach (self::nodeList($node['rows'] ?? null) as $row) {
                 foreach (self::nodeList($row['cells'] ?? null) as $cell) {
                     $projected = $this->projectToInlines($cell);
@@ -3221,7 +3250,11 @@ final class HtmlAstBuilder
         }
 
         $out = [];
-        foreach (['children', 'items', 'rows', 'cells', 'caption'] as $slot) {
+        // `title` leads, because it is a node's first visible text: an
+        // admonition built from a `<details>` carries its `<summary>` there, and
+        // walking only `children` left the summary out of the caption it reached
+        // while the report called the element unwrapped (carve-php#2371).
+        foreach (['title', 'children', 'items', 'rows', 'cells', 'caption'] as $slot) {
             foreach (self::nodeList($node[$slot] ?? null) as $child) {
                 $projected = $this->projectToInlines($child);
                 if (
