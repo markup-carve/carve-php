@@ -62,6 +62,19 @@ class RenderContext
     public bool $footnotesPlaced = false;
 
     /**
+     * Identity (`spl_object_id`) of the blocks that sit at the document's own
+     * top level, recorded before rendering starts.
+     *
+     * Only a `::: footnotes` marker among these places the endnotes section
+     * (CARVE-P9-073); one inside any block-level container renders the §12
+     * floor where it is written. Identity rather than shape, because a marker
+     * nested in a container is the same node type with the same class.
+     *
+     * @var array<int, true>
+     */
+    public array $topLevelBlocks = [];
+
+    /**
      * The `aria-labelledby` and the opening child lines the placing marker
      * contributes to the section it places.
      *
@@ -85,6 +98,7 @@ class RenderContext
         $this->inlineFootnoteRenderers = [];
         $this->documentHasNote = false;
         $this->footnotesPlaced = false;
+        $this->topLevelBlocks = [];
         $this->placedFootnoteTokens = ['name' => '', 'head' => ''];
     }
 }
