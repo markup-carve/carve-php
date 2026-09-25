@@ -37,7 +37,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - A substitution's closer comes from the scan that finds its arrow, stepping over an escape, a closed code span and both comment forms (#2215).
 - A braced span's closer scan steps over an escaped backtick (#2223).
 - A bold-italic strong is written nested where its content cannot hug `/*`, instead of a combined form that read back as an emphasis holding literal stars (#2204).
+- The writer measures the text beside a mention or an inline extension opener at the true end of the written run, so a soft break before `@r` no longer throws `SourceUnspellableException` and a `:name` line above `[foo]` keeps its colon unescaped (#2439).
 - A line comment consumes a bare emphasis closer through the end of the line and ends at the combined bold-italic token's closer, and a span holding a line comment on the closer's own line is written braced (#2208, #2229).
+- A line comment's content drops one leading space or tab after the `%%` marker and any trailing ASCII space or tab, in the block, inline and verse readers alike; a no-break space and a vertical tab stay content (#2442, markup-carve/carve-rs#1951).
 - A line below a description body's column folds into its open paragraph, and the body's fence opens on a closer written below a lazy line (#2217, #2236).
 - An empty term marker with trailing whitespace reads exactly as the bare marker (#2219).
 - A fence closer counts only at the opener's container column, an item's fence is read one way when its closer lies past a below-column line, and a demoted marker-line colon run is then read on its own (#2229).
