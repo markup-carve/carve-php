@@ -3152,7 +3152,7 @@ class BlockParser
      *
      * The run is collected LINE BY LINE and joined only when a `}` arrives, so a
      * `{` opener followed by many lines that never close stays LINEAR rather
-     * than copying the growing run on every line (raised by codex review).
+     * than copying the growing run on every line.
      *
      * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null} $state Mutated in place.
      * @param string $content
@@ -4251,10 +4251,9 @@ class BlockParser
      * lazy continuation - which needs an open paragraph and nothing else
      * (PART 1 S4, markup-carve/carve-php#1897).
      *
-     * A FENCE INSIDE THE QUOTE LEAVES THE PARAGRAPH WHERE IT WAS. Measured over
-     * seven quote endings by two openings: after `> q` the line below is the
-     * quote's whether the fence below `q` closes or not, and after the same
-     * fence with no paragraph above it the line is the item's. So the fence
+     * A FENCE INSIDE THE QUOTE LEAVES THE PARAGRAPH WHERE IT WAS. After `> q`,
+     * the line below belongs to the quote whether the fence closes or not.
+     * With no paragraph above the fence, the line belongs to the item. The fence
      * decides nothing here and a heading, a table row, a thematic break or a
      * bare `>` decides everything, which is why the flag is carried across the
      * fence rather than recomputed inside it. Tracked locally because
@@ -6222,7 +6221,7 @@ class BlockParser
                         // A DIV'S EXTENT IS ITS FENCES, blank lines included -
                         // it stays open across one, so a run stopping at the
                         // first blank handed the rest back and opened a heading
-                        // inside it (raised by codex review). Read through
+                        // inside it. Read through
                         // `colonFenceEnd()`, which is what the parser itself
                         // uses: the closer matches the opener's EXACT width, a
                         // nested pair keeps its own, and a bare run inside a
@@ -6676,7 +6675,7 @@ class BlockParser
                 // and splits the body it was meant to keep. The invariant this
                 // index owes its callers is that it is a SUPERSET of what they
                 // can match - narrowing it is only safe once the closers
-                // themselves narrow. Raised by codex review.
+                // themselves narrow.
                 if (preg_match('/^[ \t]*(:{3,})[ \t]*$/', $line, $m) === 1) {
                     $colon[strlen($m[1])] = $i;
                 }
@@ -8308,8 +8307,7 @@ class BlockParser
                         // itself runs in the tracker walk below, and only where
                         // the answer changes a reading. Settling it eagerly per
                         // fence-shaped line is a forward scan per line, which a
-                        // body of N openers before one closer pays N times
-                        // (raised by codex review).
+                        // body of N openers before one closer pays N times.
                         if ($paragraphFence !== null) {
                             $bodyFenceSource[count($body)] = [
                                 'index' => $i,
@@ -8335,7 +8333,7 @@ class BlockParser
                         // definition. The nested column cannot say so on its
                         // own - a fence opens no content column - and without
                         // this the erasure below ate a leading space out of a
-                        // code block (raised by codex review).
+                        // code block.
                         if (
                             $definitionPastTheColumn
                             && !$bodyNestedState['inFence']
@@ -8463,7 +8461,7 @@ class BlockParser
                         // line closes it. Carried INCREMENTALLY, on the same
                         // cursor the tracker walks - rescanning the whole body
                         // per collected line made a description of N lazy lines
-                        // quadratic (raised by codex review).
+                        // quadratic.
                         if ($bodyStateCursor <= $bodyAttributeThrough) {
                             continue;
                         }
@@ -9058,7 +9056,7 @@ class BlockParser
                 // reference's LABEL, `[x [y` / `%% c` / `z][inner] w][outer]`,
                 // gives two snapshots that both contain the emptied line.
                 // Repairing only the nearest left the outer one stale, and the
-                // writer emits the outer as a whole (raised by codex review).
+                // writer emits the outer as a whole.
                 $host = $this->referenceSnapshotHost($child);
                 $this->placeVerseCommentsIn(
                     $child,
@@ -9181,8 +9179,7 @@ class BlockParser
      * U+E000 is three bytes in UTF-8 where the space it replaced is one, so an
      * ordinary segment - which maps N source bytes onto N built bytes - cannot
      * describe it, and the whole region used to be left out. Everything over it
-     * then went unplaced, including three corpus documents another engine places
-     * (carve-php#1351).
+     * then went unplaced where other engines place it (carve-php#1351).
      *
      * A preserved run holding a TAB still is skipped. A tab widens to between
      * one and four placeholders depending on the column it starts at, so no
@@ -11572,7 +11569,7 @@ class BlockParser
         // inherited run dropped here, a pipe inside it split a chunk onto a
         // cell index that does not exist, `rebuiltCellSourceMap()`'s
         // joined-content check then failed, and the nodes came back with no
-        // position at all. Raised by codex review.
+        // position at all.
         foreach ($this->tableParser->splitCells($normalizedLine, $openDelimiters) as $idx => $cell) {
             $content = trim($cell['content'], ' ');
             if ($content === '') {
@@ -11850,7 +11847,7 @@ class BlockParser
      *
      * A VERBATIM BODY INSIDE THE CONTAINER IS SKIPPED, because a definition
      * written in one is payload and not a definition at all. Without that the
-     * scan cut a div's extent at its own code content (raised by codex review).
+     * scan cut a div's extent at its own code content.
      *
      * @param array<string> $lines
      * @param int $start
@@ -13062,10 +13059,9 @@ class BlockParser
             // ARMED OFF THE DEFINITION LINE ITSELF, not off the tracker's
             // rising edge. `inFootnoteBody` stays true while a body is open, so
             // a note opened INSIDE another never raises it again and the
-            // innermost column would keep the outer one's value (raised by
-            // codex review). Reading the line directly gives every level its
-            // own column; the stack pops back to the enclosing note when a line
-            // dedents out of the inner one.
+            // innermost column would keep the outer one's value. Reading the
+            // line directly gives every level its own column. A dedent then
+            // pops the stack back to the enclosing note.
             $local = ltrim($opener, " \t");
             if (preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $local) === 1) {
                 // A NOTE THAT DOES NOT REACH THE OPEN ONE'S BODY COLUMN CLOSES

@@ -1468,8 +1468,8 @@ class ProseMirrorToCarve
         // The PRESERVATION nodes another bridge writes for a construct it has
         // no editable node for. They are on the wire (the map's
         // `preservationNodes`), not Carve types, and every path that can meet
-        // an inline node can meet one - a table cell among them, which is where
-        // three corpus documents still threw after the inline path learned it.
+        // an inline node can meet one. A table cell still threw after the
+        // inline path learned it.
         // Read from the map's own section rather than listed again here: the
         // map has THREE sections a bridge answers to, and a name restated in
         // code is a copy that stops being one the moment upstream adds a

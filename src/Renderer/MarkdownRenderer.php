@@ -799,8 +799,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * does carry. This writer separates a heading from the block below it with
      * a blank line in every container except a tight list item, where the item
      * marker is the separator -- so both rules above already cut there, and a
-     * heading case would be a branch that cannot fire. Measured over the
-     * 1707-document corpus and four inline matrices: removing it moves no byte.
+     * heading case would be a branch that cannot fire.
      *
      * @return array<int, array<int, array{int, int}>>
      */
