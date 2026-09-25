@@ -18,9 +18,9 @@ use PHPUnit\Framework\TestCase;
  * indented verbatim block - the third level stopped being a list at all for
  * every reader that is not Carve itself.
  *
- * Item tightness is a separate question and deliberately untouched here: the
- * blank line these expectations carry between an item's own text and its
- * nested list is what the writer emitted before this change too.
+ * Item tightness is a separate question, settled since by PART 11 section 10l
+ * [CARVE-P11-047]: a tight item's nested list stands directly under the item's
+ * own text, so the indent is all these expectations carry.
  */
 class MarkdownNestedListIndentTest extends TestCase
 {
@@ -39,7 +39,7 @@ class MarkdownNestedListIndentTest extends TestCase
         $document = $this->converter->parse("- a\n  - b\n    - c\n- d\n");
 
         $this->assertSame(
-            "- a\n\n  - b\n\n    - c\n- d\n",
+            "- a\n  - b\n    - c\n- d\n",
             $this->renderer->render($document),
         );
     }
@@ -49,7 +49,7 @@ class MarkdownNestedListIndentTest extends TestCase
         $document = $this->converter->parse("1. a\n   - b\n2. c\n");
 
         $this->assertSame(
-            "1. a\n\n   - b\n2. c\n",
+            "1. a\n   - b\n2. c\n",
             $this->renderer->render($document),
         );
     }
