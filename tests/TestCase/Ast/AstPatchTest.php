@@ -32,6 +32,31 @@ class AstPatchTest extends TestCase
         $this->assertSame(AstPatch::apply($after, []), AstPatch::apply($before, $operations));
     }
 
+    public function testReversiblePatchChecksTheRevisionInBothDirections(): void
+    {
+        $before = $this->ast("one\n");
+        $after = $this->ast("two\n");
+        $patch = AstPatch::createReversible($before, $after);
+        $wire = json_decode(json_encode($patch, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        $forward = AstPatch::applyReversible($before, $wire);
+        self::assertSame(AstPatch::apply($after, []), $forward);
+        self::assertSame(AstPatch::apply($before, []), AstPatch::applyReversible($forward, $wire, true));
+        self::assertStringStartsWith('fnv1a64:', $patch['beforeFingerprint']);
+
+        $this->expectException(InvalidArgumentException::class);
+        AstPatch::applyReversible($this->ast("three\n"), $wire);
+    }
+
+    public function testInversePatchRejectsTheWrongAfterDocument(): void
+    {
+        $before = $this->ast("one\n");
+        $after = $this->ast("two\n");
+        $patch = AstPatch::createReversible($before, $after);
+
+        $this->expectException(InvalidArgumentException::class);
+        AstPatch::applyReversible($before, $patch, true);
+    }
+
     public function testScalarEditProducesNarrowPatch(): void
     {
         $patch = AstPatch::create($this->ast("See [docs](/a).\n"), $this->ast("See [docs](/b).\n"));
