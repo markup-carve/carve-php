@@ -4,23 +4,12 @@
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
     "commit": "7b5771b491346694ce1ccb01a4fdc960862410fb",
-    "refresh": "copy mapped decisions from carve-grammars and update commit; scripts/check-schema-map.php checks decisions against that pin. Attribute and prose differences are tracked in carve-php#2399",
+    "refresh": "copy the complete file from carve-grammars and update commit; scripts/check-schema-map.php verifies decisions and full schema-map parity against the pin",
     "divergences": {},
-    "divergencePolicy": "The divergences list records decision differences. Attribute and prose differences are listed separately until carve-php#2399 reconciles them.",
-    "pendingDocumentationDifferences": [
-      "positionAttribute",
-      "types.list_item",
-      "types.table_cell",
-      "types.definition_list",
-      "types.comment",
-      "types.raw_inline",
-      "types.literal_inline",
-      "types.substitution",
-      "types.citation_group",
-      "unmapped.citation"
-    ]
+    "divergencePolicy": "This vendored file must match the pinned upstream map exactly outside provenance. Change the upstream map first; local differences are not permitted."
   },
   "attributeNaming": "An attribute that carries a CARVE concept on a node or mark Tiptap already defines is spelled with a `carve` prefix (`carveRef`, `carveTight`, `carveKeyValues`), so it cannot collide with what a stock extension - or an application - puts on the same node. On a node this schema owns, the bare name is used: `carveCitation` has `raw`, not `carveRaw`. HTML-native names (`id`, `class`, `href`, `src`, `title`, `colspan`, `start`) keep their spelling wherever they appear. Two bridges to this model disagreed on every one of these before it was written down: carve-js wrote `ref`/`delim` where carve-php wrote `carveRef`/`tight`, so a document stored by one lost its reference spelling, its list tightness and its table spans when read by the other.",
+  "positionAttribute": "Every block node may carry `carvePos`, the complete Carve `pos` object. Bridges use it to restore source-ordered definitions and definitions collected from emptied container lines. CarveKit retains it as non-rendered metadata.",
   "carveSpecVocabulary": "spec/docs/profiles.md",
   "proseMirrorSchema": "tiptap/carve-kit.js (CarveKit)",
   "types": {
@@ -110,8 +99,8 @@
       "attrs": {
         "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
         "carveKeyValues": "authored marker key=values",
-        "carveTaskState": "the authored task marker character, taskItem only, when it is not the default for `checked`",
-        "checked": "task item box, taskItem only",
+        "checked": "task item state, taskItem only",
+        "carveTaskState": "non-space task marker (`-` `_` `>` `?`), taskItem only; null for a plain `[ ]`/`[x]` item",
         "class": "authored marker classes",
         "id": "authored marker id"
       }
@@ -132,6 +121,7 @@
       ],
       "notes": "tableHeader for `|=` cells",
       "attrs": {
+        "carveInheritedTextAlign": "effective alignment inherited from table column metadata; editor presentation only and never serialized as a cell override",
         "carveSpanMarker": "the span marker as written, where a cell carries one",
         "colspan": "omitted when 1",
         "rowspan": "omitted when 1",
@@ -235,7 +225,12 @@
     },
     "definition_list": {
       "kind": "node",
-      "pm": "definitionList"
+      "pm": "definitionList",
+      "attrs": {
+        "carveKeyValues": "authored key/values, which is where `{loose}` lives: PART 9 section 17 L7 leaves no blank line that could spell a definition list's looseness, so the boolean is the only spelling",
+        "class": "authored classes",
+        "id": "authored id"
+      }
     },
     "definition_term": {
       "kind": "node",
@@ -292,7 +287,7 @@
       "notes": "block attr distinguishes %% line comments from fenced comments",
       "attrs": {
         "block": "true for a fenced comment, false for a %% line",
-        "content": "the comment text, carveCommentInline only",
+        "content": "legacy stored-JSON compatibility only; new carveCommentInline nodes keep editable comment text as child content",
         "delimited": "true for the `%%{ ... }%%` form (PART 9 section 21a)"
       }
     },
@@ -362,12 +357,12 @@
     "raw_inline": {
       "kind": "node",
       "pm": "carveRawInline",
-      "notes": "inline atom; content and format attrs",
+      "notes": "directly editable text content with a format attr",
       "attrs": {
         "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
         "carveKeyValues": "authored key=values",
         "class": "authored classes",
-        "content": "the raw payload",
+        "content": "legacy stored-JSON compatibility only; new nodes keep the raw payload as child text",
         "format": "the target format",
         "id": "authored id"
       }
@@ -375,26 +370,26 @@
     "literal_inline": {
       "kind": "node",
       "pm": "carveLiteral",
-      "notes": "inline atom; content attr",
+      "notes": "directly editable literal text content",
       "attrs": {
         "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
         "carveKeyValues": "authored key=values",
         "class": "authored classes",
-        "content": "the literal payload",
+        "content": "legacy stored-JSON compatibility only; new nodes keep the literal payload as child text",
         "id": "authored id"
       }
     },
     "substitution": {
       "kind": "node",
       "pm": "carveSubstitution",
-      "notes": "inline atom; oldText and newText attrs",
+      "notes": "inline atom; old and new attrs, each an inline array",
       "attrs": {
         "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
         "carveKeyValues": "authored key=values",
         "class": "authored classes",
         "id": "authored id",
-        "newText": "the replacement",
-        "oldText": "the replaced text"
+        "new": "the replacement, as inline content; `[]` when the half is empty",
+        "old": "the replaced text, as inline content; `[]` when the half is empty"
       }
     },
     "symbol": {
@@ -430,8 +425,8 @@
         "carveKeyValues": "authored key=values",
         "class": "authored classes",
         "id": "authored id",
-        "integral": "true for the `[+@key]` form; the SUMMARY of the items' own modes, and on the way in it is read down onto the items that spell none",
-        "items": "per item: key, suppressAuthor, and prefix/locator/suffix as INLINE ARRAYS. There is no per-item mode here, so a group whose items disagree is reported as degraded rather than carried",
+        "integral": "true for the `[+@key]` form",
+        "items": "per item: key, suppressAuthor, and prefix/locator/suffix as INLINE ARRAYS",
         "raw": "the group as written"
       }
     },
@@ -571,8 +566,8 @@
     }
   },
   "unmapped": {
-    "citation": "a citation is carried as one typed item inside citation_group.items in the Carve AST; ProseMirror keeps that item inside the carveCitation atom's items attribute rather than as a standalone editor node",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
+    "citation": "a citation is one item in citation_group and rides in carveCitation's items attribute rather than becoming its own ProseMirror node",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",
     "escaped_text": "escaping is a source-level concern; the editor holds the escaped character as text",
     "smart_punctuation": "smart-typography output is lossy on reparse, so it is not modeled",

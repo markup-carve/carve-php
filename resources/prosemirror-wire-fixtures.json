@@ -204,7 +204,8 @@
               "carveTight": true,
               "start": 1,
               "carveOlType": "a",
-              "carveDelim": ")"
+              "carveDelim": ")",
+              "carveBareMarker": false
             }
           }
         ]
@@ -787,9 +788,12 @@
               },
               {
                 "type": "carveLiteral",
-                "attrs": {
-                  "content": "/kaet/"
-                }
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "/kaet/"
+                  }
+                ]
               },
               {
                 "type": "text",
@@ -816,8 +820,18 @@
               {
                 "type": "carveSubstitution",
                 "attrs": {
-                  "oldText": "old",
-                  "newText": "new"
+                  "old": [
+                    {
+                      "type": "text",
+                      "text": "old"
+                    }
+                  ],
+                  "new": [
+                    {
+                      "type": "text",
+                      "text": "new"
+                    }
+                  ]
                 }
               },
               {
@@ -845,9 +859,14 @@
               {
                 "type": "carveRawInline",
                 "attrs": {
-                  "format": "html",
-                  "content": "<br>"
-                }
+                  "format": "html"
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "<br>"
+                  }
+                ]
               },
               {
                 "type": "text",

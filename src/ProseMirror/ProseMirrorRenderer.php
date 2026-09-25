@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\ProseMirror;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockExtension;
+use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -191,8 +192,18 @@ class ProseMirrorRenderer
         // children so the heading and body land at document level.
         if ($type === 'section') {
             $children = $this->renderBlocks($node->getChildren());
+            if ($children === []) {
+                return null;
+            }
+            $section = ['type' => 'carveSection', 'content' => $children];
+            if ($node->getPos() !== null) {
+                $section['attrs'] = ['carvePos' => $node->getPos()->toWireArray()];
+            }
+            if ($node->getAttributes() !== []) {
+                $this->degraded['section'] = 'CarveKit cannot keep attributes on a section wrapper';
+            }
 
-            return $children === [] ? null : ['type' => 'carveSection', 'content' => $children];
+            return $section;
         }
 
         $name = $this->proseMirrorName($node);
@@ -323,7 +334,11 @@ class ProseMirrorRenderer
                 if ($entry['skip']) {
                     continue;
                 }
-                $cells[] = $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan']);
+                $cells[] = $this->renderResolvedTableCell(
+                    $entry['cell'],
+                    $entry['rowspan'],
+                    $entry['colspan'],
+                );
             }
             if ($cells !== []) {
                 $rowOut['content'] = $cells;
@@ -354,6 +369,8 @@ class ProseMirrorRenderer
         }
         if ($cell->hasExplicitAlignment() && $cell->getAlignment() !== TableCell::ALIGN_DEFAULT) {
             $attrs['textAlign'] = $cell->getAlignment();
+        } elseif (in_array($cell->getAlignment(), [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT], true)) {
+            $attrs['carveInheritedTextAlign'] = $cell->getAlignment();
         }
         if ($cell->hasExplicitVerticalAlignment() && $cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
             $attrs['verticalAlign'] = $cell->getVerticalAlignment();
@@ -444,20 +461,11 @@ class ProseMirrorRenderer
             }
 
             if ($node instanceof Comment) {
-                // A comment after paragraph text consumes the line tail. In
-                // inline position it is CarveKit's `carveCommentInline` atom,
-                // whose text rides in a `content` attr - the block spelling
-                // holds its text as a child, which an inline atom cannot.
-                //
-                // `delimited` is the PART 9 section 21a `{% x %}` form, and it
-                // is the one attribute here that cannot be inferred back: a
-                // `%%` comment runs to end of line, so dropping the flag does
-                // not re-spell the comment, it DELETES the rest of the
-                // paragraph. It is the same field PART 12 publishes as
-                // `comment.delimited`.
+                // Inline comment text is editable child content in CarveKit.
                 $inlineComment = [
                     'type' => 'carveCommentInline',
-                    'attrs' => ['content' => $node->getContent(), 'delimited' => $node->isDelimited()],
+                    'attrs' => ['delimited' => $node->isDelimited()],
+                    'content' => $node->getContent() === '' ? [] : [['type' => 'text', 'text' => $node->getContent()]],
                 ];
                 if ($marks !== []) {
                     $inlineComment['marks'] = $marks;
@@ -574,6 +582,15 @@ class ProseMirrorRenderer
             }
             if ($marks !== []) {
                 $inline['marks'] = $marks;
+            }
+            if ($node instanceof RawInline || $node instanceof LiteralInline) {
+                $content = $node->getContent();
+                if ($content !== '') {
+                    $inline['content'] = [['type' => 'text', 'text' => $content]];
+                }
+                $out[] = $inline;
+
+                continue;
             }
             // These editor atoms carry their nested content in attributes.
             $children = $node instanceof Substitution || $node instanceof Ruby
@@ -724,6 +741,10 @@ class ProseMirrorRenderer
     {
         $attrs = [];
 
+        if ($node instanceof BlockNode && $node->getPos() !== null) {
+            $attrs['carvePos'] = $node->getPos()->toWireArray();
+        }
+
         if ($node instanceof Heading) {
             $attrs['level'] = $node->getLevel();
         } elseif ($node instanceof BlockQuote && $node->isFenced()) {
@@ -757,9 +778,7 @@ class ProseMirrorRenderer
             // gains no key that means nothing to it.
             if ($node->getListType() === 'ordered') {
                 $attrs['start'] = $node->getStart();
-                if ($node->hasBareMarker()) {
-                    $attrs['carveBareMarker'] = true;
-                }
+                $attrs['carveBareMarker'] = $node->hasBareMarker();
                 // Alphabetic and roman numbering are not a re-spelling: without
                 // this, `a. apple` comes back `1. apple` and the visible label
                 // changes.
@@ -890,11 +909,6 @@ class ProseMirrorRenderer
             $attrs['name'] = $node->getExtensionType();
         } elseif ($node instanceof RawBlock || $node instanceof RawInline) {
             $attrs['format'] = $node->getFormat();
-            if ($node instanceof RawInline) {
-                // Inline raw content is an atom: nothing in the editor shows
-                // it, so the text rides as an attr rather than a child.
-                $attrs['content'] = $node->getContent();
-            }
         } elseif ($node instanceof Comment) {
             // CarveKit's shape: the text is the single text child (the
             // codeBlock asymmetry, handled in renderBlock), and `block` is what
@@ -923,22 +937,11 @@ class ProseMirrorRenderer
             $attrs['expansion'] = $node->getExpansion();
         } elseif ($node instanceof CitationDefinition) {
             $attrs['key'] = $node->getKey();
-        } elseif ($node instanceof LiteralInline) {
-            $attrs['content'] = $node->getContent();
         } elseif ($node instanceof Symbol) {
             $attrs['name'] = $node->getName();
         } elseif ($node instanceof Substitution) {
-            $attrs['oldText'] = $node->getOldText();
-            $attrs['newText'] = $node->getNewText();
-            // The editor keeps each half as plain text, so markup inside one is
-            // flattened (markup-carve/carve-grammars#466).
-            foreach ([$node->getOld(), $node->getNew()] as $half) {
-                foreach ($half->getChildren() as $child) {
-                    if (!$child instanceof Text) {
-                        $this->degraded['substitution'] = 'the editor keeps each half as plain text, so inline markup inside it is flattened';
-                    }
-                }
-            }
+            $attrs['old'] = $this->renderInlines($node->getOld()->getChildren(), []);
+            $attrs['new'] = $this->renderInlines($node->getNew()->getChildren(), []);
         } elseif ($node instanceof HeadingRef) {
             // The resolved href is a resolution artifact; the target is the
             // authored identity, so only it is carried.
