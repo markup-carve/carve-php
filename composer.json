@@ -52,6 +52,7 @@
         "cs-fix": "phpcbf --colors --parallel=16",
         "fuzz": "php-fuzzer fuzz fuzz/target.php fuzz/corpus/",
         "fuzz-strict": "php-fuzzer fuzz fuzz/target-strict.php fuzz/corpus/",
+        "schema-map-check": "@php scripts/check-schema-map.php",
         "stan": "phpstan analyze",
         "test": "@php -d pcov.enabled=0 vendor/bin/phpunit",
         "test-parallel": "@php -d pcov.enabled=0 vendor/bin/paratest",

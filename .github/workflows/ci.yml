@@ -34,6 +34,45 @@ jobs:
       - name: Spec pin ancestry
         run: ./scripts/check-spec-pin-ancestry.sh tests/spec
 
+  # THE VENDORED PROSEMIRROR MAP IS A COPY, AND NOTHING MEASURED THE COMMIT IT
+  # NAMES. Six decisions came to exist only in the copy while `_provenance.commit`
+  # pointed at a file holding none of them (#2326), because the assertion in the
+  # suite - every AST type has a mapped-or-unmapped decision - is satisfied by a
+  # LOCAL entry. That test therefore forced a local entry whenever a type became
+  # producible and nothing forced the upstream one, so the gap widened by design.
+  #
+  # Separate job because it needs a second checkout and no PHP extensions; it
+  # runs beside the matrix rather than behind it. Every difference from upstream
+  # has to be named in `_provenance.divergences`, and a declaration that no
+  # longer differs is refused - same shape as carve-rs tools/check-schema-map.py.
+  schema-map:
+    runs-on: ubuntu-latest
+    name: ProseMirror schema map matches carve-grammars
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # Full history: the check asks which commits touched the map since the one
+      # recorded, and whether that one is an ancestor of `main`. A depth-1 clone
+      # answers neither.
+      - uses: actions/checkout@v6
+        with:
+          repository: markup-carve/carve-grammars
+          path: .carve-grammars
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Check the schema map against its provenance commit
+        run: composer schema-map-check -- --grammars .carve-grammars --github
+
   tests:
     runs-on: ubuntu-latest
     strategy:

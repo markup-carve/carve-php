@@ -4,7 +4,17 @@
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
     "commit": "228f003effd1529ba6cebfcd933c2007bf4e4d4c",
-    "refresh": "copy the file from carve-grammars and update commit; ProseMirrorSchemaMapTest asserts every AST type still has a decision"
+    "refresh": "copy the file from carve-grammars and update commit; the corpus test asserts every AST type still has a decision, and scripts/check-schema-map.php asserts every other decision still matches the commit named here",
+    "divergences": {
+      "abbreviation_def": "upstream gives it a `carveAbbreviationDefinition` node; here the definition rides on the doc node's attrs, so taking the node is a bridge change",
+      "block_extension": "this engine reads the type (#2323) and carve-grammars names no node for it yet; unmapped here so every schema type has a decision, and it leaves this list when upstream decides one",
+      "citation": "carve-grammars main declares it unmapped in the same terms, so this entry anticipated upstream rather than diverging from it; it leaves this list when the pin moves past that commit",
+      "citation_definition": "upstream gives it a `carveCitationDefinition` node; this bridge registers none, so the type stays unmapped until the bridge builds one",
+      "directive": "this engine parses the type (#2329) and carve-grammars names no key for it; mapped here through the `carveDiv` node a directive already is, rather than declared unmapped",
+      "ruby": "this engine reads the type (#2290) and carve-grammars names no node for it yet; same shape as `block_extension` above",
+      "small_caps": "this engine reads the type (#2319) and carve-grammars names no mark for it yet; same shape as `block_extension` above"
+    },
+    "divergencePolicy": "DECLARED, not tolerated: every one is a difference from upstream that somebody has to close, and scripts/check-schema-map.php refuses an entry that no longer differs so the list cannot only grow."
   },
   "attributeNaming": "An attribute that carries a CARVE concept on a node or mark Tiptap already defines is spelled with a `carve` prefix (`carveRef`, `carveTight`, `carveKeyValues`), so it cannot collide with what a stock extension - or an application - puts on the same node. On a node this schema owns, the bare name is used: `carveCitation` has `raw`, not `carveRaw`. HTML-native names (`id`, `class`, `href`, `src`, `title`, `colspan`, `start`) keep their spelling wherever they appear. Two bridges to this model disagreed on every one of these before it was written down: carve-js wrote `ref`/`delim` where carve-php wrote `carveRef`/`tight`, so a document stored by one lost its reference spelling, its list tightness and its table spans when read by the other.",
   "carveSpecVocabulary": "spec/docs/profiles.md",
@@ -509,7 +519,7 @@
     "ruby": "the editor schema has no paired base and annotation structure for ruby",
     "block_extension": "CarveKit registers no node for an extension-owned block, and its opaque payload is not editor content. The node's own FALLBACK stands in for it, which is what PART 12 section 33 says a reader that does not implement the extension renders",
     "small_caps": "CarveKit registers no small-caps mark, and naming one the editor schema never defined is worse than dropping it. The bridge treats it exactly as it treats ruby: measured, both come back as their own children with the type named in the degradation report",
-    "citation_definition": "the bibliography definition line (PART 12 §18) is not yet modeled; CarveKit registers no node for it, and emitting a name the editor schema never defined is worse than dropping it. The references list the Citations extension renders is what an editor holds today",
+    "citation_definition": "the bibliography definition line (PART 12 §18) is not modeled by THIS bridge. CarveKit does register a `carveCitationDefinition` node, so the reason is the bridge and not the editor schema; until the bridge builds one, emitting a name it cannot read back is worse than dropping it. The references list the Citations extension renders is what an editor holds today",
     "abbreviation_def": "abbreviation definitions ride on the doc node's attrs",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",
