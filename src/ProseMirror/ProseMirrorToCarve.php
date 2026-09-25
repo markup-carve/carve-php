@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -194,15 +195,45 @@ class ProseMirrorToCarve
         $this->namelessMentions = new WeakMap();
 
         $rootAttrs = is_array($document['attrs'] ?? null) ? $document['attrs'] : [];
+        $content = $this->childrenOf($document);
+        $nodeDefinitions = [];
+        $beforeBody = false;
+        $seenBody = false;
+        $hasDefinitionNodes = false;
+        foreach ($content as $child) {
+            if (($child['type'] ?? null) !== 'carveAbbreviationDefinition') {
+                $seenBody = true;
+
+                continue;
+            }
+            if (!$hasDefinitionNodes) {
+                $beforeBody = !$seenBody;
+            }
+            $hasDefinitionNodes = true;
+            $definitionAttrs = is_array($child['attrs'] ?? null) ? $child['attrs'] : [];
+            $nodeDefinitions[] = [
+                'abbr' => self::asString($definitionAttrs['abbr'] ?? ''),
+                'expansion' => self::asString($definitionAttrs['expansion'] ?? ''),
+            ];
+        }
         $incomingAbbreviations = $rootAttrs['carveAbbreviations'] ?? [];
-        $this->incomingAbbreviations = is_array($incomingAbbreviations) ? array_filter(
-            $incomingAbbreviations,
-            'is_string',
-        ) : [];
+        $this->incomingAbbreviations = [];
+        if ($nodeDefinitions !== []) {
+            foreach ($nodeDefinitions as $definition) {
+                $this->incomingAbbreviations[$definition['abbr']] = $definition['expansion'];
+            }
+        } elseif (is_array($incomingAbbreviations)) {
+            $this->incomingAbbreviations = array_filter($incomingAbbreviations, 'is_string');
+        }
 
         $carveDocument = new Document();
-        foreach ($this->buildBlockPositionChildren($this->childrenOf($document)) as $node) {
+        foreach ($this->buildBlockPositionChildren($content) as $node) {
             $carveDocument->appendChild($node);
+        }
+        if ($nodeDefinitions !== []) {
+            $carveDocument->setAbbreviations($this->incomingAbbreviations);
+            $carveDocument->setAbbreviationDefinitions($nodeDefinitions);
+            $carveDocument->setAbbreviationsBeforeBody($beforeBody);
         }
 
         // After the tree is final, not while it is being built. A link mark
@@ -227,13 +258,11 @@ class ProseMirrorToCarve
         // key while their authored spelling stays on the node.
         $this->confirmLabelReferences($carveDocument, $this->collectLinkReferenceDefinitions($carveDocument));
 
-        // Restore document-level abbreviation definitions (carve-php#519). See
-        // the note in ProseMirrorRenderer::render(): without these the marks
-        // come back but the definitions do not, so the written source loses
-        // every expansion.
+        // Older editor documents carried definitions only in doc attrs. Read
+        // those when no definition nodes exist; new documents use the nodes.
         $attrs = $document['attrs'] ?? [];
         $abbreviations = is_array($attrs) ? $attrs['carveAbbreviations'] ?? null : null;
-        if (is_array($attrs) && is_array($abbreviations) && $abbreviations !== []) {
+        if ($nodeDefinitions === [] && is_array($attrs) && is_array($abbreviations) && $abbreviations !== []) {
             // Narrowed rather than asserted: the payload is decoded JSON, so
             // the values are whatever the caller sent. A non-string expansion
             // is not a definition, so it is skipped rather than coerced into
@@ -480,7 +509,7 @@ class ProseMirrorToCarve
             return $node;
         }
 
-        $inline = in_array($node->getType(), ['paragraph', 'heading', 'definition_term', 'caption'], true);
+        $inline = in_array($node->getType(), ['paragraph', 'heading', 'definition_term', 'caption', 'citation_definition'], true);
         if ($inline) {
             $inlines = [];
             foreach ($this->childrenOf($data) as $child) {
@@ -1562,6 +1591,9 @@ class ProseMirrorToCarve
                 $node instanceof LinkReferenceDefinition && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
                 $node instanceof LinkReferenceDefinition && $key === 'href' => $this->setState($node, 'href', self::asString($value)),
                 $node instanceof LinkReferenceDefinition && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
+                $node instanceof AbbreviationDefinition && $key === 'abbr' => $this->setState($node, 'abbr', self::asString($value)),
+                $node instanceof AbbreviationDefinition && $key === 'expansion' => $this->setState($node, 'expansion', self::asString($value)),
+                $node instanceof CitationDefinition && $key === 'key' => $this->setState($node, 'key', self::asString($value)),
                 $node instanceof Symbol && $key === 'name' => $this->setState($node, 'name', self::asString($value)),
                 // The editor keeps both halves as plain-text attrs; the node
                 // holds them as inline content (markup-carve/carve-php#2104).
@@ -2210,6 +2242,8 @@ class ProseMirrorToCarve
         'frontmatter' => Frontmatter::class,
         'raw_block' => RawBlock::class,
         'link_reference_definition' => LinkReferenceDefinition::class,
+        'abbreviation_def' => AbbreviationDefinition::class,
+        'citation_definition' => CitationDefinition::class,
         'inline_footnote' => InlineFootnote::class,
         'raw_inline' => RawInline::class,
         'literal_inline' => LiteralInline::class,

@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockExtension;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
@@ -121,21 +122,24 @@ class ProseMirrorRenderer
             }
         }
 
-        $doc = [
-            'type' => 'doc',
-            'content' => $this->renderBlocks($document->getChildren()),
-        ];
-
-        $abbreviations = $document->getAbbreviations();
-        if ($abbreviations !== []) {
-            $doc['attrs'] = [
-                'carveAbbreviations' => $abbreviations,
-                'carveAbbreviationDefinitions' => $document->getAbbreviationDefinitions(),
-                'carveAbbreviationsBeforeBody' => $document->hasAbbreviationsBeforeBody(),
-            ];
+        $children = $document->getChildren();
+        $content = $this->renderBlocks($children);
+        // Programmatic documents may carry definitions only in the document
+        // map. Emit those as nodes too, without repeating authored lines.
+        $residual = [];
+        foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
+            $rendered = $this->renderBlock(new AbbreviationDefinition($definition['abbr'], $definition['expansion']));
+            if ($rendered !== null) {
+                $residual[] = $rendered;
+            }
+        }
+        if ($residual !== []) {
+            $content = $document->hasAbbreviationsBeforeBody()
+                ? array_merge($residual, $content)
+                : array_merge($content, $residual);
         }
 
-        return $doc;
+        return ['type' => 'doc', 'content' => $content];
     }
 
     public function renderJson(Document $document, int $flags = 0): string
@@ -200,15 +204,6 @@ class ProseMirrorRenderer
             $this->degraded[$type] = SchemaMap::unmappedReason($type) ?? 'the fallback stands in for the extension';
 
             return $this->renderBlock($node->getFallback());
-        }
-
-        // The definition child renders nothing here because it is already
-        // carried in full: render() puts the definitions, the authored list and
-        // the ordering flag on the doc node's attrs, and the converter rebuilds
-        // the nodes from them at the position the flag names. Reporting it
-        // dropped as well would tell a caller they lost something they did not.
-        if ($node instanceof AbbreviationDefinition) {
-            return null;
         }
 
         $name = $this->proseMirrorName($node);
@@ -915,6 +910,11 @@ class ProseMirrorRenderer
             if ($node->getTitle() !== null) {
                 $attrs['title'] = $node->getTitle();
             }
+        } elseif ($node instanceof AbbreviationDefinition) {
+            $attrs['abbr'] = $node->getAbbr();
+            $attrs['expansion'] = $node->getExpansion();
+        } elseif ($node instanceof CitationDefinition) {
+            $attrs['key'] = $node->getKey();
         } elseif ($node instanceof LiteralInline) {
             $attrs['content'] = $node->getContent();
         } elseif ($node instanceof Symbol) {
@@ -1218,6 +1218,7 @@ class ProseMirrorRenderer
             'table_cell',
             'definition_term',
             'caption',
+            'citation_definition',
         ], true);
     }
 }
