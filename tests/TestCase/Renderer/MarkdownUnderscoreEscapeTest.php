@@ -195,11 +195,10 @@ class MarkdownUnderscoreEscapeTest extends TestCase
         $this->assertSame($expected, CarveConverter::markdown()->convert($source));
     }
 
-    public function testALooseListIsWrittenTightAndTheItemBoundaryStillCuts(): void
+    public function testTheScanEndsAtTheItemBoundaryOfALooseList(): void
     {
-        // The writer collapses the blank line, so the boundary the blank-line
-        // scan relied on is not in its own output. The item marker is.
-        $this->assertSame("- a _y\n- z_ w\n", CarveConverter::markdown()->convert("- a _y\n\n- z_ w\n"));
+        // The pair does not close, because neither half is in the other's item.
+        $this->assertSame("- a _y\n\n- z_ w\n", CarveConverter::markdown()->convert("- a _y\n\n- z_ w\n"));
     }
 
     public function testUnderlineEmphasisStillRenders(): void

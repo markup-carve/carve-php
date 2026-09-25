@@ -2060,50 +2060,64 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $output = '';
         $counter = $node->getStart();
 
+        $tight = $node->isTight();
+        $items = [];
         foreach ($node->getChildren() as $child) {
             if ($child instanceof ListItem) {
-                if ($node->getListType() === ListBlock::TYPE_ORDERED) {
-                    // Normalize to standard Markdown: numeric with . or )
-                    // Roman/alpha styles and (n) format are Carve-specific
-                    $marker = $node->getMarker();
-                    if ($marker === '()' || $marker === null) {
-                        $marker = '.';
-                    }
-                    $prefix = $counter . $marker . ' ';
-                    $counter++;
-                } elseif ($node->getListType() === ListBlock::TYPE_TASK) {
-                    $marker = $node->getMarker() ?? '-';
-                    $checkbox = $child->getChecked() ? '[x] ' : '[ ] ';
-                    $prefix = $marker . ' ' . $checkbox;
-                } else {
-                    $marker = $node->getMarker() ?? '-';
-                    $prefix = $marker . ' ';
-                }
+                $items[] = $child;
+            }
+        }
+        $last = count($items) - 1;
 
-                $content = $this->containerContent(fn (): string => $this->renderChildren($child));
-                // Handle multi-line list items
-                $lines = explode("\n", $content);
-                $firstLine = array_shift($lines);
-                $output .= ($firstLine === '' ? rtrim($prefix, ' ') : $prefix . $firstLine) . "\n";
-
-                if ($lines) {
-                    // Every continuation line moves to this item's content
-                    // column, and a nested list is one of them: the child list
-                    // emits its markers flush and THIS pad is what nests it.
-                    // Padding by the list's own depth as well indented each
-                    // level twice, which put a third level ten columns in -
-                    // four past its parent's content column, where a reader
-                    // opens an indented verbatim block instead of a list.
-                    //
-                    // A line with no content takes no padding: PART 11 section
-                    // 7 emits such a line empty, and trailing whitespace is
-                    // what editors and `git apply --whitespace=fix` rewrite
-                    // behind the writer.
-                    $continuation = str_repeat(' ', strlen($prefix));
-                    foreach ($lines as $line) {
-                        $output .= ($line === '' ? '' : $continuation . $line) . "\n";
-                    }
+        foreach ($items as $index => $child) {
+            if ($node->getListType() === ListBlock::TYPE_ORDERED) {
+                // Normalize to standard Markdown: numeric with . or )
+                // Roman/alpha styles and (n) format are Carve-specific
+                $marker = $node->getMarker();
+                if ($marker === '()' || $marker === null) {
+                    $marker = '.';
                 }
+                $prefix = $counter . $marker . ' ';
+                $counter++;
+            } elseif ($node->getListType() === ListBlock::TYPE_TASK) {
+                $marker = $node->getMarker() ?? '-';
+                $checkbox = $child->getChecked() ? '[x] ' : '[ ] ';
+                $prefix = $marker . ' ' . $checkbox;
+            } else {
+                $marker = $node->getMarker() ?? '-';
+                $prefix = $marker . ' ';
+            }
+
+            $content = $this->containerContent(fn (): string => $this->renderItemBlocks($child, $tight));
+            // Handle multi-line list items
+            $lines = explode("\n", $content);
+            $firstLine = array_shift($lines);
+            $output .= ($firstLine === '' ? rtrim($prefix, ' ') : $prefix . $firstLine) . "\n";
+
+            if ($lines) {
+                // Every continuation line moves to this item's content
+                // column, and a nested list is one of them: the child list
+                // emits its markers flush and THIS pad is what nests it.
+                // Padding by the list's own depth as well indented each
+                // level twice, which put a third level ten columns in -
+                // four past its parent's content column, where a reader
+                // opens an indented verbatim block instead of a list.
+                //
+                // A line with no content takes no padding: PART 11 section
+                // 7 emits such a line empty, and trailing whitespace is
+                // what editors and `git apply --whitespace=fix` rewrite
+                // behind the writer.
+                $continuation = str_repeat(' ', strlen($prefix));
+                foreach ($lines as $line) {
+                    $output .= ($line === '' ? '' : $continuation . $line) . "\n";
+                }
+            }
+
+            // A blank line between items is the only thing that spells a loose
+            // list to a CommonMark reader, and the looseness of `- a`, blank,
+            // `- b` lives in that boundary and nowhere else (CARVE-P11-047).
+            if (!$tight && $index < $last) {
+                $output .= "\n";
             }
         }
 
@@ -2115,6 +2129,94 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderListItem(ListItem $node): string
     {
         return $this->renderChildren($node);
+    }
+
+    /**
+     * One list item's blocks, with the separator blank dropped wherever the
+     * block below can stand without it.
+     *
+     * Every block leaves one blank line behind it, and inside a list item that
+     * blank is what makes the item LOOSE to a CommonMark reader:
+     * `<li><p>parent</p>` where the document says `<li>parent`. So a TIGHT item
+     * drops it where the block below opens a construct that interrupts a
+     * paragraph on its own. The question is asked per block rather than
+     * answered by never writing a separator, because two shapes need the blank
+     * to stay blocks at all (CARVE-P11-047).
+     */
+    protected function renderItemBlocks(ListItem $node, bool $tight): string
+    {
+        $children = array_values($node->getChildren());
+        $parts = [];
+        foreach ($children as $child) {
+            $parts[] = $this->renderNode($child);
+        }
+        if ($tight) {
+            // The seam is read off the text as it stands, not off the sibling
+            // index: a child this target drops writes nothing, so the block
+            // ABOVE the separator can be two positions back.
+            $written = '';
+            $above = null;
+            $carrier = null;
+            foreach ($children as $index => $child) {
+                if (
+                    $carrier !== null
+                    && $above !== null
+                    && substr($written, -2) === "\n\n"
+                    && $this->interruptsAParagraph($child, $above, $parts[$index])
+                ) {
+                    $parts[$carrier] = substr($parts[$carrier], 0, -1);
+                    $written = substr($written, 0, -1);
+                }
+                $written .= $parts[$index];
+                if ($parts[$index] !== '') {
+                    $above = $child;
+                    $carrier = $index;
+                }
+            }
+        }
+
+        return $this->reflankRuns($children, array_values($parts));
+    }
+
+    /**
+     * Whether this block's Markdown spelling opens a block directly under the
+     * one above it, with no blank line between them.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node The block below the seam.
+     * @param \MarkupCarve\Carve\Node\Node $above The block above it.
+     * @param string $rendered The block below, already written.
+     */
+    protected function interruptsAParagraph(Node $node, Node $above, string $rendered): bool
+    {
+        // A quote marker interrupts a PARAGRAPH and nothing else. Under any
+        // other block the unseparated `>` is absorbed by the block above - two
+        // sibling quotes merge into one - or reparents into its last list item.
+        if ($node instanceof BlockQuote) {
+            return $above instanceof Paragraph;
+        }
+        if (!$node instanceof ListBlock) {
+            return false;
+        }
+        // An ordered marker that does not start at 1 cannot interrupt a
+        // paragraph, and a marker with nothing after it reads as a setext
+        // underline. Both shapes need the blank to stay lists at all, and the
+        // ordered one is where CommonMark cannot express the tightness.
+        if ($node->getListType() === ListBlock::TYPE_ORDERED && $node->getStart() !== 1) {
+            return false;
+        }
+
+        return !$this->isBareMarkerLine($rendered);
+    }
+
+    /**
+     * Whether the written block opens with a list marker and nothing after it.
+     */
+    protected function isBareMarkerLine(string $rendered): bool
+    {
+        $newline = strpos($rendered, "\n");
+        $line = $newline === false ? $rendered : substr($rendered, 0, $newline);
+
+        return preg_match('/^(?:[-*+]|\d+[.)]) *$/', $line) === 1;
     }
 
     protected function renderDefinitionList(DefinitionList $node): string
