@@ -320,9 +320,8 @@ class AstCodec
      * this runs, every caption in a position the reference names is a field, so
      * a `caption` node reaching here is one the reference has no home for.
      *
-     * `attrs` and `pos` hold named slots rather than nodes, and a `keyValues`
-     * entry can be spelled `type` - descending into them would rename an
-     * attribute.
+     * `attrs` and `pos` hold named slots rather than nodes. An extension's
+     * `payload` is opaque and may also contain a key spelled `type`.
      *
      * @param array<mixed> $encoded
      *
@@ -342,7 +341,11 @@ class AstCodec
         }
 
         foreach ($encoded as $key => $value) {
-            if ($key === 'attrs' || $key === 'pos' || !is_array($value)) {
+            if (
+                $key === 'attrs' || $key === 'pos'
+                || ($encoded['type'] ?? null) === 'block_extension' && $key === 'payload'
+                || !is_array($value)
+            ) {
                 continue;
             }
             $encoded[$key] = self::mapInternalTypes($value);
@@ -1079,6 +1082,10 @@ class AstCodec
                 continue;
             }
 
+            if ($type === 'block_extension' && $key === 'payload') {
+                continue;
+            }
+
             $step = $here === '' ? (string)$key : $here . '.' . $key;
 
             if (isset(self::SCHEMA_NAMED_SLOTS[$key])) {
@@ -1284,7 +1291,9 @@ class AstCodec
             throw $e;
         }
 
-        return $this->decode($data);
+        $raw = json_decode($json, false, self::MAX_JSON_DEPTH, JSON_THROW_ON_ERROR);
+
+        return $this->decode(OpaqueJsonPayloads::restore($data, $raw));
     }
 
     /**

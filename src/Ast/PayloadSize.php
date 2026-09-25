@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Ast;
 
+use stdClass;
 use function array_is_list;
 use function is_array;
 use function is_bool;
@@ -66,15 +67,15 @@ final class PayloadSize
             foreach ($level as $node) {
                 // The pair of brackets around it.
                 $total += 2;
-                $isList = array_is_list($node);
-                foreach ($node as $key => $value) {
+                $isList = is_array($node) && array_is_list($node);
+                foreach ($node instanceof stdClass ? get_object_vars($node) : $node as $key => $value) {
                     if (!$isList) {
                         // `"key":` - the quotes and the colon. The comma
                         // between entries is deliberately not counted, which is
                         // where the understatement comes from.
                         $total += strlen((string)$key) + 3;
                     }
-                    if (is_array($value)) {
+                    if (is_array($value) || $value instanceof stdClass) {
                         $next[] = $value;
 
                         continue;
@@ -95,9 +96,7 @@ final class PayloadSize
 
                         continue;
                     }
-                    // An object, or a resource: nothing this format can carry,
-                    // and the schema refuses it a few lines later. It costs
-                    // nothing here rather than being guessed at.
+                    // A resource is not part of JSON and the schema refuses it.
                 }
             }
             $level = $next;
