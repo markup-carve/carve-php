@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\Converter\HtmlImportDiagnostic;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -179,14 +180,58 @@ class ARefusedDeclarationInStyleIsARefusedAttributeTest extends TestCase
             'expression()' => ['width:expression(alert(1))', 'error', $construct],
             'a benign url()' => ['background:url(pic.png)', 'error', $construct],
             'a behavior binding' => ['behavior:url(x.htc)', 'error', $construct],
+            // Read off the DECODED declarations, as the sanitizer reads them.
+            // Off the raw bytes the two went out of step in both directions: a
+            // denied URL inside a comment looked live, and an escaped one looked
+            // like an unnamed construct.
+            'an escaped scheme' => ['background:url(java\73 cript:x)', 'error', $denied],
+            'an escaped url()' => ['background:u\72l(javascript:x)', 'error', $denied],
+            'a url() behind a comment' => ['/*c*/background:url(javascript:y)', 'error', $denied],
+            'an escaped expression()' => ['width:expr\65 ssion(alert(1))', 'error', $construct],
             'a color' => ['color:red', 'info', 'style'],
             'an alignment' => ['text-align:left', 'info', 'style'],
+            'a commented-out url()' => ['color:red;/*url(javascript:x)*/', 'info', 'style'],
             // The sanitizer answers `''` for an empty value as well as for a
             // blanked one, so an empty `style` is the case that reads refused
             // from the answer alone. It is one row like any other.
             'an empty value' => ['', 'info', 'style'],
             'whitespace only' => ['   ', 'info', 'style'],
         ];
+    }
+
+    /**
+     * The class is the renderer's own answer, not a second reading of it: the
+     * row is `error` exactly where the sanitizer blanks the value. This is what
+     * the declaration table above would not catch on its own, since a table
+     * pins the cases somebody thought of.
+     *
+     * @param string $declaration
+     */
+    #[DataProvider('declarationValueProvider')]
+    public function testTheClassAgreesWithTheSanitizer(string $declaration): void
+    {
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))
+            ->convertWithReport('<form style="' . $declaration . '">t</form>');
+
+        $this->assertSame(
+            HtmlRenderer::baselineAttributeValue('style', $declaration) !== $declaration,
+            $result->diagnostics[0]->severity === 'error',
+            'the report and the sanitizer disagree about: ' . $declaration,
+        );
+    }
+
+    /**
+     * The same table, values only, so the invariant cannot drift from the cases
+     * the bucket test pins.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function declarationValueProvider(): array
+    {
+        return array_map(
+            static fn (array $case): array => [$case[0]],
+            self::declarationProvider(),
+        );
     }
 
     /**

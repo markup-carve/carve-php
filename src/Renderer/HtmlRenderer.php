@@ -3122,8 +3122,34 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     private static function hasDangerousCss(string $value): bool
     {
+        $compact = strtolower((string)preg_replace('/\s+/', '', self::decodedStyleValue($value)));
+
+        return str_contains($compact, 'expression(')
+            || str_contains($compact, 'url(')
+            || str_contains($compact, '@import')
+            || str_contains($compact, 'behavior:')
+            || str_contains($compact, '-moz-binding');
+    }
+
+    /**
+     * A `style` value as the needle check above reads it: CSS comments removed
+     * and CSS escapes decoded, so neither a commented-out construct nor
+     * `expr\65 ssion(` can change the answer.
+     *
+     * Public because the HTML importer classifies a preserved `style` off the
+     * same text. Reading the raw bytes instead put the two out of step in both
+     * directions: a denied URL inside a comment looked live, and an escaped one
+     * looked like an unnamed construct.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public static function decodedStyleValue(string $value): string
+    {
         $withoutComments = preg_replace('/\/\*.*?\*\//s', '', $value) ?? $value;
-        $decoded = preg_replace_callback(
+
+        return preg_replace_callback(
             '/\\\\([0-9A-Fa-f]{1,6}\s?|.)/s',
             static function (array $m): string {
                 $escape = $m[1];
@@ -3140,13 +3166,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             },
             $withoutComments,
         ) ?? $withoutComments;
-        $compact = strtolower((string)preg_replace('/\s+/', '', $decoded));
-
-        return str_contains($compact, 'expression(')
-            || str_contains($compact, 'url(')
-            || str_contains($compact, '@import')
-            || str_contains($compact, 'behavior:')
-            || str_contains($compact, '-moz-binding');
     }
 
     /**

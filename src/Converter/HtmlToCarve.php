@@ -1871,7 +1871,9 @@ class HtmlToCarve
      * rather than chosen per call: a denied scheme inside `url(...)`, else
      * anything the renderer's own `style` sanitizer blanks the value for.
      * Asking the sanitizer rather than restating its needles is what keeps this
-     * from refusing a different set than the renderer does.
+     * from refusing a different set than the renderer does - including the text
+     * the needles read, which is why the URL scan runs over the decoded
+     * declarations rather than the raw attribute.
      *
      * @param string $value
      *
@@ -1879,7 +1881,8 @@ class HtmlToCarve
      */
     protected static function preservedStyleSubject(string $value): string
     {
-        if (preg_match_all(self::CSS_URL_ARGUMENT, $value, $matches, PREG_SET_ORDER) > 0) {
+        $declarations = HtmlRenderer::decodedStyleValue($value);
+        if (preg_match_all(self::CSS_URL_ARGUMENT, $declarations, $matches, PREG_SET_ORDER) > 0) {
             foreach ($matches as $match) {
                 $url = trim(($match[1] ?? '') . ($match[2] ?? '') . ($match[3] ?? ''));
                 if ($url !== '' && HtmlRenderer::blankDangerousScheme($url) === '') {
