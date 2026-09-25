@@ -188,6 +188,11 @@ class ARefusedDeclarationInStyleIsARefusedAttributeTest extends TestCase
             'an escaped url()' => ['background:u\72l(javascript:x)', 'error', $denied],
             'a url() behind a comment' => ['/*c*/background:url(javascript:y)', 'error', $denied],
             'an escaped expression()' => ['width:expr\65 ssion(alert(1))', 'error', $construct],
+            // The reason set is CLOSED at two, so a value the sanitizer blanks
+            // for its leading scheme rather than for a `url(...)` argument lands
+            // in the second. Naming a third reason would invent a string the
+            // clause does not pin, which is the thing it exists to prevent.
+            'a leading denied scheme' => ['javascript:alert(1)', 'error', $construct],
             'a color' => ['color:red', 'info', 'style'],
             'an alignment' => ['text-align:left', 'info', 'style'],
             'a commented-out url()' => ['color:red;/*url(javascript:x)*/', 'info', 'style'],
