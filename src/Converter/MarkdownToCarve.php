@@ -843,7 +843,13 @@ class MarkdownToCarve
                 }
                 $held = ltrim($this->stripColumns($line, $contentCol), " \t");
                 $line = $this->normalizeHeldQuoteMarkers($line);
-                $result[] = $this->convertInlineFormatting($this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)));
+                $result[] = $this->convertInlineFormatting(
+                    $this->escapeRowContinuation(
+                        $this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)),
+                        (string)end($result),
+                        $lines[$i + 1] ?? '',
+                    ),
+                );
                 $this->trackItemParagraph($line, $isList, $contentCol, $itemParagraph, $itemQuote);
                 $prevLineType = 'list';
 
@@ -1016,6 +1022,7 @@ class MarkdownToCarve
 
             if (!$isHeading && !$isList && in_array($prevLineType, ['text', 'list', 'blockquote'], true)) {
                 $body = $this->escapeDefinitionContinuation($body, $lines[$i - 1] ?? '', (string)end($result));
+                $body = $this->escapeRowContinuation($body, (string)end($result), $lines[$i + 1] ?? '');
             }
             // An item's own line holding a quote reaches here whole, past the
             // branches that would have folded or fenced it, so its markers are
@@ -3441,6 +3448,66 @@ class MarkdownToCarve
 
         return !preg_match('/^(?:#{1,6}\s|>|[-*+]\s|\d+[.)]\s|`{3,}|~{3,})/', $trimmed)
             && !preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $trimmed);
+    }
+
+    /**
+     * Escape a closed pipe row that continues an open paragraph: a LONE row is
+     * no table in GFM and interrupts nothing, so it is text of the paragraph
+     * above it, while Carve opens a headerless table at its container's content
+     * column and split the paragraph in two around a table nobody spelled
+     * (carve-php#2359).
+     *
+     * This is the one shape where the two readers disagree in this direction -
+     * carve-php#2340 dedented markers Carve declines to read as openers, and a
+     * row is the opposite case - so it takes the escape `escapeBlockOpener`
+     * already spells for a closed row rather than a column of its own.
+     *
+     * Every reference is the line's neighbour INSIDE the container rather than
+     * the source line at column 0:
+     *
+     * - a delimiter row and the line it answers make a table, and the table
+     *   extension DOES interrupt a paragraph once one answers, so a row that is
+     *   either half of such a pair keeps its pipes. Both halves, since the row
+     *   asked about may be the header or the delimiter. Read at column 0 the
+     *   cell counts never match inside a quote, and the escape then put a real
+     *   table's own characters on the page.
+     * - the paragraph is open if the line WRITTEN above leaves one open. An
+     *   escaped row does, and a row that kept its pipes opened a table.
+     *
+     * @param string $line
+     * @param string $written The line written for the line above.
+     * @param string $next The source line below.
+     */
+    protected function escapeRowContinuation(string $line, string $written, string $next): string
+    {
+        if (preg_match('/^([ \t]*(?:>[ \t]?)*[ \t]*)(\|.*\|[ \t]*)$/', $line, $row) !== 1) {
+            return $line;
+        }
+        $held = trim($row[2]);
+        $above = $this->stripContainerMarkers($written);
+        if (
+            $this->startsTableHeader([$held, $this->stripContainerMarkers($next)], 0)
+            || $this->startsTableHeader([$above, $held], 0)
+        ) {
+            return $line;
+        }
+        if (!$this->quoteParagraphIsOpen($above)) {
+            return $line;
+        }
+
+        return $row[1] . '\\' . $row[2];
+    }
+
+    /**
+     * A line's content with every container marker it opens with taken off -
+     * quote markers and item markers in whatever order they interleave, plus a
+     * task checkbox, which is content and opens nothing.
+     */
+    protected function stripContainerMarkers(string $line): string
+    {
+        $markers = '/^[ \t]*(?:(?:>[ \t]?)|(?:[-*+]|\d{1,9}[.)])[ \t]+(?:\[[ xX]\][ \t]+)?)*[ \t]*/';
+
+        return (string)preg_replace($markers, '', $line);
     }
 
     /**
