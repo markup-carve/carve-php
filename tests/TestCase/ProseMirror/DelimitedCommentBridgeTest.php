@@ -123,13 +123,15 @@ class DelimitedCommentBridgeTest extends TestCase
         $line = $this->payloadFor("foo %% bar\n");
 
         $this->assertSame(
-            ['content' => 'bar', 'delimited' => true],
+            ['delimited' => true],
             $delimited['content'][0]['content'][1]['attrs'],
         );
         $this->assertSame(
-            ['content' => 'bar', 'delimited' => false],
+            ['delimited' => false],
             $line['content'][0]['content'][1]['attrs'],
         );
+        $this->assertSame([['type' => 'text', 'text' => 'bar']], $delimited['content'][0]['content'][1]['content']);
+        $this->assertSame([['type' => 'text', 'text' => 'bar']], $line['content'][0]['content'][1]['content']);
     }
 
     /**

@@ -15,10 +15,10 @@ use MarkupCarve\Carve\Test\TestCase\ProseMirror\SchemaMapProvenance;
  *
  *   php scripts/check-schema-map.php --grammars <carve-grammars checkout>
  *
- *     --grammars DIR   a carve-grammars checkout, full history
- *     --branch NAME    the branch the pin must sit on; defaults to main
- *     --map PATH       the copy to check; defaults to the vendored one
- *     --github         emit GitHub Actions annotations
+ *     --grammars DIR a carve-grammars checkout, full history
+ *     --branch NAME the branch the pin must sit on; defaults to main
+ *     --map PATH the copy to check; defaults to the vendored one
+ *     --github emit GitHub Actions annotations
  *
  * WHY THE HAS-A-DECISION TEST CANNOT DO THIS. It asserts that every AST type
  * this engine produces has a mapped-or-unmapped decision, and a locally added
@@ -26,9 +26,10 @@ use MarkupCarve\Carve\Test\TestCase\ProseMirror\SchemaMapProvenance;
  * whenever a type becomes producible and nothing forces the upstream one. Every
  * new type widened the gap.
  *
- * WHY DECISIONS AND NOT THE COMMIT DISTANCE. carve-grammars merges
- * continuously, so a gate on distance would be red from any open pull request
- * over there. The distance is reported as a number instead.
+ * The pinned file must match in full, except for local provenance. Changes on
+ * the upstream main branch are gated by decisions rather than commit distance:
+ * carve-grammars merges continuously, so a distance gate would reject an
+ * unrelated commit. The distance is reported instead.
  *
  * Exit 0 every assertion holds, 1 an assertion failed, 2 usage error.
  */
@@ -105,7 +106,9 @@ if ($contents === false) {
     exit(2);
 }
 try {
-    /** @var array<string, mixed> $local */
+    /**
+     * @var array<string, mixed> $local
+     */
     $local = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
 } catch (JsonException $exception) {
     fwrite(STDERR, sprintf("check-schema-map: %s is not valid JSON: %s\n", $mapPath, $exception->getMessage()));
@@ -135,7 +138,9 @@ function upstreamAt(string $grammars, string $revision, string $path): array|str
 }
 
 $provenance = SchemaMapProvenance::provenance($local);
-/** @var array<array{check: string, message: string}> $failures */
+/**
+ * @var array<array{check: string, message: string}> $failures
+ */
 $failures = $provenance['failures'];
 $commit = $provenance['commit'];
 $path = $provenance['path'];
@@ -204,6 +209,24 @@ if ($failures === [] && $commit !== null && $path !== null) {
         } elseif (is_string($head)) {
             $failures[] = ['check' => 'pin_is_current', 'message' => $head];
         } else {
+            $copy = $local;
+            unset($copy['_provenance']);
+            if ($copy !== $pinned) {
+                $differences = SchemaMapProvenance::prose($copy, $pinned);
+                foreach (array_unique([...array_keys($copy), ...array_keys($pinned)]) as $key) {
+                    if (in_array($key, ['types', 'unmapped', 'markCarrierNodes', 'preservationNodes'], true)) {
+                        continue;
+                    }
+                    if (($copy[$key] ?? null) !== ($pinned[$key] ?? null)) {
+                        $differences[] = $key;
+                    }
+                }
+                $failures[] = [
+                    'check' => 'map_matches_pin',
+                    'message' => 'the vendored map differs from the pinned upstream file outside `_provenance`: '
+                        . ($differences === [] ? 'key order differs' : implode(', ', $differences)),
+                ];
+            }
             $ours = SchemaMapProvenance::decisions($local);
             $atPin = SchemaMapProvenance::decisions($pinned);
             $atHead = SchemaMapProvenance::decisions($head);
@@ -261,15 +284,6 @@ if ($failures === [] && $commit !== null && $path !== null) {
                 foreach ($divergences as $name => $why) {
                     printf("declared divergence: %s - %s\n", $name, $why);
                 }
-                // Not a decision, so not a gate - but a copy that differs only in
-                // prose is still not a copy, and printing it is what keeps the
-                // difference from being invisible.
-                $prose = SchemaMapProvenance::prose($local, $pinned);
-                printf(
-                    "%d entries match the pin's decision but not its prose%s\n",
-                    count($prose),
-                    $prose === [] ? '' : ': ' . implode(', ', $prose),
-                );
             }
         }
     }

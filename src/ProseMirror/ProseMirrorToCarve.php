@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\ProseMirror;
 
 use Closure;
 use MarkupCarve\Carve\Ast\PayloadDepth;
+use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
@@ -495,6 +496,7 @@ class ProseMirrorToCarve
         // on the table as state.
         if ($name === 'carveCaption') {
             $caption = new Caption();
+            $this->applyAttributes($caption, $data);
             foreach ($this->childrenOf($data) as $child) {
                 foreach ($this->buildInlines($child) as $built) {
                     $caption->appendChild($built);
@@ -507,6 +509,7 @@ class ProseMirrorToCarve
         // The renderer hoists Carve sections into this wrapper; unwrap it.
         if ($name === 'carveSection') {
             $section = new Section();
+            $this->applyAttributes($section, $data);
             foreach ($this->buildBlockPositionChildren($this->childrenOf($data)) as $built) {
                 $section->appendChild($built);
             }
@@ -1038,8 +1041,8 @@ class ProseMirrorToCarve
                 if ($pair['base'] === []) {
                     throw new RuntimeException('carveRuby pair needs a non-empty base');
                 }
-                $pair['base'] = $this->mergeRubyInlines($pair['base']);
-                $pair['annotation'] = $this->mergeRubyInlines($pair['annotation']);
+                $pair['base'] = $this->mergeInlineMarks($pair['base']);
+                $pair['annotation'] = $this->mergeInlineMarks($pair['annotation']);
                 $pairs[] = $pair;
             }
             $ruby = new Ruby($pairs);
@@ -1102,6 +1105,17 @@ class ProseMirrorToCarve
 
         $node = $this->instantiate($name, $data);
         $this->applyAttributes($node, $data);
+        if (
+            $node instanceof RawInline || $node instanceof LiteralInline
+            || ($node instanceof Comment && $name === 'carveCommentInline')
+        ) {
+            $text = $this->editableTextContent($data);
+            if ($text !== null) {
+                $this->setState($node, 'content', $text);
+            }
+
+            return [$this->wrapInMarks($node, $data['marks'] ?? [])];
+        }
         if ($node instanceof Mention && isset($this->mentionsAsText[$node])) {
             return [$this->wrapInMarks(new Text($this->mentionsAsText[$node]), $data['marks'] ?? [])];
         }
@@ -1621,6 +1635,7 @@ class ProseMirrorToCarve
                     'spanMarker',
                     is_scalar($value) ? (string)$value : null,
                 ),
+                $node instanceof TableCell && $key === 'carveInheritedTextAlign' => true,
                 // An `alignment` on the wire IS the cell's own marker: the
                 // renderer publishes it only where the cell carries one, which
                 // is also how carve-rs reads it back. Recording that keeps the
@@ -1653,6 +1668,7 @@ class ProseMirrorToCarve
                 $node instanceof Div && $key === 'carveTyped' => $this->setState($node, 'typed', self::asBool($value)),
                 $node instanceof Div && $key === 'carveAttrs' => $this->applyCarveAttrs($node, $value),
                 $node instanceof BlockExtension && in_array($key, ['name', 'version', 'payload'], true) => true,
+                $node instanceof Caption && $key === 'short' => true,
                 $node instanceof Ruby && $key === 'pairs' => true,
                 $node instanceof Abbreviation && $key === 'title' => $this->setState($node, 'title', self::asString($value)),
                 $node instanceof InlineExtension && in_array($key, ['name', 'carveSource'], true) => $this->setState(
@@ -1685,8 +1701,13 @@ class ProseMirrorToCarve
                 $node instanceof Symbol && $key === 'name' => $this->setState($node, 'name', self::asString($value)),
                 // The editor keeps both halves as plain-text attrs; the node
                 // holds them as inline content (markup-carve/carve-php#2104).
-                $node instanceof Substitution && $key === 'oldText' => $this->fillSubstitutionHalf($node->getOld(), self::asString($value)),
-                $node instanceof Substitution && $key === 'newText' => $this->fillSubstitutionHalf($node->getNew(), self::asString($value)),
+                $node instanceof Substitution && $key === 'oldText' => !array_key_exists('old', $attrs)
+                    ? $this->fillSubstitutionHalf($node->getOld(), self::asString($value)) : true,
+                $node instanceof Substitution && $key === 'newText' => !array_key_exists('new', $attrs)
+                    ? $this->fillSubstitutionHalf($node->getNew(), self::asString($value)) : true,
+                $node instanceof Substitution && $key === 'old' => $this->fillSubstitutionHalfFromWire($node->getOld(), $value),
+                $node instanceof Substitution && $key === 'new' => $this->fillSubstitutionHalfFromWire($node->getNew(), $value),
+                $node instanceof BlockNode && $key === 'carvePos' => $this->setBlockPos($node, $value),
                 $node instanceof HeadingRef && $key === 'target' => $this->setState($node, 'targetId', self::asString($value)),
                 $node instanceof CitationGroup && $key === 'raw' => $this->setState($node, 'raw', self::asString($value)),
                 // The group flag is the SUMMARY of its items (PART 12 §31), so
@@ -2186,6 +2207,88 @@ class ProseMirrorToCarve
         return true;
     }
 
+    /**
+     * @throws \RuntimeException
+     */
+    private function fillSubstitutionHalfFromWire(SubstitutionHalf $half, mixed $value): bool
+    {
+        if (!is_array($value)) {
+            throw new RuntimeException('A substitution half must be an inline array');
+        }
+        $inlines = [];
+        foreach ($value as $wireInline) {
+            $data = $this->stringKeyedObject($wireInline, 'A substitution half must contain inline nodes');
+            foreach ($this->buildInlines($data) as $built) {
+                if (!$built instanceof InlineNode) {
+                    throw new RuntimeException('A substitution half must contain inline nodes');
+                }
+                $inlines[] = $built;
+            }
+        }
+        foreach ($half->getChildren() as $child) {
+            $half->removeChild($child);
+        }
+        foreach ($this->mergeInlineMarks($inlines) as $inline) {
+            $half->appendChild($inline);
+        }
+
+        return true;
+    }
+
+    private function setBlockPos(BlockNode $node, mixed $value): bool
+    {
+        if ($value === null) {
+            $node->setPos(null);
+
+            return true;
+        }
+        if (!is_array($value)) {
+            $this->droppedAttributes['carvePos'] = 'a source position must be an object with six integer coordinates';
+
+            return true;
+        }
+        $position = [];
+        foreach ($value as $key => $part) {
+            if (is_string($key)) {
+                $position[$key] = $part;
+            }
+        }
+        $span = SourceSpan::fromArray($position);
+        if ($span === null) {
+            $this->droppedAttributes['carvePos'] = 'a source position must contain six integer coordinates';
+
+            return true;
+        }
+        $node->setPos($span);
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @throws \RuntimeException
+     */
+    private function editableTextContent(array $data): ?string
+    {
+        $children = $data['content'] ?? null;
+        if ($children === null || $children === []) {
+            return null;
+        }
+        if (!is_array($children)) {
+            throw new RuntimeException('Editable inline content must contain text nodes');
+        }
+        $text = '';
+        foreach ($children as $child) {
+            if (!is_array($child) || ($child['type'] ?? null) !== 'text' || !is_string($child['text'] ?? null)) {
+                throw new RuntimeException('Editable inline content must contain text nodes');
+            }
+            $text .= $child['text'];
+        }
+
+        return $text;
+    }
+
     protected function setState(Node $node, string $property, mixed $value): bool
     {
         $reflection = new ReflectionClass($node);
@@ -2309,12 +2412,12 @@ class ProseMirrorToCarve
      *
      * @return list<\MarkupCarve\Carve\Node\Inline\InlineNode>
      */
-    private function mergeRubyInlines(array $nodes): array
+    private function mergeInlineMarks(array $nodes): array
     {
         $merged = [];
         foreach ($this->mergeAdjacentMarks($nodes) as $node) {
             if (!$node instanceof InlineNode) {
-                throw new RuntimeException('carveRuby pair content must be inline nodes');
+                throw new RuntimeException('Inline mark content must be inline nodes');
             }
             $merged[] = $node;
         }
