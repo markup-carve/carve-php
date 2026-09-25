@@ -26,10 +26,11 @@ no diagnostics. The HTML descendants are not imported in that path.
 Each diagnostic carries a `path` locating what was lost. It is a human-readable
 locator that all three engines spell the same way, and although it borrows
 XPath's notation it is **not** an XPath expression - do not resolve it as one.
-It starts at the top level of the fragment handed to the importer, so no wrapper
-of the importer's own and no authored `<html>`/`<body>` appears in it; `[n]` is
-the position among all of the parent's child nodes, text included; and it names
-the traversal the conversion performs, so a table's rows are flattened out of
+Paths for content start at the top level of the imported fragment. They omit
+the importer's wrapper and any authored `<html>`, `<head>`, or `<body>`. A finding
+on an attribute of one of those document elements names that element instead.
+`[n]` is the position among all of the parent's child nodes, text included.
+Paths follow the conversion's traversal, so table rows are flattened out of
 `<thead>`/`<tbody>` and numbered across the whole table. For this input:
 
 ~~~ html
