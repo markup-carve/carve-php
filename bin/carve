@@ -64,6 +64,7 @@ use MarkupCarve\Carve\Extension\TabsExtension;
 use MarkupCarve\Carve\Lint\FigureGroupLinter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
 use MarkupCarve\Carve\Lint\QuoteFenceLinter;
+use MarkupCarve\Carve\Lint\ReferencesPlacementLinter;
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
 use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
 use MarkupCarve\Carve\Lint\TableColumnLinter;
@@ -542,7 +543,7 @@ function parseArgs(array $argv): array
  */
 function parseLintArgs(array $argv): array
 {
-    $options = ['command' => 'lint', 'help' => false, 'files' => [], 'platforms' => []];
+    $options = ['command' => 'lint', 'help' => false, 'files' => [], 'platforms' => [], 'extensions' => []];
 
     $argc = count($argv);
     for ($i = 2; $i < $argc; $i++) {
@@ -561,6 +562,13 @@ function parseLintArgs(array $argv): array
             $platform = substr($arg, strlen('--platform='));
             assertKnownLintPlatform($platform);
             $options['platforms'][] = $platform;
+        } elseif ($arg === '--extension' || str_starts_with($arg, '--extension=')) {
+            $extension = $arg === '--extension' ? ($argv[++$i] ?? null) : substr($arg, strlen('--extension='));
+            if ($extension !== 'citations') {
+                fwrite(STDERR, "Error: --extension expects citations\n");
+                exit(1);
+            }
+            $options['extensions'][] = $extension;
         } elseif (str_starts_with($arg, '-')) {
             fwrite(STDERR, "Error: Unknown lint option: $arg\n");
             exit(1);
@@ -685,6 +693,8 @@ Formatter:
   lint --platform NAME
                       Also report host autolinks a platform re-linkifies
                       (repeatable; off unless named)
+  lint --extension citations
+                      Check placement of generated references
   fmt                 Format Carve source to stdout
   fmt -w, --write     Format files in place
   fmt --check         Exit non-zero if any file is not formatted
@@ -774,6 +784,7 @@ if (($options['command'] ?? null) === 'lint') {
     $templateSourceLinter = new TemplateSourceLinter();
     $figureGroupLinter = new FigureGroupLinter();
     $quoteFenceLinter = new QuoteFenceLinter();
+    $referencesPlacementLinter = new ReferencesPlacementLinter();
     $sources = [];
 
     if ($options['files'] === []) {
@@ -807,6 +818,7 @@ if (($options['command'] ?? null) === 'lint') {
             $templateSourceLinter->lint($source),
             $figureGroupLinter->lint($source),
             $quoteFenceLinter->lint($source),
+            $referencesPlacementLinter->lint($source, ['extensions' => $options['extensions']]),
         );
         usort(
             $warnings,
