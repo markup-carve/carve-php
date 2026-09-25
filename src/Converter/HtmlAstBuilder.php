@@ -47,6 +47,14 @@ final class HtmlAstBuilder
     private array $referenceDefinitions = [];
 
     /**
+     * The bracket text an ordered task item's checkbox is written as, keyed by
+     * the `<input>` element's object id.
+     *
+     * @var array<int, string>
+     */
+    private array $orderedTaskBrackets = [];
+
+    /**
      * @var array<string, string>
      */
     private array $abbreviationDefinitions = [];
@@ -268,6 +276,7 @@ final class HtmlAstBuilder
         $this->footnoteTargets = [];
         $this->footnoteDefinitions = [];
         $this->referenceDefinitions = [];
+        $this->orderedTaskBrackets = [];
         $this->abbreviationDefinitions = [];
         $this->inFootnoteDefinition = false;
         $this->inlineTypeStack = [];
@@ -875,15 +884,6 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement || strtolower($child->tagName) !== 'li') {
                 continue;
             }
-            $itemChildren = $this->blocks($this->children($child));
-            foreach (array_slice($itemChildren, 1) as $laterBlock) {
-                if (in_array($laterBlock['type'] ?? null, ['paragraph', 'figure'], true)) {
-                    $hasLooseItem = true;
-
-                    break;
-                }
-            }
-            $item = ['type' => 'list_item', 'children' => $itemChildren];
             $task = $this->taskCheckbox($child);
             $taskState = $child->getAttribute('data-task-state');
             $checkboxChecked = $task !== null && (
@@ -893,6 +893,28 @@ final class HtmlAstBuilder
             $consumesTaskState = $task !== null
                 && in_array($taskState, ['', '-', 'x', 'X', ' '], true)
                 && (!in_array($taskState, ['x', 'X'], true) || $checkboxChecked);
+            // An ORDERED task item has no Carve spelling: `task_marker` hangs off
+            // `unordered_item` alone (PART 3). The writer keeps the characters
+            // the box was read from and loses the task-item semantics, which the
+            // import report names (carve-php#2381). The AST exit holds the box on
+            // the item and reports nothing - the split PART 12 section 16 draws.
+            $unspellableTask = $ordered && $task !== null && $this->sourceSafe;
+            if ($unspellableTask) {
+                $this->orderedTaskBrackets[spl_object_id($task)] = '['
+                    . ($consumesTaskState && $taskState !== '' && !in_array($taskState, ['x', 'X', ' '], true)
+                        ? $taskState
+                        : ($checkboxChecked ? 'x' : ' '))
+                    . ']';
+            }
+            $itemChildren = $this->blocks($this->children($child));
+            foreach (array_slice($itemChildren, 1) as $laterBlock) {
+                if (in_array($laterBlock['type'] ?? null, ['paragraph', 'figure'], true)) {
+                    $hasLooseItem = true;
+
+                    break;
+                }
+            }
+            $item = ['type' => 'list_item', 'children' => $itemChildren];
             $skipItemAttrs = $consumesTaskState ? ['data-task-state'] : [];
             if ($task !== null && strtolower($child->getAttribute('data-type')) === 'taskitem') {
                 $skipItemAttrs[] = 'data-type';
@@ -901,7 +923,7 @@ final class HtmlAstBuilder
                 $skipItemAttrs[] = 'data-checked';
             }
             $this->attachAttrs($item, $child, $skipItemAttrs);
-            if ($task !== null) {
+            if ($task !== null && !$unspellableTask) {
                 $item['checked'] = $checkboxChecked;
                 if ($consumesTaskState && $taskState !== '' && !in_array($taskState, ['x', 'X', ' '], true)) {
                     $item['taskState'] = $taskState;
@@ -2769,7 +2791,9 @@ final class HtmlAstBuilder
         }
 
         if ($tag === 'input' && strtolower($node->getAttribute('type')) === 'checkbox') {
-            return [];
+            $bracket = $this->orderedTaskBrackets[spl_object_id($node)] ?? null;
+
+            return $bracket === null ? [] : [['type' => 'text', 'value' => $bracket]];
         }
 
         if ($this->isBlock($node)) {

@@ -438,7 +438,12 @@ class HtmlToCarve
             array_values(array_filter(
                 $source->diagnostics,
                 static fn (HtmlImportDiagnostic $diagnostic): bool => !($diagnostic->code === 'structure-unspellable'
-                    && str_starts_with($diagnostic->message, 'Flattened <ruby> annotations')),
+                    && (str_starts_with($diagnostic->message, 'Flattened <ruby> annotations')
+                        // Only a WRITER loses an ordered task item's box (PART 12
+                        // section 16): this tree keeps `checked` on the item, so
+                        // the row the source exit owes would be a loss that did
+                        // not happen here (carve-php#2381).
+                        || str_starts_with($diagnostic->message, 'Wrote an ordered task item'))),
             )),
         );
     }
@@ -676,6 +681,9 @@ class HtmlToCarve
         $tag = strtolower($node->tagName);
         if ($tag === 'input' && $this->directAstConsumesCheckbox($node)) {
             $this->consumedCheckboxInputs[$path] = true;
+            if ($this->checkboxStandsInAnOrderedItem($node)) {
+                $this->orderedTaskCheckboxInputs[$path] = true;
+            }
         }
         if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
             $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $path);
@@ -693,7 +701,11 @@ class HtmlToCarve
         }
 
         $outerConsumedCheckbox = $this->inspectedConsumedCheckbox;
+        $outerOrderedTaskCheckbox = $this->inspectedOrderedTaskCheckbox;
         $this->inspectedConsumedCheckbox = $tag === 'input' && isset($this->consumedCheckboxInputs[$path])
+            ? $path
+            : null;
+        $this->inspectedOrderedTaskCheckbox = $tag === 'input' && isset($this->orderedTaskCheckboxInputs[$path])
             ? $path
             : null;
 
@@ -707,6 +719,20 @@ class HtmlToCarve
                     'info',
                     $path,
                 );
+            } elseif ($this->inspectedOrderedTaskCheckbox !== null) {
+                // The row the box's own loss owes, in place of the element and
+                // attribute rows it would otherwise spend: a Carve task marker
+                // is spelled behind a bullet only, so the characters survive and
+                // the task-item semantics do not (carve-php#2381). Named at the
+                // `<input>`'s own path, the way carve-rs#1904 pinned it.
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'structure-unspellable',
+                    'Wrote an ordered task item\'s checkbox as its bracket text: a Carve task marker is spelled '
+                        . 'behind a bullet only, so the item keeps the characters and loses the task-item semantics',
+                    'warning',
+                    $path,
+                );
             } elseif (!$this->isKnownImportElement($tag) && $tag !== 'math') {
                 $this->reportImportElementOutcome($node, $tag, $path, $diagnostics);
             }
@@ -714,6 +740,7 @@ class HtmlToCarve
             $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
         } finally {
             $this->inspectedConsumedCheckbox = $outerConsumedCheckbox;
+            $this->inspectedOrderedTaskCheckbox = $outerOrderedTaskCheckbox;
         }
 
         if ($tag === 'math') {
@@ -1429,6 +1456,57 @@ class HtmlToCarve
         }
 
         return $keepsRaw ? 'raw' : 'unwrap';
+    }
+
+    /**
+     * Does this consumed checkbox stand in an ORDERED item, where Carve has no
+     * task marker to write it as?
+     */
+    private function checkboxStandsInAnOrderedItem(DOMElement $input): bool
+    {
+        $item = $input->parentNode;
+        if ($item instanceof DOMElement && strtolower($item->tagName) === 'label') {
+            $item = $item->parentNode;
+        }
+        $list = $item instanceof DOMElement ? $item->parentNode : null;
+
+        return $list instanceof DOMElement && strtolower($list->tagName) === 'ol';
+    }
+
+    /**
+     * Is the element under inspection an ordered task item whose
+     * `data-task-state` the writer spelled into the item's bracket text?
+     *
+     * The same set `HtmlAstBuilder` consumes, on the same condition: a state of
+     * `x` on an UNCHECKED box is not consumed there, stays an item attribute and
+     * keeps the row it owes.
+     */
+    private function orderedTaskStateReachedTheBrackets(): bool
+    {
+        $item = $this->inspectedElement;
+        if (!$item instanceof DOMElement || strtolower($item->tagName) !== 'li') {
+            return false;
+        }
+        $state = $item->getAttribute('data-task-state');
+        if (!in_array($state, ['-', 'x', 'X', ' '], true)) {
+            return false;
+        }
+        foreach ($item->getElementsByTagName('input') as $input) {
+            $holder = $input->parentNode;
+            if ($holder instanceof DOMElement && strtolower($holder->tagName) === 'label') {
+                $holder = $holder->parentNode;
+            }
+            if ($holder !== $item || !$this->directAstConsumesCheckbox($input)) {
+                continue;
+            }
+            if (!$this->checkboxStandsInAnOrderedItem($input)) {
+                return false;
+            }
+
+            return !in_array($state, ['x', 'X'], true) || $input->hasAttribute('checked');
+        }
+
+        return false;
     }
 
     private function directAstConsumesCheckbox(DOMElement $input): bool
@@ -2655,8 +2733,25 @@ class HtmlToCarve
         // Spent from the budget for the reason the element question above is:
         // one emitted `type="checkbox"` answers for one input.
         if ($this->inspectedConsumedCheckbox !== null && $name === 'type') {
+            if ($this->inspectedOrderedTaskCheckbox !== null) {
+                // No marker was written behind an ordered item, so there is no
+                // emitted `type="checkbox"` to spend. The bracket text carries
+                // what the box said, and the `structure-unspellable` row this
+                // input already owns carries what it lost (carve-php#2381).
+                return true;
+            }
             $this->consumeSurvivingAttribute($this->importSurvivorKey('type', 'checkbox'));
 
+            return true;
+        }
+
+        // THE BOX'S OWN STATE IS IN THE BRACKETS, on the input and on the item
+        // alike. Every other attribute keeps its ordinary treatment, so a `name`
+        // or a `value` on that same input still reports the loss it is.
+        if ($this->inspectedOrderedTaskCheckbox !== null && in_array($name, ['checked', 'disabled'], true)) {
+            return true;
+        }
+        if ($name === 'data-task-state' && $this->orderedTaskStateReachedTheBrackets()) {
             return true;
         }
 
@@ -3159,6 +3254,21 @@ class HtmlToCarve
      * @var array<string, true>
      */
     protected array $consumedCheckboxInputs = [];
+
+    /**
+     * The paths of the consumed checkboxes an ORDERED item holds, whose box
+     * Carve has no marker for.
+     *
+     * @var array<string, true>
+     */
+    protected array $orderedTaskCheckboxInputs = [];
+
+    /**
+     * The path of the ordered item's checkbox currently being inspected, if any.
+     *
+     * @var string|null
+     */
+    protected ?string $inspectedOrderedTaskCheckbox = null;
 
     /**
      * The path of the consumed checkbox currently being inspected, if any.
