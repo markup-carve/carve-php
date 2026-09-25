@@ -131,27 +131,27 @@ class AGeneratedContentKindIsADirectiveTest extends TestCase
     }
 
     /**
-     * What a reader sees differently, and the only thing that moved: the schema
-     * closes `directive` WITHOUT a `title`, so a quoted opener on one of the six
-     * is not carried. markup-carve/carve#2247 asks where it should live; until it
-     * is answered, the loss is pinned here rather than papered over.
-     *
-     * The direct HTML render is unaffected - it reads the parse tree, where the
-     * header is still on the Div - so the loss appears only through the wire.
+     * The quoted opener rides the wire. The schema gave `directive` the same
+     * `title` an admonition has (markup-carve/carve#2247), so it publishes under
+     * the reference's name and survives a round trip - this test pinned the loss
+     * while that question was open.
      */
-    public function testAQuotedOpenerIsNotCarriedOnADirective(): void
+    public function testAQuotedOpenerIsCarriedOnADirective(): void
     {
         $source = "::: toc \"Contents\"\n:::\n";
         $document = (new CarveConverter())->parse($source);
         $codec = new AstCodec();
 
-        $this->assertArrayNotHasKey('title', $codec->encode($document)['children'][0]);
+        $this->assertSame(
+            [['type' => 'text', 'value' => 'Contents']],
+            $codec->encode($document)['children'][0]['title'],
+        );
         $this->assertStringContainsString(
             '<p class="admonition-title">Contents</p>',
             (new HtmlRenderer())->render($document),
         );
-        $this->assertStringNotContainsString(
-            'admonition-title',
+        $this->assertStringContainsString(
+            '<p class="admonition-title">Contents</p>',
             (new HtmlRenderer())->render($codec->decode($codec->encode((new CarveConverter())->parse($source)))),
         );
     }

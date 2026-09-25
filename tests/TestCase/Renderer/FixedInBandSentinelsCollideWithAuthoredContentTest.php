@@ -176,8 +176,10 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
 
     public function testThePlacementBlockDegradesToAnEmptyDivWithoutFootnotes(): void
     {
+        // The ordinary typed-div rendering, matching carve-js, rather than the
+        // hand-written empty div this used to expect.
         $this->assertSame(
-            "<p>x</p>\n<div class=\"footnotes\"></div>",
+            "<p>x</p>\n<div class=\"footnotes\">\n\n</div>\n",
             (new CarveConverter())->convert("x\n\n::: footnotes\n:::\n"),
         );
     }
