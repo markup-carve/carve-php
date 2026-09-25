@@ -675,6 +675,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return str_replace("\n", $this->inlineBreakGuard(), $content);
     }
 
+    /**
+     * Keep generated lines at column zero through surrounding block indentation.
+     */
+    public function guardGeneratedNewlines(string $html): string
+    {
+        return $this->guardVerbatimNewlines($html);
+    }
+
     protected function restoreSoftBreakGuards(string $html): string
     {
         return str_replace(
