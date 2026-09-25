@@ -3494,7 +3494,11 @@ class BlockParser
         // Carve line comment: a `%%` line (the `%%%` fenced form is handled
         // earlier by tryParseFencedComment) runs to end of line, not rendered.
         if (str_starts_with(ltrim($line, " \t"), '%%')) {
-            $comment = new Comment(trim(substr(ltrim($line, " \t"), 2)));
+            $content = substr(ltrim($line, " \t"), 2);
+            if ($content !== '' && ($content[0] === ' ' || $content[0] === "\t")) {
+                $content = substr($content, 1);
+            }
+            $comment = new Comment(rtrim($content, " \t"));
             $sourceLine = $this->sourceLineFor($start);
             $sourceText = $this->sourceLines[$sourceLine] ?? '';
             // A comment is a LEAF, so its span begins at the `%` markup, not in
@@ -8951,7 +8955,7 @@ class BlockParser
             if ($content !== '' && ($content[0] === ' ' || $content[0] === "\t")) {
                 $content = substr($content, 1);
             }
-            $comment = new Comment($content);
+            $comment = new Comment(rtrim($content, " \t"));
             // The node keeps the SPAN the inline reader used to give it: its
             // own line, from the container's content column to the end. A node
             // that loses its position when the layer deciding it moves is a

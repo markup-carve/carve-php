@@ -108,7 +108,7 @@ class LineBlockHardBreakBackslashTest extends TestCase
             ],
             'a comment whose body ends in a space takes none either' => [
                 "::: |\na\n%% x \nb\n:::\n",
-                "::: |\na\n%% x \nb\n:::\n",
+                "::: |\na\n%% x\nb\n:::\n",
             ],
             // WHICH LINE IS LAST IS DECIDED BY THE BREAKS, HOWEVER SPELLED. The
             // last body line here is the COMMENT, so the backslash on `a ` is
