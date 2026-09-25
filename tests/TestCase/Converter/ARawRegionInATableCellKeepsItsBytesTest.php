@@ -227,12 +227,12 @@ class ARawRegionInATableCellKeepsItsBytesTest extends TestCase
      * (markup-carve/carve#1954), and a table of no rows is nothing. The report
      * says so, and this pins the OUTPUT rather than the row.
      */
-    public function testACellEmptiedOfEverythingStillTakesItsRow(): void
+    public function testACellEmptiedOfEverythingDropsItsRow(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<table><tr><td><form><input></form></td></tr></table>');
         $this->assertSame('', trim($result->value));
         $codes = array_map(static fn ($diagnostic): string => $diagnostic->toArray()['code'], $result->diagnostics);
-        $this->assertSame(['element-dropped', 'element-dropped'], $codes);
+        $this->assertSame(['structure-unspellable', 'element-dropped', 'element-dropped'], $codes);
         // A second cell with content keeps the table, so the drop is the blank
         // ROW's and not the unplaceable cell's.
         $kept = (new HtmlToCarve())->convertWithReport('<table><tr><td><form><input></form></td><td>b</td></tr></table>');

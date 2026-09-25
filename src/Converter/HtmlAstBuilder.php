@@ -38,6 +38,11 @@ final class HtmlAstBuilder
      */
     private SplObjectStorage $keptRawElements;
 
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    private SplObjectStorage $droppedBlankTableRows;
+
     private ?bool $tableCellAllowsEmptyCode = null;
 
     /**
@@ -242,6 +247,7 @@ final class HtmlAstBuilder
         private readonly array $labels = [],
     ) {
         $this->keptRawElements = new SplObjectStorage();
+        $this->droppedBlankTableRows = new SplObjectStorage();
     }
 
     public function builtDocument(): ?DOMDocument
@@ -255,6 +261,14 @@ final class HtmlAstBuilder
     public function keptRawElements(): SplObjectStorage
     {
         return $this->keptRawElements;
+    }
+
+    /**
+     * @return \SplObjectStorage<\DOMElement, null>
+     */
+    public function droppedBlankTableRows(): SplObjectStorage
+    {
+        return $this->droppedBlankTableRows;
     }
 
     private function keepRaw(DOMElement $node): void
@@ -302,6 +316,7 @@ final class HtmlAstBuilder
     public function build(string $html, ?int $sourceByteLength = null): array
     {
         $this->keptRawElements = new SplObjectStorage();
+        $this->droppedBlankTableRows = new SplObjectStorage();
         $this->footnoteTargets = [];
         $this->footnoteDefinitions = [];
         $this->referenceDefinitions = [];
@@ -1331,12 +1346,11 @@ final class HtmlAstBuilder
             if ($cells !== []) {
                 $blank = self::every(
                     $cells,
-                    static fn (array $cell): bool => !isset($cell['span'])
-                        && $cell['children'] === []
-                        && self::attrsValue($cell['attrs'] ?? null) === []
-                        && !isset($cell['align'], $cell['valign']),
+                    static fn (array $cell): bool => self::cellWritesBlank($cell),
                 );
                 if ($blank) {
+                    $this->droppedBlankTableRows[$rowElement] = null;
+
                     continue;
                 }
                 $row = ['type' => 'table_row', 'cells' => $cells];
@@ -1466,6 +1480,27 @@ final class HtmlAstBuilder
         }
 
         return $table;
+    }
+
+    /**
+     * @param array<string, mixed> $cell
+     */
+    private static function cellWritesBlank(array $cell): bool
+    {
+        if (isset($cell['span']) || isset($cell['align']) || isset($cell['valign']) || self::attrsValue($cell['attrs'] ?? null) !== []) {
+            return false;
+        }
+        foreach (self::nodeList($cell['children'] ?? null) as $child) {
+            $type = $child['type'] ?? null;
+            if ($type === 'hard_break' || $type === 'soft_break') {
+                continue;
+            }
+            if ($type !== 'text' || trim(self::stringValue($child['value'] ?? null)) !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

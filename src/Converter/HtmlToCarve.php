@@ -407,6 +407,7 @@ class HtmlToCarve
             $this->emittedHasRawHtml = null;
             $this->builtImportDocument = null;
             $this->keptRawImportElements = null;
+            $this->droppedBlankImportRows = null;
         }
 
         return new HtmlImportResult(
@@ -1538,6 +1539,9 @@ class HtmlToCarve
 
     private function directAstBlankTableRow(DOMElement $row): bool
     {
+        if ($this->droppedBlankImportRows !== null) {
+            return isset($this->droppedBlankImportRows[$row]);
+        }
         $sawCell = false;
         foreach ($row->childNodes as $cell) {
             if (
@@ -3181,6 +3185,7 @@ class HtmlToCarve
         $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
         $this->keptRawImportElements = null;
+        $this->droppedBlankImportRows = null;
         if (preg_match('/^\s*<!doctype\b[^>]*>\s*$/iD', $html) === 1) {
             return '';
         }
@@ -3203,6 +3208,7 @@ class HtmlToCarve
         if ($this->captureImportIdentity) {
             $this->builtImportDocument = $builder->builtDocument();
             $this->keptRawImportElements = $builder->keptRawElements();
+            $this->droppedBlankImportRows = $builder->droppedBlankTableRows();
         }
         $document = (new AstCodec())->decodeImporterTree($tree);
 
@@ -4067,6 +4073,11 @@ class HtmlToCarve
                 return false;
             }
             if ($tag === 'td' || $tag === 'th') {
+                $row = $ancestor->parentNode;
+                if ($row instanceof DOMElement && strtolower($row->tagName) === 'tr' && $this->directAstBlankTableRow($row)) {
+                    return false;
+                }
+
                 return !$this->cellIsWrittenAsAListTableItem($ancestor);
             }
         }
@@ -4349,6 +4360,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $keptRawImportElements = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $droppedBlankImportRows = null;
 
     private ?bool $emittedHasRawHtml = null;
 
