@@ -47,7 +47,7 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
         // The element row stands ahead of the attribute row, which is the
         // order every element row in this file now takes (carve-php#1737).
         $expected = [
-            ['element-unwrapped', 'Replaced unsupported <button> element with Carve span metadata'],
+            ['element-unwrapped', 'Unwrapped unsupported <button> element'],
             ['attribute-dropped', 'Dropped unsupported attribute disabled on <button>'],
         ];
 

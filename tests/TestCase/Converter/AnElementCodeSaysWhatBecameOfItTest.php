@@ -71,7 +71,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
     {
         $this->assertSame($carve, $this->carve($html));
         $this->assertContains(
-            ['element-unwrapped', 'info', 'Replaced unsupported <' . $tag . '> element with Carve span metadata'],
+            ['element-unwrapped', 'info', 'Unwrapped unsupported <' . $tag . '> element'],
             $this->diagnostics($html),
         );
     }
@@ -143,7 +143,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
         $this->assertSame(
             [
                 ['attribute-dropped', 'info', 'Dropped unsupported attribute class on <ul>'],
-                ['element-unwrapped', 'info', 'Replaced unsupported <label> element with Carve span metadata'],
+                ['element-unwrapped', 'info', 'Unwrapped unsupported <label> element'],
             ],
             $this->diagnostics($html),
         );
@@ -230,7 +230,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
     {
         $this->assertSame($carve, $this->carve($html));
         $this->assertContains(
-            ['element-unwrapped', 'info', 'Replaced unsupported <button> element with Carve span metadata'],
+            ['element-unwrapped', 'info', 'Unwrapped unsupported <button> element'],
             $this->diagnostics($html),
         );
     }
