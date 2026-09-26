@@ -409,6 +409,7 @@ class HtmlToCarve
             $this->keptRawImportElements = null;
             $this->droppedBlankImportRows = null;
             $this->mergedImportDefinitionLists = null;
+            $this->displacedImportFigureAttributes = [];
         }
 
         return new HtmlImportResult(
@@ -2099,6 +2100,7 @@ class HtmlToCarve
         bool $preserved = false,
         ?string $keptTag = null,
     ): void {
+        $displaced = !$preserved && $tag === 'figure' ? ($this->displacedImportFigureAttributes[$path] ?? []) : [];
         foreach ($node->attributes as $attribute) {
             $name = strtolower($attribute->name);
             if ($preserved) {
@@ -2157,12 +2159,18 @@ class HtmlToCarve
                 continue;
             } elseif ($this->isDerivedImportAttribute($node, $name, $attribute->value)) {
                 continue;
+            } elseif (in_array($name, $displaced, true)) {
+                continue;
             } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
                 $message = $tag === 'figure' && $this->figureTargetSetsAttribute($node, $name)
                     ? 'Dropped one ' . $name . ' on <figure>: the figure and its target both set ' . $name . ', and their two attribute lines merge into a single value'
                     : 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>';
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', $message, 'info', $path);
             }
+        }
+        foreach ($displaced as $name) {
+            $message = 'Dropped one ' . $name . ' on <figure>: the figure and its target both set ' . $name . ', and their two attribute lines merge into a single value';
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', $message, 'info', $path);
         }
     }
 
@@ -3291,6 +3299,7 @@ class HtmlToCarve
      */
     public function convert(string $html): string
     {
+        $this->displacedImportFigureAttributes = [];
         $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
         $this->keptRawImportElements = null;
@@ -3319,6 +3328,7 @@ class HtmlToCarve
             $this->keptRawImportElements = $builder->keptRawElements();
             $this->droppedBlankImportRows = $builder->droppedBlankTableRows();
             $this->mergedImportDefinitionLists = $builder->mergedDefinitionLists();
+            $this->displacedImportFigureAttributes = $builder->displacedFigureAttributes();
         }
         $document = (new AstCodec())->decodeImporterTree($tree);
 
@@ -4495,6 +4505,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $mergedImportDefinitionLists = null;
+
+    /**
+     * @var array<string, list<string>>
+     */
+    private array $displacedImportFigureAttributes = [];
 
     private ?bool $emittedHasRawHtml = null;
 

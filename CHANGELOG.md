@@ -9,6 +9,14 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- Report a figure/target ID collision with the message required by the updated shared fixture (markup-carve/carve#2386).
+
+### Added
+
+- HTML import recognizes explicit code-language hints on code blocks and Sphinx, GitHub and MediaWiki wrappers, with validated tokens and deterministic fallback (markup-carve/carve#2387).
+
 ## [0.1.10] - 2026-09-25
 
 ### Breaking

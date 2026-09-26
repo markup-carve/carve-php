@@ -44,6 +44,24 @@ final class HtmlAstBuilder
     private array $retainedTablePartitions = [];
 
     /**
+     * @var \SplObjectStorage<\DOMElement, \DOMElement|null>
+     */
+    private SplObjectStorage $codeLanguageWrappers;
+
+    /**
+     * @var array<string, list<string>>
+     */
+    private array $displacedFigureAttributes = [];
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public function displacedFigureAttributes(): array
+    {
+        return $this->displacedFigureAttributes;
+    }
+
+    /**
      * @return array<string, list<string>>
      */
     public function retainedTableAttributes(): array
@@ -293,6 +311,8 @@ final class HtmlAstBuilder
         private readonly array $alignmentClasses = [],
         private readonly array $labels = [],
     ) {
+        $this->displacedFigureAttributes = [];
+        $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
         $this->mergedDefinitionLists = new SplObjectStorage();
@@ -425,6 +445,8 @@ final class HtmlAstBuilder
      */
     public function build(string $html, ?int $sourceByteLength = null): array
     {
+        $this->displacedFigureAttributes = [];
+        $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
         $this->mergedDefinitionLists = new SplObjectStorage();
@@ -1027,6 +1049,102 @@ final class HtmlAstBuilder
         return false;
     }
 
+    private function codeLanguage(DOMElement $pre, ?DOMElement $code): ?string
+    {
+        foreach ($code !== null ? [$code, $pre] : [$pre] as $node) {
+            $tokens = $this->codeLanguageClasses($node);
+            $language = $this->prefixedCodeLanguage($tokens, 'language-')
+                ?? $this->prefixedCodeLanguage($tokens, 'lang-');
+            if ($language !== null) {
+                return $language;
+            }
+            $data = trim($node->getAttribute('data-lang'), " \t\n\r\f");
+            if ($this->validCodeLanguage($data)) {
+                return $data;
+            }
+            if ($node === $pre) {
+                preg_match_all('/(?=(?:^|[\t\n\f\r ;])brush:[\t\n\f\r ]*([^\t\n\f\r ;]+))/', $node->getAttribute('class'), $matches);
+                foreach ($matches[1] as $value) {
+                    if ($this->validCodeLanguage($value)) {
+                        return $value;
+                    }
+                }
+            }
+        }
+        $parent = $pre->parentNode;
+        if (!$parent instanceof DOMElement || !$this->codeLanguageWrapper($parent, $pre)) {
+            return null;
+        }
+        $tokens = $this->codeLanguageClasses($parent);
+        $direct = (in_array('highlight', $tokens, true) ? $this->prefixedCodeLanguage($tokens, 'highlight-source-') : null)
+            ?? (in_array('mw-highlight', $tokens, true) ? $this->prefixedCodeLanguage($tokens, 'mw-highlight-lang-') : null);
+        if ($direct !== null) {
+            return $direct;
+        }
+        $outer = $parent->parentNode;
+
+        return in_array('highlight', $tokens, true) && $outer instanceof DOMElement && $this->codeLanguageWrapper($outer, $parent)
+            ? $this->prefixedCodeLanguage($this->codeLanguageClasses($outer), 'highlight-')
+            : null;
+    }
+
+    private function validCodeLanguage(string $value): bool
+    {
+        return $value !== '' && preg_match('/[^a-zA-Z0-9_+#.\/-]/', $value) === 0;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function codeLanguageClasses(DOMElement $node): array
+    {
+        return preg_split('/[\t\n\f\r ]+/', $node->getAttribute('class')) ?: [];
+    }
+
+    /**
+     * @param list<string> $tokens
+     * @param string $prefix
+     */
+    private function prefixedCodeLanguage(array $tokens, string $prefix): ?string
+    {
+        foreach ($tokens as $token) {
+            if (!str_starts_with($token, $prefix) || ($prefix === 'highlight-' && str_starts_with($token, 'highlight-source-'))) {
+                continue;
+            }
+            $value = substr($token, strlen($prefix));
+            if ($this->validCodeLanguage($value)) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function codeLanguageWrapper(DOMElement $parent, DOMElement $child): bool
+    {
+        if (strtolower($parent->tagName) !== 'div') {
+            return false;
+        }
+        if (!$this->codeLanguageWrappers->offsetExists($parent)) {
+            $element = null;
+            $eligible = true;
+            foreach ($parent->childNodes as $node) {
+                if ($node instanceof DOMElement && $element === null) {
+                    $element = $node;
+                } elseif ($node instanceof DOMComment || ($node instanceof DOMText && preg_match('/[^\t\n\f\r ]/', $node->textContent) === 0)) {
+                    continue;
+                } else {
+                    $eligible = false;
+
+                    break;
+                }
+            }
+            $this->codeLanguageWrappers[$parent] = $eligible ? $element : null;
+        }
+
+        return $this->codeLanguageWrappers[$parent] === $child;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -1047,8 +1165,9 @@ final class HtmlAstBuilder
         }
         $block = ['type' => 'code_block', 'content' => $content];
         $class = $source->getAttribute('class');
-        if (preg_match('/(?:^|\s)language-([^\s]+)/', $class, $match) === 1) {
-            $block['lang'] = $match[1];
+        $language = $this->codeLanguage($node, $code);
+        if ($language !== null) {
+            $block['lang'] = $language;
         }
         $skip = ['role'];
         $classes = preg_split('/\s+/', trim($node->getAttribute('class'))) ?: [];
@@ -1937,6 +2056,22 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @param \DOMElement $node
+     * @param array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>} $own
+     * @param array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>} $target
+     */
+    private function recordDisplacedFigureAttributes(DOMElement $node, array $own, array $target): void
+    {
+        $names = isset($own['id'], $target['id']) ? ['id'] : [];
+        foreach (array_keys($own['keyValues'] ?? []) as $name) {
+            if (array_key_exists($name, $target['keyValues'] ?? [])) {
+                $names[] = $name;
+            }
+        }
+        $this->displacedFigureAttributes[self::importPath($node)] = $names;
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function figure(DOMElement $node): array
@@ -1982,6 +2117,7 @@ final class HtmlAstBuilder
                 // One attribute line for the figure and its table, merged the
                 // way the parser merges two stacked lines (carve#2370).
                 $tableAttrs = self::attrsValue($target['attrs'] ?? null);
+                $this->recordDisplacedFigureAttributes($node, $figureAttrs, $tableAttrs);
                 $merged = $this->mergeAttrs($figureAttrs, $tableAttrs);
                 if (!isset($figureAttrs['order']) && !isset($tableAttrs['order'])) {
                     unset($merged['order']);
@@ -2035,6 +2171,7 @@ final class HtmlAstBuilder
             $this->removeStructuralClass($figure, 'carve-figure-panel');
             if ($shared) {
                 $own = self::attrsValue($figure['attrs'] ?? null);
+                $this->recordDisplacedFigureAttributes($node, $own, $targetAttrs);
                 $merged = $this->mergeAttrs($own, $targetAttrs);
                 if (!isset($own['order']) && !isset($targetAttrs['order'])) {
                     unset($merged['order']);
