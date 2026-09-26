@@ -8,11 +8,13 @@ trait EscapesCarveConstructs
 {
     protected function quoteAttributeValue(string $value): string
     {
-        if (preg_match('/^[^\s"\'{}]+$/u', $value) === 1) {
+        // `\|` is the only pipe a table row's cell cut leaves in place
+        // ([CARVE-P2-019]), so a pipe is escaped wherever the value sits.
+        if (preg_match('/^[^\s"\'{}|]+$/u', $value) === 1) {
             return $value;
         }
 
-        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
+        return '"' . str_replace(['\\', '"', '|'], ['\\\\', '\\"', '\\|'], $value) . '"';
     }
 
     /**

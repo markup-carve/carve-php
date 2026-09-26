@@ -409,6 +409,7 @@ class HtmlToCarve
             $this->keptRawImportElements = null;
             $this->droppedBlankImportRows = null;
             $this->mergedImportDefinitionLists = null;
+            $this->entrylessImportDefinitionLists = [];
             $this->displacedImportFigureAttributes = [];
         }
 
@@ -671,6 +672,17 @@ class HtmlToCarve
 
                 continue;
             }
+            if ($child instanceof DOMComment && HtmlAstBuilder::commentBreaksAHeadingLine($child)) {
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'element-dropped',
+                    'Dropped an HTML comment in a heading: its text holds a line break, and a heading is one line',
+                    'warning',
+                    $parentPath . '/comment()[' . $index . ']',
+                );
+
+                continue;
+            }
             if ($child instanceof DOMComment) {
                 // AN HTML COMMENT WITH NO INLINE SPELLING IS DROPPED, and this
                 // is where the row for it is added (`markup-carve/carve#1709`).
@@ -761,6 +773,23 @@ class HtmlToCarve
                 'element-unwrapped',
                 'Merged <dl> into the definition list before it: Carve source has no boundary between two adjacent definition lists',
                 'info',
+                $path,
+            );
+        }
+        if ($tag === 'dl' && HtmlAstBuilder::leadingTermlessDescriptions($node) === HtmlAstBuilder::definitionListEntries($node)) {
+            // No entry is left to write, so the list's own attributes go too.
+            foreach ($this->definitionListAttributeNames($node) as $name) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <dl>: a definition list holding no entry is not written', 'warning', $path);
+            }
+            $this->entrylessImportDefinitionLists[$path] = true;
+        }
+        $list = $tag === 'dd' ? $this->enclosingDefinitionList($node) : null;
+        if ($list !== null && in_array($node, HtmlAstBuilder::leadingTermlessDescriptions($list), true)) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'A <dd> with no <dt> before it kept its content but not its role: it is emitted as blocks ahead of the definition list',
+                'warning',
                 $path,
             );
         }
@@ -2100,6 +2129,9 @@ class HtmlToCarve
         bool $preserved = false,
         ?string $keptTag = null,
     ): void {
+        if (!$preserved && $tag === 'dl' && isset($this->entrylessImportDefinitionLists[$path])) {
+            return;
+        }
         $displaced = !$preserved && $tag === 'figure' ? ($this->displacedImportFigureAttributes[$path] ?? []) : [];
         foreach ($node->attributes as $attribute) {
             $name = strtolower($attribute->name);
@@ -2161,6 +2193,12 @@ class HtmlToCarve
                 continue;
             } elseif (in_array($name, $displaced, true)) {
                 continue;
+            } elseif (
+                !in_array($name, ['id', 'class'], true)
+                && preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/D', $name) === 1
+                && preg_match('/[\r\n]/', $attribute->value) === 1
+            ) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . '>: its value spans a line break, which a Carve attribute value cannot', 'warning', $path);
             } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
@@ -4483,6 +4521,47 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $mergedImportDefinitionLists = null;
+
+    /**
+     * Paths of the `<dl>` elements left with no entry to write.
+     *
+     * @var array<string, true>
+     */
+    private array $entrylessImportDefinitionLists = [];
+
+    /**
+     * The `<dl>` a `<dd>` belongs to, directly or through a group `<div>`.
+     */
+    protected function enclosingDefinitionList(DOMElement $node): ?DOMElement
+    {
+        $parent = $node->parentNode;
+        if ($parent instanceof DOMElement && strtolower($parent->tagName) === 'div') {
+            $parent = $parent->parentNode;
+        }
+
+        return $parent instanceof DOMElement && strtolower($parent->tagName) === 'dl' ? $parent : null;
+    }
+
+    /**
+     * The names a `<dl>` would write: id, class, then keys in element order.
+     *
+     * @return list<string>
+     */
+    protected function definitionListAttributeNames(DOMElement $node): array
+    {
+        $names = [];
+        $keys = [];
+        foreach ($node->attributes as $attribute) {
+            $name = strtolower($attribute->name);
+            if ($name === 'id' || ($name === 'class' && trim($attribute->value) !== '')) {
+                $names[$name] = true;
+            } elseif (preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/D', $name) === 1 && !str_starts_with($name, 'on') && $name !== 'style') {
+                $keys[] = $name;
+            }
+        }
+
+        return [...array_keys(array_intersect_key(['id' => true, 'class' => true], $names)), ...$keys];
+    }
 
     /**
      * @var array<string, list<string>>
