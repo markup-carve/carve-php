@@ -34,7 +34,17 @@ class AnImportMovesEdgeSpaceOutAndReadsLinearMathMlTest extends TestCase
             'a span inside a link' => ['<p>a<a href="/n"><span class="c"> n </span></a>b</p>', "a [[n]{.c}](/n) b\n"],
             'whitespace-only content stays' => ['<p>a <a href="/w"> </a> b</p>', "a [ ](/w) b\n"],
             'a no-break space stays' => ["<p>a <a href=\"/n\">\u{a0}nb\u{a0}</a> b</p>", "a [\u{a0}nb\u{a0}](/n) b\n"],
-            'the inside of a strong stays' => ['<p>a <a href="/s"><b> x </b></a>b</p>', "a [{* x *}](/s)b\n"],
+            'nested strong with surrounding spaces' => ['<p>a <a href="/s"><b> x </b></a> b</p>', "a [*x*](/s) b\n"],
+            'nested strong without surrounding spaces' => ['<p>a<a href="/s"><b> x </b></a>b</p>', "a [*x*](/s) b\n"],
+            'nested strong at block edges' => ['<p><a href="/s"><b> x </b></a></p>', "[*x*](/s)\n"],
+            'formatting inside a span' => ['<p>a<span id="s"><b> x </b></span>b</p>', "a [*x*]{#s} b\n"],
+            'nested formatting' => ['<p>a<a href="/s"><b><i> x </i></b></a>b</p>', "a [*/x/*](/s) b\n"],
+            'internal formatting space' => ['<p>a<a href="/s">y<b> x </b>z</a>b</p>', "a[y *x* z](/s)b\n"],
+            'formatting with a no-break space' => ['<p>a<a href="/s"><b>&nbsp;x&nbsp;</b></a>b</p>', "a[* x *](/s)b\n"],
+            'standalone formatting' => ['<p>a<b> x </b>b</p>', "a{* x *}b\n"],
+            'insertion' => ['<p>a<a href="/s"><ins> x </ins></a>b</p>', "a [{+x+}](/s) b\n"],
+            'deletion' => ['<p>a<a href="/s"><del> x </del></a>b</p>', "a [{-x-}](/s) b\n"],
+            'code keeps its spaces' => ['<p>a<a href="/s"><code> x </code></a>b</p>', "a[`  x  `](/s)b\n"],
         ];
     }
 
