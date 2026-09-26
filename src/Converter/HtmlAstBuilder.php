@@ -4442,7 +4442,6 @@ final class HtmlAstBuilder
             if (
                 isset($skip[$name])
                 || $name === 'style'
-                || $name === 'role'
                 || str_starts_with($name, 'on')
                 || str_starts_with($name, 'data-djot-')
                 || in_array($name, ['srcdoc', 'formaction'], true)
