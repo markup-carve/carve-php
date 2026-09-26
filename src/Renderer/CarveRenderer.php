@@ -295,6 +295,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected ?Node $escapeUnit = null;
 
     /**
+     * Byte offsets in a text node's content escaped in BOTH forms, keyed by
+     * `spl_object_id`: PART 11 §5's lone bracket and destination-opening `(`.
+     *
+     * @var array<int, array<int, true>>
+     */
+    protected array $structuralEscapes = [];
+
+    /**
      * The units the logged render asked about, and the end of the log.
      *
      * @return array<int, true>
@@ -540,6 +548,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->treeCacheSource = null;
         $this->bracedSpans = [];
         $this->treeCache = null;
+        $this->structuralEscapes = [];
+        $this->planStructuralEscapes($document);
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
         if ($minimal === $conservative) {
@@ -3482,6 +3492,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // Does a trailing `!` abut the next node's backtick run? Only
                 // there does PART 9 §27 bind it to an inline literal.
                 $nextOpensVerbatim,
+                $this->structuralEscapes[spl_object_id($node)] ?? [],
             )),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
@@ -4778,10 +4789,211 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $marker === false ? '' : $marker;
     }
 
+    /**
+     * Mark the lone brackets and destination-opening parens of every inline
+     * run, once per document (PART 11 §5, markup-carve/carve#2357).
+     */
+    protected function planStructuralEscapes(Node $node): void
+    {
+        $run = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof InlineNode) {
+                $run[] = $child;
+
+                continue;
+            }
+            $this->planInlineRun($run, false);
+            $run = [];
+            $this->planStructuralEscapes($child);
+        }
+        $this->planInlineRun($run, false);
+    }
+
+    /**
+     * Pair the bare brackets of one run's text, then mark what §5 escapes.
+     *
+     * Only inside content a construct wraps in its own brackets is an unpaired
+     * bracket lone; the paren rule applies to every run.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     * @param bool $bracketed
+     */
+    protected function planInlineRun(array $nodes, bool $bracketed): void
+    {
+        if ($nodes === []) {
+            return;
+        }
+        $flat = '';
+        $marks = [];
+        if (!$this->collectBracketMarks($nodes, $flat, $marks) || $marks === []) {
+            return;
+        }
+        $open = [];
+        $paired = [];
+        $closers = [];
+        foreach ($marks as $i => [$at, , , $char]) {
+            if ($char === '[') {
+                $open[] = $i;
+            } elseif ($char === ']' && $open !== []) {
+                $paired[array_pop($open)] = true;
+                $paired[$i] = true;
+                $closers[$at] = true;
+            }
+        }
+        $scan = null;
+        foreach ($marks as $i => [$at, $id, $offset, $char]) {
+            if ($char === '(') {
+                if (!isset($closers[$at - 1])) {
+                    continue;
+                }
+                $scan ??= self::destinationScan($flat);
+                if (!self::opensADestination($scan, $flat, $at)) {
+                    continue;
+                }
+            } elseif (!$bracketed || isset($paired[$i])) {
+                continue;
+            }
+            $this->structuralEscapes[$id][$offset] = true;
+        }
+    }
+
+    /**
+     * The run as the minimal form writes it, closely enough to pair its
+     * brackets and read a destination, and where its brackets and parens sit.
+     *
+     * A construct writing its own brackets is planned as a run of its own, one
+     * that writes none lends its text to this run, and verbatim content and
+     * every other node take no part. Each stands in as a space, which ends a
+     * destination, so the approximation can miss an escape but never invent
+     * one. An inline extension's reader stops at the first `]` without
+     * pairing, so its content gets the paren rule only.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     * @param string $flat
+     * @param array<int, array{int, int, int, string}> $marks
+     *
+     * @return bool False where the scan stopped early.
+     */
+    protected function collectBracketMarks(array $nodes, string &$flat, array &$marks): bool
+    {
+        foreach ($nodes as $node) {
+            // An empty code span is written as a bare backtick run, which can
+            // swallow what follows it, so the scan ends there.
+            if ($node instanceof Code && $node->getContent() === '') {
+                return false;
+            }
+            if ($node instanceof Text) {
+                $content = str_replace("\r", '', $node->getContent());
+                if (strpbrk($content, '[](') !== false) {
+                    $id = spl_object_id($node);
+                    preg_match_all('/[\[\](]/', $content, $found, PREG_OFFSET_CAPTURE);
+                    foreach ($found[0] as [$char, $offset]) {
+                        $marks[] = [strlen($flat) + $offset, $id, $offset, $char];
+                    }
+                }
+                $flat .= $content;
+            } elseif (
+                $node instanceof Span
+                || ($node instanceof Link && !$node->isAutolink())
+                || $node instanceof InlineFootnote
+            ) {
+                $this->planInlineRun($node->getChildren(), true);
+                $flat .= ' ';
+            } elseif ($node instanceof InlineExtension) {
+                $this->planInlineRun($node->getChildren(), false);
+                $flat .= ' ';
+            } elseif (
+                $node instanceof Emphasis || $node instanceof Strong || $node instanceof Underline
+                || $node instanceof Strike || $node instanceof Superscript || $node instanceof Subscript
+                || $node instanceof Highlight || $node instanceof Insert || $node instanceof Delete
+            ) {
+                // Their delimiters are written, and none is a space or a paren.
+                $flat .= "\x01";
+                if (!$this->collectBracketMarks($node->getChildren(), $flat, $marks)) {
+                    return false;
+                }
+                $flat .= "\x01";
+            } else {
+                $flat .= ' ';
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Each `(` of a run's matching `)`, and the offsets of its whitespace,
+     * found once so a run of `[a](` stays linear.
+     *
+     * The minimal form escapes every backslash and quote in text, so neither
+     * can escape a paren or open a title here.
+     *
+     * @param string $flat
+     *
+     * @return array{array<int, int>, array<int, int>}
+     */
+    private static function destinationScan(string $flat): array
+    {
+        $close = [];
+        $open = [];
+        preg_match_all('/[()]/', $flat, $parens, PREG_OFFSET_CAPTURE);
+        foreach ($parens[0] as [$paren, $offset]) {
+            if ($paren === '(') {
+                $open[] = $offset;
+            } elseif ($open !== []) {
+                $close[array_pop($open)] = $offset;
+            }
+        }
+        if (preg_match_all('/[\s\p{Z}\x{0085}]/u', $flat, $spaces, PREG_OFFSET_CAPTURE) === false) {
+            return [[], []];
+        }
+
+        return [$close, array_column($spaces[0], 1)];
+    }
+
+    /**
+     * Does the written text from the `(` at `$at` read as an inline link
+     * destination that closes?
+     *
+     * @param array{array<int, int>, array<int, int>} $scan
+     * @param string $flat
+     * @param int $at
+     */
+    private static function opensADestination(array $scan, string $flat, int $at): bool
+    {
+        [$close, $spaces] = $scan;
+        $end = $close[$at] ?? null;
+        if ($end === null || $end === $at + 1) {
+            return false;
+        }
+        $low = 0;
+        $high = count($spaces);
+        while ($low < $high) {
+            $mid = ($low + $high) >> 1;
+            if ($spaces[$mid] <= $at) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+        if ($low < count($spaces) && $spaces[$low] < $end) {
+            return false;
+        }
+
+        return !($flat[$at + 1] === '<' && $flat[$end - 1] === '>');
+    }
+
+    /**
+     * @param string $text
+     * @param bool $opensBlockLine
+     * @param bool $nextOpensVerbatim
+     * @param array<int, true> $structural Offsets escaped in both forms.
+     */
     protected function escapeText(
         string $text,
         bool $opensBlockLine = false,
         bool $nextOpensVerbatim = false,
+        array $structural = [],
     ): string {
         // ONLY WHAT WOULD CHANGE THE RE-PARSE. The class here was every C0
         // control but tab and newline, plus DEL and the whole C1 block - a
@@ -4809,7 +5021,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // was already in the conservative class and is new to the minimal one,
         // and `$` was in neither.
         $pattern = $minimal
-            ? '/([\\\\`"\'^!$])/'
+            ? ($structural === [] ? '/([\\\\`"\'^!$])/' : '/([\\\\`"\'^!$\[\](])/')
             : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'$])/';
         $insideNote = $this->inlineNoteDepth > 0;
         // The LAST braced-superscript closer in this text, found once.
@@ -4834,9 +5046,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $nextOpensVerbatim,
                 $lastSupCloser,
                 $call,
+                $structural,
             ): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
+                if (isset($structural[$offset])) {
+                    return '\\' . $char;
+                }
+                if ($minimal && ($char === '[' || $char === ']' || $char === '(')) {
+                    return $char;
+                }
                 // PART 11 section 2's decision is taken per OPENER OCCURRENCE.
                 // In a unit the search has escalated, each candidate site is
                 // offered back on its own, so the one occurrence that needed
@@ -4845,7 +5064,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if (
                     !$minimal
                     && !str_contains(self::NOT_OFFERED_PER_OCCURRENCE, $char)
-                    && $this->occurrenceIsRelaxed($call, $offset, $offset > 0 && $text[$offset - 1] === $char)
+                    && $this->occurrenceIsRelaxed(
+                        $call,
+                        $offset,
+                        $offset > 0 && $text[$offset - 1] === $char && !isset($structural[$offset - 1]),
+                    )
                 ) {
                     return $char;
                 }
