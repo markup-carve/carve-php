@@ -81,13 +81,13 @@ class NonHtmlRendererSecurityTest extends TestCase
         $this->assertDoesNotMatchRegularExpression($live, $this->md('plain <img onerror=x> text'));
         $this->assertStringContainsString('\\<img', $this->md('plain <img onerror=x> text'));
 
-        // `&` is emitted bare on this target (carve#1071): an entity in Markdown
-        // TEXT decodes to a CHARACTER, and a character cannot open a tag, so
-        // text authored as `&lt;script&gt;` comes back as the four characters a
-        // reader sees. A `<` before a SPACE was never markup either, so M1e
-        // leaves it alone; one before a tag name is escaped.
+        // A bare `&` stays bare (carve#1071), but one that completes a
+        // character reference is escaped (PART 11 §8e): Carve has no entities,
+        // so text authored as `&lt;script&gt;` is those characters, and a
+        // reader would decode them. A `<` before a SPACE was never markup
+        // either, so M1e leaves it alone; one before a tag name is escaped.
         $this->assertSame('a < b & c', trim($this->md('a < b & c')));
-        $this->assertSame('a &lt;script&gt; b', trim($this->md('a &lt;script&gt; b')));
+        $this->assertSame('a \\&lt;script\\&gt; b', trim($this->md('a &lt;script&gt; b')));
         $this->assertSame('a \\<script>x\\</script> b', trim($this->md('a <script>x</script> b')));
         // Superscript HTML fallback: children are escaped.
         $sup = $this->md('{^<img src=x onerror=alert(1)>^}');

@@ -202,17 +202,18 @@ class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
         $this->assertSame([5], $this->tableRowsInTheFirstItem($glued));
     }
 
-    public function testAHeaderlessTableRowKeepsTheSeparator(): void
+    public function testAHeaderlessTableTakesAnEmptyHeaderAndNeedsNoSeparator(): void
     {
-        // Without a delimiter row below it the row never opens a table, so
-        // unseparated it is swallowed by the paragraph above as continuation
-        // text - one block where the item held two.
+        // The empty header row and its delimiter (PART 11 §10n) make the rows a
+        // table, which interrupts the paragraph above it, so the item stays
+        // tight with nothing between them.
         $source = "- item\n  | a | b |\n";
 
         $written = $this->write($source);
-        $this->assertSame("- item\n\n  | a | b |\n", $written);
-        $this->assertSame([Paragraph::class, Paragraph::class], $this->blocksInTheFirstItem($written));
-        // The control: dropped, the row folds into the paragraph above it.
+        $this->assertSame("- item\n  |  |  |\n  | --- | --- |\n  | a | b |\n", $written);
+        $this->assertSame([Paragraph::class, Table::class], $this->blocksInTheFirstItem($written));
+        // The control: without the delimiter row, the row folds into the
+        // paragraph above it.
         $this->assertSame([Paragraph::class], $this->blocksInTheFirstItem("- item\n  | a | b |\n"));
     }
 

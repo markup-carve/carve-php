@@ -61,7 +61,7 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         // Each target spells the nodes ITS own way, which is the point of
         // handing them nodes: the code span comes back as a Markdown code span.
         $this->assertSame(
-            "# `code()` and **bold** h {#code-and-bold-h}\n\n"
+            "# `code()` and **bold** h\n\n"
             . "See [`code()` and **bold** h](#code-and-bold-h).\n",
             CarveConverter::markdown()->convert(self::SOURCE),
         );

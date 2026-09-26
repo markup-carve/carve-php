@@ -504,9 +504,9 @@ class MarkdownRendererTest extends TestCase
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        // Definition lists approximated with bold + colon prefix
-        $this->assertStringContainsString('**Term**', $result);
-        $this->assertStringContainsString(': Definition', $result);
+        // GFM has no definition list: a strong term paragraph, then the
+        // description's blocks, with no `: ` marker (PART 11 §10p).
+        $this->assertSame("**Term**\n\nDefinition\n", $result);
     }
 
     public function testDefinitionListMultipleTermsMultipleDefinitions(): void
@@ -518,10 +518,9 @@ class MarkdownRendererTest extends TestCase
         // Multiple terms
         $this->assertStringContainsString('**color**', $result);
         $this->assertStringContainsString('**colour**', $result);
-        // Multiple definitions
-        $this->assertSame(2, substr_count($result, ': '));
-        $this->assertStringContainsString('The visual property.', $result);
-        $this->assertStringContainsString('Used in design.', $result);
+        // Multiple definitions, each its own block and no `: ` marker
+        $this->assertSame(0, substr_count($result, ': '));
+        $this->assertStringContainsString("\n\nThe visual property.\n\nUsed in design.\n", $result);
     }
 
     public function testComplexDocument(): void

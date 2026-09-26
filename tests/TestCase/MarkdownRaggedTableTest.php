@@ -49,8 +49,10 @@ class MarkdownRaggedTableTest extends TestCase
     {
         $out = $this->md("| ~x~ |\n| a | b |\n");
 
-        $this->assertSame("| ~~x~~ |\n| a | b |\n", $out);
-        $this->assertSame([1, 2], $this->cellCounts($out));
+        // Headerless, so an empty header as wide as the widest row goes first
+        // (PART 11 §10n); each body row still keeps its own cell count.
+        $this->assertSame("|  |  |\n| --- | --- |\n| ~~x~~ |\n| a | b |\n", $out);
+        $this->assertSame([2, 2, 1, 2], $this->cellCounts($out));
     }
 
     public function testANarrowBodyRowUnderAHeaderGainsNoCell(): void
@@ -129,7 +131,8 @@ class MarkdownRaggedTableTest extends TestCase
     {
         $out = $this->md("| a |  |\n| b | c |\n");
 
-        $this->assertSame([2, 2], $this->cellCounts($out));
+        // The empty header and its delimiter come first (PART 11 §10n).
+        $this->assertSame([2, 2, 2, 2], $this->cellCounts($out));
     }
 
     public function testARectangularTableIsUnchanged(): void

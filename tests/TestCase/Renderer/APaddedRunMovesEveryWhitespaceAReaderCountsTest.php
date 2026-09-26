@@ -97,7 +97,7 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
     {
         yield 'a definition term padded with nbsp' => [
             ":: \u{00A0}t\n: d\n",
-            "\u{00A0}**t**\n: d\n",
+            "\u{00A0}**t**\n\nd\n",
         ];
 
         yield 'an admonition title padded with nbsp' => [
@@ -141,15 +141,16 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
      * A hard break is a BACKSLASH then a newline. The newline is in the class,
      * so moving it alone left the backslash against the closing delimiter and
      * escaped it - `x **a\\**` came back as `x *<em>a*</em>`, break gone and
-     * emphasis invented. The backslash travels with its newline.
+     * emphasis invented. The backslash travels with its newline. The space
+     * that lands at the start of the next line is not written (PART 11 §10m).
      *
      * @return iterable<string, array{string, string}>
      */
     public static function hardBreakAtTheEndOfARun(): iterable
     {
-        yield 'a strong run' => ["x {*a\\\n*} y\n", "x **a**\\\n y\n"];
-        yield 'an em run' => ["x {/a\\\n/} y\n", "x *a*\\\n y\n"];
-        yield 'a strike run' => ["x {~a\\\n~} y\n", "x ~~a~~\\\n y\n"];
+        yield 'a strong run' => ["x {*a\\\n*} y\n", "x **a**\\\ny\n"];
+        yield 'an em run' => ["x {/a\\\n/} y\n", "x *a*\\\ny\n"];
+        yield 'a strike run' => ["x {~a\\\n~} y\n", "x ~~a~~\\\ny\n"];
     }
 
     /**

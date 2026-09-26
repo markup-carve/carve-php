@@ -183,7 +183,7 @@ class CrossImplementationDivergenceTest extends TestCase
     {
         $source = "See [name][]\n\n# Name";
 
-        $this->assertSame("See [name](#Name)\n\n# Name {#Name}\n", CarveConverter::markdown()->convert($source));
+        $this->assertSame("See [name](#name)\n\n# Name\n", CarveConverter::markdown()->convert($source));
         $this->assertSame("See name\n\nName\n", CarveConverter::plainText()->convert($source));
 
         $ansi = CarveConverter::ansi()->convert($source);

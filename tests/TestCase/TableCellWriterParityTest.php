@@ -65,6 +65,8 @@ class TableCellWriterParityTest extends TestCase
     public static function emptyMarkerProvider(): iterable
     {
         yield 'collected link definition in list item' => ["- [x]: /url\n", "-\n"];
-        yield 'collected link definition in definition description' => [":: term\n:  [x]: /url\n", "**term**\n:\n"];
+
+        // An empty description writes nothing (PART 11 §10p).
+        yield 'collected link definition in definition description' => [":: term\n:  [x]: /url\n", "**term**\n"];
     }
 }

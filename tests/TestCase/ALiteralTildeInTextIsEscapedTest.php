@@ -55,7 +55,7 @@ class ALiteralTildeInTextIsEscapedTest extends TestCase
 
     public function testItEscapesATildeInATableCellWhichIsTextLikeAnyOther(): void
     {
-        $this->assertSame("| a\\~\\~b |\n", $this->md("| a~~b |\n"));
+        $this->assertSame("|  |\n| --- |\n| a\\~\\~b |\n", $this->md("| a~~b |\n"));
     }
 
     /**
