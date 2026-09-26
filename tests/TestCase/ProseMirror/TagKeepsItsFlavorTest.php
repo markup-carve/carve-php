@@ -13,19 +13,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * A `#tag` stays a tag across the bridge, in both directions.
  *
- * The map gives `mention` two ProseMirror names and says carveTag is the `#tag`
- * flavor, but a Mention reports type `mention` whichever flavor it is - so the
- * renderer never narrowed, and every tag reached the editor as a carveMention.
- *
- * The direction that actually corrupted content is the other one. carve-grammars
- * emits `{"type":"carveTag","attrs":{"id":"..."}}` for a tag, this converter
- * resolved that name back to `mention`, and the label helper hardcoded `@` - so
- * a tag written in a Tiptap editor came back spelled `@tag`. A different sigil,
- * a different concept, and nothing reported dropped or degraded.
- *
- * A local `tag` entry in the vendored map was supposed to cover this and could
- * not: nothing asks the map by that name. It satisfied the has-a-decision test
- * while changing no behavior, and it made the copy stop being a copy.
+ * carve-grammars emits `{"type":"carveTag","attrs":{"id":"..."}}` for a tag. Read
+ * back as a plain mention, it came back spelled `@tag`: a different sigil, a
+ * different concept, and nothing reported dropped or degraded.
  */
 class TagKeepsItsFlavorTest extends TestCase
 {
@@ -104,17 +94,14 @@ class TagKeepsItsFlavorTest extends TestCase
         $this->assertSame($expected, $actual);
     }
 
-    public function testTheVendoredMapCarriesNoLocalTagEntry(): void
+    public function testTagAndMentionResolveThroughTheirOwnEntries(): void
     {
-        // The copy is only useful while it is a copy. `tag` resolves through the
-        // entry that owns the name instead, which is why removing it changed no
-        // decision - see SchemaMap::ALIASES.
-        $path = dirname(__DIR__, 3) . '/resources/prosemirror-schema-map.json';
-        /** @var array{types: array<string, mixed>} $map */
-        $map = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-
-        $this->assertArrayNotHasKey('tag', $map['types']);
         $this->assertSame('carveTag', SchemaMap::nameFor('tag'));
+        $this->assertSame(['carveTag'], SchemaMap::namesFor('tag'));
+        $this->assertSame(['carveMention'], SchemaMap::namesFor('mention'));
+        $this->assertSame('tag', SchemaMap::carveTypeFor('carveTag'));
+        $this->assertSame('mention', SchemaMap::carveTypeFor('carveMention'));
+        $this->assertSame('mention', SchemaMap::carveTypeFor('mention'));
         $this->assertFalse(SchemaMap::isMark('tag'));
     }
 }
