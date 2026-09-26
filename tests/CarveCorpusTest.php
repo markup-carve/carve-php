@@ -973,6 +973,19 @@ class CarveCorpusTest extends TestCase
         // sidecar, which is the half that can see a comment's text at all.
         // carve-php#2443 already implements the rule.
         'a-comment-line-s-text-is-content-and-a-block-body-is-payload',
+        // Arrived with the bump to carve 66661ed. Three categories, four
+        // documents, each converted and compared against its pinned HTML
+        // before the entry was written - all byte-exact, so all three arrive
+        // IMPLEMENTED and KNOWN_GAPS stays empty.
+        //
+        // markup-carve/carve#2346 - a footnotes marker's authored blocks render
+        // where they were written, before the placed section, and stay inside
+        // the div when the marker does not place.
+        'a-footnotes-marker-renders-its-authored-blocks-before-the-placed-section',
+        'an-unplaced-footnotes-marker-keeps-its-authored-blocks-inside-the-div',
+        // markup-carve/carve#2348 - a core directive's kind class leads the
+        // authored attributes on the rendered element.
+        'a-core-directive-kind-class-leads-authored-attributes',
     ];
 
     /**
