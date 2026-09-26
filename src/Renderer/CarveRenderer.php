@@ -2761,7 +2761,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // question worth not building.
         $this->rebaseProbe ??= new BlockParser();
 
-        return $this->rebaseProbe->bodyRebaseWouldMoveALine($rendered);
+        // Ask about the source as it will be written: an encoded blank verbatim
+        // line would otherwise read as a non-blank line at column 0.
+        return $this->rebaseProbe->bodyRebaseWouldMoveALine($this->restoreVerbatim($rendered));
     }
 
     protected function renderDefinitionList(DefinitionList $node): string
