@@ -5229,6 +5229,15 @@ class BlockParser
                                 break;
                             }
                             if ($this->isContinuationMarker($trimmedLine)) {
+                                // An unattached marker cannot close the nested
+                                // stream. Its indented follower may still fold
+                                // into the nested item's open paragraph.
+                                if ($this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)) {
+                                    $i++;
+
+                                    continue;
+                                }
+
                                 break;
                             }
                             // After a blank line, content dropping back to base indent
@@ -5266,6 +5275,17 @@ class BlockParser
                             // Strip all leading whitespace before forwarding it,
                             // matching CommonMark lazy continuation.
                             $trimmedLine = ltrim($subLine, " \t");
+                            if ($this->isContinuationMarker($trimmedLine)) {
+                                // This column names no list marker. Keep one
+                                // column so the nested parse reads literal `+`
+                                // even when its last block closed a paragraph.
+                                $subLines[] = ' ' . $trimmedLine;
+                                $subLineMap[] = $this->sourceLineFor($i);
+                                $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $subLine);
+                                $i++;
+
+                                continue;
+                            }
                             // AN OPEN FENCE ENDS THE ITEM HERE TOO. Between the
                             // base column and the content column the line still
                             // supplies less indentation than the item's prefix,
