@@ -34,6 +34,46 @@ final class HtmlAstBuilder
     private ?DOMDocument $builtDocument = null;
 
     /**
+     * @var array<string, list<string>>
+     */
+    private array $retainedTableAttributes = [];
+
+    /**
+     * @var array<string, true>
+     */
+    private array $retainedTablePartitions = [];
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public function retainedTableAttributes(): array
+    {
+        return $this->retainedTableAttributes;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    public function retainedTablePartitions(): array
+    {
+        return $this->retainedTablePartitions;
+    }
+
+    private static function importPath(DOMElement $node): string
+    {
+        $parts = [];
+        for ($current = $node; $current instanceof DOMElement && !in_array(strtolower($current->tagName), ['carve-import-root', 'html', 'body'], true); $current = $current->parentNode) {
+            $index = 1;
+            for ($sibling = $current->previousSibling; $sibling !== null; $sibling = $sibling->previousSibling) {
+                $index++;
+            }
+            array_unshift($parts, strtolower($current->tagName) . '[' . $index . ']');
+        }
+
+        return '/' . implode('/', $parts);
+    }
+
+    /**
      * @var \SplObjectStorage<\DOMElement, null>
      */
     private SplObjectStorage $keptRawElements;
@@ -383,6 +423,8 @@ final class HtmlAstBuilder
         $this->preserveInlineWhitespace = false;
         $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
         $this->builtDocument = $document;
+        $this->retainedTableAttributes = [];
+        $this->retainedTablePartitions = [];
 
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
@@ -1560,17 +1602,36 @@ final class HtmlAstBuilder
         $phase = 0;
         $valid = true;
         $hasSectionAttrs = false;
+        $plans = [];
         foreach ($node->childNodes as $section) {
-            if (!$section instanceof DOMElement || !in_array(strtolower($section->tagName), ['thead', 'tbody', 'tfoot'], true)) {
+            if (!$section instanceof DOMElement) {
                 continue;
             }
             $tag = strtolower($section->tagName);
+            if ($tag === 'tr') {
+                $index = array_search($section, $keptRows, true);
+                if ($index === false) {
+                    continue;
+                }
+                $last = array_key_last($plans);
+                if ($last !== null && $plans[$last]['section'] === null) {
+                    $plans[$last]['indices'][] = $index;
+                } else {
+                    $plans[] = ['section' => null, 'indices' => [$index]];
+                }
+            } elseif (in_array($tag, ['thead', 'tbody', 'tfoot'], true)) {
+                $plans[] = ['section' => $section, 'indices' => array_keys(array_filter($keptRows, static fn (DOMElement $row): bool => $row->parentNode === $section))];
+            }
+        }
+        foreach ($plans as $plan) {
+            $section = $plan['section'];
+            $tag = $section !== null ? strtolower($section->tagName) : 'tbody';
             $rank = ['thead' => 0, 'tbody' => 1, 'tfoot' => 2][$tag];
             $valid = $valid && $rank >= $phase;
             $phase = $rank;
-            $indices = array_keys(array_filter($keptRows, static fn (DOMElement $row): bool => $row->parentNode === $section));
+            $indices = $plan['indices'];
             $count = count($indices);
-            $own = $this->attrs($section, []);
+            $own = $section !== null ? $this->attrs($section, []) : [];
             $hasSectionAttrs = $hasSectionAttrs || $own !== [];
             if ($tag === 'tbody') {
                 $bodyHead = 0;
@@ -1612,6 +1673,21 @@ final class HtmlAstBuilder
         $counted = $groups['headRows'] + $groups['footRows'] + array_sum(array_column($groups['bodies'], 'bodyRows')) + array_sum(array_column($groups['bodies'], 'headRows'));
         if ($valid && $counted === count($rows) && ($hasSectionAttrs || $groups['footRows'] > 0 || count($groups['bodies']) > 1)) {
             $table['rowGroups'] = $groups;
+            $this->retainedTablePartitions[self::importPath($node)] = true;
+            foreach ($node->childNodes as $section) {
+                if (!$section instanceof DOMElement || !in_array(strtolower($section->tagName), ['thead', 'tbody', 'tfoot'], true)) {
+                    continue;
+                }
+                $attrs = $this->attrs($section, []);
+                $names = array_keys($attrs['keyValues'] ?? []);
+                if (isset($attrs['id'])) {
+                    $names[] = 'id';
+                }
+                if (isset($attrs['classes'])) {
+                    $names[] = 'class';
+                }
+                $this->retainedTableAttributes[self::importPath($section)] = $names;
+            }
         }
 
         foreach ($node->childNodes as $child) {

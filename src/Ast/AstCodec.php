@@ -641,6 +641,9 @@ class AstCodec
         // other block, so a tree survives the round trip (PART 12 §6).
         [$data, $abbreviations, $beforeBody, $authoredAbbreviations] = self::liftAbbreviationDefs($data);
 
+        if (($data['type'] ?? null) !== 'document') {
+            throw new AstDecodeException('The payload root must be a document node');
+        }
         $node = $this->decodeNode($data);
         if (!$node instanceof Document) {
             throw new AstDecodeException('The payload root must be a document node');

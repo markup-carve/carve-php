@@ -95,6 +95,15 @@ class TableSectionAttributesTest extends TestCase
         $this->assertSame('f', $groups['footAttrs']['id']);
     }
 
+    public function testAstReportDoesNotClaimPreservedSectionAttributesWereDropped(): void
+    {
+        $importer = new HtmlToCarve();
+        $result = $importer->convertToAstWithReport('<table><thead id="h"><tr><th>H</th></tr></thead><tbody class="b"><tr><td>B</td></tr></tbody><tfoot id="f"><tr><td>F</td></tr></tfoot></table>');
+        $this->assertSame([], $result->diagnostics);
+        $mixed = $importer->convertToAst('<table><tr><td>A</td></tr><tbody id="z"><tr><td>B</td></tr></tbody></table>');
+        $this->assertSame('z', $mixed['children'][0]['rowGroups']['bodies'][1]['attrs']['id']);
+    }
+
     public function testSharedSectionRenderingFixtures(): void
     {
         $cases = json_decode((string)file_get_contents(__DIR__ . '/../../spec/tests/fixtures/table-section-attributes.json'), true, flags: JSON_THROW_ON_ERROR);

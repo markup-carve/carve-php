@@ -435,19 +435,35 @@ class HtmlToCarve
         $source = $this->convertWithReport($html);
         $normalized = $this->normalizeHtmlForDirectAst($html);
 
+        $builder = new HtmlAstBuilder(
+            $this->listTableForBlockCells,
+            $this->importMode,
+            $this->trustedRoundTrip,
+            false,
+            $this->alignmentClasses,
+            $this->labels,
+        );
+        $tree = self::withoutTheWriter($builder->build($normalized, strlen($html)));
+        $attributes = $builder->retainedTableAttributes();
+        $partitions = $builder->retainedTablePartitions();
+        $diagnostics = array_values(array_filter($source->diagnostics, static function (HtmlImportDiagnostic $diagnostic) use ($attributes, $partitions): bool {
+            $path = $diagnostic->path ?? '';
+            if ($diagnostic->code === 'attribute-dropped' && preg_match('/^Dropped unsupported attribute (\S+) on <(?:thead|tbody|tfoot)>$/', $diagnostic->message, $match) === 1 && in_array($match[1], $attributes[$path] ?? [], true)) {
+                return false;
+            }
+            if ($diagnostic->code === 'table-degraded' && isset($partitions[$path]) && preg_match('/^(?:Moved \d+ <tfoot>|Merged \d+ <tbody>|The table head changes from )/', $diagnostic->message) === 1) {
+                return false;
+            }
+
+            return true;
+        }));
+
         return new HtmlImportAstResult(
-            self::withoutTheWriter((new HtmlAstBuilder(
-                $this->listTableForBlockCells,
-                $this->importMode,
-                $this->trustedRoundTrip,
-                false,
-                $this->alignmentClasses,
-                $this->labels,
-            ))->build($normalized, strlen($html))),
+            $tree,
             $source->mode,
             $source->adapter,
             array_values(array_filter(
-                $source->diagnostics,
+                $diagnostics,
                 static fn (HtmlImportDiagnostic $diagnostic): bool => !($diagnostic->code === 'structure-unspellable'
                     && (str_starts_with($diagnostic->message, 'Flattened <ruby> annotations')
                         // Only a WRITER loses an ordered task item's box (PART 12
