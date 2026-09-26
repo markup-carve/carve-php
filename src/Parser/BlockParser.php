@@ -3678,24 +3678,6 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        // A div following a nested definition term still carries that term's
-        // authored content-column indentation in the description's block
-        // stream. Rebase that local block before parsing it (carve-php#2498).
-        $localBase = $parent instanceof DefinitionDescription
-            ? IndentationHelper::getLeadingColumns($line)
-            : 0;
-        if ($localBase > 0) {
-            for ($j = $start, $lineCount = count($lines); $j < $lineCount; $j++) {
-                if (!IndentationHelper::isBlankLine($lines[$j])
-                    && IndentationHelper::getLeadingColumns($lines[$j], $localBase) < $localBase
-                ) {
-                    break;
-                }
-                $lines[$j] = IndentationHelper::stripLeadingColumns($lines[$j], $localBase);
-            }
-            $line = $lines[$start];
-        }
-
         // Use FencedBlockParser to detect div opener
         $divInfo = $this->fencedBlockParser->parseDivFenceOpener($line);
         if ($divInfo === null) {
@@ -5850,6 +5832,15 @@ class BlockParser
                 // is not owned - it is left for the walk to give an authored
                 // base of its own, one container out.
                 if ($contentColumn !== null && $indent < $contentColumn) {
+                    break;
+                }
+                // Before the first description, a colon fence belongs to the
+                // enclosing container, which supplies its authored block base.
+                if (
+                    !$opensList
+                    && $contentColumn === null
+                    && $this->fencedBlockParser->parseDivFenceOpener(ltrim($candidate, " \t")) !== null
+                ) {
                     break;
                 }
                 $end = $j;
@@ -12685,15 +12676,6 @@ class BlockParser
     {
         if ($this->isCaptionLine($line)) {
             return false;
-        }
-
-        // A nested term is parsed from its authored content column, but its
-        // continuation lines still carry that column's indentation here. A
-        // colon fence at that column is therefore a block opener, not folded
-        // term text (carve-php#2498).
-        $content = ltrim($line, " \t");
-        if ($content !== $line && $this->fencedBlockParser->parseDivFenceOpener($content) !== null) {
-            return true;
         }
 
         return $this->endsHeadingOrQuote($line, $lines, $index);
