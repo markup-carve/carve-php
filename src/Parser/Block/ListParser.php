@@ -91,6 +91,20 @@ class ListParser
     protected ?array $attributedOffsetPatterns = null;
 
     /**
+     * Abutting attribute payloads already validated, keyed by payload: a nested
+     * item's line is re-read once per enclosing list level, and the writer's
+     * escape search re-parses the same items once per probe.
+     *
+     * @var array<string, array<string, string>|null>
+     */
+    protected static array $markerAttributeCache = [];
+
+    /**
+     * @var int
+     */
+    protected const MARKER_ATTRIBUTE_CACHE_LIMIT = 4096;
+
+    /**
      * Allow (or disallow) `+` as a bullet marker alongside `-` and `*`.
      *
      * A `+` is only ever a bullet when followed by a space and non-empty
@@ -426,7 +440,7 @@ class ListParser
             // The WHOLE payload has to be valid, exactly as it does in
             // `parseListItemMarker()`: a block mixing a good class with an
             // unrecognized name is not a marker at all.
-            if ($body !== '' && (AttributeParser::parseOrdered($body) === [] || !AttributeParser::isValidInlinePayload($body))) {
+            if ($body !== '' && $this->markerAttributes($body) === null) {
                 continue;
             }
 
@@ -438,6 +452,34 @@ class ListParser
         }
 
         return null;
+    }
+
+    /**
+     * The attributes of a non-empty abutting payload, or null when it does not
+     * bind to the marker.
+     *
+     * @return array<string, string>|null
+     */
+    protected function markerAttributes(string $body): ?array
+    {
+        if (array_key_exists($body, self::$markerAttributeCache)) {
+            return self::$markerAttributeCache[$body];
+        }
+        if (count(self::$markerAttributeCache) >= self::MARKER_ATTRIBUTE_CACHE_LIMIT) {
+            self::$markerAttributeCache = [];
+        }
+
+        return self::$markerAttributeCache[$body] = $this->validateMarkerAttributes($body);
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    protected function validateMarkerAttributes(string $body): ?array
+    {
+        $parsed = AttributeParser::parseOrdered($body);
+
+        return $parsed !== [] && AttributeParser::isValidInlinePayload($body) ? $parsed : null;
     }
 
     /**
@@ -470,7 +512,7 @@ class ListParser
             )
         ) {
             $body = substr($am[2], 1, -1);
-            $parsed = AttributeParser::parseOrdered($body);
+            $parsed = $this->markerAttributes($body);
             // Valid only if it yields >= 1 attribute or is the empty block `{}`
             // (mirrors the inline-span disambiguation, grammar §14). Otherwise
             // `-{...}` is not a marker and the line stays ordinary text.
@@ -480,8 +522,8 @@ class ListParser
             // mixing a good class with an unrecognized name (`{.ok xml:lang=en}`,
             // `{.ok .1}`) used to open a list carrying the good half, where
             // carve-js and carve-rs leave the line a paragraph.
-            if (($parsed !== [] && AttributeParser::isValidInlinePayload($body)) || $body === '') {
-                $itemAttributes = $parsed;
+            if ($parsed !== null || $body === '') {
+                $itemAttributes = $parsed ?? [];
                 $attributesWidth = strlen($am[2]);
                 $line = $am[1] . $am[3];
             }

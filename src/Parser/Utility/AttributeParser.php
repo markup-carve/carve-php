@@ -221,6 +221,9 @@ class AttributeParser
      */
     public static function inlineInteriorIsSpaceOnly(string $attrStr): bool
     {
+        if (strpbrk($attrStr, "\t\r\n") === false) {
+            return true;
+        }
         $length = strlen($attrStr);
         $quote = null;
         for ($i = 0; $i < $length; $i++) {
@@ -411,6 +414,9 @@ class AttributeParser
      */
     protected static function removeComments(string $attrStr): string
     {
+        if (!str_contains($attrStr, '%')) {
+            return $attrStr;
+        }
         $result = '';
         $length = strlen($attrStr);
         $i = 0;
