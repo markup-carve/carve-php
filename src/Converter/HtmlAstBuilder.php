@@ -311,6 +311,60 @@ final class HtmlAstBuilder
     ];
 
     /**
+     * Elements with a spelling of their own outside {@see BLOCK_TAGS}. Every
+     * other element is unwrapped to its children, so {@see holdsBlock()} looks
+     * through it.
+     *
+     * @var array<string, true>
+     */
+    private const SPELLED_NON_BLOCK_TAGS = [
+        'a' => true,
+        'abbr' => true,
+        'b' => true,
+        'br' => true,
+        'caption' => true,
+        'cite' => true,
+        'code' => true,
+        'dd' => true,
+        'del' => true,
+        'dfn' => true,
+        'dt' => true,
+        'em' => true,
+        'figcaption' => true,
+        'i' => true,
+        'img' => true,
+        'input' => true,
+        'ins' => true,
+        'kbd' => true,
+        'li' => true,
+        'mark' => true,
+        'math' => true,
+        'noscript' => true,
+        'q' => true,
+        'ruby' => true,
+        's' => true,
+        'samp' => true,
+        'script' => true,
+        'span' => true,
+        'strike' => true,
+        'strong' => true,
+        'style' => true,
+        'sub' => true,
+        'summary' => true,
+        'sup' => true,
+        'tbody' => true,
+        'td' => true,
+        'template' => true,
+        'tfoot' => true,
+        'th' => true,
+        'thead' => true,
+        'time' => true,
+        'tr' => true,
+        'u' => true,
+        'var' => true,
+    ];
+
+    /**
      * @return array<string, mixed>
      */
     public function build(string $html, ?int $sourceByteLength = null): array
@@ -531,11 +585,31 @@ final class HtmlAstBuilder
         if (!$node instanceof DOMElement) {
             return false;
         }
-        if (isset(self::BLOCK_TAGS[strtolower($node->tagName)])) {
+        $tag = strtolower($node->tagName);
+        if (isset(self::BLOCK_TAGS[$tag])) {
             return true;
         }
+
+        return $this->holdsBlock($node, !isset(self::SPELLED_NON_BLOCK_TAGS[$tag]));
+    }
+
+    /**
+     * Does a block sit under this element? An unsupported element is replaced
+     * by its children, so with `$throughWrappers` the search also looks through
+     * unsupported ones: `<x-a><x-b><p>` holds the paragraph as `<x-a><p>` does.
+     * A spelled element such as `<a>` only counts a direct block child.
+     */
+    private function holdsBlock(DOMElement $node, bool $throughWrappers): bool
+    {
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && isset(self::BLOCK_TAGS[strtolower($child->tagName)])) {
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            if (isset(self::BLOCK_TAGS[$tag])) {
+                return true;
+            }
+            if ($throughWrappers && !isset(self::SPELLED_NON_BLOCK_TAGS[$tag]) && $this->holdsBlock($child, true)) {
                 return true;
             }
         }
