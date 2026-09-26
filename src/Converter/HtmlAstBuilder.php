@@ -2084,9 +2084,7 @@ final class HtmlAstBuilder
      *
      * A kind naming GENERATED CONTENT is a `directive`, every other named kind an
      * `admonition`. The list of six is CLOSED, so `endnotes` is an admonition.
-     * A directive's content is generated rather than authored and the schema
-     * requires only `kind`, so an empty child list is not published - which is
-     * also what the codec exit emits for the same container.
+     * A directive publishes `children` even when its body is empty.
      *
      * @param string $kind
      * @param list<array<string, mixed>> $children
@@ -2099,12 +2097,7 @@ final class HtmlAstBuilder
             return ['type' => 'admonition', 'kind' => $kind, 'children' => $children];
         }
 
-        $directive = ['type' => 'directive', 'kind' => $kind];
-        if ($children !== []) {
-            $directive['children'] = $children;
-        }
-
-        return $directive;
+        return ['type' => 'directive', 'kind' => $kind, 'children' => $children];
     }
 
     /**

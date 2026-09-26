@@ -12,6 +12,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Fixes
 
 - An unattached `+` below a nested list no longer drops a literal marker at column 1 or moves an indented follower outside the list (markup-carve/carve-php#2461, markup-carve/carve#2334).
+### Breaking
+
+- An empty AST `directive` now publishes `children: []` from Carve source and HTML import, matching the required field in the spec schema (markup-carve/carve#2333).
 
 ## [0.1.10] - 2026-09-25
 
