@@ -79,8 +79,9 @@ use MarkupCarve\Carve\Util\StringUtil;
 /**
  * Renders AST to Markdown (CommonMark compatible where possible)
  */
-class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInterface
+class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector
 {
+    use ConversionDiagnosticCollectorTrait;
     use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use DerivedLabelTrait;
@@ -2446,7 +2447,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderTable(Table $node): string
     {
-        $this->recordTableSectionAttributes($node);
+        $this->recordUnspellableTableSectionAttributes($node);
         $layout = TableLayout::expand(
             $node,
             fn (TableCell $cell): array => [

@@ -62,7 +62,7 @@ class TableSectionAttributesTest extends TestCase
         ]);
     }
 
-    public function testTextTargetsReportLossesAndEmptyAttributesRemainObjects(): void
+    public function testTextTargetsDiagnoseTheFieldAndEmptyAttributesRemainObjects(): void
     {
         $codec = new AstCodec();
         $doc = $codec->decode([
@@ -79,10 +79,15 @@ class TableSectionAttributesTest extends TestCase
         ]);
         $this->assertStringContainsString('"footAttrs":{}', $codec->encodeJson($doc));
         foreach ([new PlainTextRenderer(), new MarkdownRenderer(), new AnsiRenderer()] as $renderer) {
-            $converter = new CarveConverter(renderer: $renderer);
-            $report = $converter->renderWithReport($doc);
-            $this->assertSame(1, $report->totalLosses);
-            $this->assertSame('table-section-attributes-dropped', $report->losses[0]['code']);
+            $report = (new CarveConverter(renderer: $renderer))->renderWithReport($doc);
+            $this->assertSame(0, $report->totalLosses, 'a dropped field is not a render loss');
+
+            $renderer->beginConversionDiagnosticCollection();
+            $renderer->render($doc);
+            $diagnostics = $renderer->finishConversionDiagnosticCollection();
+            $this->assertSame(1, $diagnostics['totalDiagnostics']);
+            $this->assertSame('field-unspellable', $diagnostics['diagnostics'][0]['code']);
+            $this->assertSame('rowGroups.headAttrs', $diagnostics['diagnostics'][0]['field']);
         }
     }
 

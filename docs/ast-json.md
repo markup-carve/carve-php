@@ -213,12 +213,22 @@ Named `:::` containers for `bibliography`, `footnotes`, `glossary`, `index`,
 spelled; an unknown named kind publishes `admonition`.
 
 To collect source conversion diagnostics, call
-`CarveRenderer::beginConversionDiagnosticCollection($maximum)` before rendering
-and `finishConversionDiagnosticCollection()` afterwards. The report carries
-`diagnostics`, `totalDiagnostics` and `truncated`, following the spec's
-`conversion-diagnostics.schema.json`. The CLI writes the same report with
-`--carve --report-conversion-diagnostics FILE`. It is separate from render
-losses.
+`beginConversionDiagnosticCollection($maximum)` before rendering and
+`finishConversionDiagnosticCollection()` afterwards on any writer implementing
+`ConversionDiagnosticCollector`: the Carve, Markdown, plain-text and ANSI
+renderers. The report carries `diagnostics`, `totalDiagnostics` and `truncated`,
+following the spec's `conversion-diagnostics.schema.json`. The CLI writes the
+same report with `--report-conversion-diagnostics FILE` alongside any of those
+four targets.
+
+It is separate from render losses, and it is the only one of the two reports that
+can name a field. The render-loss report's `code` enum is closed at
+`raw-format-dropped` and `ruby-flattened` (PART 11 §1d), each naming a whole node
+one renderer dropped; a field dropped off a node the writer still spells is
+`field-unspellable` here. Table section attributes are that case - none of the
+four targets can spell them, so each reports `rowGroups.headAttrs`,
+`rowGroups.footAttrs` and `rowGroups.bodies[N].attrs` as dropped fields, and
+`--strict-losses` and `--allow-loss` do not see them.
 
 ## What an ingest refuses
 
