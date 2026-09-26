@@ -169,7 +169,8 @@ final class SectionAndBlockCellInterchangeTest extends TestCase
         $document = (new AstCodec())->decode($wire);
         self::assertStringContainsString('one two', (new PlainTextRenderer())->render($document));
         self::assertStringContainsString('one two', (new AnsiRenderer())->render($document));
-        self::assertStringContainsString('| *one two* |', (new MarkdownRenderer())->render($document));
+        // PART 11 section 9a: the Markdown target keeps the hard break as `<br>`.
+        self::assertStringContainsString('| *one<br>two* |', (new MarkdownRenderer())->render($document));
     }
 
     public function testBlockCellDiagnosticsCountOriginalNodesOnce(): void

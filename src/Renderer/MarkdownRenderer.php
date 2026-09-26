@@ -272,6 +272,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected array $headingIds = [];
 
+    /**
+     * Nonzero while rendering a table cell's content.
+     */
+    protected int $tableCellDepth = 0;
+
     protected SmartTypographyMode $smartTypography = SmartTypographyMode::Glyph;
 
     protected AttributeFallback $attributeFallback = AttributeFallback::Drop;
@@ -1218,7 +1223,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // `git apply --whitespace=fix` and by CI whitespace checks -- and
                 // losing ONE of the two spaces is enough for the break to vanish
                 // rather than degrade, silently, in a file nobody edited.
-                $node instanceof HardBreak => "\\\n",
+                // In a table cell the newline would end the GFM row (PART 11
+                // section 9a).
+                $node instanceof HardBreak => $this->tableCellDepth > 0 ? '<br>' : "\\\n",
                 $node instanceof NonBreakingSpace => "\u{00A0}",
                 $node instanceof SoftBreak => match ($this->softBreakMode) {
                     SoftBreakMode::Newline => "\n",
@@ -2445,13 +2452,25 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         return $flat;
     }
 
+    protected function renderTableCellContent(TableCell $cell): string
+    {
+        $this->tableCellDepth++;
+        try {
+            $content = $this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell, true) : $cell);
+        } finally {
+            $this->tableCellDepth--;
+        }
+
+        return trim($content, StringUtil::TRIMMABLE_WHITESPACE);
+    }
+
     protected function renderTable(Table $node): string
     {
         $this->recordUnspellableTableSectionAttributes($node);
         $layout = TableLayout::expand(
             $node,
             fn (TableCell $cell): array => [
-                'content' => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE),
+                'content' => $this->renderTableCellContent($cell),
                 'alignment' => $cell->getAlignment(),
             ],
         );
