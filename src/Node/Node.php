@@ -54,6 +54,16 @@ abstract class Node
     }
 
     /**
+     * Whether any render hint is set on this node.
+     *
+     * @internal
+     */
+    public function hasRenderHints(): bool
+    {
+        return $this->renderHints !== [];
+    }
+
+    /**
      * Where this node came from, when the parser recorded it.
      *
      * Null is a real answer, not a placeholder: PART 12 §4 forbids emitting a
