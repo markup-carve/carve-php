@@ -5275,11 +5275,16 @@ class BlockParser
                             // Strip all leading whitespace before forwarding it,
                             // matching CommonMark lazy continuation.
                             $trimmedLine = ltrim($subLine, " \t");
-                            if ($this->isContinuationMarker($trimmedLine)) {
-                                // This column names no list marker. Keep one
-                                // column so the nested parse reads literal `+`
-                                // even when its last block closed a paragraph.
-                                $subLines[] = ' ' . $trimmedLine;
+                            if (
+                                !$sawBlankLine
+                                && $this->isContinuationMarker($trimmedLine)
+                            ) {
+                                // KEEP THE LINE'S OWN RESIDUAL COLUMN, and only
+                                // with no blank above: one fixed column aliases
+                                // the nested list's base column once the
+                                // content column is wider than two, and past a
+                                // blank the line has already left the item.
+                                $subLines[] = str_repeat(' ', $lineIndent - $baseIndent) . $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);
                                 $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $subLine);
                                 $i++;
