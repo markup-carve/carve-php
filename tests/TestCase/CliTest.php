@@ -19,6 +19,35 @@ class CliTest extends TestCase
      */
     private const SRC = "# Hi\n\n_em_ *strong* `code`\n";
 
+    public function testAnUnspellableAstReportsAnErrorWithoutAStackTrace(): void
+    {
+        $ast = [
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'table', 'rows' => [
+                        [
+                            'type' => 'table_row', 'cells' => [
+                                [
+                                    'type' => 'table_cell',
+                                    'header' => false,
+                                    'blocks' => [['type' => 'thematic_break']],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        $result = $this->runCliInput(['--from-json', '--carve'], json_encode($ast, JSON_THROW_ON_ERROR));
+        $this->assertSame(1, $result['exit']);
+        $this->assertSame('', $result['out']);
+        $this->assertStringContainsString('cannot spell table_row', $result['err']);
+        $this->assertStringNotContainsString('Stack trace', $result['err']);
+        $this->assertStringNotContainsString('Fatal error', $result['err']);
+    }
+
     /**
      * Run bin/carve with $args, feeding self::SRC on stdin; returns stdout.
      */

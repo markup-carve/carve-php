@@ -3346,6 +3346,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $this->firstBoundary($nodes[$i + 1] ?? null),
                         $captionCanOpen,
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
+                        $i === $count - 1 && $out !== '',
                     );
                     // A bare caret the previous node ended on opens an inline
                     // note against a `[` this node writes, in both passes.
@@ -3647,11 +3648,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         string $nextChar = '',
         bool $captionCanOpen = false,
         bool $nextOpensVerbatim = false,
+        bool $mayRunToEnd = false,
     ): string {
         $previous = $this->escapeUnit;
         $this->escapeUnit = $node;
         try {
-            return $this->renderInlineBody($node, $prevChar, $nextChar, $captionCanOpen, $nextOpensVerbatim);
+            return $this->renderInlineBody($node, $prevChar, $nextChar, $captionCanOpen, $nextOpensVerbatim, $mayRunToEnd);
         } finally {
             $this->escapeUnit = $previous;
         }
@@ -3663,6 +3665,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         string $nextChar = '',
         bool $captionCanOpen = false,
         bool $nextOpensVerbatim = false,
+        bool $mayRunToEnd = false,
     ): string {
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
         // An unresolved reference renders as the source the author
@@ -3698,7 +3701,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderMarked('highlight', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
             $node instanceof Code => $node->getContent() === '' && !$this->emptyCodeSpanIsSpellable($node)
                 ? throw new SourceUnspellableException('code', 'an empty code span has no Carve source spelling where its open run does not end')
-                : $withAttrs($this->renderCode($node->getContent())),
+                : $withAttrs($this->renderCode($node->getContent(), $mayRunToEnd && $this->inlineDepth === 1 && $this->emptyCodeSpanIsSpellable($node))),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
             $rawReference !== null => $rawReference,
@@ -4317,7 +4320,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return '!' . $this->renderCode($node->getContent()) . $this->renderAttrs($node);
     }
 
-    protected function renderCode(string $content): string
+    protected function renderCode(string $content, bool $allowUnclosed = false): string
     {
         // A code span is verbatim too, so an authored U+E000 is the CHARACTER
         // here as much as inside a fence - and normalize() would otherwise
@@ -4341,6 +4344,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             || (str_starts_with($content, ' ')
                 && str_ends_with($content, ' ')
                 && strspn($content, ' ') !== strlen($content));
+
+        // Block normalization removes a pad before a newline. An unclosed
+        // span at the end of the run keeps the value without that pad.
+        if (
+            $needsPad && $allowUnclosed
+            && preg_match('/^[\r\n]/', $content) === 1
+            && preg_match('/[\r\n \t]\z|[ \t][\r\n]|\n[ \t\r\n]/', $content) !== 1
+        ) {
+            return $fence . $content;
+        }
 
         return $needsPad
             ? $fence . ' ' . $content . ' ' . $fence

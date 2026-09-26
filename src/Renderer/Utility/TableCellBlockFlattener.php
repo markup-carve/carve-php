@@ -62,8 +62,10 @@ final class TableCellBlockFlattener
         if ($node instanceof InlineNode) {
             return [self::inline($node, $keepHardBreaks)];
         }
-        // A raw block's payload is text here, never live markup.
-        if ($node instanceof CodeBlock || $node instanceof RawBlock) {
+        if ($node instanceof RawBlock) {
+            return [];
+        }
+        if ($node instanceof CodeBlock) {
             $content = trim(str_replace(["\r\n", "\r", "\n"], ' ', $node->getContent()));
 
             return $content === '' ? [] : [new Text($content)];

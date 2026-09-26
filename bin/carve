@@ -55,6 +55,7 @@ use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
@@ -1118,7 +1119,7 @@ try {
         $checked = $converter->convertWithReport($input, false, $options['maxRenderLosses']);
         $output = $checked->value;
     }
-} catch (RenderDepthExceededException $exception) {
+} catch (RenderDepthExceededException | SourceUnspellableException $exception) {
     // A renderer that reaches its ceiling REFUSES (PART 9 §25). The CLI reports
     // the refusal and exits non-zero rather than printing a partial document -
     // or a PHP stack trace, which tells the caller as little as truncation did.

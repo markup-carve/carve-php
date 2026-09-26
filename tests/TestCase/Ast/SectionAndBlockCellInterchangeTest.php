@@ -211,7 +211,7 @@ final class SectionAndBlockCellInterchangeTest extends TestCase
         self::assertSame(0, $writer->finishConversionDiagnosticCollection()['totalDiagnostics']);
     }
 
-    public function testRawBlocksBecomeTextAndCodePayloadsHaveOneBlockSeparator(): void
+    public function testRawBlocksAreOmittedAndCodePayloadsHaveOneBlockSeparator(): void
     {
         $document = (new AstCodec())->decode([
             'type' => 'document',
@@ -241,14 +241,10 @@ final class SectionAndBlockCellInterchangeTest extends TestCase
             ],
         ]);
 
-        // A raw block contributes its payload as text, never as live markup.
-        $expected = [
-            MarkdownRenderer::class => '\\<b>x\\</b> a b c',
-            PlainTextRenderer::class => '<b>x</b> a b c',
-        ];
         foreach ([new MarkdownRenderer(), new PlainTextRenderer(), new CarveRenderer()] as $renderer) {
             $output = $renderer->render($document);
-            self::assertStringContainsString($expected[$renderer::class] ?? 'a b c', $output);
+            self::assertStringContainsString('a b c', $output);
+            self::assertStringNotContainsString('x', $output);
             self::assertStringNotContainsString('a b  c', $output);
         }
         self::assertStringNotContainsString('<b>x</b>', (new MarkdownRenderer())->render($document));
