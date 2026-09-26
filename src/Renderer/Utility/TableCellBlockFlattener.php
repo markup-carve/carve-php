@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Renderer\Utility;
 
 use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\TableCell;
@@ -62,14 +63,29 @@ final class TableCellBlockFlattener
         if ($node instanceof InlineNode) {
             return [self::inline($node, $keepHardBreaks)];
         }
-        // A raw block's payload is text here, never live markup.
-        if ($node instanceof CodeBlock || $node instanceof RawBlock) {
+        if ($node instanceof RawBlock) {
+            return [];
+        }
+        if ($node instanceof CodeBlock) {
             $content = trim(str_replace(["\r\n", "\r", "\n"], ' ', $node->getContent()));
 
             return $content === '' ? [] : [new Text($content)];
         }
 
-        return self::children($node, $keepHardBreaks);
+        $children = self::children($node, $keepHardBreaks);
+        if ($node instanceof Div && $node->getHeaderNodes() !== []) {
+            $title = [];
+            foreach ($node->getHeaderNodes() as $inline) {
+                array_push($title, ...self::node($inline, $keepHardBreaks));
+            }
+            if ($title !== [] && $children !== []) {
+                $title[] = new Text(' ');
+            }
+
+            return [...$title, ...$children];
+        }
+
+        return $children;
     }
 
     private static function inline(InlineNode $node, bool $keepHardBreaks): InlineNode
