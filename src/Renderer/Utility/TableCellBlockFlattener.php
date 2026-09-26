@@ -17,10 +17,15 @@ use MarkupCarve\Carve\Node\Node;
 
 final class TableCellBlockFlattener
 {
-    public static function flatten(TableCell $cell): Paragraph
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
+     * @param bool $keepHardBreaks Keep a hard break as itself instead of a space.
+     *   The Markdown target writes it as `<br>` (PART 11 section 9a).
+     */
+    public static function flatten(TableCell $cell, bool $keepHardBreaks = false): Paragraph
     {
         $paragraph = new Paragraph();
-        $parts = self::children($cell);
+        $parts = self::children($cell, $keepHardBreaks);
         foreach ($parts as $part) {
             $paragraph->appendChild($part);
         }
@@ -31,11 +36,11 @@ final class TableCellBlockFlattener
     /**
      * @return list<\MarkupCarve\Carve\Node\Node>
      */
-    private static function children(Node $node): array
+    private static function children(Node $node, bool $keepHardBreaks): array
     {
         $parts = [];
         foreach ($node->getChildren() as $child) {
-            $run = self::node($child);
+            $run = self::node($child, $keepHardBreaks);
             if ($run === []) {
                 continue;
             }
@@ -51,13 +56,10 @@ final class TableCellBlockFlattener
     /**
      * @return list<\MarkupCarve\Carve\Node\Node>
      */
-    private static function node(Node $node): array
+    private static function node(Node $node, bool $keepHardBreaks): array
     {
-        if ($node instanceof HardBreak || $node instanceof SoftBreak) {
-            return [new Text(' ')];
-        }
         if ($node instanceof InlineNode) {
-            return [self::inline($node)];
+            return [self::inline($node, $keepHardBreaks)];
         }
         if ($node instanceof CodeBlock) {
             $content = trim(str_replace(["\r\n", "\r", "\n"], ' ', $node->getContent()));
@@ -65,22 +67,26 @@ final class TableCellBlockFlattener
             return $content === '' ? [] : [new Text($content)];
         }
 
-        return self::children($node);
+        return self::children($node, $keepHardBreaks);
     }
 
-    private static function inline(InlineNode $node): InlineNode
+    private static function inline(InlineNode $node, bool $keepHardBreaks): InlineNode
     {
+        if ($node instanceof HardBreak && $keepHardBreaks) {
+            return clone $node;
+        }
         if ($node instanceof HardBreak || $node instanceof SoftBreak) {
             return new Text(' ');
         }
+        $inline = fn (InlineNode $child): InlineNode => self::inline($child, $keepHardBreaks);
         $copy = clone $node;
         $copy->setRenderHint("\0carve-conversion-origin", $node->getRenderHint("\0carve-conversion-origin") ?? (string)spl_object_id($node));
         if ($copy instanceof Ruby) {
             $pairs = [];
             foreach ($copy->getPairs() as $pair) {
                 $pairs[] = [
-                    'base' => array_map(self::inline(...), $pair['base']),
-                    'annotation' => array_map(self::inline(...), $pair['annotation']),
+                    'base' => array_map($inline, $pair['base']),
+                    'annotation' => array_map($inline, $pair['annotation']),
                 ];
             }
             $copy->setPairs($pairs);
@@ -89,7 +95,7 @@ final class TableCellBlockFlattener
         }
         foreach ($node->getChildren() as $index => $child) {
             if ($child instanceof InlineNode) {
-                $copy->replaceChild($index, self::inline($child));
+                $copy->replaceChild($index, $inline($child));
             }
         }
 
