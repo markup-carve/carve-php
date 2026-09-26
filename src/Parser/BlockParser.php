@@ -4420,7 +4420,10 @@ class BlockParser
             // `>` line, or a further `+`) and splice them into the quote body
             // behind a blank-line separator, so they parse as their own block
             // instead of folding into the preceding quoted paragraph.
-            if ($this->isContinuationMarker($currentLine)) {
+            if (
+                $this->isContinuationMarker($currentLine)
+                && $this->markerSitsAtColumn($i, $quoteOpeningColumn)
+            ) {
                 $i++; // consume the `+` marker
                 [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
                 $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
@@ -6669,6 +6672,26 @@ class BlockParser
     protected function isContinuationMarker(string $line): bool
     {
         return rtrim($line, StringUtil::WHITESPACE_CHARS) === '+';
+    }
+
+    /**
+     * Does the `+` on view line $index sit at $column in the SOURCE?
+     *
+     * The quote's lines arrive already stripped of the enclosing item's
+     * indentation, so a marker written one column left of the quote's own
+     * marker is spelled exactly like one written at it (CARVE-P9-031,
+     * carve-php#2470). Only the source line still carries the distinction.
+     * A line the source never had keeps the old, column-blind answer.
+     */
+    protected function markerSitsAtColumn(int $index, int $column): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $sourceText = $this->sourceLines[$sourceLine] ?? null;
+        if ($sourceText === null) {
+            return true;
+        }
+
+        return IndentationHelper::getLeadingColumns($sourceText) === $column;
     }
 
     /**
