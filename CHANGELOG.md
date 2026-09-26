@@ -28,6 +28,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - The render-loss `code` enum closes at `raw-format-dropped` and `ruby-flattened`, and a table section's discarded attributes are reported as `field-unspellable` on the PART 11 §1d channel instead. Markdown, plain and ANSI reach that channel for the first time, `--report-conversion-diagnostics` is no longer gated on `--carve`, and `--allow-loss` accepts two names where it accepted three, so a consumer matching `table-section-attributes-dropped` reads the new code (#2479).
 - Escaped spaces and preserved line-block columns travel as `non_breaking_space` nodes, U+E000 is literal content in every field, and annotation offsets are a fixed codepoint projection independent of JSON key order, image alt text, math, breaks and generated spaces included. A tree stored under the old marker emits that character raw into HTML with no error and no version signal, because the AST contract stays `1.0`, and reparsing the source is the only remedy (#2468).
 - An `admonition` ingested with `kind: ""` is refused at decode, where it previously validated. A producer that emitted an empty kind has to name one (#2480).
+- A lone bracket inside a span, link text or an inline note is escaped unconditionally, and so is a `(` after a paired bare `]` whose text would read as a link destination; `f(x)`, `(see above)` and `[a] (b)` stay bare. The writer also emits fewer escapes elsewhere, where the capped search used to leave a surplus behind (#2487, markup-carve/carve#2358, markup-carve/carve#2359).
+- A link's or span's edge whitespace stands outside it on HTML import, as one space that merges with whitespace already there. A trusted round trip still reads back the spaces it wrote (#2485, markup-carve/carve#2365).
 
 ### Fixes
 
@@ -97,6 +99,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - A `+` one column left of an in-item block quote's marker stays text rather than being read as a continuation marker (#2472).
 - HTML import keeps a heading, list, code block, table or block quote that sits under two or more nested unsupported elements, rather than flattening it into a paragraph. Importing a GitHub page used to lose every heading, list and code block a README holds (#2474).
 - The general `element-unwrapped` row reads `Unwrapped unsupported <x> element`, which is what becomes of an unsupported element in block context, where no span is written (#2475).
+- A hard break in a table cell is written as `<br>` on the Markdown target, in an inline cell and in a block-bearing one, so the row stays one GFM line instead of ending at the break or flattening it to a space (#2484, markup-carve/carve#2363).
+- A `<math>` carrying no TeX imports as its text where its tokens are linear, and a formula beside its hidden-MathML fallback image imports once rather than twice (#2485, markup-carve/carve#2365).
+- A list with no item is dropped on HTML import, with one `element-dropped` warning covering its attributes, instead of an attribute line with no block under it that `carve fmt` then removes (#2486, markup-carve/carve#2367).
+- An empty class token is dropped on HTML import, so `class=""` no longer names an admonition kind and a page that carries one imports (#2488).
 
 ### Improvements
 
@@ -118,6 +124,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - A document is reparsed only for a heading the failed label could name, rather than for any unresolved reference (#2246).
 - Table heads and feet keep their attributes through AST exchange and HTML import. HTML applies them to `thead`, `tbody` and `tfoot`, and the source and text targets report an attribute they cannot spell (#2473).
 - A nested list item's abutting attribute payload is validated once rather than once per enclosing list, and the writer's escape search parses each candidate once rather than re-parsing the document per probe. Together they cut the full re-parses an HTML migration performs by roughly a third, with output and fidelity report byte-identical (#2477, #2478).
+- The Carve writer plans the two unconditional bracket escapes once per document instead of probing them per occurrence, which takes the escape search from 120, 125 and 145 candidate parses to 64, 30 and 54 on three of the ten benchmark pages (#2487).
 
 ## [0.1.9] - 2026-09-19
 
