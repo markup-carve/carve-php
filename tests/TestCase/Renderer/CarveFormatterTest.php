@@ -227,6 +227,13 @@ class CarveFormatterTest extends TestCase
      * trailing whitespace and blank-line runs inside code blocks, raw blocks,
      * frontmatter, and block comments are byte-exact after fmt.
      */
+    public function testBlockCommentKeepsBlankAndWhitespaceOnlyLines(): void
+    {
+        $source = "%%%\n \nx\n\n%%%\n";
+
+        $this->assertSame($source, CarveConverter::toCarve($source));
+    }
+
     public function testVerbatimContentSurvivesNormalization(): void
     {
         $cases = [

@@ -3588,13 +3588,6 @@ class BlockParser
             $i++;
         }
 
-        while ($contentLines && trim(end($contentLines)) === '') {
-            array_pop($contentLines);
-        }
-        while ($contentLines && IndentationHelper::isBlankLine($contentLines[0])) {
-            array_shift($contentLines);
-        }
-
         $content = implode("\n", $contentLines);
 
         // Comments are stored but not rendered
