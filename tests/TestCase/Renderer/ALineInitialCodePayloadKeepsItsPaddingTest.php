@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +19,7 @@ class ALineInitialCodePayloadKeepsItsPaddingTest extends TestCase
     public static function sourceProvider(): array
     {
         return [
+            'braced strike' => ["{~before ``\n`~}\n"],
             'after code' => ["`z` ``\n`\n"],
             'after text' => ["before ``\n`\n"],
             'longer run' => ["before ```\n``\n"],
@@ -32,5 +36,26 @@ class ALineInitialCodePayloadKeepsItsPaddingTest extends TestCase
         $this->assertSame($html->convert($source), $html->convert($formatted));
         $this->assertSame($formatted, CarveConverter::toCarve($formatted));
         $this->assertDoesNotMatchRegularExpression('/ +$/m', $formatted);
+    }
+
+    public function testAMidRunLeadingNewlineIsRefusedInsteadOfChanged(): void
+    {
+        $doc = (new AstCodec())->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'text', 'value' => 'before '],
+                        ['type' => 'code', 'value' => "\n`"],
+                        ['type' => 'text', 'value' => ' after'],
+                    ],
+                ],
+            ],
+        ]);
+        $this->expectException(SourceUnspellableException::class);
+        (new CarveRenderer())->render($doc);
     }
 }

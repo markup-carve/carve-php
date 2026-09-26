@@ -16,8 +16,6 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Added
 
 - HTML import recognizes explicit code-language hints on code blocks and Sphinx, GitHub and MediaWiki wrappers, with validated tokens and deterministic fallback (markup-carve/carve#2387).
-- Preserve code-span content when formatting a leading newline followed by a trailing backtick. Report unspellable AST output as a CLI error without an uncaught exception.
-- Omit raw blocks from flattened table cells on Markdown, plain, and ANSI, following markup-carve/carve#2390.
 
 ## [0.1.10] - 2026-09-25
 

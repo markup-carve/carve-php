@@ -158,6 +158,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected int $inlineDepth = 0;
 
+    private bool $codeMayRunToEnd = false;
+
     /**
      * Inside a table cell, where a leading `^` cannot open a caption: a caption
      * marker is a BLOCK line, and a cell's content is not one.
@@ -3338,7 +3340,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
                 if ($node instanceof InlineNode) {
                     $prevChar = $this->lastBoundary($nodes[$i - 1] ?? null);
-                    $rendered = $this->renderInline(
+                    $rendered = $this->renderInlineAtRunEnd(
                         $node,
                         // A span leaves no boundary character of its own, so the
                         // one it WROTE (its closer) is what the next opener sits against.
@@ -3642,18 +3644,34 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return str_ends_with($line, ' ') || str_ends_with($line, $this->verbatimSentinels[4]);
     }
 
+    private function renderInlineAtRunEnd(
+        InlineNode $node,
+        string $prevChar,
+        string $nextChar,
+        bool $captionCanOpen,
+        bool $nextOpensVerbatim,
+        bool $mayRunToEnd,
+    ): string {
+        $previous = $this->codeMayRunToEnd;
+        $this->codeMayRunToEnd = $mayRunToEnd;
+        try {
+            return $this->renderInline($node, $prevChar, $nextChar, $captionCanOpen, $nextOpensVerbatim);
+        } finally {
+            $this->codeMayRunToEnd = $previous;
+        }
+    }
+
     protected function renderInline(
         InlineNode $node,
         string $prevChar = '',
         string $nextChar = '',
         bool $captionCanOpen = false,
         bool $nextOpensVerbatim = false,
-        bool $mayRunToEnd = false,
     ): string {
         $previous = $this->escapeUnit;
         $this->escapeUnit = $node;
         try {
-            return $this->renderInlineBody($node, $prevChar, $nextChar, $captionCanOpen, $nextOpensVerbatim, $mayRunToEnd);
+            return $this->renderInlineBody($node, $prevChar, $nextChar, $captionCanOpen, $nextOpensVerbatim);
         } finally {
             $this->escapeUnit = $previous;
         }
@@ -3665,7 +3683,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         string $nextChar = '',
         bool $captionCanOpen = false,
         bool $nextOpensVerbatim = false,
-        bool $mayRunToEnd = false,
     ): string {
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
         // An unresolved reference renders as the source the author
@@ -3701,7 +3718,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderMarked('highlight', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
             $node instanceof Code => $node->getContent() === '' && !$this->emptyCodeSpanIsSpellable($node)
                 ? throw new SourceUnspellableException('code', 'an empty code span has no Carve source spelling where its open run does not end')
-                : $withAttrs($this->renderCode($node->getContent(), $mayRunToEnd && $this->inlineDepth === 1 && $this->emptyCodeSpanIsSpellable($node))),
+                : $withAttrs(($this->codeMayRunToEnd && $this->emptyCodeSpanIsSpellable($node) && preg_match('/^[\r\n]/', $node->getContent()) === 1
+                    ? $this->renderCodeWithUnclosed($node->getContent(), true)
+                    : $this->renderCode($node->getContent()))),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
             $rawReference !== null => $rawReference,
@@ -4189,7 +4208,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $children = $node->getChildren();
         $last = $children === [] ? null : $children[array_key_last($children)];
 
-        return $last instanceof Code && $last->getContent() === '';
+        return $last instanceof Code && ($last->getContent() === ''
+            || (preg_match('/^[\r\n]/', $last->getContent()) === 1 && str_ends_with($last->getContent(), '`')));
     }
 
     /**
@@ -4320,7 +4340,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return '!' . $this->renderCode($node->getContent()) . $this->renderAttrs($node);
     }
 
-    protected function renderCode(string $content, bool $allowUnclosed = false): string
+    protected function renderCode(string $content): string
+    {
+        return $this->renderCodeWithUnclosed($content, false);
+    }
+
+    private function renderCodeWithUnclosed(string $content, bool $allowUnclosed): string
     {
         // A code span is verbatim too, so an authored U+E000 is the CHARACTER
         // here as much as inside a fence - and normalize() would otherwise
@@ -4353,6 +4378,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             && preg_match('/[\r\n \t]\z|[ \t][\r\n]|\n[ \t\r\n]/', $content) !== 1
         ) {
             return $fence . $content;
+        }
+
+        if ($needsPad && preg_match('/^[\r\n]/', $content) === 1) {
+            throw new SourceUnspellableException('code', 'a leading newline loses its padding where the code span cannot run to the end');
         }
 
         return $needsPad

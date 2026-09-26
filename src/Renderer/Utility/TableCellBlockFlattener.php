@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Renderer\Utility;
 
 use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\TableCell;
@@ -71,7 +72,20 @@ final class TableCellBlockFlattener
             return $content === '' ? [] : [new Text($content)];
         }
 
-        return self::children($node, $keepHardBreaks);
+        $children = self::children($node, $keepHardBreaks);
+        if ($node instanceof Div && $node->getHeaderNodes() !== []) {
+            $title = [];
+            foreach ($node->getHeaderNodes() as $inline) {
+                array_push($title, ...self::node($inline, $keepHardBreaks));
+            }
+            if ($title !== [] && $children !== []) {
+                $title[] = new Text(' ');
+            }
+
+            return [...$title, ...$children];
+        }
+
+        return $children;
     }
 
     private static function inline(InlineNode $node, bool $keepHardBreaks): InlineNode
