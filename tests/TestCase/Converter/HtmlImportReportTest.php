@@ -43,23 +43,7 @@ class HtmlImportReportTest extends TestCase
      *
      * @var array<string, array{reason: string, carve?: string, diagnostics?: list<string>, ast?: string}>
      */
-    private const AHEAD_OF_PIN = [
-        // CARVE-P12-057 splits the six generated-content kinds out of
-        // `admonition` into `directive`, and this fixture records the pinned
-        // reading - `admonition` with kind `footnotes`. The WRITTEN source is
-        // unchanged (`::: footnotes` either way), so only `ast` moves, and the
-        // spec side wants the matching `PIN_LAG` row so an engine still on the
-        // old pin keeps passing. Bearbeitet markup-carve/carve#2243.
-        'endnotes-section-not-last' => [
-            'reason' => 'CARVE-P12-057: a generated-content kind is a directive, not an admonition',
-            'ast' => '{"type":"document","children":[{"type":"paragraph","children":'
-                . '[{"type":"text","value":"a"},{"type":"footnote_ref","label":"1"}]},'
-                . '{"type":"directive","kind":"footnotes"},'
-                . '{"type":"paragraph","children":[{"type":"text","value":"after"}]},'
-                . '{"type":"footnote","label":"1","children":[{"type":"paragraph",'
-                . '"children":[{"type":"text","value":"n"}]}]}]}',
-        ],
-    ];
+    private const AHEAD_OF_PIN = [];
 
     /**
      * Shared fixtures whose direct-import tree and canonical-source exit do not

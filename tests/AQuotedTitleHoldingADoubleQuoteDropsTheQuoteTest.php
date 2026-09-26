@@ -37,6 +37,7 @@ class AQuotedTitleHoldingADoubleQuoteDropsTheQuoteTest extends TestCase
                     'type' => 'directive',
                     'kind' => 'toc',
                     'title' => [['type' => 'text', 'value' => 'say "hi" now']],
+                    'children' => [],
                 ],
                 [
                     'type' => 'admonition',
@@ -113,7 +114,7 @@ class AQuotedTitleHoldingADoubleQuoteDropsTheQuoteTest extends TestCase
             'type' => 'document',
             'srcByteLength' => 0,
             'children' => [
-                ['type' => 'directive', 'kind' => 'toc', 'title' => [['type' => 'text', 'value' => '"']]],
+                ['type' => 'directive', 'kind' => 'toc', 'title' => [['type' => 'text', 'value' => '"']], 'children' => []],
             ],
         ]);
         $written = CarveConverter::carve()->render($document);

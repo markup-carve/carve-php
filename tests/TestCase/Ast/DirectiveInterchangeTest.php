@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -22,9 +23,17 @@ final class DirectiveInterchangeTest extends TestCase
 
             self::assertSame('directive', $wire['children'][0]['type'], $kind);
             self::assertSame($kind, $wire['children'][0]['kind'], $kind);
+            self::assertSame([], $wire['children'][0]['children'], $kind);
             self::assertSame($wire, $codec->encode($codec->decode($wire)), $kind);
             self::assertSame("::: {$kind}\n\n:::\n", CarveConverter::carve()->render($document), $kind);
         }
+    }
+
+    public function testAnEmptyDirectiveFromHtmlImportPublishesChildren(): void
+    {
+        $wire = (new HtmlToCarve())->convertToAst('<div class="toc"></div>');
+
+        self::assertSame([], $wire['children'][0]['children']);
     }
 
     public function testAuthoredClassDoesNotChangeTheOpenerKind(): void
@@ -105,6 +114,7 @@ final class DirectiveInterchangeTest extends TestCase
                     'kind' => 'footnotes',
                     'title' => [['type' => 'text', 'value' => 'Notes']],
                     'label' => 'End',
+                    'children' => [],
                 ],
             ],
         ];

@@ -159,11 +159,11 @@ class AstCodec
         'abbreviation.abbr', 'abbreviation.expansion', 'abbreviation_def.abbr',
         'abbreviation_def.expansion', 'admonition.children', 'admonition.kind',
         'autolink.href', 'autolink.text',
-        // `directive.kind` is produced from source now (CARVE-P12-057); the rest
-        // are interchange-only types this engine never builds from source. The
+        // `directive.kind` and `directive.children` are produced from source.
+        // The rest are interchange-only types this engine never builds. The
         // entries keep the list a faithful copy of the schema's `required`,
         // which is what RequiredFieldsAreAlwaysPublishedTest compares.
-        'block_extension.fallback', 'block_extension.name', 'directive.kind',
+        'block_extension.fallback', 'block_extension.name', 'directive.children', 'directive.kind',
         'ruby.pairs', 'section.children', 'small_caps.children',
         'block_quote.children',
         'citation.key', 'citation.pos', 'citation.suppressAuthor',
