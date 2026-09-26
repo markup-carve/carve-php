@@ -82,6 +82,14 @@ class RootShapeIsRefusedOnIngestTest extends TestCase
         $this->fail(sprintf('a root with no `%s` must be refused', $field));
     }
 
+    public function testATableRootIsRefusedBeforeItsPartitionIsDecoded(): void
+    {
+        $this->expectException(AstDecodeException::class);
+        $this->expectExceptionMessage('The payload root must be a document node');
+
+        $this->codec->decode(['type' => 'table', 'rows' => [], 'rowGroups' => []]);
+    }
+
     public function testAForeignRootIsReportedAsForeignRatherThanAsAMissingField(): void
     {
         // §9's own closing paragraph already ruled the root TYPE. A ProseMirror
