@@ -284,55 +284,23 @@ class AttributeParserTest extends TestCase
     }
 
     /**
-     * Tests for comment handling in attributes.
-     *
-     * Djot supports two comment styles in attributes:
-     * - Inline: % comment % (removed entirely)
-     * - Trailing: % to end of string (removed)
+     * `%` is not an attribute-comment marker in Carve, so an unquoted value
+     * keeps it, matching carve-js and carve-rs (carve-php#2496).
      */
-    public function testInlineCommentIsRemoved(): void
+    public function testUnquotedValueKeepsATrailingPercent(): void
     {
-        $result = AttributeParser::parse('.class % this is a comment %');
+        $result = AttributeParser::parse('.class width=33% k=5%x%');
 
         $this->assertSame('class', $result['class']);
-        $this->assertArrayNotHasKey('this', $result);
-        $this->assertArrayNotHasKey('is', $result);
-        $this->assertArrayNotHasKey('a', $result);
-        $this->assertArrayNotHasKey('comment', $result);
+        $this->assertSame('33%', $result['width']);
+        $this->assertSame('5%x%', $result['k']);
     }
 
-    public function testTrailingCommentIsRemoved(): void
+    public function testATrailingPercentSurvivesFmt(): void
     {
-        $result = AttributeParser::parse('.class % trailing comment');
+        $source = "|={width=33%} T |\n\n{width=33%}\nx\n\n[a]{w=5%}\n";
 
-        $this->assertSame('class', $result['class']);
-        $this->assertArrayNotHasKey('trailing', $result);
-        $this->assertArrayNotHasKey('comment', $result);
-    }
-
-    public function testInlineCommentBetweenAttributes(): void
-    {
-        $result = AttributeParser::parse('.foo % inline comment % .bar');
-
-        $this->assertSame('foo bar', $result['class']);
-        $this->assertArrayNotHasKey('inline', $result);
-        $this->assertArrayNotHasKey('comment', $result);
-    }
-
-    public function testCommentOnlyAttributeBlock(): void
-    {
-        $result = AttributeParser::parse('% just a comment %');
-
-        $this->assertEmpty($result);
-    }
-
-    public function testCommentWithKeyValue(): void
-    {
-        $result = AttributeParser::parse('key=val % comment % .class');
-
-        $this->assertSame('val', $result['key']);
-        $this->assertSame('class', $result['class']);
-        $this->assertArrayNotHasKey('comment', $result);
+        $this->assertSame($source, CarveConverter::toCarve($source));
     }
 
     public function testPercentInAttributeBlockIsNotAComment(): void
@@ -348,9 +316,7 @@ class AttributeParserTest extends TestCase
     /**
      * Tests for percent signs inside quoted values.
      *
-     * Percent signs are used as comment markers in djot attributes,
-     * but when they appear inside quoted strings, they should be
-     * treated as literal characters, not comment markers.
+     * A percent sign inside a quoted string is a literal character.
      */
     public function testPercentInDoubleQuotedValue(): void
     {
@@ -386,15 +352,6 @@ class AttributeParserTest extends TestCase
         $result = AttributeParser::parse('desc="10% to 20% discount"');
 
         $this->assertSame('10% to 20% discount', $result['desc']);
-    }
-
-    public function testPercentInQuotedValueFollowedByComment(): void
-    {
-        // The % inside quotes is literal, the % outside starts a comment
-        $result = AttributeParser::parse('title="100% done" % this is a comment');
-
-        $this->assertSame('100% done', $result['title']);
-        $this->assertArrayNotHasKey('this', $result);
     }
 
     public function testPercentInQuotedValueInConvertedOutput(): void

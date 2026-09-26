@@ -54,9 +54,6 @@ class AttributeParser
      */
     public static function parseOrderedWithSlots(string $attrStr): array
     {
-        // Remove comments before parsing
-        $attrStr = self::removeComments($attrStr);
-
         $attributes = [];
         $order = [];
 
@@ -159,9 +156,6 @@ class AttributeParser
     public static function applyToNode(Node $node, string $attrStr): void
     {
         $attrStr = str_replace("\0", "\u{00A0}", $attrStr);
-        // Remove comments before parsing
-        $attrStr = self::removeComments($attrStr);
-
         // Single-pass regex that matches all token types in source order.
         // Order matters: quoted values and invalid unquoted values must be matched/skipped
         // first to prevent dots/hashes inside them from being matched as .class or #id.
@@ -287,7 +281,6 @@ class AttributeParser
             ' ',
             $attrStr,
         ) ?? $attrStr;
-        $rest = self::removeComments($rest);
         // See isValidAttrPayload(): PART 7's four characters, not PHP's default
         // trim charlist (markup-carve/carve#963).
         if (trim($rest, StringUtil::WHITESPACE_CHARS) === '') {
@@ -396,94 +389,6 @@ class AttributeParser
             }
 
             $result .= $char;
-            $i++;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Remove comments from attribute string
-     *
-     * Supports two comment styles:
-     * - Inline: % comment % (removed entirely)
-     * - Trailing: % to end of string (removed)
-     *
-     * Comments are only recognized outside of quoted strings.
-     * For example, title="100% done" keeps the % as part of the value.
-     */
-    protected static function removeComments(string $attrStr): string
-    {
-        if (!str_contains($attrStr, '%')) {
-            return $attrStr;
-        }
-        $result = '';
-        $length = strlen($attrStr);
-        $i = 0;
-        $inComment = false;
-
-        while ($i < $length) {
-            $char = $attrStr[$i];
-
-            // Handle quoted strings - copy them verbatim (including any % inside)
-            if ($char === '"' || $char === "'") {
-                $quote = $char;
-                $result .= $char;
-                $i++;
-
-                // Copy until closing quote, handling escapes
-                while ($i < $length) {
-                    $c = $attrStr[$i];
-                    if ($c === '\\' && $i + 1 < $length) {
-                        // Escape sequence - copy both characters
-                        $result .= $c . $attrStr[$i + 1];
-                        $i += 2;
-                    } elseif ($c === $quote) {
-                        // Closing quote
-                        $result .= $c;
-                        $i++;
-
-                        break;
-                    } else {
-                        $result .= $c;
-                        $i++;
-                    }
-                }
-
-                continue;
-            }
-
-            // Handle comments (only outside quotes)
-            if ($char === '%') {
-                if ($inComment) {
-                    // End of inline comment
-                    $inComment = false;
-                    $i++;
-
-                    continue;
-                }
-
-                // Check if this is start of inline comment (has closing %)
-                $closePos = strpos($attrStr, '%', $i + 1);
-                if ($closePos !== false) {
-                    // Check if there's a quote before the closing % (would mean % is in a value)
-                    $inlineContent = substr($attrStr, $i + 1, $closePos - $i - 1);
-                    if (strpos($inlineContent, '"') === false && strpos($inlineContent, "'") === false) {
-                        // Inline comment - skip to closing %
-                        $inComment = true;
-                        $i++;
-
-                        continue;
-                    }
-                }
-
-                // Trailing comment - skip rest of string
-                break;
-            }
-
-            if (!$inComment) {
-                $result .= $char;
-            }
             $i++;
         }
 
