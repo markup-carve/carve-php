@@ -27,6 +27,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - The ProseMirror wire contract follows the pinned carve-grammars schema: substitution halves travel as inline arrays, comment and literal or raw inline text sit in editable child nodes, block positions are restored, and table cells carry inherited alignment. Older attribute-based inline payloads still read (#2407).
 - The render-loss `code` enum closes at `raw-format-dropped` and `ruby-flattened`, and a table section's discarded attributes are reported as `field-unspellable` on the PART 11 §1d channel instead. Markdown, plain and ANSI reach that channel for the first time, `--report-conversion-diagnostics` is no longer gated on `--carve`, and `--allow-loss` accepts two names where it accepted three, so a consumer matching `table-section-attributes-dropped` reads the new code (#2479).
 - Escaped spaces and preserved line-block columns travel as `non_breaking_space` nodes, U+E000 is literal content in every field, and annotation offsets are a fixed codepoint projection independent of JSON key order, image alt text, math, breaks and generated spaces included. A tree stored under the old marker emits that character raw into HTML with no error and no version signal, because the AST contract stays `1.0`, and reparsing the source is the only remedy (#2468).
+- An `admonition` ingested with `kind: ""` is refused at decode, where it previously validated. A producer that emitted an empty kind has to name one (#2480).
 
 ### Fixes
 
