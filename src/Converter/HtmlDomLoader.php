@@ -10,6 +10,9 @@ final class HtmlDomLoader
 {
     public static function load(string $html): DOMDocument
     {
+        // The HTML input stream normalizes CR LF and a lone CR to LF before
+        // tokenizing; libxml keeps them (carve-php#2497).
+        $html = str_replace(["\r\n", "\r"], "\n", $html);
         $document = new DOMDocument();
         $document->encoding = 'UTF-8';
         $previous = libxml_use_internal_errors(true);
