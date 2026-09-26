@@ -113,9 +113,10 @@ class OptionalCorpusTest extends TestCase
      * @var array<string, array{reason: string, expected: string}>
      */
     protected const AHEAD_OF_PIN = [
-        // Empty: the pin moved past its one entry (`28-tabs-panel-title`), and
-        // the rule above is that such an entry is DELETED in the commit that
-        // moves the pin rather than left to rot.
+        '37-crossref-label-typography-source-markdown' => [
+            'reason' => 'CARVE-P11-038: no `{#id}` suffix; the link takes the heading\'s GFM slug',
+            'expected' => "# The \"quoted\" -- heading\n\nSee [The \"quoted\" -- heading](#the-quoted----heading)\n",
+        ],
     ];
 
     /**

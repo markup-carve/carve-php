@@ -20,7 +20,16 @@ final class CanonicalAheadOfPin
     {
         return [
             'fmt' => [],
-            'md' => [],
+            'md' => [
+                // CARVE-P11-058: a definition description is written as blocks, no `: ` marker.
+                '227-a-definition-inside-a-definition-list-dd-is-collected-and-the-entry-keeps-no-trace'
+                    => "**term**\n\nsee [t](/u)\n",
+                '227-a-definition-inside-a-definition-list-dd-is-collected-and-the-entry-keeps-no-trace-2'
+                    => "**term**\n\nsee[^f]\n\n[^f]: x\n",
+                // CARVE-P11-056: a headerless table gets an empty header as wide as its widest row.
+                '284-a-ragged-table-keeps-each-row-s-cell-count'
+                    => "|  |  |\n| --- | --- |\n| ~~x~~ |\n| a | b |\n",
+            ],
         ];
     }
 
