@@ -412,6 +412,7 @@
   "table": {
     "fields": [
       "columns",
+      "rowGroups",
       "caption",
       "shortCaption"
     ],

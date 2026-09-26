@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use InvalidArgumentException;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Node;
 
 trait RenderLossCollectorTrait
@@ -100,5 +101,28 @@ trait RenderLossCollectorTrait
             $loss['pos'] = $node->getPos()->toArray();
         }
         $this->renderLosses[] = $loss;
+    }
+
+    protected function recordTableSectionAttributes(Table $node): void
+    {
+        $groups = $node->getRowGroups();
+        if ($groups === null || $this->renderLossTarget === null) {
+            return;
+        }
+        $fields = ['rowGroups.headAttrs' => $groups['headAttrs'] ?? [], 'rowGroups.footAttrs' => $groups['footAttrs'] ?? []];
+        foreach ($groups['bodies'] as $i => $body) {
+            $fields['rowGroups.bodies[' . $i . '].attrs'] = $body['attrs'] ?? [];
+        }
+        foreach ($fields as $field => $attrs) {
+            if (array_filter($attrs, static fn (mixed $value): bool => is_string($value) || $value !== []) === []) {
+                continue;
+            }
+            $this->renderLossTotal++;
+            $code = 'table-section-attributes-dropped';
+            $this->renderLossCounts[$code] = ($this->renderLossCounts[$code] ?? 0) + 1;
+            if (count($this->renderLosses) < $this->renderLossMaximum) {
+                $this->renderLosses[] = ['code' => $code, 'target' => $this->renderLossTarget, 'nodeType' => 'block', 'message' => 'Dropped ' . $field . ' while rendering ' . $this->renderLossTarget];
+            }
+        }
     }
 }

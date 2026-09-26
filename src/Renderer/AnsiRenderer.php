@@ -1045,6 +1045,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderTable(Table $node): string
     {
+        $this->recordTableSectionAttributes($node);
         // First pass: calculate column widths
         $colWidths = [];
         $rows = [];

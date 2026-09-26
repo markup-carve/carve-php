@@ -2446,6 +2446,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderTable(Table $node): string
     {
+        $this->recordTableSectionAttributes($node);
         $layout = TableLayout::expand(
             $node,
             fn (TableCell $cell): array => [
