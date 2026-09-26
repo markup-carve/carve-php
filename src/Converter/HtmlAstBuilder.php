@@ -3013,10 +3013,11 @@ final class HtmlAstBuilder
      * Whitespace-only content stays, and so does U+00A0, which is content.
      *
      * @param list<array<string, mixed>> $nodes
+     * @param bool $withinLinkOrSpan
      *
      * @return list<array<string, mixed>>
      */
-    private function hoistEdgeSpace(array $nodes): array
+    private function hoistEdgeSpace(array $nodes, bool $withinLinkOrSpan = false): array
     {
         $startsBlank = static fn (?array $node): bool => ($node['type'] ?? null) === 'text'
             && preg_match('/^[ \t]/', self::stringValue($node['value'] ?? null)) === 1;
@@ -3046,9 +3047,18 @@ final class HtmlAstBuilder
             $lead = false;
             $trail = false;
             $children = self::nodeList($node['children'] ?? null);
+            $linkOrSpan = !$withinLinkOrSpan && in_array($node['type'] ?? null, ['link', 'span'], true);
+            $formatting = $withinLinkOrSpan && in_array($node['type'] ?? null, [
+                'emphasis', 'strong', 'underline', 'strike', 'highlight',
+                'insert', 'delete', 'superscript', 'subscript',
+            ], true);
+            if ($linkOrSpan || $formatting) {
+                $children = $this->coalesceText($this->hoistEdgeSpace($children, true));
+                $node['children'] = $children;
+            }
             $blankOnly = self::every($children, static fn (array $child): bool => ($child['type'] ?? null) === 'text'
                 && preg_match('/^[ \t]*$/D', self::stringValue($child['value'] ?? null)) === 1);
-            if (in_array($node['type'] ?? null, ['link', 'span'], true) && !$blankOnly) {
+            if (($linkOrSpan || $formatting) && !$blankOnly) {
                 if ($startsBlank($children[0])) {
                     $lead = true;
                     $children[0]['value'] = preg_replace('/^[ \t]+/', '', self::stringValue($children[0]['value'])) ?? '';
