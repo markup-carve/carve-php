@@ -5275,6 +5275,17 @@ class BlockParser
                             // Strip all leading whitespace before forwarding it,
                             // matching CommonMark lazy continuation.
                             $trimmedLine = ltrim($subLine, " \t");
+                            if ($this->isContinuationMarker($trimmedLine)) {
+                                // This column names no list marker. Keep one
+                                // column so the nested parse reads literal `+`
+                                // even when its last block closed a paragraph.
+                                $subLines[] = ' ' . $trimmedLine;
+                                $subLineMap[] = $this->sourceLineFor($i);
+                                $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $subLine);
+                                $i++;
+
+                                continue;
+                            }
                             // AN OPEN FENCE ENDS THE ITEM HERE TOO. Between the
                             // base column and the content column the line still
                             // supplies less indentation than the item's prefix,
@@ -5288,10 +5299,7 @@ class BlockParser
                             }
                             $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
                                 || $this->startsNewBlock($trimmedLine, $lines, $i)
-                                || $this->isFoldableInvisibleLine($trimmedLine)
-                                // Keep one residual column: a `+` below the
-                                // nested marker column is literal text.
-                                || $this->isContinuationMarker($trimmedLine);
+                                || $this->isFoldableInvisibleLine($trimmedLine);
                             $dedentedOpener = $blockShaped
                                 && !$sawBlankLine
                                 && $subTrailingState['openParagraph']
