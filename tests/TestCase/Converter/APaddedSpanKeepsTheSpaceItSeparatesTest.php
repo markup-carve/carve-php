@@ -40,7 +40,7 @@ class APaddedSpanKeepsTheSpaceItSeparatesTest extends TestCase
             'two padded elements keep one space' => ['<p><strong>x </strong><em> y </em>z</p>', "{*x *}{/y /}z\n"],
             'an unpadded element before a padded one' => ['<p><strong>x</strong><em> y</em></p>', "*x*{/ y/}\n"],
             'a link with a leading space follows' => ['<p><strong>x </strong><a href="u"> y</a></p>', "{*x *}[y](u)\n"],
-            'a link with a trailing space precedes' => ['<p><a href="u">x </a><strong> y</strong></p>', "[x ](u)*y*\n"],
+            'a link with a trailing space precedes' => ['<p><a href="u">x </a><strong> y</strong></p>', "[x](u){* y*}\n"],
             'a code span keeps its own space' => ['<p><strong>x </strong><code> y</code></p>', "*x*` y`\n"],
             'a leading space before an inner hard break' => ['<p>x<strong> <br>y</strong></p>', "x{*\\\ny*}\n"],
             'a block follows' => ['<div><strong>x </strong><p>y</p></div>', "*x*\n\ny\n"],

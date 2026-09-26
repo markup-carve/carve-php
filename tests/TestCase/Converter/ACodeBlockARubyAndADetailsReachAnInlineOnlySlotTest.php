@@ -231,7 +231,7 @@ class ACodeBlockARubyAndADetailsReachAnInlineOnlySlotTest extends TestCase
     {
         return [
             'MathML in a cell is still dropped' => [
-                '<table><tr><td><math><mi>x</mi></math></td></tr></table>',
+                '<table><tr><td><math><mfrac><mn>1</mn><mn>2</mn></mfrac></math></td></tr></table>',
                 '',
                 ['structure-unspellable', 'element-dropped'],
             ],

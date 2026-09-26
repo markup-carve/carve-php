@@ -215,7 +215,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
      */
     public function testMathTypeAnnotationIsNotTex(): void
     {
-        $html = '<p>Bare <math><semantics><mrow><mn>1</mn></mrow>'
+        $html = '<p>Bare <math><semantics><mfrac><mn>1</mn><mn>2</mn></mfrac>'
             . '<annotation encoding="MathType-MTEF">MTEFgarbage</annotation></semantics></math> here.</p>';
 
         $result = (new HtmlToCarve())->convertWithReport($html);
@@ -231,7 +231,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
      */
     public function testPlainTextEncodingIsNotTex(): void
     {
-        $html = '<p><math><semantics><mrow><mn>1</mn></mrow>'
+        $html = '<p><math><semantics><mfrac><mn>1</mn><mn>2</mn></mfrac>'
             . '<annotation encoding="text/plain">one over two</annotation></semantics></math></p>';
 
         $result = (new HtmlToCarve())->convertWithReport($html);
@@ -247,7 +247,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
      */
     public function testAnnotationInsideAnAnnotationXmlPayloadDoesNotLeak(): void
     {
-        $html = '<p><math><semantics><mrow><mn>1</mn></mrow>'
+        $html = '<p><math><semantics><mfrac><mn>1</mn><mn>2</mn></mfrac>'
             . '<annotation-xml encoding="application/xhtml+xml">'
             . '<annotation encoding="application/x-tex">LEAK</annotation>'
             . '</annotation-xml></semantics></math></p>';

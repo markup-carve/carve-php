@@ -742,6 +742,11 @@ class HtmlToCarve
 
             return;
         }
+        if ($tag === 'img' && HtmlAstBuilder::isDroppedFormulaImage($node)) {
+            $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped <img>: the fallback image of a formula imported as math', 'info', $path);
+
+            return;
+        }
         if ($tag === 'ruby' && !($this->importMode === 'roundtrip' && $this->rubyHasNoDirectAnnotation($node))) {
             $this->inspectRubyImport($node, $path, $diagnostics);
 
@@ -790,7 +795,12 @@ class HtmlToCarve
                 $this->reportImportElementOutcome($node, $tag, $path, $diagnostics);
             }
 
-            $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
+            // A `<math>` with no TeX leaves as text or not at all, and its one
+            // row covers the attributes riding on it.
+            $mathLeaves = $tag === 'math' && !$this->trustedRoundTrip && $this->resolveMathTex($node)['tier'] === 4;
+            if (!$mathLeaves) {
+                $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
+            }
         } finally {
             $this->inspectedConsumedCheckbox = $outerConsumedCheckbox;
             $this->inspectedOrderedTaskCheckbox = $outerOrderedTaskCheckbox;
@@ -2485,7 +2495,31 @@ class HtmlToCarve
             return;
         }
 
+        if ($tier === 3) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'encoding-assumed',
+                "Read <math> through its fallback image's alt: nothing declares the encoding of alt, so TeX is assumed",
+                'info',
+                $path,
+            );
+
+            return;
+        }
+
         if ($this->trustedRoundTrip) {
+            return;
+        }
+
+        if (HtmlAstBuilder::linearMathText($node) !== null) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Imported <math> as its text: no TeX annotation and no alttext, and its tokens read in order',
+                'warning',
+                $path,
+            );
+
             return;
         }
 
@@ -4232,8 +4266,12 @@ class HtmlToCarve
         if ($alttext !== '') {
             return ['tier' => 2, 'content' => $alttext];
         }
+        $alt = HtmlAstBuilder::hiddenFormulaImageAlt($node);
+        if ($alt !== '') {
+            return ['tier' => 3, 'content' => $alt];
+        }
 
-        return ['tier' => 3, 'content' => ''];
+        return ['tier' => 4, 'content' => ''];
     }
 
     /**

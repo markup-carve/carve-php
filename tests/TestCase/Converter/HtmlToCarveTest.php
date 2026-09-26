@@ -2373,10 +2373,19 @@ DJOT;
         // carve#1210 D6: the children are a token stream, so concatenating
         // them invents an equation the source never carried. Untrusted modes
         // drop the element and the loss report names it.
-        $html = '<math><mi>x</mi><mo>+</mo><mi>y</mi></math>';
+        $html = '<math><msup><mi>x</mi><mn>2</mn></msup></math>';
         $result = trim($this->converter->convert($html));
 
         $this->assertSame('', $result);
+    }
+
+    public function testLinearMathMLWithoutTexImportsAsItsText(): void
+    {
+        // markup-carve/carve#2361: a linear token run cannot flatten into a
+        // different value, so it arrives as the characters it shows.
+        $html = '<p>A <math><mi>a</mi><mo>+</mo><mi>a</mi><mo>=</mo><mn>2</mn><mi>a</mi></math> B</p>';
+
+        $this->assertSame('A a+a=2a B', trim($this->converter->convert($html)));
     }
 
     public function testMathMLInParagraph(): void
@@ -2389,7 +2398,7 @@ DJOT;
 
     public function testMathMLNonTexAnnotationIsNotTexAndLeavesNoMath(): void
     {
-        $html = '<math><semantics><mi>x</mi><mo>+</mo><mi>y</mi><annotation encoding="application/mathml-presentation+xml">ignored</annotation></semantics></math>';
+        $html = '<math><semantics><mfrac><mi>x</mi><mi>y</mi></mfrac><annotation encoding="application/mathml-presentation+xml">ignored</annotation></semantics></math>';
         $result = trim($this->converter->convert($html));
 
         $this->assertSame('', $result);
@@ -2645,9 +2654,10 @@ DJOT;
 
     public function testAttributedSpanKeepsMeaningfulEdgeSpaces(): void
     {
-        $html = '<p><span class="critic-comment"> note </span></p>';
+        // markup-carve/carve#2361: the edge spaces stand outside the span.
+        $html = '<p>a<span class="critic-comment"> note </span>b</p>';
 
-        $this->assertSame("[ note ]{.critic-comment}\n", $this->converter->convert($html));
+        $this->assertSame("a [note]{.critic-comment} b\n", $this->converter->convert($html));
     }
 
     // ==================== Table colspan/rowspan ====================
