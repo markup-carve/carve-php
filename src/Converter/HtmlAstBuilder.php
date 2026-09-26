@@ -797,7 +797,7 @@ final class HtmlAstBuilder
             return $this->listBlocks($node, $tag === 'ol');
         }
         if ($tag === 'dl') {
-            return [$this->definitionList($node)];
+            return $this->definitionListBlocks($node);
         }
         if ($tag === 'table') {
             $table = $this->table($node);
@@ -1461,28 +1461,73 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return array<string, mixed>
+     * A `<dd>` before the list's first `<dt>` writes its content as blocks
+     * ahead of the list, because `: text` with no term re-reads as a paragraph
+     * (markup-carve/carve#2384). A list left with no entry is not written.
+     *
+     * @return list<array<string, mixed>>
      */
-    private function definitionList(DOMElement $node): array
+    private function definitionListBlocks(DOMElement $node): array
     {
+        $before = [];
         $items = [];
+        foreach (self::definitionListEntries($node) as $candidate) {
+            if ($items === [] && strtolower($candidate->tagName) === 'dd') {
+                array_push($before, ...$this->blocks($this->children($candidate)));
+
+                continue;
+            }
+            $this->appendDefinitionItem($items, $candidate);
+        }
+        if ($items === []) {
+            return $before;
+        }
+        $list = ['type' => 'definition_list', 'items' => $items];
+        $this->attachAttrs($list, $node);
+        $before[] = $list;
+
+        return $before;
+    }
+
+    /**
+     * The `<dt>` and `<dd>` elements of a `<dl>`, through its group `<div>`s.
+     *
+     * @return list<\DOMElement>
+     */
+    public static function definitionListEntries(DOMElement $node): array
+    {
+        $entries = [];
         foreach ($node->childNodes as $child) {
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $candidates = strtolower($child->tagName) === 'div'
-                ? $this->children($child)
-                : [$child];
+            $candidates = strtolower($child->tagName) === 'div' ? iterator_to_array($child->childNodes) : [$child];
             foreach ($candidates as $candidate) {
-                if ($candidate instanceof DOMElement) {
-                    $this->appendDefinitionItem($items, $candidate);
+                if ($candidate instanceof DOMElement && in_array(strtolower($candidate->tagName), ['dt', 'dd'], true)) {
+                    $entries[] = $candidate;
                 }
             }
         }
-        $list = ['type' => 'definition_list', 'items' => $items];
-        $this->attachAttrs($list, $node);
 
-        return $list;
+        return $entries;
+    }
+
+    /**
+     * The `<dd>` elements before a `<dl>`'s first `<dt>`.
+     *
+     * @return list<\DOMElement>
+     */
+    public static function leadingTermlessDescriptions(DOMElement $node): array
+    {
+        $leading = [];
+        foreach (self::definitionListEntries($node) as $entry) {
+            if (strtolower($entry->tagName) === 'dt') {
+                break;
+            }
+            $leading[] = $entry;
+        }
+
+        return $leading;
     }
 
     /**
@@ -2958,6 +3003,7 @@ final class HtmlAstBuilder
                 str_contains($node->textContent, '%}')
                 || preg_match('/\R\s*\R/u', $node->textContent) === 1
                 || self::commentBreaksACellRow($node, $this->listTableForBlockCells)
+                || self::commentBreaksAHeadingLine($node)
             ) {
                 return [];
             }
@@ -3762,6 +3808,24 @@ final class HtmlAstBuilder
         return $cell !== null && !($listTableForBlockCells && self::tableHoldsABlockCell($cell));
     }
 
+    /**
+     * A heading is one line too, so the same comment has no spelling in one
+     * (markup-carve/carve#2396).
+     */
+    public static function commentBreaksAHeadingLine(DOMComment $comment): bool
+    {
+        if (preg_match('/[\r\n]/', $comment->textContent) !== 1) {
+            return false;
+        }
+        for ($parent = $comment->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            if (preg_match('/^h[1-6]$/', strtolower($parent->tagName)) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function enclosingCell(DOMNode $node): ?DOMElement
     {
         for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
@@ -4295,6 +4359,10 @@ final class HtmlAstBuilder
                 continue;
             }
             if (preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/D', $name) !== 1) {
+                continue;
+            }
+            // A quoted value stops at the line break (markup-carve/carve#2385).
+            if (preg_match('/[\r\n]/', $attribute->value) === 1) {
                 continue;
             }
             $keyValues[$name] = $attribute->value;
