@@ -13,6 +13,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 - A `+` one column left of an in-item block quote's marker is kept as text instead of being consumed as a continuation marker (markup-carve/carve-php#2470).
 - An unattached `+` below a nested list no longer drops a literal marker at column 1 or moves an indented follower outside the list (markup-carve/carve-php#2461, markup-carve/carve#2334).
+- HTML import keeps a heading, list, code block, table or block quote that sits under two or more nested unsupported elements instead of flattening it into a paragraph (markup-carve/carve#2341).
 ### Breaking
 
 - An empty AST `directive` now publishes `children: []` from Carve source and HTML import, matching the required field in the spec schema (markup-carve/carve#2333).
