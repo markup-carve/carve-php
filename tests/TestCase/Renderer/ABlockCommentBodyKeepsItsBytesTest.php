@@ -23,6 +23,7 @@ class ABlockCommentBodyKeepsItsBytesTest extends TestCase
         return [
             'whitespace-only and empty line' => ["%%%\n \n\nx\n\n%%%\n", " \n\nx\n"],
             'leading blank' => ["%%%\n\nx\n%%%\n", "\nx"],
+            'trailing whitespace-only lines' => ["%%%\nx\n \n\t\n \t \n%%%\n", "x\n \n\t\n \t "],
             'trailing blank' => ["%%%\nx\n\n%%%\n", "x\n"],
             'blank between' => ["%%%\na\n\nb\n%%%\n", "a\n\nb"],
         ];
