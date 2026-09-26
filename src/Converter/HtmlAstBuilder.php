@@ -4032,7 +4032,7 @@ final class HtmlAstBuilder
                 continue;
             }
             if ($name === 'class') {
-                $classes = preg_split('/\s+/', trim($attribute->value)) ?: [];
+                $classes = preg_split('/\s+/', $attribute->value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
                 continue;
             }
