@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Renderer\Utility;
 use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
@@ -61,7 +62,8 @@ final class TableCellBlockFlattener
         if ($node instanceof InlineNode) {
             return [self::inline($node, $keepHardBreaks)];
         }
-        if ($node instanceof CodeBlock) {
+        // A raw block's payload is text here, never live markup.
+        if ($node instanceof CodeBlock || $node instanceof RawBlock) {
             $content = trim(str_replace(["\r\n", "\r", "\n"], ' ', $node->getContent()));
 
             return $content === '' ? [] : [new Text($content)];

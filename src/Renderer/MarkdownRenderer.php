@@ -2082,18 +2082,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         foreach ($lines as $lineIndex => &$line) {
             $atFirst = $first;
             $first = false;
+            if (trim($line, " \t") === '') {
+                // A blank line ends the paragraph even inside a code span, so a
+                // line left empty is dropped (PART 11 §10m).
+                unset($lines[$lineIndex]);
+                $first = $atFirst;
+
+                continue;
+            }
             if ($codeFence === 0) {
                 // PART 11 §10m: a reader strips edge whitespace anyway, except
                 // where four columns of it open indented code.
                 $line = ltrim($line, " \t");
-                if ($line === '') {
-                    // A line trimming empties is dropped, not written: an empty
-                    // line would end the paragraph (PART 11 §10m).
-                    unset($lines[$lineIndex]);
-                    $first = $atFirst;
-
-                    continue;
-                }
                 $line = $this->protectLineShape($line, $atFirst, $bare);
             }
 
@@ -2653,7 +2653,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $output .= $this->renderNode($child);
         }
 
-        return $output . "\n";
+        // Each term and description already ends in a blank line, so a tight
+        // item can drop that one separator before an interrupting block.
+        return $output;
     }
 
     protected function renderDefinitionTerm(DefinitionTerm $node): string
