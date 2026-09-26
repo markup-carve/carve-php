@@ -342,7 +342,7 @@ class AstCodec
 
         foreach ($encoded as $key => $value) {
             if (
-                $key === 'attrs' || $key === 'pos'
+                in_array($key, ['attrs', 'headAttrs', 'footAttrs', 'pos'], true)
                 || ($encoded['type'] ?? null) === 'block_extension' && $key === 'payload'
                 || !is_array($value)
             ) {
@@ -425,6 +425,28 @@ class AstCodec
     }
 
     /**
+     * @param array<mixed> $value
+     *
+     * @return array<mixed>
+     */
+    private static function jsonSectionObjects(array $value): array
+    {
+        foreach ($value as $key => $item) {
+            if ($key === 'payload' || !is_array($item)) {
+                continue;
+            }
+            $item = self::jsonSectionObjects($item);
+            if (($key === 'headAttrs' || $key === 'footAttrs' || $key === 'attrs' || $key === 'keyValues') && $item === []) {
+                $value[$key] = (object)[];
+            } else {
+                $value[$key] = $item;
+            }
+        }
+
+        return $value;
+    }
+
+    /**
      * The inverse: `abbreviation_def` children back onto the document.
      *
      * `abbreviationsBeforeBody` is DERIVED from where they sat - before any
@@ -480,7 +502,7 @@ class AstCodec
         // structural levels on the wire. Left at the default, this threw on a
         // document the parser had just produced.
         return (string)json_encode(
-            $this->encode($document),
+            self::jsonSectionObjects($this->encode($document)),
             $flags | JSON_THROW_ON_ERROR,
             self::MAX_JSON_DEPTH,
         );
@@ -2720,7 +2742,7 @@ class AstCodec
 
                 continue;
             }
-            $property->setValue($node, $this->decodeValue($data[$name], $property));
+            $property->setValue($node, $name === 'rowGroups' && $node instanceof Table ? $data[$name] : $this->decodeValue($data[$name], $property));
         }
         if ($node instanceof Ruby) {
             try {
@@ -2779,6 +2801,19 @@ class AstCodec
         $children = is_array($data[$container] ?? null) ? $data[$container] : [];
         foreach ($children as $child) {
             $node->appendChild($this->decodeNode($child));
+        }
+        if ($node instanceof Table && $node->getRowGroups() !== null) {
+            $groups = $node->getRowGroups();
+            $remaining = count($children);
+            foreach ([$groups['headRows'], $groups['footRows'], ...array_merge(...array_map(static fn (array $body): array => [$body['headRows'], $body['bodyRows']], $groups['bodies']))] as $count) {
+                if ($count > $remaining) {
+                    throw new AstDecodeException('table.rowGroups must partition every row exactly once');
+                }
+                $remaining -= $count;
+            }
+            if ($remaining !== 0) {
+                throw new AstDecodeException('table.rowGroups must partition every row exactly once');
+            }
         }
         if ($node instanceof LineBlock && $node->getLines() !== null) {
             $lines = $node->getLines();

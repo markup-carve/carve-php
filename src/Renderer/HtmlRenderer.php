@@ -2032,7 +2032,29 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // span actually claims (`skip`) and the rowspan/colspan the surviving
         // cell reports, rather than reading a count off the cell itself - a
         // consumed placeholder renders no element at all, matching carve-js.
-        $grid = TableSpanGrid::resolve($node);
+        $spanTable = $node;
+        $partition = $node->getRowGroups();
+        if ($partition !== null && (isset($partition['headAttrs']) || isset($partition['footAttrs']) || array_filter($partition['bodies'], static fn (array $body): bool => isset($body['attrs'])) !== [])) {
+            $spanTable = clone $node;
+            $end = $partition['headRows'];
+            $boundaries = [$end];
+            foreach ($partition['bodies'] as $body) {
+                $end += $body['headRows'] + $body['bodyRows'];
+                $boundaries[] = $end;
+            }
+            foreach ($spanTable->getChildren() as $index => $row) {
+                if (!$row instanceof TableRow || !in_array($index, $boundaries, true)) {
+                    continue;
+                }
+                foreach ($row->getChildren() as $cell) {
+                    if ($cell instanceof TableCell && $cell->getSpanMarker() === 'rowspan') {
+                        $cell->setSpanMarker(null);
+                        $cell->setChildren([]);
+                    }
+                }
+            }
+        }
+        $grid = TableSpanGrid::resolve($spanTable);
 
         // Leading consecutive header rows form <thead>; the rest <tbody> -
         // unaffected by span resolution, a row's own header-ness (§ carve-js
@@ -2069,6 +2091,30 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
         }
 
+        $groups = $node->getRowGroups();
+        if ($groups !== null) {
+            $headerRowCount = $groups['headRows'];
+            $footerRowCount = $groups['footRows'];
+        }
+        /** @param array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}|null $wire */
+        $sectionAttrs = function (?array $wire): string {
+            if ($wire === null) {
+                return '';
+            }
+            $host = new TableRow();
+            $attrs = [];
+            if (isset($wire['id'])) {
+                $attrs['id'] = $wire['id'];
+            }
+            if (isset($wire['classes'])) {
+                $attrs['class'] = implode(' ', $wire['classes']);
+            }
+            $attrs += $wire['keyValues'] ?? [];
+            $host->setAttributesWithOrder($attrs, $wire['order'] ?? []);
+
+            return $this->renderAttributes($host);
+        };
+
         $renderRow = function (TableRow $row, array $gridRow, bool $inHeaderRun = false, bool $promoteToHeader = false) use ($columns): string {
             $cells = '';
             foreach ($gridRow as $column => $entry) {
@@ -2086,14 +2132,19 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         $tableRowCount = count($tableRows);
         $footerStart = $tableRowCount - $footerRowCount;
+        $sectionEnds = [$headerRowCount, $footerStart];
+        $sectionEnd = $headerRowCount;
+        foreach ($groups['bodies'] ?? [] as $body) {
+            $sectionEnd += $body['headRows'] + $body['bodyRows'];
+            $sectionEnds[] = $sectionEnd;
+        }
         $crossesSection = false;
         foreach ($grid as $rowIndex => $gridRow) {
             foreach ($gridRow as $entry) {
                 $end = $rowIndex + $entry['rowspan'];
                 if (
                     !$entry['skip'] && $entry['rowspan'] > 1
-                    && (($rowIndex < $headerRowCount && $end > $headerRowCount)
-                        || ($rowIndex < $footerStart && $end > $footerStart))
+                    && array_filter($sectionEnds, static fn (int $boundary): bool => $rowIndex < $boundary && $end > $boundary) !== []
                 ) {
                     $crossesSection = true;
 
@@ -2107,7 +2158,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $inHeaderRun = $rowIndex < $headerRowCount;
                 $tbody .= '    ' . $renderRow($row, $grid[$rowIndex], $inHeaderRun, $inHeaderRun) . "\n";
             }
-            $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
+            $lines[] = "  <tbody>\n" . ($tbody === '' ? '' : rtrim($tbody, "\n") . "\n") . '  </tbody>';
 
             return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
         }
@@ -2116,27 +2167,33 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // markup-carve/carve#1459). `thead` and `tfoot` used to put their rows
         // on the section's own line while `tbody` gave each row a line, and
         // nothing said why one element had two layouts.
-        if ($headerRowCount > 0) {
+        if ($headerRowCount > 0 || isset($groups['headAttrs'])) {
             $thead = '';
             for ($i = 0; $i < $headerRowCount; $i++) {
                 $thead .= '    ' . $renderRow($tableRows[$i], $grid[$i], true, true) . "\n";
             }
-            $lines[] = "  <thead>\n" . rtrim($thead, "\n") . "\n  </thead>";
+            $lines[] = '  <thead' . $sectionAttrs($groups['headAttrs'] ?? null) . ">\n" . ($thead === '' ? '' : rtrim($thead, "\n") . "\n") . '  </thead>';
         }
 
-        if ($headerRowCount < $footerStart) {
+        $bodies = $groups['bodies'] ?? ($headerRowCount < $footerStart
+            ? [['headRows' => 0, 'bodyRows' => $footerStart - $headerRowCount]] : []);
+        $bodyStart = $headerRowCount;
+        foreach ($bodies as $body) {
+            $bodyEnd = $bodyStart + $body['headRows'] + $body['bodyRows'];
             $tbody = '';
-            for ($i = $headerRowCount; $i < $footerStart; $i++) {
-                $tbody .= '    ' . $renderRow($tableRows[$i], $grid[$i]) . "\n";
+            for ($i = $bodyStart; $i < $bodyEnd; $i++) {
+                $header = $i < $bodyStart + $body['headRows'];
+                $tbody .= '    ' . $renderRow($tableRows[$i], $grid[$i], $header, $header) . "\n";
             }
-            $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
+            $lines[] = '  <tbody' . $sectionAttrs($body['attrs'] ?? null) . ">\n" . ($tbody === '' ? '' : rtrim($tbody, "\n") . "\n") . '  </tbody>';
+            $bodyStart = $bodyEnd;
         }
-        if ($footerStart < $tableRowCount) {
+        if ($footerStart < $tableRowCount || isset($groups['footAttrs'])) {
             $tfoot = '';
             for ($i = $footerStart; $i < $tableRowCount; $i++) {
                 $tfoot .= '    ' . $renderRow($tableRows[$i], $grid[$i]) . "\n";
             }
-            $lines[] = "  <tfoot>\n" . rtrim($tfoot, "\n") . "\n  </tfoot>";
+            $lines[] = '  <tfoot' . $sectionAttrs($groups['footAttrs'] ?? null) . ">\n" . ($tfoot === '' ? '' : rtrim($tfoot, "\n") . "\n") . '  </tfoot>';
         }
 
         return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";

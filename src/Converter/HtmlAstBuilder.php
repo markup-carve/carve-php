@@ -1312,6 +1312,7 @@ final class HtmlAstBuilder
         $rows = [];
         $listRows = [];
         $hasBlockCell = false;
+        $keptRows = [];
         $headerRows = 0;
         $headerCols = null;
         $sawBodyRow = false;
@@ -1430,6 +1431,7 @@ final class HtmlAstBuilder
                 $row = ['type' => 'table_row', 'cells' => $cells];
                 $this->attachAttrs($row, $rowElement);
                 $rows[] = $row;
+                $keptRows[] = $rowElement;
                 if ($rowIsAllHeader && !$sawBodyRow) {
                     ++$headerRows;
                 } else {
@@ -1462,23 +1464,33 @@ final class HtmlAstBuilder
             }
         }
         if ($rows === []) {
-            return null;
+            $attributedSection = false;
+            foreach ($node->childNodes as $section) {
+                if ($section instanceof DOMElement && in_array(strtolower($section->tagName), ['thead', 'tbody', 'tfoot'], true) && $this->attrs($section, []) !== []) {
+                    $attributedSection = true;
+                }
+            }
+            if (!$attributedSection || $this->sourceSafe) {
+                return null;
+            }
         }
         $columnAlignments = [];
-        foreach ($rows[0]['cells'] as $column => &$headCell) {
-            if (!$headCell['header']) {
-                continue;
-            }
-            $element = $this->tableCellElementAt($node, 0, $column);
-            $alignment = $headCell['align'] ?? ($element instanceof DOMElement
+        if ($rows !== []) {
+            foreach ($rows[0]['cells'] as $column => &$headCell) {
+                if (!$headCell['header']) {
+                    continue;
+                }
+                $element = $this->tableCellElementAt($node, 0, $column);
+                $alignment = $headCell['align'] ?? ($element instanceof DOMElement
                 ? $this->styleEnum($element, 'text-align', ['left', 'right', 'center'])
                 : null);
-            if ($alignment !== null) {
-                $headCell['align'] = $alignment;
-                $columnAlignments[$column] = $alignment;
+                if ($alignment !== null) {
+                    $headCell['align'] = $alignment;
+                    $columnAlignments[$column] = $alignment;
+                }
             }
+            unset($headCell);
         }
-        unset($headCell);
         foreach ($rows as $rowIndex => &$row) {
             if ($rowIndex === 0) {
                 continue;
@@ -1530,6 +1542,78 @@ final class HtmlAstBuilder
             return $admonition;
         }
         $table = ['type' => 'table', 'rows' => $rows];
+        $headerAt = static function (int $r, int $c) use (&$headerAt, $rows): bool {
+            $cell = $rows[$r]['cells'][$c] ?? null;
+            if ($cell === null) {
+                return false;
+            }
+            if (($cell['span'] ?? null) === 'rowspan') {
+                return $r > 0 && $headerAt($r - 1, $c);
+            }
+            if (($cell['span'] ?? null) === 'colspan') {
+                return $c > 0 && $headerAt($r, $c - 1);
+            }
+
+            return $cell['header'];
+        };
+        $groups = ['headRows' => 0, 'footRows' => 0, 'bodies' => []];
+        $phase = 0;
+        $valid = true;
+        $hasSectionAttrs = false;
+        foreach ($node->childNodes as $section) {
+            if (!$section instanceof DOMElement || !in_array(strtolower($section->tagName), ['thead', 'tbody', 'tfoot'], true)) {
+                continue;
+            }
+            $tag = strtolower($section->tagName);
+            $rank = ['thead' => 0, 'tbody' => 1, 'tfoot' => 2][$tag];
+            $valid = $valid && $rank >= $phase;
+            $phase = $rank;
+            $indices = array_keys(array_filter($keptRows, static fn (DOMElement $row): bool => $row->parentNode === $section));
+            $count = count($indices);
+            $own = $this->attrs($section, []);
+            $hasSectionAttrs = $hasSectionAttrs || $own !== [];
+            if ($tag === 'tbody') {
+                $bodyHead = 0;
+                $rowHeadColumns = null;
+                foreach ($indices as $r) {
+                    $lead = 0;
+                    $cellCount = count($rows[$r]['cells']);
+                    while ($lead < $cellCount && $headerAt($r, $lead)) {
+                        $lead++;
+                    }
+                    if ($bodyHead < $count && $rowHeadColumns === null && $lead === count($rows[$r]['cells'])) {
+                        $bodyHead++;
+                    } else {
+                        $rowHeadColumns = $rowHeadColumns === null ? $lead : min($rowHeadColumns, $lead);
+                    }
+                }
+                $groups['bodies'][] = [
+                    'headRows' => $bodyHead,
+                    'bodyRows' => $count - $bodyHead,
+                    ...($rowHeadColumns > 0 ? ['rowHeadColumns' => $rowHeadColumns] : []),
+                    ...($own !== [] ? ['attrs' => $own] : []),
+                ];
+            } else {
+                $prefix = $tag === 'thead' ? 'head' : 'foot';
+                $groups[$prefix . 'Rows'] += $count;
+                if ($own !== []) {
+                    if (isset($groups[$prefix . 'Attrs'])) {
+                        $valid = false;
+                    }
+                    $groups[$prefix . 'Attrs'] = $own;
+                }
+            }
+        }
+        if (!isset($groups['headAttrs']) && $groups['headRows'] === 0 && count($groups['bodies']) === 1 && $headerRows > 0) {
+            $absorbed = min($headerRows, $groups['bodies'][0]['headRows']);
+            $groups['headRows'] = $absorbed;
+            $groups['bodies'][0]['headRows'] -= $absorbed;
+        }
+        $counted = $groups['headRows'] + $groups['footRows'] + array_sum(array_column($groups['bodies'], 'bodyRows')) + array_sum(array_column($groups['bodies'], 'headRows'));
+        if ($valid && $counted === count($rows) && ($hasSectionAttrs || $groups['footRows'] > 0 || count($groups['bodies']) > 1)) {
+            $table['rowGroups'] = $groups;
+        }
+
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'caption') {
                 $caption = $this->captionInlines($child);

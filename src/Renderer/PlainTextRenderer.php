@@ -787,6 +787,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
 
     protected function renderTable(Table $node): string
     {
+        $this->recordTableSectionAttributes($node);
         $text = '';
         $layout = TableLayout::expand(
             $node,

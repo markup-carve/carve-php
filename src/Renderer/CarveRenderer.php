@@ -2573,6 +2573,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderTable(Table $node): string
     {
+        $groups = $node->getRowGroups();
+        if ($groups !== null) {
+            $fields = ['rowGroups.headAttrs' => $groups['headAttrs'] ?? [], 'rowGroups.footAttrs' => $groups['footAttrs'] ?? []];
+            foreach ($groups['bodies'] as $index => $body) {
+                $fields['rowGroups.bodies[' . $index . '].attrs'] = $body['attrs'] ?? [];
+            }
+            foreach ($fields as $field => $attrs) {
+                if (array_filter($attrs, static fn (mixed $value): bool => is_string($value) || $value !== []) !== []) {
+                    $this->recordUnspellableField($node, $field, 'Carve source cannot spell table section attributes');
+                }
+            }
+        }
+
         $rows = [];
         $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));
         $columnWidths = $node->getRenderHint("\0carve-col-widths") !== null

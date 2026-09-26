@@ -30,6 +30,27 @@ class Table extends BlockNode
         return $this->columns;
     }
 
+    /**
+     * @var array{headRows: int, footRows: int, headAttrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}, footAttrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}, bodies: list<array{headRows: int, bodyRows: int, rowHeadColumns?: int, attrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}}> }|null
+     */
+    protected ?array $rowGroups = null;
+
+    /**
+     * @return array{headRows: int, footRows: int, headAttrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}, footAttrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}, bodies: list<array{headRows: int, bodyRows: int, rowHeadColumns?: int, attrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}}> }|null
+     */
+    public function getRowGroups(): ?array
+    {
+        return $this->rowGroups;
+    }
+
+    /**
+     * @param array{headRows: int, footRows: int, headAttrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}, footAttrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}, bodies: list<array{headRows: int, bodyRows: int, rowHeadColumns?: int, attrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}}> }|null $groups
+     */
+    public function setRowGroups(?array $groups): void
+    {
+        $this->rowGroups = $groups;
+    }
+
     protected ?Caption $caption = null;
 
     /**
