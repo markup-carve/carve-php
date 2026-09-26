@@ -261,7 +261,7 @@ class AFigureRebuildKeepsTheFiguresOwnAttributesTest extends TestCase
         $html = '<figure id="f" class="c"><blockquote id="g" class="d"><p>q</p></blockquote>'
             . '<figcaption>Cap</figcaption></figure>';
 
-        $this->assertSame("{#f .c}\n{#g .d}\n> q\n^ Cap\n", $this->carve($html));
+        $this->assertSame("{#g .c .d}\n> q\n^ Cap\n", $this->carve($html));
         $this->assertSame(['attribute-dropped'], $this->codes($html));
         $this->assertStringContainsString(
             '<figure id="g" class="c d">',

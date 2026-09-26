@@ -240,7 +240,7 @@ class AFigureAroundATableKeepsItsCaptionTest extends TestCase
         $html = '<figure id="f" class="c"><table id="g" class="d"><tr><td>a</td></tr></table>'
             . '<figcaption>Cap</figcaption></figure>';
 
-        $this->assertSame("{#f .c}\n{#g .d}\n| a |\n^ Cap\n", $this->carve($html));
+        $this->assertSame("{#g .c .d}\n| a |\n^ Cap\n", $this->carve($html));
         $this->assertSame(
             ['structure-unspellable', 'attribute-dropped'],
             array_column($this->rows($html), 'code'),

@@ -1971,14 +1971,14 @@ final class HtmlAstBuilder
             }
             $figureAttrs = $this->attrs($node, []);
             if ($figureAttrs !== []) {
-                if (($target['attrs'] ?? []) !== []) {
-                    $this->setPrivateAttribute($target, "\0carve-prefix-attrs", json_encode(
-                        $figureAttrs,
-                        JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-                    ));
-                } else {
-                    $target['attrs'] = $figureAttrs;
+                // One attribute line for the figure and its table, merged the
+                // way the parser merges two stacked lines (carve#2370).
+                $tableAttrs = self::attrsValue($target['attrs'] ?? null);
+                $merged = $this->mergeAttrs($figureAttrs, $tableAttrs);
+                if (!isset($figureAttrs['order']) && !isset($tableAttrs['order'])) {
+                    unset($merged['order']);
                 }
+                $target['attrs'] = $merged;
             }
             if (!$tableHasCaption || $caption === []) {
                 return [$target];
@@ -2014,9 +2014,25 @@ final class HtmlAstBuilder
             && $caption !== []
             && in_array($target['type'] ?? null, ['image', 'block_quote', 'code_block'], true)
         ) {
+            // Only an image has an attribute slot of its own under a caption
+            // line; any other target shares the figure's line, merged the way
+            // the parser merges two stacked lines (carve#2370).
+            $targetAttrs = self::attrsValue($target['attrs'] ?? null);
+            $shared = $target['type'] !== 'image' && $targetAttrs !== [];
+            if ($shared) {
+                unset($target['attrs']);
+            }
             $figure = ['type' => 'figure', 'target' => $target, 'caption' => $caption];
             $this->attachAttrs($figure, $node);
             $this->removeStructuralClass($figure, 'carve-figure-panel');
+            if ($shared) {
+                $own = self::attrsValue($figure['attrs'] ?? null);
+                $merged = $this->mergeAttrs($own, $targetAttrs);
+                if (!isset($own['order']) && !isset($targetAttrs['order'])) {
+                    unset($merged['order']);
+                }
+                $figure['attrs'] = $merged;
+            }
 
             return [$figure];
         }
