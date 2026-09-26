@@ -692,6 +692,18 @@ class CliTest extends TestCase
         $this->assertSame('', $wrongTarget['out']);
     }
 
+    public function testTableSectionLossCanBeAllowedWithAZeroRowLimit(): void
+    {
+        $ast = '{"type":"document","srcByteLength":0,"children":[{"type":"table","rows":[],"rowGroups":{"headRows":0,"footRows":0,"bodies":[],"headAttrs":{"id":"head"}}}]}';
+        $denied = $this->runCliInput(['--from-json', '--plain', '--strict-losses', '--max-render-losses', '0'], $ast);
+        $allowed = $this->runCliInput(['--from-json', '--plain', '--strict-losses', '--max-render-losses', '0', '--allow-loss', 'table-section-attributes-dropped'], $ast);
+
+        $this->assertSame(1, $denied['exit']);
+        $this->assertSame('', $denied['out']);
+        $this->assertSame(0, $allowed['exit']);
+        $this->assertSame('', $allowed['err']);
+    }
+
     public function testRubyLossCanBeAllowedWithAZeroRowLimit(): void
     {
         $ast = json_encode([
