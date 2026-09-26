@@ -5122,6 +5122,11 @@ class BlockParser
                     // / `lazy` read the heading as the item's lead and pushed
                     // `lazy` out of an item that plainly still holds `text`.
                     $subTrailingState = ['isLead' => false] + self::INITIAL_TRAILING_BLOCK_STATE;
+                    // The width of the block comment open over these lines, or
+                    // null. PART 9 §28 gives the fence a body that recognizes no
+                    // block construct, so the shared trailing tracker cannot
+                    // carry it - see advanceItemCommentFence().
+                    $subOpenCommentLength = null;
                     // Whether the collected stream already holds list content;
                     // sibling markers inside it are the nested list's own
                     // business and must not get a loosening blank injected.
@@ -5165,14 +5170,18 @@ class BlockParser
                         // between (markup-carve/carve-php#2140).
                         $continuesCollectedList = $subSawListMarker
                             && $this->listParser->parseListItemMarker(ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t")) !== null;
-                        // An open fence or div still owns the line (carve-php#2507).
-                        if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && !$subTrailingState['inFence'] && !$subTrailingState['inDiv']) {
+                        // An open fence, div or block comment still owns the line
+                        // (carve-php#2507, carve-php#2519).
+                        if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && !$subTrailingState['inFence'] && !$subTrailingState['inDiv'] && $subOpenCommentLength === null) {
                             // Set flags so parent loop handles this as continuation content
                             $lastItemHadBlankAfter = true;
                             $brokeForParentContent = true;
 
                             break;
                         }
+                        // ADVANCED AFTER THE BREAK TEST, so the closer line is
+                        // still answered against the span it ends.
+                        $subOpenCommentLength = $this->advanceItemCommentFence($subOpenCommentLength, $subLine, $lines, $i);
 
                         // Check if line has at least the subIndent level
                         if ($lineIndent >= $subIndent) {
