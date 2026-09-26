@@ -2502,13 +2502,6 @@ final class HtmlAstBuilder
     private function container(DOMElement $node): array
     {
         $domChildren = $this->children($node);
-        $substantiveChildren = array_values(array_filter(
-            $domChildren,
-            static fn (DOMNode $child): bool => !$child instanceof DOMText || trim($child->textContent) !== '',
-        ));
-        $singleBlockWrapper = count($substantiveChildren) === 1
-            && $substantiveChildren[0] instanceof DOMElement
-            && $this->isBlock($substantiveChildren[0]);
         $title = [];
         $titleNode = null;
         foreach ($domChildren as $child) {
@@ -2636,11 +2629,6 @@ final class HtmlAstBuilder
             return [$container];
         }
         if ($attrs === [] && $label === null) {
-            return $children;
-        }
-        if ($singleBlockWrapper && $label === null && count($children) === 1) {
-            $children[0]['attrs'] = $this->mergeAttrs($attrs, self::attrsValue($children[0]['attrs'] ?? null));
-
             return $children;
         }
         $container = ['type' => 'div', 'children' => $children, 'attrs' => $attrs];

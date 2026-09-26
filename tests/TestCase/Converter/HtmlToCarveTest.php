@@ -2297,27 +2297,24 @@ DJOT;
 
     // ==================== Wrapper Div Unwrapping ====================
 
+    /**
+     * An attribute is something only a container can hold, so the fence comes
+     * back however few children the div has (carve-php#2518).
+     */
     public function testWrapperDivWithSingleParagraph(): void
     {
-        // Div without class but with id/data-attr wrapping single block child
         $html = '<div id="summary" data-type="note"><p>Some text</p></div>';
         $result = trim($this->converter->convert($html));
 
-        // Should unwrap: apply attrs to child instead of fenced div
-        $this->assertStringContainsString('{#summary data-type=note}', $result);
-        $this->assertStringContainsString('Some text', $result);
-        $this->assertStringNotContainsString(':::', $result);
+        $this->assertSame("{#summary data-type=note}\n:::\nSome text\n:::", $result);
     }
 
     public function testWrapperDivWithSingleBlockquote(): void
     {
-        // Div with only id wrapping single blockquote
         $html = '<div id="intro"><blockquote><p>Quote</p></blockquote></div>';
         $result = trim($this->converter->convert($html));
 
-        $this->assertStringContainsString('{#intro}', $result);
-        $this->assertStringContainsString('> Quote', $result);
-        $this->assertStringNotContainsString(':::', $result);
+        $this->assertSame("{#intro}\n:::\n> Quote\n:::", $result);
     }
 
     public function testDivWithMultipleChildrenNotUnwrapped(): void
