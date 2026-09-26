@@ -95,7 +95,7 @@ use Throwable;
  * node's kind (PART 11 section 1c). It is THE ONLY ONE THE IMPORTER CAN BUILD;
  * the other carve-outs require a hand-built or ingested tree.
  */
-class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterface
+class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector
 {
     use RenderLossCollectorTrait;
     use ConversionDiagnosticCollectorTrait;
@@ -2628,18 +2628,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderTable(Table $node): string
     {
-        $groups = $node->getRowGroups();
-        if ($groups !== null) {
-            $fields = ['rowGroups.headAttrs' => $groups['headAttrs'] ?? [], 'rowGroups.footAttrs' => $groups['footAttrs'] ?? []];
-            foreach ($groups['bodies'] as $index => $body) {
-                $fields['rowGroups.bodies[' . $index . '].attrs'] = $body['attrs'] ?? [];
-            }
-            foreach ($fields as $field => $attrs) {
-                if (array_filter($attrs, static fn (mixed $value): bool => is_string($value) || $value !== []) !== []) {
-                    $this->recordUnspellableField($node, $field, 'Carve source cannot spell table section attributes');
-                }
-            }
-        }
+        $this->recordUnspellableTableSectionAttributes($node);
 
         $rows = [];
         $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));

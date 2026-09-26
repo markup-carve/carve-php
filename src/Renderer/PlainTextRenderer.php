@@ -76,8 +76,9 @@ use MarkupCarve\Carve\Util\StringUtil;
  * - Plain text email fallbacks
  * - Word count / reading time estimation
  */
-class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInterface
+class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector
 {
+    use ConversionDiagnosticCollectorTrait;
     use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use DerivedLabelTrait;
@@ -787,7 +788,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
 
     protected function renderTable(Table $node): string
     {
-        $this->recordTableSectionAttributes($node);
+        $this->recordUnspellableTableSectionAttributes($node);
         $text = '';
         $layout = TableLayout::expand(
             $node,

@@ -692,16 +692,35 @@ class CliTest extends TestCase
         $this->assertSame('', $wrongTarget['out']);
     }
 
-    public function testTableSectionLossCanBeAllowedWithAZeroRowLimit(): void
+    /**
+     * `--allow-loss` gates the `CARVE-P2-024` report and grows no name for a
+     * conversion-diagnostics code (PART 11 §1d), so the dropped field passes
+     * `--strict-losses` with nothing allowed and the old code is refused outright.
+     */
+    public function testTableSectionAttributesAreNoRenderLossAndTheirOldCodeIsRefused(): void
     {
         $ast = '{"type":"document","srcByteLength":0,"children":[{"type":"table","rows":[],"rowGroups":{"headRows":0,"footRows":0,"bodies":[],"headAttrs":{"id":"head"}}}]}';
-        $denied = $this->runCliInput(['--from-json', '--plain', '--strict-losses', '--max-render-losses', '0'], $ast);
-        $allowed = $this->runCliInput(['--from-json', '--plain', '--strict-losses', '--max-render-losses', '0', '--allow-loss', 'table-section-attributes-dropped'], $ast);
+        $strict = $this->runCliInput(['--from-json', '--plain', '--strict-losses', '--max-render-losses', '0'], $ast);
+        $refused = $this->runCliInput(['--from-json', '--plain', '--allow-loss', 'table-section-attributes-dropped'], $ast);
 
-        $this->assertSame(1, $denied['exit']);
-        $this->assertSame('', $denied['out']);
-        $this->assertSame(0, $allowed['exit']);
-        $this->assertSame('', $allowed['err']);
+        $this->assertSame(0, $strict['exit']);
+        $this->assertSame('', $strict['err']);
+        $this->assertSame(2, $refused['exit']);
+        $this->assertStringContainsString('--allow-loss expects raw-format-dropped or ruby-flattened', $refused['err']);
+    }
+
+    public function testATextTargetWritesTheDroppedSectionFieldToTheDiagnosticsChannel(): void
+    {
+        $ast = '{"type":"document","srcByteLength":0,"children":[{"type":"table","rows":[],"rowGroups":{"headRows":0,"footRows":0,"bodies":[],"headAttrs":{"id":"head"}}}]}';
+        $result = $this->runCliInput(['--from-json', '--plain', '--report-conversion-diagnostics', '-'], $ast);
+
+        $this->assertSame(0, $result['exit']);
+        $report = json_decode($result['err'], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(1, $report['totalDiagnostics']);
+        $this->assertSame(
+            ['code' => 'field-unspellable', 'node' => 'table', 'message' => 'Carve source cannot spell table section attributes', 'field' => 'rowGroups.headAttrs'],
+            $report['diagnostics'][0],
+        );
     }
 
     public function testRubyLossCanBeAllowedWithAZeroRowLimit(): void

@@ -79,8 +79,9 @@ use MarkupCarve\Carve\Util\StringUtil;
  * Produces colored, styled text suitable for display in terminals
  * that support ANSI escape codes.
  */
-class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterface
+class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector
 {
+    use ConversionDiagnosticCollectorTrait;
     use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use DerivedLabelTrait;
@@ -1045,7 +1046,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderTable(Table $node): string
     {
-        $this->recordTableSectionAttributes($node);
+        $this->recordUnspellableTableSectionAttributes($node);
         // First pass: calculate column widths
         $colWidths = [];
         $rows = [];

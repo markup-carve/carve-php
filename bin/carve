@@ -71,7 +71,7 @@ use MarkupCarve\Carve\Lint\TableColumnLinter;
 use MarkupCarve\Carve\Lint\TemplateSourceLinter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
-use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\ConversionDiagnosticCollector;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
@@ -477,8 +477,8 @@ function parseArgs(array $argv): array
             }
             $options['maxConversionDiagnostics'] = (int)$argv[++$i];
         } elseif ($arg === '--allow-loss') {
-            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened', 'table-section-attributes-dropped'], true)) {
-                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped, ruby-flattened or table-section-attributes-dropped\n");
+            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened'], true)) {
+                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped or ruby-flattened\n");
                 exit(2);
             }
             $options['allowLoss'][] = $argv[++$i];
@@ -678,11 +678,10 @@ Rendering:
                            typed instead of the resolved glyphs (HTML/Markdown)
   --strict-losses          Refuse output when a raw format would be dropped
   --report-losses FILE     Write the machine-readable render-loss report (`-` for stderr)
-  --allow-loss CODE              Permit raw-format-dropped, ruby-flattened or table-section-attributes-dropped (repeatable)
-                           Accept intentional target filtering
+  --allow-loss CODE        Permit raw-format-dropped or ruby-flattened (repeatable)
   --max-render-losses N    Bound detailed losses while retaining the full count (default 100)
   --report-conversion-diagnostics FILE
-                           Write source conversion diagnostics (`-` for stderr; --carve only)
+                           Write source conversion diagnostics (`-` for stderr; text targets only)
   --max-conversion-diagnostics N
                            Bound detailed conversion diagnostics (default 100)
 
@@ -1100,8 +1099,8 @@ try {
     $conversionWriter = null;
     if ($options['reportConversionDiagnostics'] !== null) {
         $renderer = $converter->getRenderer();
-        if (!$renderer instanceof CarveRenderer) {
-            fwrite(STDERR, "Error: --report-conversion-diagnostics requires --carve\n");
+        if (!$renderer instanceof ConversionDiagnosticCollector) {
+            fwrite(STDERR, "Error: --report-conversion-diagnostics requires --carve, --markdown, --plain or --ansi\n");
             exit(2);
         }
         $conversionWriter = $renderer;
