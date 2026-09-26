@@ -16,3 +16,5 @@
 2404: Comment-only. It corrects what three comments in HtmlRenderer say about where the endnotes section lands when a contained marker refuses. No non-comment line in src moves and no output changes.
 
 2412: Comment-only. It shortens parser and importer comments that had grown into review history and benchmark snapshots. The tabs integration guidance it moves is a docs change.
+
+2471: Internal plumbing plus a resource refresh, with identical observable behavior. It takes resources/prosemirror-schema-map.json from markup-carve/carve-grammars#570 so tag holds its own carveTag entry rather than reaching it through the mention entry's local alias, and moves the carveTag lookup in ProseMirrorToCarve to match. The AST model is unchanged, a tag is still a Mention with class tag, emitted payloads are unchanged, and tags and mentions round-trip byte-identically in both directions.

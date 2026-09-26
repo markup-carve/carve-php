@@ -9,25 +9,6 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-### Added
-
-- Table heads and feet retain attributes through AST exchange and HTML import. HTML applies section attributes to `thead`, `tbody`, and `tfoot`; source and text targets report unsupported attributes. (markup-carve/carve#2339)
-
-### Fixes
-
-- A `+` one column left of an in-item block quote's marker is kept as text instead of being consumed as a continuation marker (markup-carve/carve-php#2470).
-- An unattached `+` below a nested list no longer drops a literal marker at column 1 or moves an indented follower outside the list (markup-carve/carve-php#2461, markup-carve/carve#2334).
-- HTML import keeps a heading, list, code block, table or block quote that sits under two or more nested unsupported elements instead of flattening it into a paragraph (markup-carve/carve#2341).
-### Breaking
-
-- An empty AST `directive` now publishes `children: []` from Carve source and HTML import, matching the required field in the spec schema (markup-carve/carve#2333).
-- Escaped spaces and preserved line-block columns are `non_breaking_space` nodes, and U+E000 is literal content in every field. A tree stored under the old marker emits that character raw into HTML, with no error and no version signal, because the AST contract stays `1.0`. Reparsing the source is the only remedy - a stored tree cannot tell a generated space from an authored character (#2468).
-
-### Changed
-
-- Annotation offsets use a fixed codepoint projection independent of JSON key order, including image alt text, math, breaks and generated spaces (#2468).
-
-
 ## [0.1.10] - 2026-09-25
 
 ### Breaking
@@ -44,6 +25,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - A `"` inside a quoted fence or directive title is dropped and reported as a loss. The slot has no escape mechanism, and the `\"` the writer used to spell closed the title early and handed the rest of the opener to the paragraph reader (#2398).
 - The raw-keep report is read off the output instead of a tag roster, which changes which rows an HTML import reports (#2361).
 - The ProseMirror wire contract follows the pinned carve-grammars schema: substitution halves travel as inline arrays, comment and literal or raw inline text sit in editable child nodes, block positions are restored, and table cells carry inherited alignment. Older attribute-based inline payloads still read (#2407).
+- The render-loss `code` enum closes at `raw-format-dropped` and `ruby-flattened`, and a table section's discarded attributes are reported as `field-unspellable` on the PART 11 §1d channel instead. Markdown, plain and ANSI reach that channel for the first time, `--report-conversion-diagnostics` is no longer gated on `--carve`, and `--allow-loss` accepts two names where it accepted three, so a consumer matching `table-section-attributes-dropped` reads the new code (#2479).
+- Escaped spaces and preserved line-block columns travel as `non_breaking_space` nodes, U+E000 is literal content in every field, and annotation offsets are a fixed codepoint projection independent of JSON key order, image alt text, math, breaks and generated spaces included. A tree stored under the old marker emits that character raw into HTML with no error and no version signal, because the AST contract stays `1.0`, and reparsing the source is the only remedy (#2468).
 
 ### Fixes
 
@@ -107,6 +90,12 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - An HTML import that reaches its diagnostic cap returns the converted document with a pathless `diagnostics-truncated` row, instead of refusing the import (#2424).
 - The BBCode importer spells the four formatting tags the way the Carve writer would, and for the same 26 test posts writes byte for byte what carve-js writes (#2213).
 - The BBCode importer escapes what a post's own text forms beside a converted tag, escapes a link it did not write, drops a stray close tag, and keeps a character reference as its text (#2225).
+- An explicitly empty container title travels as `title: []`, so a JSON round trip renders what a direct render renders, and the Carve writer keeps the empty title it was dropping too (#2463).
+- An empty AST `directive` publishes `children: []` from Carve source and from HTML import, which is what the spec schema requires of it (#2464).
+- An unattached continuation marker stays in a nested list. It no longer drops a literal marker at column 1 or moves an indented follower out of the list, and a marker forwarded to an inner list carries its own residual column (#2465, #2467).
+- A `+` one column left of an in-item block quote's marker stays text rather than being read as a continuation marker (#2472).
+- HTML import keeps a heading, list, code block, table or block quote that sits under two or more nested unsupported elements, rather than flattening it into a paragraph. Importing a GitHub page used to lose every heading, list and code block a README holds (#2474).
+- The general `element-unwrapped` row reads `Unwrapped unsupported <x> element`, which is what becomes of an unsupported element in block context, where no span is written (#2475).
 
 ### Improvements
 
@@ -126,6 +115,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - The BBCode list and quote passes copy text up to the next bracket instead of trying two anchored tag patterns at every byte, and converted BBCode that carries no unescaped ASCII punctuation skips the repair parse with output unchanged either way (#2220, #2240).
 - Resolving a position reads the document's position index rather than rescanning its line's prefix, which the single-line documents the BBCode repair parse produces made quadratic (#2247).
 - A document is reparsed only for a heading the failed label could name, rather than for any unresolved reference (#2246).
+- Table heads and feet keep their attributes through AST exchange and HTML import. HTML applies them to `thead`, `tbody` and `tfoot`, and the source and text targets report an attribute they cannot spell (#2473).
+- A nested list item's abutting attribute payload is validated once rather than once per enclosing list, and the writer's escape search parses each candidate once rather than re-parsing the document per probe. Together they cut the full re-parses an HTML migration performs by roughly a third, with output and fidelity report byte-identical (#2477, #2478).
 
 ## [0.1.9] - 2026-09-19
 
