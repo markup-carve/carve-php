@@ -5229,6 +5229,15 @@ class BlockParser
                                 break;
                             }
                             if ($this->isContinuationMarker($trimmedLine)) {
+                                // An unattached marker cannot close the nested
+                                // stream. Its indented follower may still fold
+                                // into the nested item's open paragraph.
+                                if ($this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)) {
+                                    $i++;
+
+                                    continue;
+                                }
+
                                 break;
                             }
                             // After a blank line, content dropping back to base indent
@@ -5279,7 +5288,10 @@ class BlockParser
                             }
                             $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
                                 || $this->startsNewBlock($trimmedLine, $lines, $i)
-                                || $this->isFoldableInvisibleLine($trimmedLine);
+                                || $this->isFoldableInvisibleLine($trimmedLine)
+                                // Keep one residual column: a `+` below the
+                                // nested marker column is literal text.
+                                || $this->isContinuationMarker($trimmedLine);
                             $dedentedOpener = $blockShaped
                                 && !$sawBlankLine
                                 && $subTrailingState['openParagraph']
