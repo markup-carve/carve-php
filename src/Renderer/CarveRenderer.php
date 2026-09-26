@@ -285,6 +285,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected int $narrowingBudget = 0;
 
     /**
+     * The pruned views the narrowing probes render, built on the first local
+     * probe of a narrowing and dropped with it.
+     */
+    protected ?EscapeWindows $escapeWindows = null;
+
+    /**
+     * The trees of the windows parsed in the current narrowing, keyed like
+     * $candidateVerdicts: a window is often rendered to the same bytes again.
+     *
+     * @var array<string, array{tree: mixed}|null>
+     */
+    protected array $windowTrees = [];
+
+    /**
      * The node whose render arm is currently writing, and therefore the unit
      * the next escaped character belongs to.
      *
@@ -635,23 +649,142 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // group, and a check here would be one no corpus document can
             // reach - the control render asks about a unit for every byte the
             // two forms differ in, and they differ or this is not running.
-            // Eight times the depth of the halving, which is what narrowing four
-            // independent failing units costs.
-            $this->narrowingBudget = 8 * (int)ceil(log(count($units) + 1, 2)) + 8;
-            $this->relaxUnits($document, $units, $conservativeTree, $best);
+            //
+            // Probes render only a window around the relaxed units; the state
+            // the windowed search settles on is verified against the whole
+            // document, and the search is redone with whole-document probes
+            // when it does not hold.
+            $best = $this->searchUnits($document, $all, $units, $conservativeTree, strlen($conservative), true);
+            if (!$this->candidateHolds($best, $conservativeTree)) {
+                $best = $this->searchUnits($document, $all, $units, $conservativeTree, strlen($conservative), false);
+            }
             // PART 11 section 2 TAKES THE DECISION PER OPENER OCCURRENCE, and
             // a unit is still ONE KNOB: a unit that fails is written
             // conservatively IN FULL, so every candidate character beside the
             // one that needed it is escaped for nothing. Section 2b bounds how
             // far the fallback reaches; this is what is left inside the bound
             // (markup-carve/carve#1533).
-            $this->narrowOccurrences($document, $units, $conservativeTree, $best);
+            $this->narrowOccurrences($document, $units, $conservativeTree, strlen($conservative), $best);
 
             return $best;
         } finally {
             $this->escalatedUnits = null;
             $this->candidateVerdicts = [];
+            $this->escapeWindows = null;
+            $this->windowTrees = [];
         }
+    }
+
+    /**
+     * The unit search from a fully escalated state, returning the render of
+     * the state it settles on.
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $all
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $units
+     * @param array{tree: mixed} $conservativeTree
+     * @param int $conservativeLength
+     * @param bool $local
+     */
+    protected function searchUnits(
+        Document $document,
+        array $all,
+        array $units,
+        array $conservativeTree,
+        int $conservativeLength,
+        bool $local,
+    ): string {
+        $this->escalatedUnits = [];
+        foreach ($all as $unit) {
+            $this->escalatedUnits[spl_object_id($unit)] = true;
+        }
+        // Eight times the depth of the halving, which is what narrowing four
+        // independent failing units costs.
+        $this->narrowingBudget = 8 * (int)ceil(log(count($units) + 1, 2)) + 8;
+        $this->relaxUnits($document, $units, $conservativeTree, $conservativeLength, $local);
+
+        return $this->renderSelectively($document);
+    }
+
+    /**
+     * Apply a relaxation and keep it when the tree still holds, undo it
+     * otherwise.
+     *
+     * With `$local`, the probe renders and re-parses only the window around
+     * `$units` (EscapeWindows) and compares that window before and after.
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @param bool $local
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $units
+     * @param \Closure(): void $apply
+     * @param \Closure(): void $undo
+     * @param array{tree: mixed} $conservativeTree
+     * @param int $conservativeLength
+     */
+    protected function probeKeeps(
+        Document $document,
+        bool $local,
+        array $units,
+        Closure $apply,
+        Closure $undo,
+        array $conservativeTree,
+        int $conservativeLength,
+    ): bool {
+        $window = null;
+        if ($local) {
+            $this->escapeWindows ??= new EscapeWindows($document);
+            $window = $this->escapeWindows->windowFor($units);
+        }
+        $before = $window === null ? null : $this->renderWindow($window);
+        // A window near the document's size saves nothing over the whole-document probe.
+        $beforeTree = $before === null || strlen($before) * 2 > $conservativeLength ? null : $this->windowTree($before);
+        $apply();
+        if ($window !== null && $beforeTree !== null) {
+            $after = $this->renderWindow($window);
+            if ($after !== null) {
+                // Loose, as in candidateHolds().
+                if ($this->windowTree($after) == $beforeTree) {
+                    return true;
+                }
+                $undo();
+
+                return false;
+            }
+        }
+        if ($this->candidateHolds($this->renderSelectively($document), $conservativeTree)) {
+            return true;
+        }
+        $undo();
+
+        return false;
+    }
+
+    /**
+     * @return array{tree: mixed}|null
+     */
+    protected function windowTree(string $source): ?array
+    {
+        $key = $this->candidateKey($source);
+        if (!array_key_exists($key, $this->windowTrees)) {
+            $this->windowTrees[$key] = $this->canonicalTree($source);
+        }
+
+        return $this->windowTrees[$key];
+    }
+
+    /**
+     * @param array<int, array{owner: \MarkupCarve\Carve\Node\Node, lo: int, hi: int}> $window
+     */
+    protected function renderWindow(array $window): ?string
+    {
+        assert($this->escapeWindows !== null);
+        $rendered = $this->escapeWindows->renderPruned(
+            $window,
+            fn (): string => $this->renderOnePass($this->escapeWindows->document(), self::ESCAPE_MODE_CONSERVATIVE),
+        );
+
+        // A window that opens on a break would re-parse as frontmatter.
+        return $rendered === null || str_starts_with($rendered, '---') ? null : $rendered;
     }
 
     /**
@@ -684,40 +817,47 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * Hand `$units` their minimal form where the document still holds, halving
      * the group on failure.
      *
-     * `$best` carries the render of the CURRENT escalation set, so the caller
-     * always holds bytes that were verified: an accepted relaxation replaces
-     * it, a rejected one restores the set it was measured against.
-     *
      * @param \MarkupCarve\Carve\Node\Document $document
      * @param array<int, \MarkupCarve\Carve\Node\Node> $units
      * @param array{tree: mixed} $conservativeTree
-     * @param string $best
+     * @param int $conservativeLength
+     * @param bool $local
      */
-    protected function relaxUnits(Document $document, array $units, array $conservativeTree, string &$best): void
-    {
+    protected function relaxUnits(
+        Document $document,
+        array $units,
+        array $conservativeTree,
+        int $conservativeLength,
+        bool $local,
+    ): void {
         $count = count($units);
         if ($count === 0 || $this->narrowingBudget <= 0) {
             return;
         }
         $this->narrowingBudget--;
-        foreach ($units as $unit) {
-            unset($this->escalatedUnits[spl_object_id($unit)]);
-        }
-        $candidate = $this->renderSelectively($document);
-        if ($this->candidateHolds($candidate, $conservativeTree)) {
-            $best = $candidate;
-
-            return;
-        }
-        foreach ($units as $unit) {
-            $this->escalatedUnits[spl_object_id($unit)] = true;
-        }
-        if ($count === 1) {
+        $kept = $this->probeKeeps(
+            $document,
+            $local,
+            $units,
+            function () use ($units): void {
+                foreach ($units as $unit) {
+                    unset($this->escalatedUnits[spl_object_id($unit)]);
+                }
+            },
+            function () use ($units): void {
+                foreach ($units as $unit) {
+                    $this->escalatedUnits[spl_object_id($unit)] = true;
+                }
+            },
+            $conservativeTree,
+            $conservativeLength,
+        );
+        if ($kept || $count === 1) {
             return;
         }
         $half = intdiv($count, 2);
-        $this->relaxUnits($document, array_slice($units, 0, $half), $conservativeTree, $best);
-        $this->relaxUnits($document, array_slice($units, $half), $conservativeTree, $best);
+        $this->relaxUnits($document, array_slice($units, 0, $half), $conservativeTree, $conservativeLength, $local);
+        $this->relaxUnits($document, array_slice($units, $half), $conservativeTree, $conservativeLength, $local);
     }
 
     /**
@@ -756,12 +896,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @param \MarkupCarve\Carve\Node\Document $document
      * @param array<int, \MarkupCarve\Carve\Node\Node> $units
      * @param array{tree: mixed} $conservativeTree
+     * @param int $conservativeLength
      * @param string $best
      */
     protected function narrowOccurrences(
         Document $document,
         array $units,
         array $conservativeTree,
+        int $conservativeLength,
         string &$best,
     ): void {
         $numbers = [];
@@ -781,7 +923,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 return;
             }
 
-            $this->occurrenceBudget = 8 * (int)ceil(log(count($occurrences) + 1, 2)) + 8;
             // OFFERED FROM THE END OF THE DOCUMENT BACKWARDS, which is what
             // makes the escape that survives the OPENER's. Section 2 asks
             // whether omitting the escapes on an occurrence would let the
@@ -792,27 +933,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // wants `\{.note}`). Both spellings re-parse to the same tree, so
             // only the order separates them.
             $order = array_reverse($occurrences);
-            $this->relaxOccurrences($document, $order, $conservativeTree, $best);
-            // AND THEN ONE SWEEP OF WHAT IS LEFT, because the halving is not a
-            // FIXPOINT. Relaxing occurrences is not monotone: an occurrence
-            // rejected while a neighbour was still escaped can be free once
-            // that neighbour is relaxed, and the halving never revisits a group
-            // it has descended past. Corpus 160 is the case - the closing
-            // `:::` line cannot go bare while the OPENING one is escaped,
-            // because then it is the only fence marker on the page, and it can
-            // once the opener is bare. The sweep offers every still-escalated
-            // occurrence once more, on top of everything the halving accepted,
-            // and spends the same budget - so where the budget is already gone
-            // it costs nothing, which is the pathological document.
-            foreach ($order as $key) {
-                if ($this->occurrenceBudget <= 0) {
-                    break;
-                }
-                if (isset($this->relaxedOccurrences[$key])) {
-                    continue;
-                }
-                $this->relaxOccurrences($document, [$key], $conservativeTree, $best);
+            $units = array_values($units);
+            $candidate = $this->searchOccurrences($document, $units, $order, $conservativeTree, $conservativeLength, true);
+            if (!$this->candidateHolds($candidate, $conservativeTree)) {
+                $candidate = $this->searchOccurrences($document, $units, $order, $conservativeTree, $conservativeLength, false);
             }
+            $best = $candidate;
         } finally {
             $this->unitNumbers = null;
             $this->relaxedOccurrences = null;
@@ -822,43 +948,103 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
+     * The occurrence search from a state with nothing relaxed, returning the
+     * render of the state it settles on.
+     *
+     * @param \MarkupCarve\Carve\Node\Document $document
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $units
+     * @param array<int, string> $order
+     * @param array{tree: mixed} $conservativeTree
+     * @param int $conservativeLength
+     * @param bool $local
+     */
+    protected function searchOccurrences(
+        Document $document,
+        array $units,
+        array $order,
+        array $conservativeTree,
+        int $conservativeLength,
+        bool $local,
+    ): string {
+        $this->relaxedOccurrences = [];
+        $this->occurrenceBudget = 8 * (int)ceil(log(count($order) + 1, 2)) + 8;
+        $this->relaxOccurrences($document, $units, $order, $conservativeTree, $conservativeLength, $local);
+        // AND THEN ONE SWEEP OF WHAT IS LEFT, because the halving is not a
+        // FIXPOINT. Relaxing occurrences is not monotone: an occurrence
+        // rejected while a neighbour was still escaped can be free once
+        // that neighbour is relaxed, and the halving never revisits a group
+        // it has descended past. Corpus 160 is the case - the closing
+        // `:::` line cannot go bare while the OPENING one is escaped,
+        // because then it is the only fence marker on the page, and it can
+        // once the opener is bare. The sweep offers every still-escalated
+        // occurrence once more, on top of everything the halving accepted,
+        // and spends the same budget - so where the budget is already gone
+        // it costs nothing, which is the pathological document.
+        foreach ($order as $key) {
+            if ($this->occurrenceBudget <= 0) {
+                break;
+            }
+            if (isset($this->relaxedOccurrences[$key])) {
+                continue;
+            }
+            $this->relaxOccurrences($document, $units, [$key], $conservativeTree, $conservativeLength, $local);
+        }
+
+        return $this->renderSelectively($document);
+    }
+
+    /**
      * Hand `$group` its bare form where the document still holds, halving the
      * group on failure.
      *
      * @param \MarkupCarve\Carve\Node\Document $document
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $units
      * @param array<int, string> $group
      * @param array{tree: mixed} $conservativeTree
-     * @param string $best
+     * @param int $conservativeLength
+     * @param bool $local
      */
     protected function relaxOccurrences(
         Document $document,
+        array $units,
         array $group,
         array $conservativeTree,
-        string &$best,
+        int $conservativeLength,
+        bool $local,
     ): void {
         $count = count($group);
         if ($count === 0 || $this->occurrenceBudget <= 0) {
             return;
         }
         $this->occurrenceBudget--;
+        $owners = [];
         foreach ($group as $key) {
-            $this->relaxedOccurrences[$key] = true;
+            $unit = $units[(int)strstr($key, ':', true)];
+            $owners[spl_object_id($unit)] = $unit;
         }
-        $candidate = $this->renderSelectively($document);
-        if ($this->candidateHolds($candidate, $conservativeTree)) {
-            $best = $candidate;
-
-            return;
-        }
-        foreach ($group as $key) {
-            unset($this->relaxedOccurrences[$key]);
-        }
-        if ($count === 1) {
+        $kept = $this->probeKeeps(
+            $document,
+            $local,
+            array_values($owners),
+            function () use ($group): void {
+                foreach ($group as $key) {
+                    $this->relaxedOccurrences[$key] = true;
+                }
+            },
+            function () use ($group): void {
+                foreach ($group as $key) {
+                    unset($this->relaxedOccurrences[$key]);
+                }
+            },
+            $conservativeTree,
+            $conservativeLength,
+        );
+        if ($kept || $count === 1) {
             return;
         }
         $half = intdiv($count, 2);
-        $this->relaxOccurrences($document, array_slice($group, 0, $half), $conservativeTree, $best);
-        $this->relaxOccurrences($document, array_slice($group, $half), $conservativeTree, $best);
+        $this->relaxOccurrences($document, $units, array_slice($group, 0, $half), $conservativeTree, $conservativeLength, $local);
+        $this->relaxOccurrences($document, $units, array_slice($group, $half), $conservativeTree, $conservativeLength, $local);
     }
 
     protected function renderSelectively(Document $document): string
