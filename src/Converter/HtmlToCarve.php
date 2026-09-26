@@ -798,7 +798,11 @@ class HtmlToCarve
             // A `<math>` with no TeX leaves as text or not at all, and its one
             // row covers the attributes riding on it.
             $mathLeaves = $tag === 'math' && !$this->trustedRoundTrip && $this->resolveMathTex($node)['tier'] === 4;
-            if (!$mathLeaves) {
+            // No item, no list: its one row covers the attributes too (carve#2367).
+            $emptyList = in_array($tag, ['ul', 'ol'], true) && !$this->hasListItemChild($node);
+            if ($emptyList) {
+                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped <' . $tag . '> holding no item', 'warning', $path);
+            } elseif (!$mathLeaves) {
                 $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
             }
         } finally {
@@ -2460,6 +2464,17 @@ class HtmlToCarve
         $parent = $node->parentNode;
 
         return $parent instanceof DOMElement && strtolower($parent->tagName) === 'table';
+    }
+
+    private function hasListItemChild(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'li') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
