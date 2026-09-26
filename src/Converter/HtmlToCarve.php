@@ -1621,7 +1621,7 @@ class HtmlToCarve
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
-                'Replaced unsupported <' . $tag . '> element with Carve span metadata',
+                'Unwrapped unsupported <' . $tag . '> element',
                 'info',
                 $path,
             );

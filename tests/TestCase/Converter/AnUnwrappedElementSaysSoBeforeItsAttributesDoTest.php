@@ -243,7 +243,7 @@ class AnUnwrappedElementSaysSoBeforeItsAttributesDoTest extends TestCase
             [
                 [
                     'code' => 'element-unwrapped',
-                    'message' => 'Replaced unsupported <video> element with Carve span metadata',
+                    'message' => 'Unwrapped unsupported <video> element',
                     'severity' => 'info',
                     'fidelity' => 'degraded',
                     'confidence' => 'exact',
