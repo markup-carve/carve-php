@@ -408,6 +408,7 @@ class HtmlToCarve
             $this->builtImportDocument = null;
             $this->keptRawImportElements = null;
             $this->droppedBlankImportRows = null;
+            $this->mergedImportDefinitionLists = null;
         }
 
         return new HtmlImportResult(
@@ -741,6 +742,15 @@ class HtmlToCarve
             $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $path);
 
             return;
+        }
+        if ($tag === 'dl' && $this->mergedImportDefinitionLists !== null && isset($this->mergedImportDefinitionLists[$node])) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                'Merged <dl> into the definition list before it: Carve source has no boundary between two adjacent definition lists',
+                'info',
+                $path,
+            );
         }
         if ($tag === 'img' && HtmlAstBuilder::isDroppedFormulaImage($node)) {
             $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped <img>: the fallback image of a formula imported as math', 'info', $path);
@@ -3275,6 +3285,7 @@ class HtmlToCarve
             $this->builtImportDocument = $builder->builtDocument();
             $this->keptRawImportElements = $builder->keptRawElements();
             $this->droppedBlankImportRows = $builder->droppedBlankTableRows();
+            $this->mergedImportDefinitionLists = $builder->mergedDefinitionLists();
         }
         $document = (new AstCodec())->decodeImporterTree($tree);
 
@@ -4435,6 +4446,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $droppedBlankImportRows = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $mergedImportDefinitionLists = null;
 
     private ?bool $emittedHasRawHtml = null;
 

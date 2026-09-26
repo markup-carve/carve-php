@@ -83,6 +83,13 @@ final class HtmlAstBuilder
      */
     private SplObjectStorage $droppedBlankTableRows;
 
+    /**
+     * `<dl>` elements merged into the definition list before them.
+     *
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    private SplObjectStorage $mergedDefinitionLists;
+
     private ?bool $tableCellAllowsEmptyCode = null;
 
     /**
@@ -288,6 +295,7 @@ final class HtmlAstBuilder
     ) {
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
+        $this->mergedDefinitionLists = new SplObjectStorage();
     }
 
     public function builtDocument(): ?DOMDocument
@@ -309,6 +317,14 @@ final class HtmlAstBuilder
     public function droppedBlankTableRows(): SplObjectStorage
     {
         return $this->droppedBlankTableRows;
+    }
+
+    /**
+     * @return \SplObjectStorage<\DOMElement, null>
+     */
+    public function mergedDefinitionLists(): SplObjectStorage
+    {
+        return $this->mergedDefinitionLists;
     }
 
     private function keepRaw(DOMElement $node): void
@@ -411,6 +427,7 @@ final class HtmlAstBuilder
     {
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
+        $this->mergedDefinitionLists = new SplObjectStorage();
         $this->footnoteTargets = [];
         $this->footnoteDefinitions = [];
         $this->referenceDefinitions = [];
@@ -607,7 +624,25 @@ final class HtmlAstBuilder
             }
             if ($this->isBlock($node)) {
                 $flush();
-                foreach ($this->block($node) as $block) {
+                $produced = $this->block($node);
+                $last = array_key_last($blocks);
+                // Carve source has no boundary between two definition lists, so
+                // an attribute-less one following another joins it (carve#2369).
+                if (
+                    $last !== null
+                    && $node instanceof DOMElement
+                    && ($blocks[$last]['type'] ?? null) === 'definition_list'
+                    && ($produced[0]['type'] ?? null) === 'definition_list'
+                    && self::attrsValue($produced[0]['attrs'] ?? null) === []
+                ) {
+                    $next = array_shift($produced);
+                    $blocks[$last]['items'] = array_merge(self::nodeList($blocks[$last]['items'] ?? null), self::nodeList($next['items'] ?? null));
+                    if (($next['loose'] ?? false) === true) {
+                        $blocks[$last]['loose'] = true;
+                    }
+                    $this->mergedDefinitionLists[$node] = null;
+                }
+                foreach ($produced as $block) {
                     $blocks[] = $block;
                 }
 
