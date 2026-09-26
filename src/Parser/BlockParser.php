@@ -5170,7 +5170,8 @@ class BlockParser
                         // between (markup-carve/carve-php#2140).
                         $continuesCollectedList = $subSawListMarker
                             && $this->listParser->parseListItemMarker(ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t")) !== null;
-                        if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList) {
+                        // An open fence or div still owns the line (carve-php#2507).
+                        if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && !$subTrailingState['inFence'] && !$subTrailingState['inDiv']) {
                             // Set flags so parent loop handles this as continuation content
                             $lastItemHadBlankAfter = true;
                             $brokeForParentContent = true;
