@@ -659,6 +659,17 @@ class HtmlToCarve
         $index = 0;
         foreach ($nodes as $child) {
             $index++;
+            if ($child instanceof DOMComment && HtmlAstBuilder::commentBreaksACellRow($child, $this->listTableForBlockCells)) {
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'element-dropped',
+                    'Dropped an HTML comment in a table cell: its text holds a line break, and a table row is one line',
+                    'warning',
+                    $parentPath . '/comment()[' . $index . ']',
+                );
+
+                continue;
+            }
             if ($child instanceof DOMComment) {
                 // AN HTML COMMENT WITH NO INLINE SPELLING IS DROPPED, and this
                 // is where the row for it is added (`markup-carve/carve#1709`).
@@ -668,7 +679,7 @@ class HtmlToCarve
                 // ORDER - and `docs/html-import.md` orders the report by the
                 // position of the losing node, not by when the row was built.
                 if (
-                    !$this->commentStandsAmongBlocks($child)
+                    (!$this->commentStandsAmongBlocks($child) || $this->commentSitsInACell($child))
                     && $this->commentHasNoInlineSpelling($child->textContent)
                 ) {
                     $why = str_contains($child->textContent, '%}')
@@ -3490,6 +3501,17 @@ class HtmlToCarve
     protected function isLayoutOnlyText(string $text): bool
     {
         return $text === '' || strspn($text, " \t\n\r\f") === strlen($text);
+    }
+
+    /**
+     * A comment in a table cell is flattened into the cell's one line, so it
+     * takes the inline spelling even where it stands among blocks.
+     */
+    protected function commentSitsInACell(DOMComment $comment): bool
+    {
+        $cell = HtmlAstBuilder::enclosingCell($comment);
+
+        return $cell !== null && !$this->cellIsWrittenAsAListTableItem($cell);
     }
 
     /**

@@ -589,6 +589,9 @@ final class HtmlAstBuilder
         };
 
         foreach ($nodes as $index => $node) {
+            if ($node instanceof DOMComment && self::commentBreaksACellRow($node, $this->listTableForBlockCells)) {
+                continue;
+            }
             if ($node instanceof DOMComment) {
                 $inlineRun = self::some(
                     $pending,
@@ -1852,6 +1855,11 @@ final class HtmlAstBuilder
 
     private function cellHasBlockContent(DOMElement $cell): bool
     {
+        return self::cellHoldsBlocks($cell);
+    }
+
+    private static function cellHoldsBlocks(DOMElement $cell): bool
+    {
         $paragraphs = 0;
         foreach ($cell->getElementsByTagName('*') as $descendant) {
             $tag = strtolower($descendant->tagName);
@@ -2809,7 +2817,11 @@ final class HtmlAstBuilder
             return $value === '' ? [] : [['type' => 'text', 'value' => $value]];
         }
         if ($node instanceof DOMComment) {
-            if (str_contains($node->textContent, '%}') || preg_match('/\R\s*\R/u', $node->textContent) === 1) {
+            if (
+                str_contains($node->textContent, '%}')
+                || preg_match('/\R\s*\R/u', $node->textContent) === 1
+                || self::commentBreaksACellRow($node, $this->listTableForBlockCells)
+            ) {
                 return [];
             }
 
@@ -3598,6 +3610,54 @@ final class HtmlAstBuilder
         return $read($math->childNodes) && $text !== '' ? $text : null;
     }
 
+    /**
+     * A pipe-table row is one line, so a comment holding a line break has no
+     * spelling in a cell (markup-carve/carve#2372). A list-table cell is not a
+     * row, so it is not held to that.
+     */
+    public static function commentBreaksACellRow(DOMComment $comment, bool $listTableForBlockCells): bool
+    {
+        if (preg_match('/[\r\n]/', $comment->textContent) !== 1) {
+            return false;
+        }
+        $cell = self::enclosingCell($comment);
+
+        return $cell !== null && !($listTableForBlockCells && self::tableHoldsABlockCell($cell));
+    }
+
+    public static function enclosingCell(DOMNode $node): ?DOMElement
+    {
+        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            if (in_array(strtolower($parent->tagName), ['td', 'th'], true)) {
+                return $parent;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the table around this cell is written as a list table under
+     * `listTableForBlockCells`, the same test `table()` applies.
+     */
+    public static function tableHoldsABlockCell(DOMElement $cell): bool
+    {
+        for ($table = $cell->parentNode; $table instanceof DOMElement; $table = $table->parentNode) {
+            if (strtolower($table->tagName) !== 'table') {
+                continue;
+            }
+            foreach ($table->getElementsByTagName('*') as $candidate) {
+                if (in_array(strtolower($candidate->tagName), ['td', 'th'], true) && self::cellHoldsBlocks($candidate)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
     private static function isBlankOrComment(DOMNode $node): bool
     {
         return $node instanceof DOMComment
@@ -3878,6 +3938,16 @@ final class HtmlAstBuilder
             'underline' => true,
         ];
         $type = $node['type'] ?? null;
+        // A block comment reaching an inline-only slot is spelled inline: a
+        // line comment there would swallow the rest of the row.
+        if ($type === 'comment' && ($node['block'] ?? false) === true) {
+            $content = self::stringValue($node['content'] ?? null);
+            if (str_contains($content, '%}') || preg_match('/\R\s*\R/u', $content) === 1) {
+                return [];
+            }
+
+            return [['type' => 'comment', 'content' => $content, 'delimited' => true, 'block' => false]];
+        }
         if (is_string($type) && isset($inlineTypes[$type])) {
             return [$node];
         }
