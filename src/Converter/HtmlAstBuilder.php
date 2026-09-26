@@ -1160,6 +1160,10 @@ final class HtmlAstBuilder
         }
         $source = $code ?? $node;
         $content = $source->textContent;
+        // An HTML parser drops one line feed right after `<pre>`; libxml keeps it.
+        if ($source === $node && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
+            $content = substr($content, 1);
+        }
         if (str_ends_with($content, "\n")) {
             $content = substr($content, 0, -1);
         }
