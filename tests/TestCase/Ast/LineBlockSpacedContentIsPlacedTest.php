@@ -195,21 +195,51 @@ class LineBlockSpacedContentIsPlacedTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: string}>
+     * Every generated space of a parse, as its selected source or null.
+     *
+     * @param string $source
+     *
+     * @return list<string|null>
+     */
+    private function generatedSpaces(string $source): array
+    {
+        $found = [];
+        foreach ($this->nodesOfType($source, 'non_breaking_space') as $node) {
+            $found[] = $this->selection($node, $source);
+        }
+
+        return $found;
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: list<array{0: string, 1: string|null}>, 2: list<string|null>}>
      */
     public static function declinedProvider(): array
     {
         return [
-            // `41-line-blocks-9`, the control. Every engine omits here.
-            'a tab-widened run' => ["::: |\ntab\tgap\nwide\t\tgap\n\tlead\n:::\n"],
+            // `41-line-blocks-9`, the control. Every widened column declines, and
+            // the lines beside them keep their spans - the hole does not spread.
+            'a tab-widened run' => [
+                "::: |\ntab\tgap\nwide\t\tgap\n\tlead\n:::\n",
+                [['tab gap', null], ['wide', 'wide'], ['gap', 'gap'], ['lead', 'lead']],
+                [null, null, null, null, null, null, null, null, null, null, null, null],
+            ],
             // A tab does not have to be alone to spoil the correspondence. One
             // inside a run of spaces makes the whole run unmappable, and a rule
             // that only looked at the first character would place this wrongly.
-            'a tab inside a run of spaces' => ["::: |\na \t b\n:::\n"],
+            'a tab inside a run of spaces' => [
+                "::: |\na \t b\n:::\n",
+                [['a', 'a'], ['b', 'b']],
+                [null, null, null, null],
+            ],
             // Composing the rewrites must not let a tab through the back door:
-            // the escape check runs on what the map replayed, and the map
-            // replays nothing for a run it refused to record.
-            'a tab run beside an escaped space' => ["::: |\n\ta\\ b\n:::\n"],
+            // the widened columns decline while the `\ ` beside them still owns
+            // its own backslash and space.
+            'a tab run beside an escaped space' => [
+                "::: |\n\ta\\ b\n:::\n",
+                [['a', 'a'], ['b', 'b']],
+                [null, null, null, null, '\\ '],
+            ],
         ];
     }
 
@@ -230,16 +260,21 @@ class LineBlockSpacedContentIsPlacedTest extends TestCase
         $this->assertSame('*d*', $this->selection($strong[0], $source));
     }
 
+    /**
+     * @param string $source
+     * @param list<array{0: string, 1: string|null}> $texts
+     * @param list<string|null> $spaces
+     */
     #[DataProvider('declinedProvider')]
-    public function testATabWidenedRunStillPublishesNoPosition(string $source): void
-    {
-        $texts = $this->texts($source);
-
-        $this->assertNotSame([], $texts);
-        foreach ($texts as [$value, $selection]) {
-            if ($selection !== null) {
-                $this->assertSame($value, $selection);
-            }
-        }
+    public function testATabWidenedColumnDeclinesWhileWhatSurroundsItIsPlaced(
+        string $source,
+        array $texts,
+        array $spaces,
+    ): void {
+        // Asserted as the exact published set, not as "null where null". The
+        // earlier shape skipped a node that published nothing, so it could not
+        // fail in the direction it was named for.
+        $this->assertSame($texts, $this->texts($source));
+        $this->assertSame($spaces, $this->generatedSpaces($source));
     }
 }
