@@ -112,12 +112,7 @@ class OptionalCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, expected: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '37-crossref-label-typography-source-markdown' => [
-            'reason' => 'CARVE-P11-038: no `{#id}` suffix; the link takes the heading\'s GFM slug',
-            'expected' => "# The \"quoted\" -- heading\n\nSee [The \"quoted\" -- heading](#the-quoted----heading)\n",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     /**
      * How each feature the manifest states is configured on this engine.
