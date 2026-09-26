@@ -102,7 +102,7 @@ class ADroppedEmptyCodeSpanLeavesItsNeighborsIntactTest extends TestCase
         $html = '<table><tr><td>x<code></code></td><td><p>b</p><p>c</p></td></tr></table>';
 
         $this->assertSame(
-            "::: list-table\n- - x``\n  - b\n\n    c\n:::\n",
+            "::: list-table\n- - x``\n\n  - b\n\n    c\n:::\n",
             (new HtmlToCarve(listTableForBlockCells: true))->convert($html),
         );
     }

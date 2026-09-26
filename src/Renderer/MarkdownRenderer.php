@@ -30,6 +30,7 @@ use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Section;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
@@ -2238,7 +2239,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($depth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Markdown');
         }
-        if ($node instanceof Table) {
+        if ($node instanceof Table || ($node instanceof Div && $this->listTableAsTable($node) !== null)) {
             return;
         }
         if ($node instanceof Heading) {
@@ -2672,6 +2673,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDiv(Div $node): string
     {
+        $listTable = $this->listTableAsTable($node);
+        if ($listTable !== null) {
+            $label = $node->getLabel();
+            $prefix = $label === null || $label === '' ? '' : $this->padOutsideOnItsOwnLine(
+                $this->escapeText($this->stripControls($label)),
+                '**',
+                '<strong>',
+                '</strong>',
+            ) . "\n\n";
+
+            return $prefix . $this->renderTable($listTable);
+        }
         // Divs/admonitions don't exist in Markdown; render the content. An
         // admonition's quoted opener header would otherwise be lost; preserve
         // it as a leading bold line.
@@ -2797,6 +2810,114 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $out;
+    }
+
+    /**
+     * The pipe table a `::: list-table` is equivalent to (PART 11 §10q,
+     * CARVE-P11-059), or null when its body is not a grid.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\Div $node
+     */
+    protected function listTableAsTable(Div $node): ?Table
+    {
+        if (!$node->isTyped() || ($node->getClassList()[0] ?? null) !== 'list-table') {
+            return null;
+        }
+        $body = $node->getChildren();
+        if (count($body) !== 1 || !$body[0] instanceof ListBlock) {
+            return null;
+        }
+        $rowItems = [];
+        foreach ($body[0]->getChildren() as $row) {
+            if (!$row instanceof ListItem) {
+                continue;
+            }
+            if (!(($row->getChildren()[0] ?? null) instanceof ListBlock)) {
+                return null;
+            }
+            $rowItems[] = $row;
+        }
+        $count = static function (?string $value): int {
+            if ($value === null) {
+                return 0;
+            }
+
+            return trim($value) === '' ? 1 : max(0, (int)$value);
+        };
+        $headerRows = $count($node->getAttribute('header-rows'));
+        $headerCols = $count($node->getAttribute('header-cols'));
+        $aligns = $node->getAttribute('aligns');
+        $aligns = $aligns === null ? [] : array_map('trim', explode(',', $aligns));
+        $alignments = [TableCell::ALIGN_LEFT, TableCell::ALIGN_RIGHT, TableCell::ALIGN_CENTER];
+
+        $table = new Table();
+        foreach ($rowItems as $r => $row) {
+            // Every list in the row gives cells; any other block joins the cell before it.
+            $items = [];
+            $blockLists = [];
+            foreach ($row->getChildren() as $block) {
+                if ($block instanceof ListBlock) {
+                    foreach ($block->getChildren() as $item) {
+                        if ($item instanceof ListItem) {
+                            $items[] = $item;
+                            $blockLists[] = array_values($item->getChildren());
+                        }
+                    }
+                } elseif ($blockLists !== []) {
+                    $blockLists[count($blockLists) - 1][] = $block;
+                }
+            }
+            $headerRow = $r < $headerRows || ($items[0] ?? null)?->getAttribute('header-row') !== null;
+            $cells = [];
+            $allHeader = true;
+            $anyHeader = false;
+            foreach ($items as $c => $item) {
+                $blocks = $blockLists[$c];
+                $only = count($blocks) === 1 && $blocks[0] instanceof Paragraph ? $blocks[0] : null;
+                $text = $only !== null && count($only->getChildren()) === 1 ? $only->getChildren()[0] : null;
+                if ($item->getAttributes() === [] && $only?->getAttributes() === [] && $text instanceof Text && $text->getAttributes() === []) {
+                    $marker = trim($text->getContent());
+                    if ($marker === '^' || $marker === '<') {
+                        $cells[] = new TableCell(false, TableCell::ALIGN_DEFAULT, 1, 1, $marker);
+
+                        continue;
+                    }
+                }
+                $align = null;
+                foreach ([$item->getAttribute('align'), $aligns[$c] ?? null] as $candidate) {
+                    if ($candidate !== null && in_array($candidate, $alignments, true)) {
+                        $align = $candidate;
+
+                        break;
+                    }
+                }
+                $header = $headerRow || $c < $headerCols || $item->getAttribute('header') !== null;
+                $allHeader = $allHeader && $header;
+                $anyHeader = $anyHeader || $header;
+                $cell = new TableCell($header, $align ?? TableCell::ALIGN_DEFAULT);
+                $content = $only !== null ? $only->getChildren() : $blocks;
+                $cell->setBlockContent($only === null && $blocks !== []);
+                foreach ($content as $child) {
+                    $cell->appendChild(clone $child);
+                }
+                $cells[] = $cell;
+            }
+            $tableRow = new TableRow($allHeader && $anyHeader);
+            foreach ($cells as $cell) {
+                $tableRow->appendChild($cell);
+            }
+            $table->appendChild($tableRow);
+        }
+        $title = $node->getHeaderNodes();
+        if ($title !== []) {
+            $caption = new Caption();
+            foreach ($title as $inline) {
+                $caption->appendChild(clone $inline);
+            }
+            $table->setCaption($caption);
+        }
+
+        return $table;
     }
 
     protected function renderTable(Table $node): string

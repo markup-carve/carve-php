@@ -159,19 +159,16 @@ class HtmlToCarveListTableTest extends TestCase
     }
 
     /**
-     * Known limitation, pinned so it is visible rather than discovered: a
-     * cell's own attributes are dropped in this form. Carve has no per-list-item
-     * attribute spelling this converter could find - `{.c}` on its own line
-     * attaches to the LIST, and after the marker it is literal - so writing one
-     * put the class on the cell's first paragraph instead of on the cell.
+     * A cell's own attributes ride its item marker (`-{.c} a`), which is the
+     * attribute slot ListTable reads for a cell.
      */
-    public function testACellsOwnAttributesAreDroppedInThisForm(): void
+    public function testACellKeepsItsOwnAttributesOnItsItem(): void
     {
         $carve = $this->enabled->convert(
             '<table><tr><td class="c"><p>a</p><p>b</p></td><td>x</td></tr></table>',
         );
 
-        $this->assertStringNotContainsString('{.c}', $carve);
-        $this->assertStringContainsString('<td><p>a</p> <p>b</p></td>', $this->render($carve));
+        $this->assertSame("::: list-table\n- -{.c} a\n\n    b\n\n  - x\n:::\n", $carve);
+        $this->assertStringContainsString('<td class="c"><p>a</p> <p>b</p></td>', $this->render($carve));
     }
 }
