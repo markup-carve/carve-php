@@ -1380,6 +1380,28 @@ class AstCodec
     }
 
     /**
+     * Whether `title` must survive the default suppression above.
+     *
+     * An explicitly empty `""` opener title still counts as a supplied title
+     * (grammar 14-semantics-blocks.ebnf), and `title` is the only field that
+     * says so - `header` is internal. Suppressing the empty array made a
+     * supplied-but-empty title indistinguishable from none, so a JSON round
+     * trip rendered `aria-label` where a direct render rendered
+     * `aria-labelledby` and an empty title paragraph (carve-php#2459).
+     *
+     * Only the two wire types the schema gives a `title`: `div` forbids the
+     * field with `additionalProperties: false`, and no `:::` opener can give one
+     * a header anyway.
+     */
+    private static function publishesAnEmptyTitle(Node $node, string $type, string $field): bool
+    {
+        return $field === 'title'
+            && ($type === 'admonition' || $type === 'directive')
+            && $node instanceof Div
+            && $node->getHeader() !== null;
+    }
+
+    /**
      * Drop the opener word from a typed div's `class` attribute.
      *
      * @param array<string, string> $attributes
@@ -1727,7 +1749,7 @@ class AstCodec
                 $type . '.' . $field,
                 self::ALWAYS_PUBLISHED,
                 true,
-            );
+            ) || self::publishesAnEmptyTitle($node, $type, $field);
             if (!$alwaysPublished && $default['has'] && $value === $default['value']) {
                 continue;
             }
@@ -2234,8 +2256,11 @@ class AstCodec
             // has no field for this engine's raw title string. Rather than
             // export an internal (PART 12 §3) or lose the title (§6), the raw
             // form is recomputed by writing the nodes back to Carve source.
+            // A PRESENT key decides it, not a non-empty one: `"title": []` is an
+            // explicitly empty `""` opener title, and reading it as no title at
+            // all dropped the author's own `""` (carve-php#2459).
             $title = $node->getHeaderNodes();
-            if ($title !== [] && $node->getHeader() === null) {
+            if (array_key_exists('title', $data) && $node->getHeader() === null) {
                 self::writeProperty($node, 'header', self::sourceFor($title));
             }
 
