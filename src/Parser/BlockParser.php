@@ -9407,7 +9407,11 @@ class BlockParser
                 }
                 $expanded .= $char;
                 $seenContent = true;
-                $column++;
+                // A COLUMN COUNTS CODEPOINTS, not bytes (PART 12 §4, PART 9 §24
+                // C1), so a UTF-8 continuation byte advances none of it.
+                if ((ord($char) & 0xC0) !== 0x80) {
+                    $column++;
+                }
                 $offset++;
 
                 continue;
