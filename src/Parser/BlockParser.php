@@ -3678,6 +3678,24 @@ class BlockParser
     {
         $line = $lines[$start];
 
+        // A div following a nested definition term still carries that term's
+        // authored content-column indentation in the description's block
+        // stream. Rebase that local block before parsing it (carve-php#2498).
+        $localBase = $parent instanceof DefinitionDescription
+            ? IndentationHelper::getLeadingColumns($line)
+            : 0;
+        if ($localBase > 0) {
+            for ($j = $start, $lineCount = count($lines); $j < $lineCount; $j++) {
+                if (!IndentationHelper::isBlankLine($lines[$j])
+                    && IndentationHelper::getLeadingColumns($lines[$j], $localBase) < $localBase
+                ) {
+                    break;
+                }
+                $lines[$j] = IndentationHelper::stripLeadingColumns($lines[$j], $localBase);
+            }
+            $line = $lines[$start];
+        }
+
         // Use FencedBlockParser to detect div opener
         $divInfo = $this->fencedBlockParser->parseDivFenceOpener($line);
         if ($divInfo === null) {
