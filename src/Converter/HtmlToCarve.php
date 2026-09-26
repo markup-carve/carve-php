@@ -2162,35 +2162,13 @@ class HtmlToCarve
             } elseif (in_array($name, $displaced, true)) {
                 continue;
             } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
-                $message = $tag === 'figure' && $this->figureTargetSetsAttribute($node, $name)
-                    ? 'Dropped one ' . $name . ' on <figure>: the figure and its target both set ' . $name . ', and their two attribute lines merge into a single value'
-                    : 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>';
-                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', $message, 'info', $path);
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
         }
         foreach ($displaced as $name) {
             $message = 'Dropped one ' . $name . ' on <figure>: the figure and its target both set ' . $name . ', and their two attribute lines merge into a single value';
             $this->addImportDiagnostic($diagnostics, 'attribute-dropped', $message, 'info', $path);
         }
-    }
-
-    /**
-     * Whether a figure's quote, code block or table target sets the same
-     * attribute, so the two share one line and the figure's value loses
-     * (markup-carve/carve#2370).
-     */
-    protected function figureTargetSetsAttribute(DOMElement $figure, string $name): bool
-    {
-        foreach ($figure->childNodes as $child) {
-            if (!$child instanceof DOMElement || strtolower($child->tagName) === 'figcaption') {
-                continue;
-            }
-
-            return in_array(strtolower($child->tagName), ['blockquote', 'pre', 'table'], true)
-                && $child->hasAttribute($name);
-        }
-
-        return false;
     }
 
     /**
