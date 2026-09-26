@@ -77,10 +77,12 @@ class ContentPositionIsAfterTheContainerPrefixTest extends TestCase
 
     public function testKeepsItBehindADefinitionMarker(): void
     {
-        $this->assertStringContainsString(': \\# heading', $this->md(":: term\n:  \\# heading"));
+        // A description's blocks are ordinary blocks on this target (PART 11
+        // §10p), so the hash stands at a line's content position.
+        $this->assertStringContainsString("\n\\# heading", $this->md(":: term\n:  \\# heading"));
         // And the narrowing behind that marker too: a run closed by a letter
         // opens no heading there any more than anywhere else.
-        $this->assertStringContainsString(': #tag rest', $this->md(":: term\n:  \\#tag rest"));
+        $this->assertStringContainsString("\n#tag rest", $this->md(":: term\n:  \\#tag rest"));
     }
 
     public function testKeepsItOnALazyContinuationWhichTheWriterReprefixes(): void

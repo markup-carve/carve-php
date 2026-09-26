@@ -67,12 +67,13 @@ class AHeadingSTrailingHashRunKeepsItsEscapeTest extends TestCase
         $this->assertSame($expected, $this->markdown($source));
     }
 
-    public function testAnIdSuffixLeavesNoRunAtTheLineEnd(): void
+    public function testAReferencedHeadingKeepsItsEscapeToo(): void
     {
-        // The `{#id}` a referenced heading carries stands behind the run, so
-        // the line has no closing sequence and the hashes need no escape.
+        // No `{#id}` suffix stands behind the run any more (PART 11 §11), so a
+        // referenced heading escapes its trailing run like any other, and the
+        // link takes the GFM slug of the text the reader sees, `a ##`.
         $this->assertSame(
-            "# a ## {#a}\n\n[x](#a)\n",
+            "# a \\##\n\n[x](#a-)\n",
             $this->markdown("# a ##\n\n[x](#a)\n"),
         );
     }

@@ -66,8 +66,8 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
         $renderer = (new MarkdownRenderer())->setSmartTypography(SmartTypographyMode::Source);
 
         $this->assertSame(
-            "# The \"quoted\" -- heading {#The-quoted-heading}\n"
-            . "\nSee [The \"quoted\" -- heading](#The-quoted-heading)\n",
+            "# The \"quoted\" -- heading\n"
+            . "\nSee [The \"quoted\" -- heading](#the-quoted----heading)\n",
             (new CarveConverter(renderer: $renderer))->convert(self::SOURCE),
         );
     }
@@ -180,8 +180,11 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
         $renderer = (new MarkdownRenderer())->setSmartTypography(SmartTypographyMode::Source);
         $out = (new CarveConverter(renderer: $renderer))->convert("# Don't -- stop\n\nSee </#Don-t-stop>\n");
 
-        $this->assertStringContainsString('{#Don-t-stop}', $out);
-        $this->assertStringContainsString("See [Don't -- stop](#Don-t-stop)", $out);
+        // The reference still resolves against the glyph id `Don-t-stop`; the
+        // destination is the GFM slug of the text this target writes (PART 11
+        // §11 G1), which in source mode is the source run.
+        $this->assertStringNotContainsString('{#', $out);
+        $this->assertStringContainsString("See [Don't -- stop](#dont----stop)", $out);
     }
 
     /**

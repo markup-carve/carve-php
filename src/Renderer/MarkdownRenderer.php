@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CitationDefinition;
@@ -75,6 +76,7 @@ use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
+use Normalizer;
 
 /**
  * Renders AST to Markdown (CommonMark compatible where possible)
@@ -159,6 +161,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     private const AUTHORED_DECIDED = ['#'];
 
     /**
+     * Characters whose escape PART 11 §8d-§8f decide by what the EMITTED line
+     * carries after them, across node boundaries.
+     *
+     * @var list<string>
+     */
+    private const LOOKAHEAD_CHARACTERS = ['<', '&', '!'];
+
+    /**
      * The openers this target emits that interrupt a paragraph, matched against
      * the EMITTED LINE rather than answered by node kind. A thematic break
      * writes `---`, which under a paragraph line is a SETEXT HEADING and changes
@@ -236,7 +246,44 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var string
      */
-    protected string $narrowedSentinelClass = '[\x{E004}-\x{E007}]';
+    protected string $narrowedSentinelClass = '[\x{E004}-\x{E00A}]';
+
+    /**
+     * Sentinels for the characters PART 11 §8d-§8f decide by lookahead.
+     *
+     * @var array<string, string>
+     */
+    protected array $lookaheadSentinels = [
+        '<' => "\u{E008}",
+        '&' => "\u{E009}",
+        '!' => "\u{E00A}",
+    ];
+
+    /**
+     * GFM slug of every heading this target writes, keyed by its Carve id
+     * (PART 11 §11).
+     *
+     * @var array<string, string>
+     */
+    protected array $gfmSlugs = [];
+
+    /**
+     * Kind and marker of the list written last in the current block sequence,
+     * for PART 11 §10o.
+     *
+     * @var array{0: string, 1: string}|null
+     */
+    protected ?array $previousList = null;
+
+    /**
+     * The marker the next list must take instead of its usual one (§10o).
+     */
+    protected ?string $listMarkerOverride = null;
+
+    /**
+     * The marker renderList() wrote last.
+     */
+    protected string $lastListMarker = '-';
 
     protected int $listDepth = 0;
 
@@ -412,6 +459,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $referencedIds = [];
         $this->collectHeadingAndRefIds($document, $referencedIds);
         $this->referencedHeadingIds = array_intersect_key($this->headingIds, $referencedIds);
+        $this->gfmSlugs = [];
+        $slugCounts = [];
+        $this->collectGfmSlugs($document, $slugCounts);
+        $this->previousList = null;
+        $this->listMarkerOverride = null;
 
         // The definition renders WHERE IT WAS WRITTEN, from its node, because
         // the dispatch above has an arm for it. This used to place the whole set
@@ -503,7 +555,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $positional = count(self::AUTHORED_POSITIONAL);
         $run = DocumentSentinels::pick(
             DocumentSentinels::collectStrings($document),
-            $narrowed + $positional + count(self::AUTHORED_DECIDED),
+            $narrowed + $positional + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS),
             self::NARROWED_SENTINEL_FIRST,
         );
 
@@ -518,9 +570,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             self::AUTHORED_POSITIONAL,
             array_slice($run, $narrowed, $positional),
         );
+        $decided = count(self::AUTHORED_DECIDED);
         $this->authoredKeptSentinels = array_combine(
             self::AUTHORED_DECIDED,
-            array_slice($run, $narrowed + $positional),
+            array_slice($run, $narrowed + $positional, $decided),
+        );
+        $this->lookaheadSentinels = array_combine(
+            self::LOOKAHEAD_CHARACTERS,
+            array_slice($run, $narrowed + $positional + $decided),
         );
         $this->authoredHashes = 0;
         $this->narrowedSentinelClass = '[' . $run[0] . '-' . $run[count($run) - 1] . ']';
@@ -540,7 +597,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $character = array_flip($this->narrowedSentinels);
         $authored = array_flip($this->authoredSentinels);
         $kept = array_flip($this->authoredKeptSentinels);
-        $character += $authored + $kept;
+        $lookahead = array_flip($this->lookaheadSentinels);
+        $character += $authored + $kept + $lookahead;
 
         // THE LINE AS IT READS IF NOTHING IS ESCAPED. Every candidate is
         // resolved to its BARE character first, so a neighbour that is itself a
@@ -578,7 +636,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             // settled where the writer prefixed it, while the prefix was still
             // separable from the content (markup-carve/carve#1330), and arrives
             // carrying that answer.
-            $keep = isset($kept[$sentinel])
+            $keep = isset($lookahead[$sentinel])
+                ? $this->lookaheadEscapes($char, $line, $at, substr($markdown, $offset + strlen($sentinel), 1))
+                : isset($kept[$sentinel])
                 || (isset($authored[$sentinel])
                     ? $this->opensAnAtxHeading($line, $at)
                     : $this->adjacentToLiveDelimiter($line, $at, $char)
@@ -590,6 +650,41 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $out . substr($markdown, $read);
+    }
+
+    /**
+     * Every sentinel this document uses, mapped to the character it stands for.
+     *
+     * @return array<string, string>
+     */
+    protected function sentinelCharacters(): array
+    {
+        return array_flip($this->narrowedSentinels) + array_flip($this->authoredSentinels)
+            + array_flip($this->authoredKeptSentinels) + array_flip($this->lookaheadSentinels);
+    }
+
+    /**
+     * Whether a lookahead character is escaped (PART 11 §8d-§8f), decided on
+     * what the emitted line carries after it.
+     *
+     * @param string $char The bare character.
+     * @param string $line The document with every candidate resolved bare.
+     * @param int $at The character's offset in `$line`.
+     * @param string $nextRaw The next byte of the document as written, so a
+     *   `[` the writer emitted as markup is told apart from a text `[`, which
+     *   is still a sentinel there.
+     */
+    protected function lookaheadEscapes(string $char, string $line, int $at, string $nextRaw): bool
+    {
+        return match ($char) {
+            '<' => preg_match('/[A-Za-z\/!?]/', $line[$at + 1] ?? '') === 1,
+            '&' => preg_match(
+                '/\G&(?:#[0-9]{1,7};|#[xX][0-9a-fA-F]{1,6};|[A-Za-z][A-Za-z0-9]*;)/',
+                $line,
+                offset: $at,
+            ) === 1,
+            default => $nextRaw === '[',
+        };
     }
 
     /**
@@ -645,7 +740,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $undecided = array_flip($this->authoredSentinels);
         $character = array_flip($this->narrowedSentinels)
             + $undecided
-            + array_flip($this->authoredKeptSentinels);
+            + array_flip($this->authoredKeptSentinels)
+            + array_flip($this->lookaheadSentinels);
 
         $line = (string)preg_replace_callback(
             $pattern,
@@ -1134,142 +1230,219 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         $this->renderDepth++;
         try {
-            $eventName = 'render.' . $node->getType();
-            if ($this->hasListenersFor($eventName)) {
-                $event = new RenderEvent($node);
-                $this->dispatchEvent($eventName, $event);
-                $this->dispatchEvent('render.*', $event);
+            if ($node instanceof ListBlock) {
+                return $this->renderTrackedList($node);
+            }
+            if ($node instanceof BlockNode && !$this->isTransparentBlock($node)) {
+                $previous = $this->previousList;
+                $this->previousList = null;
+                $out = $this->renderNodeBody($node);
+                $this->previousList = $out === '' ? $previous : null;
 
-                if ($event->isDefaultPrevented()) {
-                    return $event->getHtml() ?? '';
-                }
+                return $out;
             }
 
-            // An unresolved reference renders as the source the author
-            // wrote, never as a link (PART 12 section 3a).
-            // PART 9 §23: a comment LINE publishes nothing, so the stored
-            // source is emptied of them here rather than in the stored value -
-            // `rawRef` stays the authored source verbatim for the canonical
-            // writer (PART 12 §3a, carve-php#1417).
-            $rawReference = UnresolvedReference::renderedSourceOf($node);
-
-            return match (true) {
-                $node instanceof Document => $this->renderChildren($node),
-                // A BLOCK-position image needs the separator a paragraph would
-                // have added. Decided by position, not by class: this match
-                // covers inline nodes too, and a bare `instanceof Image` arm
-                // here appended the separator to every inline image as well -
-                // `see ![a](x.png) here` came out split across three lines.
-                $node instanceof Image && $this->isBlockPositionImage($node)
-                => $this->renderImage($node) . "\n\n",
-                $node instanceof Paragraph => $this->renderParagraph($node),
-                $node instanceof Heading => $this->renderHeading($node),
-                $node instanceof CodeBlock => $this->renderCodeBlock($node),
-                $node instanceof Comment => '', // Skip comments
-                // PART 12 §18. The definition renders nothing where it sits
-                // on every target; its entry renders in the references list the
-                // Citations extension builds. Without this arm the default
-                // branch renders the entry's children into the flow, which is
-                // rendered output moving on a tree change that must not move it
-                // (markup-carve/carve#1276).
-                $node instanceof CitationDefinition => '',
-                $node instanceof AbbreviationDefinition
-                => $this->renderAbbreviationDefinition($node),
-                $node instanceof RawBlock => $this->renderRawBlock($node),
-                $node instanceof BlockQuote => $this->renderBlockQuote($node),
-                $node instanceof ListBlock => $this->renderList($node),
-                $node instanceof ListItem => $this->renderListItem($node),
-                $node instanceof DefinitionList => $this->renderDefinitionList($node),
-                $node instanceof DefinitionTerm => $this->renderDefinitionTerm($node),
-                $node instanceof DefinitionDescription => $this->renderDefinitionDescription($node),
-                // Always `---`, not the authored marker. The marker is not part
-                // of the canonical AST -- carve-js, whose shape PART 12 pins, has
-                // no field for it -- and this engine's OWN canonical writer
-                // normalizes it too, so reproducing it here made the Markdown
-                // target disagree with the Carve target of the same document
-                // (carve#352, corpus 34 and 130). All three markers render as one
-                // `<hr>`, so nothing is lost.
-                $node instanceof ThematicBreak => "---\n\n",
-                $node instanceof Div => $this->renderDiv($node),
-                $node instanceof Section => $this->renderChildren($node),
-                $node instanceof Table => $this->renderTable($node),
-                $node instanceof LineBlock => $this->renderLineBlock($node),
-                $node instanceof Footnote => $this->renderFootnote($node),
-                $node instanceof Text => $this->escapeUnresolvedCrossrefs($this->stripControls($node->getContent())),
-                // Keep the backslash so the literal stays literal when re-parsed as
-                // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
-                // ordered list. EscapedText only ever holds escaped ASCII
-                // punctuation, all of which CommonMark allows a `\` before.
-                $node instanceof EscapedText => $this->renderEscapedText($node),
-                $node instanceof FigureGroup => $this->renderFigureGroup($node),
-                $node instanceof Figure => $this->renderFigure($node),
-                $node instanceof Caption => $this->renderCaption($node),
-                $node instanceof Abbreviation => $this->renderAbbreviation($node),
-                $node instanceof Emphasis => $this->renderEmphasis($node),
-                $node instanceof Strong => $this->renderStrong($node),
-                $node instanceof Underline => $this->renderUnderline($node),
-                $node instanceof Strike => $this->renderStrike($node),
-                $node instanceof Code => $this->renderCode($node),
-                $node instanceof Mention => $this->renderMention($node),
-                // No Citations extension: the verbatim raw rather than
-                // nothing, as carve-js and carve-rs emit here (#2289).
-                $node instanceof CitationGroup => $node->getRaw(),
-                $rawReference !== null => $this->escapeText($this->stripControls($rawReference)),
-                $node instanceof Link => $this->renderLink($node),
-                $node instanceof Image => $this->renderImage($node),
-                // A BACKSLASH, not two trailing spaces (PART 11 section 9). Both
-                // mean `<br />` to a CommonMark reader, but trailing whitespace is
-                // removed by editors that strip on save, by
-                // `git apply --whitespace=fix` and by CI whitespace checks -- and
-                // losing ONE of the two spaces is enough for the break to vanish
-                // rather than degrade, silently, in a file nobody edited.
-                // In a table cell the newline would end the GFM row (PART 11
-                // section 9a).
-                $node instanceof HardBreak => $this->tableCellDepth > 0 ? '<br>' : "\\\n",
-                $node instanceof NonBreakingSpace => "\u{00A0}",
-                $node instanceof SoftBreak => match ($this->softBreakMode) {
-                    SoftBreakMode::Newline => "\n",
-                    SoftBreakMode::Space => ' ',
-                    SoftBreakMode::Break => "  \n",
-                },
-                $node instanceof Superscript => $this->renderSuperscript($node),
-                $node instanceof Subscript => $this->renderSubscript($node),
-                $node instanceof Highlight => $this->renderHighlight($node),
-                $node instanceof Insert => $this->renderInsert($node),
-                $node instanceof Delete => $this->renderDelete($node),
-                $node instanceof Substitution => $this->renderSubstitution($node),
-                // Markdown has no critic syntax, so the text is what degrades
-                // gracefully. Dropping it would make two targets of one engine
-                // disagree about whether the document says it.
-                $node instanceof CriticComment => $this->escapeText($this->stripControls($node->getContent())),
-                $node instanceof Span => $this->renderSpan($node),
-                $node instanceof Ruby => $this->renderRuby($node),
-                $node instanceof SmallCaps => $this->renderSmallCaps($node),
-                $node instanceof Math => $this->renderMath($node),
-                $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
-                $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
-                $node instanceof FootnoteRef && $node->isUnresolved()
-                => '\\[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . '\\]',
-                // Escaped like the definition, so the pair still matches. The
-                // UNRESOLVED branch above already escapes, through escapeText()
-                // (carve-php#1063).
-                $node instanceof FootnoteRef
-                => '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']',
-                $node instanceof HeadingRef => $this->renderHeadingRef($node),
-                $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
-                $node instanceof RawInline => $this->renderRawInline($node),
-                // §27: emitted by EVERY renderer, never dropped. It is prose,
-                // not code, so no code fence -- the content becomes literal
-                // text with Markdown metacharacters escaped so `*not bold*`
-                // stays visible as authored.
-                $node instanceof LiteralInline => $this->escapeText($this->stripControls($node->getContent())),
-                $node instanceof RawText => $this->escapeText($this->stripControls($node->getContent())),
-                $node instanceof SmartPunctuation => $this->renderSmartPunctuation($node),
-                default => $this->renderChildren($node),
-            };
+            return $this->renderNodeBody($node);
         } finally {
             $this->renderDepth--;
         }
+    }
+
+    /**
+     * Render one node without the list-adjacency bookkeeping of renderNode().
+     */
+    protected function renderNodeBody(Node $node): string
+    {
+        $eventName = 'render.' . $node->getType();
+        if ($this->hasListenersFor($eventName)) {
+            $event = new RenderEvent($node);
+            $this->dispatchEvent($eventName, $event);
+            $this->dispatchEvent('render.*', $event);
+
+            if ($event->isDefaultPrevented()) {
+                return $event->getHtml() ?? '';
+            }
+        }
+
+        // An unresolved reference renders as the source the author
+        // wrote, never as a link (PART 12 section 3a).
+        // PART 9 §23: a comment LINE publishes nothing, so the stored
+        // source is emptied of them here rather than in the stored value -
+        // `rawRef` stays the authored source verbatim for the canonical
+        // writer (PART 12 §3a, carve-php#1417).
+        $rawReference = UnresolvedReference::renderedSourceOf($node);
+
+        return match (true) {
+            $node instanceof Document => $this->renderChildren($node),
+            // A BLOCK-position image needs the separator a paragraph would
+            // have added. Decided by position, not by class: this match
+            // covers inline nodes too, and a bare `instanceof Image` arm
+            // here appended the separator to every inline image as well -
+            // `see ![a](x.png) here` came out split across three lines.
+            $node instanceof Image && $this->isBlockPositionImage($node)
+            => $this->renderImage($node) . "\n\n",
+            $node instanceof Paragraph => $this->renderParagraph($node),
+            $node instanceof Heading => $this->renderHeading($node),
+            $node instanceof CodeBlock => $this->renderCodeBlock($node),
+            $node instanceof Comment => '', // Skip comments
+            // PART 12 §18. The definition renders nothing where it sits
+            // on every target; its entry renders in the references list the
+            // Citations extension builds. Without this arm the default
+            // branch renders the entry's children into the flow, which is
+            // rendered output moving on a tree change that must not move it
+            // (markup-carve/carve#1276).
+            $node instanceof CitationDefinition => '',
+            $node instanceof AbbreviationDefinition
+            => $this->renderAbbreviationDefinition($node),
+            $node instanceof RawBlock => $this->renderRawBlock($node),
+            $node instanceof BlockQuote => $this->renderBlockQuote($node),
+            $node instanceof ListBlock => $this->renderList($node),
+            $node instanceof ListItem => $this->renderListItem($node),
+            $node instanceof DefinitionList => $this->renderDefinitionList($node),
+            $node instanceof DefinitionTerm => $this->renderDefinitionTerm($node),
+            $node instanceof DefinitionDescription => $this->renderDefinitionDescription($node),
+            // Always `---`, not the authored marker. The marker is not part
+            // of the canonical AST -- carve-js, whose shape PART 12 pins, has
+            // no field for it -- and this engine's OWN canonical writer
+            // normalizes it too, so reproducing it here made the Markdown
+            // target disagree with the Carve target of the same document
+            // (carve#352, corpus 34 and 130). All three markers render as one
+            // `<hr>`, so nothing is lost.
+            $node instanceof ThematicBreak => "---\n\n",
+            $node instanceof Div => $this->renderDiv($node),
+            $node instanceof Section => $this->renderChildren($node),
+            $node instanceof Table => $this->renderTable($node),
+            $node instanceof LineBlock => $this->renderLineBlock($node),
+            $node instanceof Footnote => $this->renderFootnote($node),
+            $node instanceof Text => $this->escapeUnresolvedCrossrefs($this->stripControls($node->getContent())),
+            // Keep the backslash so the literal stays literal when re-parsed as
+            // Markdown: a bare `.` from `\.` would turn `1\. x` back into an
+            // ordered list. EscapedText only ever holds escaped ASCII
+            // punctuation, all of which CommonMark allows a `\` before.
+            $node instanceof EscapedText => $this->renderEscapedText($node),
+            $node instanceof FigureGroup => $this->renderFigureGroup($node),
+            $node instanceof Figure => $this->renderFigure($node),
+            $node instanceof Caption => $this->renderCaption($node),
+            $node instanceof Abbreviation => $this->renderAbbreviation($node),
+            $node instanceof Emphasis => $this->renderEmphasis($node),
+            $node instanceof Strong => $this->renderStrong($node),
+            $node instanceof Underline => $this->renderUnderline($node),
+            $node instanceof Strike => $this->renderStrike($node),
+            $node instanceof Code => $this->renderCode($node),
+            $node instanceof Mention => $this->renderMention($node),
+            // No Citations extension: the verbatim raw rather than
+            // nothing, as carve-js and carve-rs emit here (#2289).
+            $node instanceof CitationGroup => $node->getRaw(),
+            $rawReference !== null => $this->escapeText($this->stripControls($rawReference)),
+            $node instanceof Link => $this->renderLink($node),
+            $node instanceof Image => $this->renderImage($node),
+            // A BACKSLASH, not two trailing spaces (PART 11 section 9). Both
+            // mean `<br />` to a CommonMark reader, but trailing whitespace is
+            // removed by editors that strip on save, by
+            // `git apply --whitespace=fix` and by CI whitespace checks -- and
+            // losing ONE of the two spaces is enough for the break to vanish
+            // rather than degrade, silently, in a file nobody edited.
+            // In a table cell the newline would end the GFM row (PART 11
+            // section 9a).
+            $node instanceof HardBreak => $this->tableCellDepth > 0 ? '<br>' : "\\\n",
+            $node instanceof NonBreakingSpace => "\u{00A0}",
+            $node instanceof SoftBreak => match ($this->softBreakMode) {
+                SoftBreakMode::Newline => "\n",
+                SoftBreakMode::Space => ' ',
+                SoftBreakMode::Break => "  \n",
+            },
+            $node instanceof Superscript => $this->renderSuperscript($node),
+            $node instanceof Subscript => $this->renderSubscript($node),
+            $node instanceof Highlight => $this->renderHighlight($node),
+            $node instanceof Insert => $this->renderInsert($node),
+            $node instanceof Delete => $this->renderDelete($node),
+            $node instanceof Substitution => $this->renderSubstitution($node),
+            // Markdown has no critic syntax, so the text is what degrades
+            // gracefully. Dropping it would make two targets of one engine
+            // disagree about whether the document says it.
+            $node instanceof CriticComment => $this->escapeText($this->stripControls($node->getContent())),
+            $node instanceof Span => $this->renderSpan($node),
+            $node instanceof Ruby => $this->renderRuby($node),
+            $node instanceof SmallCaps => $this->renderSmallCaps($node),
+            $node instanceof Math => $this->renderMath($node),
+            $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
+            $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
+            $node instanceof FootnoteRef && $node->isUnresolved()
+            => '\\[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . '\\]',
+            // Escaped like the definition, so the pair still matches. The
+            // UNRESOLVED branch above already escapes, through escapeText()
+            // (carve-php#1063).
+            $node instanceof FootnoteRef
+            => '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']',
+            $node instanceof HeadingRef => $this->renderHeadingRef($node),
+            $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
+            $node instanceof RawInline => $this->renderRawInline($node),
+            // §27: emitted by EVERY renderer, never dropped. It is prose,
+            // not code, so no code fence -- the content becomes literal
+            // text with Markdown metacharacters escaped so `*not bold*`
+            // stays visible as authored.
+            $node instanceof LiteralInline => $this->escapeText($this->stripControls($node->getContent())),
+            $node instanceof RawText => $this->escapeText($this->stripControls($node->getContent())),
+            $node instanceof SmartPunctuation => $this->renderSmartPunctuation($node),
+            default => $this->renderChildren($node),
+        };
+    }
+
+    /**
+     * A block this target writes as nothing but its children: two lists on
+     * either side of its boundary meet in the output (PART 11 §10o).
+     */
+    protected function isTransparentBlock(Node $node): bool
+    {
+        return $node instanceof Section
+            || $node instanceof LineBlock
+            || $node instanceof DefinitionList
+            || $node instanceof DefinitionDescription
+            || ($node instanceof Div && !$this->divWritesOwnLines($node));
+    }
+
+    /**
+     * Whether a div writes a line of its own (a title, a label or an HTML
+     * wrapper), which separates a list above it from one inside it.
+     */
+    protected function divWritesOwnLines(Div $node): bool
+    {
+        if (is_string($node->getHeader())) {
+            return true;
+        }
+        $label = $node->getLabel();
+        if ($label !== null && $label !== '') {
+            return true;
+        }
+
+        return $this->attributeFallback === AttributeFallback::Html && $this->htmlAttributes($node) !== '';
+    }
+
+    /**
+     * Render a list, taking the other marker of its kind when the block the
+     * target wrote just before it is a list of the same kind (PART 11 §10o).
+     */
+    protected function renderTrackedList(ListBlock $node): string
+    {
+        $previous = $this->previousList;
+        $kind = $node->getListType() === ListBlock::TYPE_ORDERED ? 'ordered' : 'bullet';
+        $this->listMarkerOverride = $previous !== null && $previous[0] === $kind
+            ? $this->otherListMarker($kind, $previous[1])
+            : null;
+        $this->previousList = null;
+        $out = $this->renderNodeBody($node);
+        $this->previousList = $out === '' ? $previous : [$kind, $this->lastListMarker];
+
+        return $out;
+    }
+
+    protected function otherListMarker(string $kind, string $marker): string
+    {
+        if ($kind === 'ordered') {
+            return $marker === '.' ? ')' : '.';
+        }
+
+        return $marker === '-' ? '*' : '-';
     }
 
     protected function renderHeadingRef(HeadingRef $node): string
@@ -1306,12 +1479,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $rendered = $nodes === null
             ? $this->escapeText($label)
             : $this->renderDerivedLabel($nodes);
-        if (!$this->chargeExpansion($rendered)) {
+        // Charged as the characters it resolves to: a sentinel is three bytes
+        // standing for one.
+        if (!$this->chargeExpansion(strtr($rendered, $this->sentinelCharacters()))) {
             $rendered = $this->escapeText($target);
         }
 
-        if (isset($this->headingIds[$id])) {
-            return '[' . $rendered . '](' . $this->markdownFragmentDestination($id) . ')';
+        if (isset($this->gfmSlugs[$id])) {
+            return '[' . $rendered . '](#' . $this->gfmSlugs[$id] . ')';
         }
 
         return $rendered;
@@ -1840,7 +2015,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function flankCharacter(string $character): string
     {
-        foreach ([$this->narrowedSentinels, $this->authoredSentinels, $this->authoredKeptSentinels] as $map) {
+        foreach ([$this->narrowedSentinels, $this->authoredSentinels, $this->authoredKeptSentinels, $this->lookaheadSentinels] as $map) {
             $found = array_search($character, $map, true);
             if ($found !== false) {
                 return (string)$found;
@@ -1902,10 +2077,24 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $codeFence = 0;
         $lines = explode("\n", $text);
-        foreach ($lines as &$line) {
+        $bare = $this->sentinelCharacters();
+        $first = true;
+        foreach ($lines as $lineIndex => &$line) {
+            $atFirst = $first;
+            $first = false;
             if ($codeFence === 0) {
-                $line = (string)preg_replace('/^([ \t]{0,3})([-+])(?=[ \t])/', '$1\\\\$2', $line);
-                $line = (string)preg_replace('/^([ \t]{0,3}\d{1,9})([.)])(?=[ \t])/', '$1\\\\$2', $line);
+                // PART 11 §10m: a reader strips edge whitespace anyway, except
+                // where four columns of it open indented code.
+                $line = ltrim($line, " \t");
+                if ($line === '') {
+                    // A line trimming empties is dropped, not written: an empty
+                    // line would end the paragraph (PART 11 §10m).
+                    unset($lines[$lineIndex]);
+                    $first = $atFirst;
+
+                    continue;
+                }
+                $line = $this->protectLineShape($line, $atFirst, $bare);
             }
 
             $length = strlen($line);
@@ -1932,10 +2121,64 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 }
                 $i += $run;
             }
+
+            if ($codeFence === 0) {
+                // Two trailing spaces before a line ending are a hard break. A
+                // hard-break backslash stays last on its line.
+                $line = rtrim($line, " \t");
+                $line = (string)preg_replace('/(?<!\\\\)[ \t]+(\\\\)$/', '$1', $line);
+            }
         }
         unset($line);
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Keep one paragraph line, already trimmed on the left, from reading as a
+     * list item, a block quote, a thematic break or a setext underline (PART 11
+     * §8a M1c, §8d, §8g).
+     *
+     * @param string $line
+     * @param bool $first Whether this is the paragraph's first line.
+     * @param array<string, string> $bare Sentinel to the character it stands for.
+     */
+    protected function protectLineShape(string $line, bool $first, array $bare): string
+    {
+        $line = (string)preg_replace('/^([-+])(?=[ \t])/', '\\\\$1', $line);
+        $line = (string)preg_replace('/^(\d{1,9})([.)])(?=[ \t])/', '$1\\\\$2', $line);
+        $line = (string)preg_replace('/^>/', '\\\\>', $line);
+
+        $view = strtr($line, $bare);
+        if (preg_match('/^([-_*])[ \t]*(?:\1[ \t]*){2,}$/', $view) === 1) {
+            return $this->escapeFirstCharacter($line);
+        }
+        if (!$first && preg_match('/^(?:=+|-+)[ \t]*$/', $view) === 1) {
+            return '\\' . $line;
+        }
+        if ($first && preg_match('/^[-+][ \t]*$/', $view) === 1) {
+            return '\\' . $line;
+        }
+        if ($first && preg_match('/^\d{1,9}[.)][ \t]*$/', $view) === 1) {
+            return (string)preg_replace('/^(\d{1,9})/', '$1\\\\', $line);
+        }
+
+        return $line;
+    }
+
+    /**
+     * Escape a line's first character: ASCII punctuation, or the sentinel
+     * standing for one.
+     */
+    protected function escapeFirstCharacter(string $line): string
+    {
+        foreach ($this->narrowedSentinels as $char => $sentinel) {
+            if (str_starts_with($line, $sentinel)) {
+                return '\\' . $char . substr($line, strlen($sentinel));
+            }
+        }
+
+        return '\\' . $line;
     }
 
     /**
@@ -1979,6 +2222,68 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
     }
 
+    /**
+     * Give every heading this target writes its GFM slug, in written order
+     * (PART 11 §11 G1-G5). A heading inside a table cell is flattened, not
+     * written as a heading, so the walk does not enter tables.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<string, int> $counts
+     * @param int $depth
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
+     */
+    protected function collectGfmSlugs(Node $node, array &$counts, int $depth = 0): void
+    {
+        if ($depth >= self::MAX_RENDER_DEPTH) {
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Markdown');
+        }
+        if ($node instanceof Table) {
+            return;
+        }
+        if ($node instanceof Heading) {
+            $id = $this->headingIdTracker->getIdForHeading($node);
+            $text = $this->headingIdTracker->getTextForId($id, $this->smartTypography)
+                ?? $this->headingIdTracker->getPlainText($node);
+            $slug = $this->gfmSlug($text, $counts);
+            if (!isset($this->gfmSlugs[$id])) {
+                $this->gfmSlugs[$id] = $slug;
+            }
+
+            return;
+        }
+        foreach ($node->getChildren() as $child) {
+            $this->collectGfmSlugs($child, $counts, $depth + 1);
+        }
+    }
+
+    /**
+     * The GFM slug of one heading's text, deduplicated against `$counts` the
+     * way github-slugger does it (PART 11 §11 G1-G5).
+     *
+     * @param string $text
+     * @param array<string, int> $counts
+     */
+    protected function gfmSlug(string $text, array &$counts): string
+    {
+        if (class_exists(Normalizer::class)) {
+            $text = (string)Normalizer::normalize($text, Normalizer::FORM_C);
+        }
+        $text = (string)preg_replace('/^\s+|\s+$/u', '', $text);
+        $text = mb_strtolower($text, 'UTF-8');
+        $text = (string)preg_replace('/[^\p{L}\p{M}\p{N}\p{Pc} -]/u', '', $text);
+        $base = str_replace(' ', '-', $text);
+
+        $slug = $base;
+        while (isset($counts[$slug])) {
+            $counts[$base] = ($counts[$base] ?? 0) + 1;
+            $slug = $base . '-' . $counts[$base];
+        }
+        $counts[$slug] = 0;
+
+        return $slug;
+    }
+
     protected function renderHeading(Heading $node): string
     {
         $prefix = str_repeat('#', $node->getLevel()) . ' ';
@@ -1989,12 +2294,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             (string)preg_replace('/[ \t\r\n]*\n[ \t\r\n]*/', ' ', $this->renderChildren($node)),
             StringUtil::TRIMMABLE_WHITESPACE,
         );
-        $id = $this->headingIdTracker->getIdForHeading($node);
-        // A referenced heading carries an explicit `{#id}` (pandoc/kramdown) so
-        // the `[label](#id)` link pointing at it resolves to a real anchor.
-        $suffix = isset($this->referencedHeadingIds[$id]) ? ' {#' . $id . '}' : '';
 
-        return $prefix . ($suffix === '' ? $this->keepTrailingHashRun($text) : $text) . $suffix . "\n\n";
+        // No `{#id}` suffix: GFM has no heading-id syntax, and a link to this
+        // heading is written with its GFM slug instead (PART 11 §11).
+        return $prefix . $this->keepTrailingHashRun($text) . "\n\n";
     }
 
     /**
@@ -2090,6 +2393,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderList(ListBlock $node): string
     {
+        $override = $this->listMarkerOverride;
+        $this->listMarkerOverride = null;
         $this->listDepth++;
         $output = '';
         $counter = $node->getStart();
@@ -2111,18 +2416,19 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 if ($marker === '()' || $marker === null) {
                     $marker = '.';
                 }
+                $marker = $override ?? $marker;
                 $prefix = $counter . $marker . ' ';
                 $contentColumn = strlen($prefix);
                 $counter++;
             } elseif ($node->getListType() === ListBlock::TYPE_TASK) {
-                $marker = $node->getMarker() ?? '-';
+                $marker = $override ?? $node->getMarker() ?? '-';
                 $checkbox = $child->getChecked() ? '[x] ' : '[ ] ';
                 $prefix = $marker . ' ' . $checkbox;
                 // The checkbox is the item's first inline content, not part of
                 // its marker, so it does not move the content column (carve#413).
                 $contentColumn = strlen($marker) + 1;
             } else {
-                $marker = $node->getMarker() ?? '-';
+                $marker = $override ?? $node->getMarker() ?? '-';
                 $prefix = $marker . ' ';
                 $contentColumn = strlen($prefix);
             }
@@ -2161,6 +2467,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         $this->listDepth--;
+        $this->lastListMarker = $marker ?? '-';
 
         return $output . ($this->listDepth === 0 ? "\n" : '');
     }
@@ -2338,8 +2645,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDefinitionList(DefinitionList $node): string
     {
-        // Markdown doesn't have native definition lists
-        // Use HTML or approximate with bold term
+        // GFM has no definition list and reads a `: ` marker as text, so each
+        // term is a strong paragraph and each description's blocks follow it
+        // as ordinary blocks (PART 11 §10p).
         $output = '';
         foreach ($node->getChildren() as $child) {
             $output .= $this->renderNode($child);
@@ -2350,14 +2658,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDefinitionTerm(DefinitionTerm $node): string
     {
-        return $this->padOutsideOnItsOwnLine($this->renderChildren($node), '**', '<strong>', '</strong>') . "\n";
+        return $this->padOutsideOnItsOwnLine($this->renderChildren($node), '**', '<strong>', '</strong>') . "\n\n";
     }
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
         $content = $this->containerContent(fn (): string => $this->renderChildren($node));
 
-        return ':' . ($content === '' ? '' : ' ' . $content) . "\n";
+        return $content === '' ? '' : $content . "\n\n";
     }
 
     protected function renderDiv(Div $node): string
@@ -2461,7 +2769,32 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $this->tableCellDepth--;
         }
 
-        return trim($content, StringUtil::TRIMMABLE_WHITESPACE);
+        return $this->escapeCellPipes(trim($content, StringUtil::TRIMMABLE_WHITESPACE));
+    }
+
+    /**
+     * Escape every `|` a cell carries as content (PART 11 §8h): GFM splits the
+     * row on it before it reads any inline, a code span included. One already
+     * behind an odd run of backslashes is escaped once, not twice.
+     */
+    protected function escapeCellPipes(string $content): string
+    {
+        if (!str_contains($content, '|')) {
+            return $content;
+        }
+        $out = '';
+        $backslashes = 0;
+        $length = strlen($content);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $content[$i];
+            if ($char === '|' && $backslashes % 2 === 0) {
+                $out .= '\\';
+            }
+            $backslashes = $char === '\\' ? $backslashes + 1 : 0;
+            $out .= $char;
+        }
+
+        return $out;
     }
 
     protected function renderTable(Table $node): string
@@ -2478,6 +2811,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $headerCells = null;
         $bodyRows = [];
         $alignments = [];
+        $bodyAlignments = [];
+        $widest = 0;
 
         foreach ($layout['rows'] as $row) {
             $cells = [];
@@ -2523,11 +2858,30 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 }
             } else {
                 $bodyRows[] = '| ' . implode(' | ', $cells) . ' |';
+                foreach ($row['cells'] as $index => $cell) {
+                    if (
+                        !isset($bodyAlignments[$index])
+                        && $index < $row['authoredWidth']
+                        && is_array($cell)
+                        && is_string($cell['alignment'] ?? null)
+                        && $cell['alignment'] !== TableCell::ALIGN_DEFAULT
+                    ) {
+                        $bodyAlignments[$index] = $cell['alignment'];
+                    }
+                }
             }
+            $widest = max($widest, count($cells));
+        }
+
+        // PART 11 §10n: GFM reads a pipe table only below a header row, so a
+        // table without one gets an empty header as wide as its widest row.
+        if ($headerCells === null) {
+            $headerCells = array_fill(0, $widest, '');
+            $alignments = $bodyAlignments;
         }
 
         $output = '';
-        if ($headerCells !== null) {
+        if ($headerCells !== []) {
             $output .= '| ' . implode(' | ', $headerCells) . ' |' . "\n";
 
             // The delimiter promotes the header row, so PART 11 §10b requires
@@ -2733,7 +3087,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderLink(Link $node): string
     {
         $text = $this->renderChildren($node);
-        $url = $this->encodeMarkdownDestination((string)$node->getDestination());
+        $destination = (string)$node->getDestination();
+        // A fragment naming a heading this target writes goes to its GFM slug
+        // (PART 11 §11); any other destination keeps the authored one (§11a).
+        $slug = str_starts_with($destination, '#') ? ($this->gfmSlugs[substr($destination, 1)] ?? null) : null;
+        $url = $slug !== null ? '#' . $slug : $this->encodeMarkdownDestination($destination);
         $title = $node->getTitle();
 
         if ($title !== null) {
@@ -3160,7 +3518,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $text,
         ) ?? $text;
 
-        return preg_replace('/<(?=[A-Za-z\/!?])/', '\\\\<', $escaped) ?? $escaped;
+        // `<`, `&` and `!` are decided on what the EMITTED line carries after
+        // them, which a text node cannot see (PART 11 §8d-§8f).
+        return strtr($escaped, $this->lookaheadSentinels);
     }
 
     /**

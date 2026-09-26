@@ -103,11 +103,10 @@ class AnItemSBlocksSurviveTheMarkdownTargetTest extends TestCase
     {
         $written = $this->write("- outer\n\n  para\n\n  - a\n\n\n\n  - b\n");
 
-        $this->assertSame("- outer\n\n  para\n\n  - a\n  - b\n", $written);
-        // Two sibling bullet lists are one list to a reader whatever stands
-        // between them, so the separator separates nothing and only changes the
-        // merged list's tightness.
-        $this->assertSame([2, true], $this->sublistShape($written));
+        // The second sublist takes the other bullet (PART 11 §10o), so a
+        // reader keeps the two lists apart without a separator.
+        $this->assertSame("- outer\n\n  para\n\n  - a\n  * b\n", $written);
+        $this->assertSame([1, true], $this->sublistShape($written));
         $this->assertSame([2, false], $this->sublistShape("- outer\n\n  para\n\n  - a\n\n  - b\n"));
     }
 

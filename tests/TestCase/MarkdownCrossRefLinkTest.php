@@ -24,8 +24,9 @@ class MarkdownCrossRefLinkTest extends TestCase
     {
         $out = $this->md("# Installation\n\nSee </#installation> for setup.\n");
 
-        $this->assertStringContainsString('# Installation {#Installation}', $out);
-        $this->assertStringContainsString('[Installation](#Installation)', $out);
+        // No `{#id}` suffix: the link takes the heading's GFM slug (PART 11 §11).
+        $this->assertStringContainsString("# Installation\n", $out);
+        $this->assertStringContainsString('[Installation](#installation)', $out);
     }
 
     public function testUnreferencedHeadingHasNoId(): void
@@ -40,15 +41,15 @@ class MarkdownCrossRefLinkTest extends TestCase
     {
         $out = $this->md("See </#setup>.\n\n# Setup\n");
 
-        $this->assertStringContainsString('[Setup](#Setup)', $out);
-        $this->assertStringContainsString('# Setup {#Setup}', $out);
+        $this->assertStringContainsString('[Setup](#setup)', $out);
+        $this->assertStringContainsString("# Setup\n", $out);
     }
 
     public function testCollapsedReferenceToHeadingEmitsTargetHeadingId(): void
     {
         $out = $this->md("See [name][]\n\n# Name");
 
-        $this->assertSame("See [name](#Name)\n\n# Name {#Name}\n", $out);
+        $this->assertSame("See [name](#name)\n\n# Name\n", $out);
     }
 
     public function testExplicitHeadingIdIsUsedForTheAnchor(): void
@@ -57,8 +58,10 @@ class MarkdownCrossRefLinkTest extends TestCase
         // (djot-strict: a heading line carries no trailing attribute block).
         $out = $this->md("{#foo}\n# Title\n\nSee </#foo>.\n");
 
-        $this->assertStringContainsString('# Title {#foo}', $out);
-        $this->assertStringContainsString('[Title](#foo)', $out);
+        // The explicit id recognizes the reference; the destination is the
+        // slug a GFM reader derives from the heading text.
+        $this->assertStringContainsString("# Title\n", $out);
+        $this->assertStringContainsString('[Title](#title)', $out);
     }
 
     public function testFigureCaptionCrossrefStaysPlainText(): void
@@ -93,8 +96,8 @@ class MarkdownCrossRefLinkTest extends TestCase
         // the link anchors, and the id derives from the heading line alone.
         $out = $this->md("# Foo\nbar\n\nSee </#foo>.\n");
 
-        $this->assertStringContainsString('# Foo {#Foo}', $out);
-        $this->assertStringContainsString('[Foo](#Foo)', $out);
+        $this->assertStringContainsString("# Foo\n", $out);
+        $this->assertStringContainsString('[Foo](#foo)', $out);
         $this->assertStringContainsString("\n\nbar\n", $out);
     }
 
