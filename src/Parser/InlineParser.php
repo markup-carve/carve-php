@@ -2453,7 +2453,8 @@ class InlineParser
                 }
 
                 // Store original bracket content before normalization
-                $originalRefBracket = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
+                $originalRefBracket = str_replace("\0", "\u{00A0}", substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1));
+                $ref = str_replace("\0", "\u{00A0}", $ref);
 
                 // THE LABEL IS PARSED ONCE, HERE. Both branches below need the
                 // bracket text as inline nodes, and the heading-index retry
@@ -2536,7 +2537,7 @@ class InlineParser
                     // The authored source, as on the unresolved branch: §3a asks
                     // for `ref` AND `rawRef` beside the destination, and without
                     // this a resolved reference published half the pair.
-                    $link->setRawReferenceLabel(substr($text, $pos, $endPos - $pos));
+                    $link->setRawReferenceLabel(str_replace("\0", "\u{00A0}", substr($text, $pos, $endPos - $pos)));
 
                     return [
                         'node' => $link,
@@ -2571,7 +2572,7 @@ class InlineParser
                 if ($endPos < $length && $text[$endPos] === '{') {
                     $endPos = $this->applyConsecutiveAttributes($link, $text, $endPos);
                 }
-                $link->setRawReferenceLabel(substr($text, $pos, $endPos - $pos));
+                $link->setRawReferenceLabel(str_replace("\0", "\u{00A0}", substr($text, $pos, $endPos - $pos)));
 
                 return [
                     'node' => $link,

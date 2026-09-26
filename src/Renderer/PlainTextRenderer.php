@@ -593,7 +593,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
             $text .= $this->renderNode($node);
         }
 
-        return $text;
+        return str_replace("\0", ' ', $text);
     }
 
     protected function renderParagraph(Paragraph $node): string

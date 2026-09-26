@@ -5091,7 +5091,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!$sanitizeBlank) {
             $text = $this->escapeDestinationEscapes($text);
         }
-        $text = (string)preg_replace_callback('/\s/u', static fn (array $m): string => $m[0] === ' ' ? '%20' : sprintf('%%%02X', ord($m[0])), $text);
+        $text = (string)preg_replace_callback('/\s/u', static fn (array $m): string => rawurlencode($m[0]), $text);
 
         return (string)preg_replace_callback('/[()]/', static fn (array $m): string => $sanitizeBlank ? ($m[0] === '(' ? '%28' : '%29') : $m[0], $text);
     }

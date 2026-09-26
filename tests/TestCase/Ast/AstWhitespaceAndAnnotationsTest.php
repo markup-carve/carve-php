@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\AnnotationRanges;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\TestCase;
 
 final class AstWhitespaceAndAnnotationsTest extends TestCase
@@ -37,6 +38,30 @@ final class AstWhitespaceAndAnnotationsTest extends TestCase
         ]);
         $source = CarveConverter::carve()->render($doc);
         self::assertSame("<p><span class=\"gap\">&nbsp;</span></p>\n", CarveConverter::create()->convert($source));
+    }
+
+    public function testLineBlockReferenceFieldsContainNoInternalMarkers(): void
+    {
+        $source = "::: |\n  a [x  y][r  e]\n:::\n";
+        $converter = CarveConverter::create();
+        $doc = $converter->parse($source);
+        $ast = (new AstCodec())->encode($doc);
+        self::assertStringNotContainsString('\\u0000', json_encode($ast, JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString("\0", $converter->render($doc));
+        self::assertStringNotContainsString("\0", CarveConverter::carve()->render($doc));
+    }
+
+    public function testLineBlockDestinationsEncodeCompleteUnicodeCharacters(): void
+    {
+        $doc = CarveConverter::create()->parse("::: |\n  a [t](x  y)\n:::\n");
+        self::assertStringContainsString('(x%C2%A0%C2%A0y)', CarveConverter::carve()->render($doc));
+    }
+
+    public function testPlainInlineFragmentsResolveGeneratedSpaces(): void
+    {
+        $doc = CarveConverter::create()->parse('a\\ b');
+        $renderer = new PlainTextRenderer();
+        self::assertSame('a b', $renderer->renderInlineNodesFragment($doc->getChildren()[0]->getChildren()));
     }
 
     public function testSharedAnnotationProjection(): void
