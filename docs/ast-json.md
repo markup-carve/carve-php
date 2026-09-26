@@ -440,3 +440,16 @@ required.
 - **Not a security boundary.** Decoding builds a tree from whatever it is given;
   treat decoded input exactly like parsed input and apply `SafeMode` and
   `Profile` when rendering. See [security.md](security.md).
+
+### Whitespace and annotation offsets
+
+An escaped space produces a `non_breaking_space` node. Preserved line-block
+columns use the same node. Text and verbatim values keep literal Unicode,
+including U+E000. HTML renders generated spaces as `&nbsp;`; Markdown uses
+U+00A0, and plain text and ANSI use ordinary spaces. Package and envelope
+versions remain on the existing release line.
+
+Annotation offsets count Unicode codepoints in the contract's fixed field
+order. They do not depend on JSON property insertion order or source positions.
+The shared annotation fixture covers image alt text, math, breaks and reversed
+ranges.

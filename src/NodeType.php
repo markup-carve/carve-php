@@ -238,6 +238,11 @@ final class NodeType
     /**
      * @var string
      */
+    public const NON_BREAKING_SPACE = 'non_breaking_space';
+
+    /**
+     * @var string
+     */
     public const SOFT_BREAK = 'soft_break';
 
     /**
@@ -432,6 +437,7 @@ final class NodeType
             self::CODE,
             self::LINK,
             self::IMAGE,
+            self::NON_BREAKING_SPACE,
             self::SOFT_BREAK,
             self::HARD_BREAK,
             self::RAW_INLINE,

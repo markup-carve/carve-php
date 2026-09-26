@@ -41,6 +41,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
@@ -644,7 +645,8 @@ class ProseMirrorRenderer
     protected function degradeToText(Node $node): ?string
     {
         return match (true) {
-            $node instanceof SoftBreak => "\n",
+            $node instanceof NonBreakingSpace => "\u{00A0}",
+                $node instanceof SoftBreak => "\n",
             $node instanceof EscapedText => $node->getContent(),
             $node instanceof RawText => $node->getContent(),
             $node instanceof SmartPunctuation => $node->getGlyph(),

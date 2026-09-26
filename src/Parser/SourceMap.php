@@ -39,7 +39,7 @@ final class SourceMap
      *
      * @var string
      */
-    public const INDENT_SENTINEL = "\u{E000}";
+    public const INDENT_SENTINEL = "\0";
 
     /**
      * @var list<array{int, int, int, int, int, int}>

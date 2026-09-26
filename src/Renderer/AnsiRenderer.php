@@ -49,6 +49,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
@@ -602,7 +603,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // The internal non-breaking-space placeholder (U+E000) collapses to an
         // ordinary space in terminal output. Done after trimming so placeholder-
         // derived leading indentation survives; a literal U+00A0 is left intact.
-        return str_replace("\u{E000}", ' ', $output);
+        return str_replace("\0", ' ', $output);
     }
 
     protected function renderNode(Node $node): string
@@ -676,6 +677,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 => $this->renderImage($node) . "\n\n",
                 $node instanceof Image => $this->renderImage($node),
                 $node instanceof HardBreak => "\n",
+                $node instanceof NonBreakingSpace => "\0",
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
                 $node instanceof Superscript => $this->renderSuperscript($node),
                 $node instanceof Subscript => $this->renderSubscript($node),

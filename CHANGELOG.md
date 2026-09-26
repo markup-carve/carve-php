@@ -15,6 +15,11 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Breaking
 
 - An empty AST `directive` now publishes `children: []` from Carve source and HTML import, matching the required field in the spec schema (markup-carve/carve#2333).
+### Changed
+
+- Escaped spaces and preserved line-block columns use `non_breaking_space` nodes. Literal U+E000 remains literal in every output; stored trees using the old marker need source reparsing to recover authored characters.
+- Annotation offsets use a fixed codepoint projection independent of JSON key order, including image alt text, math, breaks and generated spaces.
+
 
 ## [0.1.10] - 2026-09-25
 

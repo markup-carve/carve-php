@@ -9,6 +9,15 @@ use InvalidArgumentException;
 final class SidecarPath
 {
     /**
+     * @var list<string>
+     */
+    public const TEXT_FIELDS = [
+        'target', 'title', 'children', 'items', 'rows', 'cells', 'blocks', 'inline', 'content',
+        'prefix', 'locator', 'suffix', 'old', 'new', 'pairs', 'base', 'annotation', 'caption',
+        'shortCaption', 'fallback',
+    ];
+
+    /**
      * @param array<string, mixed> $ast
      * @param string $path
      * @param array<string, true>|null $validPaths
@@ -70,7 +79,7 @@ final class SidecarPath
             $paths[] = $path;
         }
         foreach ($value as $key => $child) {
-            if (is_array($child) && $key !== 'pos' && $key !== 'attrs' && $key !== 'keyValues') {
+            if (is_array($child) && (is_int($key) || in_array($key, self::TEXT_FIELDS, true))) {
                 self::walk($child, $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key), $paths);
             }
         }
