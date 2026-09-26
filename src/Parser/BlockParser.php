@@ -12669,6 +12669,15 @@ class BlockParser
             return false;
         }
 
+        // A nested term is parsed from its authored content column, but its
+        // continuation lines still carry that column's indentation here. A
+        // colon fence at that column is therefore a block opener, not folded
+        // term text (carve-php#2498).
+        $content = ltrim($line, " \t");
+        if ($content !== $line && $this->fencedBlockParser->parseDivFenceOpener($content) !== null) {
+            return true;
+        }
+
         return $this->endsHeadingOrQuote($line, $lines, $index);
     }
 
