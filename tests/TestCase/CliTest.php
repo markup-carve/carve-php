@@ -546,6 +546,15 @@ class CliTest extends TestCase
         $this->assertStringContainsString($expected, $result['out']);
     }
 
+    public function testMigrateWritesAListTableUnderTheListTableFlag(): void
+    {
+        $html = '<table><tr><td><p>a</p><p>b</p></td></tr></table>';
+        $result = $this->runCliInput(['migrate', '--from', 'html', '--list-table'], $html);
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame("::: list-table\n- - a\n\n    b\n:::\n", $result['out']);
+    }
+
     public function testMigrateRejectsAnUnknownSourceFormat(): void
     {
         $result = $this->runCliInput(['migrate', '--from', 'rst'], "hi\n");

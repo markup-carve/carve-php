@@ -2191,6 +2191,10 @@ class HtmlToCarve
                 continue;
             } elseif ($this->isDerivedImportAttribute($node, $name, $attribute->value)) {
                 continue;
+            } elseif (in_array($name, ['colspan', 'rowspan'], true) && in_array($tag, ['td', 'th'], true) && $this->cellIsWrittenAsAListTableItem($node)) {
+                // Spelled by the `^` and `<` items, which render no attribute
+                // until a processor enables ListTable.
+                continue;
             } elseif (in_array($name, $displaced, true)) {
                 continue;
             } elseif (

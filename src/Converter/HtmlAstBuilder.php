@@ -1558,20 +1558,21 @@ final class HtmlAstBuilder
     private function table(DOMElement $node): ?array
     {
         $rows = [];
-        $listRows = [];
-        $hasBlockCell = false;
+        $listForm = $this->listTableForBlockCells && $this->tableHasBlockCell($node);
+        /** @var list<list<list<array<string, mixed>>|null>> $cellBlockGrid */
+        $cellBlockGrid = [];
+        /** @var list<list<array{align: ?string, valign: ?string}|null>> $ownAlignmentGrid */
+        $ownAlignmentGrid = [];
         $keptRows = [];
         $headerRows = 0;
-        $headerCols = null;
         $sawBodyRow = false;
         /** @var array<int, int> $rowspans */
         $rowspans = [];
         foreach ($this->directTableRows($node) as $rowElement) {
             $cells = [];
-            $listCells = [];
+            $cellBlocks = [];
+            $ownAlignment = [];
             $rowIsAllHeader = true;
-            $leadingHeaderCells = 0;
-            $countingLeadingHeaders = true;
             $column = 0;
             $activeRowspans = $rowspans;
             $rowspans = [];
@@ -1585,14 +1586,10 @@ final class HtmlAstBuilder
                 }
                 $isHeader = $tag === 'th';
                 $rowIsAllHeader = $rowIsAllHeader && $isHeader;
-                if ($countingLeadingHeaders && $isHeader) {
-                    ++$leadingHeaderCells;
-                } else {
-                    $countingLeadingHeaders = false;
-                }
                 while (($activeRowspans[$column] ?? 0) > 0) {
                     $cells[] = $this->spanCell('rowspan');
-                    $listCells[] = $this->listSpanItem('^');
+                    $cellBlocks[] = null;
+                    $ownAlignment[] = null;
                     if ($activeRowspans[$column] > 1) {
                         $rowspans[$column] = $activeRowspans[$column] - 1;
                     }
@@ -1600,7 +1597,7 @@ final class HtmlAstBuilder
                 }
                 $colspan = max(1, (int)$cellElement->getAttribute('colspan'));
                 $lastColumn = $column + $colspan - 1;
-                $allowsEmptyCode = $this->listTableForBlockCells
+                $allowsEmptyCode = $listForm
                     || (!$this->hasFollowingTableCell($cellElement) && $colspan === 1);
                 foreach ($activeRowspans as $spanColumn => $remaining) {
                     if ($remaining > 0 && $spanColumn > $lastColumn) {
@@ -1612,8 +1609,8 @@ final class HtmlAstBuilder
                 $previousCellContext = $this->tableCellAllowsEmptyCode;
                 $this->tableCellAllowsEmptyCode = $allowsEmptyCode;
                 try {
-                    $cellBlocks = $this->blocks($this->children($cellElement));
-                    $children = $this->flattenBlocks($cellBlocks);
+                    $blocks = $this->blocks($this->children($cellElement));
+                    $children = $listForm ? [] : $this->flattenBlocks($blocks);
                 } finally {
                     $this->tableCellAllowsEmptyCode = $previousCellContext;
                 }
@@ -1645,29 +1642,32 @@ final class HtmlAstBuilder
                 $this->attachAttrs($cell, $cellElement, $skipAttrs);
                 $rowspan = max(1, (int)$cellElement->getAttribute('rowspan'));
                 $cells[] = $cell;
-                $listCells[] = ['type' => 'list_item', 'children' => $cellBlocks];
-                $hasBlockCell = $hasBlockCell || $this->cellHasBlockContent($cellElement);
+                $cellBlocks[] = $blocks;
+                $ownAlignment[] = ['align' => $cell['align'] ?? null, 'valign' => $cell['valign'] ?? null];
                 for ($offset = 0; $offset < $colspan; ++$offset) {
                     if ($rowspan > 1) {
                         $rowspans[$column + $offset] = $rowspan - 1;
                     }
                     if ($offset > 0) {
                         $cells[] = $this->spanCell('colspan');
-                        $listCells[] = $this->listSpanItem('<');
+                        $cellBlocks[] = null;
+                        $ownAlignment[] = null;
                     }
                 }
                 $column += $colspan;
             }
             while (($activeRowspans[$column] ?? 0) > 0) {
                 $cells[] = $this->spanCell('rowspan');
-                $listCells[] = $this->listSpanItem('^');
+                $cellBlocks[] = null;
+                $ownAlignment[] = null;
                 if ($activeRowspans[$column] > 1) {
                     $rowspans[$column] = $activeRowspans[$column] - 1;
                 }
                 ++$column;
             }
             if ($cells !== []) {
-                $blank = self::every(
+                // A list table spells a row of empty cells, so only the pipe form drops it.
+                $blank = !$listForm && self::every(
                     $cells,
                     static fn (array $cell): bool => self::cellWritesBlank($cell),
                 );
@@ -1677,38 +1677,21 @@ final class HtmlAstBuilder
                     continue;
                 }
                 $row = ['type' => 'table_row', 'cells' => $cells];
-                $this->attachAttrs($row, $rowElement);
+                if (!$listForm) {
+                    $this->attachAttrs($row, $rowElement);
+                }
                 $rows[] = $row;
                 $keptRows[] = $rowElement;
                 if ($rowIsAllHeader && !$sawBodyRow) {
                     ++$headerRows;
                 } else {
                     $sawBodyRow = true;
-                    $headerCols = $headerCols === null
-                        ? $leadingHeaderCells
-                        : min($headerCols, $leadingHeaderCells);
                 }
-                $listRows[] = [
-                    'type' => 'list_item',
-                    'children' => [
-                        [
-                            'type' => 'list',
-                            'ordered' => false,
-                            'tight' => !self::some(
-                                $listCells,
-                                static fn (mixed $item): bool => count(self::nodeList($item['children'] ?? null)) > 1,
-                            ),
-                            'items' => $listCells,
-                            ...($this->sourceSafe ? [
-
-                                'attrs' => [
-                                    'keyValues' => ["\0carve-compact-items" => '1'],
-                                    'order' => ["\0carve-compact-items"],
-                                ],
-                            ] : []),
-                        ],
-                    ],
-                ];
+                $cellBlockGrid[] = $cellBlocks;
+                $ownAlignmentGrid[] = $ownAlignment;
+            } elseif ($listForm) {
+                // A list-table row is the list of its cells, so a row with none has no spelling.
+                $this->droppedBlankTableRows[$rowElement] = null;
             }
         }
         if ($rows === []) {
@@ -1751,43 +1734,8 @@ final class HtmlAstBuilder
             unset($cell);
         }
         unset($row);
-        if ($this->listTableForBlockCells && $hasBlockCell) {
-            $admonition = [
-                'type' => 'admonition',
-                'kind' => 'list-table',
-                'children' => [
-                    [
-                        'type' => 'list',
-                        'ordered' => false,
-                        'tight' => true,
-                        'items' => $listRows,
-                    ],
-                ],
-            ];
-            foreach ($node->childNodes as $child) {
-                if ($child instanceof DOMElement && strtolower($child->tagName) === 'caption') {
-                    $title = $this->captionInlines($child);
-                    if ($title !== []) {
-                        $admonition['title'] = $title;
-                    }
-
-                    break;
-                }
-            }
-            $attrs = $this->attrs($node, ['data-djot-col-widths']);
-            if ($headerRows > 0) {
-                $attrs['keyValues']['header-rows'] = (string)$headerRows;
-                $attrs['order'][] = 'header-rows';
-            }
-            if ($headerCols !== null && $headerCols > 0) {
-                $attrs['keyValues']['header-cols'] = (string)$headerCols;
-                $attrs['order'][] = 'header-cols';
-            }
-            if ($attrs !== []) {
-                $admonition['attrs'] = $attrs;
-            }
-
-            return $admonition;
+        if ($listForm) {
+            return $this->listTableOf($node, $rows, $cellBlockGrid, $ownAlignmentGrid);
         }
         $table = ['type' => 'table', 'rows' => $rows];
         $headerAt = static function (int $r, int $c) use (&$headerAt, $rows): bool {
@@ -1991,20 +1939,174 @@ final class HtmlAstBuilder
         ];
     }
 
+    private function tableHasBlockCell(DOMElement $table): bool
+    {
+        foreach ($this->directTableRows($table) as $row) {
+            foreach ($row->childNodes as $cell) {
+                if (
+                    $cell instanceof DOMElement
+                    && in_array(strtolower($cell->tagName), ['td', 'th'], true)
+                    && self::cellHoldsBlocks($cell)
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /**
+     * The pipe-table grid, written as the `::: list-table` it is equivalent to
+     * (docs/html-import-contract.md in the spec, "A table whose cells hold
+     * blocks can be written as a list table").
+     *
+     * @param \DOMElement $node
+     * @param list<array{cells: list<array<string, mixed>>}> $rows
+     * @param list<list<list<array<string, mixed>>|null>> $cellBlockGrid
+     * @param list<list<array{align: ?string, valign: ?string}|null>> $ownAlignmentGrid
+     *
      * @return array<string, mixed>
      */
-    private function listSpanItem(string $marker): array
+    private function listTableOf(DOMElement $node, array $rows, array $cellBlockGrid, array $ownAlignmentGrid): array
     {
-        return [
-            'type' => 'list_item',
-            'children' => [
-                [
-                    'type' => 'paragraph',
-                    'children' => [['type' => 'text', 'value' => $marker]],
+        $headerAt = static function (int $r, int $c) use (&$headerAt, $rows): bool {
+            $cell = $rows[$r]['cells'][$c] ?? null;
+            if ($cell === null) {
+                return false;
+            }
+            if (($cell['span'] ?? null) === 'rowspan') {
+                return $r > 0 && $headerAt($r - 1, $c);
+            }
+            if (($cell['span'] ?? null) === 'colspan') {
+                return $c > 0 && $headerAt($r, $c - 1);
+            }
+
+            return ($cell['header'] ?? false) === true;
+        };
+        $leading = static function (int $r) use ($headerAt, $rows): int {
+            $n = 0;
+            $count = count($rows[$r]['cells']);
+            while ($n < $count && $headerAt($r, $n)) {
+                $n++;
+            }
+
+            return $n;
+        };
+        $rowCount = count($rows);
+        $headerRows = 0;
+        foreach ($rows as $row) {
+            if ($leading($headerRows) !== count($row['cells'])) {
+                break;
+            }
+            $headerRows++;
+        }
+        $headerCols = null;
+        for ($r = $headerRows; $r < $rowCount; $r++) {
+            $headerCols = $headerCols === null ? $leading($r) : min($headerCols, $leading($r));
+        }
+        $headerCols ??= 0;
+
+        $items = [];
+        foreach ($rows as $r => $row) {
+            $cellItems = [];
+            foreach ($row['cells'] as $c => $cell) {
+                $span = $cell['span'] ?? null;
+                if ($span !== null) {
+                    $cellItems[] = [
+                        'type' => 'list_item',
+                        'children' => [
+                            [
+                                'type' => 'paragraph',
+                                'children' => [['type' => 'text', 'value' => $span === 'rowspan' ? '^' : '<']],
+                            ],
+                        ],
+                    ];
+
+                    continue;
+                }
+                $children = $cellBlockGrid[$r][$c] ?? [];
+                if (
+                    count($children) === 1
+                    && ($children[0]['type'] ?? null) === 'paragraph'
+                    && !isset($children[0]['attrs'])
+                    && count(self::nodeList($children[0]['children'] ?? null)) === 1
+                ) {
+                    $text = self::nodeList($children[0]['children'])[0];
+                    $value = $text['value'] ?? null;
+                    if (($text['type'] ?? null) === 'text' && !isset($text['attrs']) && ($value === '^' || $value === '<')) {
+                        $children[0]['children'] = [['type' => 'escaped_text', 'value' => $value]];
+                    }
+                }
+                $attrs = is_array($cell['attrs'] ?? null) ? $cell['attrs'] : [];
+                $keyValues = is_array($attrs['keyValues'] ?? null) ? $attrs['keyValues'] : [];
+                $order = is_array($attrs['order'] ?? null) ? $attrs['order'] : [];
+                $put = static function (string $key, ?string $value) use (&$keyValues, &$order): void {
+                    if ($value === null || array_key_exists($key, $keyValues)) {
+                        return;
+                    }
+                    $keyValues[$key] = $value;
+                    $order[] = $key;
+                };
+                if (($cell['header'] ?? false) === true && $r >= $headerRows && $c >= $headerCols) {
+                    $put('header', '');
+                }
+                $own = $ownAlignmentGrid[$r][$c] ?? null;
+                $put('align', $own['align'] ?? null);
+                $put('valign', $own['valign'] ?? null);
+                if ($keyValues !== []) {
+                    $attrs['keyValues'] = $keyValues;
+                    $attrs['order'] = $order;
+                }
+                $item = ['type' => 'list_item', 'children' => $children];
+                if ($attrs !== []) {
+                    $item['attrs'] = $attrs;
+                }
+                $cellItems[] = $item;
+            }
+            $items[] = [
+                'type' => 'list_item',
+                'children' => [
+                    [
+                        'type' => 'list',
+                        'ordered' => false,
+                        'tight' => !self::some(
+                            $cellItems,
+                            static fn (array $item): bool => count($item['children']) > 1,
+                        ),
+                        'items' => $cellItems,
+                    ],
                 ],
-            ],
+            ];
+        }
+
+        $admonition = [
+            'type' => 'admonition',
+            'kind' => 'list-table',
+            'children' => [['type' => 'list', 'ordered' => false, 'tight' => true, 'items' => $items]],
         ];
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'caption') {
+                $title = $this->captionInlines($child);
+                if ($title !== []) {
+                    $admonition['title'] = $title;
+                }
+
+                break;
+            }
+        }
+        $attrs = $this->attrs($node, ['data-djot-col-widths']);
+        foreach (['header-rows' => $headerRows, 'header-cols' => $headerCols] as $key => $count) {
+            if ($count > 0) {
+                $attrs['keyValues'][$key] = (string)$count;
+                $attrs['order'][] = $key;
+            }
+        }
+        if ($attrs !== []) {
+            $admonition['attrs'] = $attrs;
+        }
+
+        return $admonition;
     }
 
     private function hasFollowingTableCell(DOMElement $cell): bool
@@ -2019,11 +2121,6 @@ final class HtmlAstBuilder
         }
 
         return false;
-    }
-
-    private function cellHasBlockContent(DOMElement $cell): bool
-    {
-        return self::cellHoldsBlocks($cell);
     }
 
     private static function cellHoldsBlocks(DOMElement $cell): bool

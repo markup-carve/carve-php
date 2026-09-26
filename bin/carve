@@ -302,6 +302,7 @@ function runMigrateCommand(array $argv): never
     $adapter = 'generic';
     $report = null;
     $checkLoss = false;
+    $listTable = false;
     $from = null;
     $input = null;
     for ($i = 2, $count = count($argv); $i < $count; $i++) {
@@ -320,6 +321,8 @@ function runMigrateCommand(array $argv): never
             };
         } elseif ($arg === '--check-loss') {
             $checkLoss = true;
+        } elseif ($arg === '--list-table') {
+            $listTable = true;
         } elseif (str_starts_with($arg, '-') && $arg !== '-') {
             fwrite(STDERR, "carve migrate: unknown option: $arg\n");
             exit(2);
@@ -346,7 +349,7 @@ function runMigrateCommand(array $argv): never
     $source = (string)$source;
     try {
         if ($from === 'html') {
-            $result = (new HtmlToCarve(importMode: $mode, importAdapter: $adapter))
+            $result = (new HtmlToCarve(listTableForBlockCells: $listTable, importMode: $mode, importAdapter: $adapter))
                 ->convertWithFidelityReport($source);
         } else {
             $converter = match ($from) {
@@ -713,6 +716,8 @@ Migration (other markup to Carve, on stdout):
                           (roundtrip is for trusted input only: it reads the
                           source back out of the sidecar attributes)
   migrate --adapter NAME  HTML only: the source generator (default generic)
+  migrate --list-table    HTML only: write a table whose cells hold blocks as
+                          ::: list-table instead of flattening its cells
   migrate --report FILE   write the v2 fidelity report as JSON (- is stderr)
   migrate --check-loss    exit 1 for degraded or dropped content
 

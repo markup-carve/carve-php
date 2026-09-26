@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class HtmlImportReportTest extends TestCase
 {
@@ -111,6 +112,32 @@ class HtmlImportReportTest extends TestCase
         new HtmlToCarve(importMode: 'unknown');
     }
 
+    /**
+     * The import options a fixture names in `options.json`, keyed by the
+     * JavaScript option names, which are also this constructor's.
+     *
+     * @throws \RuntimeException
+     *
+     * @return array<string, bool>
+     */
+    private static function fixtureOptions(string $fixture): array
+    {
+        $path = $fixture . '/options.json';
+        if (!is_file($path)) {
+            return [];
+        }
+        $named = json_decode((string)file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        $options = [];
+        foreach ((array)$named as $key => $value) {
+            if ($key !== 'listTableForBlockCells' || !is_bool($value)) {
+                throw new RuntimeException(basename($fixture) . ': unknown import option ' . $key);
+            }
+            $options[$key] = $value;
+        }
+
+        return $options;
+    }
+
     public function testSharedContractFixtures(): void
     {
         $root = dirname(__DIR__, 2) . '/spec/tests/html-import';
@@ -128,8 +155,9 @@ class HtmlImportReportTest extends TestCase
             $expectedReport = json_decode($reportJson, true, flags: JSON_THROW_ON_ERROR);
             $expectedAst = json_decode($astJson, true, flags: JSON_THROW_ON_ERROR);
 
-            $result = (new HtmlToCarve())->convertWithReport($html);
-            $astResult = (new HtmlToCarve())->convertToAstWithReport($html);
+            $options = self::fixtureOptions($fixture);
+            $result = (new HtmlToCarve(...$options))->convertWithReport($html);
+            $astResult = (new HtmlToCarve(...$options))->convertToAstWithReport($html);
             $actual = $result->report()['diagnostics'];
             $ahead = self::AHEAD_OF_PIN[basename($fixture)] ?? null;
             if ($ahead !== null && array_key_exists('carve', $ahead)) {

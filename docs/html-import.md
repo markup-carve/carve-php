@@ -20,6 +20,18 @@ exits with status 1 for degraded or dropped findings. The diagnostic cap replace
 the last report row with `diagnostics-truncated`; conversion still returns its
 output. With a cap of zero, a report with any finding contains only that marker.
 
+A pipe-table cell is one line, so by default a cell holding a list, a code block
+or several paragraphs is flattened to its text. `listTableForBlockCells: true`
+(CLI: `--list-table`) writes such a table as a `::: list-table`, whose cells are
+list items and keep their blocks; a table whose cells are all inline keeps the
+pipe form. It is off by default because ListTable is an optional extension:
+render the result with `ListTableExtension` enabled, or the table shows as a
+nested list. The Markdown target writes a list table as a pipe table either way.
+
+~~~ php
+$carve = (new HtmlToCarve(listTableForBlockCells: true))->convert($html);
+~~~
+
 When trusted `data-djot-src` returns stored Carve source verbatim, the report has
 no diagnostics. The HTML descendants are not imported in that path.
 
