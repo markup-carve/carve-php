@@ -558,6 +558,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     public function render(Document $document): string
     {
+        $document = $this->withTextAsOneRun($document);
         // Choose the sentinels before anything is rendered, so both escape passes
         // below agree on them.
         $this->verbatimSentinels = $this->pickVerbatimSentinels($this->collectStrings($document));
@@ -3760,6 +3761,96 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof SmallCaps => $this->renderSmallCaps($node),
             default => $this->renderInlines($node->getChildren()),
         };
+    }
+
+    /**
+     * The document with every stretch of adjacent text nodes merged into one,
+     * ruby flattened first as the writer writes it, or the document itself
+     * when nothing merges.
+     *
+     * PART 11 section 2: adjacent text is one run, so where a tree splits text
+     * cannot decide which character carries an escape (`x (r` beside `) y` is
+     * `x \(r) y`, as the single node is).
+     */
+    protected function withTextAsOneRun(Document $document): Document
+    {
+        if (!self::splitsText($document)) {
+            return $document;
+        }
+        $copy = clone $document;
+        $this->mergeText($copy);
+
+        return $copy;
+    }
+
+    private static function splitsText(Node $node): bool
+    {
+        $previousIsText = false;
+        foreach ($node->getChildren() as $child) {
+            $isText = $child::class === Text::class && !$child->hasRenderHints();
+            if ($child instanceof Ruby || ($isText && $previousIsText) || self::splitsText($child)) {
+                return true;
+            }
+            $previousIsText = $isText;
+        }
+
+        return false;
+    }
+
+    private function mergeText(Node $node): void
+    {
+        $children = $node->getChildren();
+        $flattened = [];
+        $changed = false;
+        foreach ($children as $child) {
+            if (!$child instanceof Ruby) {
+                $flattened[] = $child;
+
+                continue;
+            }
+            $changed = true;
+            $this->recordRubyFlattened($child);
+            $inlines = $child->flattenedInlines();
+            if ($child->getAttributes() === []) {
+                array_push($flattened, ...$inlines);
+
+                continue;
+            }
+            $span = new Span();
+            $span->setAttributesWithOrder($child->getAttributes(), $child->getAttributeOrder());
+            $span->setChildren($inlines);
+            $flattened[] = $span;
+        }
+        // Each run's fragments are joined once, where the run ends: joining at
+        // every node would copy the growing prefix each time. The trailing
+        // null ends the last run.
+        $merged = [];
+        $run = [];
+        foreach ([...$flattened, null] as $child) {
+            // A render hint names a character by its place in its own node, so
+            // a hinted node keeps its boundaries.
+            if ($child !== null && $child::class === Text::class && !$child->hasRenderHints()) {
+                $run[] = $child;
+
+                continue;
+            }
+            if (count($run) > 1) {
+                $merged[] = new Text(implode('', array_map(static fn (Text $text): string => $text->getContent(), $run)));
+                $changed = true;
+            } elseif ($run !== []) {
+                $merged[] = $run[0];
+            }
+            $run = [];
+            if ($child !== null) {
+                $merged[] = $child;
+            }
+        }
+        if ($changed) {
+            $node->setChildren($merged);
+        }
+        foreach ($node->getChildren() as $child) {
+            $this->mergeText($child);
+        }
     }
 
     protected function renderRuby(Ruby $node): string
