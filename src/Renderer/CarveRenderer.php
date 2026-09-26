@@ -84,6 +84,7 @@ use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
 use ReflectionObject;
+use stdClass;
 use Throwable;
 
 /**
@@ -251,6 +252,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @var array{tree: mixed}|null
      */
     protected ?array $treeCache = null;
+
+    /**
+     * Whether a narrowing candidate re-parsed to the conservative tree, keyed
+     * by a hash of its bytes. The halving and the sweep re-render states they
+     * already measured, and parsing is pure, so the verdict cannot change.
+     *
+     * @var array<string, bool>
+     */
+    protected array $candidateVerdicts = [];
+
+    /**
+     * @var array<string, array<string, \ReflectionProperty>>
+     */
+    protected array $canonicalProperties = [];
 
     /**
      * How many more narrowing renders the current document may pay for.
@@ -539,14 +554,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // document. PART 11 section 2b says how far that fallback actually
         // reaches: the smallest unit whose minimal form fails, and section 2's
         // own test everywhere else.
-        return $this->narrowEscalation($document, $conservative);
+        return $this->narrowEscalation($document, $conservative, $minimal);
     }
 
     /**
      * The conservative form of the units that need it, and the minimal form of
      * every other unit (PART 11 section 2b).
      */
-    protected function narrowEscalation(Document $document, string $conservative): string
+    protected function narrowEscalation(Document $document, string $conservative, ?string $minimal = null): string
     {
         $conservativeTree = $this->canonicalTree($conservative);
         // Null answers "cannot tell", exactly as it does for the minimal form:
@@ -566,6 +581,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $escalated[spl_object_id($unit)] = true;
         }
         $this->escalatedUnits = $escalated;
+        $this->candidateVerdicts = [$this->candidateKey($conservative) => true];
+        if ($minimal !== null) {
+            // render() narrows only after the minimal form failed to hold.
+            $this->candidateVerdicts[$this->candidateKey($minimal)] = false;
+        }
 
         try {
             // THE CONTROL RENDER LOGS WHICH UNITS THE WRITER ACTUALLY ASKS
@@ -620,7 +640,34 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $best;
         } finally {
             $this->escalatedUnits = null;
+            $this->candidateVerdicts = [];
         }
+    }
+
+    /**
+     * Whether `$candidate` re-parses to `$conservativeTree`, parsing each
+     * distinct candidate once per narrowing.
+     *
+     * @param string $candidate
+     * @param array{tree: mixed} $conservativeTree
+     */
+    protected function candidateHolds(string $candidate, array $conservativeTree): bool
+    {
+        $key = $this->candidateKey($candidate);
+        if (!isset($this->candidateVerdicts[$key])) {
+            $candidateTree = $this->canonicalTree($candidate);
+            // Loose, because escapingIsRedundant() compares the same trees the
+            // same way: two spellings of one document differ in field ORDER,
+            // not in content.
+            $this->candidateVerdicts[$key] = $candidateTree !== null && $candidateTree == $conservativeTree;
+        }
+
+        return $this->candidateVerdicts[$key];
+    }
+
+    protected function candidateKey(string $candidate): string
+    {
+        return strlen($candidate) . ':' . hash('xxh128', $candidate);
     }
 
     /**
@@ -647,12 +694,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             unset($this->escalatedUnits[spl_object_id($unit)]);
         }
         $candidate = $this->renderSelectively($document);
-        $candidateTree = $this->canonicalTree($candidate);
-        // Loose, because escapingIsRedundant() compares the same trees the same
-        // way: two spellings of one document differ in field ORDER, not in
-        // content, and a stricter comparison would reject relaxations that are
-        // in fact the same tree.
-        if ($candidateTree !== null && $candidateTree == $conservativeTree) {
+        if ($this->candidateHolds($candidate, $conservativeTree)) {
             $best = $candidate;
 
             return;
@@ -793,10 +835,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $this->relaxedOccurrences[$key] = true;
         }
         $candidate = $this->renderSelectively($document);
-        $candidateTree = $this->canonicalTree($candidate);
-        // Loose, for the reason relaxUnits() states: two spellings of one
-        // document differ in field ORDER, not in content.
-        if ($candidateTree !== null && $candidateTree == $conservativeTree) {
+        if ($this->candidateHolds($candidate, $conservativeTree)) {
             $best = $candidate;
 
             return;
@@ -1128,15 +1167,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         if (is_object($value)) {
-            $ref = new ReflectionObject($value);
-            $class = $value instanceof EscapedText ? Text::class : $ref->getName();
-            $out = ['__class' => $class];
-            foreach ($ref->getProperties() as $property) {
-                $name = $property->getName();
-                if ($name === 'parent' || $name === 'sourceLength' || $name === 'ingestPayloadLength') {
-                    continue;
-                }
-                $out[$name] = $this->canonicalizeAst($property->getValue($value));
+            $name = $value::class;
+            // A stdClass carries only dynamic properties, which differ per object.
+            $properties = $value instanceof stdClass
+                ? $this->canonicalPropertiesOf($value)
+                : $this->canonicalProperties[$name] ??= $this->canonicalPropertiesOf($value);
+            $out = ['__class' => $value instanceof EscapedText ? Text::class : $name];
+            foreach ($properties as $propertyName => $property) {
+                $out[$propertyName] = $this->canonicalizeAst($property->getValue($value));
             }
             ksort($out);
 
@@ -1144,6 +1182,23 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $value;
+    }
+
+    /**
+     * @return array<string, \ReflectionProperty>
+     */
+    protected function canonicalPropertiesOf(object $value): array
+    {
+        $properties = [];
+        foreach ((new ReflectionObject($value))->getProperties() as $property) {
+            $name = $property->getName();
+            if ($name === 'parent' || $name === 'sourceLength' || $name === 'ingestPayloadLength') {
+                continue;
+            }
+            $properties[$name] = $property;
+        }
+
+        return $properties;
     }
 
     /**
