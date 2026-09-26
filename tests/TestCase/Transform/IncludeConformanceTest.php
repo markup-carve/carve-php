@@ -46,6 +46,10 @@ class IncludeConformanceTest extends TestCase
      * name, each entry carries the reason it is expected to differ. Empty: php
      * matches the reference on every vector.
      *
+     * A row here is skipped by testVector and re-run by
+     * testEveryKnownDifferenceStillDiffers(), which fails the moment the vector
+     * stops differing, so the entry cannot outlive the difference it excuses.
+     *
      * @var array<string, string>
      */
     protected const KNOWN_DIFFERENCES = [];
@@ -79,6 +83,19 @@ class IncludeConformanceTest extends TestCase
     }
 
     /**
+     * @return array<string, array<string, mixed>>
+     */
+    protected static function vectorsByName(): array
+    {
+        $byName = [];
+        foreach (self::vectorProvider() as [$vector]) {
+            $byName[(string)$vector['name']] = $vector;
+        }
+
+        return $byName;
+    }
+
+    /**
      * @param array<string, mixed> $vector
      */
     #[DataProvider('vectorProvider')]
@@ -89,57 +106,112 @@ class IncludeConformanceTest extends TestCase
             $this->markTestSkipped('Known cross-engine difference: ' . self::KNOWN_DIFFERENCES[$name]);
         }
 
-        /** @var array<string, mixed> $expected */
-        $expected = $vector['expected'];
-        $result = $this->runVector($vector);
-
-        $this->assertSame(
-            $this->normalizeHtml((string)$expected['html']),
-            $this->normalizeHtml((string)$result['html']),
-            "{$name}: html mismatch",
-        );
-        $this->assertSame($expected['fmt'], $result['fmt'], "{$name}: fmt mismatch");
-        if (isset($expected['flattened'])) {
-            $this->assertArrayHasKey('flattened', $result, "{$name}: no flattened output produced");
-            $this->assertSame($expected['flattened'], $result['flattened'], "{$name}: flattened mismatch");
+        foreach ($this->comparisons($vector, $this->runVector($vector)) as $comparison) {
+            $this->assertSame($comparison['expected'], $comparison['actual'], "{$name}: {$comparison['label']}");
         }
-        if (isset($expected['carveTarget'])) {
-            $this->assertArrayHasKey('carveTarget', $result, "{$name}: no carveTarget produced");
-            $this->assertSame(
-                $expected['carveTarget'],
-                $result['carveTarget'],
-                "{$name}: the carve target expanded (I15)",
+    }
+
+    /**
+     * A declared difference that no longer describes this engine hides a vector
+     * that passes, so the row expires with the difference: this fails naming the
+     * entry the moment every golden on its vector agrees again.
+     */
+    public function testEveryKnownDifferenceStillDiffers(): void
+    {
+        $this->addToAssertionCount(1);
+        $vectors = self::vectorsByName();
+        foreach (self::KNOWN_DIFFERENCES as $name => $reason) {
+            $this->assertArrayHasKey($name, $vectors, "Known difference names no vector: {$name}");
+            $differing = [];
+            foreach ($this->comparisons($vectors[$name], $this->runVector($vectors[$name])) as $comparison) {
+                if ($comparison['expected'] !== $comparison['actual']) {
+                    $differing[] = $comparison['label'];
+                }
+            }
+            $this->assertNotSame(
+                [],
+                $differing,
+                "{$name} now matches the reference on every golden - delete its KNOWN_DIFFERENCES entry ({$reason})",
             );
         }
-        $this->assertSame($expected['warnings'], $result['warnings'], "{$name}: warnings mismatch");
-        $this->assertSame($expected['dependencies'], $result['dependencies'], "{$name}: dependencies mismatch");
+    }
+
+    /**
+     * Every golden comparison one vector states, as label/expected/actual
+     * triples. Both halves of the guard read this one list, so the staleness
+     * half cannot judge a row against less than testVector asserts.
+     *
+     * @param array<string, mixed> $vector
+     * @param array<string, mixed> $result
+     *
+     * @return list<array{label: string, expected: mixed, actual: mixed}>
+     */
+    protected function comparisons(array $vector, array $result): array
+    {
+        /** @var array<string, mixed> $expected */
+        $expected = $vector['expected'];
+
+        $out = [
+            [
+                'label' => 'html mismatch',
+                'expected' => $this->normalizeHtml((string)$expected['html']),
+                'actual' => $this->normalizeHtml((string)$result['html']),
+            ],
+            ['label' => 'fmt mismatch', 'expected' => $expected['fmt'], 'actual' => $result['fmt']],
+        ];
+        if (isset($expected['flattened'])) {
+            $out[] = [
+                'label' => 'flattened mismatch',
+                'expected' => $expected['flattened'],
+                'actual' => $result['flattened'] ?? null,
+            ];
+        }
+        if (isset($expected['carveTarget'])) {
+            $out[] = [
+                'label' => 'the carve target expanded (I15)',
+                'expected' => $expected['carveTarget'],
+                'actual' => $result['carveTarget'] ?? null,
+            ];
+        }
+        $out[] = ['label' => 'warnings mismatch', 'expected' => $expected['warnings'], 'actual' => $result['warnings']];
+        $out[] = [
+            'label' => 'dependencies mismatch',
+            'expected' => $expected['dependencies'],
+            'actual' => $result['dependencies'],
+        ];
 
         // I7 no-leak: a raw resolver error (or absolute path) must never reach a
         // warning message, regardless of wording.
-        foreach ((array)($vector['forbiddenSubstrings'] ?? []) as $forbidden) {
-            foreach ($result['rawWarningMessages'] as $message) {
-                $this->assertStringNotContainsString(
-                    (string)$forbidden,
-                    $message,
-                    "{$name}: warning message leaked " . json_encode($forbidden) . ' (I7)',
-                );
+        $forbidden = (array)($vector['forbiddenSubstrings'] ?? []);
+        if ($forbidden !== []) {
+            $leaked = [];
+            foreach ($forbidden as $substring) {
+                foreach ((array)$result['rawWarningMessages'] as $message) {
+                    if (str_contains((string)$message, (string)$substring)) {
+                        $leaked[] = (string)$substring;
+                    }
+                }
             }
+            $out[] = ['label' => 'warning messages leaked (I7)', 'expected' => [], 'actual' => $leaked];
         }
 
         // I12 stronger invariant: expanding the formatted document matches.
         if (!empty($vector['checkFmtExpandEquivalence'])) {
-            $this->assertArrayHasKey('formattedRun', $result, "{$name}: expected a formatted run");
-            $this->assertSame(
-                $this->normalizeHtml((string)$result['html']),
-                $this->normalizeHtml((string)$result['formattedRun']['html']),
-                "{$name}: fmt-expand html drift",
-            );
-            $this->assertSame(
-                $result['dependencies'],
-                $result['formattedRun']['dependencies'],
-                "{$name}: fmt-expand dependency drift",
-            );
+            /** @var array<string, mixed>|null $formattedRun */
+            $formattedRun = is_array($result['formattedRun'] ?? null) ? $result['formattedRun'] : null;
+            $out[] = [
+                'label' => 'fmt-expand html drift',
+                'expected' => $this->normalizeHtml((string)$result['html']),
+                'actual' => $formattedRun === null ? null : $this->normalizeHtml((string)$formattedRun['html']),
+            ];
+            $out[] = [
+                'label' => 'fmt-expand dependency drift',
+                'expected' => $result['dependencies'],
+                'actual' => $formattedRun === null ? null : $formattedRun['dependencies'],
+            ];
         }
+
+        return $out;
     }
 
     /**
