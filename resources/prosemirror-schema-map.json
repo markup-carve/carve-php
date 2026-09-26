@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the normative vocabulary from the spec (docs/profiles.md); the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently. Where two Carve types name the same ProseMirror node or mark, the one that is a vocabulary alias of the other carries `aliasOf` naming the type that owns the name; a bridge resolving a ProseMirror name back to a Carve type must not decide that by whatever order it happens to walk this file in.",
+  "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the node types of the spec's AST schema (resources/ast-schema.json), and every one of them has an entry in `types` or `unmapped`; the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently. Where two Carve types name the same ProseMirror node or mark, the one that is a vocabulary alias of the other carries `aliasOf` naming the type that owns the name; a bridge resolving a ProseMirror name back to a Carve type must not decide that by whatever order it happens to walk this file in.",
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
-    "commit": "7b5771b491346694ce1ccb01a4fdc960862410fb",
+    "commit": "f8c652df8ee7ed4d0498584655b4d0740f0f83aa",
     "refresh": "copy the complete file from carve-grammars and update commit; scripts/check-schema-map.php verifies decisions and full schema-map parity against the pin",
     "divergences": {},
     "divergencePolicy": "This vendored file must match the pinned upstream map exactly outside provenance. Change the upstream map first; local differences are not permitted.",
@@ -11,7 +11,7 @@
   },
   "attributeNaming": "An attribute that carries a CARVE concept on a node or mark Tiptap already defines is spelled with a `carve` prefix (`carveRef`, `carveTight`, `carveKeyValues`), so it cannot collide with what a stock extension - or an application - puts on the same node. On a node this schema owns, the bare name is used: `carveCitation` has `raw`, not `carveRaw`. HTML-native names (`id`, `class`, `href`, `src`, `title`, `colspan`, `start`) keep their spelling wherever they appear. Two bridges to this model disagreed on every one of these before it was written down: carve-js wrote `ref`/`delim` where carve-php wrote `carveRef`/`tight`, so a document stored by one lost its reference spelling, its list tightness and its table spans when read by the other.",
   "positionAttribute": "Every block node may carry `carvePos`, the complete Carve `pos` object. Bridges use it to restore source-ordered definitions and definitions collected from emptied container lines. CarveKit retains it as non-rendered metadata.",
-  "carveSpecVocabulary": "spec/docs/profiles.md",
+  "carveSpecVocabulary": "spec/resources/ast-schema.json",
   "proseMirrorSchema": "tiptap/carve-kit.js (CarveKit)",
   "types": {
     "document": {
@@ -294,14 +294,19 @@
     },
     "mention": {
       "kind": "node",
-      "pm": [
-        "carveMention",
-        "carveTag"
-      ],
+      "pm": "carveMention",
       "accepts": [
         "mention"
       ],
-      "notes": "carveTag for the `#tag` flavor. `accepts` lists names a bridge should ALSO recognize on the way in that CarveKit does not itself register: `mention` is stock tiptap/extension-mention, and refusing it made a plain editor fail on a concept Carve already models fully.",
+      "notes": "`accepts` lists names a bridge should ALSO recognize on the way in that CarveKit does not itself register: `mention` is stock tiptap/extension-mention, and refusing it made a plain editor fail on a concept Carve already models fully.",
+      "attrs": {
+        "id": "the name without its sigil"
+      }
+    },
+    "tag": {
+      "kind": "node",
+      "pm": "carveTag",
+      "notes": "Its own AST type, so a `carveTag` resolves back to `tag` rather than to a `mention`. Profiles still classify it as `mention` (docs/profiles.md), which is a permission rule, not a wire rule.",
       "attrs": {
         "id": "the name without its sigil"
       }
