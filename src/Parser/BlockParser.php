@@ -3588,13 +3588,8 @@ class BlockParser
             $i++;
         }
 
-        while ($contentLines && trim(end($contentLines)) === '') {
-            array_pop($contentLines);
-        }
-        while ($contentLines && IndentationHelper::isBlankLine($contentLines[0])) {
-            array_shift($contentLines);
-        }
-
+        // The body keeps its bytes: blank and whitespace-only lines, leading or
+        // trailing, are content (markup-carve/carve-php#2506).
         $content = implode("\n", $contentLines);
 
         // Comments are stored but not rendered

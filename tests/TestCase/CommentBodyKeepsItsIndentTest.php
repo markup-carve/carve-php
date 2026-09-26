@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
  * `carve fmt` round trip that silently moved the author's line one column
  * left (carve#653).
  *
- * The body still loses leading and trailing BLANK lines, which all three do.
+ * Leading and trailing BLANK lines are body bytes too (carve-php#2506).
  */
 class CommentBodyKeepsItsIndentTest extends TestCase
 {
@@ -46,9 +46,9 @@ class CommentBodyKeepsItsIndentTest extends TestCase
         $this->assertSame("x\n  y", $this->comment("%%%\nx\n  y\n%%%\n")->getContent());
     }
 
-    public function testBlankLinesAroundTheBodyAreStillDropped(): void
+    public function testBlankLinesAroundTheBodyAreKept(): void
     {
-        $this->assertSame('x', $this->comment("%%%\n\nx\n\n%%%\n")->getContent());
+        $this->assertSame("\nx\n", $this->comment("%%%\n\nx\n\n%%%\n")->getContent());
     }
 
     public function testTheWriterRoundTripsAnIndentedBody(): void
