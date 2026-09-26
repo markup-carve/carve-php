@@ -2659,7 +2659,90 @@ final class HtmlAstBuilder
             }
         }
 
-        return $this->coalesceText($out);
+        // A trusted round trip reads its own Carve source back, spaces included.
+        $keep = $this->preserveInlineWhitespace || $this->trustedRoundTrip;
+
+        return $this->coalesceText($keep ? $out : $this->hoistEdgeSpace($out));
+    }
+
+    /**
+     * A link's or span's edge whitespace stands outside it, as one space that
+     * merges with whitespace already there (markup-carve/carve#2361).
+     * Whitespace-only content stays, and so does U+00A0, which is content.
+     *
+     * @param list<array<string, mixed>> $nodes
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function hoistEdgeSpace(array $nodes): array
+    {
+        $startsBlank = static fn (?array $node): bool => ($node['type'] ?? null) === 'text'
+            && preg_match('/^[ \t]/', self::stringValue($node['value'] ?? null)) === 1;
+        $endsBlank = static fn (?array $node): bool => ($node['type'] ?? null) === 'text'
+            && preg_match('/[ \t]$/', self::stringValue($node['value'] ?? null)) === 1;
+        // Through nested inlines: a strong ending in a space already has one there.
+        $deepStartsBlank = static function (?array $node) use (&$deepStartsBlank, $startsBlank): bool {
+            if ($startsBlank($node)) {
+                return true;
+            }
+            $children = self::nodeList($node['children'] ?? null);
+
+            return $children !== [] && $deepStartsBlank($children[0]);
+        };
+        $deepEndsBlank = static function (?array $node) use (&$deepEndsBlank, $endsBlank): bool {
+            if ($endsBlank($node)) {
+                return true;
+            }
+            $children = self::nodeList($node['children'] ?? null);
+            $last = array_key_last($children);
+
+            return $last !== null && $deepEndsBlank($children[$last]);
+        };
+        $out = [];
+        $owed = false;
+        foreach ($nodes as $node) {
+            $lead = false;
+            $trail = false;
+            $children = self::nodeList($node['children'] ?? null);
+            $blankOnly = self::every($children, static fn (array $child): bool => ($child['type'] ?? null) === 'text'
+                && preg_match('/^[ \t]*$/D', self::stringValue($child['value'] ?? null)) === 1);
+            if (in_array($node['type'] ?? null, ['link', 'span'], true) && !$blankOnly) {
+                if ($startsBlank($children[0])) {
+                    $lead = true;
+                    $children[0]['value'] = preg_replace('/^[ \t]+/', '', self::stringValue($children[0]['value'])) ?? '';
+                    if ($children[0]['value'] === '') {
+                        array_shift($children);
+                    }
+                }
+                $last = array_key_last($children);
+                if ($last !== null && $endsBlank($children[$last])) {
+                    $trail = true;
+                    $children[$last]['value'] = preg_replace('/[ \t]+$/', '', self::stringValue($children[$last]['value'])) ?? '';
+                    if ($children[$last]['value'] === '') {
+                        array_pop($children);
+                    }
+                }
+                if ($lead || $trail) {
+                    $node['children'] = $children;
+                    if (isset($node['rawRef'], $node['ref'])) {
+                        $label = $this->plainInlineText($children);
+                        $ref = self::stringValue($node['ref']);
+                        $node['rawRef'] = '[' . $label . ']' . ($label === $ref ? '[]' : '[' . $ref . ']');
+                    }
+                }
+            }
+            $previous = $out === [] ? null : $out[array_key_last($out)];
+            if (($owed || $lead) && !$deepEndsBlank($previous) && !($owed && !$lead && $deepStartsBlank($node))) {
+                $out[] = ['type' => 'text', 'value' => ' '];
+            }
+            $out[] = $node;
+            $owed = $trail;
+        }
+        if ($owed) {
+            $out[] = ['type' => 'text', 'value' => ' '];
+        }
+
+        return $out;
     }
 
     /**
@@ -2696,6 +2779,9 @@ final class HtmlAstBuilder
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
         }
+        if ($tag === 'img' && self::isDroppedFormulaImage($node)) {
+            return [];
+        }
         if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-escaped')) {
             return array_map(
                 static fn (string $char): array => ['type' => 'escaped_text', 'value' => $char],
@@ -2729,7 +2815,9 @@ final class HtmlAstBuilder
             $content = $this->mathTex($node);
             if ($content === null) {
                 if ($this->importMode !== 'roundtrip') {
-                    return [];
+                    $text = self::linearMathText($node);
+
+                    return $text === null ? [] : [['type' => 'text', 'value' => $text]];
                 }
                 $html = $node->ownerDocument?->saveHTML($node);
                 $this->keepRaw($node);
@@ -3323,8 +3411,228 @@ final class HtmlAstBuilder
             }
         }
         $alttext = trim($node->getAttribute('alttext'));
+        if ($alttext !== '') {
+            return $alttext;
+        }
+        $alt = self::hiddenFormulaImageAlt($node);
 
-        return $alttext === '' ? null : $alttext;
+        return $alt === '' ? null : $alt;
+    }
+
+    /**
+     * The alt of a formula's fallback image, where the page hid the MathML so
+     * the image renders instead (markup-carve/carve#2361). Adjacency alone is
+     * no evidence.
+     */
+    public static function hiddenFormulaImageAlt(DOMElement $math): string
+    {
+        if (!self::mathIsHidden($math)) {
+            return '';
+        }
+        $image = self::fallbackImage($math);
+
+        return $image === null ? '' : trim($image->getAttribute('alt'));
+    }
+
+    /**
+     * Whether an `<img>` is the fallback image of a formula that imported as
+     * math with the image's alt as its content, so the formula imports once.
+     */
+    public static function isDroppedFormulaImage(DOMElement $image): bool
+    {
+        $alt = trim($image->getAttribute('alt'));
+        if ($alt === '') {
+            return false;
+        }
+        $previous = self::adjacentElement($image, false);
+        if ($previous === null) {
+            return false;
+        }
+        $math = strtolower($previous->tagName) === 'math' ? $previous : self::soleMath($previous);
+        if ($math === null || self::fallbackImage($math) !== $image) {
+            return false;
+        }
+
+        return self::mathTexContent($math) === $alt;
+    }
+
+    /**
+     * The TeX a `<math>` imports as, from any of the three tiers, or `''`.
+     */
+    public static function mathTexContent(DOMElement $math): string
+    {
+        foreach ($math->childNodes as $semantics) {
+            if (!$semantics instanceof DOMElement || strtolower($semantics->tagName) !== 'semantics') {
+                continue;
+            }
+            foreach ($semantics->childNodes as $annotation) {
+                if (!$annotation instanceof DOMElement || strtolower($annotation->tagName) !== 'annotation') {
+                    continue;
+                }
+                $encoding = strtolower(trim($annotation->getAttribute('encoding')));
+                if (!in_array($encoding, ['application/x-tex', 'text/x-tex', 'latex'], true)) {
+                    continue;
+                }
+                $content = trim($annotation->textContent);
+                if ($content !== '') {
+                    return $content;
+                }
+            }
+        }
+        $alttext = trim($math->getAttribute('alttext'));
+
+        return $alttext !== '' ? $alttext : self::hiddenFormulaImageAlt($math);
+    }
+
+    /**
+     * The text of a `<math>` with no TeX, when flattening cannot change its
+     * value (markup-carve/carve#2361): tokens in order, inside grouping
+     * elements only. A fraction or a script would flatten into a different
+     * number, so any other element refuses.
+     */
+    public static function linearMathText(DOMElement $math): ?string
+    {
+        $text = '';
+        $spaced = false;
+        $read = static function (iterable $nodes) use (&$read, &$text, &$spaced): bool {
+            foreach ($nodes as $node) {
+                if (self::isBlankOrComment($node)) {
+                    continue;
+                }
+                if (!$node instanceof DOMElement) {
+                    return false;
+                }
+                $tag = strtolower($node->tagName);
+                if ($tag === 'semantics') {
+                    $first = null;
+                    foreach ($node->childNodes as $child) {
+                        if (!self::isBlankOrComment($child)) {
+                            $first = $child;
+
+                            break;
+                        }
+                    }
+                    if ($first === null || !$read([$first])) {
+                        return false;
+                    }
+                } elseif (in_array($tag, ['mrow', 'mstyle', 'mpadded'], true)) {
+                    if (!$read($node->childNodes)) {
+                        return false;
+                    }
+                } elseif (in_array($tag, ['mi', 'mn', 'mo', 'mtext'], true)) {
+                    $token = '';
+                    foreach ($node->childNodes as $child) {
+                        if (!$child instanceof DOMText) {
+                            return false;
+                        }
+                        $token .= $child->textContent;
+                    }
+                    $collapsed = trim(preg_replace('/[ \t\n\r\f]+/', ' ', $token) ?? $token, ' ');
+                    // A space keeps two words or numbers apart, so 1, space, 2 is not 12.
+                    if ($spaced && preg_match('/[\p{L}\p{N}]$/u', $text) === 1 && preg_match('/^[\p{L}\p{N}]/u', $collapsed) === 1) {
+                        $text .= ' ';
+                    }
+                    $text .= $collapsed;
+                    $spaced = false;
+                } elseif ($tag === 'mspace') {
+                    $spaced = true;
+                } else {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+        return $read($math->childNodes) && $text !== '' ? $text : null;
+    }
+
+    private static function isBlankOrComment(DOMNode $node): bool
+    {
+        return $node instanceof DOMComment
+            || ($node instanceof DOMText && preg_match('/^[ \t\n\r\f]*$/D', $node->textContent) === 1);
+    }
+
+    private static function adjacentElement(DOMNode $node, bool $forward): ?DOMElement
+    {
+        $sibling = $forward ? $node->nextSibling : $node->previousSibling;
+        while ($sibling !== null && self::isBlankOrComment($sibling)) {
+            $sibling = $forward ? $sibling->nextSibling : $sibling->previousSibling;
+        }
+
+        return $sibling instanceof DOMElement ? $sibling : null;
+    }
+
+    /**
+     * The `<math>` a `<span>` holds and nothing else.
+     */
+    private static function soleMath(DOMElement $wrapper): ?DOMElement
+    {
+        if (strtolower($wrapper->tagName) !== 'span') {
+            return null;
+        }
+        $math = null;
+        foreach ($wrapper->childNodes as $child) {
+            if (self::isBlankOrComment($child)) {
+                continue;
+            }
+            if ($math !== null || !$child instanceof DOMElement || strtolower($child->tagName) !== 'math') {
+                return null;
+            }
+            $math = $child;
+        }
+
+        return $math;
+    }
+
+    /**
+     * The `<img>` that renders a formula for a reader without MathML: the
+     * next element after the `<math>`, or after a `<span>` holding only it.
+     */
+    private static function fallbackImage(DOMElement $math): ?DOMElement
+    {
+        $found = self::adjacentElement($math, true);
+        $wrapper = $math->parentNode;
+        if ($found === null && $wrapper instanceof DOMElement && self::soleMath($wrapper) === $math) {
+            $found = self::adjacentElement($wrapper, true);
+        }
+
+        return $found !== null && strtolower($found->tagName) === 'img' ? $found : null;
+    }
+
+    private static function mathIsHidden(DOMElement $math): bool
+    {
+        if (self::hiddenByStyle($math)) {
+            return true;
+        }
+        $wrapper = $math->parentNode;
+
+        return $wrapper instanceof DOMElement && self::soleMath($wrapper) === $math && self::hiddenByStyle($wrapper);
+    }
+
+    /**
+     * The effective inline `display` is `none`: the last declaration wins, an
+     * `!important` one first.
+     */
+    private static function hiddenByStyle(DOMElement $node): bool
+    {
+        $display = null;
+        $important = false;
+        foreach (explode(';', $node->getAttribute('style')) as $declaration) {
+            $parts = explode(':', $declaration, 2);
+            if (count($parts) !== 2 || strtolower(trim($parts[0])) !== 'display') {
+                continue;
+            }
+            $value = strtolower(trim($parts[1]));
+            $isImportant = preg_match('/!\s*important$/D', $value) === 1;
+            if ($important && !$isImportant) {
+                continue;
+            }
+            $display = trim((string)preg_replace('/!\s*important$/D', '', $value));
+            $important = $isImportant;
+        }
+
+        return $display === 'none';
     }
 
     /**

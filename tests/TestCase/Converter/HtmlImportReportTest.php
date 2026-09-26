@@ -43,7 +43,14 @@ class HtmlImportReportTest extends TestCase
      *
      * @var array<string, array{reason: string, carve?: string, diagnostics?: list<string>, ast?: string}>
      */
-    private const AHEAD_OF_PIN = [];
+    private const AHEAD_OF_PIN = [
+        'security' => [
+            'reason' => "markup-carve/carve#2361: a span's edge whitespace stands outside it",
+            'carve' => "safe [text]{title=lost}\n",
+            'ast' => '{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"safe "},'
+                . '{"type":"span","attrs":{"keyValues":{"title":"lost"}},"children":[{"type":"text","value":"text"}]}]}]}',
+        ],
+    ];
 
     /**
      * Shared fixtures whose direct-import tree and canonical-source exit do not
@@ -83,7 +90,7 @@ class HtmlImportReportTest extends TestCase
             '<p onclick="evil()">safe<script>alert(1)</script><span title="lost"> text</span></p>',
         );
 
-        $this->assertSame('safe[ text]{title=lost}', trim($result->value));
+        $this->assertSame('safe [text]{title=lost}', trim($result->value));
         $this->assertSame('safe', $result->mode);
         $this->assertSame(
             ['attribute-dropped', 'element-dropped'],

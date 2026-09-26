@@ -10,8 +10,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A link label keeps one edge space where it is all that separates the label
- * from its neighbor, as a formatting element does (#2094).
+ * A link label's edge space stands outside it, where it still separates the
+ * label from its neighbor (#2094, markup-carve/carve#2361).
  */
 class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
 {
@@ -21,17 +21,17 @@ class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
     public static function shapes(): array
     {
         return [
-            'a trailing space before text' => ['<p><a href="u">x </a>y</p>', "[x ](u)y\n"],
-            'a leading space after text' => ['<p>x<a href="u"> y</a></p>', "x[ y](u)\n"],
-            'a title' => ['<p><a href="u" title="t">x </a>y</p>', "[x ](u \"t\")y\n"],
-            'a full reference' => ['<p><a href="u" data-djot-ref="r">x </a>y</p>', "[x ][r]y\n\n[r]: u\n"],
-            'a collapsed reference' => ['<p><a href="u" data-djot-ref="">x </a>y</p>', "[x ][x]y\n\n[x]: u\n"],
-            'inside an emphasis' => ['<p><em><a href="u">x </a></em>y</p>', "{/[x ](u)/}y\n"],
-            'two links keep one space' => ['<p><a href="u">x </a><a href="v"> y</a></p>', "[x ](u)[y](v)\n"],
+            'a trailing space before text' => ['<p><a href="u">x </a>y</p>', "[x](u) y\n"],
+            'a leading space after text' => ['<p>x<a href="u"> y</a></p>', "x [y](u)\n"],
+            'a title' => ['<p><a href="u" title="t">x </a>y</p>', "[x](u \"t\") y\n"],
+            'a full reference' => ['<p><a href="u" data-djot-ref="r">x </a>y</p>', "[x][r] y\n\n[r]: u\n"],
+            'a collapsed reference' => ['<p><a href="u" data-djot-ref="">x </a>y</p>', "[x][] y\n\n[x]: u\n"],
+            'inside an emphasis' => ['<p><em><a href="u">x </a></em>y</p>', "{/[x](u) /}y\n"],
+            'two links keep one space' => ['<p><a href="u">x </a><a href="v"> y</a></p>', "[x](u) [y](v)\n"],
             'the neighbor has its own space' => ['<p><a href="u">x </a> y</p>', "[x](u) y\n"],
             'the block ends' => ['<p><a href="u">x </a></p>', "[x](u)\n"],
             'an unpadded collapsed reference' => ['<p><a href="u" data-djot-ref="">x</a> y</p>', "[x][] y\n\n[x]: u\n"],
-            'a strong beside a link' => ['<p><a href="u">x </a><strong> y</strong></p>', "[x ](u)*y*\n"],
+            'a strong beside a link' => ['<p><a href="u">x </a><strong> y</strong></p>', "[x](u){* y*}\n"],
             'a strong beside an autolink' => [
                 '<p><a href="https://e.test" data-djot-autolink>https://e.test </a><strong> y</strong></p>',
                 "<https://e.test>{* y*}\n",
