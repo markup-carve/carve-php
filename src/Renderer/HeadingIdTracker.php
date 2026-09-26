@@ -525,7 +525,10 @@ class HeadingIdTracker
         if ($child instanceof CaptionNumber) {
             return $child->getNumber() === null ? '' : (string)$child->getNumber();
         }
-        if ($child instanceof NonBreakingSpace || $child instanceof SoftBreak || $child instanceof HardBreak) {
+        if ($child instanceof NonBreakingSpace) {
+            return "\u{00A0}";
+        }
+        if ($child instanceof SoftBreak || $child instanceof HardBreak) {
             return ' ';
         }
         if ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {

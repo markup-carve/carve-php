@@ -209,23 +209,10 @@ class HtmlBreakGuardsAreNotFixedControlBytesTest extends TestCase
         $this->assertSame('a' . $char . "b\nc", $html);
     }
 
-    public function testU00E0IsUnchangedAndStaysTheOtherHalfOfCarve678(): void
+    public function testLiteralPrivateUseUnicodeIsPreserved(): void
     {
-        // A CONTROL against over-reach, and a boundary the picker is written to
-        // respect. U+E000 is the parser's in-band carrier for a non-breaking
-        // space, shared across the renderers, so an authored one is already
-        // conflated with a parsed nbsp before any guard runs. That is carve#678's
-        // remaining half and NOT this change: the behavior below is the same
-        // before and after.
-        //
-        // The guards start at U+E001 so they can never be the carrier, and that
-        // is intent rather than protection: a mutation starting the run at
-        // U+E000 SURVIVES the whole suite, because the carrier is a string in
-        // the tree and the scan therefore moves the run off it in every document
-        // that has one. Recorded so the next reader does not mistake the
-        // constant for the thing keeping this row green.
         $this->assertSame(
-            "<p>a&nbsp;b\nc</p>\n",
+            "<p>a\u{E000}b\nc</p>\n",
             (new CarveConverter())->convert("a\u{E000}b\nc\n"),
         );
     }

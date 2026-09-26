@@ -478,7 +478,9 @@ class CrossReferenceResolver
                 $text .= $child->getGlyph() ?? SmartPunctuation::GLYPHS[$child->getKind()] ?? $child->getContent();
             } elseif ($child instanceof EscapedText) {
                 $text .= $child->getContent();
-            } elseif ($child instanceof NonBreakingSpace || $child instanceof SoftBreak || $child instanceof HardBreak) {
+            } elseif ($child instanceof NonBreakingSpace) {
+                $text .= "\u{00A0}";
+            } elseif ($child instanceof SoftBreak || $child instanceof HardBreak) {
                 $text .= ' ';
             } elseif ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {
                 // An inline literal renders as visible prose (§27), so its

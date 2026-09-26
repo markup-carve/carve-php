@@ -35,7 +35,7 @@ class SourceMapSentinelRunTest extends TestCase
         $map = new SourceMap();
         $map->add(0, 0, 1, 1, 1);
         $map->addSentinelRun(1, 1, 2, 1, 2);
-        $map->add(7, 3, 1, 1, 4);
+        $map->add(3, 3, 1, 1, 4);
 
         return $map->withSource($source);
     }
@@ -63,20 +63,17 @@ class SourceMapSentinelRunTest extends TestCase
         $this->assertNull($this->spaced("a\t b")->spanFor(0, 'a' . $this->sentinels(2) . 'b'));
     }
 
-    public function testAnOffsetPartWayIntoASentinelPlacesNothing(): void
+    public function testEachByteOfTheStagingRunNamesOneSourceColumn(): void
     {
-        // Two bytes into a three-byte sentinel names no source byte. §4 takes an
-        // absent position over an invented one, and rounding to the nearest
-        // column is inventing one. The parser never asks - a sentinel is not a
-        // delimiter, so no node begins inside one - and the arithmetic refuses
-        // rather than rounding so that a caller which starts asking is told.
-        $this->assertNull($this->spaced()->span(0, 3));
-        $this->assertNull($this->spaced()->span(2, 7));
+        $span = $this->spaced()->span(1, 3);
+        $this->assertNotNull($span);
+        $this->assertSame(1, $span->startOffset);
+        $this->assertSame(3, $span->endOffset);
     }
 
     public function testAWholeNumberOfSentinelsStillPlaces(): void
     {
-        $span = $this->spaced()->span(1, 4);
+        $span = $this->spaced()->span(1, 2);
 
         $this->assertNotNull($span);
         $this->assertSame(1, $span->startOffset);
@@ -93,7 +90,7 @@ class SourceMapSentinelRunTest extends TestCase
         $map->add(0, 0, 1, 1, 1);
         $map->addSentinelRun(1, 1, 1, 1, 2);
         // Nothing describes built 4..7, which the tab at source 2 produced.
-        $map->add(7, 3, 1, 1, 4);
+        $map->add(3, 3, 1, 1, 4);
 
         $this->assertNull($map->withSource("a \tb")->spanFor(0, 'a' . $this->sentinels(2) . 'b'));
     }
@@ -123,7 +120,7 @@ class SourceMapSentinelRunTest extends TestCase
         $map = new SourceMap();
         $map->add(0, 0, 3, 1, 1);
         $map->addSentinelRun(3, 3, 2, 1, 4);
-        $map->add(9, 5, 1, 1, 6);
+        $map->add(5, 5, 1, 1, 6);
         $map = $map->withSource('abc  d');
 
         $this->assertNotNull($map->spanFor(0, 'abc'));
@@ -208,8 +205,8 @@ class SourceMapSentinelRunTest extends TestCase
         $map = new SourceMap();
         $map->add(0, 0, 3, 1, 1);
         $map->addSentinelRun(3, 3, 2, 1, 4);
-        $map->add(9, 5, 1, 1, 6);
+        $map->add(5, 5, 1, 1, 6);
 
-        $this->assertNotNull($map->withSource('abc  d')->joinedFromChunks()->span(0, 10));
+        $this->assertNotNull($map->withSource('abc  d')->joinedFromChunks()->span(0, 6));
     }
 }

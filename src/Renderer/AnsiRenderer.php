@@ -598,9 +598,9 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // Normalize multiple blank lines
         $output = preg_replace("/\n{3,}/", "\n\n", $output) ?? $output;
 
-        $output = trim($output) . "\n";
+        $output = trim($output, StringUtil::TRIMMABLE_WHITESPACE) . "\n";
 
-        // The internal non-breaking-space placeholder (U+E000) collapses to an
+        // The internal non-breaking-space staging marker collapses to an
         // ordinary space in terminal output. Done after trimming so placeholder-
         // derived leading indentation survives; a literal U+00A0 is left intact.
         return str_replace("\0", ' ', $output);
@@ -960,7 +960,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $marker = $this->style($bullet, self::FG_CYAN);
         }
 
-        $content = trim($this->renderChildren($node));
+        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
 
         // Handle task list items
         if ($node->isTask()) {
@@ -987,7 +987,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
-        $content = trim($this->renderChildren($node));
+        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
 
         return '  ' . $content . "\n";
     }
@@ -1052,7 +1052,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $layout = TableLayout::expand(
             $node,
             fn (TableCell $cell): array => [
-                'content' => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell)),
+                'content' => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE),
                 'isHeader' => $cell->isHeader(),
             ],
         );
@@ -1181,7 +1181,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderFootnote(Footnote $node): string
     {
         $label = $this->stripControls($node->getLabel());
-        $content = trim($this->renderChildren($node));
+        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
         // The marker as written (PART 11 §10a): the caret is the construct.
         $marker = $this->style('[^' . $label . ']', self::FG_CYAN . self::DIM);
 
@@ -1424,7 +1424,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderCaption(Caption $node): string
     {
-        $content = trim($this->renderChildren($node));
+        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
 
         return $this->style($content, self::ITALIC . self::DIM) . "\n\n";
     }

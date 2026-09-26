@@ -3046,7 +3046,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
                 if (
-                    $this->inLineBlock > 0 && $node instanceof NonBreakingSpace
+                    $this->inLineBlock > 0 && $node instanceof NonBreakingSpace && $node->getAttributes() === []
                     && ($i === 0 || ($nodes[$i - 1] ?? null) instanceof HardBreak
                         || ($nodes[$i - 1] ?? null) instanceof NonBreakingSpace
                         || ($nodes[$i + 1] ?? null) instanceof NonBreakingSpace)
@@ -3463,7 +3463,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Abbreviation => $this->escapeText($this->renderInlines($node->getChildren())),
             $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlineNoteContent($node) . ']'),
             $node instanceof FootnoteRef => $withAttrs('[^' . $this->writeFlatBracketRun($node->getLabel()) . ']'),
-            $node instanceof NonBreakingSpace => $this->verbatimSentinels[4],
+            $node instanceof NonBreakingSpace => $node->getAttributes() === []
+                ? $this->verbatimSentinels[4]
+                : $withAttrs('[' . $this->verbatimSentinels[4] . ']'),
             $node instanceof SoftBreak => "\n",
             // A line block's own spelling is decided in renderInlines(), which
             // is the only place that can see the line the break ends
@@ -4546,8 +4548,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $this->verbatimSentinels[0] => ' ',
             $this->verbatimSentinels[1] => "\t",
             $this->verbatimSentinels[2] => '',
-            // Back to the character itself - see protectVerbatim().
-
         ]);
 
         // U+E004 marks a paragraph line that must not begin at column 0. It

@@ -843,7 +843,9 @@ class InlineParser
             if ($char === "\0") {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $parent->appendChild(new NonBreakingSpace());
+                $space = new NonBreakingSpace();
+                $this->placeAt($space, $pos, $pos + 1);
+                $parent->appendChild($space);
                 $pos++;
 
                 continue;

@@ -25,6 +25,20 @@ final class AstWhitespaceAndAnnotationsTest extends TestCase
         self::assertSame($source, CarveConverter::carve()->render($converter->parse($source)));
     }
 
+    public function testAttributesOnAnIngestedSpaceSurviveSourceOutput(): void
+    {
+        $doc = (new AstCodec())->decode([
+
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                ['type' => 'paragraph', 'children' => [['type' => 'non_breaking_space', 'attrs' => ['classes' => ['gap']]]]],
+            ],
+        ]);
+        $source = CarveConverter::carve()->render($doc);
+        self::assertSame("<p><span class=\"gap\">&nbsp;</span></p>\n", CarveConverter::create()->convert($source));
+    }
+
     public function testSharedAnnotationProjection(): void
     {
         $fixture = json_decode(file_get_contents(dirname(__DIR__, 2) . '/spec/tests/fixtures/annotation-projection.json'), true, flags: JSON_THROW_ON_ERROR);

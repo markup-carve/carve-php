@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -363,29 +364,20 @@ class SourcePositionTest extends TestCase
         }
     }
 
-    public function testARewrittenRunIsPlacedOnSourceThatProducesIt(): void
+    public function testAnEscapedSpaceOwnsItsTwoSourceCharacters(): void
     {
-        // `\ ` is Carve's non-breaking-space form: two source bytes become one
-        // sentinel, so the span cannot equal the text. It is verified the other
-        // way - the source it covers, put through the same rewrite, produces it.
         $source = "10\\ kg\n";
         $document = (new BlockParser(trackPositions: true))->parse($source);
-
         foreach (self::walk($document) as $node) {
-            if (!$node instanceof Text) {
-                continue;
+            if ($node instanceof NonBreakingSpace) {
+                $pos = $node->getPos();
+                $this->assertNotNull($pos);
+                $this->assertSame('\\ ', mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset));
+
+                return;
             }
-
-            $pos = $node->getPos();
-            $this->assertNotNull($pos, 'a rewritten run should still be placed');
-            $selected = mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8');
-            $this->assertNotSame($node->getContent(), $selected, 'the span cannot equal rewritten text');
-            $this->assertSame(self::applyEscapes($selected), $node->getContent());
-
-            return;
         }
-
-        $this->fail('no text node was found');
+        $this->fail('no space node was found');
     }
 
     public function testPositionsAreOffByDefault(): void
@@ -396,68 +388,20 @@ class SourcePositionTest extends TestCase
         $this->assertNull($document->getChildren()[0]->getPos());
     }
 
-    /**
-     * The escape rewrites a buffered text run can carry: `\ ` becomes the
-     * non-breaking-space sentinel, and a backslash before ASCII punctuation
-     * becomes the punctuation alone.
-     */
-
-    /**
-     * A SPACE indent merges into its line and is placed WITH it.
-     *
-     * It used to be a node of its own, because each stanza line - in fact each
-     * whitespace-delimited segment of one - was parsed separately, and the
-     * indent was appended between those parses with a span the parser built
-     * directly. That per-segment parse is exactly what stopped an unclosed
-     * inline run at the line ending, so it is gone: the stanza is expanded and
-     * parsed once, and the placeholders arrive as ordinary text
-     * (markup-carve/carve-php#1327).
-     *
-     * The merged node then declined for a while, because the map could only say
-     * that N source bytes became N built bytes and U+E000 is three bytes where
-     * the space it replaced is one. That was a real omission rather than a §4
-     * exemption - carve-rs publishes the span, and the source under it really is
-     * the whitespace the sentinels stand for - so the map carries the rewrite
-     * now and the node is placed again (carve-php#1351).
-     *
-     * A TAB is the one that still declines, and
-     * {@see self::testATabIndentDeclinesAPosition()} keeps it declining: it
-     * widens to a variable number of placeholders, so no count of source bytes
-     * stands behind them.
-     *
-     * The break beside it keeps its own span: see
-     * {@see self::testAVerseBreakIsStillPlacedOverItsLineEnding()}.
-     */
-    public function testAVerseIndentMergesIntoItsLineAndIsPlacedWithIt(): void
+    public function testEachVerseIndentColumnOwnsItsSourceSpace(): void
     {
         $source = "::: |\nRoses are red,\n  Violets are blue.\n:::\n";
         $document = (new BlockParser(trackPositions: true))->parse($source);
-
-        $merged = null;
+        $offsets = [];
         foreach (self::walk($document) as $node) {
-            if ($node instanceof Text && str_contains($node->getContent(), "\u{E000}")) {
-                $merged = $node;
-
-                break;
+            if ($node instanceof NonBreakingSpace) {
+                $pos = $node->getPos();
+                $this->assertNotNull($pos);
+                $this->assertSame(' ', mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset));
+                $offsets[] = $pos->startOffset;
             }
         }
-
-        $this->assertNotNull($merged, 'the verse indent was not found');
-        $this->assertSame(
-            str_repeat("\u{E000}", 2) . 'Violets are blue.',
-            $merged->getContent(),
-            'the indent is part of its line rather than a node of its own',
-        );
-
-        $pos = $merged->getPos();
-        $this->assertNotNull($pos, 'the spaced form has an honest span and must publish it');
-        // ASSERTED AS THE SLICE, not as offsets alone. carve-rs publishes 21-40
-        // for this document, and those numbers only mean something if they
-        // select the indentation together with the line it belongs to.
-        $this->assertSame(
-            '  Violets are blue.',
-            mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'),
-        );
+        $this->assertSame([21, 22], $offsets);
     }
 
     /**
@@ -620,16 +564,14 @@ class SourcePositionTest extends TestCase
     {
         $source = "::: |\nRoses,\n\tViolets.\n:::\n";
         $document = (new BlockParser(trackPositions: true))->parse($source);
-
+        $count = 0;
         foreach (self::walk($document) as $node) {
-            if ($node instanceof Text && str_contains($node->getContent(), "\u{E000}")) {
-                $this->assertNull($node->getPos(), 'a tab indent is not one-for-one and has no honest span');
-
-                return;
+            if ($node instanceof NonBreakingSpace) {
+                $this->assertNull($node->getPos());
+                $count++;
             }
         }
-
-        $this->fail('the tab-indented verse line was not found');
+        $this->assertSame(4, $count);
     }
 
     /**
