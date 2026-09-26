@@ -1518,12 +1518,8 @@ class ProseMirrorToCarve
             $checked = self::asBool($itemAttrs['checked'] ?? false);
             $state = self::taskStateAttr($itemAttrs, $checked);
             $this->setState($node, 'taskMarker', $state ?? ($checked ? 'x' : ' '));
-        } elseif ($node instanceof Mention && $proseMirrorName === 'carveTag') {
-            // The name is the only place the flavor survives: the map resolves
-            // carveTag back to `mention`, and a Mention with no class reads as a
-            // link. carve-grammars sends this shape for every `#tag`, and
-            // without the class it came back spelled `@tag` - a different
-            // sigil, a different concept, and nothing reported.
+        } elseif ($node instanceof Mention && $carveType === 'tag') {
+            // A tag is a Mention with class `tag`; without it the node reads as a link.
             $this->setState($node, 'cssClass', 'tag');
         } elseif ($node instanceof Mention && $proseMirrorName === 'mention') {
             // The stock spelling brings the stock shape: tiptap's mention is an
@@ -2477,6 +2473,7 @@ class ProseMirrorToCarve
         'definition_term' => DefinitionTerm::class,
         'definition_description' => DefinitionDescription::class,
         'mention' => Mention::class,
+        'tag' => Mention::class,
         'inline_extension' => InlineExtension::class,
         'figure' => Figure::class,
         'figure_group' => FigureGroup::class,

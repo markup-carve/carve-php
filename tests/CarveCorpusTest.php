@@ -10,9 +10,12 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use function basename;
+use function file_exists;
 use function file_get_contents;
 use function glob;
+use function implode;
 use function preg_replace;
+use function sort;
 
 /**
  * Runs the canonical Carve spec corpus (markup-carve/carve, vendored as a
@@ -1020,13 +1023,29 @@ class CarveCorpusTest extends TestCase
     }
 
     /**
-     * @throws \RuntimeException
-     *
      * @return array<string, array{slug: string, crv: string, html: string}>
      */
     public static function corpusProvider(): array
     {
-        $dir = __DIR__ . '/spec/tests/corpus';
+        return self::collectCorpusPairs(__DIR__ . '/spec/tests/corpus');
+    }
+
+    /**
+     * A HALF-PRESENT PAIR IS A FAILURE, NOT A SKIP.
+     *
+     * This used to `continue` past a `.crv` with no `.html`, and nothing else
+     * counts complete pairs, so deleting one golden left the whole suite green
+     * with that document silently uncompared (carve-php#2460). carve-rs panics
+     * on the same input; this is that shape.
+     *
+     * @param string $dir
+     *
+     * @throws \RuntimeException
+     *
+     * @return array<string, array{slug: string, crv: string, html: string}>
+     */
+    public static function collectCorpusPairs(string $dir): array
+    {
         $crvFiles = glob($dir . '/*.crv') ?: [];
         if ($crvFiles === []) {
             throw new RuntimeException(
@@ -1036,10 +1055,13 @@ class CarveCorpusTest extends TestCase
         }
 
         $cases = [];
+        $missing = [];
         foreach ($crvFiles as $crvPath) {
             $slug = basename($crvPath, '.crv');
             $htmlPath = $dir . '/' . $slug . '.html';
             if (!file_exists($htmlPath)) {
+                $missing[] = $slug . '.html';
+
                 continue;
             }
             $cases[$slug] = [
@@ -1047,6 +1069,25 @@ class CarveCorpusTest extends TestCase
                 'crv' => (string)file_get_contents($crvPath),
                 'html' => (string)file_get_contents($htmlPath),
             ];
+        }
+
+        // THE OTHER DIRECTION TOO. A golden whose source is gone is the same
+        // pair missing a half, and the `.crv` glob above cannot see it.
+        foreach (glob($dir . '/*.html') ?: [] as $htmlPath) {
+            $slug = basename($htmlPath, '.html');
+            if (!isset($cases[$slug])) {
+                $missing[] = $slug . '.crv';
+            }
+        }
+
+        if ($missing !== []) {
+            sort($missing);
+
+            throw new RuntimeException(
+                'Incomplete corpus pair(s) in ' . $dir . ': ' . implode(', ', $missing)
+                . ' - a pair missing a half cannot be compared, and skipping it hides the document'
+                . ' instead of reporting it.',
+            );
         }
 
         return $cases;

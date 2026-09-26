@@ -11,6 +11,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixes
 
+- A `+` one column left of an in-item block quote's marker is kept as text instead of being consumed as a continuation marker (markup-carve/carve-php#2470).
 - An unattached `+` below a nested list no longer drops a literal marker at column 1 or moves an indented follower outside the list (markup-carve/carve-php#2461, markup-carve/carve#2334).
 ### Breaking
 
