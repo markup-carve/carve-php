@@ -72,9 +72,10 @@ class HtmlCodeLanguagesTest extends TestCase
     {
         $comments = str_repeat('<!-- x -->', 40000);
         $pres = str_repeat('<pre>x</pre>', 40000);
-        $measure = static function (string $body): float {
+        $measure = function (string $body): float {
             $start = microtime(true);
-            (new HtmlAstBuilder())->build('<div class="highlight highlight-source-js">' . $body . '</div>');
+            $ast = (new HtmlAstBuilder())->build('<div class="highlight highlight-source-js">' . $body . '</div>');
+            $this->assertCount(40000, array_filter($ast['children'][0]['children'], static fn (array $node): bool => $node['type'] === 'code_block'));
 
             return microtime(true) - $start;
         };
