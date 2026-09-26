@@ -19,6 +19,8 @@ class ALineInitialCodePayloadKeepsItsPaddingTest extends TestCase
     public static function sourceProvider(): array
     {
         return [
+            'first in strike' => ["x {~``\n`~}\n"],
+            'two-backtick opener' => ["``\n`\n"],
             'braced strike' => ["{~before ``\n`~}\n"],
             'after code' => ["`z` ``\n`\n"],
             'after text' => ["before ``\n`\n"],

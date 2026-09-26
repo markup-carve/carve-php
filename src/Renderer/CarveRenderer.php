@@ -3348,7 +3348,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $this->firstBoundary($nodes[$i + 1] ?? null),
                         $captionCanOpen,
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
-                        $i === $count - 1 && $out !== '',
+                        $i === $count - 1 && ($out !== '' || $this->inlineDepth > 1 || ($node instanceof Code && strlen($this->safeFence($node->getContent(), 1)) < 3)),
                     );
                     // A bare caret the previous node ended on opens an inline
                     // note against a `[` this node writes, in both passes.
