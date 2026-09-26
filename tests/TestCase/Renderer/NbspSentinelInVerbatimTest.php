@@ -96,14 +96,10 @@ class NbspSentinelInVerbatimTest extends TestCase
         $this->assertStringNotContainsString('\\ ', $this->fmt($source));
     }
 
-    public function testItIsStillAnEscapeOutsideVerbatimContent(): void
+    public function testLiteralPrivateUseTextStaysLiteralOutsideVerbatimContent(): void
     {
-        // The boundary. The sentinel means the author wrote an ESCAPED SPACE, and
-        // emitting U+00A0 or a raw sentinel here would lose the distinction the
-        // parser draws (carve#369).
         $source = 'a' . self::NBSP . "b\n";
-
-        $this->assertSame("a\\ b\n", $this->fmt($source));
+        $this->assertSame($source, $this->fmt($source));
         $this->assertRoundTrips($source);
     }
 

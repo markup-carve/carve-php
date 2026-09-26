@@ -158,6 +158,7 @@ class AttributeParser
      */
     public static function applyToNode(Node $node, string $attrStr): void
     {
+        $attrStr = str_replace("\0", "\u{00A0}", $attrStr);
         // Remove comments before parsing
         $attrStr = self::removeComments($attrStr);
 

@@ -851,7 +851,7 @@ final class BorrowedHtmlLayout
     {
         $escaped = htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8');
 
-        return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
+        return str_replace("\u{00A0}", '&nbsp;', $escaped);
     }
 
     private function escapeAttribute(string $text): string

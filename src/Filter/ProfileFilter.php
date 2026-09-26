@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
@@ -499,7 +500,8 @@ class ProfileFilter
             //   loses the placement for exactly that document (pinned in
             //   Filter/EmptyContainerCleanupTest).
             if (
-                $node instanceof ThematicBreak
+                $node instanceof NonBreakingSpace
+                || $node instanceof ThematicBreak
                 || $node instanceof TableCell
                 || ($node instanceof Div && $node->isPlacementCarrier())
             ) {
@@ -688,6 +690,10 @@ class ProfileFilter
         // Special handling for thematic breaks - show original marker
         if ($node instanceof ThematicBreak) {
             return '---';
+        }
+
+        if ($node instanceof NonBreakingSpace) {
+            return "\u{00A0}";
         }
 
         if ($node instanceof Text) {

@@ -107,19 +107,25 @@ final class AnnotationRanges
         $isNode = is_string($value['type'] ?? null);
         if ($isNode) {
             $starts[$path] = $cursor;
-            $text = $value['value'] ?? $value['text'] ?? $value['content'] ?? null;
-            if (is_string($text)) {
-                $lengths[$path] = count(preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: []);
-                $cursor += $lengths[$path];
+            if (in_array($value['type'], ['soft_break', 'hard_break', 'non_breaking_space'], true)) {
+                $cursor++;
+            } else {
+                foreach (['value', 'content', 'text', 'alt'] as $field) {
+                    if (is_string($value[$field] ?? null)) {
+                        $cursor += count(preg_split('//u', $value[$field], -1, PREG_SPLIT_NO_EMPTY) ?: []);
 
-                return;
+                        break;
+                    }
+                }
             }
         }
-        foreach ($value as $key => $child) {
-            if ($key === 'attrs' || $key === 'pos' || $key === 'keyValues' || !is_array($child)) {
+        $keys = array_is_list($value) ? array_keys($value) : SidecarPath::TEXT_FIELDS;
+        foreach ($keys as $key) {
+            $child = $value[$key] ?? null;
+            if (!is_array($child)) {
                 continue;
             }
-            self::walkText($child, $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key), $cursor, $starts, $lengths);
+            self::walkText($child, $path . '/' . $key, $cursor, $starts, $lengths);
         }
         if ($isNode) {
             $lengths[$path] = $cursor - $starts[$path];

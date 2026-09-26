@@ -9326,6 +9326,9 @@ class BlockParser
     {
         $count = count($lineEndings);
         foreach ($parent->getChildren() as $index => $inline) {
+            if ($inline instanceof ContentNodeInterface && method_exists($inline, 'setContent')) {
+                $inline->setContent(str_replace("\0", "\u{00A0}", $inline->getContent()));
+            }
             if (!$inline instanceof SoftBreak && !$inline instanceof HardBreak) {
                 if ($inline->hasChildren()) {
                     $this->hardenSoftBreaksIn($inline, $lineEndings, $next);

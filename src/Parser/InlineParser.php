@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
@@ -771,7 +772,7 @@ class InlineParser
             if ($slice[$i] === '\\' && $i + 1 < $length) {
                 $next = $slice[$i + 1];
                 if ($next === ' ') {
-                    $out .= "\u{E000}";
+                    $out .= "\u{00A0}";
                     $i++;
 
                     continue;
@@ -832,10 +833,23 @@ class InlineParser
         if ($sig !== null && $this->captionContextEnabled) {
             $sig['#'] = true;
         }
+        if ($sig !== null) {
+            $sig["\0"] = true;
+        }
         $sigBytes = $sig === null ? '' : implode('', array_keys($sig));
 
         while ($pos < $length) {
             $char = $text[$pos];
+            if ($char === "\0") {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $space = new NonBreakingSpace();
+                $this->placeAt($space, $pos, $pos + 1);
+                $parent->appendChild($space);
+                $pos++;
+
+                continue;
+            }
 
             // Plain-text fast path: a byte that begins no inline construct is
             // appended as one run. `strcspn` finds the next significant byte in
@@ -1286,8 +1300,11 @@ class InlineParser
                     return true;
                 }
                 if ($escaped === ' ') {
-                    $this->noteTextStart($textBuffer, $pos, rewritten: true, consumed: 2);
-                    $textBuffer .= "\u{E000}";
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
+                    $space = new NonBreakingSpace();
+                    $this->placeAt($space, $pos, $pos + 2);
+                    $parent->appendChild($space);
                     $pos += 2;
 
                     return true;
@@ -2396,8 +2413,8 @@ class InlineParser
             }
 
             if ($destination['url'] !== null) {
-                $url = $destination['url'];
-                $title = $destination['title'];
+                $url = str_replace("\0", "\u{00A0}", $destination['url']);
+                $title = $destination['title'] === null ? null : str_replace("\0", "\u{00A0}", $destination['title']);
                 $urlEnd = $destination['end'];
 
                 $link = new Link($url, $title);
@@ -2436,7 +2453,8 @@ class InlineParser
                 }
 
                 // Store original bracket content before normalization
-                $originalRefBracket = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
+                $originalRefBracket = str_replace("\0", "\u{00A0}", substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1));
+                $ref = str_replace("\0", "\u{00A0}", $ref);
 
                 // THE LABEL IS PARSED ONCE, HERE. Both branches below need the
                 // bracket text as inline nodes, and the heading-index retry
@@ -2519,7 +2537,7 @@ class InlineParser
                     // The authored source, as on the unresolved branch: §3a asks
                     // for `ref` AND `rawRef` beside the destination, and without
                     // this a resolved reference published half the pair.
-                    $link->setRawReferenceLabel(substr($text, $pos, $endPos - $pos));
+                    $link->setRawReferenceLabel(str_replace("\0", "\u{00A0}", substr($text, $pos, $endPos - $pos)));
 
                     return [
                         'node' => $link,
@@ -2554,7 +2572,7 @@ class InlineParser
                 if ($endPos < $length && $text[$endPos] === '{') {
                     $endPos = $this->applyConsecutiveAttributes($link, $text, $endPos);
                 }
-                $link->setRawReferenceLabel(substr($text, $pos, $endPos - $pos));
+                $link->setRawReferenceLabel(str_replace("\0", "\u{00A0}", substr($text, $pos, $endPos - $pos)));
 
                 return [
                     'node' => $link,
@@ -2635,7 +2653,7 @@ class InlineParser
             return null;
         }
 
-        $alt = $result['link_text'];
+        $alt = str_replace("\0", "\u{00A0}", $result['link_text']);
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
 
@@ -3462,6 +3480,10 @@ class InlineParser
         // unclosed-link fallback appends `](` as a node of its own, so reading
         // this state as word-adjacent hid the `(` that `isQuoteOpenContext`
         // lists as an opener and closed the quote in `[t]("` (#2199).
+        if ($previous instanceof NonBreakingSpace) {
+            return "\u{00A0}";
+        }
+
         if ($previous instanceof Text) {
             $literal = $this->lastCharOf($previous->getContent());
             if ($literal !== '') {
@@ -3565,7 +3587,6 @@ class InlineParser
         // nested-quote open context.
         if (
             $prevConverted === "\xC2\xA0"
-            || $prevConverted === "\u{E000}"
             || $prevConverted === "\u{201C}"
             || $prevConverted === "\u{2018}"
         ) {
@@ -4643,7 +4664,7 @@ class InlineParser
             return null;
         }
 
-        $label = $matches[1];
+        $label = str_replace("\0", "\u{00A0}", $matches[1]);
 
         // Warn if footnote is not defined
         if (!$this->blockParser->hasFootnote($label)) {

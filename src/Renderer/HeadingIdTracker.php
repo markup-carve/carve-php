@@ -20,6 +20,7 @@ use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
@@ -523,6 +524,9 @@ class HeadingIdTracker
         }
         if ($child instanceof CaptionNumber) {
             return $child->getNumber() === null ? '' : (string)$child->getNumber();
+        }
+        if ($child instanceof NonBreakingSpace) {
+            return "\u{00A0}";
         }
         if ($child instanceof SoftBreak || $child instanceof HardBreak) {
             return ' ';

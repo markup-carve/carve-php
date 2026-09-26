@@ -163,6 +163,7 @@ class Profile
                 NodeType::MENTION,
                 NodeType::CODE,
                 NodeType::LINK,
+                NodeType::NON_BREAKING_SPACE,
                 NodeType::SOFT_BREAK,
                 NodeType::HARD_BREAK,
                 NodeType::DELETE,
@@ -243,6 +244,7 @@ class Profile
                 NodeType::INSERT,
                 NodeType::SUPERSCRIPT,
                 NodeType::SUBSCRIPT,
+                NodeType::NON_BREAKING_SPACE,
                 NodeType::SOFT_BREAK,
                 NodeType::HARD_BREAK,
             ])

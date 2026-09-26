@@ -3,7 +3,7 @@
   "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the node types of the spec's AST schema (resources/ast-schema.json), and every one of them has an entry in `types` or `unmapped`; the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently. Where two Carve types name the same ProseMirror node or mark, the one that is a vocabulary alias of the other carries `aliasOf` naming the type that owns the name; a bridge resolving a ProseMirror name back to a Carve type must not decide that by whatever order it happens to walk this file in.",
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
-    "commit": "f8c652df8ee7ed4d0498584655b4d0740f0f83aa",
+    "commit": "760b2019b7ebc6e15d28d7d210b1d8c81c5057ab",
     "refresh": "copy the complete file from carve-grammars and update commit; scripts/check-schema-map.php verifies decisions and full schema-map parity against the pin",
     "divergences": {},
     "divergencePolicy": "This vendored file must match the pinned upstream map exactly outside provenance. Change the upstream map first; local differences are not permitted.",
@@ -577,7 +577,8 @@
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",
     "escaped_text": "escaping is a source-level concern; the editor holds the escaped character as text",
     "smart_punctuation": "smart-typography output is lossy on reparse, so it is not modeled",
-    "soft_break": "a soft break is whitespace in the ProseMirror model"
+    "soft_break": "a soft break is whitespace in the ProseMirror model",
+    "non_breaking_space": "a generated space becomes literal U+00A0 text; its source spelling is re-derived on write"
   },
   "preservationNodes": {
     "about": "Not Carve types: the two nodes a bridge writes when it has no editable node for a construct. They are PART OF THE WIRE, not an implementation detail of one bridge - carve-grammars produced them for 179 of 1025 corpus documents and carve-php refused every one, because an unknown ProseMirror name is an error rather than a skip. A bridge reading one writes `carveSource` back as Carve source, verbatim; a bridge that cannot must say so rather than drop the node.",

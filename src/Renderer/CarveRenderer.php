@@ -58,6 +58,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
@@ -3044,6 +3045,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $previousRendered = '';
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
+                if (
+                    $this->inLineBlock > 0 && $node instanceof NonBreakingSpace && $node->getAttributes() === []
+                    && ($i === 0 || ($nodes[$i - 1] ?? null) instanceof HardBreak
+                        || ($nodes[$i - 1] ?? null) instanceof NonBreakingSpace
+                        || ($nodes[$i + 1] ?? null) instanceof NonBreakingSpace)
+                ) {
+                    $out .= $this->verbatimSentinels[0];
+
+                    continue;
+                }
                 if ($node instanceof HardBreak && $this->inLineBlock > 0) {
                     // ONLY THE STANZA'S OWN LAST NODE ENDS THE PARAGRAPH. A
                     // break nested inside an emphasis run ends that run's list
@@ -3185,7 +3196,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $lineStart = strrpos($out, "\n");
         $line = $lineStart === false ? $out : substr($out, $lineStart + 1);
 
-        return (self::verseLineNeedsBackslash($line) ? '\\' : '') . "\n";
+        return ($this->verseLineNeedsBackslash($line) ? '\\' : '') . "\n";
     }
 
     /**
@@ -3353,7 +3364,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * Whether a bare newline after this line's bytes would be read back as
      * something else.
      */
-    private static function verseLineNeedsBackslash(string $line): bool
+    private function verseLineNeedsBackslash(string $line): bool
     {
         if ($line === '') {
             return true;
@@ -3374,7 +3385,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // to the writer's own protected-space sentinel, which is not a space
         // and is not the escape placeholder - so it needs no branch of its own,
         // and a branch spelled against plain spaces would never run.
-        return str_ends_with($line, ' ') || str_ends_with($line, "\u{E000}");
+        return str_ends_with($line, ' ') || str_ends_with($line, $this->verbatimSentinels[4]);
     }
 
     protected function renderInline(
@@ -3452,6 +3463,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Abbreviation => $this->escapeText($this->renderInlines($node->getChildren())),
             $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlineNoteContent($node) . ']'),
             $node instanceof FootnoteRef => $withAttrs('[^' . $this->writeFlatBracketRun($node->getLabel()) . ']'),
+            $node instanceof NonBreakingSpace => $node->getAttributes() === []
+                ? $this->verbatimSentinels[4]
+                : $withAttrs('[' . $this->verbatimSentinels[4] . ']'),
             $node instanceof SoftBreak => "\n",
             // A line block's own spelling is decided in renderInlines(), which
             // is the only place that can see the line the break ends
@@ -4055,7 +4069,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // here as much as inside a fence - and normalize() would otherwise
         // rewrite it to `\ `, a literal backslash and a space inside backticks
         // (carve-php#829). Same sentinel protectVerbatim() uses.
-        $content = str_replace("\u{E000}", $this->verbatimSentinels[4], $content);
+
         $fence = $this->safeFence($content, 1);
 
         // Pad exactly where the parser strips, so the strip is reversible and fmt
@@ -4389,7 +4403,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return (string)preg_replace_callback(
-            '/(?:^\x{E000}+)|\x{E000}{2,}/mu',
+            '/(?:^' . preg_quote($this->verbatimSentinels[4], '/') . '+)|' . preg_quote($this->verbatimSentinels[4], '/') . '{2,}/mu',
             fn (array $m): string => str_repeat($this->verbatimSentinels[0], (int)mb_strlen($m[0], 'UTF-8')),
             $text,
         );
@@ -4397,7 +4411,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function normalize(string $text): string
     {
-        $text = str_replace("\u{E000}", '\ ', $text);
+        $text = str_replace($this->verbatimSentinels[4], '\ ', $text);
         $lines = explode("\n", $this->trimNonNbsp($text));
         foreach ($lines as $i => $line) {
             // Strip a line's trailing whitespace only where it cannot be
@@ -4502,7 +4516,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // toHtml(fmt(x)) != toHtml(x) (carve-php#829). Carrying it under its own
         // sentinel keeps it out of that rewrite; restoreVerbatim puts the
         // character back. carve-rs already emits it as itself.
-        $content = str_replace("\u{E000}", $this->verbatimSentinels[4], $content);
+
         $content = (string)preg_replace_callback(
             '/[ \t]+(?=\n|$)/',
             fn (array $m): string => strtr(
@@ -4534,8 +4548,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $this->verbatimSentinels[0] => ' ',
             $this->verbatimSentinels[1] => "\t",
             $this->verbatimSentinels[2] => '',
-            // Back to the character itself - see protectVerbatim().
-            $this->verbatimSentinels[4] => "\u{E000}",
         ]);
 
         // U+E004 marks a paragraph line that must not begin at column 0. It
@@ -5079,7 +5091,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!$sanitizeBlank) {
             $text = $this->escapeDestinationEscapes($text);
         }
-        $text = (string)preg_replace_callback('/\s/u', static fn (array $m): string => $m[0] === ' ' ? '%20' : sprintf('%%%02X', ord($m[0])), $text);
+        $text = (string)preg_replace_callback('/\s/u', static fn (array $m): string => rawurlencode($m[0]), $text);
 
         return (string)preg_replace_callback('/[()]/', static fn (array $m): string => $sanitizeBlank ? ($m[0] === '(' ? '%28' : '%29') : $m[0], $text);
     }

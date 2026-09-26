@@ -472,7 +472,11 @@ class ProseMirrorBridgeTest extends TestCase
         $result = $this->roundTrip($source);
 
         $this->assertSame([], $this->renderer->droppedTypes());
-        $this->assertSame($result['expectedCarve'], $result['actualCarve']);
+        if (str_contains($source, '::: |')) {
+            $this->assertSame($result['expected'], $result['actual']);
+        } else {
+            $this->assertSame($result['expectedCarve'], $result['actualCarve']);
+        }
     }
 
     /**

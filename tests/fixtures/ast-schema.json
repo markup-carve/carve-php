@@ -320,6 +320,10 @@
     ],
     "required": []
   },
+  "non_breaking_space": {
+    "fields": [],
+    "required": []
+  },
   "paragraph": {
     "fields": [
       "blockImage"

@@ -279,7 +279,7 @@ final class StringUtil
     {
         $escaped = htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
+        return str_replace("\u{00A0}", '&nbsp;', $escaped);
     }
 
     public static function visibleWidth(string $value): int

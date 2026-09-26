@@ -51,6 +51,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
@@ -435,7 +436,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // survives a re-render as `&nbsp;` and is never mistaken for an indented
         // code-block prefix the way ordinary leading spaces would be. Done after
         // trimming so placeholder-derived leading indentation survives.
-        return str_replace("\u{E000}", "\u{00A0}", $markdown);
+        return $markdown;
     }
 
     /**
@@ -1217,6 +1218,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // losing ONE of the two spaces is enough for the break to vanish
                 // rather than degrade, silently, in a file nobody edited.
                 $node instanceof HardBreak => "\\\n",
+                $node instanceof NonBreakingSpace => "\u{00A0}",
                 $node instanceof SoftBreak => match ($this->softBreakMode) {
                     SoftBreakMode::Newline => "\n",
                     SoftBreakMode::Space => ' ',
@@ -2599,7 +2601,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * @var string
      */
     protected const FLANKING_WHITESPACE =
-        '(?:[ \t\n\x{000B}\f\r]|\x{0085}|\x{00A0}|\x{1680}|[\x{2000}-\x{200A}]|\x{2028}|\x{2029}|\x{202F}|\x{205F}|\x{3000}|\x{E000})';
+        '(?:[ \t\n\x{000B}\f\r]|\x{0085}|\x{00A0}|\x{1680}|[\x{2000}-\x{200A}]|\x{2028}|\x{2029}|\x{202F}|\x{205F}|\x{3000})';
 
     /**
      * A delimiter run only opens emphasis while it is left-flanking, which a

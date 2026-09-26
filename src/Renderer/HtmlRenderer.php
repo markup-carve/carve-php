@@ -53,6 +53,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
@@ -283,6 +284,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             FootnoteRef::class => 'renderFootnoteRef',
             HeadingRef::class => 'renderHeadingRef',
             CaptionNumber::class => 'renderCaptionNumber',
+            NonBreakingSpace::class => 'renderNonBreakingSpace',
             SoftBreak::class => 'renderSoftBreak',
             HardBreak::class => 'renderHardBreak',
             Span::class => 'renderSpan',
@@ -2412,6 +2414,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return '<code' . $attrs . '>' . $content . '</code>';
     }
 
+    protected function renderNonBreakingSpace(NonBreakingSpace $node): string
+    {
+        $attrs = $this->renderAttributes($node);
+
+        return $attrs === '' ? '&nbsp;' : '<span' . $attrs . '>&nbsp;</span>';
+    }
+
     protected function renderSoftBreak(): string
     {
         return $this->softBreakGuard();
@@ -3462,7 +3471,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // Convert both Carve's escaped-space placeholder and literal NBSP to
         // the stable HTML entity.
-        return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
+        return str_replace("\u{00A0}", '&nbsp;', $escaped);
     }
 
     /**
@@ -3475,7 +3484,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // ENT_QUOTES: Escape both single and double quotes for attribute values
         $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        return str_replace("\u{E000}", '&nbsp;', $escaped);
+        return $escaped;
     }
 
     /**
@@ -3489,7 +3498,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        return str_replace("\u{E000}", "\u{00A0}", $escaped);
+        return $escaped;
     }
 
     protected function renderRawBlock(RawBlock $node): string

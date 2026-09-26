@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\ContentNodeInterface;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -395,6 +396,8 @@ class ColorSwatchExtension implements ExtensionInterface
         foreach ($node->getChildren() as $child) {
             if ($child instanceof ContentNodeInterface) {
                 $text .= $child->getContent();
+            } elseif ($child instanceof NonBreakingSpace) {
+                $text .= "\u{00A0}";
             } elseif ($child instanceof SoftBreak || $child instanceof HardBreak) {
                 $text .= ' ';
             } else {
@@ -412,6 +415,6 @@ class ColorSwatchExtension implements ExtensionInterface
     {
         $escaped = htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8');
 
-        return str_replace(["\u{E000}", "\u{00A0}"], '&nbsp;', $escaped);
+        return str_replace("\u{00A0}", '&nbsp;', $escaped);
     }
 }

@@ -39,10 +39,10 @@ final class SourceMap
      *
      * @var string
      */
-    public const INDENT_SENTINEL = "\u{E000}";
+    public const INDENT_SENTINEL = "\0";
 
     /**
-     * @var list<array{int, int, int, int, int, int}>
+     * @var list<array{int, int, int, int, int, int, 6?: bool}>
      */
     private array $segments = [];
 
@@ -56,7 +56,7 @@ final class SourceMap
      * answer strictly last. Keeping it out of the primary list is what lets the
      * primary list stay tiling, and therefore searchable.
      *
-     * @var list<array{int, int, int, int, int, int}>
+     * @var list<array{int, int, int, int, int, int, 6?: bool}>
      */
     private array $fallbackSegments = [];
 
@@ -112,7 +112,7 @@ final class SourceMap
 
     /**
      * Record that `$columns` source bytes at `$sourceOffset` were REWRITTEN into
-     * one indent sentinel each, so they occupy `$columns * 3` bytes of the built
+     * one indent sentinel each, so they occupy `$columns` bytes of the built
      * string at `$textOffset`.
      */
     public function addSentinelRun(int $textOffset, int $sourceOffset, int $columns, int $line, int $column): void
@@ -124,7 +124,7 @@ final class SourceMap
         }
         $this->tilingEnd = $textOffset + $length;
         $this->rewritten = true;
-        $this->segments[] = [$textOffset, $sourceOffset, $length, $line, $column, $columns];
+        $this->segments[] = [$textOffset, $sourceOffset, $length, $line, $column, $columns, true];
     }
 
     /**
@@ -260,7 +260,7 @@ final class SourceMap
      * longer segment can cover an offset that a later one does not, and only a
      * scan finds it.
      *
-     * @param list<array{int, int, int, int, int, int}> $segments
+     * @param list<array{int, int, int, int, int, int, 6?: bool}> $segments
      * @param bool $tiling
      * @param int $textOffset
      *
@@ -710,7 +710,12 @@ final class SourceMap
         // everything measured 22% more per byte on a stanza where every line has
         // both a gap and a nested construct, and this takes that back.
         [$textStart, $sourceStart, $length, , , $sourceLength] = $this->segments[$index];
-        if ($sourceLength === $length && $textStart <= $start && $textStart + $length >= $end) {
+        if (
+            !($this->segments[$index][6] ?? false)
+            && $sourceLength === $length
+            && $textStart <= $start
+            && $textStart + $length >= $end
+        ) {
             return substr($this->source, $sourceStart + ($start - $textStart), $end - $start);
         }
 
@@ -726,7 +731,7 @@ final class SourceMap
             }
             $offsetInSegment = $cursor - $textStart;
             $take = min($length - $offsetInSegment, $end - $cursor);
-            if ($sourceLength === $length) {
+            if (!($this->segments[$index][6] ?? false) && $sourceLength === $length) {
                 $out .= substr($this->source, $sourceStart + $offsetInSegment, $take);
                 $cursor += $take;
 

@@ -47,6 +47,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
@@ -332,7 +333,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         // ordinary space in plain text. Done after trimming so placeholder-derived
         // leading indentation (e.g. in a line block) survives. A literal U+00A0 in
         // the author's text is left intact.
-        return str_replace("\u{E000}", ' ', $text);
+        return str_replace("\0", ' ', $text);
     }
 
     protected function renderNode(Node $node): string
@@ -426,6 +427,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 $node instanceof FootnoteRef => '[' . $this->stripControls($node->getLabel()) . ']',
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
+                $node instanceof NonBreakingSpace => "\0",
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
                 $node instanceof HardBreak => "\n",
                 $node instanceof RawInline => $this->dropRaw($node, 'inline'),
@@ -591,7 +593,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
             $text .= $this->renderNode($node);
         }
 
-        return str_replace("\u{E000}", ' ', $text);
+        return str_replace("\0", ' ', $text);
     }
 
     protected function renderParagraph(Paragraph $node): string
