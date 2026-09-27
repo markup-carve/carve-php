@@ -986,6 +986,9 @@ class CarveCorpusTest extends TestCase
         // markup-carve/carve#2348 - a core directive's kind class leads the
         // authored attributes on the rendered element.
         'a-core-directive-kind-class-leads-authored-attributes',
+        // markup-carve/carve#2380 - an attribute line under an attributed
+        // sub-item stays in that item. Three documents, byte-exact here.
+        'an-attribute-line-under-an-attributed-sub-item-stays-in-that-item',
     ];
 
     /**

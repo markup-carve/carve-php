@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer\Utility;
 
 use MarkupCarve\Carve\Node\Block\BlockNode;
+use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\TableCell;
@@ -46,13 +49,29 @@ final class TableCellBlockFlattener
             if ($run === []) {
                 continue;
             }
-            if ($parts !== [] && $child instanceof BlockNode) {
+            if ($parts !== [] && ($child instanceof BlockNode || self::holdsBlocks($node))) {
                 $parts[] = new Text(' ');
             }
             array_push($parts, ...$run);
         }
 
         return $parts;
+    }
+
+    /**
+     * Whether a child of the node stands in block position. A block image is an
+     * inline `Image` there, and it is separated like any other block.
+     */
+    private static function holdsBlocks(Node $node): bool
+    {
+        if ($node instanceof TableCell) {
+            return $node->hasBlockContent();
+        }
+
+        return !$node instanceof Paragraph
+            && !$node instanceof Heading
+            && !$node instanceof Caption
+            && !$node instanceof DefinitionTerm;
     }
 
     /**
