@@ -38,6 +38,10 @@ class SourceLinterTest extends TestCase
             [
                 "```\n{{ #x }}\n>quoted\n  ::: note\n```\n",
                 "%%%\n{{ #x }}\n>quoted\n%%%\n",
+                "`hello\n>quoted\n`\n",
+                "`a\n```\n`\n",
+                "---\ncarve-version: \"0.1.0\"\n---\n\nx\n",
+                "---\ncarve-version: '0.1.0'\n---\n\nx\n",
                 "`{{ #x }}`\n",
                 "\\{{ #x }}\n",
                 "::: note\nbody\n:::\n",

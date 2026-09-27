@@ -45,6 +45,7 @@ class SourceLinter
             $warnings[] = new LintWarning($line, mb_strlen(substr($text, 0, $at), 'UTF-8') + 1, $rule, $message, $start + $at, $start + min($at + $size, strlen($text)));
         };
         $ignored = [];
+        $inlineVerbatim = [];
         $paragraphs = [];
         $headings = [];
         $starts = [];
@@ -59,6 +60,12 @@ class SourceLinter
             if ($pos !== null) {
                 if (in_array($type, ['text', 'mention', 'tag'], true)) {
                     $textSpans[] = [SourceOffsets::toByte($pos->startOffset, $map, $length), SourceOffsets::toByte($pos->endOffset, $map, $length)];
+                }
+                // A multi-line inline verbatim span owns its later lines, so they open no block.
+                if (in_array($type, ['code', 'math', 'raw_inline'], true)) {
+                    for ($ln = $pos->startLine + 1; $ln <= $pos->endLine; $ln++) {
+                        $inlineVerbatim[$ln] = true;
+                    }
                 }
                 if (in_array($type, ['code_block', 'raw_block', 'comment', 'frontmatter'], true)) {
                     for ($ln = $pos->startLine; $ln <= $pos->endLine; $ln++) {
@@ -217,7 +224,7 @@ class SourceLinter
             $at = strlen($text) - strlen($view);
             if (preg_match('/^([ \t]*)(`{3,}|~{3,})[ \t]*raw[ \t]+\S+/', $view, $match)) {
                 $emit($ln, $at + strlen($match[1]), strlen($view) - strlen($match[1]), 'raw-block-syntax', 'Use a fence followed by =FORMAT for a raw block; raw FORMAT does not open one.');
-            } elseif (isset($paragraphs[$ln]) && preg_match('/^(`{3,}|~{3,})/', $view, $match)) {
+            } elseif (isset($paragraphs[$ln]) && !isset($inlineVerbatim[$ln]) && preg_match('/^(`{3,}|~{3,})/', $view, $match)) {
                 $run = $match[1];
                 if (!str_contains(substr($view, strlen($run)), $run)) {
                     if ($fenceParser->parseCodeFenceOpener($view) === null) {
@@ -227,7 +234,7 @@ class SourceLinter
                     }
                 }
             }
-            if (str_starts_with($text, '>') && strlen($text) > 1 && !str_starts_with($text, '> ')) {
+            if (!isset($inlineVerbatim[$ln]) && str_starts_with($text, '>') && strlen($text) > 1 && !str_starts_with($text, '> ')) {
                 $emit($ln, 0, strlen($text), 'blockquote-marker-without-space', 'A blockquote marker must be bare or followed by a space.');
             }
             preg_match_all('/\{\{([^{}]*)\}\}/', $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
@@ -308,7 +315,14 @@ class SourceLinter
         $declared = null;
         if (preg_match('/\A(?:\xEF\xBB\xBF)?---(?:yaml|toml|json)?[ \t]*(?:\r\n|\r|\n)(.*?)(?:\r\n|\r|\n)---[ \t]*(?:\r\n|\r|\n|$)/s', $source, $front, PREG_OFFSET_CAPTURE)) {
             if (preg_match('/^[ \t]*carve-version[ \t]*:[ \t]*(\S+)[ \t]*\r?$/m', $front[1][0], $version, PREG_OFFSET_CAPTURE)) {
-                $declared = [$version[1][0], $front[1][1] + $version[1][1]];
+                $value = $version[1][0];
+                $offset = $front[1][1] + $version[1][1];
+                // A YAML scalar may be quoted; the version is what is inside the quotes.
+                if (preg_match('/^(["\'])(.*)\1$/', $value, $quoted)) {
+                    $value = $quoted[2];
+                    $offset++;
+                }
+                $declared = [$value, $offset];
             }
         }
         $stamp = Stamp::read($source);
