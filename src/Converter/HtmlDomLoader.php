@@ -83,11 +83,14 @@ final class HtmlDomLoader
                     if ($depth >= 512) {
                         throw new HtmlImportDepthExceededException(512);
                     }
-                    $namespace = self::elementNamespace($child, $targetParent);
+                    $namespace = self::elementNamespace($child, $sourceParent, $targetParent);
+                    $name = $namespace !== null && str_contains($child->localName, ':')
+                        ? self::encodeName($child->localName)
+                        : $child->localName;
                     try {
                         $copy = $namespace === null
-                            ? $document->createElement($child->localName)
-                            : $document->createElementNS($namespace, $child->localName);
+                            ? $document->createElement($name)
+                            : $document->createElementNS($namespace, $name);
                     } catch (DOMException) {
                         $name = self::encodeName($child->localName);
                         $copy = $namespace === null
@@ -125,12 +128,12 @@ final class HtmlDomLoader
         }
     }
 
-    private static function elementNamespace(Element $element, DOMNode $parent): ?string
+    private static function elementNamespace(Element $element, Node $sourceParent, DOMNode $parent): ?string
     {
         // HTML_NO_DEFAULT_NS removes SVG and MathML namespaces too. Restore
         // them from the parsed parent and the HTML integration points.
         $parentNamespace = $parent->namespaceURI;
-        $parentName = $parent->localName;
+        $parentName = $sourceParent instanceof Element ? $sourceParent->localName : null;
         $name = $element->localName;
         if ($parentNamespace === 'http://www.w3.org/2000/svg') {
             if (!in_array($parentName, ['foreignObject', 'desc', 'title'], true)) {
@@ -142,8 +145,8 @@ final class HtmlDomLoader
             }
             $textIntegration = in_array($parentName, ['mi', 'mo', 'mn', 'ms', 'mtext'], true)
                 && !in_array($name, ['mglyph', 'malignmark'], true);
-            $htmlIntegration = $parentName === 'annotation-xml' && $parent instanceof DOMElement
-                && in_array(strtolower($parent->getAttribute('encoding')), ['text/html', 'application/xhtml+xml'], true);
+            $htmlIntegration = $parentName === 'annotation-xml' && $sourceParent instanceof Element
+                && in_array(strtolower($sourceParent->getAttribute('encoding')), ['text/html', 'application/xhtml+xml'], true);
             if (!$textIntegration && !$htmlIntegration) {
                 return $parentNamespace;
             }
