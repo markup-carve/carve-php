@@ -2566,6 +2566,13 @@ final class HtmlAstBuilder
             return $this->blocks($this->children($node));
         }
         $skipAttrs = [];
+        $structuralKind = trim($node->getAttribute('data-djot-admonition-type'));
+        if ($structuralKind !== '') {
+            $expectedRole = in_array($structuralKind, ['warning', 'danger'], true) ? 'alert' : 'note';
+            if (strtolower($node->getAttribute('role')) === $expectedRole) {
+                $skipAttrs[] = 'role';
+            }
+        }
         if ($this->derivedAriaLabel($node) === $node->getAttribute('aria-label')) {
             $skipAttrs[] = 'aria-label';
         }
