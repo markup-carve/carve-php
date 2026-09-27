@@ -397,6 +397,11 @@ final class HtmlAstBuilder
     private const SECTION_ID_KEY = "\0section-id";
 
     /**
+     * @var int
+     */
+    private const SECTION_ID_PASSES = 32;
+
+    /**
      * @var array<string, true>
      */
     private const BLOCK_TAGS = [
@@ -1029,8 +1034,19 @@ final class HtmlAstBuilder
             }
         }
         // Keep only the first mismatch per pass: it reserves an id that can
-        // give a later heading the number it was written with.
+        // give a later heading the number it was written with. Past the pass
+        // cap every section id stays explicit, which renders the same ids.
+        $passes = 0;
         do {
+            if (++$passes > self::SECTION_ID_PASSES) {
+                foreach ($headings as $index => $heading) {
+                    if ($heading['candidate']) {
+                        $kept[$index] = true;
+                    }
+                }
+
+                break;
+            }
             $changed = false;
             $used = $written;
             foreach ($kept as $index => $_) {
