@@ -33,6 +33,17 @@ class AHardenedUrlListAttributeIsKeptTest extends TestCase
         $this->assertContains('Dropped unsupported attribute srcset on <section>', array_column($result->report()['diagnostics'], 'message'));
     }
 
+    public function testADroppedCopyBeforeAKeptOneIsStillReported(): void
+    {
+        $result = (new HtmlToCarve())->convertWithReport(
+            '<section srcset="javascript:x 1x"><h2>X</h2></section><p>see <img src="a.png" alt="" srcset="javascript:x 1x"></p>',
+        );
+
+        $messages = array_column($result->report()['diagnostics'], 'message');
+        $this->assertContains('Dropped unsupported attribute srcset on <section>', $messages);
+        $this->assertNotContains('Dropped unsupported attribute srcset on <img>', $messages);
+    }
+
     public function testOneKeptCopyAnswersForOneElement(): void
     {
         $result = (new HtmlToCarve())->convertWithReport(

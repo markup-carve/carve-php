@@ -40,6 +40,21 @@ final class HtmlAstBuilder
     private SplObjectStorage $droppedEmptyElements;
 
     /**
+     * Elements whose URL-list attribute the tree carries.
+     *
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    private SplObjectStorage $urlListCarriers;
+
+    /**
+     * @return \SplObjectStorage<\DOMElement, null>
+     */
+    public function urlListCarriers(): SplObjectStorage
+    {
+        return $this->urlListCarriers;
+    }
+
+    /**
      * @return \SplObjectStorage<\DOMElement, null>
      */
     public function droppedEmptyElements(): SplObjectStorage
@@ -329,6 +344,7 @@ final class HtmlAstBuilder
     ) {
         $this->displacedFigureAttributes = [];
         $this->droppedEmptyElements = new SplObjectStorage();
+        $this->urlListCarriers = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -464,6 +480,7 @@ final class HtmlAstBuilder
     {
         $this->displacedFigureAttributes = [];
         $this->droppedEmptyElements = new SplObjectStorage();
+        $this->urlListCarriers = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -4641,6 +4658,9 @@ final class HtmlAstBuilder
                 continue;
             }
             $keyValues[$name] = $attribute->value;
+            if (in_array($name, ['srcset', 'imagesrcset', 'ping', 'attributionsrc'], true)) {
+                $this->urlListCarriers[$node] = null;
+            }
         }
         $tag = strtolower($node->tagName);
         $alignment = $this->styleEnum($node, 'text-align', ['left', 'right', 'center']);
