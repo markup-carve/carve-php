@@ -8,6 +8,7 @@ use JsonException;
 use RuntimeException;
 use function array_is_list;
 use function array_key_exists;
+use function count;
 use function dirname;
 use function file_get_contents;
 use function implode;
@@ -77,6 +78,13 @@ final class AstSchema
      * @var array<string, mixed>|null
      */
     private static ?array $schema = null;
+
+    /**
+     * Each ref's schema, with a pure type dispatch split out of its `allOf`.
+     *
+     * @var array<string, array{0: array<mixed>, 1: array<string, array<mixed>>|null}>
+     */
+    private static array $compiled = [];
 
     /**
      * @param array<mixed> $payload
@@ -151,7 +159,18 @@ final class AstSchema
         // A ref that did not would otherwise validate NOTHING at that node,
         // which is the silent-acceptance failure this clause exists to end.
         if (isset($schema['$ref']) && is_string($schema['$ref'])) {
-            return self::check($value, self::resolve($schema['$ref'], $root), $root, $path, $exempt);
+            // `$root` is always the vendored schema here, so a ref compiles once.
+            [$target, $dispatch] = self::$compiled[$schema['$ref']] ??= self::compile(self::resolve($schema['$ref'], $root));
+            $failure = self::check($value, $target, $root, $path, $exempt);
+            if (
+                $failure !== null || $dispatch === null || !is_array($value) || !is_string($value['type'] ?? null)
+                || in_array($value['type'], $exempt, true)
+            ) {
+                return $failure;
+            }
+            $then = $dispatch[$value['type']] ?? null;
+
+            return $then === null ? null : self::check($value, $then, $root, $path, $exempt);
         }
 
         foreach (
@@ -261,6 +280,75 @@ final class AstSchema
         }
 
         return null;
+    }
+
+    /**
+     * Split an `allOf` made only of type-dispatch branches into a lookup.
+     *
+     * Every block and inline node passes through one branch per admitted type,
+     * and evaluating each `if` generically dominated the whole decode. Only an
+     * object schema that requires `type` qualifies: there a value that reaches
+     * the dispatch is an object with a `type`, and exactly the branch naming it
+     * applies.
+     *
+     * @param array<mixed> $schema
+     *
+     * @return array{0: array<mixed>, 1: array<string, array<mixed>>|null}
+     */
+    private static function compile(array $schema): array
+    {
+        if (
+            !isset($schema['allOf']) || !is_array($schema['allOf']) || ($schema['type'] ?? null) !== 'object'
+            || !in_array('type', (array)($schema['required'] ?? []), true)
+        ) {
+            return [$schema, null];
+        }
+        $dispatch = [];
+        foreach ($schema['allOf'] as $branch) {
+            $constant = is_array($branch) ? self::dispatchConstant($branch) : null;
+            if ($constant === null || isset($dispatch[$constant])) {
+                return [$schema, null];
+            }
+            /** @var array<mixed> $then */
+            $then = $branch['then'];
+            $dispatch[$constant] = $then;
+        }
+        unset($schema['allOf']);
+
+        return [$schema, $dispatch];
+    }
+
+    /**
+     * The constant of an `allOf` branch shaped as the node dispatch writes it -
+     * `if: {properties: {type: {const: C}}}`, optionally with
+     * `required: ["type"]`, beside a `then` - or null for any other branch.
+     *
+     * @param array<mixed> $branch
+     */
+    private static function dispatchConstant(array $branch): ?string
+    {
+        if (count($branch) !== 2 || !isset($branch['if'], $branch['then']) || !is_array($branch['then'])) {
+            return null;
+        }
+        $if = $branch['if'];
+        if (!is_array($if)) {
+            return null;
+        }
+        // With or without its own `required`, which differs only on an object
+        // lacking `type` - one the parent's `required` has already refused.
+        if (count($if) !== 1 && (count($if) !== 2 || ($if['required'] ?? null) !== ['type'])) {
+            return null;
+        }
+        $properties = $if['properties'] ?? null;
+        if (!is_array($properties) || count($properties) !== 1 || !is_array($properties['type'] ?? null)) {
+            return null;
+        }
+        $type = $properties['type'];
+        if (count($type) !== 1 || !is_string($type['const'] ?? null)) {
+            return null;
+        }
+
+        return $type['const'];
     }
 
     /**
