@@ -16,7 +16,7 @@ class SourceLinter
     /**
      * @var string
      */
-    private const ITEM = '/^([ \t]*)([-+*]|[0-9A-Za-z]+[.)])(\{[^{}\r\n]*\})?( +)(?:\[[ xX_?>-]\] +)?/';
+    private const ITEM = '/^([ \t]*)([-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)])(\{[^{}\r\n]*\})?( +)(?:\[[ xX_?>-]\] +)?/';
 
     /**
      * @var string
@@ -379,7 +379,7 @@ class SourceLinter
 
     private static function containerView(string $text): string
     {
-        while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:[-*+] |[0-9A-Za-z]+[.)] |: ))/', $text, $match)) {
+        while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:[-*] |(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)] |: ))/', $text, $match)) {
             $text = substr($text, strlen($match[0]));
         }
 

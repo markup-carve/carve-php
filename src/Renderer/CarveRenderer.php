@@ -555,7 +555,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * The four writer-only sentinels, chosen per render from code points the
      * DOCUMENT does not contain.
      *
-     * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string}
+     * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string}
      */
     protected array $verbatimSentinels = [
         "\u{E001}",
@@ -565,6 +565,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         "\u{E005}",
         "\u{E006}",
         "\u{E007}",
+        "\u{E008}",
     ];
 
     /**
@@ -581,17 +582,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
-     * @return array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string}
+     * @return array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string}
      */
     protected function pickVerbatimSentinels(string $text): array
     {
-        // SEVEN, not six: the last is §11 N1a's list boundary. It is picked
-        // here rather than fixed for the reason the whole scheme exists - a
-        // fixed code point cannot be told apart from an authored one, and this
-        // sentinel expands to THREE BLANK LINES, so an authored occurrence
-        // would be rewritten into a list boundary the author never wrote.
-        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string} $picked */
-        $picked = DocumentSentinels::pick($text, 7, 0xE001);
+        // The final slots carry list boundaries and code continuation guards.
+        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
+        $picked = DocumentSentinels::pick($text, 8, 0xE001);
 
         return $picked;
     }
@@ -3344,12 +3341,18 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * boolean attribute, collected on the definition line and discarded with
      * the rest of the body's pending attributes, so it reaches neither the
      * endnote item nor anything after it.
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
     protected function renderFootnote(Footnote $node): string
     {
-        $body = $this->trimNonNbsp(
-            $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren())),
-        );
+        $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren()));
+        foreach (explode("\n", $rawBody) as $line) {
+            if (str_starts_with(ltrim($line, " \t"), $this->verbatimSentinels[7] . '>')) {
+                throw new SourceUnspellableException('code', 'a block-marker continuation cannot stay inside a footnote paragraph');
+            }
+        }
+        $body = $this->trimNonNbsp($rawBody);
         if ($body === '') {
             return '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: ' . self::EMPTY_BODY_SENTINEL;
         }
@@ -4565,15 +4568,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private function guardCodeLines(string $written): string
     {
-        if ($this->inLineBlock > 0 || $this->inTerm) {
+        $marker = '/\n(?=>(?: |\n|$)|\[[^\]\n]+\]:[ \t])/';
+        if ($this->inTerm && preg_match($marker, $written)) {
+            throw new SourceUnspellableException('code', 'a block marker on a continuation line ends the definition term');
+        }
+        if ($this->inLineBlock > 0) {
             return $written;
         }
 
-        return (string)preg_replace('/\n(?=> |\[[^\]\n]+\]:[ \t])/', "\n ", $written);
+        return (string)preg_replace($marker, "\n" . $this->verbatimSentinels[7], $written);
     }
 
     private function renderCodeWithUnclosed(string $content, bool $allowUnclosed): string
     {
+        if (str_contains($content, "\r")) {
+            $content = str_replace(["\r\n", "\r"], "\n", $content);
+        }
         // A code span is verbatim too, so an authored U+E000 is the CHARACTER
         // here as much as inside a fence - and normalize() would otherwise
         // rewrite it to `\ `, a literal backslash and a space inside backticks
@@ -4596,6 +4606,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             || (str_starts_with($content, ' ')
                 && str_ends_with($content, ' ')
                 && strspn($content, ' ') !== strlen($content));
+
+        if (preg_match('/[ \t]\n/', $content)) {
+            throw new SourceUnspellableException('code', 'a line of the value ends in whitespace, which the block layer strips');
+        }
+        if (!$this->inTerm && preg_match('/\n[ \t]/', $content)) {
+            throw new SourceUnspellableException('code', 'a line of the value starts with whitespace, which the block layer strips');
+        }
+        if ($needsPad && str_ends_with($content, "\n")) {
+            throw new SourceUnspellableException('code', 'a padded value ending in a line terminator loses the pad');
+        }
 
         // Block normalization removes a pad before a newline. An unclosed
         // span at the end of the run keeps the value without that pad.
@@ -5066,6 +5086,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function restoreVerbatim(string $text): string
     {
+        $text = (string)preg_replace_callback(
+            '/^([ \t>]*)' . preg_quote($this->verbatimSentinels[7], '/') . '([>\[])/m',
+            static fn (array $m): string => ($m[2] === '[' ? $m[1] . ' ' : (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ')) . $m[2],
+            $text,
+        );
+        $text = str_replace($this->verbatimSentinels[7], '', $text);
+
         $marker = preg_quote($this->verbatimSentinels[2], '/');
         $text = (string)preg_replace_callback(
             '/^([ \t>]*)' . $marker . '$/m',
