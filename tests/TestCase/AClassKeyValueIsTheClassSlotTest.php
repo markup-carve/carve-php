@@ -83,6 +83,24 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
         self::assertSame(['b'], $kept->getClassList());
     }
 
+    public function testBareDivPreservesTheAuthoredClassSlot(): void
+    {
+        $cases = [
+            '{class}' => '',
+            '{class=""}' => '',
+            '{class .b}' => 'b',
+            '{.b}' => 'b',
+            '{class="a b" .c}' => 'a b c',
+        ];
+        foreach ($cases as $attrLine => $classes) {
+            self::assertSame(
+                '<div class="' . $classes . "\">\n  <p>y</p>\n</div>\n",
+                (new CarveConverter())->convert($attrLine . "\n:::\ny\n:::\n"),
+                $attrLine,
+            );
+        }
+    }
+
     public function testNoShapeRendersTwoClassAttributes(): void
     {
         foreach (self::SPELLINGS as $attrLine) {
@@ -90,12 +108,8 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
                 $html = (new CarveConverter())->convert($source);
                 self::assertSame(1, substr_count($html, 'class='), $source . ' rendered ' . $html);
             }
-            // An UNTYPED div drops an authored class slot holding no class name,
-            // which predates this clause and is the one shape where the flat
-            // attribute map cannot tell an empty slot from an absent one. The
-            // ticket's defect is the SECOND attribute, and that never appears.
             $html = (new CarveConverter())->convert($attrLine . "\n::: \nbody\n:::\n");
-            self::assertLessThanOrEqual(1, substr_count($html, 'class='), $attrLine . ' rendered ' . $html);
+            self::assertSame(1, substr_count($html, 'class='), $attrLine . ' rendered ' . $html);
         }
         // A span takes the same slot, so the inline path answers alike.
         self::assertSame(1, substr_count((new CarveConverter())->convert("[t]{class=a .b}\n"), 'class='));

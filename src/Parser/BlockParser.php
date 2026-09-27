@@ -3747,17 +3747,7 @@ class BlockParser
         foreach (array_keys($this->pendingAttributes) as $name) {
             $authorOrder[] = $name === 'id' ? '#id' : ($name === 'class' ? '.class' : (string)$name);
         }
-        foreach ($this->pendingAttributes as $name => $value) {
-            if ($name === 'class') {
-                foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
-                    if ($class !== '') {
-                        $div->addClass($class);
-                    }
-                }
-            } else {
-                $div->setAttribute($name, $value);
-            }
-        }
+        $this->applyPendingContainerAttributes($div);
         // Storage stays class-first (the type class leads; the core renderer
         // emits it that way). But the type class polluted the recorded order,
         // so restore the author's SOURCE order for extensions and fmt (#304).
@@ -3797,6 +3787,24 @@ class BlockParser
      */
     protected int $figureGroupDepth = 0;
 
+    private function applyPendingContainerAttributes(Node $node): void
+    {
+        foreach ($this->pendingAttributes as $name => $value) {
+            if ($name === 'class') {
+                foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
+                    if ($class !== '') {
+                        $node->addClass($class);
+                    }
+                }
+                if (!$node->hasAttribute('class')) {
+                    $node->setAttribute('class', '');
+                }
+            } else {
+                $node->setAttribute($name, $value);
+            }
+        }
+    }
+
     /**
      * Parse a bare `::: figure` fence into a FigureGroup (PART 9 §4c).
      *
@@ -3822,17 +3830,7 @@ class BlockParser
         foreach (array_keys($this->pendingAttributes) as $name) {
             $authorOrder[] = $name === 'id' ? '#id' : ($name === 'class' ? '.class' : (string)$name);
         }
-        foreach ($this->pendingAttributes as $name => $value) {
-            if ($name === 'class') {
-                foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
-                    if ($class !== '') {
-                        $group->addClass($class);
-                    }
-                }
-            } else {
-                $group->setAttribute($name, $value);
-            }
-        }
+        $this->applyPendingContainerAttributes($group);
         $group->setAttributeOrder($authorOrder);
         $this->pendingAttributes = [];
         $this->pendingAttributeOrder = [];
