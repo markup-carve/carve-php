@@ -45,11 +45,13 @@ class AnUnquotedAttributeUsesTheGrammarExclusionsTest extends TestCase
     public function testAReferenceImageDoesNotRepeatItsBraceAttribute(): void
     {
         $converter = new CarveConverter();
-        $source = "![a{x=y][r]{k=a{b}\n\n[r]: /u\n";
-        $writer = new CarveRenderer();
-        $written = $writer->render($converter->parse($source));
-        self::assertSame($source, $written);
-        self::assertSame($written, $writer->render($converter->parse($written)));
+        foreach (['a', 'a{x=y', 'a\\]{x=y', 'a{b}{x=y'] as $label) {
+            $source = '![' . $label . "][r]{k=a{b}\n\n[r]: /u\n";
+            $writer = new CarveRenderer();
+            $written = $writer->render($converter->parse($source));
+            self::assertSame($source, $written);
+            self::assertSame($written, $writer->render($converter->parse($written)));
+        }
     }
 
     public function testTheWriterQuotesBackslashesAndPreservesTheirValue(): void

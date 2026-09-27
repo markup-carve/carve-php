@@ -4197,7 +4197,18 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!str_ends_with($text, '}')) {
             return [];
         }
-        $offset = 0;
+        $labelEnd = BracketScanner::balancedBracketEnd($text, str_starts_with($text, '![') ? 1 : 0);
+        if ($labelEnd === null) {
+            return [];
+        }
+        $offset = $labelEnd;
+        if (($text[$labelEnd + 1] ?? '') === '[') {
+            $referenceEnd = strpos($text, ']', $labelEnd + 2);
+            if ($referenceEnd === false) {
+                return [];
+            }
+            $offset = $referenceEnd;
+        }
         while (preg_match('/(?:\]|\})\{/', $text, $match, PREG_OFFSET_CAPTURE, $offset) === 1) {
             $boundary = $match[0][1];
             $payload = substr($text, $boundary + 2, -1);
