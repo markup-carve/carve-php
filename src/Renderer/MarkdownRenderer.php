@@ -1431,11 +1431,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             // section 9a).
             $node instanceof HardBreak => $this->tableCellDepth > 0 ? '<br>' : "\\\n",
             $node instanceof NonBreakingSpace => "\u{00A0}",
-            $node instanceof SoftBreak => match ($this->softBreakMode) {
-                SoftBreakMode::Newline => "\n",
-                SoftBreakMode::Space => ' ',
-                SoftBreakMode::Break => "  \n",
-            },
+            $node instanceof SoftBreak => $this->renderSoftBreak(),
             $node instanceof Superscript => $this->renderSuperscript($node),
             $node instanceof Subscript => $this->renderSubscript($node),
             $node instanceof Highlight => $this->renderHighlight($node),
@@ -3396,6 +3392,26 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $html . $attrs . '>';
+    }
+
+    /**
+     * ONE SPACE IN A TABLE CELL (PART 11 §9b, CARVE-P11-061): a GFM row is one
+     * line, so a newline there ends the row and drops the rest of the table.
+     * Not `<br>`, which §9a writes for the HARD break -- a soft break is the
+     * break that does not render as a break. Only the Break mode, where the
+     * caller asked for a visible break, degrades to §9a's `<br>`.
+     */
+    protected function renderSoftBreak(): string
+    {
+        if ($this->tableCellDepth > 0) {
+            return $this->softBreakMode === SoftBreakMode::Break ? '<br>' : ' ';
+        }
+
+        return match ($this->softBreakMode) {
+            SoftBreakMode::Newline => "\n",
+            SoftBreakMode::Space => ' ',
+            SoftBreakMode::Break => "  \n",
+        };
     }
 
     protected function renderSuperscript(Superscript $node): string
