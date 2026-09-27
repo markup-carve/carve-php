@@ -70,6 +70,7 @@ use MarkupCarve\Carve\Lint\ReferenceLinter;
 use MarkupCarve\Carve\Lint\ReferencesPlacementLinter;
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
 use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
+use MarkupCarve\Carve\Lint\SourceLinter;
 use MarkupCarve\Carve\Lint\TableColumnLinter;
 use MarkupCarve\Carve\Lint\TemplateSourceLinter;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -794,6 +795,7 @@ if (($options['command'] ?? null) === 'lint') {
     $termFoldLinter = new DefinitionTermFoldLinter();
     $referencesPlacementLinter = new ReferencesPlacementLinter();
     $referenceLinter = new ReferenceLinter();
+    $sourceLinter = new SourceLinter();
     $sources = [];
 
     if ($options['files'] === []) {
@@ -823,6 +825,7 @@ if (($options['command'] ?? null) === 'lint') {
             $linter->lint($source, ['platforms' => $options['platforms']]),
             $semanticLinter->lint($source),
             $referenceLinter->lint($source),
+            $sourceLinter->lint($source),
             $retiredLinter->lint($source),
             $tableColumnLinter->lint($source),
             $templateSourceLinter->lint($source),
