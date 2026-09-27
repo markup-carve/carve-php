@@ -287,6 +287,34 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected int $narrowingBudget = 0;
 
     /**
+     * How many documents' worth of source one narrowing search may re-parse
+     * beyond its probe count. Windowed probes are cheap, so this lets a large
+     * document with many independent failing units finish the search, while
+     * the total stays linear in the document.
+     *
+     * @var int
+     */
+    protected const ESCAPE_SEARCH_PARSE_FACTOR = 16;
+
+    /**
+     * Bytes of source the probes have rendered for re-parsing, cached or not,
+     * so the charge is a property of the search rather than of a cache.
+     */
+    protected int $probeCharge = 0;
+
+    protected int $searchChargeStart = 0;
+
+    /**
+     * How many times its probe count a search may probe at most. A probe still
+     * walks structures sized by the document, so the count stays logarithmic.
+     *
+     * @var int
+     */
+    protected const ESCAPE_SEARCH_PROBE_FACTOR = 4;
+
+    protected int $searchProbeFloor = 0;
+
+    /**
      * The pruned views the narrowing probes render, built on the first local
      * probe of a narrowing and dropped with it.
      */
@@ -317,6 +345,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @var array<int, array<int, true>>
      */
     protected array $structuralEscapes = [];
+
+    /**
+     * In bracketed content, each paired `]` (text node id, byte offset) mapped
+     * to its `[`. Escaping either alone re-pairs the construct's own brackets,
+     * so the closer is written with the decision its opener took.
+     *
+     * @var array<int, array<int, array{int, int}>>
+     */
+    protected array $pairedClosers = [];
+
+    /**
+     * Whether each paired `[` was last written escaped, for its closer.
+     *
+     * @var array<int, array<int, bool>>
+     */
+    protected array $escapedOpeners = [];
 
     /**
      * The units the logged render asked about, and the end of the log.
@@ -566,6 +610,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->bracedSpans = [];
         $this->treeCache = null;
         $this->structuralEscapes = [];
+        $this->pairedClosers = [];
+        $this->escapedOpeners = [];
         $this->planStructuralEscapes($document);
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
@@ -704,6 +750,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // Eight times the depth of the halving, which is what narrowing four
         // independent failing units costs.
         $this->narrowingBudget = 8 * (int)ceil(log(count($units) + 1, 2)) + 8;
+        $this->searchChargeStart = $this->probeCharge;
+        $this->searchProbeFloor = -(self::ESCAPE_SEARCH_PROBE_FACTOR - 1) * $this->narrowingBudget;
         $this->relaxUnits($document, $units, $conservativeTree, $conservativeLength, $local);
 
         return $this->renderSelectively($document);
@@ -745,6 +793,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($window !== null && $beforeTree !== null) {
             $after = $this->renderWindow($window);
             if ($after !== null) {
+                $this->probeCharge += strlen((string)$before) + strlen($after);
                 // Loose, as in candidateHolds().
                 if ($this->windowTree($after) == $beforeTree) {
                     return true;
@@ -754,12 +803,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 return false;
             }
         }
-        if ($this->candidateHolds($this->renderSelectively($document), $conservativeTree)) {
+        $candidate = $this->renderSelectively($document);
+        $this->probeCharge += strlen($candidate);
+        if ($this->candidateHolds($candidate, $conservativeTree)) {
             return true;
         }
         $undo();
 
         return false;
+    }
+
+    /**
+     * Whether a search may not probe again: its count is spent, and so is
+     * either its parse allowance or its cap on extra probes.
+     */
+    protected function searchIsSpent(int $budget, int $conservativeLength): bool
+    {
+        return $budget <= 0 && (
+            $this->probeCharge - $this->searchChargeStart >= self::ESCAPE_SEARCH_PARSE_FACTOR * $conservativeLength
+            || $budget <= $this->searchProbeFloor
+        );
     }
 
     /**
@@ -834,7 +897,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         bool $local,
     ): void {
         $count = count($units);
-        if ($count === 0 || $this->narrowingBudget <= 0) {
+        if ($count === 0 || $this->searchIsSpent($this->narrowingBudget, $conservativeLength)) {
             return;
         }
         $this->narrowingBudget--;
@@ -971,6 +1034,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     ): string {
         $this->relaxedOccurrences = [];
         $this->occurrenceBudget = 8 * (int)ceil(log(count($order) + 1, 2)) + 8;
+        $this->searchChargeStart = $this->probeCharge;
+        $this->searchProbeFloor = -(self::ESCAPE_SEARCH_PROBE_FACTOR - 1) * $this->occurrenceBudget;
         $this->relaxOccurrences($document, $units, $order, $conservativeTree, $conservativeLength, $local);
         // AND THEN ONE SWEEP OF WHAT IS LEFT, because the halving is not a
         // FIXPOINT. Relaxing occurrences is not monotone: an occurrence
@@ -984,7 +1049,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // and spends the same budget - so where the budget is already gone
         // it costs nothing, which is the pathological document.
         foreach ($order as $key) {
-            if ($this->occurrenceBudget <= 0) {
+            if ($this->searchIsSpent($this->occurrenceBudget, $conservativeLength)) {
                 break;
             }
             if (isset($this->relaxedOccurrences[$key])) {
@@ -1016,7 +1081,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         bool $local,
     ): void {
         $count = count($group);
-        if ($count === 0 || $this->occurrenceBudget <= 0) {
+        if ($count === 0 || $this->searchIsSpent($this->occurrenceBudget, $conservativeLength)) {
             return;
         }
         $this->occurrenceBudget--;
@@ -3717,6 +3782,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // there does PART 9 §27 bind it to an inline literal.
                 $nextOpensVerbatim,
                 $this->structuralEscapes[spl_object_id($node)] ?? [],
+                spl_object_id($node),
             )),
             // The whole point: reproduce the author's source run verbatim.
             $node instanceof SmartPunctuation => $node->getContent(),
@@ -5171,9 +5237,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             if ($char === '[') {
                 $open[] = $i;
             } elseif ($char === ']' && $open !== []) {
-                $paired[array_pop($open)] = true;
+                $opener = array_pop($open);
+                $paired[$opener] = true;
                 $paired[$i] = true;
                 $closers[$at] = true;
+                if ($bracketed) {
+                    $this->pairedClosers[$marks[$i][1]][$marks[$i][2]] = [$marks[$opener][1], $marks[$opener][2]];
+                }
             }
         }
         $scan = null;
@@ -5324,12 +5394,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @param bool $opensBlockLine
      * @param bool $nextOpensVerbatim
      * @param array<int, true> $structural Offsets escaped in both forms.
+     * @param int|null $textId The text node written, for its paired brackets.
      */
     protected function escapeText(
         string $text,
         bool $opensBlockLine = false,
         bool $nextOpensVerbatim = false,
         array $structural = [],
+        ?int $textId = null,
     ): string {
         // ONLY WHAT WOULD CHANGE THE RE-PARSE. The class here was every C0
         // control but tab and newline, plus DEL and the whole C1 block - a
@@ -5351,13 +5423,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $minimal = $this->escapeModeHere() === self::ESCAPE_MODE_MINIMAL;
         $call = $minimal ? 0 : $this->nextEscapeCallIndex();
+        $closers = $textId === null ? [] : $this->pairedClosers[$textId] ?? [];
+        if ($textId !== null) {
+            unset($this->escapedOpeners[$textId]);
+        }
         // `!` AND `$` JOIN THEIR CLASSES SO THE BINDING CASE CAN BE FORCED.
         // Both are returned bare below wherever they do not bind, so the only
         // renders that change are the ones where the escape is structural: `!`
         // was already in the conservative class and is new to the minimal one,
         // and `$` was in neither.
         $pattern = $minimal
-            ? ($structural === [] ? '/([\\\\`"\'^!$])/' : '/([\\\\`"\'^!$\[\](])/')
+            ? ($structural === [] && $closers === [] ? '/([\\\\`"\'^!$])/' : '/([\\\\`"\'^!$\[\](])/')
             : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'$])/';
         $insideNote = $this->inlineNoteDepth > 0;
         // The LAST braced-superscript closer in this text, found once.
@@ -5372,75 +5448,96 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $lastCloser = strrpos($text, '^}');
         $lastSupCloser = $lastCloser === false ? -1 : $lastCloser;
 
+        $decide = function (
+            string $char,
+            int $offset,
+        ) use (
+            $text,
+            $opensBlockLine,
+            $insideNote,
+            $minimal,
+            $nextOpensVerbatim,
+            $lastSupCloser,
+            $call,
+            $structural,
+            $closers,
+        ): string {
+            if (isset($structural[$offset])) {
+                return '\\' . $char;
+            }
+            // A paired closer follows its opener, which may sit in another unit.
+            if ($char === ']' && isset($closers[$offset])) {
+                [$openerId, $openerOffset] = $closers[$offset];
+                $escaped = $this->escapedOpeners[$openerId][$openerOffset] ?? false;
+                $this->lastOccurrenceRelaxed = !$escaped;
+
+                return $escaped ? '\\]' : ']';
+            }
+            if ($minimal && ($char === '[' || $char === ']' || $char === '(')) {
+                return $char;
+            }
+            // PART 11 section 2's decision is taken per OPENER OCCURRENCE.
+            // In a unit the search has escalated, each candidate site is
+            // offered back on its own, so the one occurrence that needed
+            // the escape no longer drags the rest of the unit with it. The
+            // unconditional set is not a candidate and is never offered.
+            if (
+                !$minimal
+                && !str_contains(self::NOT_OFFERED_PER_OCCURRENCE, $char)
+                && $this->occurrenceIsRelaxed(
+                    $call,
+                    $offset,
+                    $offset > 0 && $text[$offset - 1] === $char && !isset($structural[$offset - 1]),
+                )
+            ) {
+                return $char;
+            }
+            if ($char === '^' && self::caretOpensACaption($text, $offset, $opensBlockLine)) {
+                // Forced in BOTH modes - see the note on the method.
+                return '\\^';
+            }
+            // `!` is decided by the guard in BOTH passes, like `$` below.
+            // §27 reinterprets it only where it binds to a following
+            // backtick run, so anywhere else the backslash would add an
+            // `escaped_text` node the source never had, which is what §2
+            // forbids (carve-php#2013).
+            if ($char === '!' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
+                return '!';
+            }
+            // `$` was in NEITHER class, so both passes wrote it bare and
+            // both are unchanged away from the binding case.
+            if ($char === '$' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
+                return '$';
+            }
+            if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote, $lastSupCloser)) {
+                return '^';
+            }
+            // A COLON only opens something at the start of a line - `::`
+            // opens a definition term, `:::` a div, and a caption's
+            // `^ Figure #:` is read from the marker. Mid-line it is
+            // ordinary punctuation, and PART 11 §2 escapes a character
+            // only where omitting it would change the re-parse. Escaping
+            // every colon put `\:` in `\^ Figure 1\: moon`, where the
+            // caret is already escaped so nothing downstream reads the
+            // colon at all (carve-php#743).
+            if ($char === ':' && !self::opensLine($text, $offset)) {
+                return ':';
+            }
+
+            return '\\' . $char;
+        };
+
         return (string)preg_replace_callback(
             $pattern,
-            function (array $match) use (
-                $text,
-                $opensBlockLine,
-                $insideNote,
-                $minimal,
-                $nextOpensVerbatim,
-                $lastSupCloser,
-                $call,
-                $structural,
-            ): string {
+            function (array $match) use ($decide, $textId): string {
                 $char = $match[1][0];
                 $offset = $match[1][1];
-                if (isset($structural[$offset])) {
-                    return '\\' . $char;
-                }
-                if ($minimal && ($char === '[' || $char === ']' || $char === '(')) {
-                    return $char;
-                }
-                // PART 11 section 2's decision is taken per OPENER OCCURRENCE.
-                // In a unit the search has escalated, each candidate site is
-                // offered back on its own, so the one occurrence that needed
-                // the escape no longer drags the rest of the unit with it. The
-                // unconditional set is not a candidate and is never offered.
-                if (
-                    !$minimal
-                    && !str_contains(self::NOT_OFFERED_PER_OCCURRENCE, $char)
-                    && $this->occurrenceIsRelaxed(
-                        $call,
-                        $offset,
-                        $offset > 0 && $text[$offset - 1] === $char && !isset($structural[$offset - 1]),
-                    )
-                ) {
-                    return $char;
-                }
-                if ($char === '^' && self::caretOpensACaption($text, $offset, $opensBlockLine)) {
-                    // Forced in BOTH modes - see the note on the method.
-                    return '\\^';
-                }
-                // `!` is decided by the guard in BOTH passes, like `$` below.
-                // §27 reinterprets it only where it binds to a following
-                // backtick run, so anywhere else the backslash would add an
-                // `escaped_text` node the source never had, which is what §2
-                // forbids (carve-php#2013).
-                if ($char === '!' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
-                    return '!';
-                }
-                // `$` was in NEITHER class, so both passes wrote it bare and
-                // both are unchanged away from the binding case.
-                if ($char === '$' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
-                    return '$';
-                }
-                if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote, $lastSupCloser)) {
-                    return '^';
-                }
-                // A COLON only opens something at the start of a line - `::`
-                // opens a definition term, `:::` a div, and a caption's
-                // `^ Figure #:` is read from the marker. Mid-line it is
-                // ordinary punctuation, and PART 11 §2 escapes a character
-                // only where omitting it would change the re-parse. Escaping
-                // every colon put `\:` in `\^ Figure 1\: moon`, where the
-                // caret is already escaped so nothing downstream reads the
-                // colon at all (carve-php#743).
-                if ($char === ':' && !self::opensLine($text, $offset)) {
-                    return ':';
+                $written = $decide($char, $offset);
+                if ($char === '[' && $textId !== null) {
+                    $this->escapedOpeners[$textId][$offset] = $written !== $char;
                 }
 
-                return '\\' . $char;
+                return $written;
             },
             $text,
             flags: PREG_OFFSET_CAPTURE,
