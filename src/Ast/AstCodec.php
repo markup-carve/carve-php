@@ -1498,10 +1498,15 @@ class AstCodec
         if (isset($attributes['id'])) {
             $wire['id'] = $attributes['id'];
         }
-        if (isset($attributes['class']) && $attributes['class'] !== '') {
+        if (isset($attributes['class'])) {
             // A class attribute holds a whitespace-separated list; the reference
-            // publishes it split, which is also how a consumer wants it.
-            $wire['classes'] = preg_split('/\s+/', trim($attributes['class'])) ?: [];
+            // publishes it split, which is also how a consumer wants it. An EMPTY
+            // class is one empty class rather than none: `{class}` records a
+            // `.class` slot (PART 4), and dropping the list left `order` naming a
+            // slot the decoder could not rebuild, which it reports as a lost field.
+            $wire['classes'] = $attributes['class'] === ''
+                ? ['']
+                : (preg_split('/\s+/', trim($attributes['class'])) ?: []);
         }
 
         $keyValues = [];
