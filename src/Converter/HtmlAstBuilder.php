@@ -597,7 +597,7 @@ final class HtmlAstBuilder
         $blocks = [];
         $pending = [];
         $flush = function () use (&$blocks, &$pending): void {
-            $children = $this->coalesceText($pending);
+            $children = $this->hoistedRun($pending);
             $this->normalizeInlineBoundaries($children);
             $children = $this->trimBlockEdges($children);
             $pending = [];
@@ -2797,7 +2797,7 @@ final class HtmlAstBuilder
         } finally {
             $this->inCaption = $previousCaptionState;
         }
-        $out = $this->coalesceText($out);
+        $out = $this->hoistedRun($out);
         $this->normalizeInlineBoundaries($out);
 
         return $this->trimBlockEdges($out);
@@ -3013,10 +3013,23 @@ final class HtmlAstBuilder
             }
         }
 
+        return $this->hoistedRun($out);
+    }
+
+    /**
+     * Close an inline run: hoist the edge whitespace of every link and span in
+     * it, then merge the neighboring text.
+     *
+     * @param list<array<string, mixed>> $nodes
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function hoistedRun(array $nodes): array
+    {
         // A trusted round trip reads its own Carve source back, spaces included.
         $keep = $this->preserveInlineWhitespace || $this->trustedRoundTrip;
 
-        return $this->coalesceText($keep ? $out : $this->hoistEdgeSpace($out));
+        return $this->coalesceText($keep ? $nodes : $this->hoistEdgeSpace($nodes));
     }
 
     /**
