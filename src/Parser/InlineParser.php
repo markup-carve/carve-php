@@ -277,6 +277,13 @@ class InlineParser
     protected ?string $closerLastText = null;
 
     /**
+     * @var array<int, int|null>
+     */
+    private array $attributeValueEnds = [];
+
+    private ?string $attributeValueText = null;
+
+    /**
      * Cached abbreviation regex pattern (built once per document)
      */
     protected ?string $abbreviationPattern = null;
@@ -4014,13 +4021,18 @@ class InlineParser
     protected function findAttributeEnd(string $text, int $pos): ?int
     {
         $length = strlen($text);
+        if ($this->attributeValueText !== $text) {
+            $this->attributeValueText = $text;
+            $this->attributeValueEnds = [];
+        }
+        $valueBraces = [];
 
         // A block needs a closing `}`. Without this guard, every `{` runs the
         // char-by-char scan below to end-of-text, so an unclosed run like
         // `[x]{` repeated is O(n^2). strrpos (memoized) short-circuits when no
         // `}` lies at or after the block start.
         if (!$this->closerExistsFrom($text, '}', $pos + 1)) {
-            return null;
+            return $this->rememberAttributeValueEnd($valueBraces, null);
         }
 
         $i = $pos + 1;
@@ -4034,11 +4046,11 @@ class InlineParser
             // closing `}` means this is not an inline attr block, so the `{`
             // stays literal (`[x]{.a\n.b}` is text). Matches carve-js / carve-rs.
             if ($char === "\n") {
-                return null;
+                return $this->rememberAttributeValueEnd($valueBraces, null);
             }
 
             if ($inQuote === null && ($char === '|' || $char === '\\')) {
-                return null;
+                return $this->rememberAttributeValueEnd($valueBraces, null);
             }
 
             // Handle escape sequences
@@ -4066,20 +4078,41 @@ class InlineParser
                 continue;
             }
 
+            if ($char === '{' && $inUnquotedValue) {
+                if (array_key_exists($i, $this->attributeValueEnds)) {
+                    return $this->rememberAttributeValueEnd($valueBraces, $this->attributeValueEnds[$i]);
+                }
+                $valueBraces[] = $i;
+            }
             if ($char === '=') {
                 $inUnquotedValue = true;
             } elseif ($char === ' ' || $char === "\t" || $char === "\r") {
                 $inUnquotedValue = false;
             } elseif ($char === '{' && !$inUnquotedValue) {
-                return null;
+                return $this->rememberAttributeValueEnd($valueBraces, null);
             } elseif ($char === '}') {
-                return $i;
+                return $this->rememberAttributeValueEnd($valueBraces, $i);
             }
 
             $i++;
         }
 
-        return null;
+        return $this->rememberAttributeValueEnd($valueBraces, null);
+    }
+
+    /**
+     * Cache suffix scans entered at a brace inside an unquoted value.
+     *
+     * @param list<int> $positions
+     * @param int|null $end
+     */
+    private function rememberAttributeValueEnd(array $positions, ?int $end): ?int
+    {
+        foreach ($positions as $position) {
+            $this->attributeValueEnds[$position] = $end;
+        }
+
+        return $end;
     }
 
     /**

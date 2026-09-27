@@ -72,6 +72,7 @@ class AttributeScanTest extends TestCase
         return [
             'no-closer' => ['[x]{', ''],
             'far-brace' => ['[x]{', '}'],
+            'distant-invalid-pipe' => ['[x]{k=a', '|}'],
             'invalid-pipe-value' => ['*x*{k=|', '}'],
             'invalid-backslash-value' => ['[x]{k=\\', '}'],
         ];

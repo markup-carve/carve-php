@@ -4197,50 +4197,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!str_ends_with($text, '}')) {
             return [];
         }
-        $quote = null;
-        $open = null;
-        $inUnquotedValue = false;
-        $escaped = false;
-        foreach (str_split($text) as $i => $ch) {
-            if ($escaped) {
-                $escaped = false;
-
-                continue;
+        $offset = 0;
+        while (preg_match('/(?:\]|\})\{/', $text, $match, PREG_OFFSET_CAPTURE, $offset) === 1) {
+            $boundary = $match[0][1];
+            $payload = substr($text, $boundary + 2, -1);
+            if (AttributeParser::isValidInlinePayload($payload)) {
+                return AttributeParser::parse($payload);
             }
-            if ($quote !== null && $ch === '\\') {
-                $escaped = true;
-
-                continue;
-            }
-            if ($quote !== null) {
-                if ($ch === $quote) {
-                    $quote = null;
-                }
-
-                continue;
-            }
-            if ($ch === '"' || $ch === "'") {
-                $quote = $ch;
-
-                continue;
-            }
-            if ($ch === '{' && !$inUnquotedValue) {
-                $open = $i;
-            } elseif ($ch === '=' && $open !== null) {
-                $inUnquotedValue = true;
-            } elseif ($ch === ' ' || $ch === "\t" || $ch === '}') {
-                $inUnquotedValue = false;
-            }
-        }
-        if ($open === null) {
-            return [];
-        }
-        $payload = substr($text, $open + 1, -1);
-        if (!AttributeParser::isValidInlinePayload($payload)) {
-            return [];
+            $offset = $boundary + 2;
         }
 
-        return AttributeParser::parse($payload);
+        return [];
     }
 
     protected function renderImage(Image $node): string
