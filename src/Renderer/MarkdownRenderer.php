@@ -3002,15 +3002,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $headerCells = array_fill(0, $widest, '');
             $alignments = $bodyAlignments;
         }
+        // The same reason pads a written header narrower than the table:
+        // GFM drops every body cell past the header's width.
+        $headerCells = array_pad($headerCells, $widest, '');
 
         $output = '';
         if ($headerCells !== []) {
             $output .= '| ' . implode(' | ', $headerCells) . ' |' . "\n";
 
-            // The delimiter promotes the header row, so PART 11 §10b requires
-            // exactly one delimiter cell per header cell. Using the table's
-            // maximum width makes common Markdown readers reject a ragged table
-            // whose body is wider than its header (markup-carve/carve#1042).
+            // One delimiter cell per header cell; a padded column takes the
+            // alignment a later header row gave it, else none.
             $separators = [];
             $headerCellCount = count($headerCells);
             for ($index = 0; $index < $headerCellCount; $index++) {
