@@ -9,7 +9,6 @@ use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
-use DOMXPath;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
@@ -386,6 +385,16 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @var string
+     */
+    private const SLUG_KEY = "\0heading-slug";
+
+    /**
+     * @var string
+     */
+    private const SECTION_ID_KEY = "\0section-id";
+
+    /**
      * @var array<string, true>
      */
     private const BLOCK_TAGS = [
@@ -551,6 +560,7 @@ final class HtmlAstBuilder
             'srcByteLength' => $sourceByteLength ?? strlen($html),
             'children' => $children,
         ];
+        $this->resolveSectionIds($tree);
         if ($this->sourceSafe) {
             $this->markLiteralSymbolText($tree);
         }
@@ -813,6 +823,7 @@ final class HtmlAstBuilder
                 'type' => 'heading',
                 'level' => (int)$match[1],
                 'children' => $this->blockInlines($node),
+                self::SLUG_KEY => (new HeadingIdTracker())->normalizeId(trim($node->textContent)),
             ];
             $skip = ['data-djot-source-level', 'data-djot-explicit-id'];
             if ($this->headingIdWasGenerated($node)) {
@@ -957,7 +968,6 @@ final class HtmlAstBuilder
             || preg_match('/^h[1-6]$/iD', $heading->tagName) !== 1
             || !$node->hasAttribute('id')
             || $heading->hasAttribute('id')
-            || (!$node->hasAttribute('data-djot-explicit-id') && $this->isDerivedHeadingId($node->getAttribute('id'), $heading))
         ) {
             return $blocks;
         }
@@ -967,6 +977,9 @@ final class HtmlAstBuilder
                 $headingAttrs['id'] = $node->getAttribute('id');
                 $headingAttrs['order'] = ['#id', ...array_values(array_diff($headingAttrs['order'] ?? [], ['#id']))];
                 $block['attrs'] = $headingAttrs;
+                if (!$node->hasAttribute('data-djot-explicit-id')) {
+                    $block[self::SECTION_ID_KEY] = true;
+                }
 
                 break;
             }
@@ -988,53 +1001,123 @@ final class HtmlAstBuilder
     }
 
     /**
-     * Only the unambiguous case counts as derived: the heading's slug, used by
-     * no other heading and by no other id. Anything else stays explicit, which
-     * renders the same id and never loses an anchor.
+     * Drops a section id the renderer derives back: its dedup reserves every
+     * written id, then numbers the generated slugs in document order. Keeping
+     * one id can move a later slug, so the pass repeats until nothing changes.
+     *
+     * @param array<string, mixed> $tree
      */
-    private function isDerivedHeadingId(string $id, DOMElement $heading): bool
+    private function resolveSectionIds(array &$tree): void
     {
-        $tracker = new HeadingIdTracker();
-        if ($id !== $tracker->normalizeId(trim($heading->textContent))) {
-            return false;
-        }
-        $document = $heading->ownerDocument;
-        if ($document === null) {
-            return false;
-        }
-        if ($this->headingSlugDocument !== $document) {
-            $this->headingSlugDocument = $document;
-            $this->headingSlugCounts = [];
-            $this->documentIdCounts = [];
-            foreach ((new DOMXPath($document))->query('//*') ?: [] as $element) {
-                if (!$element instanceof DOMElement) {
-                    continue;
-                }
-                if ($element->hasAttribute('id')) {
-                    $key = $element->getAttribute('id');
-                    $this->documentIdCounts[$key] = ($this->documentIdCounts[$key] ?? 0) + 1;
-                }
-                if (preg_match('/^h[1-6]$/iD', $element->tagName) === 1) {
-                    $slug = $tracker->normalizeId(trim($element->textContent));
-                    $this->headingSlugCounts[$slug] = ($this->headingSlugCounts[$slug] ?? 0) + 1;
-                }
+        $headings = [];
+        $written = [];
+        $this->collectHeadingIds($tree, $headings, $written);
+        $kept = [];
+        foreach ($headings as $index => $heading) {
+            $id = (string)$heading['id'];
+            if ($heading['candidate'] && $id !== $heading['slug'] && preg_match('/^' . preg_quote($heading['slug'], '/') . '-[1-9][0-9]*$/D', $id) !== 1) {
+                $kept[$index] = true;
             }
         }
+        // Keep only the first mismatch per pass: it reserves an id that can
+        // give a later heading the number it was written with.
+        do {
+            $changed = false;
+            $used = $written;
+            foreach ($kept as $index => $_) {
+                $used[(string)$headings[$index]['id']] = 1;
+            }
+            foreach ($headings as $index => $heading) {
+                if ($heading['id'] !== null && (!$heading['candidate'] || isset($kept[$index]))) {
+                    continue;
+                }
+                $generated = self::dedupeId($heading['slug'], $used);
+                if ($heading['candidate'] && $generated !== $heading['id']) {
+                    $kept[$index] = true;
+                    $changed = true;
 
-        return ($this->headingSlugCounts[$id] ?? 0) === 1 && ($this->documentIdCounts[$id] ?? 0) === 1;
+                    break;
+                }
+            }
+        } while ($changed);
+        $index = 0;
+        $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
+        $this->applySectionIds($children, $kept, $index);
+        $tree['children'] = $children;
     }
 
-    private ?DOMDocument $headingSlugDocument = null;
+    /**
+     * @param string $base
+     * @param array<string, int> $used
+     */
+    private static function dedupeId(string $base, array &$used): string
+    {
+        if (!isset($used[$base])) {
+            $used[$base] = 1;
+
+            return $base;
+        }
+        do {
+            $used[$base]++;
+            $candidate = $base . '-' . $used[$base];
+        } while (isset($used[$candidate]));
+        $used[$candidate] = 1;
+
+        return $candidate;
+    }
 
     /**
-     * @var array<string, int>
+     * @param array<mixed> $node
+     * @param array<int, array{slug: string, id: ?string, candidate: bool}> $headings
+     * @param array<string, int> $written
      */
-    private array $headingSlugCounts = [];
+    private function collectHeadingIds(array $node, array &$headings, array &$written): void
+    {
+        $attrs = $node['attrs'] ?? null;
+        $id = is_array($attrs) && is_string($attrs['id'] ?? null) ? $attrs['id'] : null;
+        $candidate = ($node[self::SECTION_ID_KEY] ?? false) === true;
+        if ($id !== null && !$candidate) {
+            $written[$id] = 1;
+        }
+        if (($node['type'] ?? null) === 'heading' && is_string($node[self::SLUG_KEY] ?? null)) {
+            $headings[] = ['slug' => $node[self::SLUG_KEY], 'id' => $id, 'candidate' => $candidate];
+        }
+        foreach ($node as $child) {
+            if (is_array($child)) {
+                $this->collectHeadingIds($child, $headings, $written);
+            }
+        }
+    }
 
     /**
-     * @var array<string, int>
+     * @param array<mixed> $node
+     * @param array<int, true> $kept
+     * @param int $index
      */
-    private array $documentIdCounts = [];
+    private function applySectionIds(array &$node, array $kept, int &$index): void
+    {
+        if (($node['type'] ?? null) === 'heading' && is_string($node[self::SLUG_KEY] ?? null)) {
+            if (($node[self::SECTION_ID_KEY] ?? false) === true && !isset($kept[$index]) && is_array($node['attrs'] ?? null)) {
+                unset($node['attrs']['id']);
+                $order = array_filter(is_array($node['attrs']['order'] ?? null) ? $node['attrs']['order'] : [], 'is_string');
+                $node['attrs']['order'] = array_values(array_diff($order, ['#id']));
+                if ($node['attrs']['order'] === []) {
+                    unset($node['attrs']['order']);
+                }
+                if ($node['attrs'] === []) {
+                    unset($node['attrs']);
+                }
+            }
+            $index++;
+        }
+        unset($node[self::SLUG_KEY], $node[self::SECTION_ID_KEY]);
+        foreach ($node as &$child) {
+            if (is_array($child)) {
+                $this->applySectionIds($child, $kept, $index);
+            }
+        }
+        unset($child);
+    }
 
     private function headingIdWasGenerated(DOMElement $node): bool
     {
