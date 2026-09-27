@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
@@ -116,12 +117,15 @@ class DefinitionTermFoldLinter
         $this->collectVerbatimSpans($term, $verbatim);
 
         for ($ln = $pos->startLine + 1; $ln <= $pos->endLine; $ln++) {
-            foreach ($verbatim as [$first, $last]) {
-                if ($first < $ln && $ln <= $last) {
+            $line = $lines[$ln - 1] ?? '';
+            foreach ($verbatim as $span) {
+                if ($span[0] < $ln && $ln <= $span[1]) {
+                    continue 2;
+                }
+                if ($span[2] && $span[0] === $ln && str_starts_with(ltrim($line, " \t>"), '%%')) {
                     continue 2;
                 }
             }
-            $line = $lines[$ln - 1] ?? '';
             $chars = $this->peel($line, $quotes);
             if ($chars === null || $this->visualColumn($line, $chars) <= $markerColumn) {
                 continue;
@@ -149,10 +153,10 @@ class DefinitionTermFoldLinter
 
     /**
      * Line ranges of multi-line code, math, raw and literal spans at any inline
-     * depth; a line inside one is verbatim content, not a folded opener.
+     * depth, and of folded comments; a line inside one is not a folded opener.
      *
      * @param \MarkupCarve\Carve\Node\Node $node
-     * @param array<int, array{int, int}> $spans
+     * @param array<int, array{int, int, bool}> $spans
      * @param int $depth
      */
     private function collectVerbatimSpans(Node $node, array &$spans, int $depth = 0): void
@@ -162,11 +166,15 @@ class DefinitionTermFoldLinter
         }
         foreach ($node->getChildren() as $child) {
             $pos = $child->getPos();
-            if (
+            if ($pos !== null && $child instanceof Comment) {
+                // A folded comment's lines are not term text. Its first line
+                // is only when the comment opens it, which the caller checks.
+                $spans[] = [$pos->startLine, $pos->endLine, true];
+            } elseif (
                 $pos !== null
                 && ($child instanceof Code || $child instanceof Math || $child instanceof RawInline || $child instanceof LiteralInline)
             ) {
-                $spans[] = [$pos->startLine, $pos->endLine];
+                $spans[] = [$pos->startLine, $pos->endLine, false];
             }
             $this->collectVerbatimSpans($child, $spans, $depth + 1);
         }
