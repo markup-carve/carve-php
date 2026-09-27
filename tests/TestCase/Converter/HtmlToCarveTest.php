@@ -680,7 +680,7 @@ HTML;
 
         $result = $this->converter->convert($html);
 
-        $this->assertSame("| outer \\| inner \\| |\n", $result);
+        $this->assertSame("| outer inner |\n", $result);
         $this->assertStringNotContainsString("\n| inner |", $result);
     }
 

@@ -958,6 +958,17 @@ class HtmlToCarve
             );
         }
 
+        if ($this->directAstCellFlattens($node)) {
+            $keepsContent = $this->directAstHasSurvivingContent($node);
+            $this->addImportDiagnostic(
+                $diagnostics,
+                $keepsContent ? 'element-unwrapped' : 'element-dropped',
+                $keepsContent ? 'Unwrapped unsupported <' . $tag . '> element' : 'Dropped empty <' . $tag . '> element',
+                $keepsContent ? 'info' : 'warning',
+                $path,
+            );
+        }
+
         $this->inspectImportChildren($node, $tag, $path, $diagnostics);
 
         if ($this->directAstCaptionFlattens($node) && $this->hasImportContentToUnwrap($node)) {
@@ -966,16 +977,6 @@ class HtmlToCarve
                 'element-unwrapped',
                 'Unwrapped unsupported <' . $tag . '> element',
                 'info',
-                $path,
-            );
-        }
-        if ($this->directAstCellFlattens($node)) {
-            $keepsContent = $this->directAstHasSurvivingContent($node);
-            $this->addImportDiagnostic(
-                $diagnostics,
-                $keepsContent ? 'element-unwrapped' : 'element-dropped',
-                $keepsContent ? 'Unwrapped unsupported <' . $tag . '> element' : 'Dropped empty <' . $tag . '> element',
-                $keepsContent ? 'info' : 'warning',
                 $path,
             );
         }
@@ -1266,7 +1267,7 @@ class HtmlToCarve
     {
         if (
             $this->usedStoredRoundTripSource
-            || !$this->isFlattenedInACaption(strtolower($node->tagName))
+            || (!$this->isFlattenedInACaption(strtolower($node->tagName)) && strtolower($node->tagName) !== 'tr')
             || $this->directAstCaptionFlattens($node)
             || $this->directAstUnwraps($node)
             || strtolower($node->tagName) === 'figure'
@@ -2173,8 +2174,14 @@ class HtmlToCarve
                 // take - the alignment reaches the cell either way, and
                 // `docs/html-import.md` makes a declared loss a ceiling rather
                 // than a licence (markup-carve/carve#1741).
-                if ($this->unmappedStyleDeclarations($node) !== []) {
-                    $this->addImportDiagnostic($diagnostics, 'style-unmapped', 'CSS declarations may not have a Carve mapping', 'info', $path);
+                foreach ($this->unmappedStyleDeclarations($node) as $property) {
+                    $this->addImportDiagnostic(
+                        $diagnostics,
+                        'style-unmapped',
+                        'CSS declaration ' . $property . ' was not mapped',
+                        'info',
+                        $path,
+                    );
                 }
             } elseif ($name === 'scope' && $tag === 'th' && in_array('scope', $this->tableCellSkipAttributes($node), true)) {
                 // The value this cell's position generates. It is skipped so a
@@ -3891,9 +3898,6 @@ class HtmlToCarve
         }
         $title = $summary->textContent;
         if (trim($title) === '' || str_contains($title, '"') || str_contains($title, "\n")) {
-            return null;
-        }
-        if ($summary->getElementsByTagName('br')->length > 0) {
             return null;
         }
 

@@ -796,6 +796,20 @@ final class HtmlAstBuilder
             return [$quote];
         }
         if ($tag === 'pre') {
+            if ($this->session->inInlineProjection && strtolower($node->getAttribute('role')) !== 'img') {
+                $hasCode = false;
+                foreach ($node->childNodes as $child) {
+                    if ($child instanceof DOMElement && strtolower($child->tagName) === 'code') {
+                        $hasCode = true;
+
+                        break;
+                    }
+                }
+                if (!$hasCode) {
+                    return [['type' => 'paragraph', 'children' => $this->inlines($this->children($node))]];
+                }
+            }
+
             return [$this->codeBlock($node)];
         }
         if ($tag === 'div') {
@@ -1220,11 +1234,6 @@ final class HtmlAstBuilder
         }
         $this->session->summaryTitles[$summary] = null;
         if (str_contains($summary->textContent, '"') || str_contains($summary->textContent, "\n")) {
-            return false;
-        }
-        // A `<br>` reaches no text content but renders as a line break, which the
-        // opener cannot hold any more than an authored one.
-        if ($summary->getElementsByTagName('br')->length > 0) {
             return false;
         }
 
@@ -3059,8 +3068,7 @@ final class HtmlAstBuilder
                 if (
                     $out !== []
                     && $current !== []
-                    && $previousWasBlock
-                    && $currentIsBlock
+                    && ($previousWasBlock || $currentIsBlock)
                     && !$this->captionBoundaryHasSpace($out[array_key_last($out)], false)
                     && !$this->captionBoundaryHasSpace($current[0], true)
                 ) {
@@ -3069,7 +3077,9 @@ final class HtmlAstBuilder
                 foreach ($current as $inline) {
                     $out[] = $inline;
                 }
-                $previousWasBlock = $currentIsBlock;
+                if ($current !== []) {
+                    $previousWasBlock = $currentIsBlock;
+                }
             }
         } finally {
             $this->session->inCaption = $previousCaptionState;
@@ -3086,8 +3096,11 @@ final class HtmlAstBuilder
      */
     private function captionBoundaryHasSpace(array $node, bool $atStart): bool
     {
+        if (($node['type'] ?? null) === 'hard_break') {
+            return true;
+        }
         if (in_array($node['type'] ?? null, ['text', 'code'], true)) {
-            $pattern = $atStart ? '/^[\s\x{00A0}]/u' : '/[\s\x{00A0}]$/u';
+            $pattern = $atStart ? '/^[ \t\n\r\f]/' : '/[ \t\n\r\f]$/';
 
             return preg_match($pattern, self::stringValue($node['value'] ?? null)) === 1;
         }
@@ -4679,30 +4692,11 @@ final class HtmlAstBuilder
             return $out;
         }
         if ($type === 'table') {
-            // A nested table's own caption is inline content that reached this
-            // slot with the table, and neither arm below walks it, so it left
-            // the document while the table's cells stayed (carve-php#2371).
+            // The cell walk below does not reach a nested table's own caption,
+            // so it left the document while the cells stayed (carve-php#2371).
             $caption = [];
             foreach (self::nodeList($node['caption'] ?? null) as $inline) {
                 array_push($caption, ...$this->projectToInlines($inline));
-            }
-            if (!$this->session->inCaption) {
-                $lines = [];
-                foreach (self::nodeList($node['rows'] ?? null) as $row) {
-                    $cells = [];
-                    foreach (self::nodeList($row['cells'] ?? null) as $cell) {
-                        $cells[] = trim($this->plainInlineText($this->projectToInlines($cell)));
-                    }
-                    if ($cells !== []) {
-                        $lines[] = '| ' . implode(' | ', $cells) . ' |';
-                    }
-                }
-                $head = trim($this->plainInlineText($caption));
-                if ($head !== '') {
-                    array_unshift($lines, $head);
-                }
-
-                return $lines === [] ? [] : [['type' => 'text', 'value' => implode(' ', $lines)]];
             }
             $out = $caption;
             foreach (self::nodeList($node['rows'] ?? null) as $row) {

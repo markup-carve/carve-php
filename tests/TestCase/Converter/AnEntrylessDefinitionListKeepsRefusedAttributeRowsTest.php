@@ -19,7 +19,7 @@ class AnEntrylessDefinitionListKeepsRefusedAttributeRowsTest extends TestCase
         $this->assertSame([
             ['attribute-dropped', 'Dropped id on <dl>: a definition list holding no entry is not written'],
             ['attribute-dropped', 'Dropped event-handler attribute onclick on <dl>'],
-            ['style-unmapped', 'CSS declarations may not have a Carve mapping'],
+            ['style-unmapped', 'CSS declaration color was not mapped'],
         ], $this->rows('<dl id="d" onclick="alert(1)" style="color:red"></dl><p>z</p>'));
     }
 
