@@ -23,4 +23,13 @@ class AHardenedUrlListAttributeIsKeptTest extends TestCase
         $this->assertSame('see ![a](a.png){srcset="a.png 1x, javascript:alert(1) 2x"} here', trim($result->value));
         $this->assertSame([], $result->diagnostics);
     }
+
+    public function testTheAttributeNameInProseDoesNotAnswerForALoss(): void
+    {
+        $result = (new HtmlToCarve())->convertWithReport(
+            '<p>srcset=</p><section srcset="javascript:alert(1)"><h2>X</h2></section>',
+        );
+
+        $this->assertContains('Dropped unsupported attribute srcset on <section>', array_column($result->report()['diagnostics'], 'message'));
+    }
 }

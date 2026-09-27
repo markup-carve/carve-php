@@ -2955,7 +2955,10 @@ class HtmlToCarve
         if (
             in_array($name, ['srcset', 'imagesrcset', 'ping', 'attributionsrc'], true)
             && ((new HtmlRenderer())->sanitizeAttributes([$name => $value])[$name] ?? '') === ''
-            && str_contains($this->inspectedCarve ?? '', $name . '=')
+            && preg_match(
+                '/[{ ]' . preg_quote($name, '/') . '=(?:"' . preg_quote(addcslashes($value, '"\\'), '/') . '"|' . preg_quote($value, '/') . ')[ }]/',
+                $this->inspectedCarve ?? '',
+            ) === 1
         ) {
             return true;
         }
