@@ -3288,13 +3288,15 @@ final class HtmlAstBuilder
                 ];
             }
 
-            return [
-                [
-                    'type' => 'math',
-                    'display' => strtolower($node->getAttribute('display')) === 'block',
-                    'content' => $content,
-                ],
+            $math = [
+                'type' => 'math',
+                'display' => strtolower($node->getAttribute('display')) === 'block',
+                'content' => $content,
             ];
+            // `display` and `alttext` are read as the node; `xmlns` is the element's namespace.
+            $this->attachAttrs($math, $node, ['xmlns', 'display', 'alttext']);
+
+            return [$math];
         }
         if ($tag === 'span') {
             $token = trim($node->textContent);

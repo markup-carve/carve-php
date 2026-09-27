@@ -55,46 +55,12 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
     {
         $result = (new HtmlToCarve())->convertWithReport($this->fixture('ar5iv-math'));
 
+        // The math node keeps the element's attributes, as carve-js and carve-rs do.
         $this->assertSame(
-            '$$`\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(\frac{QK^{T}}{\sqrt{d_{k}}})V`',
+            '$$`\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(\frac{QK^{T}}{\sqrt{d_{k}}})V`{id=S3.E1.m1 .ltx_Math intent=:literal}',
             trim($result->value),
         );
-        // `id` and `class` JOINED THE REPORT when the diagnostic started
-        // reading the emitted document instead of predicting it
-        // (carve-php#1346). Both are declared representable for every element,
-        // and a mapped `<math>` emits `$$`…`` - a bare math block with no
-        // attribute block on it - so this fixture's `id` and `class` really are
-        // gone. They were dropped just as silently before; the drop is not new,
-        // only the row saying so is.
-        $this->assertSame(
-            [
-                [
-                    'code' => 'attribute-dropped',
-                    'message' => 'Dropped unsupported attribute id on <math>',
-                    'severity' => 'info',
-                    'fidelity' => 'dropped',
-                    'confidence' => 'exact',
-                    'path' => '/math[1]',
-                ],
-                [
-                    'code' => 'attribute-dropped',
-                    'message' => 'Dropped unsupported attribute class on <math>',
-                    'severity' => 'info',
-                    'fidelity' => 'dropped',
-                    'confidence' => 'exact',
-                    'path' => '/math[1]',
-                ],
-                [
-                    'code' => 'attribute-dropped',
-                    'message' => 'Dropped unsupported attribute intent on <math>',
-                    'severity' => 'info',
-                    'fidelity' => 'dropped',
-                    'confidence' => 'exact',
-                    'path' => '/math[1]',
-                ],
-            ],
-            $result->report()['diagnostics'],
-        );
+        $this->assertSame([], $result->report()['diagnostics']);
     }
 
     /**
