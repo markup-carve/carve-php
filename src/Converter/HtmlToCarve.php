@@ -2092,6 +2092,7 @@ class HtmlToCarve
      * @param string $path
      * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
      * @param string|null $keptTag The preserved ancestor's tag, for a descendant's row.
+     * @param bool $styleOwned
      */
     protected function reportPreservedAttribute(
         string $tag,
@@ -2100,6 +2101,7 @@ class HtmlToCarve
         string $path,
         array &$diagnostics,
         ?string $keptTag = null,
+        bool $styleOwned = false,
     ): void {
         $reason = '';
         if ($name === 'style') {
@@ -2118,10 +2120,17 @@ class HtmlToCarve
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
                 $subject = $name;
                 $reason = ": the semantic span's marker owns that key";
+            } elseif ($styleOwned) {
+                $subject = $name;
+                $reason = ': a mapped CSS declaration already sets it';
             } elseif ($denied) {
                 $subject = $name . ' with a denied URL scheme';
+            } elseif (preg_match('/^[A-Za-z_][\w-]*$/', $name) !== 1) {
+                $subject = 'unsupported attribute ' . $name;
+                $reason = ': not spellable as a Carve attribute name';
             } else {
-                $subject = 'attribute ' . $name;
+                $subject = $name;
+                $reason = ': excluded by the import attribute policy';
             }
             $live = $handler || $sink || $denied;
         }
@@ -2208,10 +2217,11 @@ class HtmlToCarve
             }
             $tag = strtolower(HtmlDomLoader::elementName($child));
             $childPath = $this->importChildPath($path, $child, $index);
+            $styleSlots = $this->mappedImportStyleSlots($child);
             foreach ($child->attributes as $attribute) {
                 $name = strtolower(HtmlDomLoader::attributeName($attribute));
-                if ($this->preservedAttributeIsNews($tag, $name, $attribute->value)) {
-                    $this->reportPreservedAttribute($tag, $name, $attribute->value, $childPath, $diagnostics, $keptTag);
+                if ($this->preservedAttributeIsNews($tag, $name, $attribute->value) || isset($styleSlots[$name])) {
+                    $this->reportPreservedAttribute($tag, $name, $attribute->value, $childPath, $diagnostics, $keptTag, isset($styleSlots[$name]));
                 }
             }
             $this->inspectPreservedDescendants($child, $keptTag, $childPath, $diagnostics);
@@ -2243,6 +2253,7 @@ class HtmlToCarve
         bool $preserved = false,
         ?string $keptTag = null,
     ): void {
+        $styleSlots = $preserved ? $this->mappedImportStyleSlots($node) : [];
         $covered = $preserved ? [] : $this->coveredImportAttributes;
         if (!$preserved && $tag === 'dl' && isset($this->entrylessImportDefinitionLists[$path])) {
             // The list-specific rows already named these; a refused one still reports.
@@ -2261,8 +2272,8 @@ class HtmlToCarve
                 // would NOT have written, because that is the one whose
                 // presence in the document is news: an `id` would have been
                 // kept either way and is not.
-                if ($this->preservedAttributeIsNews($tag, $name, $attribute->value)) {
-                    $this->reportPreservedAttribute($tag, $name, $attribute->value, $path, $diagnostics, $keptTag);
+                if ($this->preservedAttributeIsNews($tag, $name, $attribute->value) || isset($styleSlots[$name])) {
+                    $this->reportPreservedAttribute($tag, $name, $attribute->value, $path, $diagnostics, $keptTag, isset($styleSlots[$name]));
                 }
 
                 continue;
@@ -2273,6 +2284,13 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
             } elseif ($this->importMode === 'roundtrip' && $tag === 'hr' && $name === 'data-char' && in_array($attribute->value, ['-', '*', '_'], true)) {
                 continue;
+            } elseif (
+                in_array($name, ['data-carve-src', 'data-djot-src'], true)
+                && !($name === 'data-djot-src' && $this->trustedRoundTrip && $this->importMode === 'roundtrip')
+            ) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
+            } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . ">: the semantic span's marker owns that key", 'warning', $path);
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
                 // Read as instruction or as content, never written back as an
                 // attribute - so asking the output for it is the wrong
@@ -4863,6 +4881,22 @@ class HtmlToCarve
         }
 
         return $unmapped;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function mappedImportStyleSlots(DOMElement $node): array
+    {
+        $slots = [];
+        foreach ($this->styleDeclarations($node->getAttribute('style')) as [$property, $value]) {
+            $slot = $this->mappedStyleSlot($node, $property, $value);
+            if ($slot !== null) {
+                $slots[$slot] = true;
+            }
+        }
+
+        return $slots;
     }
 
     /**
