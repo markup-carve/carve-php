@@ -1347,6 +1347,7 @@ class BlockParser
                 $body['lines'] = $this->footnoteBodyDefinitionReach(
                     $this->rebaseOverindentedItemBlocks(
                         $body['lines'],
+                        array_fill_keys(array_keys($body['lines']), true),
                         includeSublists: true,
                     ),
                 );
