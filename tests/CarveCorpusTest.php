@@ -993,6 +993,11 @@ class CarveCorpusTest extends TestCase
         // a block opener indented under it is term text at every depth. Ten
         // documents, byte-exact here.
         'a-block-opener-indented-under-a-definition-term-is-term-text-at-every-depth',
+        // Arrived with the bump to carve e00d86a9 (markup-carve/carve#2458): a
+        // comment or a definition indented under a term folds into the term at
+        // every depth. Twenty-five documents, byte-exact here - carve-php#2586
+        // already implements the rule.
+        'a-comment-or-a-definition-under-a-definition-term-folds-at-every-depth',
     ];
 
     /**
