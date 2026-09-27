@@ -34,6 +34,19 @@ final class HtmlAstBuilder
     private ?DOMDocument $builtDocument = null;
 
     /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    private SplObjectStorage $retainedEmptyParagraphs;
+
+    /**
+     * @return \SplObjectStorage<\DOMElement, null>
+     */
+    public function retainedEmptyParagraphs(): SplObjectStorage
+    {
+        return $this->retainedEmptyParagraphs;
+    }
+
+    /**
      * @var array<string, list<string>>
      */
     private array $retainedTableAttributes = [];
@@ -148,6 +161,8 @@ final class HtmlAstBuilder
     private int $quoteDepth = 0;
 
     private bool $inCaption = false;
+
+    private bool $inInlineProjection = false;
 
     private bool $preserveInlineWhitespace = false;
 
@@ -312,6 +327,7 @@ final class HtmlAstBuilder
         private readonly array $labels = [],
     ) {
         $this->displacedFigureAttributes = [];
+        $this->retainedEmptyParagraphs = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -446,6 +462,7 @@ final class HtmlAstBuilder
     public function build(string $html, ?int $sourceByteLength = null): array
     {
         $this->displacedFigureAttributes = [];
+        $this->retainedEmptyParagraphs = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -745,11 +762,21 @@ final class HtmlAstBuilder
         }
         if ($tag === 'p') {
             $children = $this->blockInlines($node);
-            if ($children === []) {
+            $attrs = $this->attrs($node, []);
+            if ($children === [] && ($attrs === [] || $this->inInlineProjection)) {
                 return [];
             }
+            if ($children === []) {
+                $this->retainedEmptyParagraphs[$node] = null;
+            }
+            if ($children === [] && $this->sourceSafe) {
+                // An empty span anchors the attribute line to this paragraph.
+                $children = [['type' => 'span', 'children' => []]];
+            }
             $paragraph = ['type' => 'paragraph', 'children' => $children];
-            $this->attachAttrs($paragraph, $node, []);
+            if ($attrs !== []) {
+                $paragraph['attrs'] = $attrs;
+            }
 
             return [$paragraph];
         }
@@ -772,6 +799,7 @@ final class HtmlAstBuilder
             if (in_array($node->getAttribute('data-char'), ['*', '_'], true)) {
                 $break['marker'] = $node->getAttribute('data-char');
             }
+            $this->attachAttrs($break, $node, ['data-char']);
 
             return [$break];
         }
@@ -1547,6 +1575,18 @@ final class HtmlAstBuilder
             $items[] = $term;
         } elseif ($tag === 'dd') {
             $description = ['type' => 'definition_description', 'children' => $this->blocks($this->children($child))];
+            if (
+                $this->sourceSafe
+                && count($description['children']) === 1
+                && ($description['children'][0]['type'] ?? null) === 'paragraph'
+                && ($description['children'][0]['children'] ?? null) === [['type' => 'span', 'children' => []]]
+            ) {
+                // A single description paragraph renders as inline content.
+                $description['children'] = [];
+                foreach ($child->getElementsByTagName('p') as $paragraph) {
+                    unset($this->retainedEmptyParagraphs[$paragraph]);
+                }
+            }
             $this->attachAttrs($description, $child);
             $items[] = $description;
         }
@@ -1606,6 +1646,8 @@ final class HtmlAstBuilder
                         break;
                     }
                 }
+                $previousProjection = $this->inInlineProjection;
+                $this->inInlineProjection = $previousProjection || !$listForm;
                 $previousCellContext = $this->tableCellAllowsEmptyCode;
                 $this->tableCellAllowsEmptyCode = $allowsEmptyCode;
                 try {
@@ -1613,6 +1655,7 @@ final class HtmlAstBuilder
                     $children = $listForm ? [] : $this->flattenBlocks($blocks);
                 } finally {
                     $this->tableCellAllowsEmptyCode = $previousCellContext;
+                    $this->inInlineProjection = $previousProjection;
                 }
                 $cell = [
                     'type' => 'table_cell',
@@ -2352,8 +2395,14 @@ final class HtmlAstBuilder
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
                 $flush();
-                foreach ($this->blocks($this->children($child)) as $block) {
-                    $fallback[] = $block;
+                $previousProjection = $this->inInlineProjection;
+                $this->inInlineProjection = true;
+                try {
+                    foreach ($this->blocks($this->children($child)) as $block) {
+                        $fallback[] = $block;
+                    }
+                } finally {
+                    $this->inInlineProjection = $previousProjection;
                 }
 
                 continue;
@@ -3581,7 +3630,13 @@ final class HtmlAstBuilder
         }
 
         if ($this->isBlock($node)) {
-            return $this->flattenBlocks($this->block($node));
+            $previousProjection = $this->inInlineProjection;
+            $this->inInlineProjection = true;
+            try {
+                return $this->flattenBlocks($this->block($node));
+            } finally {
+                $this->inInlineProjection = $previousProjection;
+            }
         }
 
         return $this->inlines($this->children($node));

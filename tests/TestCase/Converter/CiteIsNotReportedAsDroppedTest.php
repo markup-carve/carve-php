@@ -105,22 +105,15 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     }
 
     /**
-     * The control that keeps the fix from becoming "stop reporting anything".
-     *
-     * A genuinely unsupported attribute is still reported, at the same code and
-     * severity as before. `<hr>` is the element to ask, because it emits no
-     * attribute block at all - so `foo` really is gone from the output here, and
-     * the diagnostic about it is true.
+     * A thematic break carries ordinary authored attributes through the same
+     * block-attribute spelling as other attributed blocks.
      */
-    public function testAGenuinelyDroppedAttributeIsStillReported(): void
+    public function testThematicBreakAttributeIsKeptAndNotReportedAsDropped(): void
     {
         $html = '<hr foo="bar">';
 
-        $this->assertSame('---', $this->carve($html));
-        $this->assertSame(
-            [['attribute-dropped', 'info', 'Dropped unsupported attribute foo on <hr>']],
-            $this->diagnostics($html),
-        );
+        $this->assertSame("{foo=bar}\n---", $this->carve($html));
+        $this->assertSame([], $this->diagnostics($html));
     }
 
     /**
