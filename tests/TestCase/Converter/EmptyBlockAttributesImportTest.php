@@ -93,7 +93,7 @@ class EmptyBlockAttributesImportTest extends TestCase
     {
         foreach (['-', '*', '_'] as $marker) {
             $html = '<hr id="h" data-char="' . $marker . '">';
-            $importer = new HtmlToCarve();
+            $importer = new HtmlToCarve(false, [], false, 'roundtrip');
             $result = $importer->convertWithReport($html);
             self::assertSame("{#h}\n" . str_repeat($marker, 3), trim($result->value));
             self::assertSame([], $result->diagnostics);

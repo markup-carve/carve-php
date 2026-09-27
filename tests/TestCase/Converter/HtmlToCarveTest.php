@@ -412,7 +412,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testCollapsedReferenceLinkWithUnsafeLabelFallsBackToInlineLink(): void
     {
-        $result = $this->converter->convert('<a href="https://example.com" data-djot-ref="">a ] b</a>');
+        $result = (new HtmlToCarve(false, [], false, 'roundtrip'))->convert('<a href="https://example.com" data-djot-ref="">a ] b</a>');
 
         $this->assertSame("[a \\] b](https://example.com)\n", $result);
         $this->assertStringNotContainsString("\n[a \\] b]:", $result);
@@ -420,7 +420,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testReferenceLinkWithUnsafeReferenceLabelFallsBackToInlineLink(): void
     {
-        $result = $this->converter->convert('<a href="https://example.com" data-djot-ref="ref]x">txt</a>');
+        $result = (new HtmlToCarve(false, [], false, 'roundtrip'))->convert('<a href="https://example.com" data-djot-ref="ref]x">txt</a>');
 
         $this->assertSame("[txt](https://example.com)\n", $result);
         $this->assertStringNotContainsString('[txt][', $result);

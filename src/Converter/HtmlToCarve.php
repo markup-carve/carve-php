@@ -2157,7 +2157,7 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' with a denied URL scheme on <' . $tag . '>', 'warning', $path);
             } elseif (str_starts_with($name, 'on')) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
-            } elseif ($tag === 'hr' && $name === 'data-char' && in_array($attribute->value, ['-', '*', '_'], true)) {
+            } elseif ($this->importMode === 'roundtrip' && $tag === 'hr' && $name === 'data-char' && in_array($attribute->value, ['-', '*', '_'], true)) {
                 continue;
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
                 // Read as instruction or as content, never written back as an
@@ -2889,7 +2889,8 @@ class HtmlToCarve
      */
     protected function importAttributeIsReadNotWritten(string $tag, string $name): bool
     {
-        return str_starts_with($name, 'data-djot-')
+        return (str_starts_with($name, 'data-djot-')
+                && ($name !== 'data-djot-ref' || $this->importMode === 'roundtrip'))
             || ($tag === 'math' && in_array($name, ['display', 'alttext', 'xmlns'], true));
     }
 
@@ -3327,7 +3328,8 @@ class HtmlToCarve
         return str_starts_with($lower, 'on')
             || $lower === 'srcdoc'
             || $lower === 'formaction'
-            || str_starts_with($lower, 'data-djot-')
+            || (str_starts_with($lower, 'data-djot-')
+                && ($lower !== 'data-djot-ref' || $this->importMode === 'roundtrip'))
             || in_array($name, $this->skipAttributes, true)
             || in_array($lower, $this->skipAttributes, true);
     }
@@ -3981,7 +3983,11 @@ class HtmlToCarve
      */
     protected function overwrittenImportImageAttributes(DOMElement $paragraph, DOMElement $image): array
     {
-        $imageNames = $this->writtenImportAttributeNames($image, ['src', 'alt', 'title', 'data-djot-ref']);
+        $skip = ['src', 'alt', 'title'];
+        if ($this->importMode === 'roundtrip') {
+            $skip[] = 'data-djot-ref';
+        }
+        $imageNames = $this->writtenImportAttributeNames($image, $skip);
         if ($imageNames === []) {
             return [];
         }

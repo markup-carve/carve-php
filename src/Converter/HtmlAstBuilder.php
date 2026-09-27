@@ -724,10 +724,10 @@ final class HtmlAstBuilder
         }
         if ($tag === 'hr') {
             $break = ['type' => 'thematic_break'];
-            if (in_array($node->getAttribute('data-char'), ['*', '_'], true)) {
+            if ($this->importMode === 'roundtrip' && in_array($node->getAttribute('data-char'), ['*', '_'], true)) {
                 $break['marker'] = $node->getAttribute('data-char');
             }
-            $this->attachAttrs($break, $node, ['data-char']);
+            $this->attachAttrs($break, $node, $this->importMode === 'roundtrip' ? ['data-char'] : []);
 
             return [$break];
         }
@@ -3514,14 +3514,18 @@ final class HtmlAstBuilder
             if ($node->hasAttribute('title')) {
                 $image['title'] = $node->getAttribute('title');
             }
-            if ($this->sourceSafe && $node->hasAttribute('data-djot-ref')) {
+            if ($this->importMode === 'roundtrip' && $this->sourceSafe && $node->hasAttribute('data-djot-ref')) {
                 $ref = $node->getAttribute('data-djot-ref');
                 $image['ref'] = $ref;
                 $image['rawRef'] = '![' . $node->getAttribute('alt') . ']'
                     . ($ref === $node->getAttribute('alt') ? '[]' : '[' . $ref . ']');
                 $this->session->referenceDefinitions[$ref] = $node->getAttribute('src');
             }
-            $this->attachAttrs($image, $node, ['src', 'alt', 'title', 'data-djot-ref']);
+            $skip = ['src', 'alt', 'title'];
+            if ($this->importMode === 'roundtrip') {
+                $skip[] = 'data-djot-ref';
+            }
+            $this->attachAttrs($image, $node, $skip);
 
             return [$image];
         }
@@ -3601,7 +3605,7 @@ final class HtmlAstBuilder
                 return [$autolink];
             }
             $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
-            if ($node->hasAttribute('data-djot-ref')) {
+            if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-ref')) {
                 $labelText = $this->plainInlineText($children);
                 $ref = $node->getAttribute('data-djot-ref');
                 if ($ref === '') {
@@ -3618,7 +3622,10 @@ final class HtmlAstBuilder
             if ($node->hasAttribute('title')) {
                 $link['title'] = $node->getAttribute('title');
             }
-            $skip = ['href', 'title', 'data-djot-ref', 'data-djot-autolink', 'data-djot-footnote-label'];
+            $skip = ['href', 'title', 'data-djot-autolink', 'data-djot-footnote-label'];
+            if ($this->importMode === 'roundtrip') {
+                $skip[] = 'data-djot-ref';
+            }
             if ($this->hasClass($node, 'index-backref')) {
                 $skip[] = 'aria-label';
             }
@@ -4684,7 +4691,8 @@ final class HtmlAstBuilder
                 || $name === 'style'
                 || ($name === 'role' && self::isDerivedRole($node, $attribute->value))
                 || str_starts_with($name, 'on')
-                || str_starts_with($name, 'data-djot-')
+                || (str_starts_with($name, 'data-djot-')
+                    && ($name !== 'data-djot-ref' || $this->importMode === 'roundtrip'))
                 || in_array($name, ['srcdoc', 'formaction'], true)
             ) {
                 continue;
