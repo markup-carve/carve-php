@@ -197,19 +197,19 @@ class FenceExtentColumnsTest extends TestCase
             ],
             'nested fence boundary ```' => [
                 "- a\n  - b\n\n    ```\n    a\n\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>a\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>a\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'nested fence boundary ~~~' => [
                 "- a\n  - b\n\n    ~~~\n    a\n\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>a\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>a\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'nested fence boundary ```=html' => [
                 "- a\n  - b\n\n    ```=html\n    a\n\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        a\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        a\n\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'nested fence boundary ~~~=html' => [
                 "- a\n  - b\n\n    ~~~=html\n    a\n\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        a\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        a\n\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
         ];
     }
