@@ -2889,8 +2889,10 @@ final class HtmlAstBuilder
             $kindIndex = $lineBlockIndex;
         }
         $classKind = $classes[$kindIndex] ?? '';
+        // explicit_identifier, which admonition_type resolves through, admits an
+        // ASCII digit first so an imported HTML-valid class survives.
         $classKindIsSpellable = $classKind === 'line-block'
-            || preg_match('/^[A-Za-z_][\w-]*$/D', $classKind) === 1;
+            || preg_match('/^\w[\w-]*$/D', $classKind) === 1;
         if ($structuralKind !== '' || $classKindIsSpellable) {
             $kind = $structuralKind !== '' ? $structuralKind : ($classKind === 'line-block' ? '|' : $classKind);
             $container = $kind === '|'

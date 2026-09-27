@@ -5,15 +5,28 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class AnUnspellableFenceClassStaysGenericTest extends TestCase
 {
-    public function testImporterKeepsDigitLeadingClassOnGenericDiv(): void
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function unspellableProvider(): array
+    {
+        return [
+            'a bar is not an identifier' => ['|', '{.-}'],
+            'a leading hyphen is not' => ['-foo', '{.-foo}'],
+        ];
+    }
+
+    #[DataProvider('unspellableProvider')]
+    public function testImporterKeepsAnUnspellableClassOnAGenericDiv(string $class, string $opener): void
     {
         self::assertSame(
-            "{.2col}\n:::\ny\n:::",
-            trim((new HtmlToCarve())->convert('<div class="2col"><p>y</p></div>')),
+            $opener . "\n:::\ny\n:::",
+            trim((new HtmlToCarve())->convert('<div class="' . $class . '"><p>y</p></div>')),
         );
     }
 
