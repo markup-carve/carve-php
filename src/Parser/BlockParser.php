@@ -6307,6 +6307,11 @@ class BlockParser
             $end = $i;
             $code = $this->fencedBlockParser->parseCodeFenceOpener($opener)
                 ?? $this->fencedBlockParser->parseRawBlockOpener($opener);
+            // A VERBATIM extent has no blank line: a whitespace-only line in a
+            // fenced body is a content line, so the rebase below owes it the
+            // same dedent as every other line (CARVE-P11-016, PART 9 section 24
+            // C5). Everywhere else a blank stays a blank.
+            $verbatimExtent = $code !== null;
             $comment = $code === null
                 ? $this->fencedBlockParser->parseFencedCommentOpener($opener)
                 : null;
@@ -6501,7 +6506,7 @@ class BlockParser
             }
 
             for ($j = $i; $j <= $end; $j++) {
-                if (!IndentationHelper::isBlankLine($lines[$j])) {
+                if ($verbatimExtent || !IndentationHelper::isBlankLine($lines[$j])) {
                     $lines[$j] = IndentationHelper::stripLeadingColumns($lines[$j], $base);
                 }
             }
@@ -7394,6 +7399,26 @@ class BlockParser
         $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
 
         return [$i, $attached, $attachedLineMap];
+    }
+
+    /**
+     * Advance the fence half of the trailing-block state over one collected
+     * footnote body line.
+     *
+     * The line's own indent is dropped first because a footnote body's column
+     * is a FLOOR: a body written past it hands this collector a fence that is
+     * not flush, and {@see BlockParser::advanceTrailingBlockState()} reads an
+     * opener at the offset it is given. Carve has no indented code block, so
+     * nothing else can hide behind that indent.
+     *
+     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int} $state
+     * @param string $line
+     *
+     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, inDiv: bool, divFenceLength: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
+     */
+    private function advanceFootnoteBodyFenceState(array $state, string $line): array
+    {
+        return $this->advanceTrailingBlockState($state, ltrim($line, " \t"), true);
     }
 
     /**
@@ -10308,6 +10333,11 @@ class BlockParser
 
         $bodyLines = [$content];
         $bodyLineMap = [$this->sourceLineFor($start)];
+        // Tracked for the same reason the list-item collectors track it: inside
+        // an open fence a whitespace-only source line is a verbatim line, so
+        // what lies past the body column is content rather than a blank
+        // (CARVE-P11-016, PART 9 section 24 C5).
+        $trailingState = $this->advanceFootnoteBodyFenceState(self::INITIAL_TRAILING_BLOCK_STATE, $content);
         while ($i < $count) {
             $nextLine = $lines[$i];
             if (IndentationHelper::isBlankLine($nextLine)) {
@@ -10330,8 +10360,10 @@ class BlockParser
                 // INTACT, one blank per source line, so a §11 N1a boundary
                 // inside the body survives to the parser.
                 for (; $i < $resumes; $i++) {
-                    $bodyLines[] = '';
+                    $residue = $this->blankLineResidue($lines[$i], self::FOOTNOTE_BODY_COLUMN, $trailingState);
+                    $bodyLines[] = $residue;
                     $bodyLineMap[] = $this->sourceLineFor($i);
+                    $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $residue);
                 }
 
                 continue;
@@ -10364,9 +10396,11 @@ class BlockParser
                 if ($attached !== []) {
                     $bodyLines[] = '';
                     $bodyLineMap[] = -1;
+                    $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, '');
                     foreach ($attached as $attachedIndex => $attachedLine) {
                         $bodyLines[] = $attachedLine;
                         $bodyLineMap[] = $this->sourceLineFor($attachedLineMap[$attachedIndex]);
+                        $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $attachedLine);
                     }
                 }
 
@@ -10391,8 +10425,10 @@ class BlockParser
                 ? IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
                 : $authoredNext >= $authoredFloor;
             if ($reaches) {
-                $bodyLines[] = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
+                $bodyLine = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
+                $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $i++;
             } else {
                 break;
