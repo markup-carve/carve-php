@@ -3119,6 +3119,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $edges[spl_object_id($entry)] = true;
             }
         }
+        // A break beside a space is written as that space, not a second one.
+        $children = array_values($children);
+        foreach ($children as $index => $node) {
+            if (!$node instanceof HardBreak) {
+                continue;
+            }
+            $before = $children[$index - 1] ?? null;
+            $after = $children[$index + 1] ?? null;
+            if (
+                ($before instanceof Text && preg_match('/[ \t\n]$/D', $before->getContent()) === 1)
+                || ($after instanceof Text && preg_match('/^[ \t\n]/', $after->getContent()) === 1)
+            ) {
+                $edges[spl_object_id($node)] = true;
+            }
+        }
 
         return $edges;
     }

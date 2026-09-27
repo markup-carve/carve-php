@@ -9,7 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A CAPTION WITH NOTHING TO CAPTION loses its text, and now says so.
+ * A CAPTION WITH NOTHING TO CAPTION loses its text, and now says so. An
+ * orphan `<figcaption>` is the exception: it gives way to its children.
  *
  * `<figcaption>` and `<caption>` are both MAPPED elements, and correctly so:
  * inside their own container they come through. So the element-outcome walk
@@ -31,22 +32,9 @@ class AnOrphanCaptionSaysSoTest extends TestCase
     public static function orphanProvider(): array
     {
         return [
-            'figcaption alone' => ['<figcaption>bcontent</figcaption>', 'figcaption'],
             'caption alone' => ['<caption>bcontent</caption>', 'caption'],
-            // Beside a sibling that DOES come through, so the document is not
-            // empty and the row is not an artifact of an empty conversion.
-            'figcaption after a paragraph' => ['<p>kept</p><figcaption>bcontent</figcaption>', 'figcaption'],
             // A caption whose parent is an element other than `<table>`.
             'caption inside a div' => ['<div><caption>bcontent</caption></div>', 'caption'],
-            'figcaption inside a div' => ['<div><section><figcaption>bcontent</figcaption></section></div>', 'figcaption'],
-            // A DIRECT CHILD is what the content model asks for, and this is
-            // the row that says so: there IS a figure above it, its text still
-            // leaves the document, and an ancestor walk called it placed and
-            // reported nothing.
-            'figcaption nested inside a figure' => [
-                '<figure><div><figcaption>bcontent</figcaption></div></figure>',
-                'figcaption',
-            ],
             // The same asymmetry for a table, where the writer reads the
             // caption off the table's own children.
             'caption nested inside a table' => [
@@ -68,6 +56,33 @@ class AnOrphanCaptionSaysSoTest extends TestCase
                 'warning',
                 'Dropped <' . $tag . '>: a caption outside its own container has nothing to caption',
             ],
+            $this->diagnostics($html),
+        );
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function orphanFigcaptionProvider(): array
+    {
+        return [
+            'alone' => ['<figcaption>bcontent</figcaption>', 'bcontent'],
+            'after a paragraph' => ['<p>kept</p><figcaption>b <i>c</i></figcaption>', "kept\n\nb /c/"],
+            'inside a div' => ['<div><section><figcaption>bcontent</figcaption></section></div>', 'bcontent'],
+            'nested inside a figure' => ['<figure><div><figcaption>bcontent</figcaption></div></figure>', 'bcontent'],
+        ];
+    }
+
+    /**
+     * A `<figcaption>` outside a figure gives way to its children, as carve-js
+     * and carve-rs import it, rather than taking its text out of the document.
+     */
+    #[DataProvider('orphanFigcaptionProvider')]
+    public function testAnOrphanFigcaptionKeepsItsContent(string $html, string $carve): void
+    {
+        $this->assertSame($carve, $this->carve($html));
+        $this->assertContains(
+            ['element-unwrapped', 'info', 'Unwrapped unsupported <figcaption> element'],
             $this->diagnostics($html),
         );
     }
@@ -159,7 +174,7 @@ class AnOrphanCaptionSaysSoTest extends TestCase
      */
     public function testTheDropStopsTheWalk(): void
     {
-        $rows = $this->diagnostics('<figcaption><span data-x="1">bcontent</span></figcaption>');
+        $rows = $this->diagnostics('<caption><span data-x="1">bcontent</span></caption>');
 
         $orphan = array_values(array_filter(
             $rows,

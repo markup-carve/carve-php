@@ -111,6 +111,31 @@ class AHardBreakInATableCellIsOneSpaceTest extends TestCase
         ]));
     }
 
+    /**
+     * A break beside a space is that space, so the cell does not get two.
+     */
+    public function testTheWriterMergesABreakWithASpaceBesideIt(): void
+    {
+        $this->assertSame("| a. b |\n", $this->write([
+            ['type' => 'text', 'value' => 'a. '],
+            ['type' => 'hard_break'],
+            ['type' => 'text', 'value' => 'b'],
+        ]));
+        $this->assertSame("| a b |\n", $this->write([
+            ['type' => 'text', 'value' => 'a'],
+            ['type' => 'hard_break'],
+            ['type' => 'text', 'value' => ' b'],
+        ]));
+    }
+
+    public function testTheImporterWritesOneSpaceBesideASpace(): void
+    {
+        $this->assertSame(
+            "| /[C](/c)/ The seat | a. b | x y |\n",
+            (new HtmlToCarve())->convert('<table><tr><td><i><a href="/c">C</a></i><br> The seat</td><td>a. <br>b</td><td>x <br> y</td></tr></table>'),
+        );
+    }
+
     public function testTheWriterKeepsABreakOutsideACell(): void
     {
         $document = (new AstCodec())->decode([

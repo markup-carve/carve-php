@@ -9,6 +9,7 @@ use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
+use DOMXPath;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
@@ -36,14 +37,29 @@ final class HtmlAstBuilder
     /**
      * @var \SplObjectStorage<\DOMElement, null>
      */
-    private SplObjectStorage $retainedEmptyParagraphs;
+    private SplObjectStorage $droppedEmptyElements;
+
+    /**
+     * Elements whose URL-list attribute the tree carries.
+     *
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    private SplObjectStorage $urlListCarriers;
 
     /**
      * @return \SplObjectStorage<\DOMElement, null>
      */
-    public function retainedEmptyParagraphs(): SplObjectStorage
+    public function urlListCarriers(): SplObjectStorage
     {
-        return $this->retainedEmptyParagraphs;
+        return $this->urlListCarriers;
+    }
+
+    /**
+     * @return \SplObjectStorage<\DOMElement, null>
+     */
+    public function droppedEmptyElements(): SplObjectStorage
+    {
+        return $this->droppedEmptyElements;
     }
 
     /**
@@ -327,7 +343,8 @@ final class HtmlAstBuilder
         private readonly array $labels = [],
     ) {
         $this->displacedFigureAttributes = [];
-        $this->retainedEmptyParagraphs = new SplObjectStorage();
+        $this->droppedEmptyElements = new SplObjectStorage();
+        $this->urlListCarriers = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -462,7 +479,8 @@ final class HtmlAstBuilder
     public function build(string $html, ?int $sourceByteLength = null): array
     {
         $this->displacedFigureAttributes = [];
-        $this->retainedEmptyParagraphs = new SplObjectStorage();
+        $this->droppedEmptyElements = new SplObjectStorage();
+        $this->urlListCarriers = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -757,6 +775,9 @@ final class HtmlAstBuilder
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
         }
+        if ($tag === 'figcaption' && self::isOrphanFigcaption($node)) {
+            return $this->blocks($this->children($node));
+        }
         if ($tag === 'caption' || $tag === 'figcaption') {
             return [];
         }
@@ -772,15 +793,13 @@ final class HtmlAstBuilder
         if ($tag === 'p') {
             $children = $this->blockInlines($node);
             $attrs = $this->attrs($node, []);
-            if ($children === [] && ($attrs === [] || $this->inInlineProjection)) {
-                return [];
-            }
             if ($children === []) {
-                $this->retainedEmptyParagraphs[$node] = null;
-            }
-            if ($children === [] && $this->sourceSafe) {
-                // An empty span anchors the attribute line to this paragraph.
-                $children = [['type' => 'span', 'children' => []]];
+                // Carve has no empty paragraph; an attribute line would attach to the next block.
+                if ($attrs !== [] && !$this->inInlineProjection) {
+                    $this->droppedEmptyElements[$node] = null;
+                }
+
+                return [];
             }
             $paragraph = ['type' => 'paragraph', 'children' => $children];
             if ($attrs !== []) {
@@ -930,40 +949,92 @@ final class HtmlAstBuilder
     private function section(DOMElement $node): array
     {
         $blocks = $this->blocks($this->children($node));
-        $skip = ['data-djot-explicit-id', 'role'];
-        foreach ($node->childNodes as $child) {
-            if (
-                $child instanceof DOMElement
-                && preg_match('/^h[1-6]$/iD', $child->tagName) === 1
-                && !$node->hasAttribute('data-djot-explicit-id')
-                && $node->hasAttribute('id')
-                && $node->getAttribute('id') === (new HeadingIdTracker())->normalizeId(trim($child->textContent))
-            ) {
-                $skip[] = 'id';
+        // Only the id is the renderer's: it moves a heading's id onto the section
+        // it opens (CARVE-P9-019). Anything else on a section has no carrier.
+        $heading = $this->firstElementChild($node);
+        if (
+            $heading === null
+            || preg_match('/^h[1-6]$/iD', $heading->tagName) !== 1
+            || !$node->hasAttribute('id')
+            || $heading->hasAttribute('id')
+            || (!$node->hasAttribute('data-djot-explicit-id') && $this->isDerivedHeadingId($node->getAttribute('id'), $heading))
+        ) {
+            return $blocks;
+        }
+        foreach ($blocks as &$block) {
+            if (($block['type'] ?? null) === 'heading') {
+                $headingAttrs = self::attrsValue($block['attrs'] ?? null);
+                $headingAttrs['id'] = $node->getAttribute('id');
+                $headingAttrs['order'] = ['#id', ...array_values(array_diff($headingAttrs['order'] ?? [], ['#id']))];
+                $block['attrs'] = $headingAttrs;
 
                 break;
             }
         }
-        $attrs = $this->attrs($node, $skip);
-        if ($attrs !== []) {
-            foreach ($blocks as &$block) {
-                if (($block['type'] ?? null) === 'heading') {
-                    $headingAttrs = self::attrsValue($block['attrs'] ?? null);
-                    $merged = $this->mergeAttrs($headingAttrs, $attrs);
-                    $merged['order'] = array_values(array_unique([
-                        ...($attrs['order'] ?? []),
-                        ...($headingAttrs['order'] ?? []),
-                    ]));
-                    $block['attrs'] = $merged;
-
-                    break;
-                }
-            }
-            unset($block);
-        }
+        unset($block);
 
         return $blocks;
     }
+
+    private function firstElementChild(DOMElement $node): ?DOMElement
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                return $child;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Only the unambiguous case counts as derived: the heading's slug, used by
+     * no other heading and by no other id. Anything else stays explicit, which
+     * renders the same id and never loses an anchor.
+     */
+    private function isDerivedHeadingId(string $id, DOMElement $heading): bool
+    {
+        $tracker = new HeadingIdTracker();
+        if ($id !== $tracker->normalizeId(trim($heading->textContent))) {
+            return false;
+        }
+        $document = $heading->ownerDocument;
+        if ($document === null) {
+            return false;
+        }
+        if ($this->headingSlugDocument !== $document) {
+            $this->headingSlugDocument = $document;
+            $this->headingSlugCounts = [];
+            $this->documentIdCounts = [];
+            foreach ((new DOMXPath($document))->query('//*') ?: [] as $element) {
+                if (!$element instanceof DOMElement) {
+                    continue;
+                }
+                if ($element->hasAttribute('id')) {
+                    $key = $element->getAttribute('id');
+                    $this->documentIdCounts[$key] = ($this->documentIdCounts[$key] ?? 0) + 1;
+                }
+                if (preg_match('/^h[1-6]$/iD', $element->tagName) === 1) {
+                    $slug = $tracker->normalizeId(trim($element->textContent));
+                    $this->headingSlugCounts[$slug] = ($this->headingSlugCounts[$slug] ?? 0) + 1;
+                }
+            }
+        }
+
+        return ($this->headingSlugCounts[$id] ?? 0) === 1 && ($this->documentIdCounts[$id] ?? 0) === 1;
+    }
+
+    private ?DOMDocument $headingSlugDocument = null;
+
+    /**
+     * @var array<string, int>
+     */
+    private array $headingSlugCounts = [];
+
+    /**
+     * @var array<string, int>
+     */
+    private array $documentIdCounts = [];
 
     private function headingIdWasGenerated(DOMElement $node): bool
     {
@@ -1058,6 +1129,18 @@ final class HtmlAstBuilder
      *
      * @see markup-carve/carve#2284
      */
+
+    /**
+     * A `<figcaption>` that is not a figure's child has nothing to caption, so
+     * it gives way to its children like any unsupported element.
+     */
+    public static function isOrphanFigcaption(DOMElement $node): bool
+    {
+        $parent = $node->parentNode;
+
+        return !$parent instanceof DOMElement || strtolower($parent->tagName) !== 'figure';
+    }
+
     public static function aRowRefusesTheRegion(DOMElement $node): bool
     {
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
@@ -1593,18 +1676,6 @@ final class HtmlAstBuilder
             $items[] = $term;
         } elseif ($tag === 'dd') {
             $description = ['type' => 'definition_description', 'children' => $this->blocks($this->children($child))];
-            if (
-                $this->sourceSafe
-                && count($description['children']) === 1
-                && ($description['children'][0]['type'] ?? null) === 'paragraph'
-                && ($description['children'][0]['children'] ?? null) === [['type' => 'span', 'children' => []]]
-            ) {
-                // A single description paragraph renders as inline content.
-                $description['children'] = [];
-                foreach ($child->getElementsByTagName('p') as $paragraph) {
-                    unset($this->retainedEmptyParagraphs[$paragraph]);
-                }
-            }
             $this->attachAttrs($description, $child);
             $items[] = $description;
         }
@@ -3262,6 +3333,9 @@ final class HtmlAstBuilder
         if (in_array($tag, ['th', 'td', 'dt', 'dd'], true)) {
             return $this->inlines($this->children($node));
         }
+        if ($tag === 'figcaption' && self::isOrphanFigcaption($node)) {
+            return $this->inlines($this->children($node));
+        }
         if ($tag === 'caption' || $tag === 'figcaption') {
             return [];
         }
@@ -3626,6 +3700,10 @@ final class HtmlAstBuilder
             }
 
             if ($tag === 'span' && $attrs === []) {
+                if ($span['children'] === []) {
+                    $this->droppedEmptyElements[$node] = null;
+                }
+
                 return $span['children'];
             }
 
@@ -4511,6 +4589,12 @@ final class HtmlAstBuilder
             return;
         }
         $available = array_fill_keys($attrs['order'] ?? [], true);
+        // Only an id's place is observable; without one the order stays canonical.
+        if (!isset($available['#id'])) {
+            $target['attrs'] = $attrs;
+
+            return;
+        }
         $order = [];
         foreach ($node->attributes as $attribute) {
             $slot = match (strtolower($attribute->nodeName)) {
@@ -4574,6 +4658,9 @@ final class HtmlAstBuilder
                 continue;
             }
             $keyValues[$name] = $attribute->value;
+            if (in_array($name, ['srcset', 'imagesrcset', 'ping', 'attributionsrc'], true)) {
+                $this->urlListCarriers[$node] = null;
+            }
         }
         $tag = strtolower($node->tagName);
         $alignment = $this->styleEnum($node, 'text-align', ['left', 'right', 'center']);

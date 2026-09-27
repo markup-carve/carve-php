@@ -214,7 +214,7 @@ class AFigureCaptionAndATableCaptionBothSurviveTest extends TestCase
             . '<figcaption><span></span></figcaption></figure>';
 
         $this->assertSame("{#f}\n| a |\n^ T\n", $this->carve($html, 'safe'));
-        $this->assertSame(['structure-unspellable'], array_column($this->rows($html, 'safe'), 'code'));
+        $this->assertSame(['structure-unspellable', 'element-dropped'], array_column($this->rows($html, 'safe'), 'code'));
     }
 
     /**

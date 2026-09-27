@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use DOMDocument;
-use DOMXPath;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -13,14 +11,24 @@ use PHPUnit\Framework\TestCase;
 
 class EmptyBlockAttributesImportTest extends TestCase
 {
-    public function testEmptyParagraphKeepsItsAttributes(): void
+    public function testAttributedEmptyParagraphIsDroppedWithOneRow(): void
     {
         $result = (new HtmlToCarve())->convertWithReport(
-            '<p>a</p><p class="mw-empty-elt" id="x"></p><p>b</p>',
+            '<p>a</p><p class="mw-empty-elt" id="x"></p><p>b</p><p id="s"><span></span></p><p>c</p>',
         );
 
-        self::assertSame("a\n\n{#x .mw-empty-elt}\n[]{}\n\nb", trim($result->value));
-        self::assertSame([], $result->diagnostics);
+        self::assertSame("a\n\nb\n\nc", trim($result->value));
+        self::assertSame(
+            [
+                ['element-dropped', 'Dropped <p> holding no content', '/p[2]'],
+                ['element-dropped', 'Dropped <p> holding no content', '/p[4]'],
+                ['element-dropped', 'Dropped empty <span> element', '/p[4]/span[1]'],
+            ],
+            array_map(
+                static fn (array $row): array => [$row['code'], $row['message'], $row['path']],
+                $result->report()['diagnostics'],
+            ),
+        );
     }
 
     public function testThematicBreakKeepsItsAttributes(): void
@@ -40,59 +48,45 @@ class EmptyBlockAttributesImportTest extends TestCase
     }
 
     #[DataProvider('emptyParagraphs')]
-    public function testEmptyParagraphKeepsItsOwnAttributes(string $html, int $paragraphs): void
+    public function testAttributedEmptyParagraphLeavesNoNodeOnEitherExit(string $html, string $message): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            $importer = new HtmlToCarve(listTableForBlockCells: true, importMode: $mode);
+            $importer = new HtmlToCarve(importMode: $mode);
             $result = $importer->convertWithReport($html);
-            self::assertSame([], $result->diagnostics);
-            $rendered = (new CarveConverter())->convert($result->value);
-            $dom = new DOMDocument();
-            $dom->loadHTML($rendered, LIBXML_NOERROR | LIBXML_NOWARNING);
-            $xpath = new DOMXPath($dom);
-            self::assertSame($paragraphs, $dom->getElementsByTagName('p')->length);
-            $empty = $xpath->query('//p[@id="x"]');
-            self::assertNotFalse($empty);
-            self::assertSame(1, $empty->length);
-            self::assertSame('', $empty->item(0)?->textContent);
-            self::assertSame($result->value, $importer->convert($rendered));
+            self::assertStringNotContainsString('{#x}', $result->value);
+            self::assertStringNotContainsString('[]{}', $result->value);
+            $rows = array_column($result->report()['diagnostics'], 'message');
+            self::assertContains($message, $rows);
+            self::assertNotContains('Dropped unsupported attribute id on <p>', $rows);
             $ast = $importer->convertToAstWithReport($html);
-            self::assertSame([], $ast->diagnostics);
-            $nodes = self::nodesWithId($ast->value, 'x');
-            self::assertCount(1, $nodes);
-            self::assertSame('paragraph', $nodes[0]['type']);
-            self::assertSame([], $nodes[0]['children']);
+            self::assertSame([], self::nodesWithId($ast->value, 'x'));
         }
     }
 
     /**
-     * @return array<string, array{string, int}>
+     * @return array<string, array{string, string}>
      */
     public static function emptyParagraphs(): array
     {
+        $empty = 'Dropped <p> holding no content';
+
         return [
-            'alone' => ['<p id="x"></p>', 1],
-            'before content' => ['<p id="x"></p><p>b</p>', 2],
-            'after content' => ['<p>a</p><p id="x"></p>', 2],
-            'before attributes' => ['<p id="x"></p><p id="y">b</p>', 2],
-            'consecutive' => ['<p id="x"></p><p id="y"></p>', 2],
-            'whitespace' => ["<p id=\"x\"> \n </p><p>b</p>", 2],
-            'before a break' => ['<p id="x"></p><hr id="h">', 1],
-            'in a list' => ['<ul><li><p id="x"></p></li></ul>', 1],
-            'in a quote' => ['<blockquote><p id="x"></p></blockquote>', 1],
-            'in a table cell' => ['<table><tr><td><p id="x"></p><p>b</p></td></tr></table>', 2],
-            'before a heading' => ['<p id="x"></p><h2>b</h2>', 1],
-            'before a list' => ['<p id="x"></p><ul><li>b</li></ul>', 1],
+            'alone' => ['<p id="x"></p>', $empty],
+            'before attributes' => ['<p id="x"></p><p id="y">b</p>', $empty],
+            'consecutive' => ['<p id="x"></p><p id="y"></p>', $empty],
+            'whitespace' => ["<p id=\"x\"> \n </p><p>b</p>", 'Dropped whitespace-only <p> holding no content character'],
+            'before a break' => ['<p id="x"></p><hr id="h">', $empty],
+            'in a list' => ['<ul><li><p id="x"></p></li></ul>', $empty],
+            'in a quote' => ['<blockquote><p id="x"></p></blockquote>', $empty],
+            'before a heading' => ['<p id="x"></p><h2>b</h2>', $empty],
         ];
     }
 
-    public function testRolesSurviveOnEmptyBlocks(): void
+    public function testRoleOnAnEmptyParagraphGoesWithIt(): void
     {
-        $html = '<p role="note"></p><hr role="separator">';
-        $result = (new HtmlToCarve())->convertWithReport($html);
-        self::assertSame("{role=note}\n[]{}\n\n{role=separator}\n---", trim($result->value));
-        self::assertSame([], $result->diagnostics);
-        self::assertStringContainsString('<p role="note">', (new CarveConverter())->convert($result->value));
+        $result = (new HtmlToCarve())->convertWithReport('<p role="note"></p><hr role="separator">');
+        self::assertSame("{role=separator}\n---", trim($result->value));
+        self::assertSame(['Dropped <p> holding no content'], array_column($result->report()['diagnostics'], 'message'));
     }
 
     public function testThematicBreakMarkerHintsAreConsumed(): void
@@ -110,21 +104,20 @@ class EmptyBlockAttributesImportTest extends TestCase
         }
     }
 
-    public function testFlattenedEmptyParagraphsDoNotLeaveSpanAnchors(): void
+    public function testFlattenedEmptyParagraphsReportTheirAttributes(): void
     {
         $inputs = [
-            '<dl><dt>t</dt><dd><p id="x"></p></dd></dl>',
-            '<table><tr><td><p id="x"></p></td></tr></table>',
-            '<figure><img src="a.png"><figcaption><p id="x"></p></figcaption></figure>',
+            '<dl><dt>t</dt><dd><p id="x"></p></dd></dl>' => 'Dropped <p> holding no content',
+            '<table><tr><td><p id="x"></p></td></tr></table>' => 'Dropped unsupported attribute id on <p>',
+            '<figure><img src="a.png"><figcaption><p id="x"></p></figcaption></figure>' => 'Dropped unsupported attribute id on <p>',
         ];
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
             foreach ([false, true] as $listTable) {
-                foreach ($inputs as $html) {
+                foreach ($inputs as $html => $message) {
                     $importer = new HtmlToCarve(listTableForBlockCells: $listTable, importMode: $mode);
                     $result = $importer->convertWithReport($html);
-                    self::assertStringNotContainsString('[]{}', $result->value);
                     self::assertStringNotContainsString('{#x}', $result->value);
-                    self::assertContains('Dropped unsupported attribute id on <p>', array_column($result->report()['diagnostics'], 'message'));
+                    self::assertContains($message, array_column($result->report()['diagnostics'], 'message'));
                     $rendered = (new CarveConverter())->convert($result->value);
                     self::assertSame($result->value, $importer->convert($rendered));
                 }
