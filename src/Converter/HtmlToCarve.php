@@ -439,9 +439,10 @@ class HtmlToCarve
             $this->alignmentClasses,
             $this->labels,
         );
-        $tree = self::withoutTheWriter($builder->build($normalized, strlen($html)));
-        $attributes = $builder->retainedTableAttributes();
-        $partitions = $builder->retainedTablePartitions();
+        $result = $builder->buildResult($normalized, strlen($html));
+        $tree = $result->publicTree();
+        $attributes = $result->session->retainedTableAttributes;
+        $partitions = $result->session->retainedTablePartitions;
         $diagnostics = array_values(array_filter($source->diagnostics, static function (HtmlImportDiagnostic $diagnostic) use ($attributes, $partitions): bool {
             $path = $diagnostic->path ?? '';
             if ($diagnostic->code === 'attribute-dropped' && preg_match('/^Dropped unsupported attribute (\S+) on <(?:thead|tbody|tfoot)>$/', $diagnostic->message, $match) === 1 && in_array($match[1], $attributes[$path] ?? [], true)) {
@@ -469,76 +470,6 @@ class HtmlToCarve
                         || $diagnostic->message === self::ORDERED_TASK_ITEM_UNSPELLABLE)),
             )),
         );
-    }
-
-    /**
-     * @param array<string, mixed> $tree
-     *
-     * @return array<string, mixed>
-     */
-    private static function withoutTheWriter(array $tree): array
-    {
-        foreach ($tree as $key => $value) {
-            $tree[$key] = self::asPublished($value);
-        }
-
-        return $tree;
-    }
-
-    /**
-     * One value of the encoded tree, with the writer's escapes undone.
-     *
-     * ON THE ENCODED TREE rather than the node model, and recursing over LISTS
-     * rather than over a roster of container keys: every container spells its
-     * children under its own name - `children`, `items`, `rows`, `cells` - and
-     * a roster is what would rot. A table cell and a span are reached by the
-     * same lines that reach a paragraph.
-     *
-     * @param mixed $value
-     *
-     * @return mixed
-     */
-    private static function asPublished(mixed $value): mixed
-    {
-        if (!is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            $out = [];
-            foreach ($value as $entry) {
-                $entry = self::asPublished($entry);
-                if (is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
-                    $escaped = $entry['value'] ?? '';
-                    $entry = ['type' => 'text', 'value' => is_string($escaped) ? $escaped : ''];
-                }
-                $last = $out === [] ? null : array_key_last($out);
-                $previous = $last === null ? null : $out[$last];
-                if (
-                    $last !== null
-                    && is_array($entry)
-                    && ($entry['type'] ?? null) === 'text'
-                    && is_array($previous)
-                    && ($previous['type'] ?? null) === 'text'
-                ) {
-                    $head = $previous['value'] ?? '';
-                    $tail = $entry['value'] ?? '';
-                    $out[$last] = [
-                        'type' => 'text',
-                        'value' => (is_string($head) ? $head : '') . (is_string($tail) ? $tail : ''),
-                    ];
-
-                    continue;
-                }
-                $out[] = $entry;
-            }
-
-            return $out;
-        }
-        foreach ($value as $key => $inner) {
-            $value[$key] = self::asPublished($inner);
-        }
-
-        return $value;
     }
 
     /**
@@ -3414,15 +3345,16 @@ class HtmlToCarve
             $this->alignmentClasses,
             $this->labels,
         );
-        $tree = $builder->build($normalized, strlen($html));
+        $result = $builder->buildResult($normalized, strlen($html));
+        $tree = $result->tree;
         if ($this->captureImportIdentity) {
-            $this->builtImportDocument = $builder->builtDocument();
-            $this->keptRawImportElements = $builder->keptRawElements();
-            $this->droppedEmptyImportElements = $builder->droppedEmptyElements();
-            $this->urlListImportCarriers = $builder->urlListCarriers();
-            $this->droppedBlankImportRows = $builder->droppedBlankTableRows();
-            $this->mergedImportDefinitionLists = $builder->mergedDefinitionLists();
-            $this->displacedImportFigureAttributes = $builder->displacedFigureAttributes();
+            $this->builtImportDocument = $result->session->builtDocument;
+            $this->keptRawImportElements = $result->session->keptRawElements;
+            $this->droppedEmptyImportElements = $result->session->droppedEmptyElements;
+            $this->urlListImportCarriers = $result->session->urlListCarriers;
+            $this->droppedBlankImportRows = $result->session->droppedBlankTableRows;
+            $this->mergedImportDefinitionLists = $result->session->mergedDefinitionLists;
+            $this->displacedImportFigureAttributes = $result->session->displacedFigureAttributes;
         }
         $document = (new AstCodec())->decodeImporterTree($tree);
 
