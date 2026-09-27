@@ -3450,15 +3450,7 @@ class HtmlToCarve
      */
     protected function isStrippedImportAttribute(string $name): bool
     {
-        $lower = strtolower($name);
-
-        return str_starts_with($lower, 'on')
-            || $lower === 'srcdoc'
-            || $lower === 'formaction'
-            || (str_starts_with($lower, 'data-djot-')
-                && ($lower !== 'data-djot-ref' || $this->importMode === 'roundtrip'))
-            || in_array($name, $this->skipAttributes, true)
-            || in_array($lower, $this->skipAttributes, true);
+        return HtmlAttributePolicy::isStripped($name, $this->importMode, $this->skipAttributes);
     }
 
     /**
