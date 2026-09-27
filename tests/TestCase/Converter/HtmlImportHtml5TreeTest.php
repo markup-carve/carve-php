@@ -194,4 +194,63 @@ class HtmlImportHtml5TreeTest extends TestCase
         $this->expectException(HtmlImportDepthExceededException::class);
         HtmlDomLoader::fragment(str_repeat('<div>', 513) . 'deep');
     }
+
+    public function testPlaintextFosterParentingKeepsTheFollowingTable(): void
+    {
+        foreach (
+            [
+                ['<table><tr><td>kept?</td></tr><plaintext>b</plaintext>authored', 'b</plaintext>authored'],
+                ['<table><tr><td><script>"</plaintext>"</script>kept?</td></tr><plaintext title="a>b&amp;c">b', 'b'],
+                ['<template><table><tr><td>kept?</td></tr><plaintext>b', 'b'],
+                ["<table><tr><td>kept?</td></tr><plaintext>\n\f&amp;", "\n\f&amp;"],
+            ] as [$html, $text]
+        ) {
+            $document = HtmlDomLoader::fragment($html);
+            self::assertSame($text, $document->getElementsByTagName('plaintext')->item(0)?->textContent);
+            self::assertStringContainsString('kept?', $document->getElementsByTagName('td')->item(0)?->textContent ?? '');
+        }
+    }
+
+    public function testForeignPlaintextDoesNotHideHtmlPlaintext(): void
+    {
+        $document = HtmlDomLoader::fragment('<svg><plaintext>x</plaintext></svg><table><tr><td>kept?</td></tr><plaintext>b');
+        self::assertSame('b', $document->getElementsByTagName('plaintext')->item(1)?->textContent);
+        self::assertSame('kept?', $document->getElementsByTagName('td')->item(0)?->textContent);
+    }
+
+    public function testForeignNamespacesAndHtmlIntegrationPointsSurviveTheBridge(): void
+    {
+        $html = '<svg><source></source><script>&lt;x&gt;</script><foreignObject><p>x</p></foreignObject></svg><math><mtext><span>x</span><mglyph></mglyph></mtext><annotation-xml encoding="text/html"><div>x</div></annotation-xml></math>';
+        $document = HtmlDomLoader::fragment($html);
+        foreach (['svg', 'source', 'script', 'foreignObject'] as $tag) {
+            self::assertSame('http://www.w3.org/2000/svg', $document->getElementsByTagName($tag)->item(0)?->namespaceURI);
+        }
+        foreach (['math', 'mtext', 'mglyph', 'annotation-xml'] as $tag) {
+            self::assertSame('http://www.w3.org/1998/Math/MathML', $document->getElementsByTagName($tag)->item(0)?->namespaceURI);
+        }
+        foreach (['p', 'span', 'div'] as $tag) {
+            self::assertNull($document->getElementsByTagName($tag)->item(0)?->namespaceURI);
+        }
+        self::assertSame('<carve-import-root>' . $html . '</carve-import-root>', HtmlDomLoader::serialize($document->documentElement));
+    }
+
+    public function testTemplateDepthAllowsTheDocumentedBoundary(): void
+    {
+        foreach ([511, 512] as $depth) {
+            $document = HtmlDomLoader::fragment(str_repeat('<template>', $depth) . 'deep');
+            self::assertCount($depth, $document->getElementsByTagName('template'));
+        }
+    }
+
+    public function testFramesetCannotHideTemplateDepthFromThePreflight(): void
+    {
+        $this->expectException(HtmlImportDepthExceededException::class);
+        HtmlDomLoader::fragment('</template><frameset>' . str_repeat('<template>', 1024) . 'deep');
+    }
+
+    public function testNestedTemplateDepthIsCheckedBeforeHiddenFragmentsAreCreated(): void
+    {
+        $this->expectException(HtmlImportDepthExceededException::class);
+        HtmlDomLoader::fragment(str_repeat('<template>', 1024) . 'deep');
+    }
 }

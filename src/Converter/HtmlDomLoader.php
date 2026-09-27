@@ -83,7 +83,7 @@ final class HtmlDomLoader
                     if ($depth >= 512) {
                         throw new HtmlImportDepthExceededException(512);
                     }
-                    $namespace = $child->namespaceURI;
+                    $namespace = self::elementNamespace($child, $targetParent);
                     try {
                         $copy = $namespace === null
                             ? $document->createElement($child->localName)
@@ -123,6 +123,37 @@ final class HtmlDomLoader
                 }
             }
         }
+    }
+
+    private static function elementNamespace(Element $element, DOMNode $parent): ?string
+    {
+        // HTML_NO_DEFAULT_NS removes SVG and MathML namespaces too. Restore
+        // them from the parsed parent and the HTML integration points.
+        $parentNamespace = $parent->namespaceURI;
+        $parentName = $parent->localName;
+        $name = $element->localName;
+        if ($parentNamespace === 'http://www.w3.org/2000/svg') {
+            if (!in_array($parentName, ['foreignObject', 'desc', 'title'], true)) {
+                return $parentNamespace;
+            }
+        } elseif ($parentNamespace === 'http://www.w3.org/1998/Math/MathML') {
+            if ($parentName === 'annotation-xml' && $name === 'svg') {
+                return 'http://www.w3.org/2000/svg';
+            }
+            $textIntegration = in_array($parentName, ['mi', 'mo', 'mn', 'ms', 'mtext'], true)
+                && !in_array($name, ['mglyph', 'malignmark'], true);
+            $htmlIntegration = $parentName === 'annotation-xml' && $parent instanceof DOMElement
+                && in_array(strtolower($parent->getAttribute('encoding')), ['text/html', 'application/xhtml+xml'], true);
+            if (!$textIntegration && !$htmlIntegration) {
+                return $parentNamespace;
+            }
+        }
+
+        return match ($name) {
+            'svg' => 'http://www.w3.org/2000/svg',
+            'math' => 'http://www.w3.org/1998/Math/MathML',
+            default => $element->namespaceURI,
+        };
     }
 
     public static function isDocument(string $html): bool
@@ -166,6 +197,11 @@ final class HtmlDomLoader
             return $document;
         }
 
+        // Check visible template depth before creating native template content
+        // fragments, whose cleanup can recurse through deeply nested templates.
+        if (stripos($html, '<template') !== false) {
+            self::checkTemplateDepth($html);
+        }
         $native = HTMLDocument::createEmpty('UTF-8');
         $context = $native->createElement('template');
         $context->innerHTML = $html;
@@ -174,15 +210,35 @@ final class HtmlDomLoader
         // whitespace, but no leading LF can be consumed a second time.
         $serialized = strtr($context->innerHTML, ["\f" => "\f\f", "\n" => "\f\t", "\r" => "\f "]);
         $visible = HTMLDocument::createFromString('<!doctype html><template>' . $serialized, LIBXML_NOERROR | HTML_NO_DEFAULT_NS, 'UTF-8');
-        $fragment = $visible->getElementsByTagName('template')->item(0);
         foreach ($visible->getElementsByTagName('plaintext') as $plaintext) {
-            if ($plaintext->namespaceURI === null && $plaintext->firstChild instanceof Text) {
-                $end = strrpos($plaintext->firstChild->data, '</plaintext>');
-                if ($end !== false) {
-                    $plaintext->firstChild->data = substr($plaintext->firstChild->data, 0, $end);
-                }
+            if (!$plaintext->firstChild instanceof Text || !str_ends_with($serialized, $plaintext->firstChild->data)) {
+                continue;
             }
+            // Plaintext can be foster-parented before a table. Its generated
+            // closing tag must not make the second parse swallow those siblings.
+            // An EOF marker identifies the generated close among authored ones.
+            $marker = 'carve-plaintext-' . bin2hex(random_bytes(16));
+            $context->innerHTML = $html . $marker;
+            $marked = strtr($context->innerHTML, ["\f" => "\f\f", "\n" => "\f\t", "\r" => "\f "]);
+            $end = strpos($marked, $marker);
+            if ($end !== false) {
+                $textOffset = strlen($serialized) - strlen($plaintext->firstChild->data);
+                $openingLength = strlen($visible->saveHtml($plaintext->cloneNode(false))) - strlen('</plaintext>');
+                $nameOffset = $textOffset - $openingLength + 1;
+                $replacement = 'carve-plaintext-' . bin2hex(random_bytes(16));
+                $text = substr($marked, $textOffset, $end - $textOffset);
+                $serialized = substr($marked, 0, $nameOffset) . $replacement
+                    . substr($marked, $nameOffset + strlen('plaintext'), $textOffset - $nameOffset - strlen('plaintext'))
+                    . str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text)
+                    . '</' . $replacement . '>'
+                    . substr($marked, $end + strlen($marker) + strlen('</plaintext>'));
+                $visible = HTMLDocument::createFromString('<!doctype html><template>' . $serialized, LIBXML_NOERROR | HTML_NO_DEFAULT_NS, 'UTF-8');
+                $visible->getElementsByTagName($replacement)->item(0)?->rename(null, 'plaintext');
+            }
+
+            break;
         }
+        $fragment = $visible->getElementsByTagName('template')->item(0);
         $document = new DOMDocument('1.0', 'UTF-8');
         $root = $document->createElement($rootName);
         $document->appendChild($root);
@@ -191,6 +247,28 @@ final class HtmlDomLoader
         }
 
         return $document;
+    }
+
+    private static function checkTemplateDepth(string $html): void
+    {
+        // A nonempty body makes frameset tokens inert, as they are in a
+        // template fragment. Count templates only; document wrappers do not
+        // contribute to the hidden-fragment cleanup recursion.
+        $document = HTMLDocument::createFromString('<!doctype html><body>x' . $html, LIBXML_NOERROR | HTML_NO_DEFAULT_NS, 'UTF-8');
+        $pending = [[$document, 0]];
+        while ($pending !== []) {
+            [$parent, $depth] = array_pop($pending);
+            foreach ($parent->childNodes as $child) {
+                if (!$child instanceof Element) {
+                    continue;
+                }
+                $childDepth = $depth + (int)($child->localName === 'template');
+                if ($childDepth > 512) {
+                    throw new HtmlImportDepthExceededException(512);
+                }
+                $pending[] = [$child, $childDepth];
+            }
+        }
     }
 
     private static function decodeFragmentWhitespace(string $text): string
