@@ -151,7 +151,8 @@ class MarkdownRendererTest extends TestCase
         // better - through a CommonMark reader the escaped form gives back the
         // real character as `%3C`, where the entity form put a literal `&lt;`
         // into the href.
-        $this->assertSame("![x\\](https://e.com/a \\<b>)\n", $this->renderer->render($document));
+        // The text URL takes PART 11 section 8i's `\:`, or GFM would link it.
+        $this->assertSame("![x\\](https\\://e.com/a \\<b>)\n", $this->renderer->render($document));
     }
 
     public function testLinkWithTitle(): void

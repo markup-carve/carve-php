@@ -84,22 +84,24 @@ class MarkdownRaggedTableTest extends TestCase
         // Corpus 284-a-ragged-table-keeps-each-row-s-cell-count-3.
         $out = $this->md("| h |\n|---|\n| |x |\n");
 
-        $this->assertSame("| h |\n| --- |\n|  | x |\n", $out);
-        $this->assertSame([1, 1, 2], $this->cellCounts($out));
+        // PART 11 §10n pads the header and delimiter to the widest row, or
+        // GFM drops the body's second cell.
+        $this->assertSame("| h |  |\n| --- | --- |\n|  | x |\n", $out);
+        $this->assertSame([2, 2, 2], $this->cellCounts($out));
     }
 
     public function testTheSpanFreeShapeIsReachedToo(): void
     {
         $out = $this->md("|= a |\n| x | y |\n");
 
-        $this->assertSame("| a |\n| --- |\n| x | y |\n", $out);
+        $this->assertSame("| a |  |\n| --- | --- |\n| x | y |\n", $out);
     }
 
     public function testTheHeaderAlignmentSurvivesTheNarrowing(): void
     {
         $out = $this->md("|=> h |\n| x | y |\n");
 
-        $this->assertSame("| h |\n| ---: |\n| x | y |\n", $out);
+        $this->assertSame("| h |  |\n| ---: | --- |\n| x | y |\n", $out);
     }
 
     public function testTheDelimiterAlwaysMatchesTheHeaderItPromotes(): void

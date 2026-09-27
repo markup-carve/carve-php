@@ -143,20 +143,12 @@ class ABlankInsideAnIndentedVerbatimBlockIsEmptyTest extends TestCase
         $this->assertSame($source, CarveConverter::toCarve($source));
     }
 
-    public function testTheSameLineInsideAContainerIsAlreadyBlankBeforeTheWriterRuns(): void
+    public function testTheSameLineInsideAListItemKeepsItsResidue(): void
     {
-        // Measured, and the reason the control above is written at TOP LEVEL: an
-        // authored whitespace-only line inside an INDENTED fence is blanked by
-        // the PARSER, which strips the container's column and leaves a line of
-        // whitespace that PART 1 calls blank. So there is no three-space content
-        // line for the writer to preserve here at all, and a probe placed inside
-        // the container would have been asking the writer a question the parser
-        // had already answered.
-        //
-        // carve-js 62e0e5a does exactly the same, on both the list and the
-        // footnote spelling, so this is not a divergence and not this ticket.
+        // CARVE-P11-016: the parser keeps what is left past the item's content
+        // column, so five spaces at column 2 are a code line of three.
         $this->assertStringContainsString(
-            "<pre><code>a\n\nb\n</code></pre>",
+            "<pre><code>a\n   \nb\n</code></pre>",
             (new CarveConverter())->convert("- x\n  ```\n  a\n     \n  b\n  ```\n"),
         );
     }

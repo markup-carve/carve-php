@@ -20,7 +20,11 @@ final class CanonicalAheadOfPin
     {
         return [
             'fmt' => [],
-            'md' => [],
+            'md' => [
+                // PART 11 section 10n pads a header narrower than the table; the
+                // corpus golden still writes the one-cell header.
+                '284-a-ragged-table-keeps-each-row-s-cell-count-3' => "| h |  |\n| --- | --- |\n|  | x |\n",
+            ],
         ];
     }
 

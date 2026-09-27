@@ -250,6 +250,45 @@ final class SectionAndBlockCellInterchangeTest extends TestCase
         self::assertStringNotContainsString('<b>x</b>', (new MarkdownRenderer())->render($document));
     }
 
+    public function testBlockImagesInABlockCellAreSeparatedLikeBlocks(): void
+    {
+        $document = (new AstCodec())->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'table',
+                    'rows' => [
+                        [
+                            'type' => 'table_row',
+                            'cells' => [
+                                [
+                                    'type' => 'table_cell',
+                                    'header' => false,
+                                    'blocks' => [
+                                        ['type' => 'image', 'src' => 'a.png', 'alt' => 'a'],
+                                        ['type' => 'image', 'src' => 'b.png', 'alt' => 'b'],
+                                        [
+
+                                            'type' => 'paragraph',
+                                            'children' => [
+                                                ['type' => 'text', 'value' => 'x'],
+                                                ['type' => 'image', 'src' => 'c.png', 'alt' => 'c'],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        self::assertStringContainsString('| ![a](a.png) ![b](b.png) x![c](c.png) |', (new MarkdownRenderer())->render($document));
+        self::assertStringContainsString('a b xc', (new PlainTextRenderer())->render($document));
+    }
+
     public function testAnEmptyBlockCellHasNoExtraHtmlLine(): void
     {
         $document = (new AstCodec())->decode([

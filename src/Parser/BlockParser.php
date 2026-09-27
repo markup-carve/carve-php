@@ -5138,7 +5138,7 @@ class BlockParser
                     while ($i < $count) {
                         $subLine = $lines[$i];
                         if (IndentationHelper::isBlankLine($subLine)) {
-                            $subLines[] = '';
+                            $subLines[] = $this->blankLineResidue($subLine, $subIndent, $subTrailingState);
                             $subLineMap[] = $this->sourceLineFor($i);
                             $sawBlankLine = true;
                             $i++;
@@ -7397,6 +7397,24 @@ class BlockParser
     }
 
     /**
+     * What a blank source line contributes to an item's collected stream. Inside
+     * an open fence it is a verbatim line, so the residue past the content
+     * column is content (PART 9 section 24 C5); anywhere else it is a blank.
+     *
+     * @param string $line
+     * @param int $contentIndent
+     * @param array<string, mixed> $trailingState
+     */
+    private function blankLineResidue(string $line, int $contentIndent, array $trailingState): string
+    {
+        if (!$trailingState['inFence']) {
+            return '';
+        }
+
+        return IndentationHelper::stripLeadingColumns(rtrim($line, "\r\n"), $contentIndent);
+    }
+
+    /**
      * Collect continuation lines for a normal list item.
      *
      * @param array<string> $lines All lines being parsed.
@@ -7465,7 +7483,7 @@ class BlockParser
                         && $this->definitionBodyContinuesPastBlank($lines, $i, $count, $contentIndent, $openDefinitionBody)
                     )
                 ) {
-                    $itemLines[] = '';
+                    $itemLines[] = $this->blankLineResidue($nextLine, $contentIndent, $trailingState);
                     $itemLineMap[] = $this->sourceLineFor($i);
                     $trailingState = $this->advanceTrailingBlockState($trailingState, '');
                     $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, '');
@@ -7849,7 +7867,7 @@ class BlockParser
                 if ($look >= $count || IndentationHelper::getLeadingColumns($lines[$look], $contentIndent) < $contentIndent) {
                     break;
                 }
-                $itemLines[] = '';
+                $itemLines[] = $this->blankLineResidue($nextLine, $contentIndent, $trailingState);
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceTrailingBlockState($trailingState, '');
                 $i++;
