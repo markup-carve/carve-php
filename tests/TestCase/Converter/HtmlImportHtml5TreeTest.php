@@ -234,6 +234,26 @@ class HtmlImportHtml5TreeTest extends TestCase
         self::assertSame('<carve-import-root>' . $html . '</carve-import-root>', HtmlDomLoader::serialize($document->documentElement));
     }
 
+    public function testColonNamesAreNotForeignIntegrationPoints(): void
+    {
+        foreach (
+            [
+                ['<svg><svg:title><foo></foo></svg:title></svg>', 'http://www.w3.org/2000/svg'],
+                ['<math><m:mi><foo></foo></m:mi></math>', 'http://www.w3.org/1998/Math/MathML'],
+            ] as [$html, $namespace]
+        ) {
+            $document = HtmlDomLoader::fragment($html);
+            self::assertSame($namespace, $document->getElementsByTagName('foo')->item(0)?->namespaceURI);
+            self::assertSame('<carve-import-root>' . $html . '</carve-import-root>', HtmlDomLoader::serialize($document->documentElement));
+        }
+    }
+
+    public function testAnnotationXmlWithoutEncodingRemainsMathMl(): void
+    {
+        $document = HtmlDomLoader::fragment('<math><annotation-xml><foo></foo></annotation-xml></math>');
+        self::assertSame('http://www.w3.org/1998/Math/MathML', $document->getElementsByTagName('foo')->item(0)?->namespaceURI);
+    }
+
     public function testTemplateDepthAllowsTheDocumentedBoundary(): void
     {
         foreach ([511, 512] as $depth) {
