@@ -9532,7 +9532,54 @@ class BlockParser
             $runs[] = [$runStartInExpanded, $runStartInSource, $offset - $runStartInSource, $offset - $runStartInSource];
         }
 
-        return [$expanded, $runs, $kept];
+        return [$expanded, $this->rebaseStrippedTabColumns($runs, $line, $lineNo), $kept];
+    }
+
+    /**
+     * Bring a stanza line's runs back onto the AUTHORED line when the container
+     * strip left part of a tab behind.
+     *
+     * A tab that straddles the strip's boundary comes back as the spaces it
+     * still claims ({@see \MarkupCarve\Carve\Parser\Utility\IndentationHelper::stripLeadingColumns()}),
+     * so the line this stanza reads is LONGER than the line the author wrote and
+     * every offset past the tab is short by the difference. The tab's own byte
+     * still backs the first column it kept; the columns before that one stand for
+     * no byte at all, and PART 12 section 4 rates no position above a wrong one,
+     * so their run is trimmed rather than guessed (markup-carve/carve#2353).
+     *
+     * @param list<array{0: int, 1: int, 2: int, 3: int}> $runs
+     * @param string $line
+     * @param int $lineNo
+     *
+     * @return list<array{0: int, 1: int, 2: int, 3: int}>
+     */
+    private function rebaseStrippedTabColumns(array $runs, string $line, int $lineNo): array
+    {
+        $authored = $this->sourceLines[$this->sourceLineFor($lineNo)] ?? null;
+        if ($authored === null) {
+            return $runs;
+        }
+        $shift = strlen($line) - strlen($authored);
+        if ($shift <= 0) {
+            return $runs;
+        }
+
+        $rebased = [];
+        foreach ($runs as [$textOffset, $sourceOffset, $length, $sourceLength]) {
+            $short = $shift - $sourceOffset;
+            if ($short > 0) {
+                $textOffset += $short;
+                $length -= $short;
+                $sourceLength -= $short;
+                $sourceOffset = $shift;
+                if ($length <= 0 || $sourceLength <= 0) {
+                    continue;
+                }
+            }
+            $rebased[] = [$textOffset, $sourceOffset - $shift, $length, $sourceLength];
+        }
+
+        return $rebased;
     }
 
     /**
