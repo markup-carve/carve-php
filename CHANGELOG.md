@@ -38,7 +38,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `BlockParser` loses its three protected definition collectors and `ReferenceDefinitionExtractor` loses `extract()` and `getLayoutEvents()`, together with the five classes that served only that scan; the methods the parser itself calls stay (#2248, #2249).
 - AST ingest refuses a container-internal type inside a `children` array and a `footnote_ref` with no target, accepts a `citation` with no `pos`, and `AstCodec::schema()` drops `pos` from the citation's required list (#2271, markup-carve/carve#2197).
 - The AST schema validator honors `not`, so a payload the keyword was written to reject is refused where it used to be accepted (#2409).
-- Every empty block container keeps one blank HTML body line, so divs, line blocks, local hard-break blocks and figure groups take the body shape admonitions and block quotes already had (#2512, `CARVE-P10-001`).
+- Every empty block container keeps one blank HTML body line, so divs, line blocks, local hard-break blocks and figure groups take the body shape admonitions and block quotes already had (#2256, `CARVE-P10-001`).
 - An empty emphasis-family mark throws `SourceUnspellableException` instead of writing an empty brace pair, and a mark whose content is edged with any whitespace is written braced (#2207).
 - A parenthesized link or image title is prose, the grammar having only the two quoted spellings (#2195).
 - A generated-content `:::` kind parses as a directive rather than an admonition (#2329, markup-carve/carve#2225).
