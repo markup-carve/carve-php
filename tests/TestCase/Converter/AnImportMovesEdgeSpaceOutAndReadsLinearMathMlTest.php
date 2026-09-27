@@ -45,6 +45,24 @@ class AnImportMovesEdgeSpaceOutAndReadsLinearMathMlTest extends TestCase
             'insertion' => ['<p>a<a href="/s"><ins> x </ins></a>b</p>', "a [{+x+}](/s) b\n"],
             'deletion' => ['<p>a<a href="/s"><del> x </del></a>b</p>', "a [{-x-}](/s) b\n"],
             'code keeps its spaces' => ['<p>a<a href="/s"><code> x </code></a>b</p>', "a[`  x  `](/s)b\n"],
+            // An inline run outside a <p> reaches the rule too (#2520).
+            'an implicit paragraph' => ['<div>q<span class="w"> x </span>z</div>', "q [x]{.w} z\n"],
+            'a bare inline run' => ['a<span class="w"> x </span>b', "a [x]{.w} b\n"],
+            'a list item' => ['<ul><li>q<span class="w"> x </span>z</li></ul>', "- q [x]{.w} z\n"],
+            'a blockquote' => ['<blockquote>q<span class="w"> x </span>z</blockquote>', "> q [x]{.w} z\n"],
+            'a table cell' => [
+                '<table><tr><td>q<span class="w"> x </span>z</td></tr></table>',
+                "| q [x]{.w} z |\n",
+            ],
+            'a caption' => [
+                '<figure><img src="i" alt="a"><figcaption>q<span class="w"> x </span>z</figcaption></figure>',
+                "![a](i)\n^ q [x]{.w} z\n",
+            ],
+            'a span wrapping a link and an empty span' => [
+                "<span class=\"w\">\n  <a href=\"u\" class=\"l\">\n    <img src=\"i\" alt=\"a\">\n  </a>\n"
+                    . "  <span class=\"p\"></span>\n</span>\n",
+                "[[![a](i)](u){.l} []{.p}]{.w}\n",
+            ],
         ];
     }
 
