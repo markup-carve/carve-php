@@ -9,6 +9,25 @@ use PHPUnit\Framework\TestCase;
 
 class HtmlAstBuilderTest extends TestCase
 {
+    public function testEachBuildOwnsItsDocumentAndDecisions(): void
+    {
+        $builder = new HtmlAstBuilder(importMode: 'roundtrip');
+        $builder->build('<section><p id="first"></p><custom>raw</custom></section>');
+        $firstDocument = $builder->builtDocument();
+        $firstRaw = $builder->keptRawElements();
+        $firstDropped = $builder->droppedEmptyElements();
+        self::assertCount(1, $firstRaw);
+        self::assertCount(1, $firstDropped);
+
+        $html = '<p>second</p>';
+        self::assertSame((new HtmlAstBuilder(importMode: 'roundtrip'))->build($html), $builder->build($html));
+        self::assertNotSame($firstDocument, $builder->builtDocument());
+        self::assertNotSame($firstRaw, $builder->keptRawElements());
+        self::assertNotSame($firstDropped, $builder->droppedEmptyElements());
+        self::assertCount(0, $builder->keptRawElements());
+        self::assertCount(0, $builder->droppedEmptyElements());
+    }
+
     public function testItBuildsTheBasicSharedFixtureWithoutWritingCarve(): void
     {
         $fixture = dirname(__DIR__, 2) . '/spec/tests/html-import/basic';

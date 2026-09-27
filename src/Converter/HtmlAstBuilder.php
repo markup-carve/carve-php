@@ -33,26 +33,14 @@ use Throwable;
  */
 final class HtmlAstBuilder
 {
-    private ?DOMDocument $builtDocument = null;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, null>
-     */
-    private SplObjectStorage $droppedEmptyElements;
-
-    /**
-     * Elements whose URL-list attribute the tree carries.
-     *
-     * @var \SplObjectStorage<\DOMElement, null>
-     */
-    private SplObjectStorage $urlListCarriers;
+    private HtmlImportSession $session;
 
     /**
      * @return \SplObjectStorage<\DOMElement, null>
      */
     public function urlListCarriers(): SplObjectStorage
     {
-        return $this->urlListCarriers;
+        return $this->session->urlListCarriers;
     }
 
     /**
@@ -60,35 +48,15 @@ final class HtmlAstBuilder
      */
     public function droppedEmptyElements(): SplObjectStorage
     {
-        return $this->droppedEmptyElements;
+        return $this->session->droppedEmptyElements;
     }
-
-    /**
-     * @var array<string, list<string>>
-     */
-    private array $retainedTableAttributes = [];
-
-    /**
-     * @var array<string, true>
-     */
-    private array $retainedTablePartitions = [];
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, \DOMElement|null>
-     */
-    private SplObjectStorage $codeLanguageWrappers;
-
-    /**
-     * @var array<string, list<string>>
-     */
-    private array $displacedFigureAttributes = [];
 
     /**
      * @return array<string, list<string>>
      */
     public function displacedFigureAttributes(): array
     {
-        return $this->displacedFigureAttributes;
+        return $this->session->displacedFigureAttributes;
     }
 
     /**
@@ -96,7 +64,7 @@ final class HtmlAstBuilder
      */
     public function retainedTableAttributes(): array
     {
-        return $this->retainedTableAttributes;
+        return $this->session->retainedTableAttributes;
     }
 
     /**
@@ -104,7 +72,7 @@ final class HtmlAstBuilder
      */
     public function retainedTablePartitions(): array
     {
-        return $this->retainedTablePartitions;
+        return $this->session->retainedTablePartitions;
     }
 
     private static function importPath(DOMElement $node): string
@@ -120,68 +88,6 @@ final class HtmlAstBuilder
 
         return '/' . implode('/', $parts);
     }
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, null>
-     */
-    private SplObjectStorage $keptRawElements;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, null>
-     */
-    private SplObjectStorage $droppedBlankTableRows;
-
-    /**
-     * `<dl>` elements merged into the definition list before them.
-     *
-     * @var \SplObjectStorage<\DOMElement, null>
-     */
-    private SplObjectStorage $mergedDefinitionLists;
-
-    private ?bool $tableCellAllowsEmptyCode = null;
-
-    /**
-     * @var array<string, true>
-     */
-    private array $footnoteTargets = [];
-
-    /**
-     * @var list<array<string, mixed>>
-     */
-    private array $footnoteDefinitions = [];
-
-    /**
-     * @var array<string, string>
-     */
-    private array $referenceDefinitions = [];
-
-    /**
-     * The bracket text an ordered task item's checkbox is written as, keyed by
-     * the `<input>` element's object id.
-     *
-     * @var array<int, string>
-     */
-    private array $orderedTaskBrackets = [];
-
-    /**
-     * @var array<string, string>
-     */
-    private array $abbreviationDefinitions = [];
-
-    private bool $inFootnoteDefinition = false;
-
-    /**
-     * @var list<string>
-     */
-    private array $inlineTypeStack = [];
-
-    private int $quoteDepth = 0;
-
-    private bool $inCaption = false;
-
-    private bool $inInlineProjection = false;
-
-    private bool $preserveInlineWhitespace = false;
 
     /**
      * @template T
@@ -316,7 +222,7 @@ final class HtmlAstBuilder
      */
     private function collectedFootnotes(): array
     {
-        return $this->footnoteDefinitions;
+        return $this->session->footnoteDefinitions;
     }
 
     /**
@@ -324,7 +230,7 @@ final class HtmlAstBuilder
      */
     private function collectedReferences(): array
     {
-        return $this->referenceDefinitions;
+        return $this->session->referenceDefinitions;
     }
 
     /**
@@ -343,18 +249,12 @@ final class HtmlAstBuilder
         private readonly array $alignmentClasses = [],
         private readonly array $labels = [],
     ) {
-        $this->displacedFigureAttributes = [];
-        $this->droppedEmptyElements = new SplObjectStorage();
-        $this->urlListCarriers = new SplObjectStorage();
-        $this->codeLanguageWrappers = new SplObjectStorage();
-        $this->keptRawElements = new SplObjectStorage();
-        $this->droppedBlankTableRows = new SplObjectStorage();
-        $this->mergedDefinitionLists = new SplObjectStorage();
+        $this->session = new HtmlImportSession();
     }
 
     public function builtDocument(): ?DOMDocument
     {
-        return $this->builtDocument;
+        return $this->session->builtDocument;
     }
 
     /**
@@ -362,7 +262,7 @@ final class HtmlAstBuilder
      */
     public function keptRawElements(): SplObjectStorage
     {
-        return $this->keptRawElements;
+        return $this->session->keptRawElements;
     }
 
     /**
@@ -370,7 +270,7 @@ final class HtmlAstBuilder
      */
     public function droppedBlankTableRows(): SplObjectStorage
     {
-        return $this->droppedBlankTableRows;
+        return $this->session->droppedBlankTableRows;
     }
 
     /**
@@ -378,12 +278,12 @@ final class HtmlAstBuilder
      */
     public function mergedDefinitionLists(): SplObjectStorage
     {
-        return $this->mergedDefinitionLists;
+        return $this->session->mergedDefinitionLists;
     }
 
     private function keepRaw(DOMElement $node): void
     {
-        $this->keptRawElements[$node] = null;
+        $this->session->keptRawElements[$node] = null;
     }
 
     /**
@@ -494,27 +394,9 @@ final class HtmlAstBuilder
      */
     public function build(string $html, ?int $sourceByteLength = null): array
     {
-        $this->displacedFigureAttributes = [];
-        $this->droppedEmptyElements = new SplObjectStorage();
-        $this->urlListCarriers = new SplObjectStorage();
-        $this->codeLanguageWrappers = new SplObjectStorage();
-        $this->keptRawElements = new SplObjectStorage();
-        $this->droppedBlankTableRows = new SplObjectStorage();
-        $this->mergedDefinitionLists = new SplObjectStorage();
-        $this->footnoteTargets = [];
-        $this->footnoteDefinitions = [];
-        $this->referenceDefinitions = [];
-        $this->orderedTaskBrackets = [];
-        $this->abbreviationDefinitions = [];
-        $this->inFootnoteDefinition = false;
-        $this->inlineTypeStack = [];
-        $this->quoteDepth = 0;
-        $this->inCaption = false;
-        $this->preserveInlineWhitespace = false;
+        $this->session = new HtmlImportSession();
         $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
-        $this->builtDocument = $document;
-        $this->retainedTableAttributes = [];
-        $this->retainedTablePartitions = [];
+        $this->session->builtDocument = $document;
 
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
@@ -527,7 +409,7 @@ final class HtmlAstBuilder
             }
             $href = $anchor->getAttribute('href');
             if (str_starts_with($href, '#') && strlen($href) > 1) {
-                $this->footnoteTargets[substr($href, 1)] = true;
+                $this->session->footnoteTargets[substr($href, 1)] = true;
             }
         }
         foreach ($root->getElementsByTagName('template') as $template) {
@@ -538,11 +420,11 @@ final class HtmlAstBuilder
                 continue;
             }
             foreach ($matches as $match) {
-                $this->abbreviationDefinitions[$match[1]] ??= $match[2];
+                $this->session->abbreviationDefinitions[$match[1]] ??= $match[2];
             }
         }
         $children = $this->blocks($this->children($root));
-        foreach (array_reverse($this->abbreviationDefinitions, true) as $abbr => $expansion) {
+        foreach (array_reverse($this->session->abbreviationDefinitions, true) as $abbr => $expansion) {
             $definition = [
                 'type' => 'abbreviation_def',
                 'abbr' => $abbr,
@@ -726,7 +608,7 @@ final class HtmlAstBuilder
                     if (($next['loose'] ?? false) === true) {
                         $blocks[$last]['loose'] = true;
                     }
-                    $this->mergedDefinitionLists[$node] = null;
+                    $this->session->mergedDefinitionLists[$node] = null;
                 }
                 foreach ($produced as $block) {
                     $blocks[] = $block;
@@ -812,8 +694,8 @@ final class HtmlAstBuilder
             $attrs = $this->attrs($node, []);
             if ($children === []) {
                 // Carve has no empty paragraph; an attribute line would attach to the next block.
-                if ($attrs !== [] && !$this->inInlineProjection) {
-                    $this->droppedEmptyElements[$node] = null;
+                if ($attrs !== [] && !$this->session->inInlineProjection) {
+                    $this->session->droppedEmptyElements[$node] = null;
                 }
 
                 return [];
@@ -1233,7 +1115,7 @@ final class HtmlAstBuilder
         // has nowhere to go and the `<summary>` left the document (carve-php#2371).
         // A caption is such a slot as much as a cell is, and taking the cell's
         // path keeps the summary in the same inline run as the body.
-        if ($this->isInsideTableCell($node) || $this->inCaption) {
+        if ($this->isInsideTableCell($node) || $this->session->inCaption) {
             return [
                 'type' => 'div',
                 'children' => $this->blocks($domChildren),
@@ -1404,7 +1286,7 @@ final class HtmlAstBuilder
         if (strtolower($parent->tagName) !== 'div') {
             return false;
         }
-        if (!$this->codeLanguageWrappers->offsetExists($parent)) {
+        if (!$this->session->codeLanguageWrappers->offsetExists($parent)) {
             $element = null;
             $eligible = true;
             foreach ($parent->childNodes as $node) {
@@ -1418,10 +1300,10 @@ final class HtmlAstBuilder
                     break;
                 }
             }
-            $this->codeLanguageWrappers[$parent] = $eligible ? $element : null;
+            $this->session->codeLanguageWrappers[$parent] = $eligible ? $element : null;
         }
 
-        return $this->codeLanguageWrappers[$parent] === $child;
+        return $this->session->codeLanguageWrappers[$parent] === $child;
     }
 
     /**
@@ -1505,7 +1387,7 @@ final class HtmlAstBuilder
             // the item and reports nothing - the split PART 12 section 16 draws.
             $unspellableTask = $ordered && $task !== null && $this->sourceSafe;
             if ($unspellableTask) {
-                $this->orderedTaskBrackets[spl_object_id($task)] = '['
+                $this->session->orderedTaskBrackets[spl_object_id($task)] = '['
                     . ($consumesTaskState && $taskState !== '' && !in_array($taskState, ['x', 'X', ' '], true)
                         ? $taskState
                         : ($checkboxChecked ? 'x' : ' '))
@@ -1628,9 +1510,9 @@ final class HtmlAstBuilder
             if ($label === '') {
                 $label = $this->footnoteLabel($id);
             }
-            $referenced = $id !== '' && isset($this->footnoteTargets[$id]);
+            $referenced = $id !== '' && isset($this->session->footnoteTargets[$id]);
             if (!$referenced && $label !== '') {
-                foreach (array_keys($this->footnoteTargets) as $target) {
+                foreach (array_keys($this->session->footnoteTargets) as $target) {
                     if ($this->footnoteLabel($target) === $label) {
                         $referenced = true;
 
@@ -1647,12 +1529,12 @@ final class HtmlAstBuilder
                 continue;
             }
             $found = true;
-            $previous = $this->inFootnoteDefinition;
-            $this->inFootnoteDefinition = true;
+            $previous = $this->session->inFootnoteDefinition;
+            $this->session->inFootnoteDefinition = true;
             try {
                 $children = $this->blocks($this->children($item));
             } finally {
-                $this->inFootnoteDefinition = $previous;
+                $this->session->inFootnoteDefinition = $previous;
             }
             $definition = [
                 'type' => 'footnote',
@@ -1661,7 +1543,7 @@ final class HtmlAstBuilder
             ];
             $this->addHint($definition, "\0carve-indent-blank-lines");
             $this->addHint($definition, "\0carve-compact-definition");
-            $this->footnoteDefinitions[] = $definition;
+            $this->session->footnoteDefinitions[] = $definition;
         }
         if (!$found) {
             return $this->blocks($this->children($section));
@@ -1772,7 +1654,7 @@ final class HtmlAstBuilder
         $last = array_key_last($before);
         if ($last !== null && ($before[$last]['type'] ?? null) === 'definition_list' && $this->attrs($node, []) === []) {
             $before[$last]['items'] = array_merge(self::nodeList($before[$last]['items'] ?? null), $items);
-            $this->mergedDefinitionLists[$node] = null;
+            $this->session->mergedDefinitionLists[$node] = null;
 
             return $before;
         }
@@ -1894,16 +1776,16 @@ final class HtmlAstBuilder
                         break;
                     }
                 }
-                $previousProjection = $this->inInlineProjection;
-                $this->inInlineProjection = $previousProjection || !$listForm;
-                $previousCellContext = $this->tableCellAllowsEmptyCode;
-                $this->tableCellAllowsEmptyCode = $allowsEmptyCode;
+                $previousProjection = $this->session->inInlineProjection;
+                $this->session->inInlineProjection = $previousProjection || !$listForm;
+                $previousCellContext = $this->session->tableCellAllowsEmptyCode;
+                $this->session->tableCellAllowsEmptyCode = $allowsEmptyCode;
                 try {
                     $blocks = $this->blocks($this->children($cellElement));
                     $children = $listForm ? [] : $this->flattenBlocks($blocks);
                 } finally {
-                    $this->tableCellAllowsEmptyCode = $previousCellContext;
-                    $this->inInlineProjection = $previousProjection;
+                    $this->session->tableCellAllowsEmptyCode = $previousCellContext;
+                    $this->session->inInlineProjection = $previousProjection;
                 }
                 $cell = [
                     'type' => 'table_cell',
@@ -1963,7 +1845,7 @@ final class HtmlAstBuilder
                     static fn (array $cell): bool => self::cellWritesBlank($cell),
                 );
                 if ($blank) {
-                    $this->droppedBlankTableRows[$rowElement] = null;
+                    $this->session->droppedBlankTableRows[$rowElement] = null;
 
                     continue;
                 }
@@ -1982,7 +1864,7 @@ final class HtmlAstBuilder
                 $ownAlignmentGrid[] = $ownAlignment;
             } elseif ($listForm) {
                 // A list-table row is the list of its cells, so a row with none has no spelling.
-                $this->droppedBlankTableRows[$rowElement] = null;
+                $this->session->droppedBlankTableRows[$rowElement] = null;
             }
         }
         if ($rows === []) {
@@ -2118,7 +2000,7 @@ final class HtmlAstBuilder
         $counted = $groups['headRows'] + $groups['footRows'] + array_sum(array_column($groups['bodies'], 'bodyRows')) + array_sum(array_column($groups['bodies'], 'headRows'));
         if ($valid && $counted === count($rows) && ($hasSectionAttrs || $groups['footRows'] > 0 || count($groups['bodies']) > 1)) {
             $table['rowGroups'] = $groups;
-            $this->retainedTablePartitions[self::importPath($node)] = true;
+            $this->session->retainedTablePartitions[self::importPath($node)] = true;
             foreach ($node->childNodes as $section) {
                 if (!$section instanceof DOMElement || !in_array(strtolower($section->tagName), ['thead', 'tbody', 'tfoot'], true)) {
                     continue;
@@ -2131,7 +2013,7 @@ final class HtmlAstBuilder
                 if (isset($attrs['classes'])) {
                     $names[] = 'class';
                 }
-                $this->retainedTableAttributes[self::importPath($section)] = $names;
+                $this->session->retainedTableAttributes[self::importPath($section)] = $names;
             }
         }
 
@@ -2511,7 +2393,7 @@ final class HtmlAstBuilder
                 $names[] = $name;
             }
         }
-        $this->displacedFigureAttributes[self::importPath($node)] = $names;
+        $this->session->displacedFigureAttributes[self::importPath($node)] = $names;
     }
 
     /**
@@ -2649,14 +2531,14 @@ final class HtmlAstBuilder
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
                 $flush();
-                $previousProjection = $this->inInlineProjection;
-                $this->inInlineProjection = true;
+                $previousProjection = $this->session->inInlineProjection;
+                $this->session->inInlineProjection = true;
                 try {
                     foreach ($this->blocks($this->children($child)) as $block) {
                         $fallback[] = $block;
                     }
                 } finally {
-                    $this->inInlineProjection = $previousProjection;
+                    $this->session->inInlineProjection = $previousProjection;
                 }
 
                 continue;
@@ -3086,8 +2968,8 @@ final class HtmlAstBuilder
     {
         $out = [];
         $previousWasBlock = false;
-        $previousCaptionState = $this->inCaption;
-        $this->inCaption = true;
+        $previousCaptionState = $this->session->inCaption;
+        $this->session->inCaption = true;
         try {
             foreach ($node->childNodes as $child) {
                 $current = $this->inline($child);
@@ -3108,7 +2990,7 @@ final class HtmlAstBuilder
                 $previousWasBlock = $currentIsBlock;
             }
         } finally {
-            $this->inCaption = $previousCaptionState;
+            $this->session->inCaption = $previousCaptionState;
         }
         $out = $this->hoistedRun($out);
         $this->normalizeInlineBoundaries($out);
@@ -3340,7 +3222,7 @@ final class HtmlAstBuilder
     private function hoistedRun(array $nodes): array
     {
         // A trusted round trip reads its own Carve source back, spaces included.
-        $keep = $this->preserveInlineWhitespace || $this->trustedRoundTrip;
+        $keep = $this->session->preserveInlineWhitespace || $this->trustedRoundTrip;
 
         return $this->coalesceText($keep ? $nodes : $this->hoistEdgeSpace($nodes));
     }
@@ -3441,7 +3323,7 @@ final class HtmlAstBuilder
     private function inline(DOMNode $node): array
     {
         if ($node instanceof DOMText) {
-            $value = $this->preserveInlineWhitespace
+            $value = $this->session->preserveInlineWhitespace
                 ? $node->textContent
                 : (preg_replace('/[ \t\n\f\r]+/', ' ', $node->textContent) ?? $node->textContent);
 
@@ -3573,7 +3455,7 @@ final class HtmlAstBuilder
         }
         if (
             $this->importMode === 'roundtrip'
-            && !$this->inCaption
+            && !$this->session->inCaption
             && !$this->isSupportedInlineTag($tag)
             && !self::aRowRefusesTheRegion($node)
         ) {
@@ -3637,7 +3519,7 @@ final class HtmlAstBuilder
                 $image['ref'] = $ref;
                 $image['rawRef'] = '![' . $node->getAttribute('alt') . ']'
                     . ($ref === $node->getAttribute('alt') ? '[]' : '[' . $ref . ']');
-                $this->referenceDefinitions[$ref] = $node->getAttribute('src');
+                $this->session->referenceDefinitions[$ref] = $node->getAttribute('src');
             }
             $this->attachAttrs($image, $node, ['src', 'alt', 'title', 'data-djot-ref']);
 
@@ -3705,7 +3587,7 @@ final class HtmlAstBuilder
 
                 return [['type' => 'footnote_ref', 'label' => $this->footnoteLabel($fragment)]];
             }
-            if ($this->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
+            if ($this->session->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
                 return [];
             }
             if ($node->hasAttribute('data-djot-autolink')) {
@@ -3730,7 +3612,7 @@ final class HtmlAstBuilder
                     $collapsed = $labelText === $ref;
                     $link['rawRef'] = '[' . $labelText . ']'
                         . ($collapsed ? '[]' : '[' . $ref . ']');
-                    $this->referenceDefinitions[$ref] = $node->getAttribute('href');
+                    $this->session->referenceDefinitions[$ref] = $node->getAttribute('href');
                 }
             }
             if ($node->hasAttribute('title')) {
@@ -3758,13 +3640,13 @@ final class HtmlAstBuilder
             return [$code];
         }
         if ($tag === 'q') {
-            $opening = $this->quoteDepth % 2 === 0 ? '“' : '‘';
-            $closing = $this->quoteDepth % 2 === 0 ? '”' : '’';
-            ++$this->quoteDepth;
+            $opening = $this->session->quoteDepth % 2 === 0 ? '“' : '‘';
+            $closing = $this->session->quoteDepth % 2 === 0 ? '”' : '’';
+            ++$this->session->quoteDepth;
             try {
                 $quoted = $this->inlines($this->children($node));
             } finally {
-                --$this->quoteDepth;
+                --$this->session->quoteDepth;
             }
             $children = [
                 ['type' => 'text', 'value' => $opening],
@@ -3790,7 +3672,7 @@ final class HtmlAstBuilder
         if ($tag === 'abbr' && $node->hasAttribute('title')) {
             $abbr = trim($node->textContent);
             $expansion = $node->getAttribute('title');
-            if ($abbr !== '' && ($this->abbreviationDefinitions[$abbr] ?? null) === $expansion) {
+            if ($abbr !== '' && ($this->session->abbreviationDefinitions[$abbr] ?? null) === $expansion) {
                 return [['type' => 'text', 'value' => $abbr]];
             }
         }
@@ -3811,15 +3693,15 @@ final class HtmlAstBuilder
         ];
         if (isset($types[$tag])) {
             $type = $types[$tag];
-            $lastType = $this->inlineTypeStack === []
+            $lastType = $this->session->inlineTypeStack === []
                 ? null
-                : $this->inlineTypeStack[count($this->inlineTypeStack) - 1];
+                : $this->session->inlineTypeStack[count($this->session->inlineTypeStack) - 1];
             $nestedSameKind = $lastType === $type;
-            $this->inlineTypeStack[] = $type;
+            $this->session->inlineTypeStack[] = $type;
             try {
                 $children = $this->inlines($this->children($node));
             } finally {
-                array_pop($this->inlineTypeStack);
+                array_pop($this->session->inlineTypeStack);
             }
             if ($this->sourceSafe && $nestedSameKind) {
                 return $children;
@@ -3868,7 +3750,7 @@ final class HtmlAstBuilder
 
             if ($tag === 'span' && $attrs === []) {
                 if ($span['children'] === []) {
-                    $this->droppedEmptyElements[$node] = null;
+                    $this->session->droppedEmptyElements[$node] = null;
                 }
 
                 return $span['children'];
@@ -3878,18 +3760,18 @@ final class HtmlAstBuilder
         }
 
         if ($tag === 'input' && strtolower($node->getAttribute('type')) === 'checkbox') {
-            $bracket = $this->orderedTaskBrackets[spl_object_id($node)] ?? null;
+            $bracket = $this->session->orderedTaskBrackets[spl_object_id($node)] ?? null;
 
             return $bracket === null ? [] : [['type' => 'text', 'value' => $bracket]];
         }
 
         if ($this->isBlock($node)) {
-            $previousProjection = $this->inInlineProjection;
-            $this->inInlineProjection = true;
+            $previousProjection = $this->session->inInlineProjection;
+            $this->session->inInlineProjection = true;
             try {
                 return $this->flattenBlocks($this->block($node));
             } finally {
-                $this->inInlineProjection = $previousProjection;
+                $this->session->inInlineProjection = $previousProjection;
             }
         }
 
@@ -4050,7 +3932,7 @@ final class HtmlAstBuilder
         if (
             !$this->trustedRoundTrip
             || $this->importMode !== 'roundtrip'
-            || $this->inCaption
+            || $this->session->inCaption
             || !$node->hasAttribute('data-djot-src')
         ) {
             return null;
@@ -4411,12 +4293,12 @@ final class HtmlAstBuilder
         if (!$root instanceof DOMElement) {
             return [];
         }
-        $previous = $this->preserveInlineWhitespace;
-        $this->preserveInlineWhitespace = true;
+        $previous = $this->session->preserveInlineWhitespace;
+        $this->session->preserveInlineWhitespace = true;
         try {
             return $this->inlines($this->children($root));
         } finally {
-            $this->preserveInlineWhitespace = $previous;
+            $this->session->preserveInlineWhitespace = $previous;
         }
     }
 
@@ -4510,8 +4392,8 @@ final class HtmlAstBuilder
             return false;
         }
 
-        if ($this->tableCellAllowsEmptyCode !== null) {
-            return $this->tableCellAllowsEmptyCode;
+        if ($this->session->tableCellAllowsEmptyCode !== null) {
+            return $this->session->tableCellAllowsEmptyCode;
         }
 
         $parent = $node->parentNode;
@@ -4633,7 +4515,7 @@ final class HtmlAstBuilder
         // what it was before this arm. A caption is not a row and takes one.
         if ($type === 'raw_block') {
             $content = is_string($node['content'] ?? null) ? $node['content'] : '';
-            if ($content !== '' && ($this->inCaption || !str_contains($content, "\n"))) {
+            if ($content !== '' && ($this->session->inCaption || !str_contains($content, "\n"))) {
                 return [
                     [
                         'type' => 'raw_inline',
@@ -4665,7 +4547,7 @@ final class HtmlAstBuilder
             foreach (self::nodeList($node['caption'] ?? null) as $inline) {
                 array_push($caption, ...$this->projectToInlines($inline));
             }
-            if (!$this->inCaption) {
+            if (!$this->session->inCaption) {
                 $lines = [];
                 foreach (self::nodeList($node['rows'] ?? null) as $row) {
                     $cells = [];
@@ -4826,7 +4708,7 @@ final class HtmlAstBuilder
             }
             $keyValues[$name] = $attribute->value;
             if (in_array($name, ['srcset', 'imagesrcset', 'ping', 'attributionsrc'], true)) {
-                $this->urlListCarriers[$node] = null;
+                $this->session->urlListCarriers[$node] = null;
             }
         }
         $tag = strtolower($node->tagName);
