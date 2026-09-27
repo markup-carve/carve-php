@@ -758,6 +758,9 @@ final class HtmlAstBuilder
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
         }
+        if ($tag === 'figcaption' && self::isOrphanFigcaption($node)) {
+            return $this->blocks($this->children($node));
+        }
         if ($tag === 'caption' || $tag === 'figcaption') {
             return [];
         }
@@ -1076,6 +1079,18 @@ final class HtmlAstBuilder
      *
      * @see markup-carve/carve#2284
      */
+
+    /**
+     * A `<figcaption>` that is not a figure's child has nothing to caption, so
+     * it gives way to its children like any unsupported element.
+     */
+    public static function isOrphanFigcaption(DOMElement $node): bool
+    {
+        $parent = $node->parentNode;
+
+        return !$parent instanceof DOMElement || strtolower($parent->tagName) !== 'figure';
+    }
+
     public static function aRowRefusesTheRegion(DOMElement $node): bool
     {
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
@@ -3266,6 +3281,9 @@ final class HtmlAstBuilder
             ];
         }
         if (in_array($tag, ['th', 'td', 'dt', 'dd'], true)) {
+            return $this->inlines($this->children($node));
+        }
+        if ($tag === 'figcaption' && self::isOrphanFigcaption($node)) {
             return $this->inlines($this->children($node));
         }
         if ($tag === 'caption' || $tag === 'figcaption') {

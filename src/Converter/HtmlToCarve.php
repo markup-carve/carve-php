@@ -863,6 +863,10 @@ class HtmlToCarve
             return;
         }
 
+        if ($tag === 'figcaption' && HtmlAstBuilder::isOrphanFigcaption($node) && $this->importContentSurvived($node)) {
+            $this->addImportDiagnostic($diagnostics, 'element-unwrapped', 'Unwrapped unsupported <figcaption> element', 'info', $path);
+        }
+
         if ($this->isOrphanImportCaption($node, $tag) && !$this->importContentSurvived($node)) {
             $this->addImportDiagnostic(
                 $diagnostics,
