@@ -3883,6 +3883,9 @@ class HtmlToCarve
         if (trim($title) === '' || str_contains($title, '"') || str_contains($title, "\n")) {
             return null;
         }
+        if ($summary->getElementsByTagName('br')->length > 0) {
+            return null;
+        }
 
         return $title;
     }
