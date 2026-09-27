@@ -6321,10 +6321,11 @@ class BlockParser
                 $fence = $code['fence'];
                 for ($j = $i + 1; $j < $count; $j++) {
                     $candidate = $lines[$j];
-                    if (
-                        !IndentationHelper::isBlankLine($candidate)
-                        && IndentationHelper::getLeadingColumns($candidate, $base) < $base
-                    ) {
+                    // A run at the container's own column closes the fence
+                    // there; every other line below the base is payload, so it
+                    // must not end the extent and be re-read as a base of its
+                    // own (CARVE-P0-004).
+                    if ($this->fencedBlockParser->isCodeFenceCloser($candidate, $fence[0], strlen($fence))) {
                         break;
                     }
                     $end = $j;
@@ -6504,6 +6505,15 @@ class BlockParser
             }
 
             for ($j = $i; $j <= $end; $j++) {
+                // Payload below the base keeps the residue past the
+                // container's column, which the dedent would clamp away.
+                if (
+                    $code !== null
+                    && !IndentationHelper::isBlankLine($lines[$j])
+                    && IndentationHelper::getLeadingColumns($lines[$j], $base) < $base
+                ) {
+                    continue;
+                }
                 if ($verbatimExtent || !IndentationHelper::isBlankLine($lines[$j])) {
                     $lines[$j] = IndentationHelper::stripLeadingColumns($lines[$j], $base);
                 }
@@ -14287,8 +14297,12 @@ class BlockParser
         while ($k < $n) {
             $sl = $subLines[$k];
             if ($fenceChar !== null) {
+                // The closer sits at the fence's own base or at the item's
+                // column, and nowhere between: a run in that band is payload,
+                // so the fence stays open across the blank lines below it.
+                $closerColumn = IndentationHelper::getLeadingColumns($sl, $fenceBase + 1);
                 if (
-                    IndentationHelper::getLeadingColumns($sl, $fenceBase + 1) <= $fenceBase
+                    ($closerColumn === 0 || $closerColumn === $fenceBase)
                     && $this->fencedBlockParser->isCodeFenceCloser(ltrim($sl, " \t"), $fenceChar, $fenceLength)
                 ) {
                     $fenceChar = null;
