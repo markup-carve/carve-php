@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * PART 11 section 8i: the `:` of an http, https or ftp scheme and the `.` of
  * `www.` are escaped where a GFM reader would autolink them, decided on the
- * emitted line.
+ * emitted line. Email addresses take an empty comment before the `@`.
  */
 class MarkdownEscapesTextThatGfmWouldAutolinkTest extends TestCase
 {
@@ -21,6 +21,22 @@ class MarkdownEscapesTextThatGfmWouldAutolinkTest extends TestCase
     public static function cases(): array
     {
         return [
+            'issue example' => [
+                "Mail a@b.co, mailto:c@d.co and xmpp:e@f.co.\n\nNot a@b, `g@h.co`, or [i@j.co](/k).",
+                "Mail a<!---->@b.co, mailto:c<!---->@d.co and xmpp:e<!---->@f.co.\n\nNot a@b, `g@h.co`, or [i@j.co](/k).",
+            ],
+            'bare email' => ['Mail a@b.co.', 'Mail a<!---->@b.co.'],
+            'prefixed email' => ['mailto:c@d.co xmpp:e@f.co', 'mailto:c<!---->@d.co xmpp:e<!---->@f.co'],
+            'email split across spans' => ['[a]{.a}[@b]{.b}[.co]{.c}', 'a<!---->@b.co'],
+            'email controls' => ['a@b `g@h.co` [i@j.co](/k)', 'a@b `g@h.co` [i@j.co](/k)'],
+            'image email' => ['![a@b.co](i.png)', '![a@b.co](i.png)'],
+            'email domain endings' => ['a@b.c1 a@b.c- a@b.c_ a@b.c', 'a@b.c1 a@b.c- a@b.c_ a<!---->@b.c'],
+            'email local punctuation' => ['a+b-c.d@e.co', 'a+b-c.d<!---->@e.co'],
+            'missing local part' => ['@b.co', '@b.co'],
+            'second at sign' => ['a@b@c.co', 'a@b<!---->@c.co'],
+            'xmpp resource' => ['xmpp:a@b.co/r1', 'xmpp:a@b.co/r1'],
+            'xmpp alphabetic resource' => ['xmpp:a@b.co/r', 'xmpp:a<!---->@b.co/r'],
+            'unicode before email' => ['é a@b.co c@d.io', 'é a<!---->@b.co c<!---->@d.io'],
             'scheme' => ['a https://x.io b', 'a https\://x.io b'],
             'scheme in any case' => ['HtTp://x.io', 'HtTp\://x.io'],
             'ftp' => ['ftp://x.io', 'ftp\://x.io'],
