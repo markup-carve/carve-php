@@ -46,6 +46,8 @@ class AnImportedHeadingKeepsItsElementsAttributeOrderTest extends TestCase
             // way in and names no slot, so the id it sat in front of still has
             // to be written.
             'a slot the element did not name' => ['<h1 style="color:red" id="x">h</h1>', "{#x}\n# h\n"],
+            // Without an id no place is observable, so the order is canonical.
+            'no id, key-value first' => ['<h1 tabindex="-1" class="k" dir="auto">h</h1>', "{.k tabindex=-1 dir=auto}\n# h\n"],
         ];
     }
 

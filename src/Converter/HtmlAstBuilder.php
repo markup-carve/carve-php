@@ -4539,6 +4539,12 @@ final class HtmlAstBuilder
             return;
         }
         $available = array_fill_keys($attrs['order'] ?? [], true);
+        // Only an id's place is observable; without one the order stays canonical.
+        if (!isset($available['#id'])) {
+            $target['attrs'] = $attrs;
+
+            return;
+        }
         $order = [];
         foreach ($node->attributes as $attribute) {
             $slot = match (strtolower($attribute->nodeName)) {
