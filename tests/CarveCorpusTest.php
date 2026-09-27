@@ -1025,14 +1025,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        // carve-php#2598. A blank line between the item's text and a fence at
-        // the item's content column loosens the item here; carve-js, carve-rs
-        // and the oracle keep it tight. The residue rule this category is about
-        // is answered correctly - the other three documents are byte-exact.
-        '505-a-verbatim-line-keeps-what-sits-past-its-fence-opener-not-past-its-container-2'
-            => 'carve-php#2598: a blank line before a fence at the content column loosens the item',
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
