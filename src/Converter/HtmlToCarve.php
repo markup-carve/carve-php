@@ -2047,6 +2047,12 @@ class HtmlToCarve
      */
     protected function importWouldRefuseAttribute(string $tag, string $name): bool
     {
+        if (in_array($name, ['data-carve-src', 'data-djot-src'], true)) {
+            return true;
+        }
+        if (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
+            return true;
+        }
         if ($this->importAttributeIsReadNotWritten($tag, $name)) {
             return false;
         }
@@ -2095,6 +2101,7 @@ class HtmlToCarve
         array &$diagnostics,
         ?string $keptTag = null,
     ): void {
+        $reason = '';
         if ($name === 'style') {
             $subject = self::preservedStyleSubject($value);
             $live = $subject !== 'style';
@@ -2106,6 +2113,11 @@ class HtmlToCarve
                 $subject = 'event-handler attribute ' . $name;
             } elseif ($sink) {
                 $subject = 'injection-sink attribute ' . $name;
+            } elseif (in_array($name, ['data-carve-src', 'data-djot-src'], true)) {
+                $subject = 'round-trip marker attribute ' . $name;
+            } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
+                $subject = $name;
+                $reason = ": the semantic span's marker owns that key";
             } elseif ($denied) {
                 $subject = $name . ' with a denied URL scheme';
             } else {
@@ -2120,7 +2132,7 @@ class HtmlToCarve
         $this->addImportDiagnostic(
             $diagnostics,
             'attribute-preserved',
-            'Preserved ' . $subject . ' on <' . $tag . '> ' . $where,
+            'Preserved ' . $subject . ' on <' . $tag . '> ' . $where . $reason,
             $live ? 'error' : 'info',
             $path,
         );
