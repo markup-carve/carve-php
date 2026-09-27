@@ -184,25 +184,25 @@ class DetailsExtension implements ExtensionInterface
      */
     protected function renderTagAttributes(Div $node, HtmlRenderer $renderer): string
     {
-        $attrs = $node->getAttributes();
-
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
+        $attrs = $node->getAttributeEntries();
 
         if (isset($attrs['class'])) {
             $classes = array_values(array_filter(
-                preg_split('/\s+/', trim($attrs['class'])) ?: [],
+                $node->getClassList(),
                 static fn (string $class): bool => $class !== '' && $class !== self::KIND,
             ));
 
             if ($classes === []) {
                 unset($attrs['class']);
             } else {
-                $attrs['class'] = implode(' ', $classes);
+                $attrs['class'] = $classes;
             }
+        }
+
+        $attrs = $renderer->sanitizeAttributes($attrs);
+        $safeMode = $renderer->getSafeMode();
+        if ($safeMode !== null) {
+            $attrs = $safeMode->filterAttributes($attrs);
         }
 
         return $renderer->renderAttributeArray($attrs);

@@ -61,7 +61,7 @@ trait ExtensionAttributesTrait
                 $classes[] = $class;
             }
         }
-        $mergedClass = implode(' ', $classes);
+        $mergedClass = $classes;
 
         // Rebuild the attribute array in SOURCE order (getAttributeOrder slots
         // first, then any programmatic leftovers), substituting the merged class.
@@ -71,7 +71,7 @@ trait ExtensionAttributesTrait
                 return;
             }
             if ($key === 'class') {
-                if ($mergedClass !== '') {
+                if ($mergedClass !== []) {
                     $ordered['class'] = $mergedClass;
                 }
 
@@ -88,7 +88,7 @@ trait ExtensionAttributesTrait
             $emit((string)$key);
         }
         // An extension class with no authored class slot: append it.
-        if ($mergedClass !== '' && !array_key_exists('class', $ordered)) {
+        if ($mergedClass !== [] && !array_key_exists('class', $ordered)) {
             $ordered['class'] = $mergedClass;
         }
         // Author attributes get the always-on hardening and safe-mode name
@@ -175,7 +175,7 @@ trait ExtensionAttributesTrait
      */
     protected function authoredAttributeNames(Node $node, HtmlRenderer $renderer): array
     {
-        $surviving = $renderer->sanitizeAttributes($node->getAttributes());
+        $surviving = $renderer->sanitizeAttributes($node->getAttributeEntries());
         $safeMode = $renderer->getSafeMode();
         if ($safeMode !== null) {
             $surviving = $safeMode->filterAttributes($surviving);

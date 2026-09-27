@@ -151,7 +151,7 @@ class AuthoredRunAndEmptyMarkTest extends TestCase
 
         $this->assertSame('carveEmptyMark', $inlines[1]['type']);
         $this->assertSame('carveSpan', $inlines[1]['attrs']['markType']);
-        $this->assertSame(['class' => 'x', 'carveAttrOrder' => ['.class']], $inlines[1]['attrs']['markAttrs']);
+        $this->assertSame(['class' => ['x'], 'carveAttrOrder' => ['.class']], $inlines[1]['attrs']['markAttrs']);
         $this->assertSame('carveEmptyMark', $inlines[3]['type']);
         $this->assertSame('link', $inlines[3]['attrs']['markType']);
     }

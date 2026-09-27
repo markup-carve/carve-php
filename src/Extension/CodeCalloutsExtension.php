@@ -234,7 +234,7 @@ class CodeCalloutsExtension implements ExtensionInterface
         // Replace/insert the merged class in place: when a `class` is present it
         // keeps its source slot; when absent it lands after the other authored
         // attrs (e.g. `title="x" class="callouts"`), exactly as carve-js emits.
-        $attrs['class'] = implode(' ', $callouts);
+        $attrs['class'] = $callouts;
 
         $attrs = $renderer->sanitizeAttributes($attrs);
         $safeMode = $renderer->getSafeMode();

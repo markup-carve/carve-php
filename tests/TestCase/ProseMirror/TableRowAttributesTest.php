@@ -45,6 +45,6 @@ class TableRowAttributesTest extends TestCase
         // everywhere else a run reaches the wire: a row can be written
         // `{key=v .head}` too, and a map has no order to reproduce that from.
         $rows = $payload['content'][0]['content'] ?? [];
-        $this->assertSame(['class' => 'head', 'carveAttrOrder' => ['.class']], $rows[0]['attrs'] ?? null);
+        $this->assertSame(['class' => ['head'], 'carveAttrOrder' => ['.class']], $rows[0]['attrs'] ?? null);
     }
 }

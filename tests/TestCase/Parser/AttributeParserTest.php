@@ -71,7 +71,7 @@ class AttributeParserTest extends TestCase
     {
         $result = AttributeParser::parse('.myclass data-file="test.txt"');
 
-        $this->assertSame('myclass', $result['class']);
+        $this->assertSame(['myclass'], $result['class']);
         $this->assertSame('test.txt', $result['data-file']);
     }
 
@@ -79,7 +79,7 @@ class AttributeParserTest extends TestCase
     {
         $result = AttributeParser::parse('.foo #bar href="page.html#anchor"');
 
-        $this->assertSame('foo', $result['class']);
+        $this->assertSame(['foo'], $result['class']);
         $this->assertSame('bar', $result['id']);
         $this->assertSame('page.html#anchor', $result['href']);
     }
@@ -188,7 +188,7 @@ class AttributeParserTest extends TestCase
         // .myclass should work, and key=foo.bar should not create spurious class
         $result = AttributeParser::parse('.myclass key=foo.bar');
 
-        $this->assertSame('myclass', $result['class']);
+        $this->assertSame(['myclass'], $result['class']);
         $this->assertSame('foo.bar', $result['key']);
     }
 
@@ -291,7 +291,7 @@ class AttributeParserTest extends TestCase
     {
         $result = AttributeParser::parse('.class width=33% k=5%x%');
 
-        $this->assertSame('class', $result['class']);
+        $this->assertSame(['class'], $result['class']);
         $this->assertSame('33%', $result['width']);
         $this->assertSame('5%x%', $result['k']);
     }
@@ -343,7 +343,7 @@ class AttributeParserTest extends TestCase
     {
         $result = AttributeParser::parse('.class title="50% off"');
 
-        $this->assertSame('class', $result['class']);
+        $this->assertSame(['class'], $result['class']);
         $this->assertSame('50% off', $result['title']);
     }
 
@@ -430,7 +430,7 @@ class AttributeParserTest extends TestCase
         // `parse()` is a token extractor and still reports the valid class -
         // it is `isValidPayload()` that decides, so the run stays literal.
         $this->assertFalse(AttributeParser::isValidPayload('.ok xml:lang=en'));
-        $this->assertSame(['class' => 'ok'], AttributeParser::parse('.ok xml:lang=en'));
+        $this->assertSame(['class' => ['ok']], AttributeParser::parse('.ok xml:lang=en'));
         $this->assertSame(
             "<p>[x]{.ok xml:lang=en}</p>\n",
             $this->converter->convert('[x]{.ok xml:lang=en}'),

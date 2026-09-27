@@ -212,11 +212,11 @@ class ImgFenceExtension implements StaticRenderExtensionInterface
         }
 
         $attrs = [];
-        foreach ($node->getAttributes() as $name => $value) {
+        foreach ($node->getAttributeEntries() as $name => $value) {
             if (in_array(strtolower((string)$name), $drop, true)) {
                 continue;
             }
-            $attrs[(string)$name] = (string)$value;
+            $attrs[(string)$name] = $value;
         }
 
         // Always-on hardening, then optional safe-mode name filtering — matching
@@ -225,10 +225,6 @@ class ImgFenceExtension implements StaticRenderExtensionInterface
         $safeMode = $renderer->getSafeMode();
         if ($safeMode !== null) {
             $attrs = $safeMode->filterAttributes($attrs);
-        }
-        if (isset($attrs['class']) && $attrs['class'] !== '') {
-            $classes = preg_split('/\s+/', trim($attrs['class'])) ?: [];
-            $attrs['class'] = implode(' ', array_values(array_unique($classes)));
         }
 
         return $renderer->renderAttributeArray($attrs);

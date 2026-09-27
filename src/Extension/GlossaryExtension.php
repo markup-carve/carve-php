@@ -206,7 +206,7 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
         if ($id !== null) {
             $attrs['id'] = $id;
         }
-        $attrs['class'] = implode(' ', $classes);
+        $attrs['class'] = $classes;
         foreach ($source->getAttributes() as $name => $value) {
             if ($name !== 'id' && $name !== 'class' && $name !== 'title') {
                 $attrs[$name] = $value;

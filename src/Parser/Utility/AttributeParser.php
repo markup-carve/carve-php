@@ -28,7 +28,7 @@ class AttributeParser
      *
      * @param string $attrStr The attribute string (contents inside {})
      *
-     * @return array<string, string> Parsed attributes
+     * @return array<string, string|list<string>> Parsed attributes
      */
     public static function parse(string $attrStr): array
     {
@@ -40,7 +40,7 @@ class AttributeParser
      *
      * @param string $attrStr The attribute string to parse
      *
-     * @return array<string, string> Parsed attributes in source order
+     * @return array<string, string|list<string>> Parsed attributes in source order
      */
     public static function parseOrdered(string $attrStr): array
     {
@@ -50,7 +50,7 @@ class AttributeParser
     /**
      * Parse attribute string preserving source slot order.
      *
-     * @return array{attributes: array<string, string>, order: list<string>}
+     * @return array{attributes: array<string, string|list<string>>, order: list<string>}
      */
     public static function parseOrderedWithSlots(string $attrStr): array
     {
@@ -131,7 +131,7 @@ class AttributeParser
      * because `.` reads the `explicit_identifier` a fence word does while a
      * value reaches past it (markup-carve/carve#2435).
      *
-     * @param array<string, string> $attributes
+     * @param array<string, string|list<string>> $attributes
      * @param list<string> $order
      * @param string $key
      * @param string $value
@@ -151,47 +151,29 @@ class AttributeParser
     /**
      * Append to the class slot without de-duplicating (grammar PART 15).
      *
-     * A value holding several classes is one write per class, so the slot never
-     * carries the source's own run of spaces. An EMPTY value still claims the
-     * slot: PART 4 gives a bare `class` the same empty-string value as
-     * `class=""`, and both have to build the one tree.
+     * Each value stays one entry, including its whitespace and an empty value.
      *
-     * @param array<string, string> $attributes
+     * @param array<string, string|list<string>> $attributes
      * @param list<string> $order
      * @param string $value
      */
     private static function appendClassValue(array &$attributes, array &$order, string $value): void
     {
         $order[] = '.class';
-        $classes = self::splitClassValue($value);
-        if ($classes === []) {
-            $attributes['class'] ??= '';
-
-            return;
+        $attributes['class'] ??= [];
+        if (is_string($attributes['class'])) {
+            $attributes['class'] = [$attributes['class']];
         }
-
-        $existing = $attributes['class'] ?? '';
-        $joined = implode(' ', $classes);
-        $attributes['class'] = $existing !== '' ? $existing . ' ' . $joined : $joined;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private static function splitClassValue(string $value): array
-    {
-        $classes = preg_split('/[ \t\r\n]+/', trim($value, StringUtil::WHITESPACE_CHARS)) ?: [];
-
-        return array_values(array_filter($classes, static fn (string $class): bool => $class !== ''));
+        $attributes['class'][] = $value;
     }
 
     /**
      * Parse attribute string and merge with existing attributes
      *
-     * @param array<string, string> $existing Existing attributes to merge with
+     * @param array<string, string|list<string>> $existing Existing attributes to merge with
      * @param string $attrStr The attribute string to parse
      *
-     * @return array<string, string> Merged attributes
+     * @return array<string, string|list<string>> Merged attributes
      */
     public static function parseAndMerge(array $existing, string $attrStr): array
     {
@@ -199,7 +181,7 @@ class AttributeParser
 
         // Special handling for class: merge rather than replace
         if (isset($parsed['class']) && isset($existing['class'])) {
-            $parsed['class'] = trim($existing['class'] . ' ' . $parsed['class']);
+            $parsed['class'] = [...(array)$existing['class'], ...(array)$parsed['class']];
         }
 
         return array_merge($existing, $parsed);
@@ -282,15 +264,7 @@ class AttributeParser
             return;
         }
 
-        $classes = self::splitClassValue($value);
-        foreach ($classes as $class) {
-            $node->appendClass($class);
-        }
-        if ($classes === [] && $node->getAttribute('class') === null) {
-            // An empty value still claims the slot, so `{class}` and `{class=""}`
-            // build the one tree PART 4 documents.
-            $node->setAttribute('class', '');
-        }
+        $node->appendClass($value);
     }
 
     /**

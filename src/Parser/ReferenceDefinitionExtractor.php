@@ -60,7 +60,7 @@ class ReferenceDefinitionExtractor
      *
      * @param string $line
      *
-     * @return array{label: string, url: string, title: string|null, attrs: array<string, string>}|null
+     * @return array{label: string, url: string, title: string|null, attrs: array<string, string|list<string>>}|null
      */
     public function matchDefinitionLine(string $line): ?array
     {
@@ -163,7 +163,7 @@ class ReferenceDefinitionExtractor
      *
      * @param string $tail The line from its `{` to its end.
      *
-     * @return non-empty-array<string, string>|null
+     * @return non-empty-array<string, string|list<string>>|null
      */
     private function readTrailingAttributes(string $tail): ?array
     {
