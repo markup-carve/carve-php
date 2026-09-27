@@ -162,6 +162,8 @@ final class HtmlAstBuilder
 
     private bool $inCaption = false;
 
+    private bool $inInlineProjection = false;
+
     private bool $preserveInlineWhitespace = false;
 
     /**
@@ -761,7 +763,7 @@ final class HtmlAstBuilder
         if ($tag === 'p') {
             $children = $this->blockInlines($node);
             $attrs = $this->attrs($node, []);
-            if ($children === [] && $attrs === []) {
+            if ($children === [] && ($attrs === [] || $this->inInlineProjection)) {
                 return [];
             }
             if ($children === []) {
@@ -1573,6 +1575,18 @@ final class HtmlAstBuilder
             $items[] = $term;
         } elseif ($tag === 'dd') {
             $description = ['type' => 'definition_description', 'children' => $this->blocks($this->children($child))];
+            if (
+                $this->sourceSafe
+                && count($description['children']) === 1
+                && ($description['children'][0]['type'] ?? null) === 'paragraph'
+                && ($description['children'][0]['children'] ?? null) === [['type' => 'span', 'children' => []]]
+            ) {
+                // A single description paragraph renders as inline content.
+                $description['children'] = [];
+                foreach ($child->getElementsByTagName('p') as $paragraph) {
+                    unset($this->retainedEmptyParagraphs[$paragraph]);
+                }
+            }
             $this->attachAttrs($description, $child);
             $items[] = $description;
         }
@@ -1632,6 +1646,8 @@ final class HtmlAstBuilder
                         break;
                     }
                 }
+                $previousProjection = $this->inInlineProjection;
+                $this->inInlineProjection = $previousProjection || !$listForm;
                 $previousCellContext = $this->tableCellAllowsEmptyCode;
                 $this->tableCellAllowsEmptyCode = $allowsEmptyCode;
                 try {
@@ -1639,6 +1655,7 @@ final class HtmlAstBuilder
                     $children = $listForm ? [] : $this->flattenBlocks($blocks);
                 } finally {
                     $this->tableCellAllowsEmptyCode = $previousCellContext;
+                    $this->inInlineProjection = $previousProjection;
                 }
                 $cell = [
                     'type' => 'table_cell',
@@ -3607,7 +3624,13 @@ final class HtmlAstBuilder
         }
 
         if ($this->isBlock($node)) {
-            return $this->flattenBlocks($this->block($node));
+            $previousProjection = $this->inInlineProjection;
+            $this->inInlineProjection = true;
+            try {
+                return $this->flattenBlocks($this->block($node));
+            } finally {
+                $this->inInlineProjection = $previousProjection;
+            }
         }
 
         return $this->inlines($this->children($node));

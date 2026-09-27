@@ -110,6 +110,28 @@ class EmptyBlockAttributesImportTest extends TestCase
         }
     }
 
+    public function testFlattenedEmptyParagraphsDoNotLeaveSpanAnchors(): void
+    {
+        $inputs = [
+            '<dl><dt>t</dt><dd><p id="x"></p></dd></dl>',
+            '<table><tr><td><p id="x"></p></td></tr></table>',
+            '<figure><img src="a.png"><figcaption><p id="x"></p></figcaption></figure>',
+        ];
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach ([false, true] as $listTable) {
+                foreach ($inputs as $html) {
+                    $importer = new HtmlToCarve(listTableForBlockCells: $listTable, importMode: $mode);
+                    $result = $importer->convertWithReport($html);
+                    self::assertStringNotContainsString('[]{}', $result->value);
+                    self::assertStringNotContainsString('{#x}', $result->value);
+                    self::assertContains('Dropped unsupported attribute id on <p>', array_column($result->report()['diagnostics'], 'message'));
+                    $rendered = (new CarveConverter())->convert($result->value);
+                    self::assertSame($result->value, $importer->convert($rendered));
+                }
+            }
+        }
+    }
+
     /**
      * @param array<string|int, mixed> $node
      * @param string $id
