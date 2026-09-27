@@ -1,0 +1,218 @@
+[
+  {
+    "name": "implicit-paragraph",
+    "html": "<p>one<div>two</div>three</p>",
+    "expected": [
+      "carve-import-root",
+      [
+        [
+          "p",
+          [
+            "one"
+          ]
+        ],
+        [
+          "div",
+          [
+            "two"
+          ]
+        ],
+        "three",
+        [
+          "p",
+          []
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "foster-parenting",
+    "html": "<table>before<tr><td>cell</td></tr>after</table>",
+    "expected": [
+      "carve-import-root",
+      [
+        "beforeafter",
+        [
+          "table",
+          [
+            [
+              "tbody",
+              [
+                [
+                  "tr",
+                  [
+                    [
+                      "td",
+                      [
+                        "cell"
+                      ]
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "template",
+    "html": "<template><p>x</p></template><p>y</p>",
+    "expected": [
+      "carve-import-root",
+      [
+        [
+          "template",
+          [
+            [
+              "p",
+              [
+                "x"
+              ]
+            ]
+          ]
+        ],
+        [
+          "p",
+          [
+            "y"
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "formatting-adoption",
+    "html": "<b><i>x</b>y</i>",
+    "expected": [
+      "carve-import-root",
+      [
+        [
+          "b",
+          [
+            [
+              "i",
+              [
+                "x"
+              ]
+            ]
+          ]
+        ],
+        [
+          "i",
+          [
+            "y"
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "foreign-svg",
+    "html": "<svg><foreignObject><p>x</p></foreignObject></svg>",
+    "expected": [
+      "carve-import-root",
+      [
+        [
+          "svg",
+          [
+            [
+              "foreignObject",
+              [
+                [
+                  "p",
+                  [
+                    "x"
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "foreign-math",
+    "html": "<math><mtext><b>x</b></mtext></math>",
+    "expected": [
+      "carve-import-root",
+      [
+        [
+          "math",
+          [
+            [
+              "mtext",
+              [
+                [
+                  "b",
+                  [
+                    "x"
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "implicit-cells",
+    "html": "<table><tr><td>a<td>b</table>",
+    "expected": [
+      "carve-import-root",
+      [
+        [
+          "table",
+          [
+            [
+              "tbody",
+              [
+                [
+                  "tr",
+                  [
+                    [
+                      "td",
+                      [
+                        "a"
+                      ]
+                    ],
+                    [
+                      "td",
+                      [
+                        "b"
+                      ]
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "paragraph-siblings",
+    "html": "<p>a<p>b",
+    "expected": [
+      "carve-import-root",
+      [
+        [
+          "p",
+          [
+            "a"
+          ]
+        ],
+        [
+          "p",
+          [
+            "b"
+          ]
+        ]
+      ]
+    ]
+  }
+]
