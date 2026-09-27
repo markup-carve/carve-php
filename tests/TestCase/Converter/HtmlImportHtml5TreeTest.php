@@ -27,6 +27,15 @@ class HtmlImportHtml5TreeTest extends TestCase
         self::assertSame($text, $document->getElementsByTagName('textarea')->item(0)?->textContent);
     }
 
+    public function testImportedForeignElementsKeepTheirLocalNames(): void
+    {
+        $document = HtmlDomLoader::fragment('<math alttext="x"><mi>x</mi></math><svg><title>y</title></svg>');
+        foreach (['math', 'mi', 'svg', 'title'] as $tag) {
+            self::assertSame($tag, $document->getElementsByTagName($tag)->item(0)?->localName);
+        }
+        self::assertSame('x', $document->getElementsByTagName('math')->item(0)?->getAttribute('alttext'));
+    }
+
     public function testAnEmptyFragmentKeepsAnEmptyRoot(): void
     {
         $document = HtmlDomLoader::fragment('');

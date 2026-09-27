@@ -36,8 +36,6 @@ final class HtmlDomLoader
         $document = Parser::parse($html, 'UTF-8', self::parserConfig())->document;
         $document->encoding = 'UTF-8';
 
-        self::normalizeImportedDom($document);
-
         return $document;
     }
 
@@ -84,21 +82,12 @@ final class HtmlDomLoader
             $root->appendChild($fragment);
         }
 
-        self::normalizeImportedDom($document);
-
         return $document;
     }
 
-    /**
-     * Keep foreign-element names unprefixed after DOM fragment import.
-     */
-    private static function normalizeImportedDom(DOMDocument $document): void
+    public static function elementName(DOMElement $element): string
     {
-        foreach ($document->getElementsByTagName('*') as $element) {
-            if (in_array($element->namespaceURI, [Parser::SVG_NAMESPACE, Parser::MATHML_NAMESPACE], true)) {
-                $element->prefix = '';
-            }
-        }
+        return $element->localName ?? $element->tagName;
     }
 
     public static function serialize(DOMNode $node): string
@@ -114,7 +103,7 @@ final class HtmlDomLoader
                 $current = array_pop($stack);
                 if (
                     $current instanceof DOMElement
-                    && in_array(strtolower($current->tagName), ['pre', 'textarea', 'listing'], true)
+                    && in_array(strtolower(self::elementName($current)), ['pre', 'textarea', 'listing'], true)
                     && $current->firstChild instanceof DOMText
                     && str_starts_with($current->firstChild->data, "\n")
                 ) {
