@@ -4744,7 +4744,7 @@ class HtmlToCarve
      */
     protected function mappedStyleSlot(DOMElement $node, string $property, string $value): ?string
     {
-        if ($this->importMode === 'safe') {
+        if ($this->importMode === 'safe' && !($this->isTableCell($node) && $property === 'text-align')) {
             return null;
         }
 

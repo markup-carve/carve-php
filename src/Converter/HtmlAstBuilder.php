@@ -1912,10 +1912,10 @@ final class HtmlAstBuilder
                 ];
                 $horizontal = $this->styleEnum($cellElement, 'text-align', ['left', 'right', 'center']);
                 $vertical = $this->styleEnum($cellElement, 'vertical-align', ['top', 'middle', 'bottom']);
+                if ($horizontal !== null) {
+                    $cell['align'] = $horizontal;
+                }
                 if ($this->importMode !== 'safe') {
-                    if ($horizontal !== null) {
-                        $cell['align'] = $horizontal;
-                    }
                     if ($vertical !== null) {
                         $cell['valign'] = $vertical;
                     }
@@ -2483,13 +2483,19 @@ final class HtmlAstBuilder
      */
     private function styleEnum(DOMElement $node, string $property, array $allowed): ?string
     {
-        $style = $node->getAttribute('style');
-        if (preg_match('/(?:^|;)\s*' . preg_quote($property, '/') . '\s*:\s*([A-Za-z-]+)/i', $style, $match) !== 1) {
-            return null;
+        $result = null;
+        foreach (explode(';', $node->getAttribute('style')) as $declaration) {
+            $parts = explode(':', $declaration, 2);
+            if (count($parts) !== 2 || strtolower(trim($parts[0])) !== $property) {
+                continue;
+            }
+            $value = strtolower(trim($parts[1]));
+            if (in_array($value, $allowed, true)) {
+                $result = $value;
+            }
         }
-        $value = strtolower($match[1]);
 
-        return in_array($value, $allowed, true) ? $value : null;
+        return $result;
     }
 
     /**
