@@ -162,12 +162,21 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     private const AUTHORED_DECIDED = ['#'];
 
     /**
-     * Characters whose escape PART 11 §8d-§8f decide by what the EMITTED line
-     * carries after them, across node boundaries.
+     * Characters whose escape PART 11 §8d-§8f and §8i decide by what the
+     * EMITTED line carries around them, across node boundaries.
      *
      * @var list<string>
      */
-    private const LOOKAHEAD_CHARACTERS = ['<', '&', '!'];
+    private const LOOKAHEAD_CHARACTERS = ['<', '&', '!', ':', '.'];
+
+    /**
+     * The GFM autolink starters of PART 11 §8i. Only a text `:` or `.` that
+     * could still complete a form on the line becomes a sentinel, so a `1.`
+     * or a `[x]:` reaches the line rules as itself.
+     *
+     * @var string
+     */
+    private const AUTOLINK_CANDIDATE = '/(?<=[A-Za-z]|^):(?=\/\/|\/?$)|(?<=www)\.|^w{0,2}\K\./';
 
     /**
      * The openers this target emits that interrupt a paragraph, matched against
@@ -247,7 +256,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var string
      */
-    protected string $narrowedSentinelClass = '[\x{E004}-\x{E00A}]';
+    protected string $narrowedSentinelClass = '[\x{E004}-\x{E00C}]';
 
     /**
      * Sentinels for the characters PART 11 §8d-§8f decide by lookahead.
@@ -258,7 +267,17 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         '<' => "\u{E008}",
         '&' => "\u{E009}",
         '!' => "\u{E00A}",
+        ':' => "\u{E00B}",
+        '.' => "\u{E00C}",
     ];
+
+    /**
+     * How many links' text is being rendered: GFM builds no link inside a
+     * link, so §8i escapes nothing there.
+     *
+     * @var int
+     */
+    protected int $linkTextDepth = 0;
 
     /**
      * GFM slug of every heading this target writes, keyed by its Carve id
@@ -684,6 +703,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 $line,
                 offset: $at,
             ) === 1,
+            ':' => substr($line, $at + 1, 2) === '//'
+                && preg_match('/(?<![A-Za-z])(?:https?|ftp)$/i', substr($line, max(0, $at - 6), min($at, 6))) === 1,
+            '.' => $at >= 3 && substr($line, $at - 3, 3) === 'www'
+                && ($at === 3 || !ctype_alnum($line[$at - 4])),
             default => $nextRaw === '[',
         };
     }
@@ -2147,7 +2170,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function protectLineShape(string $line, bool $first, array $bare): string
     {
         $line = (string)preg_replace('/^([-+])(?=[ \t])/', '\\\\$1', $line);
-        $line = (string)preg_replace('/^(\d{1,9})([.)])(?=[ \t])/', '$1\\\\$2', $line);
+        // A text `.` may still be a §8i sentinel here; it opens a list all the same.
+        $dot = preg_quote($this->lookaheadSentinels['.'], '/');
+        $line = (string)preg_replace_callback(
+            '/^(\d{1,9})([.)]|' . $dot . ')(?=[ \t])/u',
+            fn (array $m): string => $m[1] . '\\' . ($m[2] === ')' ? ')' : '.'),
+            $line,
+        );
         $line = (string)preg_replace('/^>/', '\\\\>', $line);
 
         $view = strtr($line, $bare);
@@ -3210,7 +3239,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderLink(Link $node): string
     {
-        $text = $this->renderChildren($node);
+        $this->linkTextDepth++;
+        try {
+            $text = $this->renderChildren($node);
+        } finally {
+            $this->linkTextDepth--;
+        }
         $destination = (string)$node->getDestination();
         // A fragment naming a heading this target writes goes to its GFM slug
         // (PART 11 §11); any other destination keeps the authored one (§11a).
@@ -3642,9 +3676,21 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $text,
         ) ?? $text;
 
+        if ($this->linkTextDepth === 0) {
+            $escaped = (string)preg_replace_callback(
+                self::AUTOLINK_CANDIDATE,
+                fn (array $m): string => $this->lookaheadSentinels[$m[0]],
+                $escaped,
+            );
+        }
+
         // `<`, `&` and `!` are decided on what the EMITTED line carries after
         // them, which a text node cannot see (PART 11 §8d-§8f).
-        return strtr($escaped, $this->lookaheadSentinels);
+        return strtr($escaped, [
+            '<' => $this->lookaheadSentinels['<'],
+            '&' => $this->lookaheadSentinels['&'],
+            '!' => $this->lookaheadSentinels['!'],
+        ]);
     }
 
     /**
