@@ -27,9 +27,10 @@ use Throwable;
  *
  * @internal
  *
- * @phpstan-type Attrs array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}
- * @phpstan-type TableCellNode array{type: 'table_cell', header: bool, children: list<array<string, mixed>>, span?: 'rowspan'|'colspan', align?: string, valign?: string, attrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}}
- * @phpstan-type TableRowNode array{type: 'table_row', cells: list<array{type: 'table_cell', header: bool, children: list<array<string, mixed>>, span?: 'rowspan'|'colspan', align?: string, valign?: string, attrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}}>, attrs?: array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}}
+ * @phpstan-import-type DocumentTree from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type Attrs from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type TableRowNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  */
 final class HtmlAstBuilder
 {
@@ -422,9 +423,14 @@ final class HtmlAstBuilder
     ];
 
     /**
-     * @return array<string, mixed>
+     * @return DocumentTree
      */
     public function build(string $html, ?int $sourceByteLength = null): array
+    {
+        return $this->buildResult($html, $sourceByteLength)->tree;
+    }
+
+    public function buildResult(string $html, ?int $sourceByteLength = null): HtmlAstBuildResult
     {
         $this->session = new HtmlImportSession();
         $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
@@ -432,7 +438,7 @@ final class HtmlAstBuilder
 
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
-            return ['type' => 'document', 'srcByteLength' => $sourceByteLength ?? strlen($html), 'children' => []];
+            return new HtmlAstBuildResult(['type' => 'document', 'srcByteLength' => $sourceByteLength ?? strlen($html), 'children' => []], $this->session, $this->sourceSafe);
         }
 
         foreach ($root->getElementsByTagName('a') as $anchor) {
@@ -483,10 +489,13 @@ final class HtmlAstBuilder
         ];
         $this->resolveSectionIds($tree);
         if ($this->sourceSafe) {
-            $this->markLiteralSymbolText($tree);
+            foreach ($tree['children'] as &$child) {
+                $this->markLiteralSymbolText($child);
+            }
+            unset($child);
         }
 
-        return $tree;
+        return new HtmlAstBuildResult($tree, $this->session, $this->sourceSafe);
     }
 
     /**
@@ -929,6 +938,8 @@ final class HtmlAstBuilder
      * written id, then numbers the generated slugs in document order. Keeping
      * one id can move a later slug, so the pass repeats until nothing changes.
      *
+     * @phpstan-param DocumentTree $tree
+     *
      * @param array<string, mixed> $tree
      */
     private function resolveSectionIds(array &$tree): void
@@ -983,9 +994,9 @@ final class HtmlAstBuilder
             }
         } while ($changed);
         $index = 0;
-        $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
+        $children = $tree['children'];
         $this->applySectionIds($children, $kept, $index);
-        $tree['children'] = $children;
+        $tree['children'] = self::nodeList($children);
     }
 
     /**
