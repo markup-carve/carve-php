@@ -65,12 +65,30 @@ class NoWhitespaceOnlyLineTest extends TestCase
     {
         $found = [];
         foreach (explode("\n", $out) as $i => $line) {
-            if ($line !== '' && trim($line, " \t") === '') {
+            if ($line !== '' && trim($line, " \t") === '' && !$this->carriesVerbatimContent($out, $i)) {
                 $found[] = $slug . ':' . ($i + 1);
             }
         }
 
         return $found;
+    }
+
+    /**
+     * Section 7's own exception, asked the way section 7 words it.
+     *
+     * The clause exempts spaces that are VERBATIM CONTENT because "emptying it
+     * would change the document", so the question is answered by emptying the
+     * line and re-rendering rather than by re-deriving which lines sit inside a
+     * fence. A line holding only a structural indent renders the same emptied,
+     * which is why that half of the clause still fails here.
+     */
+    private function carriesVerbatimContent(string $out, int $index): bool
+    {
+        $lines = explode("\n", $out);
+        $lines[$index] = '';
+        $converter = new CarveConverter();
+
+        return $converter->convert($out) !== $converter->convert(implode("\n", $lines));
     }
 
     /**
@@ -187,5 +205,19 @@ class NoWhitespaceOnlyLineTest extends TestCase
         // Three spaces inside a code block are data, not layout.
         $source = "```\na\n   \nb\n```\n";
         $this->assertSame($source, CarveConverter::toCarve($source));
+        $this->assertSame([], $this->offendingLines('inline', $source));
+    }
+
+    /**
+     * The exemption above must not swallow the rule.
+     *
+     * A whitespace-only line outside verbatim content renders the same emptied,
+     * so it is still reported - otherwise scoping section 7 to non-verbatim
+     * lines would have turned the whole sweep into a check that cannot fire.
+     */
+    public function testAWhitespaceOnlyLineOutsideVerbatimContentIsStillReported(): void
+    {
+        $this->assertSame(['inline:2'], $this->offendingLines('inline', "a\n   \nb\n"));
+        $this->assertSame(['inline:3'], $this->offendingLines('inline', "- one\n\n  \n- two\n"));
     }
 }
