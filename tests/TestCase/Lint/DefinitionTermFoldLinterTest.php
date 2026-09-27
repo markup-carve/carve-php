@@ -49,6 +49,10 @@ class DefinitionTermFoldLinterTest extends TestCase
             'opener at the description column' => [":: a\n: b\n  :: c\n  # H\n", []],
             'inside a code span' => [":: a\n  `code\n  # H\n  end`\n", []],
             'inside a nested code span' => [":: *`code\n  # H\n  end`*\n", []],
+            'folded link definition' => ["[t][r]\n\n:: a\n: b\n  :: c\n    [r]: /u\n", [[6, 5]]],
+            'folded footnote definition' => ["x[^n]\n\n- item\n\n  :: c\n    [^n]: y\n", [[6, 5]]],
+            'inside a folded comment fence' => [":: c\n  %%%\n  # H\n  %%%\n  more\n", []],
+            'opener before a trailing comment' => [":: c\n  # H %% note\n", [[2, 3]]],
         ];
     }
 

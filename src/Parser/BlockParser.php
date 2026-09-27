@@ -6117,9 +6117,14 @@ class BlockParser
             // over-indented closer as body (carve-php#1906). Skipped here, the
             // fence never opened for the scan and the closer's extra column was
             // stripped as an authored base, ending the fence a column too soon.
+            //
+            // A TERM LINE IS WALKED FOR THE SAME REASON: on a list marker line
+            // it carries the item's own column, so skipping it left the term
+            // closed and nothing folded into it (markup-carve/carve#2445).
             if (
                 $eligible !== null
                 && !isset($eligible[$i])
+                && preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) !== 1
                 && (
                     IndentationHelper::getLeadingColumns($line) !== 0
                     || (
@@ -8063,7 +8068,12 @@ class BlockParser
         while ($i < $count && preg_match(self::DEFINITION_TERM_PATTERN, $lines[$i], $m)) {
             $termStart = $i;
             $termText = trim($m[1], StringUtil::WHITESPACE_CHARS);
-            $termLines = [$termText];
+            // A comment past the container column stays a comment and does
+            // not end the term (markup-carve/carve#2411). Like a paragraph,
+            // the term's inline content never reaches across it, so each run
+            // of lines between comments is parsed on its own.
+            /** @var list<array{lines: list<string>, sources: list<int>}|\MarkupCarve\Carve\Node\Block\Comment> $parts */
+            $parts = [['lines' => [$termText], 'sources' => [$termStart]]];
             $i++;
             // A term folds a following plain line like a heading (soft
             // break), so a wrapped term line does not strand the definition.
@@ -8071,6 +8081,11 @@ class BlockParser
             // list marker ends the term.
             while ($i < $count) {
                 $nextLine = $lines[$i];
+                if (preg_match('/^[ \t]+%%/', $nextLine) === 1) {
+                    $parts[] = $this->foldedTermComment($lines, $i);
+
+                    continue;
+                }
                 if (
                     IndentationHelper::isBlankLine($nextLine)
                     || preg_match(self::DEFINITION_TERM_LINE_PREFIX, $nextLine)
@@ -8096,22 +8111,14 @@ class BlockParser
                 // rendered output instead would eat the content of an
                 // all-space verbatim span (markup-carve/carve#926).
                 $nextLine = rtrim($nextLine, " \t");
-                $termLines[] = $nextLine;
-                $termText .= "\n" . $nextLine;
+                $last = count($parts) - 1;
+                if ($parts[$last] instanceof Comment) {
+                    $parts[] = ['lines' => [$nextLine], 'sources' => [$i]];
+                } else {
+                    $parts[$last]['lines'][] = $nextLine;
+                    $parts[$last]['sources'][] = $i;
+                }
                 $i++;
-            }
-            // A term folds continuation lines exactly as a paragraph does,
-            // so it needs the same per-line map rather than the single-line
-            // one - which found nothing the moment a term wrapped.
-            $termContentLines = [];
-            $termFirstLine = $this->sourceLineFor($termStart);
-            foreach ($termLines as $offsetInTerm => $termLine) {
-                $termContentLines[] = [
-                    $termFirstLine < 0 ? -1 : $termFirstLine + $offsetInTerm,
-                    0,
-                    strlen($termLine),
-                    $termLine,
-                ];
             }
 
             $term = new DefinitionTerm();
@@ -8121,15 +8128,160 @@ class BlockParser
                 $i - 1,
                 $this->currentContentColumns[$termSource] ?? 0,
             ));
-            $this->inlineParser->parse(
-                $term,
-                $termText,
-                $termStart,
-                sourceMap: $this->foldedLinesMap($termContentLines),
-            );
+            foreach ($parts as $index => $part) {
+                if ($index > 0) {
+                    $term->appendChild(new SoftBreak());
+                }
+                if ($part instanceof Comment) {
+                    $term->appendChild($part);
+
+                    continue;
+                }
+                // A term folds continuation lines exactly as a paragraph does,
+                // so it needs the same per-line map rather than the single-line
+                // one - which found nothing the moment a term wrapped.
+                $runLines = [];
+                foreach ($part['lines'] as $offsetInRun => $runLine) {
+                    $runLines[] = [$this->sourceLineFor($part['sources'][$offsetInRun]), 0, strlen($runLine), $runLine];
+                }
+                $this->inlineParser->parse(
+                    $term,
+                    implode("\n", $part['lines']),
+                    $part['sources'][0],
+                    sourceMap: $this->foldedLinesMap($runLines),
+                );
+            }
             $this->stampNodeSourceLine($term, $this->sourceLineFor($termStart));
             $dl->appendChild($term);
         }
+    }
+
+    /**
+     * Is the last entry of a collected description body still an open term?
+     *
+     * A line past the body's column under an open term is term text
+     * (markup-carve/carve#2411), so a definition there must not be split off
+     * as a body entry of its own. Only the last entry can still grow, so the
+     * entries before it are scanned once and their state kept in `$scan`.
+     *
+     * @param-out array{done: int, open: bool, fence: int|null, alt: bool} $scan
+     *
+     * @param array<string> $body
+     * @param array{done: int, open: bool, fence: int|null, alt: bool}|null $scan
+     * @param array<string> $lines The source the body is collected from.
+     * @param int $i The source line being classified.
+     */
+    private function bodyTermIsOpen(array $body, ?array &$scan, array $lines, int $i): bool
+    {
+        $scan ??= ['done' => 0, 'open' => false, 'fence' => null, 'alt' => false];
+        $last = count($body) - 1;
+        for (; $scan['done'] < $last; $scan['done']++) {
+            foreach (explode("\n", $body[$scan['done']] ?? '') as $line) {
+                $this->scanBodyTermLine($line, $scan);
+            }
+        }
+        $state = $scan;
+        foreach (explode("\n", $body[$last] ?? '') as $line) {
+            $this->scanBodyTermLine($line, $state);
+        }
+        // A `%%%` with no closer ahead was a line comment all along (PART 9
+        // §28), so the reading that did not open a fence is the right one.
+        if ($state['fence'] !== null && $this->lastCommentFenceIndex($lines, $state['fence']) < $i) {
+            return $state['alt'];
+        }
+
+        return $state['open'];
+    }
+
+    /**
+     * Advance the open-term state over one body line.
+     *
+     * Inside a comment fence `alt` keeps the state as if the opener had been a
+     * line comment, for when no closer turns up.
+     *
+     * @param string $line
+     * @param array{done: int, open: bool, fence: int|null, alt: bool} $state
+     */
+    private function scanBodyTermLine(string $line, array &$state): void
+    {
+        if ($state['fence'] !== null) {
+            if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($line, $state['fence'])) {
+                $state['fence'] = null;
+            } else {
+                $state['alt'] = $this->termStaysOpen($line, $state['alt']);
+            }
+
+            return;
+        }
+        $fence = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
+        if ($fence !== null) {
+            $state['open'] = $this->termStaysOpen($line, $state['open']);
+            $state['fence'] = (int)$fence['length'];
+            $state['alt'] = $state['open'];
+
+            return;
+        }
+        $state['open'] = $this->termStaysOpen($line, $state['open']);
+    }
+
+    /**
+     * Whether a term is open after one body line, reading a comment fence as
+     * a single comment line.
+     *
+     * @param string $line
+     * @param bool $open
+     */
+    private function termStaysOpen(string $line, bool $open): bool
+    {
+        if (IndentationHelper::isBlankLine($line)) {
+            return false;
+        }
+        $content = ltrim($line, " \t");
+        if ($content !== $line) {
+            // A list marker ends the term at any column (PART 9 §24 C4).
+            return $open && $this->listParser->parseListItemMarker($content) === null;
+        }
+        if (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) === 1) {
+            return true;
+        }
+
+        return $open
+            && !$this->lineOpensBlockForLooseness($line, true)
+            && !$this->isInvisibleOrAttributeLine($line)
+            && preg_match(self::DEFINITION_BODY_LINE_PREFIX, $line) !== 1;
+    }
+
+    /**
+     * Read the comment at `$i` the way a block would, advancing `$i` past it.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     */
+    private function foldedTermComment(array $lines, int &$i): Comment
+    {
+        $holder = new Document();
+        $consumed = $this->tryParseFencedComment($holder, $lines, $i)
+            ?? $this->tryParseComment($holder, $lines, $i)
+            ?? 1;
+        $comment = $holder->getChildren()[0] ?? new Comment();
+        if (!$comment instanceof Comment) {
+            $comment = new Comment();
+        }
+        $fence = $comment->getFenceLength();
+        if ($fence !== null) {
+            // The body is read relative to its fence, as a term writes it back.
+            $indent = IndentationHelper::getLeadingColumns($lines[$i]);
+            $body = array_map(
+                static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $indent),
+                explode("\n", $comment->getContent()),
+            );
+            $pos = $comment->getPos();
+            $comment = new Comment(implode("\n", $body), $fence);
+            $comment->setPos($pos);
+        }
+        $i += $consumed;
+
+        return $comment;
     }
 
     /**
@@ -8202,6 +8354,7 @@ class BlockParser
                     $body = [trim($m[2], StringUtil::WHITESPACE_CHARS)];
                     $bodyMap = [$this->sourceLineFor($definitionStart)];
                 }
+                $termScan = null;
                 // A definition body continues like a list item (SS17):
                 //  - form A: a deeper-indented (>= 3) line folds in, and a blank
                 //    line is tolerated when a later line still continues, so a
@@ -8341,7 +8494,8 @@ class BlockParser
                     $trimmedCont = ltrim($contLine, " \t");
                     $definitionPastTheColumn = $indent > $continuationColumn
                         && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
-                        && $this->isReferenceDefinitionLine($trimmedCont);
+                        && $this->isReferenceDefinitionLine($trimmedCont)
+                        && !$this->bodyTermIsOpen($body, $termScan, $lines, $i);
                     // AN ATTRIBUTE BLOCK PAST THE COLUMN IS THE OTHER HALF OF
                     // THE SAME §10 I5 CLAUSE (markup-carve/carve#1911). A
                     // visible opener already reaches the push branch, because

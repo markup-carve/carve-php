@@ -211,6 +211,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected bool $atAnAuthoredBodyColumn = false;
 
     /**
+     * Whether the inlines being written belong to a definition term.
+     */
+    private bool $inTerm = false;
+
+    /**
      * The parser the writer asks its column question of - see atARaisedBase().
      */
     protected ?BlockParser $rebaseProbe = null;
@@ -2859,7 +2864,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // grouping it parsed from.
         foreach ($node->getChildren() as $child) {
             if ($child instanceof DefinitionTerm) {
-                $out[] = ':: ' . $this->renderInlines($child->getChildren());
+                // A comment opening a line must stay past the term's column,
+                // or it would end the term.
+                $outerTerm = $this->inTerm;
+                $this->inTerm = true;
+                try {
+                    $out[] = ':: ' . str_replace("\n%%", "\n %%", $this->renderInlines($child->getChildren()));
+                } finally {
+                    $this->inTerm = $outerTerm;
+                }
             } elseif ($child instanceof DefinitionDescription) {
                 // An EMPTY description whose line carries a collected definition
                 // is one the author wrote that definition on: write it back
@@ -3502,7 +3515,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // between two of them (carve-js#1675).
                     $body = match (true) {
                         $content === '' => '%%',
-                        str_starts_with($content, '%') => '%%' . $content,
+                        // Opening a line of a term, the comment is read as a
+                        // block comment line, where a joined `%` would make a
+                        // fence (markup-carve/carve#2411).
+                        str_starts_with($content, '%') && !($this->inTerm && str_ends_with($out, "\n")) => '%%' . $content,
                         default => '%% ' . $content,
                     };
 
@@ -3514,6 +3530,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // here, `$out` ends with the boundary's newline, and no
                     // separator is what writes the marker at column 0.
                     $separator = ($out === '' || str_ends_with($out, "\n")) ? '' : ' ';
+                    if ($node->getFenceLength() !== null) {
+                        // A comment fence folded into a term: every line one
+                        // column past the term's, so the fence stays in the
+                        // term (markup-carve/carve#2411).
+                        $out .= ' ' . str_replace("\n", "\n ", $this->renderComment($node));
+                        $lineNodeCount++;
+                        $lineHostsCaption = false;
+                        $captionCanOpen = false;
+
+                        continue;
+                    }
                     $out .= $node->isDelimited()
                         ? $this->renderComment($node)
                         : $separator . $body;
