@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Image;
@@ -78,7 +79,6 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
             'no wrapper at all' => ['<p><img src="g.jpg" alt="G"></p>'],
             'a picture element' => ['<p><picture><img src="g.jpg" alt="G"></picture></p>'],
             'a bare span' => ['<p><span><img src="g.jpg" alt="G"></span></p>'],
-            'a figure' => ['<p><figure><img src="g.jpg" alt="G"></figure></p>'],
             'a picture with a source, which writes nothing either' => [
                 '<p><picture><source srcset="a.webp"><img src="g.jpg" alt="G"></picture></p>',
             ],
@@ -86,6 +86,13 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
                 '<p><span><picture><img src="g.jpg" alt="G"></picture></span></p>',
             ],
         ];
+    }
+
+    public function testHtml5ClosesTheParagraphBeforeAFigure(): void
+    {
+        $html = '<p><figure><img src="g.jpg" alt="G"></figure></p>';
+        $this->assertSame("![G](g.jpg)\n", $this->carve($html));
+        $this->assertSame(HtmlDomLoader::usesHtml5() ? [] : ['structure-unspellable'], $this->rows($html));
     }
 
     #[DataProvider('transparentWrapperProvider')]

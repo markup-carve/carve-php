@@ -68,7 +68,14 @@ class KeptBytesAreNeverReportedAsDroppedTest extends TestCase
     #[DataProvider('tagProvider')]
     public function testTheReportAgreesWithTheOutput(string $tag, bool $keepsBytes): void
     {
-        $html = '<' . $tag . ' onclick="a()"><a href="javascript:alert(1)">t</a></' . $tag . '>';
+        $content = '<a href="javascript:alert(1)">t</a>';
+        $content = match ($tag) {
+            'tr' => '<td>' . $content . '</td>',
+            'tbody', 'thead', 'tfoot' => '<tr><td>' . $content . '</td></tr>',
+            'colgroup' => '<col onclick="a()">',
+            default => $content,
+        };
+        $html = '<' . $tag . ' onclick="a()">' . $content . '</' . $tag . '>';
         $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport($html);
         $codes = array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics);
 
@@ -337,7 +344,14 @@ class KeptBytesAreNeverReportedAsDroppedTest extends TestCase
     #[DataProvider('textContentProvider')]
     public function testAKeptElementHoldingTextGetsNoDescendantRow(string $tag): void
     {
-        $html = '<' . $tag . ' onclick="a()"><a href="javascript:alert(1)">t</a></' . $tag . '>';
+        $content = '<a href="javascript:alert(1)">t</a>';
+        $content = match ($tag) {
+            'tr' => '<td>' . $content . '</td>',
+            'tbody', 'thead', 'tfoot' => '<tr><td>' . $content . '</td></tr>',
+            'colgroup' => '<col onclick="a()">',
+            default => $content,
+        };
+        $html = '<' . $tag . ' onclick="a()">' . $content . '</' . $tag . '>';
         $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport($html);
 
         $this->assertSame(

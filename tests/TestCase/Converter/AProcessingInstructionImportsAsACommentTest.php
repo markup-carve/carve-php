@@ -8,6 +8,7 @@ use DOMDocument;
 use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhp;
 use PHPUnit\Framework\TestCase;
 
 class AProcessingInstructionImportsAsACommentTest extends TestCase
@@ -18,6 +19,9 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
     public static function instructionProvider(): array
     {
         return [
+            'double hyphen' => ['<p>x<?a--b>y</p>', HtmlDomLoader::usesHtml5() ? "x{% ?a--b %}y\n" : "xy\n"],
+            'trailing hyphen' => ['<p>x<?a->y</p>', HtmlDomLoader::usesHtml5() ? "x{% ?a- %}y\n" : "xy\n"],
+            'unclosed instruction' => ['<p>x<?foo', HtmlDomLoader::usesHtml5() ? "x{% ?foo %}\n" : "x{% ?foo</carve-import-root %}\n"],
             'empty instruction' => ['<p>HTML<?></p>', "HTML{% ? %}\n"],
             'named instruction' => ['<p>x <?foo bar?> y</p>', "x {% ?foo bar? %} y\n"],
             'link in cell' => [
@@ -40,37 +44,45 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
      */
     public static function opaqueProvider(): array
     {
-        $cases = [
-            'double quoted attribute' => ['<p title="<?x>">text</p>'],
-            'single quoted attribute' => ["<p title = '<?x>'>text</p>"],
-            'existing comment' => ['<p>x<!-- <?x> -->y</p>'],
-            'double hyphen' => ['<p>x<?a--b>y</p>'],
-            'trailing hyphen' => ['<p>x<?a->y</p>'],
-            'unclosed instruction' => ['<p>x<?foo'],
-        ];
-        foreach (
-            [
-                'script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext',
-            ] as $tag
-        ) {
-            $cases[$tag] = ['<' . $tag . '>before <?x> after</' . $tag . '>'];
+        $cases = [];
+        foreach (['script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'] as $tag) {
+            $cases[$tag] = [$tag];
         }
 
         return $cases;
     }
 
     #[DataProvider('opaqueProvider')]
-    public function testOpaqueContextsStayUnchanged(string $html): void
+    public function testOpaqueContextsKeepInstructionText(string $tag): void
     {
-        $expected = new DOMDocument();
-        $previous = libxml_use_internal_errors(true);
-        try {
-            $expected->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        } finally {
-            libxml_clear_errors();
-            libxml_use_internal_errors($previous);
+        $document = HtmlDomLoader::load('<' . $tag . '>before <?x> after</' . $tag . '>');
+        $element = $document->getElementsByTagName($tag)->item(0);
+        if (!HtmlDomLoader::usesHtml5()) {
+            $legacy = new DOMDocument();
+            $previous = libxml_use_internal_errors(true);
+            try {
+                $legacy->loadHTML('<?xml encoding="UTF-8"><' . $tag . '>before <?x> after</' . $tag . '>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+            } finally {
+                libxml_clear_errors();
+                libxml_use_internal_errors($previous);
+            }
+            $this->assertSame($legacy->saveHTML(), $document->saveHTML());
+
+            return;
         }
-        $this->assertSame($expected->saveHTML(), HtmlDomLoader::load($html)->saveHTML());
+        $expected = 'before <?x> after' . ($tag === 'plaintext' ? '</plaintext>' : '');
+        $this->assertSame($expected, $element?->textContent);
+        $this->assertSame(XML_TEXT_NODE, $element?->firstChild?->nodeType);
+    }
+
+    #[RequiresPhp('>=8.4.0')]
+    public function testNoscriptUsesTheScriptingDisabledTree(): void
+    {
+        $document = HtmlDomLoader::fragment('<noscript>before <?x> after</noscript>');
+        $element = $document->getElementsByTagName('noscript')->item(0);
+        $this->assertSame('before  after', $element?->textContent);
+        $this->assertSame('?x', $element?->childNodes->item(1)?->nodeValue);
+        $this->assertSame(XML_COMMENT_NODE, $element?->childNodes->item(1)?->nodeType);
     }
 
     public function testScannerResumesAfterOpaqueContexts(): void

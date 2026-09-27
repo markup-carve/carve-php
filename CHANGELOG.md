@@ -9,6 +9,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Breaking
+
+- HTML import uses PHP's native HTML5 parser on PHP 8.4 and later. PHP 8.2–8.3 retain the legacy libxml parser. Malformed HTML and diagnostic paths can differ between these versions; no new Composer dependencies are required (#2546).
+
 ### Fixed
 
 - Unquoted attribute values reject pipes and backslashes and accept opening braces. The Carve writer quotes backslashes so its output parses back to the same value (#2572).

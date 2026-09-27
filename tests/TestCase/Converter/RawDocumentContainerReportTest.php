@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\TestCase;
 
@@ -17,8 +18,8 @@ class RawDocumentContainerReportTest extends TestCase
         $this->assertStringContainsString('<body onclick="x()"><p onclick="y()">a</p></body>', $result->value);
         $this->assertSame(
             [
-                ['attribute-preserved', '/html[1]/body[1]'],
-                ['raw-preserved', '/html[1]/body[1]'],
+                ['attribute-preserved', (HtmlDomLoader::usesHtml5() ? '/html[1]/body[2]' : '/html[1]/body[1]')],
+                ['raw-preserved', (HtmlDomLoader::usesHtml5() ? '/html[1]/body[2]' : '/html[1]/body[1]')],
                 ['attribute-preserved', '/p[1]'],
             ],
             array_map(
@@ -41,7 +42,7 @@ class RawDocumentContainerReportTest extends TestCase
 
         $this->assertSame(
             [
-                ['raw-preserved', '/html[1]/body[1]'],
+                ['raw-preserved', (HtmlDomLoader::usesHtml5() ? '/html[1]/body[2]' : '/html[1]/body[1]')],
                 ['attribute-preserved', '/li[1]'],
                 ['attribute-preserved', '/ul[2]/li[1]'],
             ],
@@ -77,8 +78,8 @@ class RawDocumentContainerReportTest extends TestCase
 
         $this->assertSame(
             [
-                ['attribute-preserved', '/body[1]'],
-                ['raw-preserved', '/body[1]'],
+                ['attribute-preserved', (HtmlDomLoader::usesHtml5() ? '/html[1]/body[2]' : '/body[1]')],
+                ['raw-preserved', (HtmlDomLoader::usesHtml5() ? '/html[1]/body[2]' : '/body[1]')],
                 ['attribute-preserved', '/p[1]'],
             ],
             array_map(
@@ -93,7 +94,7 @@ class RawDocumentContainerReportTest extends TestCase
         $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport('<body><p>a</p></body>');
 
         $this->assertSame(
-            [['raw-preserved', '/body[1]']],
+            [['raw-preserved', (HtmlDomLoader::usesHtml5() ? '/html[1]/body[2]' : '/body[1]')]],
             array_map(
                 static fn (array $row): array => [$row['code'], $row['path']],
                 $result->report()['diagnostics'],

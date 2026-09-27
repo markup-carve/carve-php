@@ -36,7 +36,7 @@ final class HtmlHeadingIds
             return [];
         }
 
-        $dom = HtmlDomLoader::load('<div>' . $html . '</div>');
+        $dom = HtmlDomLoader::fragment($html, 'div');
 
         $ids = [];
         $xpath = new DOMXPath($dom);
@@ -51,7 +51,7 @@ final class HtmlHeadingIds
                 }
                 $id = $node->getAttribute('id');
                 $parent = $node->parentNode;
-                if ($id === '' && $parent instanceof DOMElement && $parent->tagName === 'section') {
+                if ($id === '' && $parent instanceof DOMElement && HtmlDomLoader::elementName($parent) === 'section') {
                     $id = $parent->getAttribute('id');
                 }
                 $ids[] = $id;

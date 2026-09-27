@@ -79,12 +79,12 @@ final class HtmlAstBuilder
     private static function importPath(DOMElement $node): string
     {
         $parts = [];
-        for ($current = $node; $current instanceof DOMElement && !in_array(strtolower($current->tagName), ['carve-import-root', 'html', 'body'], true); $current = $current->parentNode) {
+        for ($current = $node; $current instanceof DOMElement && !in_array(strtolower(HtmlDomLoader::elementName($current)), ['carve-import-root', 'html', 'body'], true); $current = $current->parentNode) {
             $index = 1;
             for ($sibling = $current->previousSibling; $sibling !== null; $sibling = $sibling->previousSibling) {
                 $index++;
             }
-            array_unshift($parts, strtolower($current->tagName) . '[' . $index . ']');
+            array_unshift($parts, strtolower(HtmlDomLoader::elementName($current)) . '[' . $index . ']');
         }
 
         return '/' . implode('/', $parts);
@@ -441,7 +441,7 @@ final class HtmlAstBuilder
     public function buildResult(string $html, ?int $sourceByteLength = null): HtmlAstBuildResult
     {
         $this->session = new HtmlImportSession();
-        $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
+        $document = HtmlDomLoader::fragment($html);
         $this->session->builtDocument = $document;
 
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
@@ -613,7 +613,7 @@ final class HtmlAstBuilder
                         if (
                             $sibling instanceof DOMElement
                             && !$this->isBlock($sibling)
-                            && (trim($sibling->textContent) === '' || in_array(strtolower($sibling->tagName), ['script', 'style', 'template', 'noscript'], true))
+                            && (trim($sibling->textContent) === '' || in_array(strtolower(HtmlDomLoader::elementName($sibling)), ['script', 'style', 'template', 'noscript'], true))
                             && $this->inline($sibling) === []
                         ) {
                             continue;
@@ -679,7 +679,7 @@ final class HtmlAstBuilder
         if (!$node instanceof DOMElement) {
             return false;
         }
-        $tag = strtolower($node->tagName);
+        $tag = strtolower(HtmlDomLoader::elementName($node));
         if ($tag === 'summary' && $this->session->summaryTitles->offsetExists($node) && $this->session->summaryTitles[$node] === null) {
             return true;
         }
@@ -705,7 +705,7 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower($child->tagName);
+            $tag = strtolower(HtmlDomLoader::elementName($child));
             if (isset(self::BLOCK_TAGS[$tag])) {
                 return true;
             }
@@ -725,7 +725,7 @@ final class HtmlAstBuilder
         if (!$node instanceof DOMElement) {
             return [];
         }
-        $tag = strtolower($node->tagName);
+        $tag = strtolower(HtmlDomLoader::elementName($node));
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
         }
@@ -799,7 +799,7 @@ final class HtmlAstBuilder
             if ($this->session->inInlineProjection && strtolower($node->getAttribute('role')) !== 'img') {
                 $hasCode = false;
                 foreach ($node->childNodes as $child) {
-                    if ($child instanceof DOMElement && strtolower($child->tagName) === 'code') {
+                    if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'code') {
                         $hasCode = true;
 
                         break;
@@ -837,14 +837,14 @@ final class HtmlAstBuilder
             && in_array($tag, ['address', 'fieldset', 'form', 'hgroup'], true)
             && !self::aRowRefusesTheRegion($node)
         ) {
-            $html = $node->ownerDocument?->saveHTML($node);
+            $html = HtmlDomLoader::serialize($node);
 
             $this->keepRaw($node);
 
             return [
                 [
                     'type' => 'raw_block',
-                    'content' => is_string($html) ? rtrim($html, "\n") : '',
+                    'content' => rtrim($html, "\n"),
                     'format' => 'html',
                 ],
             ];
@@ -881,7 +881,7 @@ final class HtmlAstBuilder
             && !$this->isSupportedBlockTag($tag)
             && !self::aRowRefusesTheRegion($node)
         ) {
-            $html = $node->ownerDocument?->saveHTML($node);
+            $html = HtmlDomLoader::serialize($node);
 
             $this->keepRaw($node);
 
@@ -891,7 +891,7 @@ final class HtmlAstBuilder
                     'children' => [
                         [
                             'type' => 'raw_inline',
-                            'content' => is_string($html) ? rtrim($html, "\n") : '',
+                            'content' => rtrim($html, "\n"),
                             'format' => 'html',
                         ],
                     ],
@@ -923,7 +923,7 @@ final class HtmlAstBuilder
         $heading = $this->firstElementChild($node);
         if (
             $heading === null
-            || preg_match('/^h[1-6]$/iD', $heading->tagName) !== 1
+            || preg_match('/^h[1-6]$/iD', HtmlDomLoader::elementName($heading)) !== 1
             || !$node->hasAttribute('id')
             || $heading->hasAttribute('id')
         ) {
@@ -1155,7 +1155,7 @@ final class HtmlAstBuilder
         }
         $names = [];
         foreach ($node->attributes as $attribute) {
-            $names[] = strtolower($attribute->nodeName);
+            $names[] = strtolower(HtmlDomLoader::attributeName($attribute));
         }
         while ($names !== [] && end($names) === 'data-source-line') {
             array_pop($names);
@@ -1194,7 +1194,7 @@ final class HtmlAstBuilder
         }
         $title = [];
         foreach ($domChildren as $index => $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'summary') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'summary') {
                 $candidate = $this->captionInlines($child);
                 if ($this->summaryCanBeTitle($child, $candidate)) {
                     $title = $candidate;
@@ -1270,20 +1270,20 @@ final class HtmlAstBuilder
     {
         $parent = $node->parentNode;
 
-        return !$parent instanceof DOMElement || strtolower($parent->tagName) !== 'figure';
+        return !$parent instanceof DOMElement || strtolower(HtmlDomLoader::elementName($parent)) !== 'figure';
     }
 
     public static function aRowRefusesTheRegion(DOMElement $node): bool
     {
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-            $tag = strtolower($ancestor->tagName);
+            $tag = strtolower(HtmlDomLoader::elementName($ancestor));
             if ($tag === 'caption' || $tag === 'figcaption') {
                 return false;
             }
             if ($tag === 'td' || $tag === 'th') {
-                $html = $node->ownerDocument?->saveHTML($node);
+                $html = HtmlDomLoader::serialize($node);
 
-                return is_string($html) && str_contains(rtrim($html, "\n"), "\n");
+                return str_contains(rtrim($html, "\n"), "\n");
             }
         }
 
@@ -1293,7 +1293,7 @@ final class HtmlAstBuilder
     private function isInsideTableCell(DOMElement $node): bool
     {
         for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (in_array(strtolower($parent->tagName), ['td', 'th'], true)) {
+            if (in_array(strtolower(HtmlDomLoader::elementName($parent)), ['td', 'th'], true)) {
                 return true;
             }
         }
@@ -1374,7 +1374,7 @@ final class HtmlAstBuilder
 
     private function codeLanguageWrapper(DOMElement $parent, DOMElement $child): bool
     {
-        if (strtolower($parent->tagName) !== 'div') {
+        if (strtolower(HtmlDomLoader::elementName($parent)) !== 'div') {
             return false;
         }
         if (!$this->session->codeLanguageWrappers->offsetExists($parent)) {
@@ -1404,7 +1404,7 @@ final class HtmlAstBuilder
     {
         $code = null;
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'code') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'code') {
                 $code = $child;
 
                 break;
@@ -1412,8 +1412,7 @@ final class HtmlAstBuilder
         }
         $source = $code ?? $node;
         $content = $source->textContent;
-        // An HTML parser drops one line feed right after `<pre>`; libxml keeps it.
-        if ($source === $node && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
+        if (!HtmlDomLoader::usesHtml5() && $source === $node && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
             $content = substr($content, 1);
         }
         if (str_ends_with($content, "\n")) {
@@ -1459,7 +1458,7 @@ final class HtmlAstBuilder
         $items = [];
         $hasLooseItem = false;
         foreach ($node->childNodes as $child) {
-            if (!$child instanceof DOMElement || strtolower($child->tagName) !== 'li') {
+            if (!$child instanceof DOMElement || strtolower(HtmlDomLoader::elementName($child)) !== 'li') {
                 continue;
             }
             $task = $this->taskCheckbox($child);
@@ -1511,11 +1510,11 @@ final class HtmlAstBuilder
         }
         $tight = !$hasLooseItem;
         foreach ($node->childNodes as $itemElement) {
-            if (!$itemElement instanceof DOMElement || strtolower($itemElement->tagName) !== 'li') {
+            if (!$itemElement instanceof DOMElement || strtolower(HtmlDomLoader::elementName($itemElement)) !== 'li') {
                 continue;
             }
             foreach ($itemElement->childNodes as $itemChild) {
-                if ($itemChild instanceof DOMElement && strtolower($itemChild->tagName) === 'p') {
+                if ($itemChild instanceof DOMElement && strtolower(HtmlDomLoader::elementName($itemChild)) === 'p') {
                     $tight = false;
 
                     break 2;
@@ -1569,7 +1568,7 @@ final class HtmlAstBuilder
             if ($child instanceof DOMText && trim($child->textContent) === '') {
                 continue;
             }
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'li') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'li') {
                 continue;
             }
             $strays[] = $child;
@@ -1663,11 +1662,11 @@ final class HtmlAstBuilder
     {
         $items = [];
         foreach ($section->childNodes as $child) {
-            if (!$child instanceof DOMElement || strtolower($child->tagName) !== 'ol') {
+            if (!$child instanceof DOMElement || strtolower(HtmlDomLoader::elementName($child)) !== 'ol') {
                 continue;
             }
             foreach ($child->childNodes as $item) {
-                if ($item instanceof DOMElement && strtolower($item->tagName) === 'li') {
+                if ($item instanceof DOMElement && strtolower(HtmlDomLoader::elementName($item)) === 'li') {
                     $items[] = $item;
                 }
             }
@@ -1690,7 +1689,7 @@ final class HtmlAstBuilder
                 if (!$sibling instanceof DOMElement) {
                     continue;
                 }
-                $tag = strtolower($sibling->tagName);
+                $tag = strtolower(HtmlDomLoader::elementName($sibling));
                 if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
                     continue;
                 }
@@ -1728,7 +1727,7 @@ final class HtmlAstBuilder
         $before = [];
         $items = [];
         foreach (self::definitionListEntries($node) as $candidate) {
-            if ($items === [] && strtolower($candidate->tagName) === 'dd') {
+            if ($items === [] && strtolower(HtmlDomLoader::elementName($candidate)) === 'dd') {
                 array_push($before, ...$this->blocks($this->children($candidate)));
 
                 continue;
@@ -1766,9 +1765,9 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $candidates = strtolower($child->tagName) === 'div' ? iterator_to_array($child->childNodes) : [$child];
+            $candidates = strtolower(HtmlDomLoader::elementName($child)) === 'div' ? iterator_to_array($child->childNodes) : [$child];
             foreach ($candidates as $candidate) {
-                if ($candidate instanceof DOMElement && in_array(strtolower($candidate->tagName), ['dt', 'dd'], true)) {
+                if ($candidate instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($candidate)), ['dt', 'dd'], true)) {
                     $entries[] = $candidate;
                 }
             }
@@ -1786,7 +1785,7 @@ final class HtmlAstBuilder
     {
         $leading = [];
         foreach (self::definitionListEntries($node) as $entry) {
-            if (strtolower($entry->tagName) === 'dt') {
+            if (strtolower(HtmlDomLoader::elementName($entry)) === 'dt') {
                 break;
             }
             $leading[] = $entry;
@@ -1801,7 +1800,7 @@ final class HtmlAstBuilder
      */
     private function appendDefinitionItem(array &$items, DOMElement $child): void
     {
-        $tag = strtolower($child->tagName);
+        $tag = strtolower(HtmlDomLoader::elementName($child));
         if ($tag === 'dt') {
             $term = ['type' => 'definition_term', 'children' => $this->blockInlines($child)];
             $this->attachAttrs($term, $child);
@@ -1841,7 +1840,7 @@ final class HtmlAstBuilder
                 if (!$cellElement instanceof DOMElement) {
                     continue;
                 }
-                $tag = strtolower($cellElement->tagName);
+                $tag = strtolower(HtmlDomLoader::elementName($cellElement));
                 if ($tag !== 'td' && $tag !== 'th') {
                     continue;
                 }
@@ -1961,7 +1960,7 @@ final class HtmlAstBuilder
         if ($rows === []) {
             $attributedSection = false;
             foreach ($node->childNodes as $section) {
-                if ($section instanceof DOMElement && in_array(strtolower($section->tagName), ['thead', 'tbody', 'tfoot'], true) && $this->attrs($section, []) !== []) {
+                if ($section instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($section)), ['thead', 'tbody', 'tfoot'], true) && $this->attrs($section, []) !== []) {
                     $attributedSection = true;
                 }
             }
@@ -2025,7 +2024,7 @@ final class HtmlAstBuilder
             if (!$section instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower($section->tagName);
+            $tag = strtolower(HtmlDomLoader::elementName($section));
             if ($tag === 'tr') {
                 $index = array_search($section, $keptRows, true);
                 if ($index === false) {
@@ -2043,7 +2042,7 @@ final class HtmlAstBuilder
         }
         foreach ($plans as $plan) {
             $section = $plan['section'];
-            $tag = $section !== null ? strtolower($section->tagName) : 'tbody';
+            $tag = $section !== null ? strtolower(HtmlDomLoader::elementName($section)) : 'tbody';
             $rank = ['thead' => 0, 'tbody' => 1, 'tfoot' => 2][$tag];
             $valid = $valid && $rank >= $phase;
             $phase = $rank;
@@ -2093,7 +2092,7 @@ final class HtmlAstBuilder
             $table['rowGroups'] = $groups;
             $this->session->retainedTablePartitions[self::importPath($node)] = true;
             foreach ($node->childNodes as $section) {
-                if (!$section instanceof DOMElement || !in_array(strtolower($section->tagName), ['thead', 'tbody', 'tfoot'], true)) {
+                if (!$section instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($section)), ['thead', 'tbody', 'tfoot'], true)) {
                     continue;
                 }
                 $attrs = $this->attrs($section, []);
@@ -2109,7 +2108,7 @@ final class HtmlAstBuilder
         }
 
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'caption') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'caption') {
                 $caption = $this->captionInlines($child);
                 if ($caption !== []) {
                     $table['caption'] = $caption;
@@ -2209,7 +2208,7 @@ final class HtmlAstBuilder
             foreach ($row->childNodes as $cell) {
                 if (
                     $cell instanceof DOMElement
-                    && in_array(strtolower($cell->tagName), ['td', 'th'], true)
+                    && in_array(strtolower(HtmlDomLoader::elementName($cell)), ['td', 'th'], true)
                     && self::cellHoldsBlocks($cell)
                 ) {
                     return true;
@@ -2350,7 +2349,7 @@ final class HtmlAstBuilder
             'children' => [['type' => 'list', 'ordered' => false, 'tight' => true, 'items' => $items]],
         ];
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'caption') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'caption') {
                 $title = $this->captionInlines($child);
                 if ($title !== []) {
                     $admonition['title'] = $title;
@@ -2378,7 +2377,7 @@ final class HtmlAstBuilder
         for ($sibling = $cell->nextSibling; $sibling !== null; $sibling = $sibling->nextSibling) {
             if (
                 $sibling instanceof DOMElement
-                && in_array(strtolower($sibling->tagName), ['td', 'th'], true)
+                && in_array(strtolower(HtmlDomLoader::elementName($sibling)), ['td', 'th'], true)
             ) {
                 return true;
             }
@@ -2391,7 +2390,7 @@ final class HtmlAstBuilder
     {
         $paragraphs = 0;
         foreach ($cell->getElementsByTagName('*') as $descendant) {
-            $tag = strtolower($descendant->tagName);
+            $tag = strtolower(HtmlDomLoader::elementName($descendant));
             if (in_array($tag, ['ul', 'ol', 'pre', 'blockquote', 'table', 'dl'], true)) {
                 return true;
             }
@@ -2412,7 +2411,7 @@ final class HtmlAstBuilder
         }
         $cells = [];
         foreach ($row->childNodes as $cell) {
-            if ($cell instanceof DOMElement && in_array(strtolower($cell->tagName), ['td', 'th'], true)) {
+            if ($cell instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($cell)), ['td', 'th'], true)) {
                 $cells[] = $cell;
             }
         }
@@ -2430,7 +2429,7 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower($child->tagName);
+            $tag = strtolower(HtmlDomLoader::elementName($child));
             if ($tag === 'tr') {
                 $rows[] = $child;
 
@@ -2440,7 +2439,7 @@ final class HtmlAstBuilder
                 continue;
             }
             foreach ($child->childNodes as $row) {
-                if ($row instanceof DOMElement && strtolower($row->tagName) === 'tr') {
+                if ($row instanceof DOMElement && strtolower(HtmlDomLoader::elementName($row)) === 'tr') {
                     $rows[] = $row;
                 }
             }
@@ -2501,7 +2500,7 @@ final class HtmlAstBuilder
         $captionDeclared = false;
         $bodyNodes = [];
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'figcaption') {
                 $captionDeclared = trim($child->textContent) !== '' || $child->getElementsByTagName('*')->length > 0;
                 $caption = $this->captionInlines($child);
 
@@ -2559,7 +2558,7 @@ final class HtmlAstBuilder
         ) {
             $target = self::nodeList($target['children'] ?? null)[0];
         }
-        if (count($bodyNodes) === 1 && $bodyNodes[0] instanceof DOMElement && strtolower($bodyNodes[0]->tagName) === 'picture') {
+        if (count($bodyNodes) === 1 && $bodyNodes[0] instanceof DOMElement && strtolower(HtmlDomLoader::elementName($bodyNodes[0])) === 'picture') {
             foreach ($bodyNodes[0]->getElementsByTagName('img') as $imageElement) {
                 $images = $this->inline($imageElement);
                 if (($images[0]['type'] ?? null) === 'image') {
@@ -2599,13 +2598,13 @@ final class HtmlAstBuilder
         }
 
         if ($keepsRaw && $caption !== [] && !self::aRowRefusesTheRegion($node)) {
-            $html = $node->ownerDocument?->saveHTML($node);
+            $html = HtmlDomLoader::serialize($node);
             $this->keepRaw($node);
 
             return [
                 [
                     'type' => 'raw_block',
-                    'content' => is_string($html) ? rtrim($html, "\n") : '',
+                    'content' => rtrim($html, "\n"),
                     'format' => 'html',
                 ],
             ];
@@ -2620,7 +2619,7 @@ final class HtmlAstBuilder
             $segment = [];
         };
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'figcaption') {
                 $flush();
                 $previousProjection = $this->session->inInlineProjection;
                 $this->session->inInlineProjection = true;
@@ -2649,7 +2648,7 @@ final class HtmlAstBuilder
         $body = [];
         $caption = [];
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'figcaption') {
                 $caption = $this->captionInlines($child);
 
                 continue;
@@ -2744,19 +2743,19 @@ final class HtmlAstBuilder
             }
             if (
                 $child instanceof DOMElement
-                && strtolower($child->tagName) === 'input'
+                && strtolower(HtmlDomLoader::elementName($child)) === 'input'
                 && strtolower($child->getAttribute('type')) === 'checkbox'
             ) {
                 return $child;
             }
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'label') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'label') {
                 foreach ($child->childNodes as $labelChild) {
                     if ($labelChild instanceof DOMText && trim($labelChild->textContent) === '') {
                         continue;
                     }
                     if (
                         $labelChild instanceof DOMElement
-                        && strtolower($labelChild->tagName) === 'input'
+                        && strtolower(HtmlDomLoader::elementName($labelChild)) === 'input'
                         && strtolower($labelChild->getAttribute('type')) === 'checkbox'
                     ) {
                         return $labelChild;
@@ -2783,7 +2782,7 @@ final class HtmlAstBuilder
         foreach ($domChildren as $child) {
             if (
                 $child instanceof DOMElement
-                && strtolower($child->tagName) === 'p'
+                && strtolower(HtmlDomLoader::elementName($child)) === 'p'
                 && $this->hasClass($child, 'admonition-title')
             ) {
                 $title = $this->blockInlines($child);
@@ -2820,7 +2819,7 @@ final class HtmlAstBuilder
                 !$bareTransport
                 &&
                 $child instanceof DOMElement
-                && strtolower($child->tagName) === 'p'
+                && strtolower(HtmlDomLoader::elementName($child)) === 'p'
                 && (preg_split('/\s+/', trim($child->getAttribute('class'))) ?: []) === ['div-label']
                 && $child->attributes->length === 1
                 && self::every([...$child->childNodes], static fn (DOMNode $part): bool => $part instanceof DOMText)
@@ -2855,7 +2854,7 @@ final class HtmlAstBuilder
         $attrs = $this->attrs($node, $skipAttrs);
         $classes = $attrs['classes'] ?? [];
         $structuralKind = trim($node->getAttribute('data-djot-admonition-type'));
-        $tag = strtolower($node->tagName);
+        $tag = strtolower(HtmlDomLoader::elementName($node));
         $kindIndex = $tag === 'aside' && ($classes[0] ?? null) === 'admonition' && isset($classes[1]) ? 1 : 0;
         $lineBlockIndex = array_search('line-block', $classes, true);
         if ($lineBlockIndex !== false) {
@@ -2971,7 +2970,7 @@ final class HtmlAstBuilder
             return false;
         }
         foreach ($node->attributes as $attribute) {
-            $name = strtolower($attribute->nodeName);
+            $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if ($name !== 'class' && $name !== 'style' && !str_starts_with($name, 'on')) {
                 return false;
             }
@@ -2982,7 +2981,7 @@ final class HtmlAstBuilder
 
     public static function isDerivedRole(DOMElement $node, string $value): bool
     {
-        $tag = strtolower($node->tagName);
+        $tag = strtolower(HtmlDomLoader::elementName($node));
         $role = strtolower(trim($value));
         $classes = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         if (
@@ -3020,7 +3019,7 @@ final class HtmlAstBuilder
             'warning' => 'Warning',
             'caution' => 'Caution',
         ];
-        if (strtolower($node->tagName) === 'aside' && in_array('admonition', $classes, true)) {
+        if (strtolower(HtmlDomLoader::elementName($node)) === 'aside' && in_array('admonition', $classes, true)) {
             foreach ($classes as $class) {
                 $key = 'admonition' . ucfirst($class);
                 if (isset($this->labels[$key])) {
@@ -3497,7 +3496,7 @@ final class HtmlAstBuilder
             return $this->inlines($this->children($node));
         }
 
-        $tag = strtolower($node->tagName);
+        $tag = strtolower(HtmlDomLoader::elementName($node));
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
         }
@@ -3513,7 +3512,7 @@ final class HtmlAstBuilder
         if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-raw')) {
             $content = '';
             foreach ($node->childNodes as $child) {
-                $content .= $node->ownerDocument?->saveHTML($child) ?? '';
+                $content .= HtmlDomLoader::serialize($child);
             }
 
             return [
@@ -3544,13 +3543,13 @@ final class HtmlAstBuilder
 
                     return $text === null ? [] : [['type' => 'text', 'value' => $text]];
                 }
-                $html = $node->ownerDocument?->saveHTML($node);
+                $html = HtmlDomLoader::serialize($node);
                 $this->keepRaw($node);
 
                 return [
                     [
                         'type' => 'raw_inline',
-                        'content' => is_string($html) ? rtrim($html, "\n") : '',
+                        'content' => rtrim($html, "\n"),
                         'format' => 'html',
                     ],
                 ];
@@ -3588,7 +3587,7 @@ final class HtmlAstBuilder
         if ($tag === 'ruby') {
             $hasAnnotation = false;
             foreach ($node->childNodes as $component) {
-                if ($component instanceof DOMElement && in_array(strtolower($component->tagName), ['rt', 'rtc'], true)) {
+                if ($component instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($component)), ['rt', 'rtc'], true)) {
                     $hasAnnotation = true;
 
                     break;
@@ -3604,13 +3603,13 @@ final class HtmlAstBuilder
             && !$this->isSupportedInlineTag($tag)
             && !self::aRowRefusesTheRegion($node)
         ) {
-            $html = $node->ownerDocument?->saveHTML($node);
+            $html = HtmlDomLoader::serialize($node);
             $this->keepRaw($node);
 
             return [
                 [
                     'type' => 'raw_inline',
-                    'content' => is_string($html) ? rtrim($html, "\n") : '',
+                    'content' => rtrim($html, "\n"),
                     'format' => 'html',
                 ],
             ];
@@ -3638,8 +3637,8 @@ final class HtmlAstBuilder
                 && (str_contains($node->getAttribute('alt'), '[') || str_contains($node->getAttribute('alt'), '\\'))
             ) {
                 $html = $this->sanitizedElementHtml($node);
-                $serialized = $node->ownerDocument?->saveHTML($node);
-                if (is_string($serialized) && $html === rtrim($serialized, "\n")) {
+                $serialized = HtmlDomLoader::serialize($node);
+                if ($html === rtrim($serialized, "\n")) {
                     $this->keepRaw($node);
                 }
 
@@ -3679,13 +3678,13 @@ final class HtmlAstBuilder
             if ($this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
                 foreach ($node->getElementsByTagName('img') as $image) {
                     if (preg_match('/[\\[\\]\\\\]/', $image->getAttribute('alt')) === 1) {
-                        $html = $node->ownerDocument?->saveHTML($node);
+                        $html = HtmlDomLoader::serialize($node);
                         $this->keepRaw($node);
 
                         return [
                             [
                                 'type' => 'raw_inline',
-                                'content' => is_string($html) ? rtrim($html, "\n") : '',
+                                'content' => rtrim($html, "\n"),
                                 'format' => 'html',
                             ],
                         ];
@@ -3696,8 +3695,8 @@ final class HtmlAstBuilder
             if (self::carriesNoDestination($node->getAttribute('href'))) {
                 $skip = ['href'];
                 foreach ($node->attributes as $attribute) {
-                    if (str_starts_with(strtolower($attribute->nodeName), 'data-djot-')) {
-                        $skip[] = strtolower($attribute->nodeName);
+                    if (str_starts_with(strtolower(HtmlDomLoader::attributeName($attribute)), 'data-djot-')) {
+                        $skip[] = strtolower(HtmlDomLoader::attributeName($attribute));
                     }
                 }
                 $attrs = $this->attrs($node, $skip);
@@ -3938,15 +3937,15 @@ final class HtmlAstBuilder
         $input = [];
         $rtc = [];
         foreach ($this->children($element) as $child) {
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'rb') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'rb') {
                 $input[] = ['rb' => $child];
-            } elseif ($child instanceof DOMElement && strtolower($child->tagName) === 'rtc') {
+            } elseif ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'rtc') {
                 $content = [];
                 foreach ($this->children($child) as $component) {
-                    if ($component instanceof DOMElement && strtolower($component->tagName) === 'rp') {
+                    if ($component instanceof DOMElement && strtolower(HtmlDomLoader::elementName($component)) === 'rp') {
                         continue;
                     }
-                    if ($component instanceof DOMElement && strtolower($component->tagName) === 'rt') {
+                    if ($component instanceof DOMElement && strtolower(HtmlDomLoader::elementName($component)) === 'rt') {
                         array_push($content, ...$this->inlines($this->children($component)));
                     } else {
                         array_push($content, ...$this->inline($component));
@@ -3972,10 +3971,10 @@ final class HtmlAstBuilder
             if ($child instanceof DOMComment) {
                 continue;
             }
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'rp') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'rp') {
                 continue;
             }
-            if ($child instanceof DOMElement && strtolower($child->tagName) === 'rt') {
+            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'rt') {
                 $annotation = $this->inlines($this->children($child));
                 if ($base === [] && isset($explicitBases[0])) {
                     $base = array_shift($explicitBases);
@@ -3999,7 +3998,7 @@ final class HtmlAstBuilder
                 while (isset($input[$next]) && $input[$next] instanceof DOMText && trim($input[$next]->textContent) === '') {
                     $next++;
                 }
-                if (!isset($input[$next]) || ($input[$next] instanceof DOMElement && in_array(strtolower($input[$next]->tagName), ['rt', 'rp'], true))) {
+                if (!isset($input[$next]) || ($input[$next] instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($input[$next])), ['rt', 'rp'], true))) {
                     continue;
                 }
             }
@@ -4060,7 +4059,7 @@ final class HtmlAstBuilder
         }
         $remove = [];
         foreach ($clone->attributes as $attribute) {
-            $name = strtolower($attribute->nodeName);
+            $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if (
                 str_starts_with($name, 'data-djot-')
                 || str_starts_with($name, 'on')
@@ -4071,9 +4070,9 @@ final class HtmlAstBuilder
         foreach ($remove as $name) {
             $clone->removeAttribute($name);
         }
-        $html = $node->ownerDocument?->saveHTML($clone);
+        $html = HtmlDomLoader::serialize($clone);
 
-        return is_string($html) ? rtrim($html, "\n") : '';
+        return rtrim($html, "\n");
     }
 
     /**
@@ -4126,11 +4125,11 @@ final class HtmlAstBuilder
     private function mathTex(DOMElement $node): ?string
     {
         foreach ($node->childNodes as $semantics) {
-            if (!$semantics instanceof DOMElement || strtolower($semantics->tagName) !== 'semantics') {
+            if (!$semantics instanceof DOMElement || strtolower(HtmlDomLoader::elementName($semantics)) !== 'semantics') {
                 continue;
             }
             foreach ($semantics->childNodes as $annotation) {
-                if (!$annotation instanceof DOMElement || strtolower($annotation->tagName) !== 'annotation') {
+                if (!$annotation instanceof DOMElement || strtolower(HtmlDomLoader::elementName($annotation)) !== 'annotation') {
                     continue;
                 }
                 $encoding = strtolower(trim($annotation->getAttribute('encoding')));
@@ -4181,7 +4180,7 @@ final class HtmlAstBuilder
         if ($previous === null) {
             return false;
         }
-        $math = strtolower($previous->tagName) === 'math' ? $previous : self::soleMath($previous);
+        $math = strtolower(HtmlDomLoader::elementName($previous)) === 'math' ? $previous : self::soleMath($previous);
         if ($math === null || self::fallbackImage($math) !== $image) {
             return false;
         }
@@ -4195,11 +4194,11 @@ final class HtmlAstBuilder
     public static function mathTexContent(DOMElement $math): string
     {
         foreach ($math->childNodes as $semantics) {
-            if (!$semantics instanceof DOMElement || strtolower($semantics->tagName) !== 'semantics') {
+            if (!$semantics instanceof DOMElement || strtolower(HtmlDomLoader::elementName($semantics)) !== 'semantics') {
                 continue;
             }
             foreach ($semantics->childNodes as $annotation) {
-                if (!$annotation instanceof DOMElement || strtolower($annotation->tagName) !== 'annotation') {
+                if (!$annotation instanceof DOMElement || strtolower(HtmlDomLoader::elementName($annotation)) !== 'annotation') {
                     continue;
                 }
                 $encoding = strtolower(trim($annotation->getAttribute('encoding')));
@@ -4235,7 +4234,7 @@ final class HtmlAstBuilder
                 if (!$node instanceof DOMElement) {
                     return false;
                 }
-                $tag = strtolower($node->tagName);
+                $tag = strtolower(HtmlDomLoader::elementName($node));
                 if ($tag === 'semantics') {
                     $first = null;
                     foreach ($node->childNodes as $child) {
@@ -4305,7 +4304,7 @@ final class HtmlAstBuilder
             return false;
         }
         for ($parent = $comment->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (preg_match('/^h[1-6]$/', strtolower($parent->tagName)) === 1) {
+            if (preg_match('/^h[1-6]$/', strtolower(HtmlDomLoader::elementName($parent))) === 1) {
                 return true;
             }
         }
@@ -4316,7 +4315,7 @@ final class HtmlAstBuilder
     public static function enclosingCell(DOMNode $node): ?DOMElement
     {
         for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (in_array(strtolower($parent->tagName), ['td', 'th'], true)) {
+            if (in_array(strtolower(HtmlDomLoader::elementName($parent)), ['td', 'th'], true)) {
                 return $parent;
             }
         }
@@ -4331,11 +4330,11 @@ final class HtmlAstBuilder
     public static function tableHoldsABlockCell(DOMElement $cell): bool
     {
         for ($table = $cell->parentNode; $table instanceof DOMElement; $table = $table->parentNode) {
-            if (strtolower($table->tagName) !== 'table') {
+            if (strtolower(HtmlDomLoader::elementName($table)) !== 'table') {
                 continue;
             }
             foreach ($table->getElementsByTagName('*') as $candidate) {
-                if (in_array(strtolower($candidate->tagName), ['td', 'th'], true) && self::cellHoldsBlocks($candidate)) {
+                if (in_array(strtolower(HtmlDomLoader::elementName($candidate)), ['td', 'th'], true) && self::cellHoldsBlocks($candidate)) {
                     return true;
                 }
             }
@@ -4367,7 +4366,7 @@ final class HtmlAstBuilder
      */
     private static function soleMath(DOMElement $wrapper): ?DOMElement
     {
-        if (strtolower($wrapper->tagName) !== 'span') {
+        if (strtolower(HtmlDomLoader::elementName($wrapper)) !== 'span') {
             return null;
         }
         $math = null;
@@ -4375,7 +4374,7 @@ final class HtmlAstBuilder
             if (self::isBlankOrComment($child)) {
                 continue;
             }
-            if ($math !== null || !$child instanceof DOMElement || strtolower($child->tagName) !== 'math') {
+            if ($math !== null || !$child instanceof DOMElement || strtolower(HtmlDomLoader::elementName($child)) !== 'math') {
                 return null;
             }
             $math = $child;
@@ -4396,7 +4395,7 @@ final class HtmlAstBuilder
             $found = self::adjacentElement($wrapper, true);
         }
 
-        return $found !== null && strtolower($found->tagName) === 'img' ? $found : null;
+        return $found !== null && strtolower(HtmlDomLoader::elementName($found)) === 'img' ? $found : null;
     }
 
     private static function mathIsHidden(DOMElement $math): bool
@@ -4439,7 +4438,7 @@ final class HtmlAstBuilder
      */
     private function inlineHtml(string $html): array
     {
-        $document = HtmlDomLoader::load('<carve-inline-root>' . $html . '</carve-inline-root>');
+        $document = HtmlDomLoader::fragment($html, 'carve-inline-root');
         $root = $document->getElementsByTagName('carve-inline-root')->item(0);
 
         if (!$root instanceof DOMElement) {
@@ -4499,10 +4498,10 @@ final class HtmlAstBuilder
             $available = array_fill_keys([...($attrs['order'] ?? []), '.class'], true);
             $order = [];
             foreach ($node->attributes as $attribute) {
-                $slot = match (strtolower($attribute->nodeName)) {
+                $slot = match (strtolower(HtmlDomLoader::attributeName($attribute))) {
                     'id' => '#id',
                     'class' => '.class',
-                    default => strtolower($attribute->nodeName),
+                    default => strtolower(HtmlDomLoader::attributeName($attribute)),
                 };
                 if (isset($available[$slot]) && !in_array($slot, $order, true)) {
                     $order[] = $slot;
@@ -4552,7 +4551,7 @@ final class HtmlAstBuilder
         if (!$parent instanceof DOMElement) {
             return true;
         }
-        $tag = strtolower($parent->tagName);
+        $tag = strtolower(HtmlDomLoader::elementName($parent));
         if (in_array($tag, ['em', 'i', 'strong', 'b', 'u', 's', 'strike', 'mark', 'ins', 'del', 'sup', 'sub'], true)) {
             return true;
         }
@@ -4779,10 +4778,10 @@ final class HtmlAstBuilder
         }
         $order = [];
         foreach ($node->attributes as $attribute) {
-            $slot = match (strtolower($attribute->nodeName)) {
+            $slot = match (strtolower(HtmlDomLoader::attributeName($attribute))) {
                 'id' => '#id',
                 'class' => '.class',
-                default => strtolower($attribute->nodeName),
+                default => strtolower(HtmlDomLoader::attributeName($attribute)),
             };
             if (isset($available[$slot])) {
                 $order[] = $slot;
@@ -4811,7 +4810,7 @@ final class HtmlAstBuilder
         $keyValues = [];
         $order = [];
         foreach ($node->attributes as $attribute) {
-            $name = strtolower($attribute->nodeName);
+            $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if (
                 isset($skip[$name])
                 || $name === 'style'
@@ -4845,7 +4844,7 @@ final class HtmlAstBuilder
                 $this->session->urlListCarriers[$node] = null;
             }
         }
-        $tag = strtolower($node->tagName);
+        $tag = strtolower(HtmlDomLoader::elementName($node));
         $alignment = $this->styleEnum($node, 'text-align', ['left', 'right', 'center']);
         if ($alignment !== null && !in_array($tag, ['td', 'th'], true)) {
             $alignmentClass = $this->alignmentClasses[$alignment] ?? null;
@@ -4996,7 +4995,7 @@ final class HtmlAstBuilder
      */
     public static function holdsADeniedDestination(DOMElement $element): bool
     {
-        $tag = strtolower($element->tagName);
+        $tag = strtolower(HtmlDomLoader::elementName($element));
         if (($tag === 'a' && self::hasDeniedScheme($element->getAttribute('href'))) || ($tag === 'img' && self::hasDeniedScheme($element->getAttribute('src')))) {
             return true;
         }

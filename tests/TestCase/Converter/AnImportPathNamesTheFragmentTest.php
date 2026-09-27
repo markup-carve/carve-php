@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\TestCase;
 
@@ -86,9 +87,9 @@ class AnImportPathNamesTheFragmentTest extends TestCase
         // still appears in its own. Staying silent to match the fragment rule
         // would drop a loss this importer really makes.
         $this->assertSame(['/html[1]'], $this->paths('<html onclick="x()"><body><p>x</p></body></html>'));
-        $this->assertSame(['/body[1]'], $this->paths('<body onclick="x()"><p>x</p></body>'));
+        $this->assertSame([HtmlDomLoader::usesHtml5() ? '/html[1]/body[2]' : '/body[1]'], $this->paths('<body onclick="x()"><p>x</p></body>'));
         $this->assertSame(
-            ['/html[1]/body[1]'],
+            [HtmlDomLoader::usesHtml5() ? '/html[1]/body[2]' : '/html[1]/body[1]'],
             $this->paths('<html><body onclick="x()"><p>x</p></body></html>'),
         );
     }
