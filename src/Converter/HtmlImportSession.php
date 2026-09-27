@@ -17,6 +17,14 @@ final class HtmlImportSession
     public ?DOMDocument $builtDocument = null;
 
     /**
+     * Serialized summary titles; null keeps the summary as body content.
+     * An empty string means the summary has no content to report.
+     *
+     * @var \SplObjectStorage<\DOMElement, string|null>
+     */
+    public SplObjectStorage $summaryTitles;
+
+    /**
      * @var \SplObjectStorage<\DOMElement, null>
      */
     public SplObjectStorage $droppedEmptyElements;
@@ -117,6 +125,7 @@ final class HtmlImportSession
 
     public function __construct()
     {
+        $this->summaryTitles = new SplObjectStorage();
         $this->droppedEmptyElements = new SplObjectStorage();
         $this->urlListCarriers = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
