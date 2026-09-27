@@ -34,6 +34,7 @@ class MarkdownEscapesTextThatGfmWouldAutolinkTest extends TestCase
             'email local punctuation' => ['a+b-c.d@e.co', 'a+b-c.d<!---->@e.co'],
             'missing local part' => ['@b.co', '@b.co'],
             'second at sign' => ['a@b@c.co', 'a@b<!---->@c.co'],
+            'empty xmpp local part' => ['xmpp:@b.co', 'xmpp:<!---->@b.co'],
             'xmpp resource' => ['xmpp:a@b.co/r1', 'xmpp:a@b.co/r1'],
             'xmpp alphabetic resource' => ['xmpp:a@b.co/r', 'xmpp:a<!---->@b.co/r'],
             'unicode before email' => ['é a@b.co c@d.io', 'é a<!---->@b.co c<!---->@d.io'],
