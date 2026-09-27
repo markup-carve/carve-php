@@ -2395,8 +2395,14 @@ final class HtmlAstBuilder
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'figcaption') {
                 $flush();
-                foreach ($this->blocks($this->children($child)) as $block) {
-                    $fallback[] = $block;
+                $previousProjection = $this->inInlineProjection;
+                $this->inInlineProjection = true;
+                try {
+                    foreach ($this->blocks($this->children($child)) as $block) {
+                        $fallback[] = $block;
+                    }
+                } finally {
+                    $this->inInlineProjection = $previousProjection;
                 }
 
                 continue;
