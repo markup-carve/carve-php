@@ -8117,8 +8117,12 @@ class BlockParser
                 $i - 1,
                 $this->currentContentColumns[$termSource] ?? 0,
             ));
+            $partBreakIndices = [];
             foreach ($parts as $index => $part) {
                 if ($index > 0) {
+                    if ($this->trackPositions) {
+                        $partBreakIndices[] = count($term->getChildren());
+                    }
                     $term->appendChild(new SoftBreak());
                 }
                 if ($part instanceof Comment) {
@@ -8139,6 +8143,26 @@ class BlockParser
                     $part['sources'][0],
                     sourceMap: $this->foldedLinesMap($runLines),
                 );
+            }
+            // The inserted breaks span the source between adjacent parts,
+            // including any container prefixes around the newline (#2604).
+            if ($partBreakIndices !== []) {
+                $children = $term->getChildren();
+                foreach ($partBreakIndices as $breakIndex) {
+                    $before = ($children[$breakIndex - 1] ?? null)?->getPos();
+                    $after = ($children[$breakIndex + 1] ?? null)?->getPos();
+                    if ($before !== null && $after !== null) {
+                        $children[$breakIndex]->setPos(new SourceSpan(
+                            startLine: $before->endLine,
+                            endLine: $after->startLine,
+                            startColumn: $before->endColumn,
+                            endColumn: $after->startColumn,
+                            startOffset: $before->endOffset,
+                            endOffset: $after->startOffset,
+                            file: $before->file,
+                        ));
+                    }
+                }
             }
             $this->stampNodeSourceLine($term, $this->sourceLineFor($termStart));
             $dl->appendChild($term);
