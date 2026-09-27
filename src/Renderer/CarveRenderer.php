@@ -2596,6 +2596,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $allExplicit = $allExplicit && $this->isExplicitIdOrClassIdentifier($class);
                     }
                 }
+                if ($classes === []) {
+                    // The AUTHOR's empty class slot. A slot the structural filter
+                    // above emptied was minted here and has no source spelling.
+                    if (array_key_exists('class', $attrs) && trim((string)$attrs['class']) === '') {
+                        $parts[] = 'class=""';
+                    }
+
+                    return;
+                }
                 if ($allExplicit) {
                     foreach ($classes as $class) {
                         $parts[] = '.' . $this->escapeAttrNameValue($class);
@@ -4736,11 +4745,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $allExplicit = $allExplicit && $this->isExplicitIdOrClassIdentifier($class);
                     }
                 }
+                if ($classes === []) {
+                    // PART 4 gives a bare `class` and `class=""` one empty-string
+                    // value, so the slot is written even though no class name
+                    // reaches the `.` shorthand.
+                    if (array_key_exists('class', $attrs)) {
+                        $parts[] = 'class=""';
+                    }
+
+                    return;
+                }
                 if ($allExplicit) {
                     foreach ($classes as $class) {
                         $parts[] = '.' . $this->escapeAttrNameValue($class);
                     }
-                } elseif ($classes !== []) {
+                } else {
                     $parts[] = 'class=' . $this->quoteAttrValue(implode(' ', $classes), true);
                 }
 

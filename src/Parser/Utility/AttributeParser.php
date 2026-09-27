@@ -87,29 +87,23 @@ class AttributeParser
         foreach ($matches as $match) {
             if (($match[1] ?? '') !== '') {
                 // key="double quoted value"
-                $attributes[$match[1]] = self::processEscapes($match[2] ?? '');
-                $order[] = self::canonicalSlot($match[1]);
+                self::assignKeyValue($attributes, $order, $match[1], self::processEscapes($match[2] ?? ''));
             } elseif (($match[3] ?? '') !== '') {
                 // key='single quoted value'
-                $attributes[$match[3]] = self::processEscapes($match[4] ?? '');
-                $order[] = self::canonicalSlot($match[3]);
+                self::assignKeyValue($attributes, $order, $match[3], self::processEscapes($match[4] ?? ''));
             } elseif (($match[5] ?? '') !== '') {
                 // key=unquoted
-                $attributes[$match[5]] = $match[6] ?? '';
-                $order[] = self::canonicalSlot($match[5]);
+                self::assignKeyValue($attributes, $order, $match[5], $match[6] ?? '');
             } elseif (($match[7] ?? '') !== '') {
                 // .class shorthand - accumulate classes
-                $existing = $attributes['class'] ?? '';
-                $attributes['class'] = $existing !== '' ? $existing . ' ' . $match[7] : $match[7];
-                $order[] = '.class';
+                self::appendClassValue($attributes, $order, $match[7]);
             } elseif (($match[8] ?? '') !== '') {
                 // #id shorthand
                 $attributes['id'] = $match[8];
                 $order[] = '#id';
             } elseif (($match[9] ?? '') !== '') {
                 // boolean attribute
-                $attributes[$match[9]] = '';
-                $order[] = self::canonicalSlot($match[9]);
+                self::assignKeyValue($attributes, $order, $match[9], '');
             } elseif (($match['lang_sigil'] ?? '') === ':') {
                 $attributes['lang'] = $match['lang_tag'] ?? '';
                 $order[] = 'lang';
@@ -121,7 +115,74 @@ class AttributeParser
 
     private static function canonicalSlot(string $name): string
     {
-        return $name === 'id' ? '#id' : $name;
+        if ($name === 'id') {
+            return '#id';
+        }
+
+        return $name === 'class' ? '.class' : $name;
+    }
+
+    /**
+     * A `class` KEY-VALUE IS A SPELLING OF THE CLASS SLOT (`CARVE-P4-007`).
+     *
+     * `class=VALUE` and `.VALUE` are the same attribute, so the value joins the
+     * class slot in source order instead of replacing it: `{.b class=a}` is
+     * `class="b a"`, not `class="a"`. The two spellings stay distinct in SOURCE,
+     * because `.` reads the `explicit_identifier` a fence word does while a
+     * value reaches past it (markup-carve/carve#2435).
+     *
+     * @param array<string, string> $attributes
+     * @param list<string> $order
+     * @param string $key
+     * @param string $value
+     */
+    private static function assignKeyValue(array &$attributes, array &$order, string $key, string $value): void
+    {
+        if ($key === 'class') {
+            self::appendClassValue($attributes, $order, $value);
+
+            return;
+        }
+
+        $attributes[$key] = $value;
+        $order[] = self::canonicalSlot($key);
+    }
+
+    /**
+     * Append to the class slot without de-duplicating (grammar PART 15).
+     *
+     * A value holding several classes is one write per class, so the slot never
+     * carries the source's own run of spaces. An EMPTY value still claims the
+     * slot: PART 4 gives a bare `class` the same empty-string value as
+     * `class=""`, and both have to build the one tree.
+     *
+     * @param array<string, string> $attributes
+     * @param list<string> $order
+     * @param string $value
+     */
+    private static function appendClassValue(array &$attributes, array &$order, string $value): void
+    {
+        $order[] = '.class';
+        $classes = self::splitClassValue($value);
+        if ($classes === []) {
+            $attributes['class'] ??= '';
+
+            return;
+        }
+
+        $existing = $attributes['class'] ?? '';
+        $joined = implode(' ', $classes);
+        $attributes['class'] = $existing !== '' ? $existing . ' ' . $joined : $joined;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function splitClassValue(string $value): array
+    {
+        $classes = preg_split('/[ \t\r\n]+/', trim($value, StringUtil::WHITESPACE_CHARS)) ?: [];
+
+        return array_values(array_filter($classes, static fn (string $class): bool => $class !== ''));
     }
 
     /**
@@ -187,13 +248,13 @@ class AttributeParser
         foreach ($matches as $match) {
             if (($match[1] ?? '') !== '') {
                 // key="double quoted value"
-                $node->setAttribute($match[1], self::processEscapes($match[2] ?? ''));
+                self::setOnNode($node, $match[1], self::processEscapes($match[2] ?? ''));
             } elseif (($match[3] ?? '') !== '') {
                 // key='single quoted value'
-                $node->setAttribute($match[3], self::processEscapes($match[4] ?? ''));
+                self::setOnNode($node, $match[3], self::processEscapes($match[4] ?? ''));
             } elseif (($match[5] ?? '') !== '') {
                 // key=unquoted
-                $node->setAttribute($match[5], $match[6] ?? '');
+                self::setOnNode($node, $match[5], $match[6] ?? '');
             } elseif (($match[7] ?? '') !== '') {
                 // .class shorthand -- source-order, no de-dup (§15).
                 $node->appendClass($match[7]);
@@ -202,10 +263,33 @@ class AttributeParser
                 $node->setAttribute('id', $match[8]);
             } elseif (($match[9] ?? '') !== '') {
                 // boolean attribute
-                $node->setAttribute($match[9], '');
+                self::setOnNode($node, $match[9], '');
             } elseif (($match['lang_sigil'] ?? '') === ':') {
                 $node->setAttribute('lang', $match['lang_tag'] ?? '');
             }
+        }
+    }
+
+    /**
+     * The node half of assignKeyValue(): a `class` key-value joins the class
+     * slot rather than replacing it (`CARVE-P4-007`).
+     */
+    private static function setOnNode(Node $node, string $key, string $value): void
+    {
+        if ($key !== 'class') {
+            $node->setAttribute($key, $value);
+
+            return;
+        }
+
+        $classes = self::splitClassValue($value);
+        foreach ($classes as $class) {
+            $node->appendClass($class);
+        }
+        if ($classes === [] && $node->getAttribute('class') === null) {
+            // An empty value still claims the slot, so `{class}` and `{class=""}`
+            // build the one tree PART 4 documents.
+            $node->setAttribute('class', '');
         }
     }
 
