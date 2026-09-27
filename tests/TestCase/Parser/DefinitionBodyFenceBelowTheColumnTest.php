@@ -66,12 +66,8 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
      * AT OR PAST the column the line is the fence's content. Payload indentation
      * remains, while a matching closer at the authored base still closes.
      *
-     * The `past the column` row used to expect the at-the-column rendering,
-     * which needed the body to arrive `ltrim`ed. carve-js writes the residual
-     * column into the payload and never closes the fence on an indented closer,
-     * so the two rows differ there; both were compared against carve-js
-     * `ba42673` and are byte-identical to it
-     * (markup-carve/carve-php#1650).
+     * A closing run past the opener stays payload under CARVE-P2-006.
+     * Both expectations match the executable spec at 97e47ae2.
      *
      * @return array<string, array{0: string, 1: string}>
      */
