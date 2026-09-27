@@ -749,7 +749,7 @@ final class HtmlAstBuilder
                 return [];
             }
             $paragraph = ['type' => 'paragraph', 'children' => $children];
-            $this->attachAttrs($paragraph, $node, ['role']);
+            $this->attachAttrs($paragraph, $node, []);
 
             return [$paragraph];
         }
@@ -893,7 +893,7 @@ final class HtmlAstBuilder
     private function section(DOMElement $node): array
     {
         $blocks = $this->blocks($this->children($node));
-        $skip = ['data-djot-explicit-id'];
+        $skip = ['data-djot-explicit-id', 'role'];
         foreach ($node->childNodes as $child) {
             if (
                 $child instanceof DOMElement
@@ -1173,7 +1173,7 @@ final class HtmlAstBuilder
         if ($language !== null) {
             $block['lang'] = $language;
         }
-        $skip = ['role'];
+        $skip = [];
         $classes = preg_split('/\s+/', trim($node->getAttribute('class'))) ?: [];
         if (strtolower($node->getAttribute('role')) === 'img' && $classes !== []) {
             if ($node->getAttribute('aria-label') === $classes[0]) {
@@ -2702,6 +2702,36 @@ final class HtmlAstBuilder
         return true;
     }
 
+    public static function isDerivedRole(DOMElement $node, string $value): bool
+    {
+        $tag = strtolower($node->tagName);
+        $role = strtolower(trim($value));
+        $classes = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (
+            $tag === 'pre'
+            && $role === 'img'
+            && $classes !== []
+            && (trim($node->getAttribute('aria-label')) !== '' || trim($node->getAttribute('aria-labelledby')) !== '')
+        ) {
+            return true;
+        }
+        if ($tag !== 'div') {
+            return false;
+        }
+        if (array_intersect($classes, ['tabs', 'code-group']) !== []) {
+            return in_array($role, ['group', 'tablist'], true);
+        }
+        if (array_intersect($classes, ['tabs-panel', 'code-group-panel']) !== []) {
+            return in_array($role, ['group', 'tabpanel'], true);
+        }
+        $kind = trim($node->getAttribute('data-djot-admonition-type'));
+        if ($kind === '' && ($classes[0] ?? null) === 'admonition') {
+            $kind = $classes[1] ?? '';
+        }
+
+        return $kind !== '' && $role === (in_array($kind, ['warning', 'danger'], true) ? 'alert' : 'note');
+    }
+
     private function derivedAriaLabel(DOMElement $node): ?string
     {
         $classes = preg_split('/\s+/', trim($node->getAttribute('class'))) ?: [];
@@ -4120,7 +4150,7 @@ final class HtmlAstBuilder
             return null;
         }
         $nodeValue = ['type' => 'math', 'display' => $display, 'content' => $content];
-        $attrs = $this->attrs($node, ['class', 'role']);
+        $attrs = $this->attrs($node, strtolower(trim($node->getAttribute('role'))) === 'math' ? ['class', 'role'] : ['class']);
         if ($classes !== []) {
             $attrs['classes'] = array_values($classes);
             $available = array_fill_keys([...($attrs['order'] ?? []), '.class'], true);
@@ -4455,7 +4485,7 @@ final class HtmlAstBuilder
             if (
                 isset($skip[$name])
                 || $name === 'style'
-                || $name === 'role'
+                || ($name === 'role' && self::isDerivedRole($node, $attribute->value))
                 || str_starts_with($name, 'on')
                 || str_starts_with($name, 'data-djot-')
                 || in_array($name, ['srcdoc', 'formaction'], true)
