@@ -59,4 +59,40 @@ class ReferenceLinterTest extends TestCase
         $this->assertSame(3, $warnings[0]->column);
         $this->assertSame('[^a]:', substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start));
     }
+
+    public function testHeadingCollisionsFollowAssignedIdsAndDocumentOrder(): void
+    {
+        foreach (
+            [
+                ["# A\n\n{#A}\n# X\n", 1],
+                ["x[^n]\n\n[^n]: text\n\n  # A\n\n# A\n", 5],
+                ["{#same}\n# First\n\n{#same}\n# Second\n", 5],
+            ] as [$source, $line]
+        ) {
+            $warnings = array_values(array_filter((new ReferenceLinter())->lint($source), static fn ($w): bool => $w->rule === 'duplicate-heading-id'));
+            $this->assertCount(1, $warnings);
+            $this->assertSame($line, $warnings[0]->line);
+        }
+    }
+
+    public function testNestedListDefinitionsAreChecked(): void
+    {
+        $source = "x[^a]\n\n- [^a]: one\n\n- - [^a]: two\n";
+        $warnings = (new ReferenceLinter())->lint($source);
+        $this->assertCount(1, $warnings);
+        $this->assertSame('duplicate-footnote-definition', $warnings[0]->rule);
+        $this->assertSame(5, $warnings[0]->line);
+        $this->assertSame(5, $warnings[0]->column);
+    }
+
+    public function testUnusedDefinitionsSelectTheMarkerAndWhitespaceWarningsNameBothLabels(): void
+    {
+        $source = "[^a]: body\n";
+        $warning = (new ReferenceLinter())->lint($source)[0];
+        $this->assertSame('[^a]:', substr($source, $warning->start, $warning->end - $warning->start));
+        $warnings = (new ReferenceLinter())->lint("see[^a b]\n\n[^a b]: first\n\n[^a  b]: second\n");
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('[^a b]', $warnings[0]->message);
+        $this->assertStringContainsString('[^a  b]', $warnings[0]->message);
+    }
 }

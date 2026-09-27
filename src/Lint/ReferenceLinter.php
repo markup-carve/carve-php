@@ -29,7 +29,8 @@ class ReferenceLinter
         $converter = new CarveConverter();
         $converter->getParser()->enablePositionTracking();
         $document = $converter->parse($source);
-        (new CrossReferenceResolver())->resolveCrossReferenceTargets($document, new HeadingIdTracker());
+        $tracker = new HeadingIdTracker();
+        (new CrossReferenceResolver())->resolveCrossReferenceTargets($document, $tracker);
         $map = SourceOffsets::map($source);
         $length = strlen($source);
         $warnings = [];
@@ -45,7 +46,6 @@ class ReferenceLinter
         $definitions = [];
         $referenced = [];
         $usedIds = [];
-        $tracker = new HeadingIdTracker();
         $ignoredLines = [];
         $inlineSpans = [];
         foreach ($nodes as $node) {
@@ -66,17 +66,15 @@ class ReferenceLinter
             }
             $explicit = $node->getAttribute('id');
             $base = $explicit ?? $tracker->normalizeId($tracker->getPlainText($node));
-            if (isset($usedIds[$base])) {
-                $warnings[] = $this->warning($node, 'duplicate-heading-id', 'Heading id "' . $base . '" collides with an earlier heading.', $map, $length);
-                if ($explicit === null) {
-                    $suffix = 2;
-                    while (isset($usedIds[$base . '-' . $suffix])) {
-                        $suffix++;
-                    }
-                    $usedIds[$base . '-' . $suffix] = true;
-                }
+            $collision = $explicit !== null
+                ? isset($usedIds[$explicit])
+                : $tracker->getIdForHeading($node) !== $base;
+            if ($collision) {
+                $warnings[] = $this->warning($node, 'duplicate-heading-id', 'Heading id "' . $base . '" collides with another heading or an explicit id.', $map, $length);
             }
-            $usedIds[$base] = true;
+            if ($explicit !== null) {
+                $usedIds[$explicit] = true;
+            }
         }
         foreach ($nodes as $node) {
             if ($node instanceof HeadingRef && $node->getHref() === null) {
@@ -96,9 +94,10 @@ class ReferenceLinter
         $spanIndex = 0;
         $seen = [];
         $seenKeys = [];
+        $sites = [];
         $lines = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];
         foreach ($lines as $index => [$line, $offset]) {
-            if (isset($ignoredLines[$index + 1]) || !preg_match('/^(?:[ \t]*> ?)*[ \t]*(?:[-+*] |[0-9]+[.)] |: )?\[\^([^\]\r\n]+)\]:/', $line, $match)) {
+            if (isset($ignoredLines[$index + 1]) || !preg_match('/^(?:[ \t]*> ?)*[ \t]*(?:[-+*] |[0-9]+[.)] |: )*\[\^([^\]\r\n]+)\]:/', $line, $match)) {
                 continue;
             }
             $label = $match[1];
@@ -119,14 +118,24 @@ class ReferenceLinter
             }
             $rule = isset($seen[$label]) ? 'duplicate-footnote-definition' : (isset($seenKeys[$key]) ? 'footnote-labels-differ-only-in-whitespace' : null);
             if ($rule !== null) {
-                $warnings[] = new LintWarning($index + 1, mb_strlen(substr($line, 0, $marker), 'UTF-8') + 1, $rule, 'Footnote definition [^' . $label . '] repeats an earlier definition; the first definition wins.', $start, $offset + strlen($match[0]));
+                $message = $rule === 'footnote-labels-differ-only-in-whitespace'
+                    ? 'Footnote labels [^' . $label . '] and [^' . $seenKeys[$key] . '] differ only in whitespace; the first definition wins.'
+                    : 'Footnote definition [^' . $label . '] repeats an earlier definition; the first definition wins.';
+                $warnings[] = new LintWarning($index + 1, mb_strlen(substr($line, 0, $marker), 'UTF-8') + 1, $rule, $message, $start, $offset + strlen($match[0]));
             }
             $seen[$label] = true;
-            $seenKeys[$key] = true;
+            $seenKeys[$key] ??= $label;
+            $sites[$key] ??= [$index + 1, mb_strlen(substr($line, 0, $marker), 'UTF-8') + 1, $start, $offset + strlen($match[0])];
         }
         foreach ($definitions as $key => $node) {
             if (!isset($referenced[$key])) {
-                $warnings[] = $this->warning($node, 'unused-footnote-definition', 'Footnote definition [^' . $node->getLabel() . '] is never referenced and is omitted from rendered output.', $map, $length);
+                $message = 'Footnote definition [^' . $node->getLabel() . '] is never referenced and is omitted from rendered output.';
+                if (isset($sites[$key])) {
+                    [$line, $column, $start, $end] = $sites[$key];
+                    $warnings[] = new LintWarning($line, $column, 'unused-footnote-definition', $message, $start, $end);
+                } else {
+                    $warnings[] = $this->warning($node, 'unused-footnote-definition', $message, $map, $length);
+                }
             }
         }
         usort($warnings, static fn (LintWarning $a, LintWarning $b): int => $a->start <=> $b->start);
