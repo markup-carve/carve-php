@@ -23,12 +23,13 @@ class ASectionWrapperGivesItsIdToItsHeadingTest extends TestCase
         return [
             'authored id' => ['<section id="S1"><h2>Intro</h2><p>x</p></section>', "{#S1}\n## Intro\n\nx", []],
             'derived id' => ['<section id="Intro-2"><h2>Intro 2</h2></section>', '## Intro 2', []],
-            'derived repeat' => [
+            // A repeated slug is not unambiguous, so the ids stay explicit.
+            'repeated slug' => [
                 '<section id="A"><h2>A</h2></section><section id="A-2"><h2>A</h2></section>',
-                "## A\n\n## A",
+                "{#A}\n## A\n\n{#A-2}\n## A",
                 [],
             ],
-            'repeat id on a first heading' => ['<section id="A-2"><h2>A</h2></section>', "{#A-2}\n## A", []],
+            'explicit id elsewhere' => ['<h2 id="X">A</h2><section id="A-2"><h2>A</h2></section>', "{#X}\n## A\n\n{#A-2}\n## A", []],
             'class is not moved' => [
                 '<section id="S1" class="ltx_section"><h2 class="t">Intro</h2></section>',
                 "{#S1 .t}\n## Intro",

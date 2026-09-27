@@ -970,21 +970,54 @@ final class HtmlAstBuilder
         return null;
     }
 
+    /**
+     * Only the unambiguous case counts as derived: the heading's slug, used by
+     * no other heading and by no other id. Anything else stays explicit, which
+     * renders the same id and never loses an anchor.
+     */
     private function isDerivedHeadingId(string $id, DOMElement $heading): bool
     {
-        $base = (new HeadingIdTracker())->normalizeId(trim($heading->textContent));
-        // The renderer numbers a repeated slug by how many headings before it share it.
-        $earlier = 0;
-        $xpath = new DOMXPath($heading->ownerDocument ?? new DOMDocument());
-        $preceding = $xpath->query('preceding::*[self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6]', $heading);
-        foreach ($preceding === false ? [] : $preceding as $other) {
-            if ($other instanceof DOMElement && (new HeadingIdTracker())->normalizeId(trim($other->textContent)) === $base) {
-                $earlier++;
+        $tracker = new HeadingIdTracker();
+        if ($id !== $tracker->normalizeId(trim($heading->textContent))) {
+            return false;
+        }
+        $document = $heading->ownerDocument;
+        if ($document === null) {
+            return false;
+        }
+        if ($this->headingSlugDocument !== $document) {
+            $this->headingSlugDocument = $document;
+            $this->headingSlugCounts = [];
+            $this->documentIdCounts = [];
+            foreach ((new DOMXPath($document))->query('//*') ?: [] as $element) {
+                if (!$element instanceof DOMElement) {
+                    continue;
+                }
+                if ($element->hasAttribute('id')) {
+                    $key = $element->getAttribute('id');
+                    $this->documentIdCounts[$key] = ($this->documentIdCounts[$key] ?? 0) + 1;
+                }
+                if (preg_match('/^h[1-6]$/iD', $element->tagName) === 1) {
+                    $slug = $tracker->normalizeId(trim($element->textContent));
+                    $this->headingSlugCounts[$slug] = ($this->headingSlugCounts[$slug] ?? 0) + 1;
+                }
             }
         }
 
-        return $id === ($earlier === 0 ? $base : $base . '-' . ($earlier + 1));
+        return ($this->headingSlugCounts[$id] ?? 0) === 1 && ($this->documentIdCounts[$id] ?? 0) === 1;
     }
+
+    private ?DOMDocument $headingSlugDocument = null;
+
+    /**
+     * @var array<string, int>
+     */
+    private array $headingSlugCounts = [];
+
+    /**
+     * @var array<string, int>
+     */
+    private array $documentIdCounts = [];
 
     private function headingIdWasGenerated(DOMElement $node): bool
     {
