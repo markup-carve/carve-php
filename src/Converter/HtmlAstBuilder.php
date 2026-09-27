@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use SplObjectStorage;
@@ -21,9 +22,8 @@ use Throwable;
 /**
  * Builds the public Carve AST directly from an HTML DOM.
  *
- * This class deliberately knows nothing about Carve source syntax. Source is
- * produced after this pass by CarveRenderer, so escaping and delimiter choices
- * stay in the canonical writer.
+ * CarveRenderer produces source after this pass and checks whether a summary
+ * fits a quoted title. Escaping and delimiter choices stay in the writer.
  *
  * @internal
  *
@@ -680,6 +680,9 @@ final class HtmlAstBuilder
             return false;
         }
         $tag = strtolower($node->tagName);
+        if ($tag === 'summary' && $this->session->summaryTitles->offsetExists($node) && $this->session->summaryTitles[$node] === null) {
+            return true;
+        }
         if (isset(self::BLOCK_TAGS[$tag])) {
             return true;
         }
@@ -1178,8 +1181,9 @@ final class HtmlAstBuilder
         $title = [];
         foreach ($domChildren as $index => $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'summary') {
-                if ($this->summaryCanBeTitle($child)) {
-                    $title = $this->captionInlines($child);
+                $candidate = $this->captionInlines($child);
+                if ($this->summaryCanBeTitle($child, $candidate)) {
+                    $title = $candidate;
                     foreach ($child->childNodes as $block) {
                         if ($block instanceof DOMElement && $this->isBlock($block)) {
                             $this->session->flattenedSummaryBlocks[$block] = null;
@@ -1204,8 +1208,17 @@ final class HtmlAstBuilder
         return $details;
     }
 
-    private function summaryCanBeTitle(DOMElement $summary): bool
+    /**
+     * @param \DOMElement $summary
+     * @param list<array<string, mixed>> $inlines
+     */
+    private function summaryCanBeTitle(DOMElement $summary, array $inlines): bool
     {
+        $this->session->summaryTitles[$summary] = '';
+        if ($inlines === []) {
+            return false;
+        }
+        $this->session->summaryTitles[$summary] = null;
         if (str_contains($summary->textContent, '"') || str_contains($summary->textContent, "\n")) {
             return false;
         }
@@ -1215,7 +1228,18 @@ final class HtmlAstBuilder
             return false;
         }
 
-        return $this->blockInlines($summary) !== [];
+        $document = (new AstCodec())->decodeImporterTree([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [['type' => 'paragraph', 'children' => $inlines]],
+        ]);
+        $source = trim((new CarveRenderer())->render($document));
+        if ($source === '' || str_contains($source, '"') || str_contains($source, "\n")) {
+            return false;
+        }
+        $this->session->summaryTitles[$summary] = $source;
+
+        return true;
     }
 
     /**

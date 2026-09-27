@@ -397,6 +397,7 @@ class HtmlToCarve
             $this->inspectedCarve = null;
             $this->emittedHasRawHtml = null;
             $this->builtImportDocument = null;
+            $this->summaryImportTitles = null;
             $this->keptRawImportElements = null;
             $this->droppedEmptyImportElements = null;
             $this->urlListImportCarriers = null;
@@ -853,7 +854,11 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'summary' && trim($node->textContent) !== '' && $this->detailsSummaryTitle($node) === null) {
+        if (
+            $tag === 'summary'
+            && ($this->summaryImportTitles?->offsetExists($node) || trim($node->textContent) !== '')
+            && $this->detailsSummaryTitle($node) === null
+        ) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
@@ -3339,6 +3344,7 @@ class HtmlToCarve
         $this->displacedImportFigureAttributes = [];
         $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
+        $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
         $this->urlListImportCarriers = null;
@@ -3365,6 +3371,7 @@ class HtmlToCarve
         $tree = $result->tree;
         if ($this->captureImportIdentity) {
             $this->builtImportDocument = $result->session->builtDocument;
+            $this->summaryImportTitles = $result->session->summaryTitles;
             $this->keptRawImportElements = $result->session->keptRawElements;
             $this->droppedEmptyImportElements = $result->session->droppedEmptyElements;
             $this->urlListImportCarriers = $result->session->urlListCarriers;
@@ -3879,6 +3886,9 @@ class HtmlToCarve
      */
     protected function detailsSummaryTitle(DOMElement $summary): ?string
     {
+        if ($this->summaryImportTitles?->offsetExists($summary)) {
+            return $this->summaryImportTitles[$summary];
+        }
         $title = $summary->textContent;
         if (trim($title) === '' || str_contains($title, '"') || str_contains($title, "\n")) {
             return null;
@@ -4509,6 +4519,11 @@ class HtmlToCarve
     protected ?string $inspectedCarve = null;
 
     private ?DOMDocument $builtImportDocument = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, string|null>|null
+     */
+    private ?SplObjectStorage $summaryImportTitles = null;
 
     private bool $captureImportIdentity = false;
 
