@@ -2515,11 +2515,7 @@ class InlineParser
 
                     // Apply attributes from reference definition first
                     foreach ($refDef->attributes as $key => $value) {
-                        if ($key === 'class') {
-                            $link->addClass((string)$value);
-                        } else {
-                            $link->setAttribute($key, (string)$value);
-                        }
+                        $link->setAttribute($key, $value);
                     }
 
                     $endPos = $refEnd + 1;
@@ -2661,7 +2657,7 @@ class InlineParser
         }
 
         // Transfer attributes from link to image
-        foreach ($link->getAttributes() as $key => $value) {
+        foreach ($link->getAttributeEntries() as $key => $value) {
             $image->setAttribute($key, $value);
         }
 

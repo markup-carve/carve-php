@@ -11,11 +11,14 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Breaking
 
+- Class slots retain authored entries, including empty values and internal whitespace (#2585). `getClassList()` and AST `classes` expose that list; ProseMirror `attrs.class` carries it too. String setters store one entry, and `appendClass('')` claims an empty entry. Use `setClassList()` for separate entries; `getAttribute('class')` and `getAttributes()` still return joined strings.
+
 - HTML import uses PHP's native HTML5 parser on PHP 8.4 and later. PHP 8.2–8.3 retain the legacy libxml parser. Malformed HTML and diagnostic paths can differ between these versions; no new Composer dependencies are required (#2546).
 
 ### Fixed
 
 - A code or raw fence opened past a list item's content column keeps its interior blank lines from loosening the item (#2598).
+- Class hardening removes refused entries independently, so `{class="javascript:alert(1)" .b}` retains `b`. The writer chooses shorthand or a quoted value for each entry without joining or splitting entries (#2585).
 
 - Native HTML import preserves tables after foster-parented `plaintext` elements, restores SVG and MathML namespaces, and checks template depth before creating hidden template content fragments.
 

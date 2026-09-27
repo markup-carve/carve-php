@@ -1283,7 +1283,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if (!in_array('class', $skipAttrs, true)) {
             foreach ($node->getClassList() as $class) {
                 if (!in_array($class, $skipClasses, true)) {
-                    $parts[] = '.' . $class;
+                    $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
+                        ? '.' . $class
+                        : 'class=' . $this->quoteDjotAttributeValue($class);
                 }
             }
         }
@@ -1737,10 +1739,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderDiv(Div $node): string
     {
-        $class = $node->getAttribute('class');
-        $classes = is_string($class) && $class !== ''
-            ? preg_split('/\s+/', trim($class)) ?: []
-            : [];
+        $classes = array_values(array_filter(
+            $node->getClassList(),
+            static fn (string $class): bool => self::sanitizeAttributeValue('class', $class) !== '',
+        ));
         // The canonical admonition kinds live on Div::ADMONITION_TYPES (grammar
         // PART 9 §12, Tier 1) so this render decision and
         // Profile::canonicalTypeOf() read the same list instead of two copies
@@ -1895,7 +1897,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         $attrArray = $this->getRenderableAttributes($node);
         if ($leadingClass !== null) {
-            $attrArray = self::withLeadingClass($attrArray, $leadingClass);
+            $attrArray = self::withLeadingClass($attrArray, $leadingClass, $node->getClassList());
         }
         $attrs = $this->renderAttributeArray($attrArray);
         $body = '';
@@ -1927,14 +1929,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      *
      * @param array<string, string> $attrs
      * @param string $leadingClass
+     * @param list<string> $entries
      *
      * @return array<string, string>
      */
-    protected static function withLeadingClass(array $attrs, string $leadingClass): array
+    protected static function withLeadingClass(array $attrs, string $leadingClass, array $entries): array
     {
         $classes = [$leadingClass];
-        foreach (preg_split('/\s+/', trim($attrs['class'] ?? '')) ?: [] as $class) {
-            if ($class !== '' && !in_array($class, $classes, true)) {
+        foreach ($entries as $class) {
+            if (isset($attrs['class']) && self::sanitizeAttributeValue('class', $class) !== '' && !in_array($class, $classes, true)) {
                 $classes[] = $class;
             }
         }
@@ -1957,7 +1960,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderFigureGroup(FigureGroup $node): string
     {
         $attrs = $this->renderAttributeArray(
-            self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group'),
+            self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group', $node->getClassList()),
         );
 
         // FLAT: panels and preserved stray content nest DIRECTLY inside the
@@ -2107,7 +2110,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $attrs['id'] = $wire['id'];
             }
             if (isset($wire['classes'])) {
-                $attrs['class'] = implode(' ', $wire['classes']);
+                $attrs['class'] = $wire['classes'];
             }
             $attrs += $wire['keyValues'] ?? [];
             $host->setAttributesWithOrder($attrs, $wire['order'] ?? []);
@@ -2940,7 +2943,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function getRenderableAttributes(Node $node, array $exclude = []): array
     {
-        $attrs = $node->getAttributes();
+        $attrs = $node->getAttributeEntries();
         if (!$attrs) {
             return [];
         }
@@ -2962,13 +2965,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // Safe mode may strip ADDITIONAL attribute names (e.g. `style` in strict).
         if ($this->safeMode !== null) {
             $attrs = $this->safeMode->filterAttributes($attrs);
-        }
-
-        // Dedup repeated class values keeping first-occurrence order
-        // (`{.a .a}` -> `class="a"`, §15), matching carve-js / carve-rs.
-        if (isset($attrs['class']) && $attrs['class'] !== '') {
-            $classes = preg_split('/\s+/', trim((string)$attrs['class'])) ?: [];
-            $attrs['class'] = implode(' ', array_values(array_unique($classes)));
         }
 
         return $attrs;
@@ -3044,7 +3040,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * `expression(...)`. Public so extensions that build their own element tags
      * (e.g. the list-table extension) can apply the same baseline.
      *
-     * @param array<string, string> $attrs
+     * @param array<string, string|list<string>> $attrs
      *
      * @return array<string, string>
      */
@@ -3059,7 +3055,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if (preg_match('/^[A-Za-z_:][A-Za-z0-9_.:-]*$/', (string)$key) !== 1) {
                 continue;
             }
-            $out[$key] = self::sanitizeAttributeValue($name, (string)$value);
+            if ($name === 'class' && is_array($value)) {
+                $out[$key] = implode(' ', array_unique(array_filter(
+                    $value,
+                    static fn (string $class): bool => self::sanitizeAttributeValue('class', $class) !== '',
+                )));
+            } elseif (is_string($value)) {
+                $out[$key] = self::sanitizeAttributeValue($name, $value);
+            }
         }
 
         return $out;

@@ -60,8 +60,8 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
             // A second key-value appends rather than overwriting.
             '{class=a class=b}' => ['a', 'b'],
             '{class="w-1/2" .grid}' => ['w-1/2', 'grid'],
-            // One write per class, so a multi-class value carries no run of spaces.
-            '{class="a  b" .c}' => ['a', 'b', 'c'],
+            // Each authored value retains its internal whitespace.
+            '{class="a  b" .c}' => ['a  b', 'c'],
         ];
         foreach ($cases as $attrLine => $classes) {
             $node = (new CarveConverter())->parse($attrLine . "\nHello\n")->getChildren()[0];
@@ -80,7 +80,7 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
         self::assertSame(['class' => ''], $bare->getAttributes());
         // And an empty value never erases a class the same block already gave.
         $kept = (new CarveConverter())->parse("{.b class=\"\"}\nHello\n")->getChildren()[0];
-        self::assertSame(['b'], $kept->getClassList());
+        self::assertSame(['b', ''], $kept->getClassList());
     }
 
     public function testBareDivPreservesTheAuthoredClassSlot(): void
@@ -147,10 +147,10 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
         // Carve. Quoted, because `unquoted_value` cannot hold `w-1/2` either.
         $cases = [
             '{class=-col}' => '{class="-col"}',
-            '{class="w-1/2" .grid}' => '{class="w-1/2 grid"}',
+            '{class="w-1/2" .grid}' => '{class="w-1/2" .grid}',
             '{class}' => '{class=""}',
             '{class=a .b}' => '{.a .b}',
-            '{#i class=-col .b k=v}' => '{#i class="-col b" k=v}',
+            '{#i class=-col .b k=v}' => '{#i class="-col" .b k=v}',
         ];
         foreach ($cases as $attrLine => $expected) {
             $written = (new CarveRenderer())->render((new CarveConverter())->parse($attrLine . "\nHello\n"));

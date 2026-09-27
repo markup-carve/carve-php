@@ -25,7 +25,7 @@ class NewSchemaShapesTest extends TestCase
     {
         $directive = new Div();
         $directive->setTyped(true);
-        $directive->setAttribute('class', 'toc compact');
+        $directive->setClassList(['toc', 'compact']);
         $directive->setAttribute('id', 'contents');
         $document = new Document();
         $document->appendChild($directive);
@@ -33,7 +33,7 @@ class NewSchemaShapesTest extends TestCase
         $pm = (new ProseMirrorRenderer())->render($document);
         $this->assertSame('carveDirective', $pm['content'][0]['type']);
         $this->assertSame('toc', $pm['content'][0]['attrs']['kind']);
-        $this->assertSame('compact', $pm['content'][0]['attrs']['class']);
+        $this->assertSame(['compact'], $pm['content'][0]['attrs']['class']);
 
         $back = (new ProseMirrorToCarve())->convert($pm)->getChildren()[0];
         $this->assertInstanceOf(Div::class, $back);
@@ -143,7 +143,7 @@ class NewSchemaShapesTest extends TestCase
         $this->assertArrayHasKey('small_caps', $renderer->degradedTypes());
         $marks = $pm['content'][0]['content'][0]['marks'];
         $this->assertSame(['carveSpan', 'carveSmallCaps'], array_column($marks, 'type'));
-        $this->assertSame('custom', $marks[0]['attrs']['class']);
+        $this->assertSame(['custom'], $marks[0]['attrs']['class']);
 
         $back = (new ProseMirrorToCarve())->convert($pm)->getChildren()[0]->getChildren()[0];
         $this->assertInstanceOf(Span::class, $back);

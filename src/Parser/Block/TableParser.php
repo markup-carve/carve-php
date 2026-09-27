@@ -118,7 +118,7 @@ class TableParser
      *
      * @param string $line The line to process
      *
-     * @return array<string, string> Parsed attributes or empty array
+     * @return array<string, string|list<string>> Parsed attributes or empty array
      */
     public function extractRowAttributes(string $line): array
     {

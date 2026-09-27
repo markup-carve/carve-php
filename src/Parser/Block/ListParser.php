@@ -95,7 +95,7 @@ class ListParser
      * item's line is re-read once per enclosing list level, and the writer's
      * escape search re-parses the same items once per probe.
      *
-     * @var array<string, array<string, string>|null>
+     * @var array<string, array<string, string|list<string>>|null>
      */
     protected static array $markerAttributeCache = [];
 
@@ -458,7 +458,7 @@ class ListParser
      * The attributes of a non-empty abutting payload, or null when it does not
      * bind to the marker.
      *
-     * @return array<string, string>|null
+     * @return array<string, string|list<string>>|null
      */
     protected function markerAttributes(string $body): ?array
     {
@@ -473,7 +473,7 @@ class ListParser
     }
 
     /**
-     * @return array<string, string>|null
+     * @return array<string, string|list<string>>|null
      */
     protected function validateMarkerAttributes(string $body): ?array
     {
@@ -487,7 +487,7 @@ class ListParser
      *
      * @param string $line The line to parse
      *
-     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, bareMarker?: bool, attributes?: array<string, string>, attributesWidth?: int}|null
+     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, bareMarker?: bool, attributes?: array<string, string|list<string>>, attributesWidth?: int}|null
      */
     public function parseListItemMarker(string $line): ?array
     {

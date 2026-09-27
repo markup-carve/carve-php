@@ -11,7 +11,7 @@ class ReferenceDefinition
 {
     /**
      * @param string $url
-     * @param array<string, string> $attributes
+     * @param array<string, string|list<string>> $attributes
      * @param int $line Line number where reference was defined (0-indexed)
      * @param string|null $title
      * @param bool $fromHeading Whether the definition was DERIVED from a

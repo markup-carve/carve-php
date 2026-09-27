@@ -1203,13 +1203,13 @@ class ProseMirrorToCarve
     /**
      * @param \MarkupCarve\Carve\Node\Node $node
      *
-     * @return array<string, string> label => href
+     * @return array<string, \MarkupCarve\Carve\Node\Block\LinkReferenceDefinition> label => definition
      */
     protected function collectLinkReferenceDefinitions(Node $node): array
     {
         $definitions = [];
         if ($node instanceof LinkReferenceDefinition) {
-            $definitions[LabelKey::normalize($node->getLabel())] = $node->getHref();
+            $definitions[LabelKey::normalize($node->getLabel())] = $node;
         }
 
         // Link definitions are last-wins after normalization, as on reparse.
@@ -1224,23 +1224,28 @@ class ProseMirrorToCarve
 
     /**
      * @param \MarkupCarve\Carve\Node\Node $node
-     * @param array<string, string> $definitions label => href
+     * @param array<string, \MarkupCarve\Carve\Node\Block\LinkReferenceDefinition> $definitions label => definition
      */
     protected function confirmLabelReferences(Node $node, array $definitions): void
     {
         if ($node instanceof Link && !$node->isFromHeadingReference() && $node->getReferenceLabel() !== null) {
-            $href = $definitions[LabelKey::normalize($node->getReferenceLabel())] ?? null;
+            $definition = $definitions[LabelKey::normalize($node->getReferenceLabel())] ?? null;
+            $href = $definition?->getHref();
             if ($href === null || $href !== $node->getDestination()) {
                 $this->setState($node, 'referenceLabel', null);
                 $this->setState($node, 'rawReferenceLabel', null);
             } else {
+                if (!$node->hasAttribute('class') && $definition->hasAttribute('class')) {
+                    $node->setClassList($definition->getClassList());
+                }
                 $this->confirmRawSpelling($node, (new HeadingIdTracker())->getPlainText($node));
             }
         }
 
         // An image resolves by the same definitions; its destination is `src`.
         if ($node instanceof Image && $node->getReferenceLabel() !== null) {
-            $href = $definitions[LabelKey::normalize($node->getReferenceLabel())] ?? null;
+            $definition = $definitions[LabelKey::normalize($node->getReferenceLabel())] ?? null;
+            $href = $definition?->getHref();
             if ($href === null || $href !== $node->getSource()) {
                 $this->setState($node, 'referenceLabel', null);
                 $this->setState($node, 'rawReferenceLabel', null);
@@ -1732,6 +1737,11 @@ class ProseMirrorToCarve
             if (($consumed[$key] ?? false) === true) {
                 continue;
             }
+            if ($key === 'class' && is_array($value) && !$node instanceof Mention) {
+                $node->setClassList(array_values(array_filter($value, 'is_string')));
+
+                continue;
+            }
             if (is_scalar($value)) {
                 if ($node instanceof Mention) {
                     $this->dropAttributesAMentionCannotSpell($node, [$key => $value]);
@@ -1779,7 +1789,7 @@ class ProseMirrorToCarve
             if (!is_string($kind) || !in_array($kind, Div::GENERATED_CONTENT_KINDS, true)) {
                 throw new RuntimeException('carveDirective needs a valid kind');
             }
-            $node->setAttribute('class', trim($kind . ' ' . implode(' ', $node->getClassList())));
+            $node->setClassList([$kind, ...$node->getClassList()]);
             $node->setTyped(true);
         }
 

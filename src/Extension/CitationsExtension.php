@@ -824,10 +824,10 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         $head = $entry[0] ?? null;
         if ($head instanceof Text && preg_match('/^\{([^}]*)\}\s*/', $head->getContent(), $matches)) {
             $attrs = AttributeParser::parse($matches[1]);
-            if (isset($attrs['author'])) {
+            if (is_string($attrs['author'] ?? null)) {
                 $value['author'] = $attrs['author'];
             }
-            if (isset($attrs['year'])) {
+            if (is_string($attrs['year'] ?? null)) {
                 $value['year'] = $attrs['year'];
             }
 

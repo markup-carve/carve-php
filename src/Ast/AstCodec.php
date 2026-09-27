@@ -208,6 +208,7 @@ class AstCodec
         'children',
         'attributes',
         'attributeOrder',
+        'classEntries',
         // Handled explicitly rather than by the reflection walk: PART 12 §4
         // gives `pos` a defined shape, so it converts to and from the value
         // object instead of being assigned raw.
@@ -1430,10 +1431,10 @@ class AstCodec
     /**
      * Drop the opener word from a typed div's `class` attribute.
      *
-     * @param array<string, string> $attributes
+     * @param array<string, string|list<string>> $attributes
      * @param string|null $kind
      *
-     * @return array<string, string>
+     * @return array<string, string|list<string>>
      */
     private static function withoutOpenerClass(array $attributes, ?string $kind): array
     {
@@ -1441,7 +1442,7 @@ class AstCodec
             return $attributes;
         }
 
-        $classes = preg_split('/\s+/', trim($attributes['class'])) ?: [];
+        $classes = (array)$attributes['class'];
         $first = array_search($kind, $classes, true);
         if ($first !== false) {
             unset($classes[$first]);
@@ -1453,7 +1454,7 @@ class AstCodec
             return $attributes;
         }
 
-        $attributes['class'] = implode(' ', $classes);
+        $attributes['class'] = array_values($classes);
 
         return $attributes;
     }
@@ -1469,7 +1470,7 @@ class AstCodec
      */
     private static function openerKind(Div $node): ?string
     {
-        $classes = preg_split('/\s+/', trim((string)($node->getAttributes()['class'] ?? ''))) ?: [];
+        $classes = $node->getClassList();
 
         return ($classes[0] ?? '') === '' ? null : $classes[0];
     }
@@ -1487,7 +1488,7 @@ class AstCodec
      * `order` is not reconstructed - it is already recorded, because the
      * formatter needs the author's slot order to reproduce a source line.
      *
-     * @param array<string, string> $attributes
+     * @param array<string, string|list<string>> $attributes
      * @param list<string> $order
      *
      * @return array<string, mixed>
@@ -1499,14 +1500,7 @@ class AstCodec
             $wire['id'] = $attributes['id'];
         }
         if (isset($attributes['class'])) {
-            // A class attribute holds a whitespace-separated list; the reference
-            // publishes it split, which is also how a consumer wants it. An EMPTY
-            // class is one empty class rather than none: `{class}` records a
-            // `.class` slot (PART 4), and dropping the list left `order` naming a
-            // slot the decoder could not rebuild, which it reports as a lost field.
-            $wire['classes'] = $attributes['class'] === ''
-                ? ['']
-                : (preg_split('/\s+/', trim($attributes['class'])) ?: []);
+            $wire['classes'] = (array)$attributes['class'];
         }
 
         $keyValues = [];
@@ -1535,7 +1529,7 @@ class AstCodec
      *
      * @param array<string, mixed> $wire
      *
-     * @return array{0: array<string, string>, 1: list<string>}
+     * @return array{0: array<string, string|list<string>>, 1: list<string>}
      */
     private static function attrsFromWire(array $wire): array
     {
@@ -1548,7 +1542,7 @@ class AstCodec
         if (is_array($wire['classes'] ?? null)) {
             $classes = array_filter($wire['classes'], 'is_string');
             if ($classes !== []) {
-                $attrs['class'] = implode(' ', $classes);
+                $attrs['class'] = array_values($classes);
             }
         }
         if (is_array($wire['keyValues'] ?? null)) {
@@ -1805,7 +1799,7 @@ class AstCodec
             $encoded[$field] = $this->encodeValue($value);
         }
 
-        $attributes = $node->getAttributes();
+        $attributes = $node->getAttributeEntries();
         if ($node instanceof Div && $node->isTyped()) {
             // The opener word is published as `kind` and is NOT an attribute the
             // author wrote in a block, so it must not appear in `attrs.classes`
@@ -2232,11 +2226,11 @@ class AstCodec
                 // because that slot arrives in the wire's `order` and is
                 // restored below.
                 $order = $node->getAttributeOrder();
-                $classes = preg_split('/\s+/', trim((string)($node->getAttribute('class') ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                $classes = $node->getClassList();
                 if (!in_array($kind, $classes, true)) {
                     array_unshift($classes, $kind);
                 }
-                $node->setAttribute('class', implode(' ', $classes));
+                $node->setClassList($classes);
                 $node->setAttributeOrder($order);
             }
             // Falls through to the Div branch below, which recomputes the raw
@@ -2794,7 +2788,7 @@ class AstCodec
         [$attrs, $order] = self::attrsFromWire($wire);
         if ($this->decodeImporterHints) {
             foreach ($attrs as $name => $value) {
-                if (!str_starts_with($name, "\0carve-")) {
+                if (!str_starts_with($name, "\0carve-") || !is_string($value)) {
                     continue;
                 }
                 $node->setRenderHint($name, $value);

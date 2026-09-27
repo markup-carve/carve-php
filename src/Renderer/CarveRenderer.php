@@ -1301,7 +1301,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * Attributes carried by each authored definition, keyed by label.
      *
-     * @var array<string, array<string, string>>
+     * @var array<string, array<string, string|list<string>>>
      */
     protected array $definitionAttributes = [];
 
@@ -1349,8 +1349,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->definitionsByLine = [];
         $this->definitionsWrittenInPlace = [];
         foreach ($document->getChildren() as $child) {
-            if ($child instanceof LinkReferenceDefinition && $child->getAttributes() !== []) {
-                $this->definitionAttributes[$child->getLabel()] = $child->getAttributes();
+            if ($child instanceof LinkReferenceDefinition && $child->getAttributeEntries() !== []) {
+                $this->definitionAttributes[$child->getLabel()] = $child->getAttributeEntries();
             }
             // BOTH collected kinds, because the author can write either on a
             // description line: a link reference definition or a footnote.
@@ -1803,7 +1803,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             ));
             array_unshift($order, 'loose');
 
-            return $this->renderAttrList($container->getAttributes() + ['loose' => ''], $order) . "\n" . $body;
+            return $this->renderAttrList($container->getAttributeEntries() + ['loose' => ''], $order) . "\n" . $body;
         };
 
         return match (true) {
@@ -1945,7 +1945,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $body = $this->renderCodeBlock($node);
         $header = $node->getHeader();
-        $attributes = $node->getAttributes();
+        $attributes = $node->getAttributeEntries();
         if ($header !== null && ($attributes['title'] ?? null) === $header) {
             $clone = clone $node;
             $clone->removeAttribute('title');
@@ -2516,7 +2516,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         return $classes !== []
             && $classes[0] !== 'line-block'
-            && preg_match('/^[A-Za-z0-9_][\w-]*$/', $classes[0]) === 1;
+            && preg_match('/^[A-Za-z0-9_][\w-]*$/D', $classes[0]) === 1;
     }
 
     protected function renderTypedDiv(Div $node): string
@@ -2573,11 +2573,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderFencedDivAttrs(Div $node, array $structuralClasses): string
     {
-        if ($node->getAttributes() === []) {
+        if ($node->getAttributeEntries() === []) {
             return '';
         }
 
-        $attrs = $node->getAttributes();
+        $attrs = $node->getAttributeEntries();
         $structural = array_flip($structuralClasses);
         $parts = [];
         $seen = [];
@@ -2588,34 +2588,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
                 $seen['id'] = true;
                 $id = $attrs['id'];
+                if (!is_string($id)) {
+                    return;
+                }
                 $parts[] = $this->isExplicitIdOrClassIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
 
                 return;
             }
             if ($slot === '.class') {
-                $classes = [];
-                $allExplicit = true;
-                foreach (preg_split('/\s+/', trim($attrs['class'] ?? '')) ?: [] as $class) {
-                    if ($class !== '' && !isset($structural[$class])) {
-                        $classes[] = $class;
-                        $allExplicit = $allExplicit && $this->isExplicitIdOrClassIdentifier($class);
+                foreach ((array)($attrs['class'] ?? []) as $class) {
+                    if (isset($structural[$class])) {
+                        continue;
                     }
-                }
-                if ($classes === []) {
-                    // The AUTHOR's empty class slot. A slot the structural filter
-                    // above emptied was minted here and has no source spelling.
-                    if (array_key_exists('class', $attrs) && trim((string)$attrs['class']) === '') {
-                        $parts[] = 'class=""';
-                    }
-
-                    return;
-                }
-                if ($allExplicit) {
-                    foreach ($classes as $class) {
-                        $parts[] = '.' . $this->escapeAttrNameValue($class);
-                    }
-                } else {
-                    $parts[] = 'class=' . $this->quoteAttrValue(implode(' ', $classes), true);
+                    $parts[] = $this->isExplicitIdOrClassIdentifier($class)
+                        ? '.' . $this->escapeAttrNameValue($class)
+                        : 'class=' . $this->quoteAttrValue($class, true);
                 }
 
                 return;
@@ -2625,6 +2612,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             }
             $seen[$slot] = true;
             $value = $attrs[$slot];
+            if (!is_string($value)) {
+                return;
+            }
             // EXACT key match, not case-insensitive: `LANG` and `lang` are
             // different attribute names, so folding here rewrote
             // `[x]{LANG=fr}` into `[x]{:fr}` and changed the name, which
@@ -3070,7 +3060,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             ? array_values(array_filter($structured['classes'], 'is_string'))
             : [];
         if ($classes !== []) {
-            $attrs['class'] = implode(' ', $classes);
+            $attrs['class'] = $classes;
         }
         $order = is_array($structured['order'] ?? null)
             ? array_values(array_filter($structured['order'], 'is_string'))
@@ -3417,7 +3407,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             for ($i = 0; $i < $count; $i++) {
                 $node = $nodes[$i];
                 if (
-                    $this->inLineBlock > 0 && $node instanceof NonBreakingSpace && $node->getAttributes() === []
+                    $this->inLineBlock > 0 && $node instanceof NonBreakingSpace && $node->getAttributeEntries() === []
                     && ($i === 0 || ($nodes[$i - 1] ?? null) instanceof HardBreak
                         || ($nodes[$i - 1] ?? null) instanceof NonBreakingSpace
                         || ($nodes[$i + 1] ?? null) instanceof NonBreakingSpace)
@@ -3870,7 +3860,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Abbreviation => $this->escapeText($this->renderInlines($node->getChildren())),
             $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlineNoteContent($node) . ']'),
             $node instanceof FootnoteRef => $withAttrs('[^' . $this->writeFlatBracketRun($node->getLabel()) . ']'),
-            $node instanceof NonBreakingSpace => $node->getAttributes() === []
+            $node instanceof NonBreakingSpace => $node->getAttributeEntries() === []
                 ? $this->verbatimSentinels[4]
                 : $withAttrs('[' . $this->verbatimSentinels[4] . ']'),
             $node instanceof SoftBreak => "\n",
@@ -3939,13 +3929,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $changed = true;
             $this->recordRubyFlattened($child);
             $inlines = $child->flattenedInlines();
-            if ($child->getAttributes() === []) {
+            if ($child->getAttributeEntries() === []) {
                 array_push($flattened, ...$inlines);
 
                 continue;
             }
             $span = new Span();
-            $span->setAttributesWithOrder($child->getAttributes(), $child->getAttributeOrder());
+            $span->setAttributesWithOrder($child->getAttributeEntries(), $child->getAttributeOrder());
             $span->setChildren($inlines);
             $flattened[] = $span;
         }
@@ -3989,7 +3979,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $content .= $this->renderInlines([...$pair['base'], new Text('('), ...$pair['annotation'], new Text(')')]);
         }
 
-        return $node->getAttributes() === [] ? $content : '[' . $content . ']' . $this->renderAttrs($node);
+        return $node->getAttributeEntries() === [] ? $content : '[' . $content . ']' . $this->renderAttrs($node);
     }
 
     /**
@@ -4001,7 +3991,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->recordUnspellableStructure($node, 'Carve source cannot spell small caps');
         $content = $this->renderInlines($node->getChildren());
 
-        return $node->getAttributes() === [] ? $content : '[' . $content . ']' . $this->renderAttrs($node);
+        return $node->getAttributeEntries() === [] ? $content : '[' . $content . ']' . $this->renderAttrs($node);
     }
 
     private static function inlineHostsACaption(InlineNode $node): bool
@@ -4193,7 +4183,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function referenceImageAttributeLine(Image $node): string
     {
-        if ($node->getAttributes() === []) {
+        if ($node->getAttributeEntries() === []) {
             return '';
         }
         $raw = UnresolvedReference::sourceOf($node) ?? $node->getRawReferenceLabel();
@@ -4213,8 +4203,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // reference's own classes whenever the definition also carried one. Class
         // tokens from both are subtracted, everything else keeps the union.
         $subtract = $claimed + $atReference;
-        $classes = trim(($claimed['class'] ?? '') . ' ' . ($atReference['class'] ?? ''));
-        if ($classes !== '') {
+        $classes = [...(array)($claimed['class'] ?? []), ...(array)($atReference['class'] ?? [])];
+        if ($classes !== []) {
             $subtract['class'] = $classes;
         }
 
@@ -4226,7 +4216,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * Opening braces inside quoted or unquoted values belong to the value.
      *
-     * @return array<string, string>
+     * @return array<string, string|list<string>>
      */
     protected function trailingAttributesOf(string $text): array
     {
@@ -4301,7 +4291,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         // A trailing attribute block after `@name` stays literal text, so no
         // source reads back as a mention or tag that carries attributes.
-        if ($node->getAttributes() !== []) {
+        if ($node->getAttributeEntries() !== []) {
             throw new SourceUnspellableException(
                 $node->getCssClass() === 'tag' ? 'tag' : 'mention',
                 'it has no Carve source spelling with attributes',
@@ -4455,7 +4445,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function emptyCodeSpanIsSpellable(Code $node): bool
     {
-        if ($node->getAttributes() !== []) {
+        if ($node->getAttributeEntries() !== []) {
             return false;
         }
 
@@ -4611,7 +4601,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * same thing twice and does not re-parse to the same tree.
      *
      * @param \MarkupCarve\Carve\Node\Node|null $node
-     * @param array<string, string> $definitionAttributes
+     * @param array<string, string|list<string>> $definitionAttributes
      */
     protected function renderAttrsExcept(?Node $node, array $definitionAttributes): string
     {
@@ -4619,7 +4609,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $this->renderAttrs($node);
         }
 
-        $own = $node->getAttributes();
+        $own = $node->getAttributeEntries();
         foreach ($definitionAttributes as $key => $value) {
             // CLASSES SUBTRACT PER TOKEN. `class` is the one attribute that
             // MERGES rather than replaces: a `{.lead}` line above and a `{.trail}`
@@ -4629,8 +4619,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // .trail}` beside a reference that already said `.trail` - the
             // duplicate growing by one on every pass (carve-php#839).
             if ($key === 'class') {
-                $stated = preg_split('/\s+/', trim((string)$value)) ?: [];
-                $mine = preg_split('/\s+/', trim((string)($own['class'] ?? ''))) ?: [];
+                $stated = (array)$value;
+                $mine = (array)($own['class'] ?? []);
                 $left = array_values(array_filter(
                     $mine,
                     static fn (string $class): bool => $class !== '' && !in_array($class, $stated, true),
@@ -4638,7 +4628,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($left === []) {
                     unset($own['class']);
                 } else {
-                    $own['class'] = implode(' ', $left);
+                    $own['class'] = $left;
                 }
 
                 continue;
@@ -4647,7 +4637,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 unset($own[$key]);
             }
         }
-        if ($own === $node->getAttributes()) {
+        if ($own === $node->getAttributeEntries()) {
             return $this->renderAttrs($node);
         }
 
@@ -4733,7 +4723,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return '';
         }
 
-        return $this->renderAttrList($node->getAttributes(), $node->getAttributeOrder());
+        return $this->renderAttrList($node->getAttributeEntries(), $node->getAttributeOrder());
     }
 
     /**
@@ -4742,7 +4732,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * Takes the LIST rather than the node so a caller can render a subset, which
      * renderAttrsExcept() needs and could not express through a node copy.
      *
-     * @param array<string, string> $attrs
+     * @param array<string, string|list<string>> $attrs
      * @param list<string> $order
      */
     protected function renderAttrList(array $attrs, array $order): string
@@ -4759,35 +4749,18 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
                 $seen['id'] = true;
                 $id = $attrs['id'];
+                if (!is_string($id)) {
+                    return;
+                }
                 $parts[] = $this->isExplicitIdOrClassIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
 
                 return;
             }
             if ($slot === '.class') {
-                $classes = [];
-                $allExplicit = true;
-                foreach (preg_split('/\s+/', trim($attrs['class'] ?? '')) ?: [] as $class) {
-                    if ($class !== '') {
-                        $classes[] = $class;
-                        $allExplicit = $allExplicit && $this->isExplicitIdOrClassIdentifier($class);
-                    }
-                }
-                if ($classes === []) {
-                    // PART 4 gives a bare `class` and `class=""` one empty-string
-                    // value, so the slot is written even though no class name
-                    // reaches the `.` shorthand.
-                    if (array_key_exists('class', $attrs)) {
-                        $parts[] = 'class=""';
-                    }
-
-                    return;
-                }
-                if ($allExplicit) {
-                    foreach ($classes as $class) {
-                        $parts[] = '.' . $this->escapeAttrNameValue($class);
-                    }
-                } else {
-                    $parts[] = 'class=' . $this->quoteAttrValue(implode(' ', $classes), true);
+                foreach ((array)($attrs['class'] ?? []) as $class) {
+                    $parts[] = $this->isExplicitIdOrClassIdentifier($class)
+                        ? '.' . $this->escapeAttrNameValue($class)
+                        : 'class=' . $this->quoteAttrValue($class, true);
                 }
 
                 return;
@@ -4813,6 +4786,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             }
             $seen[$slot] = true;
             $value = $attrs[$slot];
+            if (!is_string($value)) {
+                return;
+            }
             // EXACT key match, not case-insensitive: `LANG` and `lang` are
             // different attribute names, so folding here rewrote
             // `[x]{LANG=fr}` into `[x]{:fr}` and changed the name, which
@@ -6059,7 +6035,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function isExplicitIdOrClassIdentifier(string $text): bool
     {
-        return preg_match('/^[A-Za-z0-9_][\w-]*$/', $text) === 1;
+        return preg_match('/^[A-Za-z0-9_][\w-]*$/D', $text) === 1;
     }
 
     /**

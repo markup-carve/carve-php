@@ -626,7 +626,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         if ($div->getAttribute('id') !== null || $classes !== [] || count($div->getAttributes()) > ($div->hasAttribute('class') ? 1 : 0)) {
             $clone = clone $div;
             if ($clone->hasAttribute('class')) {
-                $clone->setAttribute('class', implode(' ', $classes));
+                $clone->setClassList($classes);
             }
             $djot .= $this->renderDjotAttributeBlock($clone);
         }
@@ -727,7 +727,9 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         if (!in_array('class', $skipAttrs, true)) {
             foreach ($node->getClassList() as $class) {
                 if (!in_array($class, $skipClasses, true)) {
-                    $parts[] = '.' . $class;
+                    $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
+                        ? '.' . $class
+                        : 'class=' . $this->quoteDjotAttributeValue($class);
                 }
             }
         }

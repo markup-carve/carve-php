@@ -721,7 +721,7 @@ class ListTableExtension implements ExtensionInterface
      */
     protected function renderCellAttributes(ListItem $cell, HtmlRenderer $renderer): string
     {
-        $attrs = $cell->getAttributes();
+        $attrs = $cell->getAttributeEntries();
         if ($attrs === []) {
             return '';
         }
@@ -857,26 +857,26 @@ class ListTableExtension implements ExtensionInterface
      */
     protected function renderTableAttributes(Div $node, HtmlRenderer $renderer): string
     {
-        $attrs = $node->getAttributes();
+        $attrs = $node->getAttributeEntries();
         unset($attrs['header-rows'], $attrs['header-cols'], $attrs['footer-rows'], $attrs['aligns'], $attrs['valigns'], $attrs['widths']);
-
-        $attrs = $renderer->sanitizeAttributes($attrs);
-        $safeMode = $renderer->getSafeMode();
-        if ($safeMode !== null) {
-            $attrs = $safeMode->filterAttributes($attrs);
-        }
 
         if (isset($attrs['class'])) {
             $classes = array_values(array_filter(
-                preg_split('/\s+/', trim($attrs['class'])) ?: [],
+                $node->getClassList(),
                 static fn (string $class): bool => $class !== '' && $class !== self::KIND,
             ));
 
             if ($classes === []) {
                 unset($attrs['class']);
             } else {
-                $attrs['class'] = implode(' ', $classes);
+                $attrs['class'] = $classes;
             }
+        }
+
+        $attrs = $renderer->sanitizeAttributes($attrs);
+        $safeMode = $renderer->getSafeMode();
+        if ($safeMode !== null) {
+            $attrs = $safeMode->filterAttributes($attrs);
         }
 
         return $renderer->renderAttributeArray($attrs);

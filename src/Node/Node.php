@@ -37,6 +37,11 @@ abstract class Node
     protected array $attributeOrder = [];
 
     /**
+     * @var list<string>
+     */
+    protected array $classEntries = [];
+
+    /**
      * Import-only source details that are not part of the public AST.
      *
      * @var array<string, string>
@@ -332,9 +337,26 @@ abstract class Node
         return $child;
     }
 
-    public function setAttribute(string $key, string $value): void
+    /**
+     * @param string $key
+     * @param list<string>|string $value
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function setAttribute(string $key, array|string $value): void
     {
+        if (is_array($value)) {
+            if ($key !== 'class') {
+                throw new InvalidArgumentException('Only class accepts a list of values.');
+            }
+            $this->setClassList($value);
+
+            return;
+        }
         $this->attributes[$key] = $value;
+        if ($key === 'class') {
+            $this->classEntries = [$value];
+        }
         $this->recordAttributeSlot($key === 'id' ? '#id' : ($key === 'class' ? '.class' : $key));
     }
 
@@ -354,10 +376,17 @@ abstract class Node
     public function setSynthesizedAttribute(string $key, string $value): void
     {
         $this->attributes[$key] = $value;
+        if ($key === 'class') {
+            $this->classEntries = [$value];
+        }
     }
 
     public function getAttribute(string $key): ?string
     {
+        if ($key === 'class' && isset($this->attributes['class'])) {
+            return implode(' ', $this->classEntries);
+        }
+
         return $this->attributes[$key] ?? null;
     }
 
@@ -366,15 +395,64 @@ abstract class Node
      */
     public function getAttributes(): array
     {
-        return $this->attributes;
+        $attributes = $this->attributes;
+        if (isset($attributes['class'])) {
+            $attributes['class'] = implode(' ', $this->classEntries);
+        }
+
+        return $attributes;
     }
 
     /**
-     * @param array<string, string> $attributes
+     * Attribute values with the class slot kept as authored entries.
+     *
+     * @return array<string, string|list<string>>
+     */
+    public function getAttributeEntries(): array
+    {
+        $attributes = $this->attributes;
+        if (isset($attributes['class'])) {
+            $attributes['class'] = $this->classEntries;
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * @param list<string> $classes
+     */
+    public function setClassList(array $classes): void
+    {
+        $this->classEntries = $classes;
+        if ($classes === []) {
+            unset($this->attributes['class']);
+        } else {
+            $this->attributes['class'] = '';
+            $this->recordAttributeSlot('.class');
+        }
+    }
+
+    /**
+     * @param array<string, string|list<string>> $attributes
+     */
+    private function storeAttributes(array $attributes): void
+    {
+        foreach ($attributes as $key => $value) {
+            if ($key === 'class') {
+                $this->classEntries = is_array($value) ? $value : [$value];
+                $this->attributes['class'] = '';
+            } elseif (is_string($value)) {
+                $this->attributes[$key] = $value;
+            }
+        }
+    }
+
+    /**
+     * @param array<string, string|list<string>> $attributes
      */
     public function setAttributes(array $attributes): void
     {
-        $this->attributes = array_merge($this->attributes, $attributes);
+        $this->storeAttributes($attributes);
         foreach ($attributes as $key => $_value) {
             $name = (string)$key;
             $this->recordAttributeSlot($name === 'id' ? '#id' : ($name === 'class' ? '.class' : $name));
@@ -382,12 +460,12 @@ abstract class Node
     }
 
     /**
-     * @param array<string, string> $attributes
+     * @param array<string, string|list<string>> $attributes
      * @param list<string> $order
      */
     public function setAttributesWithOrder(array $attributes, array $order): void
     {
-        $this->attributes = array_merge($this->attributes, $attributes);
+        $this->storeAttributes($attributes);
         foreach ($order as $slot) {
             $this->recordAttributeSlot($slot);
         }
@@ -425,7 +503,7 @@ abstract class Node
      * when a `{#id}` line precedes a single-image paragraph, so the id lands on
      * the promoted bare `<img>` (matching carve-js / carve-rs).
      *
-     * @param array<string, string> $attributes
+     * @param array<string, string|list<string>> $attributes
      * @param list<string> $order
      */
     public function mergeLeadingAttributes(array $attributes, array $order): void
@@ -433,14 +511,15 @@ abstract class Node
         if ($attributes === []) {
             return;
         }
-        $own = $this->attributes;
+        $own = $this->getAttributeEntries();
         $ownOrder = $this->attributeOrder;
         // Classes accumulate leading-then-own.
         if (isset($attributes['class'], $own['class'])) {
-            $own['class'] = trim($attributes['class'] . ' ' . $own['class']);
+            $own['class'] = [...(array)$attributes['class'], ...(array)$own['class']];
         }
         // Leading provides values the node lacks; the node's own win on conflict.
-        $this->attributes = array_merge($attributes, $own);
+        $this->attributes = [];
+        $this->storeAttributes(array_merge($attributes, $own));
         // Order: leading slots first, then the node's own not-yet-present slots.
         $merged = $order;
         foreach ($ownOrder as $slot) {
@@ -459,6 +538,9 @@ abstract class Node
     public function removeAttribute(string $key): void
     {
         unset($this->attributes[$key]);
+        if ($key === 'class') {
+            $this->classEntries = [];
+        }
     }
 
     /**
@@ -471,8 +553,7 @@ abstract class Node
             return;
         }
 
-        $classes = (string)($this->getAttribute('class') ?? '');
-        $classList = $classes !== '' ? (preg_split('/\s+/', trim($classes)) ?: []) : [];
+        $classList = $this->classEntries;
 
         // addClass() is the PROGRAMMATIC path (extensions, default attributes);
         // it stays idempotent. Source-order accumulation WITHOUT de-dup (grammar
@@ -482,7 +563,7 @@ abstract class Node
         }
 
         $classList[] = $class;
-        $this->setAttribute('class', implode(' ', $classList));
+        $this->setClassList($classList);
     }
 
     /**
@@ -492,12 +573,9 @@ abstract class Node
      */
     public function appendClass(string $class): void
     {
-        $class = trim($class);
-        if ($class === '') {
-            return;
-        }
-        $classes = (string)($this->getAttribute('class') ?? '');
-        $this->setAttribute('class', $classes === '' ? $class : $classes . ' ' . $class);
+        $this->classEntries[] = $class;
+        $this->attributes['class'] = '';
+        $this->recordAttributeSlot('.class');
     }
 
     protected function recordAttributeSlot(string $slot): void
@@ -528,20 +606,13 @@ abstract class Node
     }
 
     /**
-     * Get all CSS classes as an array
+     * Get authored class entries, including internal whitespace and empty values.
      *
      * @return list<string>
      */
     public function getClassList(): array
     {
-        $classes = $this->getAttribute('class') ?? '';
-        if ($classes === '') {
-            return [];
-        }
-
-        $classList = preg_split('/\s+/', trim($classes)) ?: [];
-
-        return array_values(array_filter($classList, fn ($c) => $c !== ''));
+        return $this->classEntries;
     }
 
     /**

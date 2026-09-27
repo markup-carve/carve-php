@@ -60,6 +60,12 @@ round-tripping on its own, and neither able to read the other's documents
 without loss. Refresh the fixtures the way the map is refreshed: copy them, and
 bump the commit in `_provenance`.
 
+The class slot carries a list of authored entries: `attrs.class` is
+`["a  b", "c"]` for `{class="a  b" .c}`. Entries retain whitespace and empty
+strings through both bridge directions (#2585). Older string-valued `class`
+attributes remain readable as one entry. Editor schemas must accept the list;
+the pinned schema map's "space separated" description predates this change.
+
 ## Where the names come from
 
 Node and mark names are **not** defined here. They come from

@@ -429,7 +429,7 @@ class BlockParser
     /**
      * Pending block attributes to apply to next block
      *
-     * @var array<string, string>
+     * @var array<string, string|list<string>>
      */
     protected array $pendingAttributes = [];
 
@@ -1079,9 +1079,9 @@ class BlockParser
                     && ($kids[0]->getRawReferenceLabel() === null || $kids[0]->getSource() !== '')
                     && !isset($this->paragraphsAboveContentColumn[spl_object_id($child)])
                 ) {
-                    if ($child->getAttributes() !== []) {
-                        $kids[0]->mergeLeadingAttributes($child->getAttributes(), $child->getAttributeOrder());
-                        foreach (array_keys($child->getAttributes()) as $key) {
+                    if ($child->getAttributeEntries() !== []) {
+                        $kids[0]->mergeLeadingAttributes($child->getAttributeEntries(), $child->getAttributeOrder());
+                        foreach (array_keys($child->getAttributeEntries()) as $key) {
                             $child->removeAttribute((string)$key);
                         }
                     }
@@ -1299,7 +1299,7 @@ class BlockParser
         }
 
         $figure = new Figure();
-        foreach ($paragraph->getAttributes() as $key => $value) {
+        foreach ($paragraph->getAttributeEntries() as $key => $value) {
             $figure->setAttribute($key, $value);
         }
 
@@ -1523,18 +1523,18 @@ class BlockParser
      * values win when both write the same key.
      *
      * @param \MarkupCarve\Carve\Node\Node $node
-     * @param array<string, string> $definitionAttributes
+     * @param array<string, string|list<string>> $definitionAttributes
      */
     private function applyDeferredReferenceAttributes(Node $node, array $definitionAttributes): void
     {
         if ($definitionAttributes === []) {
             return;
         }
-        $authored = $node->getAttributes();
+        $authored = $node->getAttributeEntries();
         $authoredOrder = $node->getAttributeOrder();
         $definition = $definitionAttributes;
         if (isset($definition['class'], $authored['class'])) {
-            $authored['class'] = trim($definition['class'] . ' ' . $authored['class']);
+            $authored['class'] = [...(array)$definition['class'], ...(array)$authored['class']];
             unset($definition['class']);
         }
         $order = array_map(
@@ -3260,7 +3260,7 @@ class BlockParser
     {
         $parsed = AttributeParser::parseOrderedWithSlots($attrStr);
         if (isset($parsed['attributes']['class'], $this->pendingAttributes['class'])) {
-            $parsed['attributes']['class'] = trim($this->pendingAttributes['class'] . ' ' . $parsed['attributes']['class']);
+            $parsed['attributes']['class'] = [...(array)$this->pendingAttributes['class'], ...(array)$parsed['attributes']['class']];
         }
         $this->pendingAttributes = array_merge($this->pendingAttributes, $parsed['attributes']);
         $this->pendingAttributeOrder = array_merge($this->pendingAttributeOrder, $parsed['order']);
@@ -3385,7 +3385,7 @@ class BlockParser
      * });
      * ```
      *
-     * @return array<string, string> The pending attributes (empty array if none)
+     * @return array<string, string|list<string>> The pending attributes (empty array if none)
      */
     public function consumePendingAttributes(): array
     {
@@ -3791,13 +3791,8 @@ class BlockParser
     {
         foreach ($this->pendingAttributes as $name => $value) {
             if ($name === 'class') {
-                foreach (preg_split('/\s+/', trim((string)$value)) ?: [] as $class) {
-                    if ($class !== '') {
-                        $node->addClass($class);
-                    }
-                }
-                if (!$node->hasAttribute('class')) {
-                    $node->setAttribute('class', '');
+                foreach ((array)$value as $class) {
+                    $node->appendClass($class);
                 }
             } else {
                 $node->setAttribute($name, $value);
@@ -5478,7 +5473,7 @@ class BlockParser
                 : $listOpeningColumn;
             // Attributes from an abutting `{...}` block attach to the <li>.
             if (isset($itemInfo['attributes'])) {
-                /** @var array<string, string> $markerAttributes */
+                /** @var array<string, string|list<string>> $markerAttributes */
                 $markerAttributes = $itemInfo['attributes'];
                 foreach ($markerAttributes as $key => $value) {
                     $listItem->setAttribute($key, $value);
@@ -9898,7 +9893,7 @@ class BlockParser
                         // Recreate as header row with alignments
                         $headerRow = new TableRow(true);
                         // Preserve row attributes from original row
-                        $headerRow->setAttributes($lastRow->getAttributes());
+                        $headerRow->setAttributes($lastRow->getAttributeEntries());
                         // Same source, so the same span; it is a re-typing of
                         // the row that was already parsed, not a new one.
                         $headerRow->setPos($lastRow->getPos());
@@ -9925,7 +9920,7 @@ class BlockParser
                                     isset($alignments[$cellIndex]),
                                 );
                                 // Preserve cell attributes from original cell
-                                $headerCell->setAttributes($cell->getAttributes());
+                                $headerCell->setAttributes($cell->getAttributeEntries());
                                 // Same source as the cell it replaces.
                                 $headerCell->setPos($cell->getPos());
                                 if ($cell->hasExplicitVerticalAlignment()) {
@@ -12717,7 +12712,7 @@ class BlockParser
 
             // A preceding block-attribute line (e.g. `{#lst-x}`) sits on the
             // code block; move it onto the figure so the id drives the crossref.
-            foreach ($lastChild->getAttributes() as $key => $value) {
+            foreach ($lastChild->getAttributeEntries() as $key => $value) {
                 $figure->setAttribute($key, $value);
                 $lastChild->removeAttribute($key);
             }
@@ -12743,7 +12738,7 @@ class BlockParser
         if ($lastChild instanceof BlockQuote) {
             $figure = new Figure();
 
-            foreach ($lastChild->getAttributes() as $key => $value) {
+            foreach ($lastChild->getAttributeEntries() as $key => $value) {
                 $figure->setAttribute($key, $value);
                 $lastChild->removeAttribute($key);
             }
@@ -12809,7 +12804,7 @@ class BlockParser
                 // floats onto the figure. The image's OWN trailing attributes
                 // stay on the <img> -- the same target as a standalone block
                 // image -- so they are NOT transferred to the figure.
-                foreach ($lastChild->getAttributes() as $key => $value) {
+                foreach ($lastChild->getAttributeEntries() as $key => $value) {
                     $figure->setAttribute($key, $value);
                 }
 
@@ -12847,10 +12842,10 @@ class BlockParser
                 // A preceding block-attribute line (`{#eq-x}`) sits on the
                 // paragraph; move it onto the figure so the id is on <figure>,
                 // not the inner <p>, and drives the crossref.
-                foreach ($lastChild->getAttributes() as $key => $value) {
+                foreach ($lastChild->getAttributeEntries() as $key => $value) {
                     $figure->setAttribute($key, $value);
                 }
-                foreach (array_keys($lastChild->getAttributes()) as $key) {
+                foreach (array_keys($lastChild->getAttributeEntries()) as $key) {
                     $lastChild->removeAttribute($key);
                 }
 

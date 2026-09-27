@@ -67,6 +67,27 @@ class WireFixturesTest extends TestCase
     }
 
     /**
+     * Apply #2585's class-list wire change to the pinned string-valued fixtures.
+     * The read-back test below still checks the original legacy payloads.
+     *
+     * @param array<mixed> $value
+     *
+     * @return array<mixed>
+     */
+    private static function withClassEntryLists(array $value): array
+    {
+        foreach ($value as $key => $item) {
+            if ($key === 'class' && is_string($item)) {
+                $value[$key] = [$item];
+            } elseif (is_array($item)) {
+                $value[$key] = self::withClassEntryLists($item);
+            }
+        }
+
+        return $value;
+    }
+
+    /**
      * @param array{name: string, carve: string, pm: array<string, mixed>, extensions?: array<int, string>} $case
      */
     #[DataProvider('fixtureProvider')]
@@ -83,7 +104,7 @@ class WireFixturesTest extends TestCase
         $actual = $renderer->render($converter->parse($case['carve']));
 
         $this->assertSame(
-            self::canonical($case['pm']),
+            self::canonical(self::withClassEntryLists($case['pm'])),
             self::canonical($actual),
             $case['name'] . ' does not match the published wire shape',
         );

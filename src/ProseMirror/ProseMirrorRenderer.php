@@ -1065,7 +1065,7 @@ class ProseMirrorRenderer
                     }
                 }
             } else {
-                $authored['class'] = implode(' ', $classes);
+                $authored['class'] = $classes;
             }
         }
 
@@ -1092,7 +1092,7 @@ class ProseMirrorRenderer
             if ($node instanceof Span && $key === 'abbr') {
                 $attrs['title'] = $value;
             } elseif ($key === 'id' || $key === 'class') {
-                $attrs[$key] = $value;
+                $attrs[$key] = $key === 'class' ? $node->getClassList() : $value;
             } else {
                 $keyValues[$key] = $value;
             }
@@ -1191,8 +1191,10 @@ class ProseMirrorRenderer
             if ($key === 'id') {
                 $parts[] = '#' . $value;
             } elseif ($key === 'class') {
-                foreach (preg_split('/\s+/', trim($value)) ?: [] as $class) {
-                    $parts[] = '.' . $class;
+                foreach ($node->getClassList() as $class) {
+                    $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
+                        ? '.' . $class
+                        : 'class="' . str_replace(['\\', '"'], ['\\\\', '\"'], $class) . '"';
                 }
             } else {
                 $parts[] = preg_match('/^[A-Za-z0-9_-]+$/', (string)$value) === 1

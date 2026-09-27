@@ -1355,7 +1355,7 @@ class ProseMirrorBridgeTest extends TestCase
         $source = "::: tip \"Pro Tip\"\nbody\n:::\n";
 
         $pm = $this->renderer->render((new CarveConverter())->parse($source));
-        $this->assertSame('tip', $pm['content'][0]['attrs']['class']);
+        $this->assertSame(['tip'], $pm['content'][0]['attrs']['class']);
         $this->assertSame('Pro Tip', $pm['content'][0]['attrs']['title']);
         $this->assertTrue($pm['content'][0]['attrs']['carveTyped']);
 
@@ -1375,7 +1375,7 @@ class ProseMirrorBridgeTest extends TestCase
         $result = $this->roundTrip($source);
 
         $this->assertSame('s', $result['pm']['content'][0]['attrs']['id']);
-        $this->assertSame('sidebar', $result['pm']['content'][0]['attrs']['class']);
+        $this->assertSame(['sidebar'], $result['pm']['content'][0]['attrs']['class']);
         $this->assertFalse($result['pm']['content'][0]['attrs']['carveTyped']);
         // The round trip is the point of the flag: without it the class is
         // written back as the container's KIND and this is a different document.
@@ -1395,7 +1395,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $this->assertSame('opener title', $result['pm']['content'][0]['attrs']['title']);
         $this->assertSame('attr title', $result['pm']['content'][0]['attrs']['carveKeyValues']['title']);
-        $this->assertSame('note', $result['pm']['content'][0]['attrs']['class']);
+        $this->assertSame(['note'], $result['pm']['content'][0]['attrs']['class']);
         $this->assertSame($result['expected'], $result['actual']);
     }
 
@@ -1405,7 +1405,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $result = $this->roundTrip($source);
 
-        $this->assertSame('sidebar', $result['pm']['content'][0]['attrs']['class']);
+        $this->assertSame(['sidebar'], $result['pm']['content'][0]['attrs']['class']);
         $this->assertSame($result['expected'], $result['actual']);
     }
 
@@ -1415,7 +1415,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $result = $this->roundTrip($source);
 
-        $this->assertSame('alpha beta', $result['pm']['content'][0]['attrs']['class']);
+        $this->assertSame(['alpha', 'beta'], $result['pm']['content'][0]['attrs']['class']);
     }
 
     /**
@@ -1480,7 +1480,7 @@ class ProseMirrorBridgeTest extends TestCase
         ];
 
         $this->assertSame(
-            "{#s .alpha .beta}\n:::\nbody\n:::\n",
+            '{#s class="alpha beta"}' . "\n:::\nbody\n:::\n",
             CarveConverter::carve()->render($this->converter->convert($pm)),
         );
     }
