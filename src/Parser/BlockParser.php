@@ -5194,6 +5194,19 @@ class BlockParser
                             }
                             // Remove subIndent worth of indentation (handling tabs)
                             $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
+                            // Colon fences keep their source column when a tab remains
+                            // after stripping the host prefix. Code payload stays verbatim.
+                            if (
+                                $subTrailingState['inDiv']
+                                && !$subSawListMarker
+                                && !$subTrailingState['inFence']
+                                && $subTrailingState['nestedColumn'] === 0
+                                && str_contains($stripped, "\t")
+                                && preg_match('/^[ \t]*:{3,}/', $stripped) === 1
+                            ) {
+                                $stripped = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($subLine) - $subIndent))
+                                    . ltrim($stripped, " \t");
+                            }
                             $strippedIsMarker = $this->listParser->parseListItemMarker(ltrim($stripped, " \t")) !== null;
                             if (
                                 $strippedIsMarker
@@ -6417,10 +6430,7 @@ class BlockParser
                         !IndentationHelper::isBlankLine($candidate)
                         && IndentationHelper::getLeadingColumns($candidate, $base) < $base
                     ) {
-                        if (
-                            IndentationHelper::getLeadingColumns($candidate) > 0
-                            && preg_match('/^:{3,}[ \t]*$/', ltrim($candidate, " \t")) === 1
-                        ) {
+                        if (IndentationHelper::getLeadingColumns($candidate) > 0) {
                             $end = $j;
 
                             continue;
@@ -13823,8 +13833,8 @@ class BlockParser
             // (it is paragraph text under the §10 closer-lookahead rule).
             $column = IndentationHelper::getLeadingColumns($line);
             if (
-                $column > 0 && $column < $state['divColumn']
-                && preg_match('/^:{3,}[ \t]*$/', self::subjectFrom($line, $at, $end)) === 1
+                $column !== 0 && $column !== $state['divColumn']
+                && $this->fencedBlockParser->parseDivFenceOpener(self::subjectFrom($line, $at, $end)) !== null
             ) {
                 $state['openParagraph'] = true;
 
