@@ -1525,6 +1525,15 @@ final class HtmlAstBuilder
         }
         $list = ['type' => 'definition_list', 'items' => $items];
         $this->attachAttrs($list, $node);
+        // A leading <dd> can end in a definition list, which this one would
+        // join on re-read; merge it the way a sibling <dl> is (carve#2369).
+        $last = array_key_last($before);
+        if ($last !== null && ($before[$last]['type'] ?? null) === 'definition_list' && $this->attrs($node, []) === []) {
+            $before[$last]['items'] = array_merge(self::nodeList($before[$last]['items'] ?? null), $items);
+            $this->mergedDefinitionLists[$node] = null;
+
+            return $before;
+        }
         $before[] = $list;
 
         return $before;
