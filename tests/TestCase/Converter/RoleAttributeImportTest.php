@@ -98,6 +98,7 @@ class RoleAttributeImportTest extends TestCase
             'math' => ['<span class="math inline" role="math">\\(x\\)</span>', '$`x`'],
         ];
     }
+
     public function testAnUnwrappedSectionDoesNotGiveItsRoleToTheHeading(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
