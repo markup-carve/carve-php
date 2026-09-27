@@ -1812,6 +1812,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             ));
             $attrs = $this->getRenderableAttributes($node);
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
+            if ($node->isTyped() && in_array($classes[0], Div::ADMONITION_TYPES, true)) {
+                $attrs['class'] = implode(' ', ['admonition', $classes[0], ...array_unique(array_slice($classes, 1))]);
+            }
             $hasAuthoredName = false;
             foreach (array_keys($attrs) as $name) {
                 $folded = strtolower($name);
@@ -1853,7 +1856,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // Tier 2: a custom type renders as a generic <div class="{type}">,
         // the fenced-div primitive the block-extension mechanism builds on.
-        $attrs = $this->renderAttributeArray($this->getRenderableAttributes($node), 'div');
+        $attributes = $this->getRenderableAttributes($node);
+        if ($node->isTyped() && isset($attributes['class']) && $classes !== []) {
+            $baseClass = array_shift($classes);
+            $attributes['class'] = implode(' ', [$baseClass, ...array_unique($classes)]);
+        }
+        $attrs = $this->renderAttributeArray($attributes, 'div');
         $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
         return $this->frameBlockContainer('<div' . $attrs . '>', $body, '</div>');
@@ -1870,7 +1878,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderLineBlock(LineBlock $node): string
     {
         $attrs = $this->getRenderableAttributes($node);
-        $attrs = $this->mergeAttribute($attrs, 'class', 'line-block');
+        $entries = isset($attrs['class']) ? $node->getClassList() : [];
+        $attrs['class'] = $this->sanitizeAttributes(['class' => [...$entries, 'line-block']])['class'];
 
         // Indent only the FIRST line of each child block; lines produced by an
         // internal hard break stay at column 0 inside the <p> (matching the
