@@ -19,6 +19,7 @@ phpunit.xml.dist export-ignore
 tests/ export-ignore
 examples/ export-ignore
 fuzz/ export-ignore
+tools/ export-ignore
 docs/ export-ignore
 .gitmodules export-ignore
 phpcs.xml export-ignore

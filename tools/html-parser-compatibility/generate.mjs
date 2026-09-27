@@ -8,7 +8,7 @@ if (!directory || (flag !== undefined && flag !== '--write')) {
 }
 const packageDirectory = resolve(directory)
 const manifest = JSON.parse(readFileSync(resolve(packageDirectory, 'package.json'), 'utf8'))
-const entry = manifest.module ?? manifest.exports?.import
+const entry = manifest.module ?? manifest.exports?.['.']?.import ?? manifest.exports?.import
 if (manifest.name !== 'parse5' || typeof entry !== 'string') {
   throw new Error('Expected a parse5 package with an ESM entry point')
 }
