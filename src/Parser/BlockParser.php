@@ -14278,17 +14278,17 @@ class BlockParser
 
                 continue;
             }
-            $authored = ltrim($sl, " \t");
-            $canOpen = $authored === $sl || $k === 0 || IndentationHelper::isBlankLine($subLines[$k - 1]);
-            if ($subCol >= 0 && IndentationHelper::getLeadingColumns($sl, $subCol) >= $subCol) {
-                // Nested-item fences belong to that item's scan. Its indented
-                // closing run must not open a new fence in the parent scan.
-                $canOpen = false;
+            $authored = $sl;
+            if (
+                ($k === 0 || $subLines[$k - 1] === '')
+                && ($subCol < 0 || IndentationHelper::getLeadingColumns($sl, $subCol) < $subCol)
+            ) {
+                // Normalize only a block-start line owned by this item. A
+                // nested item's closing run belongs to its own recursive scan.
+                $authored = ltrim($sl, " \t");
             }
-            $opener = $canOpen
-                ? ($this->fencedBlockParser->parseCodeFenceOpener($authored)
-                    ?? $this->fencedBlockParser->parseRawBlockOpener($authored))
-                : null;
+            $opener = $this->fencedBlockParser->parseCodeFenceOpener($authored)
+                ?? $this->fencedBlockParser->parseRawBlockOpener($authored);
             if ($opener !== null) {
                 $fenceChar = $opener['fence'][0];
                 $fenceLength = $opener['length'];
