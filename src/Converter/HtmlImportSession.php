@@ -30,6 +30,11 @@ final class HtmlImportSession
     public SplObjectStorage $droppedEmptyElements;
 
     /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $droppedEmptyHeadings;
+
+    /**
      * Elements whose URL-list attribute the tree carries.
      *
      * @var \SplObjectStorage<\DOMElement, null>
@@ -127,6 +132,7 @@ final class HtmlImportSession
     {
         $this->summaryTitles = new SplObjectStorage();
         $this->droppedEmptyElements = new SplObjectStorage();
+        $this->droppedEmptyHeadings = new SplObjectStorage();
         $this->urlListCarriers = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
