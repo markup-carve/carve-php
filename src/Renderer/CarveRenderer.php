@@ -3454,7 +3454,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $this->firstBoundary($nodes[$i + 1] ?? null),
                         $captionCanOpen,
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
-                        $i === $count - 1 && ($out !== '' || $this->inlineDepth > 1 || ($node instanceof Code && strlen($this->safeFence($node->getContent(), 1)) < 3)),
+                        $i === $count - 1 && ($out !== '' || $this->inlineDepth > 1 || ($node instanceof Code && strlen($this->codeSpanFence($node->getContent())) < 3)),
                     );
                     // A bare caret the previous node ended on opens an inline
                     // note against a `[` this node writes, in both passes.
@@ -3839,9 +3839,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderMarked('highlight', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
             $node instanceof Code => $node->getContent() === '' && !$this->emptyCodeSpanIsSpellable($node)
                 ? throw new SourceUnspellableException('code', 'an empty code span has no Carve source spelling where its open run does not end')
-                : $withAttrs(($this->codeMayRunToEnd && $this->emptyCodeSpanIsSpellable($node) && preg_match('/^[\r\n]/', $node->getContent()) === 1
+                : $withAttrs($this->guardCodeLines(($this->codeMayRunToEnd && $this->emptyCodeSpanIsSpellable($node) && preg_match('/^[\r\n]/', $node->getContent()) === 1
                     ? $this->renderCodeWithUnclosed($node->getContent(), true)
-                    : $this->renderCode($node->getContent()))),
+                    : $this->renderCode($node->getContent())))),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
             $rawReference !== null => $rawReference,
@@ -4543,9 +4543,33 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return '!' . $this->renderCode($node->getContent()) . $this->renderAttrs($node);
     }
 
+    private function codeSpanFence(string $content): string
+    {
+        if (preg_match('/^[\r\n]/', $content)) {
+            preg_match_all('/`+/', $content, $matches);
+            $widths = array_fill_keys(array_map('strlen', $matches[0]), true);
+            foreach ([1, 2] as $width) {
+                if (!isset($widths[$width])) {
+                    return str_repeat('`', $width);
+                }
+            }
+        }
+
+        return $this->safeFence($content, 1);
+    }
+
     protected function renderCode(string $content): string
     {
         return $this->renderCodeWithUnclosed($content, false);
+    }
+
+    private function guardCodeLines(string $written): string
+    {
+        if ($this->inLineBlock > 0 || $this->inTerm) {
+            return $written;
+        }
+
+        return (string)preg_replace('/\n(?=> |\[[^\]\n]+\]:[ \t])/', "\n ", $written);
     }
 
     private function renderCodeWithUnclosed(string $content, bool $allowUnclosed): string
@@ -4555,7 +4579,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // rewrite it to `\ `, a literal backslash and a space inside backticks
         // (carve-php#829). Same sentinel protectVerbatim() uses.
 
-        $fence = $this->safeFence($content, 1);
+        $fence = $this->codeSpanFence($content);
 
         // Pad exactly where the parser strips, so the strip is reversible and fmt
         // stays idempotent; the padding sits inside the fence, so a trailing
