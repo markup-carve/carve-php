@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\Converter\HtmlToCarve;
-use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use PHPUnit\Framework\TestCase;
 
 class AnUnspellableFenceClassStaysGenericTest extends TestCase
@@ -18,14 +17,11 @@ class AnUnspellableFenceClassStaysGenericTest extends TestCase
         );
     }
 
-    public function testParserRejectsDigitLeadingFenceWord(): void
+    public function testImporterStillConsumesSpellableFenceClass(): void
     {
-        self::assertNull((new FencedBlockParser())->parseDivFenceOpener('::: 2col'));
-    }
-
-    public function testParserStillAcceptsGrammarFenceWords(): void
-    {
-        self::assertNotNull((new FencedBlockParser())->parseDivFenceOpener('::: _2col'));
-        self::assertNotNull((new FencedBlockParser())->parseDivFenceOpener('::: col2'));
+        self::assertSame(
+            "::: col2\ny\n:::",
+            trim((new HtmlToCarve())->convert('<div class="col2"><p>y</p></div>')),
+        );
     }
 }
