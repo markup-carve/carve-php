@@ -2567,8 +2567,19 @@ final class HtmlAstBuilder
         }
         $skipAttrs = [];
         $structuralKind = trim($node->getAttribute('data-djot-admonition-type'));
-        if ($structuralKind !== '') {
-            $expectedRole = in_array($structuralKind, ['warning', 'danger'], true) ? 'alert' : 'note';
+        $sourceClasses = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $admonitionKind = $structuralKind;
+        if ($admonitionKind === '' && in_array('admonition', $sourceClasses, true)) {
+            foreach (['note', 'tip', 'warning', 'danger', 'info', 'success'] as $candidate) {
+                if (in_array($candidate, $sourceClasses, true)) {
+                    $admonitionKind = $candidate;
+
+                    break;
+                }
+            }
+        }
+        if ($admonitionKind !== '') {
+            $expectedRole = in_array($admonitionKind, ['warning', 'danger'], true) ? 'alert' : 'note';
             if (strtolower($node->getAttribute('role')) === $expectedRole) {
                 $skipAttrs[] = 'role';
             }
