@@ -387,6 +387,7 @@ class HtmlToCarve
             $this->builtImportDocument = null;
             $this->keptRawImportElements = null;
             $this->droppedEmptyImportElements = null;
+            $this->keptUrlListValues = [];
             $this->droppedBlankImportRows = null;
             $this->mergedImportDefinitionLists = null;
             $this->entrylessImportDefinitionLists = [];
@@ -2955,12 +2956,13 @@ class HtmlToCarve
         if (
             in_array($name, ['srcset', 'imagesrcset', 'ping', 'attributionsrc'], true)
             && ((new HtmlRenderer())->sanitizeAttributes([$name => $value])[$name] ?? '') === ''
-            && preg_match(
-                '/[{ ]' . preg_quote($name, '/') . '=(?:"' . preg_quote(addcslashes($value, '"\\'), '/') . '"|' . preg_quote($value, '/') . ')[ }]/',
-                $this->inspectedCarve ?? '',
-            ) === 1
         ) {
-            return true;
+            $key = $name . "\0" . $value;
+            if (($this->keptUrlListValues[$key] ?? 0) > 0) {
+                $this->keptUrlListValues[$key]--;
+
+                return true;
+            }
         }
 
         if ($this->consumeSurvivingAttribute($this->importSurvivorKey($name, $value))) {
@@ -3339,6 +3341,7 @@ class HtmlToCarve
         $this->builtImportDocument = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
+        $this->keptUrlListValues = [];
         $this->droppedBlankImportRows = null;
         if (preg_match('/^\s*<!doctype\b[^>]*>\s*$/iD', $html) === 1) {
             return '';
@@ -3363,6 +3366,8 @@ class HtmlToCarve
             $this->builtImportDocument = $builder->builtDocument();
             $this->keptRawImportElements = $builder->keptRawElements();
             $this->droppedEmptyImportElements = $builder->droppedEmptyElements();
+            $this->keptUrlListValues = [];
+            $this->collectKeptUrlListValues($tree);
             $this->droppedBlankImportRows = $builder->droppedBlankTableRows();
             $this->mergedImportDefinitionLists = $builder->mergedDefinitionLists();
             $this->displacedImportFigureAttributes = $builder->displacedFigureAttributes();
@@ -4519,6 +4524,35 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $droppedEmptyImportElements = null;
+
+    /**
+     * URL-list attribute values the built tree carries, as `name\0value` counts.
+     *
+     * @var array<string, int>
+     */
+    private array $keptUrlListValues = [];
+
+    /**
+     * @param array<mixed> $node
+     */
+    private function collectKeptUrlListValues(array $node): void
+    {
+        $attrs = $node['attrs'] ?? null;
+        $keyValues = is_array($attrs) ? ($attrs['keyValues'] ?? null) : null;
+        if (is_array($keyValues)) {
+            foreach (['srcset', 'imagesrcset', 'ping', 'attributionsrc'] as $name) {
+                if (is_string($keyValues[$name] ?? null)) {
+                    $key = $name . "\0" . $keyValues[$name];
+                    $this->keptUrlListValues[$key] = ($this->keptUrlListValues[$key] ?? 0) + 1;
+                }
+            }
+        }
+        foreach ($node as $child) {
+            if (is_array($child)) {
+                $this->collectKeptUrlListValues($child);
+            }
+        }
+    }
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null

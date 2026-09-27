@@ -27,7 +27,16 @@ class AHardenedUrlListAttributeIsKeptTest extends TestCase
     public function testTheAttributeNameInProseDoesNotAnswerForALoss(): void
     {
         $result = (new HtmlToCarve())->convertWithReport(
-            '<p>srcset=</p><section srcset="javascript:alert(1)"><h2>X</h2></section>',
+            '<p>text srcset=javascript:alert(1) text</p><section srcset="javascript:alert(1)"><h2>X</h2></section>',
+        );
+
+        $this->assertContains('Dropped unsupported attribute srcset on <section>', array_column($result->report()['diagnostics'], 'message'));
+    }
+
+    public function testOneKeptCopyAnswersForOneElement(): void
+    {
+        $result = (new HtmlToCarve())->convertWithReport(
+            '<p><img src="a.png" alt="" srcset="javascript:x 1x"></p><section srcset="javascript:x 1x"><h2>X</h2></section>',
         );
 
         $this->assertContains('Dropped unsupported attribute srcset on <section>', array_column($result->report()['diagnostics'], 'message'));
