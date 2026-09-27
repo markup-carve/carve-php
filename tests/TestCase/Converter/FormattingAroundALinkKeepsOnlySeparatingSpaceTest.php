@@ -28,6 +28,8 @@ class FormattingAroundALinkKeepsOnlySeparatingSpaceTest extends TestCase
             'formatting without a link' => ['<p>a <strong> x </strong> b</p>', "a *x* b\n"],
             'superscript' => ['<p>a <sup> <a href="/x">mk</a> </sup> b</p>', "a {^[mk](/x)^} b\n"],
             'hard break' => ['<p>a<br><strong> <a href="/x">mk</a> </strong>b</p>', "a\\\n{*[mk](/x) *}b\n"],
+            'nested hard break' => ['<p><strong>x<br></strong><em> y</em></p>', "{*x\\\n*}{/ y/}\n"],
+            'nonbreaking space' => ['<p>a <strong>&nbsp;<a href="/x">mk</a>&nbsp;</strong> b</p>', "a * [mk](/x) * b\n"],
         ];
     }
 
