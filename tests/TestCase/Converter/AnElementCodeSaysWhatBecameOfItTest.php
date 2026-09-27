@@ -37,7 +37,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
     {
         $this->assertSame('', $this->carve($html));
         $this->assertContains(
-            ['element-dropped', 'warning', 'Dropped unsupported <' . $tag . '> element'],
+            ['element-dropped', 'warning', 'Dropped empty <' . $tag . '> element'],
             $this->diagnostics($html),
         );
     }
@@ -162,7 +162,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
 
         $this->assertSame('- [ ] task', $this->carve($html));
         $this->assertSame(
-            [['element-dropped', 'warning', 'Dropped unsupported <input> element']],
+            [['element-dropped', 'warning', 'Dropped empty <input> element']],
             $this->diagnostics($html),
         );
     }
@@ -207,7 +207,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
     public function testTheElementRowReplacesTheAttributeRowRatherThanJoiningIt(): void
     {
         $this->assertSame(
-            [['element-dropped', 'warning', 'Dropped unsupported <input> element']],
+            [['element-dropped', 'warning', 'Dropped empty <input> element']],
             $this->diagnostics('<ul><li><input open> t</li></ul>'),
         );
     }
@@ -253,7 +253,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
     {
         $this->assertSame('', $this->carve('<p><canvas>  </canvas></p>'));
         $this->assertSame(
-            [['element-dropped', 'warning', 'Dropped unsupported <canvas> element']],
+            [['element-dropped', 'warning', 'Dropped empty <canvas> element']],
             $this->diagnostics('<p><canvas>  </canvas></p>'),
         );
     }
@@ -272,7 +272,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
         $this->assertSame('', $this->carve($html));
         $this->assertSame(
             [
-                ['element-dropped', 'warning', 'Dropped unsupported <canvas> element'],
+                ['element-dropped', 'warning', 'Dropped empty <canvas> element'],
                 ['element-dropped', 'warning', 'Dropped active <script> element'],
             ],
             $this->diagnostics($html),
@@ -294,7 +294,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
 
         $this->assertSame('- [ ] task', $this->carve($html));
         $this->assertContains(
-            ['element-dropped', 'warning', 'Dropped unsupported <input> element'],
+            ['element-dropped', 'warning', 'Dropped empty <input> element'],
             $this->diagnostics($html),
         );
     }
@@ -318,7 +318,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
         $this->assertSame('', $this->carve($html));
         $this->assertSame(
             [
-                ['element-dropped', 'warning', 'Dropped unsupported <iframe> element'],
+                ['element-dropped', 'warning', 'Dropped empty <iframe> element'],
                 ['attribute-dropped', 'info', 'Dropped unsupported attribute src on <iframe>'],
             ],
             $this->diagnostics($html),

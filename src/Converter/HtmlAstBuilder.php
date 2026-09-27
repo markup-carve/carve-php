@@ -643,6 +643,15 @@ final class HtmlAstBuilder
                         if ($sibling instanceof DOMText && trim($sibling->textContent) === '') {
                             continue;
                         }
+                        // An element that imports to nothing is no neighbor (carve-rs#2029).
+                        if (
+                            $sibling instanceof DOMElement
+                            && !$this->isBlock($sibling)
+                            && (trim($sibling->textContent) === '' || in_array(strtolower($sibling->tagName), ['script', 'style', 'template', 'noscript'], true))
+                            && $this->inline($sibling) === []
+                        ) {
+                            continue;
+                        }
                         $inlineRun = !$this->isBlock($sibling) && !$sibling instanceof DOMComment;
 
                         break;
@@ -1516,6 +1525,15 @@ final class HtmlAstBuilder
         }
         $list = ['type' => 'definition_list', 'items' => $items];
         $this->attachAttrs($list, $node);
+        // A leading <dd> can end in a definition list, which this one would
+        // join on re-read; merge it the way a sibling <dl> is (carve#2369).
+        $last = array_key_last($before);
+        if ($last !== null && ($before[$last]['type'] ?? null) === 'definition_list' && $this->attrs($node, []) === []) {
+            $before[$last]['items'] = array_merge(self::nodeList($before[$last]['items'] ?? null), $items);
+            $this->mergedDefinitionLists[$node] = null;
+
+            return $before;
+        }
         $before[] = $list;
 
         return $before;
@@ -3270,13 +3288,15 @@ final class HtmlAstBuilder
                 ];
             }
 
-            return [
-                [
-                    'type' => 'math',
-                    'display' => strtolower($node->getAttribute('display')) === 'block',
-                    'content' => $content,
-                ],
+            $math = [
+                'type' => 'math',
+                'display' => strtolower($node->getAttribute('display')) === 'block',
+                'content' => $content,
             ];
+            // `display` and `alttext` are read as the node; `xmlns` is the element's namespace.
+            $this->attachAttrs($math, $node, ['xmlns', 'display', 'alttext']);
+
+            return [$math];
         }
         if ($tag === 'span') {
             $token = trim($node->textContent);
@@ -3457,17 +3477,6 @@ final class HtmlAstBuilder
 
                 return [$autolink];
             }
-            if ($children === []) {
-                $parts = preg_split('/([\[\]])/', $node->getAttribute('href'), -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
-                foreach ($parts as $part) {
-                    if ($part === '') {
-                        continue;
-                    }
-                    $children[] = in_array($part, ['[', ']'], true)
-                        ? ['type' => 'escaped_text', 'value' => $part]
-                        : ['type' => 'text', 'value' => $part];
-                }
-            }
             $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
             if ($node->hasAttribute('data-djot-ref')) {
                 $labelText = $this->plainInlineText($children);
@@ -3475,7 +3484,7 @@ final class HtmlAstBuilder
                 if ($ref === '') {
                     $ref = trim($labelText);
                 }
-                if (!str_contains($labelText, ']') && !str_contains($ref, ']')) {
+                if ($ref !== '' && !str_contains($labelText, ']') && !str_contains($ref, ']')) {
                     $link['ref'] = $ref;
                     $collapsed = $labelText === $ref;
                     $link['rawRef'] = '[' . $labelText . ']'

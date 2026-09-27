@@ -758,7 +758,7 @@ class HtmlToCarve
         }
         if ($tag === 'dl' && HtmlAstBuilder::leadingTermlessDescriptions($node) === HtmlAstBuilder::definitionListEntries($node)) {
             // No entry is left to write, so the list's own attributes go too.
-            foreach ($this->definitionListAttributeNames($node) as $name) {
+            foreach ($this->spelledAttributeNames($node) as $name) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <dl>: a definition list holding no entry is not written', 'warning', $path);
             }
             $this->entrylessImportDefinitionLists[$path] = true;
@@ -829,12 +829,19 @@ class HtmlToCarve
             // A `<math>` with no TeX leaves as text or not at all, and its one
             // row covers the attributes riding on it.
             $mathLeaves = $tag === 'math' && !$this->trustedRoundTrip && $this->resolveMathTex($node)['tier'] === 4;
-            // No item, no list: its one row covers the attributes too (carve#2367).
+            // No item, no list: its one row covers the attributes it would have
+            // written (carve#2367); a refused one keeps its own row.
             $emptyList = in_array($tag, ['ul', 'ol'], true) && !$this->hasListItemChild($node);
             if ($emptyList) {
                 $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped <' . $tag . '> holding no item', 'warning', $path);
-            } elseif (!$mathLeaves) {
-                $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
+            }
+            if (!$mathLeaves) {
+                $this->coveredImportAttributes = $emptyList ? $this->spelledAttributeNames($node) : [];
+                try {
+                    $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
+                } finally {
+                    $this->coveredImportAttributes = [];
+                }
             }
         } finally {
             $this->inspectedConsumedCheckbox = $outerConsumedCheckbox;
@@ -1681,7 +1688,7 @@ class HtmlToCarve
         $this->addImportDiagnostic(
             $diagnostics,
             'element-dropped',
-            'Dropped unsupported <' . $tag . '> element',
+            'Dropped empty <' . $tag . '> element',
             'warning',
             $path,
         );
@@ -2109,8 +2116,10 @@ class HtmlToCarve
         bool $preserved = false,
         ?string $keptTag = null,
     ): void {
+        $covered = $preserved ? [] : $this->coveredImportAttributes;
         if (!$preserved && $tag === 'dl' && isset($this->entrylessImportDefinitionLists[$path])) {
-            return;
+            // The list-specific rows already named these; a refused one still reports.
+            $covered = $this->spelledAttributeNames($node);
         }
         $displaced = !$preserved && $tag === 'figure' ? ($this->displacedImportFigureAttributes[$path] ?? []) : [];
         foreach ($node->attributes as $attribute) {
@@ -2177,7 +2186,7 @@ class HtmlToCarve
                 // Spelled by the `^` and `<` items, which render no attribute
                 // until a processor enables ListTable.
                 continue;
-            } elseif (in_array($name, $displaced, true)) {
+            } elseif (in_array($name, $displaced, true) || in_array($name, $covered, true)) {
                 continue;
             } elseif (
                 !in_array($name, ['id', 'class'], true)
@@ -4504,6 +4513,13 @@ class HtmlToCarve
     private array $entrylessImportDefinitionLists = [];
 
     /**
+     * Attributes the element row being inspected already reports.
+     *
+     * @var array<string>
+     */
+    private array $coveredImportAttributes = [];
+
+    /**
      * The `<dl>` a `<dd>` belongs to, directly or through a group `<div>`.
      */
     protected function enclosingDefinitionList(DOMElement $node): ?DOMElement
@@ -4517,19 +4533,26 @@ class HtmlToCarve
     }
 
     /**
-     * The names a `<dl>` would write: id, class, then keys in element order.
+     * The names an element would write: id, class, then keys in element order.
      *
      * @return list<string>
      */
-    protected function definitionListAttributeNames(DOMElement $node): array
+    protected function spelledAttributeNames(DOMElement $node): array
     {
         $names = [];
         $keys = [];
         foreach ($node->attributes as $attribute) {
             $name = strtolower($attribute->name);
-            if ($name === 'id' || ($name === 'class' && trim($attribute->value) !== '')) {
-                $names[$name] = true;
-            } elseif (preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/D', $name) === 1 && !str_starts_with($name, 'on') && $name !== 'style') {
+            if ($name === 'id' || $name === 'class') {
+                if ($name === 'id' || trim($attribute->value) !== '') {
+                    $names[$name] = true;
+                }
+            } elseif (
+                preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/D', $name) === 1
+                && !str_starts_with($name, 'on')
+                && $name !== 'style'
+                && preg_match('/[\r\n]/', $attribute->value) !== 1
+            ) {
                 $keys[] = $name;
             }
         }

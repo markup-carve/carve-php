@@ -31,6 +31,32 @@ class AFigureSharingItsTargetsLineNamesTheLostIdTest extends TestCase
         ], $rows);
     }
 
+    /**
+     * Only a figure that shares its target's line names the merge: an
+     * unwrapped figure, captionless or holding a second body block, merges
+     * nothing.
+     */
+    public function testAnUnwrappedFigureDoesNotNameAMerge(): void
+    {
+        foreach (
+            [
+                '<figure id="f"><blockquote id="g"><p>q</p></blockquote></figure>',
+                '<figure id="f"><blockquote id="g"><p>q</p></blockquote><p>x</p><figcaption>c</figcaption></figure>',
+            ] as $html
+        ) {
+            $result = (new HtmlToCarve())->convertWithReport($html);
+            $rows = [];
+            foreach ($result->diagnostics as $diagnostic) {
+                $rows[] = [$diagnostic->code, $diagnostic->message];
+            }
+
+            $this->assertSame([
+                ['element-unwrapped', 'Unwrapped unsupported <figure> element'],
+                ['attribute-dropped', 'Dropped unsupported attribute id on <figure>'],
+            ], $rows, $html);
+        }
+    }
+
     public function testAnImageTargetKeepsItsOwnSlot(): void
     {
         $result = (new HtmlToCarve())->convertWithReport(

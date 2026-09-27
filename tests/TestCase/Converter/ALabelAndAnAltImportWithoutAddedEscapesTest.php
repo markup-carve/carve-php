@@ -42,10 +42,10 @@ class ALabelAndAnAltImportWithoutAddedEscapesTest extends TestCase
                 "[a\\]b](u)\n",
                 '<p><a href="u">a]b</a></p>',
             ],
-            'a destination standing in for an empty label' => [
+            'an empty label stays empty' => [
                 '<p><a href="[x]"></a></p>',
-                "[\\[x\\]]([x])\n",
-                '<p><a href="[x]">[x]</a></p>',
+                "[]([x])\n",
+                '<p><a href="[x]"></a></p>',
             ],
             'a backslash in alt text' => [
                 '<p><img src="i" alt="a\\b"></p>',

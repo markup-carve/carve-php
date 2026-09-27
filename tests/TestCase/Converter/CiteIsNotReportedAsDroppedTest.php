@@ -606,7 +606,7 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     {
         $this->assertSame('- t', $this->carve('<ul><li><input open> t</li></ul>'));
         $this->assertSame(
-            [['element-dropped', 'warning', 'Dropped unsupported <input> element']],
+            [['element-dropped', 'warning', 'Dropped empty <input> element']],
             $this->diagnostics('<ul><li><input open> t</li></ul>'),
         );
     }
