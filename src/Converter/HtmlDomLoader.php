@@ -145,8 +145,8 @@ final class HtmlDomLoader
             }
             $textIntegration = in_array($parentName, ['mi', 'mo', 'mn', 'ms', 'mtext'], true)
                 && !in_array($name, ['mglyph', 'malignmark'], true);
-            $htmlIntegration = $parentName === 'annotation-xml' && $sourceParent instanceof Element
-                && in_array(strtolower($sourceParent->getAttribute('encoding')), ['text/html', 'application/xhtml+xml'], true);
+            $htmlIntegration = $parentName === 'annotation-xml'
+                && in_array(strtolower($sourceParent->getAttribute('encoding') ?? ''), ['text/html', 'application/xhtml+xml'], true);
             if (!$textIntegration && !$htmlIntegration) {
                 return $parentNamespace;
             }

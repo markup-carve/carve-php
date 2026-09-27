@@ -248,6 +248,12 @@ class HtmlImportHtml5TreeTest extends TestCase
         }
     }
 
+    public function testAnnotationXmlWithoutEncodingRemainsMathMl(): void
+    {
+        $document = HtmlDomLoader::fragment('<math><annotation-xml><foo></foo></annotation-xml></math>');
+        self::assertSame('http://www.w3.org/1998/Math/MathML', $document->getElementsByTagName('foo')->item(0)?->namespaceURI);
+    }
+
     public function testTemplateDepthAllowsTheDocumentedBoundary(): void
     {
         foreach ([511, 512] as $depth) {
