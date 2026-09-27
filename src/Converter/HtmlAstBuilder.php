@@ -745,9 +745,6 @@ final class HtmlAstBuilder
         }
         if ($tag === 'p') {
             $children = $this->blockInlines($node);
-            if ($children === []) {
-                return [];
-            }
             $paragraph = ['type' => 'paragraph', 'children' => $children];
             $this->attachAttrs($paragraph, $node, []);
 
@@ -772,6 +769,7 @@ final class HtmlAstBuilder
             if (in_array($node->getAttribute('data-char'), ['*', '_'], true)) {
                 $break['marker'] = $node->getAttribute('data-char');
             }
+            $this->attachAttrs($break, $node, ['data-char']);
 
             return [$break];
         }
