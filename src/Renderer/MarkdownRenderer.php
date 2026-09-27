@@ -2463,7 +2463,15 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 $contentColumn = strlen($prefix);
             }
 
-            $content = $this->containerContent(fn (): string => $this->renderItemBlocks($child, $tight));
+            // PART 11 §10o: a list item is a prefixed container, so it starts a
+            // fresh run and its nested list cannot alternate the next item's.
+            $previousList = $this->previousList;
+            $this->previousList = null;
+            try {
+                $content = $this->containerContent(fn (): string => $this->renderItemBlocks($child, $tight));
+            } finally {
+                $this->previousList = $previousList;
+            }
             // Handle multi-line list items
             $lines = explode("\n", $content);
             $firstLine = array_shift($lines);
