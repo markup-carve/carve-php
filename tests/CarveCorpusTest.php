@@ -998,6 +998,13 @@ class CarveCorpusTest extends TestCase
         // every depth. Twenty-five documents, byte-exact here - carve-php#2586
         // already implements the rule.
         'a-comment-or-a-definition-under-a-definition-term-folds-at-every-depth',
+        // Arrived with the bump to carve 5315967c (markup-carve/carve#2464): a
+        // verbatim line keeps what sits past its fence opener, not past its
+        // container. carve-php#2594 already measures the residue from the fence
+        // opener, so three of the four documents are byte-exact; the fourth
+        // diverges on LOOSENESS rather than on the residue and is declared
+        // below.
+        'a-verbatim-line-keeps-what-sits-past-its-fence-opener-not-past-its-container',
     ];
 
     /**
@@ -1018,7 +1025,14 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        // carve-php#2598. A blank line between the item's text and a fence at
+        // the item's content column loosens the item here; carve-js, carve-rs
+        // and the oracle keep it tight. The residue rule this category is about
+        // is answered correctly - the other three documents are byte-exact.
+        '505-a-verbatim-line-keeps-what-sits-past-its-fence-opener-not-past-its-container-2'
+            => 'carve-php#2598: a blank line before a fence at the content column loosens the item',
+    ];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
