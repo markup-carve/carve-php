@@ -2950,6 +2950,16 @@ class HtmlToCarve
             return $this->classTokensSurvived($value);
         }
 
+        // A URL-list attribute is kept in the source and only hardened by the
+        // renderer, which blanks a value with a denied token (carve-rs#2036).
+        if (
+            in_array($name, ['srcset', 'imagesrcset', 'ping', 'attributionsrc'], true)
+            && ((new HtmlRenderer())->sanitizeAttributes([$name => $value])[$name] ?? '') === ''
+            && str_contains($this->inspectedCarve ?? '', $name . '=')
+        ) {
+            return true;
+        }
+
         if ($this->consumeSurvivingAttribute($this->importSurvivorKey($name, $value))) {
             return true;
         }
