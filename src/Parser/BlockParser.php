@@ -2798,6 +2798,14 @@ class BlockParser
         }
     }
 
+    private function isBlankAtContentColumn(int $sourceLine): bool
+    {
+        $line = $this->sourceLines[$sourceLine] ?? '';
+        $column = $this->currentContentColumns[$sourceLine] ?? 0;
+
+        return IndentationHelper::isBlankLine(substr($line, $column));
+    }
+
     /**
      * Give a block the span covering the source lines it was parsed from.
      *
@@ -2823,7 +2831,7 @@ class BlockParser
         // closer holds that line, and trimming it reported the SAME extent for
         // two documents whose content differs (carve-php#1183).
         if (!$this->endsWithVerbatimBlankLine($node)) {
-            while ($endLine > $startLine && IndentationHelper::isBlankLine($this->sourceLines[$endLine] ?? '')) {
+            while ($endLine > $startLine && $this->isBlankAtContentColumn($endLine)) {
                 $endLine--;
             }
         }
@@ -5357,15 +5365,9 @@ class BlockParser
                             break;
                         }
                     }
-                    // A fence opened by this item owns its trailing blanks.
-                    // A nested list still ends at the enclosing item's boundary.
-                    $trimTrailingBlanks = !$subTrailingState['inFence'] || !$subFenceOwnedByItem;
-                    $subLineCount = count($subLines);
-                    while ($trimTrailingBlanks && $subLineCount > 0 && $subLines[$subLineCount - 1] === '') {
-                        array_pop($subLines);
-                        array_pop($subLineMap);
-                        $subLineCount--;
-                    }
+                    // The nested parser decides whether trailing blanks are
+                    // fence payload or spacing outside the last block.
+
                     // Compact-list rule (carve#322): an internal blank line in
                     // the item's collected content loosens THIS list only when
                     // the content after the blank is the item's OWN block (a
@@ -7912,16 +7914,9 @@ class BlockParser
             $nextLine = $lines[$i];
 
             if (IndentationHelper::isBlankLine($nextLine)) {
-                // A blank only stays inside the item when item-owned indented
-                // content (>= content column) follows it; otherwise it ends the
-                // item (the next non-blank starts a sibling or an outer block).
-                $look = $i + 1;
-                while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
-                    $look++;
-                }
-                if ($look >= $count || IndentationHelper::getLeadingColumns($lines[$look], $contentIndent) < $contentIndent) {
-                    break;
-                }
+                // Keep the run for the child parser, including a fence that
+                // reaches the end of its item. The next content line still
+                // decides whether this item continues.
                 $itemLines[] = $this->blankLineResidue($nextLine, $contentIndent, $trailingState);
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceTrailingBlockState($trailingState, '');
@@ -8038,14 +8033,6 @@ class BlockParser
             // it (carve-php#1866).
             $trailingState = $this->advanceTrailingBlockState($trailingState, $stripped, true);
             $i++;
-        }
-
-        // Drop trailing blank lines from the collected stream.
-        $lineCount = count($itemLines);
-        while ($lineCount > 0 && $itemLines[$lineCount - 1] === '') {
-            array_pop($itemLines);
-            array_pop($itemLineMap);
-            $lineCount--;
         }
 
         return $i;
@@ -11041,7 +11028,7 @@ class BlockParser
                 return null;
             }
             $candidate = $lineMap[$lastKey];
-            if (!IndentationHelper::isBlankLine($this->sourceLines[$candidate] ?? '')) {
+            if (!$this->isBlankAtContentColumn($candidate)) {
                 break;
             }
             array_pop($lineMap);
