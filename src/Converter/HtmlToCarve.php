@@ -248,30 +248,9 @@ class HtmlToCarve
     /**
      * An element the renderer names not at all - see `derivedElementNaming()`.
      *
-     * @var array{role: list<string>, aria-label: list<string>}
+     * @var array{aria-label: list<string>}
      */
-    protected const DERIVES_NOTHING = ['role' => [], 'aria-label' => []];
-
-    /**
-     * The roles a tab set or a code group is written with.
-     *
-     * TWO SPELLINGS OF ONE SHAPE: `TabsExtension` and `CodeGroupExtension` put
-     * `group` on the wrapper under their CSS mode and `tablist` under their
-     * ARIA one. Which mode produced a document is not readable from it, so both
-     * are the renderer's.
-     *
-     * @var list<string>
-     */
-    protected const DERIVED_GROUP_ROLES = ['group', 'tablist'];
-
-    /**
-     * The roles a tab or code-group PANEL is written with, the same two modes
-     * apart: `group` beside a name the CSS mode reads off the panel's own
-     * control, `tabpanel` beside the `aria-labelledby` the ARIA mode writes.
-     *
-     * @var list<string>
-     */
-    protected const DERIVED_PANEL_ROLES = ['group', 'tabpanel'];
+    protected const DERIVES_NOTHING = ['aria-label' => []];
 
     /**
      * When true, trust and re-emit a `data-djot-src` round-trip attribute on the
@@ -3687,10 +3666,9 @@ class HtmlToCarve
     }
 
     /**
-     * WHAT THE RENDERER DERIVES for this element: the `role` values it can
-     * write, and the accessible name it writes beside them.
+     * The accessible name the renderer derives for this element.
      *
-     * @return array{role: list<string>, aria-label: list<string>}
+     * @return array{aria-label: list<string>}
      */
     protected function derivedElementNaming(DOMElement $node): array
     {
@@ -3721,22 +3699,22 @@ class HtmlToCarve
                 if (isset($labels[$key])) {
                     // No role: `<aside>` already says what it is, so the core
                     // renderer writes the name alone.
-                    return ['role' => [], 'aria-label' => [$labels[$key]]];
+                    return ['aria-label' => [$labels[$key]]];
                 }
             }
         }
 
         // PART 9 §16: the endnotes section.
         if ($tag === 'section' && $node->getAttribute('role') === 'doc-endnotes') {
-            return ['role' => ['doc-endnotes'], 'aria-label' => [$labels['endnotes']]];
+            return ['aria-label' => [$labels['endnotes']]];
         }
 
         // Extensions §13: a tab set and a code group are named as a whole.
         if (in_array('tabs', $classes, true)) {
-            return ['role' => self::DERIVED_GROUP_ROLES, 'aria-label' => [$labels['tabsGroup']]];
+            return ['aria-label' => [$labels['tabsGroup']]];
         }
         if (in_array('code-group', $classes, true)) {
-            return ['role' => self::DERIVED_GROUP_ROLES, 'aria-label' => [$labels['codeGroup']]];
+            return ['aria-label' => [$labels['codeGroup']]];
         }
 
         // Extensions §13.2: a css-mode panel is named by its own tab, which is
@@ -3744,14 +3722,12 @@ class HtmlToCarve
         if (in_array('tabs-panel', $classes, true) || in_array('code-group-panel', $classes, true)) {
             for ($prev = $node->previousSibling; $prev !== null; $prev = $prev->previousSibling) {
                 if ($prev instanceof DOMElement && strtolower($prev->tagName) === 'label') {
-                    return ['role' => self::DERIVED_PANEL_ROLES, 'aria-label' => [trim($prev->textContent)]];
+                    return ['aria-label' => [trim($prev->textContent)]];
                 }
             }
 
-            // A panel cut from its controls derives no NAME - guessing one
-            // would drop a label nothing writes back - but it is still a panel,
-            // and the role is written from the shape rather than from the tab.
-            return ['role' => self::DERIVED_PANEL_ROLES, 'aria-label' => []];
+            // Without its control, a panel has no name to reconstruct.
+            return ['aria-label' => []];
         }
 
         // markup-carve/carve#1469: an index back-link is named by the label plus
@@ -3786,13 +3762,13 @@ class HtmlToCarve
                 }
             }
             if ($total === 1) {
-                return ['role' => [], 'aria-label' => [$lead . ' ' . $term]];
+                return ['aria-label' => [$lead . ' ' . $term]];
             }
             if (preg_match('/-(\d+)$/', $node->getAttribute('href'), $m) !== 1) {
                 return self::DERIVES_NOTHING;
             }
 
-            return ['role' => [], 'aria-label' => [$lead . ' ' . $term . ' ' . $m[1]]];
+            return ['aria-label' => [$lead . ' ' . $term . ' ' . $m[1]]];
         }
 
         if (
@@ -3800,7 +3776,7 @@ class HtmlToCarve
             && $classes !== []
             && strtolower($node->getAttribute('role')) === 'img'
         ) {
-            return ['role' => ['img'], 'aria-label' => [$classes[0]]];
+            return ['aria-label' => [$classes[0]]];
         }
 
         return self::DERIVES_NOTHING;

@@ -893,7 +893,7 @@ final class HtmlAstBuilder
     private function section(DOMElement $node): array
     {
         $blocks = $this->blocks($this->children($node));
-        $skip = ['data-djot-explicit-id'];
+        $skip = ['data-djot-explicit-id', 'role'];
         foreach ($node->childNodes as $child) {
             if (
                 $child instanceof DOMElement
@@ -2707,7 +2707,12 @@ final class HtmlAstBuilder
         $tag = strtolower($node->tagName);
         $role = strtolower(trim($value));
         $classes = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        if ($tag === 'pre' && $role === 'img' && $classes !== []) {
+        if (
+            $tag === 'pre'
+            && $role === 'img'
+            && $classes !== []
+            && (trim($node->getAttribute('aria-label')) !== '' || trim($node->getAttribute('aria-labelledby')) !== '')
+        ) {
             return true;
         }
         if ($tag !== 'div') {

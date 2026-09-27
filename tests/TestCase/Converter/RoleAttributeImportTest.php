@@ -55,6 +55,7 @@ class RoleAttributeImportTest extends TestCase
             'heading' => ['<h2 role="status">x</h2>', 'status'],
             'code' => ['<pre role="region"><code>x</code></pre>', 'region'],
             'image code' => ['<pre role="img">x</pre>', 'img'],
+            'classed image code' => ['<pre class="language-php" role="img"><code>x</code></pre>', 'img'],
             'image container' => ['<div class="diagram" role="img"><p>x</p></div>', 'img'],
             'math override' => ['<span class="math inline" role="img">\\(x\\)</span>', 'img'],
             'tabs override' => ['<div class="tabs" role="region"><p>x</p></div>', 'region'],
@@ -68,9 +69,15 @@ class RoleAttributeImportTest extends TestCase
     #[DataProvider('generatedRoles')]
     public function testGeneratedRolesStayOutOfSource(string $html, string $expected): void
     {
-        $result = (new HtmlToCarve())->convertWithReport($html);
-        self::assertSame($expected, trim($result->value));
-        self::assertSame([], $result->diagnostics);
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $importer = new HtmlToCarve(importMode: $mode);
+            $result = $importer->convertWithReport($html);
+            self::assertSame($expected, trim($result->value));
+            self::assertSame([], $result->diagnostics);
+            $ast = $importer->convertToAstWithReport($html);
+            self::assertSame([], $ast->diagnostics);
+            self::assertStringNotContainsString('"role":', json_encode($ast->value, JSON_THROW_ON_ERROR));
+        }
     }
 
     /**
@@ -87,7 +94,20 @@ class RoleAttributeImportTest extends TestCase
             'extension warning' => ['<div class="admonition warning" role="alert"><p>x</p></div>', "{.warning}\n::: admonition\nx\n:::"],
             'extension custom type' => ['<div class="admonition custom" role="note"><p>x</p></div>', "{.custom}\n::: admonition\nx\n:::"],
             'extension custom sidecar' => ['<div data-djot-admonition-type="custom" role="note"><p>x</p></div>', "::: custom\nx\n:::"],
+            'named diagram' => ['<pre class="mermaid" role="img" aria-label="mermaid">x</pre>', "{.mermaid}\n```\nx\n```"],
             'math' => ['<span class="math inline" role="math">\\(x\\)</span>', '$`x`'],
         ];
+    }
+    public function testAnUnwrappedSectionDoesNotGiveItsRoleToTheHeading(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $html = '<section role="region"><h2>h</h2><p>a</p></section>';
+            $importer = new HtmlToCarve(importMode: $mode);
+            $result = $importer->convertWithReport($html);
+            self::assertStringNotContainsString('role=', $result->value);
+            self::assertContains('Dropped unsupported attribute role on <section>', array_column($result->report()['diagnostics'], 'message'));
+            $ast = $importer->convertToAstWithReport($html);
+            self::assertStringNotContainsString('"role":', json_encode($ast->value, JSON_THROW_ON_ERROR));
+        }
     }
 }
