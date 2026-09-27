@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 class NestedFenceBlankRunsTest extends TestCase
@@ -36,6 +37,24 @@ class NestedFenceBlankRunsTest extends TestCase
         $html = CarveConverter::create()->convert($source);
         $this->assertStringContainsString("body\n\n\n</code></pre>", $html);
         $this->assertStringEndsWith('<p>out</p>', trim($html));
+    }
+
+    public function testQuotedRawFenceKeepsTrailingBlanks(): void
+    {
+        $source = "> - - head\n>\n>     ```=html\n>     <b>body</b>\n>\n>\n";
+        $this->assertStringContainsString("<b>body</b>\n\n\n", CarveConverter::create()->convert($source));
+    }
+
+    public function testQuotedDivEndsBeforeTrailingPrefixOnlyLines(): void
+    {
+        $source = "> - - head\n>\n>     ::: note\n>     x\n>\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+        $pending = [$document];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            $this->assertLessThanOrEqual(4, $node->getPos()?->endLine, $node->getType());
+            array_push($pending, ...$node->getChildren());
+        }
     }
 
     public function testClosedFenceDoesNotAcquireFollowingSpacing(): void

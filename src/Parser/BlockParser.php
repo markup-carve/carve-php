@@ -2811,6 +2811,14 @@ class BlockParser
      * covered a space its content does not contain (carve-php#1363). Passed in
      * rather than derived here, because the rule belongs to the construct.
      */
+    private function isBlankAtContentColumn(int $sourceLine): bool
+    {
+        $line = $this->sourceLines[$sourceLine] ?? '';
+        $column = $this->currentContentColumns[$sourceLine] ?? 0;
+
+        return IndentationHelper::isBlankLine(substr($line, $column));
+    }
+
     private function stampBlockSpan(Node $node, int $startLine, int $endLine, ?int $endBytesOnEndLine = null): void
     {
         if ($node->getPos() !== null) {
@@ -2823,7 +2831,7 @@ class BlockParser
         // closer holds that line, and trimming it reported the SAME extent for
         // two documents whose content differs (carve-php#1183).
         if (!$this->endsWithVerbatimBlankLine($node)) {
-            while ($endLine > $startLine && IndentationHelper::isBlankLine($this->sourceLines[$endLine] ?? '')) {
+            while ($endLine > $startLine && $this->isBlankAtContentColumn($endLine)) {
                 $endLine--;
             }
         }
@@ -11020,7 +11028,7 @@ class BlockParser
                 return null;
             }
             $candidate = $lineMap[$lastKey];
-            if (!IndentationHelper::isBlankLine($this->sourceLines[$candidate] ?? '')) {
+            if (!$this->isBlankAtContentColumn($candidate)) {
                 break;
             }
             array_pop($lineMap);
