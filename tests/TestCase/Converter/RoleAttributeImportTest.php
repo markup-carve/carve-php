@@ -54,7 +54,7 @@ class RoleAttributeImportTest extends TestCase
             'paragraph' => ['<p role="note">x</p>', 'note'],
             'heading' => ['<h2 role="status">x</h2>', 'status'],
             'code' => ['<pre role="region"><code>x</code></pre>', 'region'],
-            'image code' => ['<pre class="diagram" role="img">x</pre>', 'img'],
+            'image code' => ['<pre role="img">x</pre>', 'img'],
             'image container' => ['<div class="diagram" role="img"><p>x</p></div>', 'img'],
             'math override' => ['<span class="math inline" role="img">\\(x\\)</span>', 'img'],
             'tabs override' => ['<div class="tabs" role="region"><p>x</p></div>', 'region'],

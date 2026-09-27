@@ -2705,11 +2705,14 @@ final class HtmlAstBuilder
     public static function isDerivedRole(DOMElement $node, string $value): bool
     {
         $tag = strtolower($node->tagName);
+        $role = strtolower(trim($value));
+        $classes = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($tag === 'pre' && $role === 'img' && $classes !== []) {
+            return true;
+        }
         if ($tag !== 'div') {
             return false;
         }
-        $role = strtolower(trim($value));
-        $classes = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         if (array_intersect($classes, ['tabs', 'code-group']) !== []) {
             return in_array($role, ['group', 'tablist'], true);
         }

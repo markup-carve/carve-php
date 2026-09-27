@@ -87,7 +87,7 @@ class HtmlCodeLanguagesTest extends TestCase
     public function testFigureCollisionsUseTheSharedDiagnostic(): void
     {
         foreach (['pre', 'table'] as $tag) {
-            foreach (['id', 'data-x'] as $name) {
+            foreach (['id', 'data-x', 'role'] as $name) {
                 $body = $tag === 'table' ? '<tr><td>x</td></tr>' : 'x';
                 $html = '<figure ' . $name . '="a"><' . $tag . ' ' . $name . '="b">' . $body . '</' . $tag . '><figcaption>c</figcaption></figure>';
                 $report = (new HtmlToCarve())->convertWithReport($html)->report();
@@ -101,7 +101,6 @@ class HtmlCodeLanguagesTest extends TestCase
     {
         foreach (
             [
-                '<figure role="note"><pre role="img">x</pre><figcaption>c</figcaption></figure>',
                 '<figure id="outer"><p id="inner">text</p><figcaption>c</figcaption></figure>',
                 '<figure id="outer"><p id="inner"><img src="x" alt="x"></p><figcaption>c</figcaption></figure>',
             ] as $html

@@ -145,25 +145,12 @@ class ADerivedNameIsNotReportedAsDroppedTest extends TestCase
         $this->assertSame([], $reported);
     }
 
-    /**
-     * The control that keeps the fix from becoming "stop reporting a role".
-     *
-     * A `role` the renderer does not derive for this element is the author's,
-     * and it is still stripped - `$skipAttributes` has held it since before any
-     * of this - so the diagnostic about it is true and stays.
-     */
-    public function testARoleTheRendererDoesNotDeriveIsStillReported(): void
+    public function testARoleTheRendererDoesNotDeriveIsPreserved(): void
     {
-        $this->assertSame(
-            [['attribute-dropped', 'Dropped unsupported attribute role on <p>']],
-            $this->diagnostics('<p role="note">x</p>'),
-        );
-
-        // Same element as the fixture's, with a role no fence is written with.
-        $this->assertSame(
-            [['attribute-dropped', 'Dropped unsupported attribute role on <pre>']],
-            $this->diagnostics('<pre class="mermaid" role="note">x</pre>'),
-        );
+        foreach (['<p role="note">x</p>', '<pre class="mermaid" role="note">x</pre>'] as $html) {
+            $this->assertSame([], $this->diagnostics($html));
+            $this->assertStringContainsString('role=note', $this->carve($html));
+        }
     }
 
     /**
