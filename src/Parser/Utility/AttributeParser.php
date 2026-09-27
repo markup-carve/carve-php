@@ -68,8 +68,8 @@ class AttributeParser
             // Group 3,4: key='single quoted value'
             . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'{}]+)(?=[ \t\r\n]|}|$)|'
-            // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'}|\\\\]+)(?=[ \t\r\n]|}|$)|'
+            // Skip invalid unquoted values (e.g. key=a|b, 1=v) - consume but don't capture
             . '(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+=[^ \t\r\n}]+|'
             // Group 7: .class shorthand
             . '\.([a-zA-Z0-9_][a-zA-Z0-9_-]*+)(?!:)|'
@@ -159,8 +159,7 @@ class AttributeParser
         // Single-pass regex that matches all token types in source order.
         // Order matters: quoted values and invalid unquoted values must be matched/skipped
         // first to prevent dots/hashes inside them from being matched as .class or #id.
-            // Unquoted values may contain any non-whitespace byte except
-            // quotes and braces.
+        // Unquoted values exclude quotes, closing braces, pipes and backslashes.
         // Explicit ids/classes admit an ASCII digit first. Keys do not; the
         // invalid-value skip also prevents numeric keys becoming PHP ints.
         $pattern = '/'
@@ -169,8 +168,8 @@ class AttributeParser
             // Group 3,4: key='single quoted value'
             . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
-            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'{}]+)(?=[ \t\r\n]|}|$)|'
-            // Skip invalid unquoted values (e.g. key=foo/bar, 1=v) - consume but don't capture
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'}|\\\\]+)(?=[ \t\r\n]|}|$)|'
+            // Skip invalid unquoted values (e.g. key=a|b, 1=v) - consume but don't capture
             // This prevents .bar from being matched as a class
             . '(?:(?<=[ \t\r\n])|^)[a-zA-Z0-9_:-]+=[^ \t\r\n}]+|'
             // Group 7: .class shorthand
@@ -288,7 +287,7 @@ class AttributeParser
         }
         $patterns = [
             '/(?:(?<=[ \t\r\n])|^):(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?(?=[ \t\r\n]|$)/',
-            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n"\'{}]+/',
+            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n"\'}|\\\\]+/',
             '/\.[a-zA-Z0-9_][a-zA-Z0-9_-]*+(?!:)/',
             '/#[a-zA-Z0-9_][a-zA-Z0-9_-]*+(?!:)/',
             '/(?:(?<=[ \t\r\n])|^)[a-zA-Z][a-zA-Z0-9_-]*(?=[ \t\r\n]|$)/',

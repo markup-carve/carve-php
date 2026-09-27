@@ -277,16 +277,11 @@ class InlineParser
     protected ?string $closerLastText = null;
 
     /**
-     * Memo for findAttributeEnd's closer-supply check: for the current text,
-     * `suffix[$p]` is the number of `}` at index >= $p. Built lazily (only when
-     * a nested `{` inside an attribute scan forces the depth check), so a
-     * document of flat, valid attribute blocks never pays for it.
-     *
-     * @var array<int, int>|null
+     * @var array<int, int|null>
      */
-    protected ?array $braceCloseSuffix = null;
+    private array $attributeValueEnds = [];
 
-    protected ?string $braceCloseSuffixText = null;
+    private ?string $attributeValueText = null;
 
     /**
      * Cached abbreviation regex pattern (built once per document)
@@ -3977,8 +3972,7 @@ class InlineParser
         // and one bad name invalidates the WHOLE block even
         // mixed with valid ones, matching carve-js and carve-rs. A colon is
         // still legal inside an unquoted VALUE (`{k=a:b}`, `unquoted_value`).
-        // Booleans and an invalid unquoted VALUE (which is tolerated and
-        // skipped) stay accepted.
+        // Unquoted values use the same exclusions as the attribute reader.
         $rest = $attrStr;
         // Quoted key=values first, so `%`, dots and braces inside quotes are
         // protected from the shorthand patterns.
@@ -4009,7 +4003,7 @@ class InlineParser
         $item = '(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')';
         $item = '(?:[a-zA-Z_][a-zA-Z0-9_-]*=' . $item . ')'
             . '|(?::(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?)'
-            . '|(?:[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n}]+)'
+            . '|(?:[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n"\'}|\\\\]+)'
             . '|(?:\.[a-zA-Z0-9_][a-zA-Z0-9_-]*)'
             . '|(?:#[a-zA-Z0-9_][a-zA-Z0-9_-]*)'
             . '|(?:[a-zA-Z][a-zA-Z0-9_-]*)';
@@ -4027,18 +4021,23 @@ class InlineParser
     protected function findAttributeEnd(string $text, int $pos): ?int
     {
         $length = strlen($text);
+        if ($this->attributeValueText !== $text) {
+            $this->attributeValueText = $text;
+            $this->attributeValueEnds = [];
+        }
+        $valueBraces = [];
 
         // A block needs a closing `}`. Without this guard, every `{` runs the
         // char-by-char scan below to end-of-text, so an unclosed run like
         // `[x]{` repeated is O(n^2). strrpos (memoized) short-circuits when no
         // `}` lies at or after the block start.
         if (!$this->closerExistsFrom($text, '}', $pos + 1)) {
-            return null;
+            return $this->rememberAttributeValueEnd($valueBraces, null);
         }
 
         $i = $pos + 1;
         $inQuote = null;
-        $depth = 1;
+        $inUnquotedValue = false;
 
         while ($i < $length) {
             $char = $text[$i];
@@ -4047,7 +4046,11 @@ class InlineParser
             // closing `}` means this is not an inline attr block, so the `{`
             // stays literal (`[x]{.a\n.b}` is text). Matches carve-js / carve-rs.
             if ($char === "\n") {
-                return null;
+                return $this->rememberAttributeValueEnd($valueBraces, null);
+            }
+
+            if ($inQuote === null && ($char === '|' || $char === '\\')) {
+                return $this->rememberAttributeValueEnd($valueBraces, null);
             }
 
             // Handle escape sequences
@@ -4061,6 +4064,7 @@ class InlineParser
             if ($inQuote !== null) {
                 if ($char === $inQuote) {
                     $inQuote = null;
+                    $inUnquotedValue = false;
                 }
                 $i++;
 
@@ -4074,31 +4078,41 @@ class InlineParser
                 continue;
             }
 
-            if ($char === '{') {
-                $depth++;
-                // Closing an unmatched-brace depth of `d` needs `d` more `}`. If
-                // the depth outruns the `}` still ahead, the block can NEVER
-                // balance, so the scan below would only run to end-of-text and
-                // return null -- bail now (byte-identical, same null). This turns
-                // the pathological `[x]{` repeated + one far `}` (nested `{` that
-                // never balances) from O(n^2) into O(1) per opener. Only reached
-                // on a nested `{` (never for a flat, valid attribute block), and
-                // the suffix count is a memoized per-text table, so a document of
-                // many valid `[x]{.a}` blocks pays nothing here.
-                if ($depth > $this->closeBraceSuffixCount($text, $i + 1)) {
-                    return null;
+            if ($char === '{' && $inUnquotedValue) {
+                if (array_key_exists($i, $this->attributeValueEnds)) {
+                    return $this->rememberAttributeValueEnd($valueBraces, $this->attributeValueEnds[$i]);
                 }
+                $valueBraces[] = $i;
+            }
+            if ($char === '=') {
+                $inUnquotedValue = true;
+            } elseif ($char === ' ' || $char === "\t" || $char === "\r") {
+                $inUnquotedValue = false;
+            } elseif ($char === '{' && !$inUnquotedValue) {
+                return $this->rememberAttributeValueEnd($valueBraces, null);
             } elseif ($char === '}') {
-                $depth--;
-                if ($depth === 0) {
-                    return $i;
-                }
+                return $this->rememberAttributeValueEnd($valueBraces, $i);
             }
 
             $i++;
         }
 
-        return null;
+        return $this->rememberAttributeValueEnd($valueBraces, null);
+    }
+
+    /**
+     * Cache suffix scans entered at a brace inside an unquoted value.
+     *
+     * @param list<int> $positions
+     * @param int|null $end
+     */
+    private function rememberAttributeValueEnd(array $positions, ?int $end): ?int
+    {
+        foreach ($positions as $position) {
+            $this->attributeValueEnds[$position] = $end;
+        }
+
+        return $end;
     }
 
     /**
@@ -4536,27 +4550,6 @@ class InlineParser
         $last = $this->closerLastPos[$needle];
 
         return $last !== false && $last >= $from;
-    }
-
-    /**
-     * Number of `}` at index >= $from in $text. Backed by a per-text suffix
-     * table (see $braceCloseSuffix), built once and reused across every
-     * attribute scan over that text so the depth check stays O(1) per nested
-     * brace instead of re-counting the tail.
-     */
-    protected function closeBraceSuffixCount(string $text, int $from): int
-    {
-        if ($text !== $this->braceCloseSuffixText) {
-            $this->braceCloseSuffixText = $text;
-            $length = strlen($text);
-            $suffix = array_fill(0, $length + 1, 0);
-            for ($p = $length - 1; $p >= 0; $p--) {
-                $suffix[$p] = $suffix[$p + 1] + ($text[$p] === '}' ? 1 : 0);
-            }
-            $this->braceCloseSuffix = $suffix;
-        }
-
-        return $this->braceCloseSuffix[$from] ?? 0;
     }
 
     /**

@@ -13,9 +13,8 @@ use PHPUnit\Framework\TestCase;
  * Guards the closer short-circuits in findAttributeEnd(). An inline attribute
  * block `[x]{...}` scans forward for its `}`; without a bound, a run of `[x]{`
  * openers with no closer (or one far, never-balancing `}`) makes every opener
- * walk to end-of-text -> O(n^2). Two guards keep it linear: a memoized strrpos
- * (no `}` ahead -> bail) and a closer-supply check (unmatched brace depth can
- * never exceed the `}` remaining). Output must be byte-identical.
+ * walk to end-of-text in quadratic time. The scanner stops when no closer
+ * remains or an opening brace appears outside an unquoted value.
  */
 #[Group('scaling')]
 class AttributeScanTest extends TestCase
@@ -36,9 +35,7 @@ class AttributeScanTest extends TestCase
 
     public function testFarBraceNeverBalancesLeavesOpenersLiteral(): void
     {
-        // The first `[x]{` can never balance (its brace depth outruns the lone
-        // `}` supply) so it stays literal; the trailing `[x]{}` is a valid
-        // empty-attribute span. Byte-identical to the old to-end-of-text scan.
+        // The nested opener invalidates the first block; the last span is valid.
         $this->assertSame('<p>[x]{<span>x</span></p>', trim($this->converter->convert('[x]{[x]{}')));
     }
 
@@ -49,8 +46,7 @@ class AttributeScanTest extends TestCase
 
     public function testQuotedBraceInAttrValueStillParses(): void
     {
-        // A `}` inside a quoted value must not close the block early; the
-        // closer-supply count includes it (over-count), which stays safe.
+        // A closing brace inside a quoted value does not close the block.
         $this->assertSame('<p><span key="v}v">a</span></p>', trim($this->converter->convert('[a]{key="v}v"}')));
     }
 
@@ -76,6 +72,9 @@ class AttributeScanTest extends TestCase
         return [
             'no-closer' => ['[x]{', ''],
             'far-brace' => ['[x]{', '}'],
+            'distant-invalid-pipe' => ['[x]{k=a', '|}'],
+            'invalid-pipe-value' => ['*x*{k=|', '}'],
+            'invalid-backslash-value' => ['[x]{k=\\', '}'],
         ];
     }
 }

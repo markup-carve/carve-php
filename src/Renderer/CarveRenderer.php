@@ -4188,9 +4188,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * Attributes an authored inline already states in its trailing `{...}` block.
      *
-     * QUOTE-AWARE: a value may itself contain a brace (`{k="{y}"}`), so the block's
-     * opening brace is the last one seen OUTSIDE quotes - `strrpos()` finds the one
-     * inside the value and mis-parses the payload (corpus 71).
+     * Opening braces inside quoted or unquoted values belong to the value.
      *
      * @return array<string, string>
      */
@@ -4199,34 +4197,28 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!str_ends_with($text, '}')) {
             return [];
         }
-        $quote = null;
-        $open = null;
-        foreach (str_split($text) as $i => $ch) {
-            if ($quote !== null) {
-                if ($ch === $quote) {
-                    $quote = null;
-                }
-
-                continue;
-            }
-            if ($ch === '"' || $ch === "'") {
-                $quote = $ch;
-
-                continue;
-            }
-            if ($ch === '{') {
-                $open = $i;
-            }
-        }
-        if ($open === null) {
+        $labelEnd = BracketScanner::balancedBracketEnd($text, str_starts_with($text, '![') ? 1 : 0);
+        if ($labelEnd === null) {
             return [];
         }
-        $payload = substr($text, $open + 1, -1);
-        if (!AttributeParser::isValidInlinePayload($payload)) {
-            return [];
+        $offset = $labelEnd;
+        if (($text[$labelEnd + 1] ?? '') === '[') {
+            $referenceEnd = strpos($text, ']', $labelEnd + 2);
+            if ($referenceEnd === false) {
+                return [];
+            }
+            $offset = $referenceEnd;
+        }
+        while (preg_match('/(?:\]|\})\{/', $text, $match, PREG_OFFSET_CAPTURE, $offset) === 1) {
+            $boundary = $match[0][1];
+            $payload = substr($text, $boundary + 2, -1);
+            if (AttributeParser::isValidInlinePayload($payload)) {
+                return AttributeParser::parse($payload);
+            }
+            $offset = $boundary + 2;
         }
 
-        return AttributeParser::parse($payload);
+        return [];
     }
 
     protected function renderImage(Image $node): string
@@ -6039,7 +6031,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         // `\|` is the only pipe a table row's cell cut leaves in place
         // ([CARVE-P2-019]), so a pipe is escaped wherever the value sits.
-        if (!$forceQuotes && preg_match('/^[^\s"\'{}|]+$/u', $value) === 1) {
+        if (!$forceQuotes && preg_match('/^[^\s"\'{}|\\\\]+$/u', $value) === 1) {
             return $value;
         }
 
