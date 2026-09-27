@@ -5194,15 +5194,17 @@ class BlockParser
                             }
                             // Remove subIndent worth of indentation (handling tabs)
                             $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
-                            // Colon fences keep their source column when a tab remains
+                            // Fence lines keep their source column when a tab remains
                             // after stripping the host prefix. Code payload stays verbatim.
                             if (
-                                $subTrailingState['inDiv']
-                                && !$subSawListMarker
+                                !$subSawListMarker
                                 && !$subTrailingState['inFence']
                                 && $subTrailingState['nestedColumn'] === 0
                                 && str_contains($stripped, "\t")
-                                && preg_match('/^[ \t]*:{3,}/', $stripped) === 1
+                                && (
+                                    preg_match('/^[ \t]*:{3,}/', $stripped) === 1
+                                    || ($subTrailingState['inDiv'] && preg_match('/^[ \t]*(?:`{3,}|~{3,})/', $stripped) === 1)
+                                )
                             ) {
                                 $stripped = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($subLine) - $subIndent))
                                     . ltrim($stripped, " \t");
