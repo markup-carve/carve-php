@@ -1147,9 +1147,7 @@ class IncludeExpander implements TransformerInterface
             }
         }
 
-        foreach (array_slice($children, $start, $end - $start) as $child) {
-            $selected->appendChild($child);
-        }
+        $selected->setChildren(array_slice($children, $start, $end - $start));
 
         return $selected;
     }

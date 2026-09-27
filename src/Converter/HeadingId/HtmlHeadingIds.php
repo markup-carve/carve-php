@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter\HeadingId;
 
-use DOMDocument;
 use DOMElement;
 use DOMXPath;
-use function libxml_clear_errors;
-use function libxml_use_internal_errors;
+use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use function trim;
 
 /**
@@ -38,16 +36,7 @@ final class HtmlHeadingIds
             return [];
         }
 
-        $dom = new DOMDocument();
-        $previous = libxml_use_internal_errors(true);
-        // Wrap in a UTF-8 container so a fragment (no <html>/<body>) parses and
-        // multibyte ids survive. LIBXML flags suppress HTML5-tag warnings.
-        $dom->loadHTML(
-            '<?xml encoding="UTF-8"?><div>' . $html . '</div>',
-            LIBXML_NOERROR | LIBXML_NOWARNING,
-        );
-        libxml_use_internal_errors($previous);
-        libxml_clear_errors();
+        $dom = HtmlDomLoader::load('<div>' . $html . '</div>');
 
         $ids = [];
         $xpath = new DOMXPath($dom);

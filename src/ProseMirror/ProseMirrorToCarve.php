@@ -938,9 +938,7 @@ class ProseMirrorToCarve
                 && !isset(self::CONTENT_BEARING_MARKS[$node->getType()]);
 
             if ($previous !== null && $mergeable && SchemaMap::isSameMark($previous, $node)) {
-                foreach ($node->getChildren() as $child) {
-                    $previous->appendChild($child);
-                }
+                $previous->setChildren(array_merge($previous->getChildren(), $node->getChildren()));
                 // Recurse so nested runs inside the merged element coalesce too.
                 $this->replaceChildren($previous, $this->mergeAdjacentMarks($previous->getChildren()));
 
@@ -958,20 +956,14 @@ class ProseMirrorToCarve
     }
 
     /**
-     * Swap a node's children for a rebuilt list. Node exposes append and remove
-     * rather than a bulk setter, so the old ones are removed first.
+     * Swap a node's children for a rebuilt list.
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<\MarkupCarve\Carve\Node\Node> $children
      */
     protected function replaceChildren(Node $node, array $children): void
     {
-        foreach ($node->getChildren() as $existing) {
-            $node->removeChild($existing);
-        }
-        foreach ($children as $child) {
-            $node->appendChild($child);
-        }
+        $node->setChildren($children);
     }
 
     /**
