@@ -167,16 +167,17 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var list<string>
      */
-    private const LOOKAHEAD_CHARACTERS = ['<', '&', '!', ':', '.'];
+    private const LOOKAHEAD_CHARACTERS = ['<', '&', '!', ':', '.', '@'];
 
     /**
      * The GFM autolink starters of PART 11 §8i. Only a text `:` or `.` that
      * could still complete a form on the line becomes a sentinel, so a `1.`
-     * or a `[x]:` reaches the line rules as itself.
+     * or a `[x]:` reaches the line rules as itself. Every text `@` becomes one,
+     * because the address E1 guards is decided by what surrounds it.
      *
      * @var string
      */
-    private const AUTOLINK_CANDIDATE = '/(?<=[A-Za-z]|^):(?=\/\/|\/?$)|(?<=www)\.|^w{0,2}\K\./';
+    private const AUTOLINK_CANDIDATE = '/(?<=[A-Za-z]|^):(?=\/\/|\/?$)|(?<=www)\.|^w{0,2}\K\.|@/';
 
     /**
      * The openers this target emits that interrupt a paragraph, matched against
@@ -256,7 +257,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var string
      */
-    protected string $narrowedSentinelClass = '[\x{E004}-\x{E00C}]';
+    protected string $narrowedSentinelClass = '[\x{E004}-\x{E00D}]';
 
     /**
      * Sentinels for the characters PART 11 §8d-§8f decide by lookahead.
@@ -269,6 +270,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         '!' => "\u{E00A}",
         ':' => "\u{E00B}",
         '.' => "\u{E00C}",
+        '@' => "\u{E00D}",
     ];
 
     /**
@@ -665,7 +667,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                         || ($char === '_' && isset($pairs[$at])));
 
             $out .= substr($markdown, $read, $offset - $read);
-            $out .= $keep ? '\\' . $char : $char;
+            $out .= $keep ? ($char === '@' ? '<!---->@' : '\\' . $char) : $char;
             $read = $offset + strlen($sentinel);
         }
 
@@ -707,6 +709,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 && preg_match('/(?<![A-Za-z])(?:https?|ftp)$/i', substr($line, max(0, $at - 6), min($at, 6))) === 1,
             '.' => $at >= 3 && substr($line, $at - 3, 3) === 'www'
                 && ($at === 3 || !ctype_alnum($line[$at - 4])),
+            '@' => $at > 0 && preg_match('/[A-Za-z0-9._+\-]/', $line[$at - 1]) === 1
+                && preg_match(
+                    '/\G@[A-Za-z0-9_\-]++(?:\.[A-Za-z0-9_\-]++)++(?<=[A-Za-z0-9])/',
+                    $line,
+                    offset: $at,
+                ) === 1,
             default => $nextRaw === '[',
         };
     }
