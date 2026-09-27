@@ -2798,6 +2798,14 @@ class BlockParser
         }
     }
 
+    private function isBlankAtContentColumn(int $sourceLine): bool
+    {
+        $line = $this->sourceLines[$sourceLine] ?? '';
+        $column = $this->currentContentColumns[$sourceLine] ?? 0;
+
+        return IndentationHelper::isBlankLine(substr($line, $column));
+    }
+
     /**
      * Give a block the span covering the source lines it was parsed from.
      *
@@ -2811,14 +2819,6 @@ class BlockParser
      * covered a space its content does not contain (carve-php#1363). Passed in
      * rather than derived here, because the rule belongs to the construct.
      */
-    private function isBlankAtContentColumn(int $sourceLine): bool
-    {
-        $line = $this->sourceLines[$sourceLine] ?? '';
-        $column = $this->currentContentColumns[$sourceLine] ?? 0;
-
-        return IndentationHelper::isBlankLine(substr($line, $column));
-    }
-
     private function stampBlockSpan(Node $node, int $startLine, int $endLine, ?int $endBytesOnEndLine = null): void
     {
         if ($node->getPos() !== null) {

@@ -43,6 +43,20 @@ class NestedFenceBlankRunsTest extends TestCase
     {
         $source = "> - - head\n>\n>     ```=html\n>     <b>body</b>\n>\n>\n";
         $this->assertStringContainsString("<b>body</b>\n\n\n", CarveConverter::create()->convert($source));
+        $pending = [(new BlockParser(trackPositions: true))->parse($source)];
+        $foundRaw = false;
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            if (in_array($node->getType(), ['document', 'block_quote', 'list', 'list_item', 'raw_block'], true)) {
+                $position = $node->getPos();
+                $this->assertNotNull($position);
+                $this->assertSame(6, $position->endLine, $node->getType());
+                $this->assertSame(2, $position->endColumn, $node->getType());
+            }
+            $foundRaw = $foundRaw || $node->getType() === 'raw_block';
+            array_push($pending, ...$node->getChildren());
+        }
+        $this->assertTrue($foundRaw);
     }
 
     public function testQuotedDivEndsBeforeTrailingPrefixOnlyLines(): void
@@ -52,7 +66,9 @@ class NestedFenceBlankRunsTest extends TestCase
         $pending = [$document];
         while ($pending !== []) {
             $node = array_pop($pending);
-            $this->assertLessThanOrEqual(4, $node->getPos()?->endLine, $node->getType());
+            $position = $node->getPos();
+            $this->assertNotNull($position, $node->getType());
+            $this->assertLessThanOrEqual(4, $position->endLine, $node->getType());
             array_push($pending, ...$node->getChildren());
         }
     }
