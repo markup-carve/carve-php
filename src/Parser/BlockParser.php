@@ -9715,9 +9715,7 @@ class BlockParser
                                     $headerCell->setVerticalAlignment($cell->getVerticalAlignment());
                                     $columnValigns[$cellIndex] = $cell->getVerticalAlignment();
                                 }
-                                foreach ($cell->getChildren() as $child) {
-                                    $headerCell->appendChild($child);
-                                }
+                                $headerCell->setChildren($cell->getChildren());
                                 $headerRow->appendChild($headerCell);
                                 // The promoted header cell replaces the original, so
                                 // repoint the rowspan origin to the NEW cell (else a
@@ -12506,10 +12504,9 @@ class BlockParser
                 $this->captionSourceMap($start, $captionLines, $markerWidth),
             );
 
+            $parent->replaceChild(count($children) - 1, $figure);
             $figure->appendChild($lastChild);
             $figure->appendChild($caption);
-
-            $parent->replaceChild(count($children) - 1, $figure);
 
             return $linesConsumed;
         }
@@ -12533,10 +12530,9 @@ class BlockParser
                 $this->captionSourceMap($start, $captionLines, $markerWidth),
             );
 
+            $parent->replaceChild(count($children) - 1, $figure);
             $figure->appendChild($lastChild);
             $figure->appendChild($caption);
-
-            $parent->replaceChild(count($children) - 1, $figure);
 
             return $linesConsumed;
         }
@@ -12639,10 +12635,9 @@ class BlockParser
                     $this->captionSourceMap($start, $captionLines, $markerWidth),
                 );
 
+                $parent->replaceChild(count($children) - 1, $figure);
                 $figure->appendChild($lastChild);
                 $figure->appendChild($caption);
-
-                $parent->replaceChild(count($children) - 1, $figure);
 
                 return $linesConsumed;
             }

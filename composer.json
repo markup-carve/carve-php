@@ -24,6 +24,7 @@
         "php": "^8.2"
     },
     "suggest": {
+        "ext-dom": "Required for HTML import and HTML heading-ID conversion.",
         "ext-intl": "Recommended for heading-ID transliteration: enables ICU romanization of non-Latin scripts (e.g. CJK, Arabic). Without it, a baked map covers Latin/Cyrillic/punctuation identically and other scripts fall back to the generated `section` id."
     },
     "require-dev": {
@@ -46,6 +47,7 @@
     "scripts": {
         "check": [
             "@cs-check",
+            "@stan",
             "@test"
         ],
         "cs-check": "phpcs --colors --parallel=16",

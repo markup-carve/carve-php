@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node;
 
+use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\SourceSpan;
+use OutOfBoundsException;
 
 /**
- * Base class for all AST nodes
+ * Base class for all AST nodes.
+ *
+ * A child belongs to one parent. Attaching it elsewhere moves it out of its
+ * old parent's child list. Bulk operations reject duplicate children and all
+ * attachment methods reject cycles before changing either tree.
  */
 abstract class Node
 {
@@ -84,12 +90,16 @@ abstract class Node
 
     public function appendChild(Node $child): void
     {
+        $this->assertCanAdopt($child);
+        $child->parent?->removeChild($child);
         $child->parent = $this;
         $this->children[] = $child;
     }
 
     public function prependChild(Node $child): void
     {
+        $this->assertCanAdopt($child);
+        $child->parent?->removeChild($child);
         $child->parent = $this;
         array_unshift($this->children, $child);
     }
@@ -114,10 +124,83 @@ abstract class Node
      */
     public function setChildren(array $children): void
     {
+        $incoming = $this->validateChildren($children);
+        $this->detachChildrenFromOtherParents($children, $incoming);
+        foreach ($this->children as $child) {
+            $child->parent = null;
+        }
         foreach ($children as $child) {
             $child->parent = $this;
         }
         $this->children = array_values($children);
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     *
+     * @throws \InvalidArgumentException
+     *
+     * @return array<int, true>
+     */
+    private function validateChildren(array $children): array
+    {
+        $incoming = [];
+        $ancestors = null;
+        foreach ($children as $child) {
+            if ($child === $this || isset($incoming[spl_object_id($child)])) {
+                throw new InvalidArgumentException('A child must be distinct from its parent and siblings.');
+            }
+            if ($child->parent !== $this && $child->hasChildren()) {
+                if ($ancestors === null) {
+                    $ancestors = [];
+                    for ($ancestor = $this->parent; $ancestor !== null; $ancestor = $ancestor->parent) {
+                        $ancestors[spl_object_id($ancestor)] = true;
+                    }
+                }
+                if (isset($ancestors[spl_object_id($child)])) {
+                    throw new InvalidArgumentException('A node cannot contain its ancestor.');
+                }
+            }
+            $incoming[spl_object_id($child)] = true;
+        }
+
+        return $incoming;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     * @param array<int, true> $incoming
+     */
+    private function detachChildrenFromOtherParents(array $children, array $incoming): void
+    {
+        $parents = [];
+        foreach ($children as $child) {
+            if ($child->parent !== null && $child->parent !== $this) {
+                $parents[spl_object_id($child->parent)] = $child->parent;
+            }
+        }
+        // Remove moved children in one pass per old parent.
+        foreach ($parents as $parent) {
+            $parent->children = array_values(array_filter(
+                $parent->children,
+                static fn (Node $child): bool => !isset($incoming[spl_object_id($child)]),
+            ));
+        }
+    }
+
+    private function assertCanAdopt(Node $child): void
+    {
+        if ($child === $this) {
+            throw new InvalidArgumentException('A node cannot contain itself.');
+        }
+        if ($child->parent === $this || !$child->hasChildren()) {
+            return;
+        }
+        for ($ancestor = $this->parent; $ancestor !== null; $ancestor = $ancestor->parent) {
+            if ($ancestor === $child) {
+                throw new InvalidArgumentException('A node cannot contain its ancestor.');
+            }
+        }
     }
 
     public function getParent(): ?Node
@@ -132,8 +215,28 @@ abstract class Node
 
     public function replaceChild(int $index, Node $child): void
     {
-        $child->parent = $this;
+        if (!isset($this->children[$index])) {
+            throw new OutOfBoundsException('The child index does not exist.');
+        }
+        $oldChild = $this->children[$index];
+        if ($oldChild === $child) {
+            return;
+        }
+        $this->assertCanAdopt($child);
+        if ($child->parent === $this) {
+            $previousIndex = array_search($child, $this->children, true);
+            if ($previousIndex !== false) {
+                array_splice($this->children, (int)$previousIndex, 1);
+                if ($previousIndex < $index) {
+                    $index--;
+                }
+            }
+        } else {
+            $child->parent?->removeChild($child);
+        }
         $this->children[$index] = $child;
+        $oldChild->parent = null;
+        $child->parent = $this;
     }
 
     /**
@@ -146,9 +249,7 @@ abstract class Node
             return false;
         }
 
-        $newChild->parent = $this;
-        $this->children[$index] = $newChild;
-        $oldChild->parent = null;
+        $this->replaceChild((int)$index, $newChild);
 
         return true;
     }
@@ -166,12 +267,35 @@ abstract class Node
             return false;
         }
 
-        foreach ($newChildren as $child) {
-            $child->parent = $this;
-        }
+        if (count($newChildren) === 1) {
+            $this->replaceChild((int)$index, $newChildren[0]);
 
-        array_splice($this->children, (int)$index, 1, $newChildren);
-        $oldChild->parent = null;
+            return true;
+        }
+        $incoming = $this->validateChildren($newChildren);
+        $movesSibling = false;
+        foreach ($newChildren as $child) {
+            $movesSibling = $movesSibling || $child->parent === $this;
+        }
+        if (!$movesSibling) {
+            $this->detachChildrenFromOtherParents($newChildren, $incoming);
+            foreach ($newChildren as $child) {
+                $child->parent = $this;
+            }
+            array_splice($this->children, (int)$index, 1, $newChildren);
+            $oldChild->parent = null;
+
+            return true;
+        }
+        $children = [];
+        foreach ($this->children as $child) {
+            if ($child === $oldChild) {
+                array_push($children, ...$newChildren);
+            } elseif (!isset($incoming[spl_object_id($child)])) {
+                $children[] = $child;
+            }
+        }
+        $this->setChildren($children);
 
         return true;
     }

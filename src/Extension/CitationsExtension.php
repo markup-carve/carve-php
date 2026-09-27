@@ -703,9 +703,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 $node->setAttribute($name, $definition['value'][$name]);
             }
         }
-        foreach ($definition['value']['entry'] as $child) {
-            $node->appendChild($child);
-        }
+        $node->setChildren($definition['value']['entry']);
         $node->setPos(self::lineSpan($line));
 
         return $node;

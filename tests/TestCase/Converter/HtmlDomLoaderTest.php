@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\Converter\HeadingId\HtmlHeadingIds;
 use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\TestCase;
@@ -19,6 +20,8 @@ class HtmlDomLoaderTest extends TestCase
 
                 $document = HtmlDomLoader::load('<div><p>text</div>');
                 self::assertSame('text', $document->getElementsByTagName('p')->item(0)?->textContent);
+                self::assertSame($mode, libxml_use_internal_errors());
+                self::assertSame(['café'], HtmlHeadingIds::extract('<h1 id="café">Title</h1>'));
                 self::assertSame($mode, libxml_use_internal_errors());
 
                 $converter = new HtmlToCarve();

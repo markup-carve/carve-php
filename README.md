@@ -19,6 +19,9 @@ Implements **Carve spec 0.1** (see [Versioning & Changelog](https://markup-carve
 composer require markup-carve/carve-php
 ~~~
 
+HTML import and HTML heading-ID conversion require the PHP DOM extension
+(`ext-dom`). Core Carve parsing and rendering do not require it.
+
 ## Usage
 
 ~~~ php

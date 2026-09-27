@@ -11,6 +11,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- AST child mutations keep parent links consistent, move attached children out of their previous parent, and reject cycles and duplicate bulk children before changing the tree. Replacing a missing child index throws `OutOfBoundsException`.
+- HTML import reports a missing `ext-dom` capability explicitly; Composer lists the extension as an optional requirement.
+
 - HTML import preserves attributes on empty paragraphs and thematic breaks without moving an empty paragraph's attributes onto the next block (#2526, #2535).
 
 - HTML import preserves authored `role` attributes and reports role loss on unwrapped sections without transferring the role to a heading (#2521, #2531).
