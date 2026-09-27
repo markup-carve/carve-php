@@ -14280,6 +14280,11 @@ class BlockParser
             }
             $authored = ltrim($sl, " \t");
             $canOpen = $authored === $sl || $k === 0 || IndentationHelper::isBlankLine($subLines[$k - 1]);
+            if ($subCol >= 0 && IndentationHelper::getLeadingColumns($sl, $subCol) >= $subCol) {
+                // Nested-item fences belong to that item's scan. Its indented
+                // closing run must not open a new fence in the parent scan.
+                $canOpen = false;
+            }
             $opener = $canOpen
                 ? ($this->fencedBlockParser->parseCodeFenceOpener($authored)
                     ?? $this->fencedBlockParser->parseRawBlockOpener($authored))
