@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use LengthException;
 use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\EditorSession;
 use MarkupCarve\Carve\Ast\NodeIdentitySession;
 use MarkupCarve\Carve\Ast\Provenance;
 use MarkupCarve\Carve\Ast\SourceLayout;
@@ -487,6 +488,41 @@ class CarveConverter
     }
 
     /**
+     * Deliver accepted borrowed HTML in newline-terminated chunks.
+     * HTML is buffered before delivery. Rejected input never calls the sink.
+     *
+     * @param string $source
+     * @param callable(string): void $sink
+     *
+     * @return 'complete'|'needs-ast'
+     */
+    public function tryRenderHtmlStreaming(string $source, callable $sink): string
+    {
+        $this->enforceProfileMaxLength($source);
+        $plan = $this->borrowedHtmlPlan($source);
+        if ($plan === null) {
+            return 'needs-ast';
+        }
+        $attempt = (new BorrowedHtmlLayout())->render($source, false, $plan);
+        if ($attempt === null) {
+            return 'needs-ast';
+        }
+        BorrowedExtensionPlan::commit($this->extensions, $attempt['headings']);
+        $html = $attempt['html'];
+        $length = strlen($html);
+        for ($start = 0; $start < $length; $start = $end) {
+            $newline = strpos($html, "\n", $start);
+            $end = $newline === false ? $length : $newline + 1;
+            $sink(substr($html, $start, $end - $start));
+        }
+        if ($length === 0) {
+            $sink('');
+        }
+
+        return 'complete';
+    }
+
+    /**
      * Convert with a bounded report of raw formats omitted by this target.
      */
     public function convertWithReport(string $source, bool $strictLosses = false, int $maxRenderLosses = 100): RenderResult
@@ -582,6 +618,11 @@ class CarveConverter
         $ast = (new AstCodec())->encode($this->parse($source));
 
         return ['ast' => $ast, 'layout' => SourceLayout::build($source, $ast)];
+    }
+
+    public function createEditorSession(string $source): EditorSession
+    {
+        return new EditorSession($this, $source);
     }
 
     /**
