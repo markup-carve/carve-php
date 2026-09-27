@@ -4812,78 +4812,19 @@ final class HtmlAstBuilder
      */
     private function attrs(DOMElement $node, array $skip): array
     {
-        $skip = array_fill_keys(array_map('strtolower', $skip), true);
-        $attrs = [];
-        $classes = [];
-        $keyValues = [];
-        $order = [];
-        foreach ($node->attributes as $attribute) {
-            $name = strtolower(HtmlDomLoader::attributeName($attribute));
-            if (
-                isset($skip[$name])
-                || $name === 'style'
-                || ($name === 'role' && self::isDerivedRole($node, $attribute->value))
-                || str_starts_with($name, 'on')
-                || (str_starts_with($name, 'data-djot-')
-                    && ($name !== 'data-djot-ref' || $this->importMode === 'roundtrip'))
-                || in_array($name, ['srcdoc', 'formaction'], true)
-            ) {
-                continue;
-            }
-            if ($name === 'id') {
-                $attrs['id'] = $attribute->value;
-
-                continue;
-            }
-            if ($name === 'class') {
-                $classes = preg_split('/\s+/', $attribute->value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
-                continue;
-            }
-            if (preg_match('/^[A-Za-z_][A-Za-z0-9_-]*$/D', $name) !== 1) {
-                continue;
-            }
-            // A quoted value stops at the line break (markup-carve/carve#2385).
-            if (preg_match('/[\r\n]/', $attribute->value) === 1) {
-                continue;
-            }
-            $keyValues[$name] = $attribute->value;
-            if (in_array($name, ['srcset', 'imagesrcset', 'ping', 'attributionsrc'], true)) {
-                $this->session->urlListCarriers[$node] = null;
-            }
-        }
-        $tag = strtolower(HtmlDomLoader::elementName($node));
-        $alignment = $this->styleEnum($node, 'text-align', ['left', 'right', 'center']);
-        if ($alignment !== null && !in_array($tag, ['td', 'th'], true)) {
-            $alignmentClass = $this->alignmentClasses[$alignment] ?? null;
-            if (is_string($alignmentClass) && $alignmentClass !== '') {
-                if (!in_array($alignmentClass, $classes, true)) {
-                    $classes[] = $alignmentClass;
-                }
-            } elseif ($this->importMode !== 'safe') {
-                $keyValues['align'] = $alignment;
-            }
-        }
-        if ($classes !== []) {
-            $attrs['classes'] = $classes;
-        }
-        if ($keyValues !== []) {
-            $attrs['keyValues'] = $keyValues;
-        }
-        if (array_key_exists('id', $attrs)) {
-            $order[] = '#id';
-        }
-        if ($classes !== []) {
-            $order[] = '.class';
-        }
-        foreach ($keyValues as $name => $_value) {
-            $order[] = $name;
-        }
-        if ($order !== []) {
-            $attrs['order'] = $order;
+        $result = HtmlAttributePolicy::read(
+            $node,
+            $skip,
+            $this->importMode,
+            $this->alignmentClasses,
+            $this->styleEnum($node, 'text-align', ['left', 'right', 'center']),
+            static fn (string $value): bool => self::isDerivedRole($node, $value),
+        );
+        if ($result->urlListCarrier) {
+            $this->session->urlListCarriers[$node] = null;
         }
 
-        return $attrs;
+        return $result->attrs;
     }
 
     /**
