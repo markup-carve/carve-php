@@ -4,114 +4,130 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+use DOMComment;
 use DOMDocument;
+use DOMDocumentFragment;
+use DOMDocumentType;
+use DOMElement;
+use DOMNode;
+use DOMProcessingInstruction;
+use DOMText;
+use InvalidArgumentException;
+use MensBeam\HTML\Parser;
+use MensBeam\HTML\Parser\Config;
 use RuntimeException;
 
 final class HtmlDomLoader
 {
+    private static function parserConfig(): Config
+    {
+        $config = new Config();
+        $config->documentClass = HtmlImportDomDocument::class;
+
+        return $config;
+    }
+
     public static function load(string $html): DOMDocument
     {
         if (!class_exists(DOMDocument::class)) {
             throw new RuntimeException('HTML import requires the PHP DOM extension (ext-dom).');
         }
-        // The HTML input stream normalizes CR LF and a lone CR to LF before
-        // tokenizing; libxml keeps them (carve-php#2497).
-        $html = str_replace(["\r\n", "\r"], "\n", $html);
-        $html = self::processingInstructionsAsComments($html);
-        $document = new DOMDocument();
+
+        $document = Parser::parse($html, 'UTF-8', self::parserConfig())->document;
         $document->encoding = 'UTF-8';
-        $previous = libxml_use_internal_errors(true);
-        try {
-            $document->loadHTML(
-                '<?xml encoding="UTF-8">' . $html,
-                LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
-            );
-        } finally {
-            libxml_clear_errors();
-            libxml_use_internal_errors($previous);
-        }
+
+        self::normalizeImportedDom($document);
 
         return $document;
     }
 
-    private static function processingInstructionsAsComments(string $html): string
+    public static function isDocument(string $html): bool
     {
-        $length = strlen($html);
-        $out = '';
-        $copied = 0;
-        $offset = 0;
-        while ($offset < $length) {
-            if ($html[$offset] !== '<') {
-                $offset++;
+        return preg_match('/\A(?:\s|<!--.*?-->)*(?:<!doctype(?=[\s>])|<(?:html|body)(?=[\s\/>]))/is', $html) === 1;
+    }
 
-                continue;
-            }
-            if (substr_compare($html, '<!--', $offset, 4) === 0) {
-                $end = strpos($html, '-->', $offset + 4);
-                $offset = $end === false ? $length : $end + 3;
-
-                continue;
-            }
-            if (substr_compare($html, '<?', $offset, 2) === 0) {
-                $end = strpos($html, '>', $offset + 2);
-                if ($end === false) {
-                    break;
-                }
-                $data = substr($html, $offset + 1, $end - $offset - 1);
-                if (!str_contains($data, '--') && !str_ends_with($data, '-')) {
-                    $out .= substr($html, $copied, $offset - $copied) . '<!--' . $data . '-->';
-                    $copied = $end + 1;
-                }
-                $offset = $end + 1;
-
-                continue;
-            }
-            if (preg_match('/\G<([a-z][^ \t\n\r\f\/>]*)/i', $html, $match, 0, $offset) !== 1) {
-                $offset++;
-
-                continue;
-            }
-            $tag = strtolower($match[1]);
-            $offset += strlen($match[0]);
-            while ($offset < $length && $html[$offset] !== '>') {
-                if ($html[$offset++] !== '=') {
-                    continue;
-                }
-                while ($offset < $length && str_contains(" \t\n\r\f", $html[$offset])) {
-                    $offset++;
-                }
-                if ($offset < $length && ($html[$offset] === '"' || $html[$offset] === "'")) {
-                    $quote = $html[$offset++];
-                    while ($offset < $length && $html[$offset] !== $quote) {
-                        $offset++;
+    public static function fragment(string $html, string $rootName = 'carve-import-root'): DOMDocument
+    {
+        if (!class_exists(DOMDocument::class)) {
+            throw new RuntimeException('HTML import requires the PHP DOM extension (ext-dom).');
+        }
+        if (self::isDocument($html)) {
+            $document = self::load($html);
+            $element = $document->documentElement;
+            $root = $document->createElement($rootName);
+            $nodes = iterator_to_array($document->childNodes);
+            foreach ($nodes as $node) {
+                if ($node === $element) {
+                    foreach (iterator_to_array($element->childNodes) as $child) {
+                        if ($child->nodeName === 'head' && !$child->hasChildNodes() && !$child->hasAttributes()) {
+                            continue;
+                        }
+                        $root->appendChild($child);
                     }
-                    if ($offset < $length) {
-                        $offset++;
-                    }
-                } else {
-                    while ($offset < $length && !str_contains(" \t\n\r\f>", $html[$offset])) {
-                        $offset++;
-                    }
+                } elseif ($node instanceof DOMComment) {
+                    $root->appendChild($node);
                 }
             }
-            if ($offset < $length) {
-                $offset++;
+            if ($element !== null) {
+                $document->replaceChild($root, $element);
             }
-            if ($tag === 'plaintext') {
-                break;
-            }
-            if (
-                in_array($tag, [
-                    'script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript',
-                ], true)
-            ) {
-                if (preg_match('~</' . $tag . '(?=[ \t\n\r\f/>])~i', $html, $match, PREG_OFFSET_CAPTURE, $offset) !== 1) {
-                    break;
-                }
-                $offset = $match[0][1] + strlen($match[0][0]);
-            }
+
+            return $document;
         }
 
-        return $out . substr($html, $copied);
+        $document = new DOMDocument('1.0', 'UTF-8');
+        $root = $document->createElement($rootName);
+        $document->appendChild($root);
+        $context = $document->createElement('template');
+        $fragment = Parser::parseFragment($context, Parser::NO_QUIRKS_MODE, $html, 'UTF-8', self::parserConfig());
+        if ($fragment->hasChildNodes()) {
+            $root->appendChild($fragment);
+        }
+
+        self::normalizeImportedDom($document);
+
+        return $document;
+    }
+
+    /**
+     * Keep foreign-element names unprefixed after DOM fragment import.
+     */
+    private static function normalizeImportedDom(DOMDocument $document): void
+    {
+        foreach ($document->getElementsByTagName('*') as $element) {
+            if (in_array($element->namespaceURI, [Parser::SVG_NAMESPACE, Parser::MATHML_NAMESPACE], true)) {
+                $element->prefix = '';
+            }
+        }
+    }
+
+    public static function serialize(DOMNode $node): string
+    {
+        if (
+            $node instanceof DOMElement || $node instanceof DOMText || $node instanceof DOMComment
+            || $node instanceof DOMDocument || $node instanceof DOMDocumentFragment
+            || $node instanceof DOMDocumentType || $node instanceof DOMProcessingInstruction
+        ) {
+            $copy = $node->cloneNode(true);
+            $stack = [$copy];
+            while ($stack !== []) {
+                $current = array_pop($stack);
+                if (
+                    $current instanceof DOMElement
+                    && in_array(strtolower($current->tagName), ['pre', 'textarea', 'listing'], true)
+                    && $current->firstChild instanceof DOMText
+                    && str_starts_with($current->firstChild->data, "\n")
+                ) {
+                    $current->firstChild->data = "\n" . $current->firstChild->data;
+                }
+                foreach ($current->childNodes as $child) {
+                    $stack[] = $child;
+                }
+            }
+
+            return Parser::serialize($copy);
+        }
+
+        throw new InvalidArgumentException('Cannot serialize this DOM node as HTML.');
     }
 }

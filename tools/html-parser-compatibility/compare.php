@@ -47,7 +47,21 @@ function tree(DOMNode|Node $node, bool &$templateContentUnavailable): array|stri
     return [$node->localName ?? $node->nodeName, $children];
 }
 
-$backends = ['legacy' => static fn (string $html): DOMDocument => HtmlDomLoader::load($html)];
+$backends = [
+    'carve' => static fn (string $html): DOMDocument => HtmlDomLoader::load($html),
+    'legacy' => static function (string $html): DOMDocument {
+        $document = new DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $document->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+
+        return $document;
+    },
+];
 $unavailable = [];
 foreach (['masterminds' => HTML5::class, 'mensbeam' => Parser::class, 'native' => HTMLDocument::class] as $name => $class) {
     if (!class_exists($class)) {

@@ -18,7 +18,7 @@ use PHPUnit\Framework\TestCase;
  *
  * libxml normalizes an HTML boolean attribute to `name="name"`, so an authored
  * `disabled` and a renderer-GENERATED one are spelled identically. A task list
- * writes `disabled="disabled"` onto its own checkbox, and that vouched for the
+ * writes `disabled=""` onto its own checkbox, and that vouched for the
  * authored `disabled` on a `<button>` elsewhere in the same document
  * (carve-php#1379). The button's attribute was gone from the emitted Carve
  * either way; what disappeared was the row saying so.
@@ -168,7 +168,7 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
         return [
             'block children get lines of their own' => [
                 '<blockquote disabled><p>a</p><p>b</p></blockquote>',
-                '<blockquote disabled="disabled">',
+                '<blockquote disabled="">',
             ],
             // `<address>` used to stand here. It no longer survives at all:
             // a sectioning or unmapped container is unwrapped rather than
@@ -179,7 +179,7 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
             // it is the one this row can ask the question of.
             'a container is written through a colon fence' => [
                 '<aside class="admonition note" disabled><p>a</p></aside>',
-                'disabled="disabled"',
+                'disabled=""',
             ],
         ];
     }
@@ -196,7 +196,7 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
     {
         $html = '<blockquote disabled><script>bad</script><p>good</p></blockquote>';
 
-        $this->assertStringContainsString('disabled="disabled"', (new CarveConverter())->convert(
+        $this->assertStringContainsString('disabled=""', (new CarveConverter())->convert(
             (new HtmlToCarve())->convertWithReport($html)->value,
         ));
         $this->assertSame(

@@ -2,6 +2,17 @@
 
 The loss report, the diagnostic `path` locator, and the import modes.
 
+HTML import uses MensBeam's HTML5 parser on PHP 8.2 and later. It reconstructs
+misnested formatting and anchors, inserts implied table containers, and moves
+misplaced table text before the table. Diagnostic paths describe that parsed
+tree. For example, a bare `<col>` inside a table belongs to an implied
+`<colgroup>`, and a document's `<body>` follows its explicit or implied `<head>`.
+Fragments use a template context, so table fragments retain their table elements.
+
+Tree construction stops at 256 element levels, including implied containers, and
+throws `MarkupCarve\Carve\Exception\HtmlImportDepthExceededException`. This
+bounds the parser's nesting cost instead of silently truncating deep input.
+
 
 ~~~ php
 use MarkupCarve\Carve\Converter\HtmlToCarve;

@@ -33,15 +33,21 @@ class AnOrphanCaptionSaysSoTest extends TestCase
     {
         return [
             'caption alone' => ['<caption>bcontent</caption>', 'caption'],
-            // A caption whose parent is an element other than `<table>`.
-            'caption inside a div' => ['<div><caption>bcontent</caption></div>', 'caption'],
-            // The same asymmetry for a table, where the writer reads the
-            // caption off the table's own children.
-            'caption nested inside a table' => [
-                '<table><tr><td><caption>bcontent</caption></td></tr></table>',
-                'caption',
-            ],
         ];
+    }
+
+    public function testHtml5RepairsMisplacedTableCaptionsBeforeImport(): void
+    {
+        $this->assertSame("bcontent\n", $this->carve('<div><caption>bcontent</caption></div>') . "\n");
+        $html = '<table><tr><td><caption>bcontent</caption></td></tr></table>';
+        $this->assertSame('', $this->carve($html));
+        $this->assertContains(
+            ['element-dropped', 'warning', 'Dropped a caption whose table has no row left'],
+            $this->diagnostics($html),
+        );
+        foreach ($this->diagnostics($html) as $row) {
+            $this->assertStringNotContainsString('has nothing to caption', $row[2]);
+        }
     }
 
     #[DataProvider('orphanProvider')]

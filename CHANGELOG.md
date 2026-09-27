@@ -9,12 +9,16 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Breaking
+
+- HTML import uses MensBeam's HTML5 parser on every supported PHP version. Composer now requires `ext-dom` and `mensbeam/html-parser`. Parsed trees and diagnostic paths include implied HTML5 containers; empty boolean attributes retain their empty values. Trees deeper than 256 element levels throw `HtmlImportDepthExceededException` (#2546).
+
 ### Fixed
 
 - Unquoted attribute values reject pipes and backslashes and accept opening braces. The Carve writer quotes backslashes so its output parses back to the same value (#2572).
 
 - AST child mutations keep parent links consistent, move attached children out of their previous parent, and reject cycles and duplicate bulk children before changing the tree. Replacing a missing child index throws `OutOfBoundsException`.
-- HTML import reports a missing `ext-dom` capability explicitly; Composer lists the extension as an optional requirement.
+- HTML import reports a missing `ext-dom` capability explicitly.
 
 - HTML import preserves attributes on empty paragraphs and thematic breaks without moving an empty paragraph's attributes onto the next block (#2526, #2535).
 

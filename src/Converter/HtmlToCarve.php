@@ -499,11 +499,10 @@ class HtmlToCarve
             return [];
         }
 
-        $isDocument = preg_match('/^\s*(<!doctype|<html|<body)/i', $html) === 1;
+        $isDocument = HtmlDomLoader::isDocument($html);
         $doc = $this->builtImportDocument;
         if ($doc === null) {
-            $wrapped = $isDocument ? $html : '<div>' . $html . '</div>';
-            $doc = HtmlDomLoader::load($wrapped);
+            $doc = $isDocument ? HtmlDomLoader::load($html) : HtmlDomLoader::fragment($html, 'div');
             $this->normalizeAdapterFootnotes($doc);
         }
 
@@ -535,8 +534,8 @@ class HtmlToCarve
     /**
      * The nodes a reported path counts from.
      *
-     * A path names the fragment the importer was handed, so neither the `<div>`
-     * this method's caller wraps a fragment in to give libxml a single root nor
+     * Content paths omit the import wrapper and document containers. Neither
+     * the `<div>` root created for fragment inspection nor
      * an authored `<html>`/`<head>`/`<body>` may appear in one: the wrapper is
      * the importer's own invention, and the document elements are a shape the
      * other engines' fragment parser never builds. Both are removed here, so
@@ -1382,6 +1381,9 @@ class HtmlToCarve
                 if (!in_array($tag, ['span', 'picture', 'source', 'figure'], true)) {
                     return null;
                 }
+                if ($tag === 'source' && !$child->hasChildNodes()) {
+                    continue;
+                }
                 if ($tag !== 'source' && $child->attributes->length !== 0) {
                     return null;
                 }
@@ -1423,8 +1425,8 @@ class HtmlToCarve
         if ($this->emittedHasRawHtml === false) {
             return false;
         }
-        $html = $node->ownerDocument?->saveHTML($node);
-        if (!is_string($html) || $html === '') {
+        $html = HtmlDomLoader::serialize($node);
+        if ($html === '') {
             return false;
         }
         $lines = explode("\n", rtrim($html, "\n"));
@@ -2536,12 +2538,7 @@ class HtmlToCarve
     /**
      * Whether this element sits directly inside a `<table>`.
      *
-     * The parser behind this importer is libxml's, which does not run the HTML5
-     * "in table" insertion mode, so it keeps a `<colgroup>` wherever the markup
-     * put one - including outside any table, where the element is genuinely
-     * unwrapped rather than dropped and its children still reach the output.
-     * The drop is a property of the table walk, so the report asks the same
-     * question the walk answers to rather than trusting the tag name alone.
+     * The report follows the parsed tree, including implied table containers.
      */
     protected function isDirectTableChild(DOMElement $node): bool
     {
@@ -2904,13 +2901,23 @@ class HtmlToCarve
     }
 
     /**
+     * Attributes whose presence the legacy parser represented by their name.
+     *
+     * @var list<string>
+     */
+    private const PRESENCE_ATTRIBUTES = [
+        'checked', 'compact', 'declare', 'defer', 'disabled', 'ismap', 'multiple',
+        'nohref', 'noresize', 'noshade', 'nowrap', 'readonly', 'selected',
+    ];
+
+    /**
      * Check whether the emitted HTML still carries this attribute value.
      * Match values in attribute positions because the converter can change
      * tags. Scope by attribute name so an unrelated attribute cannot answer
      * for this one; an authored `title` may survive under a semantic span key.
      * The tally is consumed in document order, one output occurrence per input.
      * Empty values carry no loss. Values equal to their attribute name, as
-     * libxml spells boolean attributes, also use the element's content. This
+     * the legacy parser spelled boolean attributes, also use the element's content. This
      * keeps a generated checkbox from answering for a labeled control.
      * Two contentless elements can still collide without node provenance.
      * Other attributes cannot use content as a key: a round trip may rewrite
@@ -2921,7 +2928,7 @@ class HtmlToCarve
     protected function importAttributeSurvived(string $tag, string $name, string $value): bool
     {
         $value = trim($value);
-        if ($value === '') {
+        if ($value === '' && !in_array($name, self::PRESENCE_ATTRIBUTES, true)) {
             return true;
         }
 
@@ -2999,9 +3006,8 @@ class HtmlToCarve
     /**
      * The budget key an attribute occurrence spends from.
      *
-     * A value that repeats its own name is the shape libxml gives every HTML
-     * boolean attribute, authored or generated alike, so that key carries the
-     * content of the element it sits on and answers only for that element. See
+     * Empty presence attributes and values that repeat their name carry the
+     * element's content in their budget key, so they answer only for that element. See
      * `importAttributeSurvived()` for why the rest stay document-wide.
      *
      * @param string $name
@@ -3012,6 +3018,9 @@ class HtmlToCarve
      */
     protected function importSurvivorKey(string $name, string $value, ?string $content = null): string
     {
+        if ($value === '' && in_array($name, self::PRESENCE_ATTRIBUTES, true)) {
+            $value = $name;
+        }
         $key = $name . "\0" . $value;
         if ($value !== $name) {
             return $key;
@@ -3109,7 +3118,7 @@ class HtmlToCarve
             return [];
         }
 
-        $doc = HtmlDomLoader::load('<div>' . $html . '</div>');
+        $doc = HtmlDomLoader::fragment($html, 'div');
 
         $counts = [];
         $values = [];
@@ -3128,7 +3137,7 @@ class HtmlToCarve
                 if ($value === '' && in_array($name, self::URL_LIST_ATTRIBUTES, true)) {
                     $counts[$name . "\0\0blanked"] = ($counts[$name . "\0\0blanked"] ?? 0) + 1;
                 }
-                if ($value === '') {
+                if ($value === '' && !in_array($name, self::PRESENCE_ATTRIBUTES, true)) {
                     continue;
                 }
 
@@ -3150,7 +3159,7 @@ class HtmlToCarve
                         $counts[$key] = ($counts[$key] ?? 0) + 1;
                     }
                 } else {
-                    if ($value === $name) {
+                    if ($value === $name || ($value === '' && in_array($name, self::PRESENCE_ATTRIBUTES, true))) {
                         $content ??= $this->importElementContentKey($element);
                     }
                     $key = $this->importSurvivorKey($name, $value, $content ?? '');
@@ -3397,7 +3406,7 @@ class HtmlToCarve
         if (!$this->trustedRoundTrip) {
             return null;
         }
-        $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
+        $document = HtmlDomLoader::fragment($html);
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
             return null;
@@ -3446,7 +3455,7 @@ class HtmlToCarve
         if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true)) {
             return $html;
         }
-        $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
+        $document = HtmlDomLoader::fragment($html);
         $this->normalizeAdapterFootnotes($document);
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
@@ -3454,7 +3463,7 @@ class HtmlToCarve
         }
         $normalized = '';
         foreach ($root->childNodes as $child) {
-            $normalized .= $document->saveHTML($child);
+            $normalized .= HtmlDomLoader::serialize($child);
         }
 
         return $normalized;
@@ -5420,7 +5429,9 @@ class HtmlToCarve
             $this->pruneEmptyFootnoteContainer($container);
         }
 
-        $host = $doc->getElementsByTagName('body')->item(0) ?? $doc->documentElement;
+        $host = $doc->getElementsByTagName('carve-import-root')->item(0)
+            ?? $doc->getElementsByTagName('body')->item(0)
+            ?? $doc->documentElement;
         $host?->appendChild($section);
     }
 

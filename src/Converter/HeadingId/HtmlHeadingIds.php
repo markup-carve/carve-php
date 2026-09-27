@@ -36,7 +36,7 @@ final class HtmlHeadingIds
             return [];
         }
 
-        $dom = HtmlDomLoader::load('<div>' . $html . '</div>');
+        $dom = HtmlDomLoader::fragment($html, 'div');
 
         $ids = [];
         $xpath = new DOMXPath($dom);

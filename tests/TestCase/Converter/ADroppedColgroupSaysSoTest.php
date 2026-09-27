@@ -207,55 +207,30 @@ class ADroppedColgroupSaysSoTest extends TestCase
     }
 
     /**
-     * A `<colgroup>` that is not a table's child is a different case and keeps
-     * the answer it had. libxml keeps such an element where the markup put it,
-     * and the converter walks straight through it, so its content DOES reach
-     * the output - it is unwrapped, which is what the report already said. The
-     * drop is a property of the table walk, so the report asks the same
-     * question the walk answers to.
+     * HTML5 moves the paragraph out of the colgroup, leaving an empty element.
      */
-    public function testAColgroupOutsideATableIsStillUnwrappedNotDropped(): void
+    public function testHtml5MovesContentOutOfAnOrphanColgroup(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<colgroup><p>kept</p></colgroup>');
 
         $this->assertSame("kept\n", $result->value);
-        $this->assertSame(['element-unwrapped'], array_column($this->rows($result->diagnostics), 'code'));
+        $this->assertSame(['element-dropped'], array_column($this->rows($result->diagnostics), 'code'));
     }
 
     /**
-     * DIVERGENCE, pinned rather than papered over.
-     *
-     * `markup-carve/carve-rs#1006` and `markup-carve/carve-js#1102` scan for
-     * `<colgroup>` alone because their parsers run the HTML5 "in table"
-     * insertion mode, which answers a `col` start tag by inserting an implied
-     * `<colgroup>` first - so on those engines this input reports the drop, and
-     * a `col` arm would be a check that cannot fail (`markup-carve/carve#755`).
-     *
-     * This engine parses with libxml, which has no insertion modes. The `<col>`
-     * arrives as a DIRECT child of the `<table>`, no wrapper is implied, and
-     * the row therefore sits under the `<col>`'s own path rather than under a
-     * `<colgroup>`'s.
-     *
-     * THE CODE AND SEVERITY NOW AGREE with the sibling engines, because the
-     * code is read off the outcome: a bare `<col>` puts nothing in the emitted
-     * document, so it is dropped rather than unwrapped (carve-php#1377). What
-     * remains of the divergence is the PATH, and whether the answer to that is
-     * a `col` arm here or a different parser is still a maintainer's call.
-     * This test states what arrives so the answer can be checked against it,
-     * and so the day the parser starts implying the wrapper is the day this
-     * test says so.
+     * HTML5 inserts a colgroup around bare columns before the importer sees them.
      */
-    public function testTheBareColShapeDivergesFromTheSiblingEngines(): void
+    public function testBareColumnsHaveAnImpliedColgroup(): void
     {
         $rows = $this->rows($this->diagnostics('<table><col span="2"><col><tr><td>a</td><td>b</td></tr></table>'));
 
-        $this->assertSame([], $this->droppedPaths('<table><col span="2"><col><tr><td>a</td><td>b</td></tr></table>'));
+        $this->assertSame(['/table[1]/colgroup[1]'], $this->droppedPaths('<table><col span="2"><col><tr><td>a</td><td>b</td></tr></table>'));
         $this->assertSame(
-            ['/table[1]/col[1]', '/table[1]/col[1]', '/table[1]/col[2]'],
+            ['/table[1]/colgroup[1]'],
             array_column($rows, 'path'),
         );
         $this->assertSame(
-            ['element-dropped', 'attribute-dropped', 'element-dropped'],
+            ['element-dropped'],
             array_column($rows, 'code'),
         );
     }
@@ -273,7 +248,7 @@ class ADroppedColgroupSaysSoTest extends TestCase
 
         $this->assertSame(['element-dropped', 'element-dropped'], array_column($rows, 'code'));
         $this->assertSame(
-            ['/table[1]/colgroup[1]', '/table[1]/col[2]'],
+            ['/table[1]/colgroup[1]', '/table[1]/colgroup[2]'],
             array_column($rows, 'path'),
         );
     }

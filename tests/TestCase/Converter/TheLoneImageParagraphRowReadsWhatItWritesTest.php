@@ -78,7 +78,6 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
             'no wrapper at all' => ['<p><img src="g.jpg" alt="G"></p>'],
             'a picture element' => ['<p><picture><img src="g.jpg" alt="G"></picture></p>'],
             'a bare span' => ['<p><span><img src="g.jpg" alt="G"></span></p>'],
-            'a figure' => ['<p><figure><img src="g.jpg" alt="G"></figure></p>'],
             'a picture with a source, which writes nothing either' => [
                 '<p><picture><source srcset="a.webp"><img src="g.jpg" alt="G"></picture></p>',
             ],
@@ -86,6 +85,13 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
                 '<p><span><picture><img src="g.jpg" alt="G"></picture></span></p>',
             ],
         ];
+    }
+
+    public function testHtml5ClosesTheParagraphBeforeAFigure(): void
+    {
+        $html = '<p><figure><img src="g.jpg" alt="G"></figure></p>';
+        $this->assertSame("![G](g.jpg)\n", $this->carve($html));
+        $this->assertSame([], $this->rows($html));
     }
 
     #[DataProvider('transparentWrapperProvider')]

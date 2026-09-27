@@ -441,7 +441,7 @@ final class HtmlAstBuilder
     public function buildResult(string $html, ?int $sourceByteLength = null): HtmlAstBuildResult
     {
         $this->session = new HtmlImportSession();
-        $document = HtmlDomLoader::load('<carve-import-root>' . $html . '</carve-import-root>');
+        $document = HtmlDomLoader::fragment($html);
         $this->session->builtDocument = $document;
 
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
@@ -837,14 +837,14 @@ final class HtmlAstBuilder
             && in_array($tag, ['address', 'fieldset', 'form', 'hgroup'], true)
             && !self::aRowRefusesTheRegion($node)
         ) {
-            $html = $node->ownerDocument?->saveHTML($node);
+            $html = HtmlDomLoader::serialize($node);
 
             $this->keepRaw($node);
 
             return [
                 [
                     'type' => 'raw_block',
-                    'content' => is_string($html) ? rtrim($html, "\n") : '',
+                    'content' => rtrim($html, "\n"),
                     'format' => 'html',
                 ],
             ];
@@ -881,7 +881,7 @@ final class HtmlAstBuilder
             && !$this->isSupportedBlockTag($tag)
             && !self::aRowRefusesTheRegion($node)
         ) {
-            $html = $node->ownerDocument?->saveHTML($node);
+            $html = HtmlDomLoader::serialize($node);
 
             $this->keepRaw($node);
 
@@ -891,7 +891,7 @@ final class HtmlAstBuilder
                     'children' => [
                         [
                             'type' => 'raw_inline',
-                            'content' => is_string($html) ? rtrim($html, "\n") : '',
+                            'content' => rtrim($html, "\n"),
                             'format' => 'html',
                         ],
                     ],
@@ -1281,9 +1281,9 @@ final class HtmlAstBuilder
                 return false;
             }
             if ($tag === 'td' || $tag === 'th') {
-                $html = $node->ownerDocument?->saveHTML($node);
+                $html = HtmlDomLoader::serialize($node);
 
-                return is_string($html) && str_contains(rtrim($html, "\n"), "\n");
+                return str_contains(rtrim($html, "\n"), "\n");
             }
         }
 
@@ -1412,10 +1412,6 @@ final class HtmlAstBuilder
         }
         $source = $code ?? $node;
         $content = $source->textContent;
-        // An HTML parser drops one line feed right after `<pre>`; libxml keeps it.
-        if ($source === $node && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
-            $content = substr($content, 1);
-        }
         if (str_ends_with($content, "\n")) {
             $content = substr($content, 0, -1);
         }
@@ -2599,13 +2595,13 @@ final class HtmlAstBuilder
         }
 
         if ($keepsRaw && $caption !== [] && !self::aRowRefusesTheRegion($node)) {
-            $html = $node->ownerDocument?->saveHTML($node);
+            $html = HtmlDomLoader::serialize($node);
             $this->keepRaw($node);
 
             return [
                 [
                     'type' => 'raw_block',
-                    'content' => is_string($html) ? rtrim($html, "\n") : '',
+                    'content' => rtrim($html, "\n"),
                     'format' => 'html',
                 ],
             ];
@@ -3513,7 +3509,7 @@ final class HtmlAstBuilder
         if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-raw')) {
             $content = '';
             foreach ($node->childNodes as $child) {
-                $content .= $node->ownerDocument?->saveHTML($child) ?? '';
+                $content .= HtmlDomLoader::serialize($child);
             }
 
             return [
@@ -3544,13 +3540,13 @@ final class HtmlAstBuilder
 
                     return $text === null ? [] : [['type' => 'text', 'value' => $text]];
                 }
-                $html = $node->ownerDocument?->saveHTML($node);
+                $html = HtmlDomLoader::serialize($node);
                 $this->keepRaw($node);
 
                 return [
                     [
                         'type' => 'raw_inline',
-                        'content' => is_string($html) ? rtrim($html, "\n") : '',
+                        'content' => rtrim($html, "\n"),
                         'format' => 'html',
                     ],
                 ];
@@ -3604,13 +3600,13 @@ final class HtmlAstBuilder
             && !$this->isSupportedInlineTag($tag)
             && !self::aRowRefusesTheRegion($node)
         ) {
-            $html = $node->ownerDocument?->saveHTML($node);
+            $html = HtmlDomLoader::serialize($node);
             $this->keepRaw($node);
 
             return [
                 [
                     'type' => 'raw_inline',
-                    'content' => is_string($html) ? rtrim($html, "\n") : '',
+                    'content' => rtrim($html, "\n"),
                     'format' => 'html',
                 ],
             ];
@@ -3638,8 +3634,8 @@ final class HtmlAstBuilder
                 && (str_contains($node->getAttribute('alt'), '[') || str_contains($node->getAttribute('alt'), '\\'))
             ) {
                 $html = $this->sanitizedElementHtml($node);
-                $serialized = $node->ownerDocument?->saveHTML($node);
-                if (is_string($serialized) && $html === rtrim($serialized, "\n")) {
+                $serialized = HtmlDomLoader::serialize($node);
+                if ($html === rtrim($serialized, "\n")) {
                     $this->keepRaw($node);
                 }
 
@@ -3679,13 +3675,13 @@ final class HtmlAstBuilder
             if ($this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
                 foreach ($node->getElementsByTagName('img') as $image) {
                     if (preg_match('/[\\[\\]\\\\]/', $image->getAttribute('alt')) === 1) {
-                        $html = $node->ownerDocument?->saveHTML($node);
+                        $html = HtmlDomLoader::serialize($node);
                         $this->keepRaw($node);
 
                         return [
                             [
                                 'type' => 'raw_inline',
-                                'content' => is_string($html) ? rtrim($html, "\n") : '',
+                                'content' => rtrim($html, "\n"),
                                 'format' => 'html',
                             ],
                         ];
@@ -4071,9 +4067,9 @@ final class HtmlAstBuilder
         foreach ($remove as $name) {
             $clone->removeAttribute($name);
         }
-        $html = $node->ownerDocument?->saveHTML($clone);
+        $html = HtmlDomLoader::serialize($clone);
 
-        return is_string($html) ? rtrim($html, "\n") : '';
+        return rtrim($html, "\n");
     }
 
     /**
@@ -4439,7 +4435,7 @@ final class HtmlAstBuilder
      */
     private function inlineHtml(string $html): array
     {
-        $document = HtmlDomLoader::load('<carve-inline-root>' . $html . '</carve-inline-root>');
+        $document = HtmlDomLoader::fragment($html, 'carve-inline-root');
         $root = $document->getElementsByTagName('carve-inline-root')->item(0);
 
         if (!$root instanceof DOMElement) {
