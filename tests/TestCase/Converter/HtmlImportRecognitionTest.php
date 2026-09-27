@@ -119,7 +119,7 @@ class HtmlImportRecognitionTest extends TestCase
     {
         return [
             'holding the title delimiter' => ['<details><summary>He said "hi"</summary><p>Body</p></details>'],
-            'holding several blocks' => ['<details><summary><p>one</p><p>two</p></summary><p>Body</p></details>'],
+            'holding a line break' => ["<details><summary>one\ntwo</summary><p>Body</p></details>"],
         ];
     }
 

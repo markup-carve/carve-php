@@ -3269,7 +3269,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $content = $node->getContent();
         if ($node->isDelimited()) {
-            return '{% ' . $content . ' %}';
+            return '{%' . (str_starts_with($content, "\n") ? '' : ' ')
+                . $content . ' %}';
         }
         $recorded = $node->getFenceLength();
         if ($recorded === null && !str_contains($content, "\n")) {

@@ -402,6 +402,7 @@ class HtmlToCarve
             $this->urlListImportCarriers = null;
             $this->droppedBlankImportRows = null;
             $this->mergedImportDefinitionLists = null;
+            $this->flattenedImportSummaryBlocks = null;
             $this->entrylessImportDefinitionLists = [];
             $this->displacedImportFigureAttributes = [];
         }
@@ -677,6 +678,21 @@ class HtmlToCarve
             $keptTag = strtolower($parent->tagName);
             $this->inspectImportAttributeList($node, $tag, $path, $diagnostics, true, $keptTag);
             $this->inspectPreservedDescendants($node, $keptTag, $path, $diagnostics);
+
+            return;
+        }
+        if ($this->flattenedImportSummaryBlocks !== null && isset($this->flattenedImportSummaryBlocks[$node])) {
+            $this->addImportDiagnostic($diagnostics, 'element-unwrapped', 'Unwrapped unsupported <' . $tag . '> element', 'info', $path);
+            foreach ($node->attributes as $attribute) {
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'attribute-dropped',
+                    'Dropped ' . $attribute->name . ' with the unwrapped <' . $tag . '>: there is no element left to carry it',
+                    'info',
+                    $path,
+                );
+            }
+            $this->inspectImportChildren($node, $tag, $path, $diagnostics);
 
             return;
         }
@@ -3354,6 +3370,7 @@ class HtmlToCarve
             $this->urlListImportCarriers = $result->session->urlListCarriers;
             $this->droppedBlankImportRows = $result->session->droppedBlankTableRows;
             $this->mergedImportDefinitionLists = $result->session->mergedDefinitionLists;
+            $this->flattenedImportSummaryBlocks = $result->session->flattenedSummaryBlocks;
             $this->displacedImportFigureAttributes = $result->session->displacedFigureAttributes;
         }
         $document = (new AstCodec())->decodeImporterTree($tree);
@@ -3855,26 +3872,15 @@ class HtmlToCarve
     /**
      * The quoted opener title this `<summary>` can be written as, or null.
      *
-     * Null keeps the summary as ordinary block content, which loses the label
-     * but never the text. Two summaries cannot be written:
-     *
-     * - one holding a `"`. The title is delimited by quotes and the delimiter
-     *   has no escape here: `::: details "He said \"hi\""` does not open a
-     *   fence at all, it degrades the whole block to a paragraph.
-     * - one whose content needs more than a line - a list, several paragraphs -
-     *   which an opener line cannot hold.
-     *
-     * Inline markup is fine: the extension renders the title through the
-     * inline path, so `"A *b*"` reaches the summary as emphasis.
+     * Tests the same text the builder's own refusal does, so the diagnostic
+     * fires exactly when the builder kept the summary as block content. A title
+     * holding a `"` cannot be written at all: the delimiter has no escape, so
+     * `::: details "He said \"hi\""` opens no fence and degrades to a paragraph.
      */
     protected function detailsSummaryTitle(DOMElement $summary): ?string
     {
-        $html = '';
-        foreach ($summary->childNodes as $child) {
-            $html .= $summary->ownerDocument?->saveHTML($child) ?? '';
-        }
-        $title = trim((new self())->convert($html));
-        if ($title === '' || str_contains($title, '"') || str_contains($title, "\n")) {
+        $title = $summary->textContent;
+        if (trim($title) === '' || str_contains($title, '"') || str_contains($title, "\n")) {
             return null;
         }
 
@@ -4532,6 +4538,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $mergedImportDefinitionLists = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $flattenedImportSummaryBlocks = null;
 
     /**
      * Paths of the `<dl>` elements left with no entry to write.
