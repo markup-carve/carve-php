@@ -143,13 +143,9 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
      * bullet never interrupts a paragraph - so it reports false for a line that
      * does open a block here.
      *
-     * WHAT THE BLOCK MAKES OF THE LINE IS ITS OWN BUSINESS, and it reads the
-     * columns the line wrote past the description's content column - which is
-     * why these rows are written at the column and one past it. The
-     * past-the-column pair used to expect the at-the-column answer; that needed
-     * the body `ltrim`ed, which is what made a nested list in a `dd` come back
-     * as two siblings. All four are byte-identical to carve-js `ba42673`
-     * (markup-carve/carve-php#1650).
+     * Each block keeps the columns beyond the description's content column.
+     * Under CARVE-P2-006, a closing run past the fence opener stays payload.
+     * The fence expectations match the executable spec at 97e47ae2.
      *
      * @return array<string, array{0: string, 1: string}>
      */
@@ -161,7 +157,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
             'a fenced code block, at the column' => [":: t\n: ```\n  c\n  ```\n", '<pre><code>c </code></pre>'],
             'a fenced code block, one past it' => [
                 ":: t\n: ```\n   c\n   ```\n",
-                '<pre><code> c </code></pre>',
+                '<pre><code> c ``` </code></pre>',
             ],
         ];
     }

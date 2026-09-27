@@ -5125,6 +5125,7 @@ class BlockParser
                     // sibling markers inside it are the nested list's own
                     // business and must not get a loosening blank injected.
                     $subSawListMarker = false;
+                    $subFenceOwnedByItem = false;
                     // Entries this loop DEDENTED by the item's content column,
                     // by index - the same proof collectMarkerLeadItem() records
                     // and for the same reader (markup-carve/carve#1896).
@@ -5214,7 +5215,13 @@ class BlockParser
                             // invisible block here ends the paragraph under it
                             // rather than folding a flush-left line in
                             // (carve-php#1866).
+                            $subWasInFence = $subTrailingState['inFence'];
+                            $subNestedColumn = $subTrailingState['nestedColumn'];
                             $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $stripped, true);
+                            if (!$subWasInFence && $subTrailingState['inFence']) {
+                                $subFenceOwnedByItem = $subNestedColumn === 0
+                                    || $subTrailingState['fenceColumn'] < $subNestedColumn;
+                            }
                             $sawBlankLine = false;
                             $i++;
                         } elseif ($lineIndent === $baseIndent) {
@@ -5350,9 +5357,11 @@ class BlockParser
                             break;
                         }
                     }
-                    // Remove trailing blank lines from subLines
+                    // A fence opened by this item owns its trailing blanks.
+                    // A nested list still ends at the enclosing item's boundary.
+                    $trimTrailingBlanks = !$subTrailingState['inFence'] || !$subFenceOwnedByItem;
                     $subLineCount = count($subLines);
-                    while ($subLineCount > 0 && $subLines[$subLineCount - 1] === '') {
+                    while ($trimTrailingBlanks && $subLineCount > 0 && $subLines[$subLineCount - 1] === '') {
                         array_pop($subLines);
                         array_pop($subLineMap);
                         $subLineCount--;
@@ -6098,6 +6107,8 @@ class BlockParser
             }
         }
         $afterBlank = false;
+        $blockState = self::INITIAL_TRAILING_BLOCK_STATE;
+        $blockStateCursor = 0;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
             if (IndentationHelper::isBlankLine($line)) {
@@ -6174,7 +6185,21 @@ class BlockParser
                                 break;
                             }
                         }
-                        if ($closer !== null || !$skipOnlyClosedOpaqueAtMinimum) {
+                        // At block start a fence needs no closer. Track the
+                        // normalized prefix once, including blocks skipped by
+                        // this walk, to distinguish it from paragraph text.
+                        if ($closer === null && $skipOnlyClosedOpaqueAtMinimum) {
+                            for (; $blockStateCursor < $i; $blockStateCursor++) {
+                                $blockState = $this->advanceTrailingBlockStateWithFenceLookahead(
+                                    $blockState,
+                                    $lines[$blockStateCursor],
+                                    $lines,
+                                    $blockStateCursor,
+                                    true,
+                                );
+                            }
+                        }
+                        if ($closer !== null || !$skipOnlyClosedOpaqueAtMinimum || !$blockState['openParagraph']) {
                             $i = $closer ?? ($count - 1);
                         }
                     } else {
