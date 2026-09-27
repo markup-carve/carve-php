@@ -15,7 +15,8 @@ reports on PHP 8.2–8.3. Use PHP 8.4 or later when HTML5 tree construction is n
 
 On PHP 8.4 and later, import refuses trees deeper than 512 element levels with
 `HtmlImportDepthExceededException`. Raw text containing tag-like strings does not
-count toward this limit.
+count toward this limit. The limit is checked on the parsed tree; it does not
+bound the time spent inside PHP's native parser.
 
 ~~~ php
 use MarkupCarve\Carve\Converter\HtmlToCarve;
