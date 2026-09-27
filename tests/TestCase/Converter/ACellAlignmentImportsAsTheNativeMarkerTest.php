@@ -9,28 +9,9 @@ use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A cell's `text-align` and `vertical-align` reach the cell's MARKER RUN in
- * `semantic` and `roundtrip`, and are dropped and reported in `safe`.
- *
- * `style` was refused wholesale on the way in, so a cell carrying
- * `text-align:right` in a table with no header row came back unaligned AND
- * carrying a `style-unmapped` row that named the loss. The alignment had
- * somewhere faithful to go the whole time: a Carve cell alignment is written
- * back as `style="text-align: right;"`, the very declaration the import was
- * handed. `docs/html-import.md` makes a declared loss a CEILING rather than a
- * LICENCE, and there was no ceiling here (markup-carve/carve#1741).
- *
- * THE MARKER, NOT THE KEY-VALUE. `{align=right}` renders back as
- * `align="right"`, so it changes the attribute on the way through and leaves
- * `carve -> html -> carve -> html` unstable. Only the marker run is a fixed
- * point (markup-carve/carve#1745). `vertical-align` has the same answer through
- * the cell's `valign` (markup-carve/carve#1746).
- *
- * THE BOUNDARY IS THE POINT, so every side of it is pinned: the mapping happens
- * and survives a re-render; `safe` still drops and still reports; a property the
- * language cannot spell still reports, so the change cannot read as a blanket
- * "stop reporting"; and a body cell repeating its column's value writes no run
- * of its own, because the head already says it.
+ * Cell alignment uses native markers so rendering restores the CSS declaration.
+ * An align attribute would render the legacy HTML attribute instead (carve#1745).
+ * Horizontal alignment maps in every mode; vertical alignment maps outside safe.
  */
 class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
 {
@@ -62,9 +43,9 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
         return '<table><tr><td style="' . $declaration . '">a</td></tr></table>';
     }
 
-    public function testACellAlignmentMapsInSemanticAndRoundtrip(): void
+    public function testACellAlignmentMapsInEveryMode(): void
     {
-        foreach (['semantic', 'roundtrip'] as $mode) {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
             $this->assertSame("|> a | b |\n", $this->imported(self::CELL, $mode), $mode);
             $this->assertSame([], $this->codes(self::CELL, $mode), $mode);
         }
@@ -137,9 +118,9 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
     /**
      * The boundary a careless fix crosses.
      */
-    public function testSafeStillDropsTheAlignmentAndStillReportsIt(): void
+    public function testSafeStillDropsVerticalAlignmentAndReportsIt(): void
     {
-        foreach (['text-align:right', 'vertical-align:top'] as $declaration) {
+        foreach (['vertical-align:top'] as $declaration) {
             $html = '<table><tr><td style="' . $declaration . '">a</td><td>b</td></tr></table>';
 
             $this->assertSame("| a | b |\n", $this->imported($html, 'safe'), $declaration);
@@ -212,23 +193,13 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
         $this->assertSame("|= h |\n|> a |\n", $this->imported($headless, 'semantic'));
     }
 
-    /**
-     * The column marker is not this mapping and is not mode-gated: it is how a
-     * pipe table spells a column, and a sidecar-less `carve -> html -> carve`
-     * reconstruction is pinned on it in the default mode
-     * (markup-carve/carve#1344, `TheHtmlRoundTripWithoutTheSidecarTest`). The
-     * `style-unmapped` row here is the one this change does not reach - the
-     * alignment survived, so the row names a loss that did not happen, and
-     * suppressing it needs the report to know WHICH cell the column marker took.
-     * Left as it was rather than answered approximately.
-     */
     public function testSafeStillReconstructsAColumnMarkerFromTheCss(): void
     {
         $html = '<table><thead><tr><th style="text-align:right">h</th></tr></thead>'
             . '<tbody><tr><td>a</td></tr></tbody></table>';
 
         $this->assertSame("|=> h |\n| a |\n", $this->imported($html, 'safe'));
-        $this->assertSame(['style-unmapped'], $this->codes($html, 'safe'));
+        $this->assertSame([], $this->codes($html, 'safe'));
     }
 
     /**
