@@ -126,7 +126,7 @@ class ARefusedDeclarationInStyleIsARefusedAttributeTest extends TestCase
         $result = (new HtmlToCarve(importMode: $mode))->convertWithReport('<p style="color:red">x</p>');
 
         $this->assertSame(
-            [['style-unmapped', 'info', 'degraded', 'exact', '/p[1]', 'CSS declarations may not have a Carve mapping']],
+            [['style-unmapped', 'info', 'degraded', 'exact', '/p[1]', 'CSS declaration color was not mapped']],
             $this->rows($result->diagnostics),
         );
         $this->assertSame("x\n", $result->value);

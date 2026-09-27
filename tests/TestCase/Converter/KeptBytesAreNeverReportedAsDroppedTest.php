@@ -249,7 +249,7 @@ class KeptBytesAreNeverReportedAsDroppedTest extends TestCase
         $this->assertSame(
             [
                 ['element-unwrapped', 'info', '/form[1]', 'Unwrapped unsupported <form> element'],
-                ['style-unmapped', 'info', '/form[1]', 'CSS declarations may not have a Carve mapping'],
+                ['style-unmapped', 'info', '/form[1]', 'CSS declaration background was not mapped'],
                 ['attribute-dropped', 'warning', '/form[1]', 'Dropped event-handler attribute onclick on <form>'],
                 ['attribute-dropped', 'warning', '/form[1]/a[1]', 'Dropped href with a denied URL scheme on <a>'],
             ],
