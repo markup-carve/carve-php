@@ -749,7 +749,7 @@ final class HtmlAstBuilder
                 return [];
             }
             $paragraph = ['type' => 'paragraph', 'children' => $children];
-            $this->attachAttrs($paragraph, $node, ['role']);
+            $this->attachAttrs($paragraph, $node, []);
 
             return [$paragraph];
         }
@@ -1173,7 +1173,7 @@ final class HtmlAstBuilder
         if ($language !== null) {
             $block['lang'] = $language;
         }
-        $skip = ['role'];
+        $skip = [];
         $classes = preg_split('/\s+/', trim($node->getAttribute('class'))) ?: [];
         if (strtolower($node->getAttribute('role')) === 'img' && $classes !== []) {
             if ($node->getAttribute('aria-label') === $classes[0]) {
@@ -2566,24 +2566,6 @@ final class HtmlAstBuilder
             return $this->blocks($this->children($node));
         }
         $skipAttrs = [];
-        $structuralKind = trim($node->getAttribute('data-djot-admonition-type'));
-        $sourceClasses = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        $admonitionKind = $structuralKind;
-        if ($admonitionKind === '' && in_array('admonition', $sourceClasses, true)) {
-            foreach (['note', 'tip', 'warning', 'danger', 'info', 'success'] as $candidate) {
-                if (in_array($candidate, $sourceClasses, true)) {
-                    $admonitionKind = $candidate;
-
-                    break;
-                }
-            }
-        }
-        if ($admonitionKind !== '') {
-            $expectedRole = in_array($admonitionKind, ['warning', 'danger'], true) ? 'alert' : 'note';
-            if (strtolower($node->getAttribute('role')) === $expectedRole) {
-                $skipAttrs[] = 'role';
-            }
-        }
         if ($this->derivedAriaLabel($node) === $node->getAttribute('aria-label')) {
             $skipAttrs[] = 'aria-label';
         }
@@ -2718,6 +2700,28 @@ final class HtmlAstBuilder
         }
 
         return true;
+    }
+
+    public static function isDerivedRole(DOMElement $node, string $value): bool
+    {
+        $tag = strtolower($node->tagName);
+        if ($tag !== 'div') {
+            return false;
+        }
+        $role = strtolower(trim($value));
+        $classes = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (array_intersect($classes, ['tabs', 'code-group']) !== []) {
+            return in_array($role, ['group', 'tablist'], true);
+        }
+        if (array_intersect($classes, ['tabs-panel', 'code-group-panel']) !== []) {
+            return in_array($role, ['group', 'tabpanel'], true);
+        }
+        $kind = trim($node->getAttribute('data-djot-admonition-type'));
+        if ($kind === '' && ($classes[0] ?? null) === 'admonition') {
+            $kind = $classes[1] ?? '';
+        }
+
+        return $kind !== '' && $role === (in_array($kind, ['warning', 'danger'], true) ? 'alert' : 'note');
     }
 
     private function derivedAriaLabel(DOMElement $node): ?string
@@ -4125,7 +4129,7 @@ final class HtmlAstBuilder
             return null;
         }
         $nodeValue = ['type' => 'math', 'display' => $display, 'content' => $content];
-        $attrs = $this->attrs($node, ['class', 'role']);
+        $attrs = $this->attrs($node, strtolower(trim($node->getAttribute('role'))) === 'math' ? ['class', 'role'] : ['class']);
         if ($classes !== []) {
             $attrs['classes'] = array_values($classes);
             $available = array_fill_keys([...($attrs['order'] ?? []), '.class'], true);
@@ -4460,6 +4464,7 @@ final class HtmlAstBuilder
             if (
                 isset($skip[$name])
                 || $name === 'style'
+                || ($name === 'role' && self::isDerivedRole($node, $attribute->value))
                 || str_starts_with($name, 'on')
                 || str_starts_with($name, 'data-djot-')
                 || in_array($name, ['srcdoc', 'formaction'], true)

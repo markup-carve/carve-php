@@ -3290,7 +3290,6 @@ class HtmlToCarve
     protected array $skipAttributes = [
         'style', // CSS doesn't map to Carve
         'xmlns', // XML namespace
-        'role', // ARIA (could be kept, but often noise)
     ];
 
     /**
@@ -3659,23 +3658,7 @@ class HtmlToCarve
     }
 
     /**
-     * Is this an attribute the RENDERER writes back for this element?
-     *
-     * Asked by the report, and only by it. Every writer already drops these -
-     * the two accessible-name predicates below are the same ones the attribute
-     * loops consult, and `role` is on `$skipAttributes` for every element - so
-     * this answers the different question the report has: whether the drop
-     * COST anything.
-     *
-     * IT MUST NOT BE A SECOND POLICY. `isDerivedAccessibleName()` and
-     * `isConsumedTitleReference()` are called rather than re-derived, so a name
-     * this importer learns to recognize is one the report stops diagnosing in
-     * the same edit. A second copy is what carve-php#1337 and carve-php#1346
-     * each came back to.
-     *
-     * `role` HAS NO SUCH PREDICATE, because no writer needs one: the strip is
-     * unconditional. So the roles are read off the same shape test the name is,
-     * which is why `derivedElementNaming()` returns both.
+     * Is this an attribute reconstructed from the imported structure?
      */
     protected function isDerivedImportAttribute(DOMElement $node, string $name, string $value): bool
     {
@@ -3690,7 +3673,8 @@ class HtmlToCarve
             return false;
         }
 
-        return in_array(strtolower(trim($value)), $this->derivedElementNaming($node)['role'], true);
+        return HtmlAstBuilder::isDerivedRole($node, $value)
+            || (strtolower($node->tagName) === 'section' && strtolower(trim($value)) === 'doc-endnotes');
     }
 
     /**
