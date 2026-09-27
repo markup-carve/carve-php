@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhp;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -36,6 +37,7 @@ class AnOrphanCaptionSaysSoTest extends TestCase
         ];
     }
 
+    #[RequiresPhp('>=8.4.0')]
     public function testHtml5RepairsMisplacedTableCaptionsBeforeImport(): void
     {
         $this->assertSame("bcontent\n", $this->carve('<div><caption>bcontent</caption></div>') . "\n");

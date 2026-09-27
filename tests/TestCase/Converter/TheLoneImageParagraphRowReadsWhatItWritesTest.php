@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Image;
@@ -91,7 +92,7 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
     {
         $html = '<p><figure><img src="g.jpg" alt="G"></figure></p>';
         $this->assertSame("![G](g.jpg)\n", $this->carve($html));
-        $this->assertSame([], $this->rows($html));
+        $this->assertSame(HtmlDomLoader::usesHtml5() ? [] : ['structure-unspellable'], $this->rows($html));
     }
 
     #[DataProvider('transparentWrapperProvider')]

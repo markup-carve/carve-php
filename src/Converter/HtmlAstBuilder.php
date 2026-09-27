@@ -1155,7 +1155,7 @@ final class HtmlAstBuilder
         }
         $names = [];
         foreach ($node->attributes as $attribute) {
-            $names[] = strtolower($attribute->nodeName);
+            $names[] = strtolower(HtmlDomLoader::attributeName($attribute));
         }
         while ($names !== [] && end($names) === 'data-source-line') {
             array_pop($names);
@@ -1412,6 +1412,9 @@ final class HtmlAstBuilder
         }
         $source = $code ?? $node;
         $content = $source->textContent;
+        if (!HtmlDomLoader::usesHtml5() && $source === $node && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
+            $content = substr($content, 1);
+        }
         if (str_ends_with($content, "\n")) {
             $content = substr($content, 0, -1);
         }
@@ -2967,7 +2970,7 @@ final class HtmlAstBuilder
             return false;
         }
         foreach ($node->attributes as $attribute) {
-            $name = strtolower($attribute->nodeName);
+            $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if ($name !== 'class' && $name !== 'style' && !str_starts_with($name, 'on')) {
                 return false;
             }
@@ -3692,8 +3695,8 @@ final class HtmlAstBuilder
             if (self::carriesNoDestination($node->getAttribute('href'))) {
                 $skip = ['href'];
                 foreach ($node->attributes as $attribute) {
-                    if (str_starts_with(strtolower($attribute->nodeName), 'data-djot-')) {
-                        $skip[] = strtolower($attribute->nodeName);
+                    if (str_starts_with(strtolower(HtmlDomLoader::attributeName($attribute)), 'data-djot-')) {
+                        $skip[] = strtolower(HtmlDomLoader::attributeName($attribute));
                     }
                 }
                 $attrs = $this->attrs($node, $skip);
@@ -4056,7 +4059,7 @@ final class HtmlAstBuilder
         }
         $remove = [];
         foreach ($clone->attributes as $attribute) {
-            $name = strtolower($attribute->nodeName);
+            $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if (
                 str_starts_with($name, 'data-djot-')
                 || str_starts_with($name, 'on')
@@ -4495,10 +4498,10 @@ final class HtmlAstBuilder
             $available = array_fill_keys([...($attrs['order'] ?? []), '.class'], true);
             $order = [];
             foreach ($node->attributes as $attribute) {
-                $slot = match (strtolower($attribute->nodeName)) {
+                $slot = match (strtolower(HtmlDomLoader::attributeName($attribute))) {
                     'id' => '#id',
                     'class' => '.class',
-                    default => strtolower($attribute->nodeName),
+                    default => strtolower(HtmlDomLoader::attributeName($attribute)),
                 };
                 if (isset($available[$slot]) && !in_array($slot, $order, true)) {
                     $order[] = $slot;
@@ -4775,10 +4778,10 @@ final class HtmlAstBuilder
         }
         $order = [];
         foreach ($node->attributes as $attribute) {
-            $slot = match (strtolower($attribute->nodeName)) {
+            $slot = match (strtolower(HtmlDomLoader::attributeName($attribute))) {
                 'id' => '#id',
                 'class' => '.class',
-                default => strtolower($attribute->nodeName),
+                default => strtolower(HtmlDomLoader::attributeName($attribute)),
             };
             if (isset($available[$slot])) {
                 $order[] = $slot;
@@ -4807,7 +4810,7 @@ final class HtmlAstBuilder
         $keyValues = [];
         $order = [];
         foreach ($node->attributes as $attribute) {
-            $name = strtolower($attribute->nodeName);
+            $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if (
                 isset($skip[$name])
                 || $name === 'style'

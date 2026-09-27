@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use DOMDocument;
 use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhp;
 use PHPUnit\Framework\TestCase;
 
 class AProcessingInstructionImportsAsACommentTest extends TestCase
@@ -17,9 +19,9 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
     public static function instructionProvider(): array
     {
         return [
-            'double hyphen' => ['<p>x<?a--b>y</p>', "x{% ?a--b %}y\n"],
-            'trailing hyphen' => ['<p>x<?a->y</p>', "x{% ?a- %}y\n"],
-            'unclosed instruction' => ['<p>x<?foo', "x{% ?foo %}\n"],
+            'double hyphen' => ['<p>x<?a--b>y</p>', HtmlDomLoader::usesHtml5() ? "x{% ?a--b %}y\n" : "xy\n"],
+            'trailing hyphen' => ['<p>x<?a->y</p>', HtmlDomLoader::usesHtml5() ? "x{% ?a- %}y\n" : "xy\n"],
+            'unclosed instruction' => ['<p>x<?foo', HtmlDomLoader::usesHtml5() ? "x{% ?foo %}\n" : "x{% ?foo</carve-import-root %}\n"],
             'empty instruction' => ['<p>HTML<?></p>', "HTML{% ? %}\n"],
             'named instruction' => ['<p>x <?foo bar?> y</p>', "x {% ?foo bar? %} y\n"],
             'link in cell' => [
@@ -55,11 +57,25 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
     {
         $document = HtmlDomLoader::load('<' . $tag . '>before <?x> after</' . $tag . '>');
         $element = $document->getElementsByTagName($tag)->item(0);
+        if (!HtmlDomLoader::usesHtml5()) {
+            $legacy = new DOMDocument();
+            $previous = libxml_use_internal_errors(true);
+            try {
+                $legacy->loadHTML('<?xml encoding="UTF-8"><' . $tag . '>before <?x> after</' . $tag . '>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+            } finally {
+                libxml_clear_errors();
+                libxml_use_internal_errors($previous);
+            }
+            $this->assertSame($legacy->saveHTML(), $document->saveHTML());
+
+            return;
+        }
         $expected = 'before <?x> after' . ($tag === 'plaintext' ? '</plaintext>' : '');
         $this->assertSame($expected, $element?->textContent);
         $this->assertSame(XML_TEXT_NODE, $element?->firstChild?->nodeType);
     }
 
+    #[RequiresPhp('>=8.4.0')]
     public function testNoscriptUsesTheScriptingDisabledTree(): void
     {
         $document = HtmlDomLoader::fragment('<noscript>before <?x> after</noscript>');

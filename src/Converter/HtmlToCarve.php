@@ -687,7 +687,7 @@ class HtmlToCarve
                 $this->addImportDiagnostic(
                     $diagnostics,
                     'attribute-dropped',
-                    'Dropped ' . $attribute->name . ' with the unwrapped <' . $tag . '>: there is no element left to carry it',
+                    'Dropped ' . HtmlDomLoader::attributeName($attribute) . ' with the unwrapped <' . $tag . '>: there is no element left to carry it',
                     'info',
                     $path,
                 );
@@ -1233,7 +1233,7 @@ class HtmlToCarve
             $this->addImportDiagnostic(
                 $diagnostics,
                 'attribute-dropped',
-                'Dropped attribute ' . $attribute->name . ' on <' . strtolower(HtmlDomLoader::elementName($component)) . '>',
+                'Dropped attribute ' . HtmlDomLoader::attributeName($attribute) . ' on <' . strtolower(HtmlDomLoader::elementName($component)) . '>',
                 'info',
                 $path,
             );
@@ -2100,7 +2100,7 @@ class HtmlToCarve
             $tag = strtolower(HtmlDomLoader::elementName($child));
             $childPath = $this->importChildPath($path, $child, $index);
             foreach ($child->attributes as $attribute) {
-                $name = strtolower($attribute->name);
+                $name = strtolower(HtmlDomLoader::attributeName($attribute));
                 if ($this->preservedAttributeIsNews($tag, $name, $attribute->value)) {
                     $this->reportPreservedAttribute($tag, $name, $attribute->value, $childPath, $diagnostics, $keptTag);
                 }
@@ -2141,7 +2141,7 @@ class HtmlToCarve
         }
         $displaced = !$preserved && $tag === 'figure' ? ($this->displacedImportFigureAttributes[$path] ?? []) : [];
         foreach ($node->attributes as $attribute) {
-            $name = strtolower($attribute->name);
+            $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if ($preserved) {
                 // ONLY THE ATTRIBUTES THIS IMPORTER WOULD HAVE REFUSED.
                 //
@@ -3132,7 +3132,7 @@ class HtmlToCarve
             // the input side: only a value that repeats its name needs it.
             $content = null;
             foreach ($element->attributes as $attribute) {
-                $name = strtolower($attribute->name);
+                $name = strtolower(HtmlDomLoader::attributeName($attribute));
                 $value = trim($attribute->value);
                 if ($value === '' && in_array($name, self::URL_LIST_ATTRIBUTES, true)) {
                     $counts[$name . "\0\0blanked"] = ($counts[$name . "\0\0blanked"] ?? 0) + 1;
@@ -4041,7 +4041,7 @@ class HtmlToCarve
         }
         /** @var \DOMAttr $attr */
         foreach ($node->attributes as $attr) {
-            $name = $attr->name;
+            $name = HtmlDomLoader::attributeName($attr);
             if ($name === 'id' || $name === 'class') {
                 continue;
             }
@@ -4612,7 +4612,7 @@ class HtmlToCarve
         $names = [];
         $keys = [];
         foreach ($node->attributes as $attribute) {
-            $name = strtolower($attribute->name);
+            $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if ($name === 'id' || $name === 'class') {
                 if ($name === 'id' || trim($attribute->value) !== '') {
                     $names[$name] = true;

@@ -8,14 +8,29 @@ use DOMElement;
 use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Exception\HtmlImportDepthExceededException;
+use PHPUnit\Framework\Attributes\RequiresPhp;
 use PHPUnit\Framework\TestCase;
 
+#[RequiresPhp('>=8.4.0')]
 class HtmlImportHtml5TreeTest extends TestCase
 {
-    public function testDeepHtmlIsRefusedDuringTreeConstruction(): void
+    public function testHtmlNamesOutsideXmlRemainReadableAndSerializable(): void
     {
-        $this->expectException(HtmlImportDepthExceededException::class);
-        HtmlDomLoader::fragment(str_repeat('<div>', 8000));
+        $html = '<form><x@y q@r="v">hello</x@y></form>';
+        $document = HtmlDomLoader::fragment($html);
+        $form = $document->getElementsByTagName('form')->item(0);
+        self::assertInstanceOf(DOMElement::class, $form);
+        self::assertSame($html, HtmlDomLoader::serialize($form));
+        self::assertStringContainsString($html, (new HtmlToCarve(importMode: 'roundtrip'))->convert($html));
+        self::assertSame("hello\n", (new HtmlToCarve())->convert('<x@y>hello</x@y>'));
+    }
+
+    public function testNameEscapingDoesNotRewriteAuthoredText(): void
+    {
+        $html = '<x@y>CARVE-N-784079 &#67;ARVE-N-784079</x@y>';
+        $document = HtmlDomLoader::fragment($html);
+        self::assertSame('CARVE-N-784079 CARVE-N-784079', $document->documentElement?->textContent);
+        self::assertSame('<carve-import-root><x@y>CARVE-N-784079 CARVE-N-784079</x@y></carve-import-root>', HtmlDomLoader::serialize($document->documentElement));
     }
 
     public function testOrdinaryNestingAndRawTextRemainReadable(): void
@@ -118,5 +133,65 @@ class HtmlImportHtml5TreeTest extends TestCase
         self::assertSame('xy', $template->textContent);
         self::assertCount(2, $template->childNodes);
         self::assertSame('<template><p>x</p><template><b>y</b></template></template>', HtmlDomLoader::serialize($template));
+    }
+
+    public function testFragmentContextKeepsRowsAndNestedTemplatesAfterStrayClosingTags(): void
+    {
+        $document = HtmlDomLoader::fragment('</template><tr><td>a</td></tr><template><p>x</p><template><b>y</b></template></template>');
+        self::assertSame('a', $document->getElementsByTagName('td')->item(0)?->textContent);
+        $template = $document->getElementsByTagName('template')->item(0);
+        self::assertInstanceOf(DOMElement::class, $template);
+        self::assertSame('<template><p>x</p><template><b>y</b></template></template>', HtmlDomLoader::serialize($template));
+    }
+
+    public function testFragmentWhitespaceSurvivesTextAttributesCommentsAndRawText(): void
+    {
+        $whitespace = "\n\f\t\f \f\f\n\n";
+        $document = HtmlDomLoader::fragment('<div title="' . $whitespace . '">' . $whitespace . '<!--' . $whitespace . '--><script>' . $whitespace . '</script></div><textarea>&#13;z</textarea>');
+        $div = $document->getElementsByTagName('div')->item(0);
+        self::assertInstanceOf(DOMElement::class, $div);
+        self::assertSame($whitespace, $div->getAttribute('title'));
+        self::assertSame($whitespace, $div->firstChild?->nodeValue);
+        self::assertSame($whitespace, $div->childNodes->item(1)?->nodeValue);
+        self::assertSame($whitespace, $document->getElementsByTagName('script')->item(0)?->textContent);
+        self::assertSame("\rz", $document->getElementsByTagName('textarea')->item(0)?->textContent);
+    }
+
+    public function testPlaintextKeepsAuthoredClosingTagsWithoutSerializerClosers(): void
+    {
+        $text = 'a</plaintext></div><p>b';
+        $document = HtmlDomLoader::fragment('<div><plaintext>' . $text);
+        self::assertSame($text, $document->getElementsByTagName('plaintext')->item(0)?->textContent);
+    }
+
+    public function testNativeSerializationKeepsRawTextVoidElementsAndUrls(): void
+    {
+        foreach (['script', 'style', 'xmp', 'iframe', 'noembed', 'noframes'] as $tag) {
+            $html = '<' . $tag . '><b>&</' . $tag . '>';
+            $document = HtmlDomLoader::fragment($html);
+            $element = $document->getElementsByTagName($tag)->item(0);
+            self::assertInstanceOf(DOMElement::class, $element);
+            self::assertSame($html, HtmlDomLoader::serialize($element));
+            self::assertSame('<b>&', HtmlDomLoader::serialize($element->firstChild));
+        }
+        $html = '<form><source src="é a"><wbr><a href="é a">x</a></form>';
+        $document = HtmlDomLoader::fragment($html);
+        self::assertSame($html, HtmlDomLoader::serialize($document->getElementsByTagName('form')->item(0)));
+    }
+
+    public function testNamespaceAttributesAndAuthoredPlaceholderNamesRemainVisible(): void
+    {
+        $html = '<CARVE-N-784079 xmlns="urn:x" xmlns:q="urn:q" @click="a">CARVE-N-784079</CARVE-N-784079>';
+        $document = HtmlDomLoader::fragment($html);
+        $element = $document->documentElement?->firstChild;
+        self::assertInstanceOf(DOMElement::class, $element);
+        self::assertCount(3, $element->attributes);
+        self::assertSame('<carve-n-784079 xmlns="urn:x" xmlns:q="urn:q" @click="a">CARVE-N-784079</carve-n-784079>', HtmlDomLoader::serialize($element));
+    }
+
+    public function testExcessiveTreeDepthHasATypedFailure(): void
+    {
+        $this->expectException(HtmlImportDepthExceededException::class);
+        HtmlDomLoader::fragment(str_repeat('<div>', 513) . 'deep');
     }
 }
