@@ -3475,17 +3475,6 @@ final class HtmlAstBuilder
 
                 return [$autolink];
             }
-            if ($children === []) {
-                $parts = preg_split('/([\[\]])/', $node->getAttribute('href'), -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
-                foreach ($parts as $part) {
-                    if ($part === '') {
-                        continue;
-                    }
-                    $children[] = in_array($part, ['[', ']'], true)
-                        ? ['type' => 'escaped_text', 'value' => $part]
-                        : ['type' => 'text', 'value' => $part];
-                }
-            }
             $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
             if ($node->hasAttribute('data-djot-ref')) {
                 $labelText = $this->plainInlineText($children);
@@ -3493,7 +3482,7 @@ final class HtmlAstBuilder
                 if ($ref === '') {
                     $ref = trim($labelText);
                 }
-                if (!str_contains($labelText, ']') && !str_contains($ref, ']')) {
+                if ($ref !== '' && !str_contains($labelText, ']') && !str_contains($ref, ']')) {
                     $link['ref'] = $ref;
                     $collapsed = $labelText === $ref;
                     $link['rawRef'] = '[' . $labelText . ']'
