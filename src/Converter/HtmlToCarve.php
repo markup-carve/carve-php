@@ -2174,8 +2174,14 @@ class HtmlToCarve
                 // take - the alignment reaches the cell either way, and
                 // `docs/html-import.md` makes a declared loss a ceiling rather
                 // than a licence (markup-carve/carve#1741).
-                if ($this->unmappedStyleDeclarations($node) !== []) {
-                    $this->addImportDiagnostic($diagnostics, 'style-unmapped', 'CSS declarations may not have a Carve mapping', 'info', $path);
+                foreach ($this->unmappedStyleDeclarations($node) as $property) {
+                    $this->addImportDiagnostic(
+                        $diagnostics,
+                        'style-unmapped',
+                        'CSS declaration ' . $property . ' was not mapped',
+                        'info',
+                        $path,
+                    );
                 }
             } elseif ($name === 'scope' && $tag === 'th' && in_array('scope', $this->tableCellSkipAttributes($node), true)) {
                 // The value this cell's position generates. It is skipped so a
