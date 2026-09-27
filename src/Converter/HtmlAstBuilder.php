@@ -4878,12 +4878,14 @@ final class HtmlAstBuilder
 
     /**
      * @param list<array<string, mixed>> $nodes
+     * @param bool $leading
+     * @param bool $trailing
      *
      * @return list<array<string, mixed>>
      */
-    private function trimBlockEdges(array $nodes): array
+    private function trimBlockEdges(array $nodes, bool $leading = true, bool $trailing = true): array
     {
-        while (($nodes[0]['type'] ?? null) === 'text') {
+        while ($leading && ($nodes[0]['type'] ?? null) === 'text') {
             $value = self::stringValue($nodes[0]['value'] ?? null);
             $nodes[0]['value'] = preg_replace('/^[ \t]+/', '', $value) ?? $value;
             if ($nodes[0]['value'] !== '') {
@@ -4891,7 +4893,7 @@ final class HtmlAstBuilder
             }
             array_shift($nodes);
         }
-        while ($nodes !== []) {
+        while ($trailing && $nodes !== []) {
             $last = array_key_last($nodes);
             if (($nodes[$last]['type'] ?? null) !== 'text') {
                 break;
@@ -4903,6 +4905,33 @@ final class HtmlAstBuilder
             }
             array_pop($nodes);
         }
+
+        foreach ($nodes as $index => &$node) {
+            if (
+                !in_array($node['type'] ?? null, [
+                    'emphasis', 'strong', 'underline', 'strike', 'highlight',
+                    'insert', 'delete', 'superscript', 'subscript',
+                ], true)
+            ) {
+                continue;
+            }
+            $children = self::nodeList($node['children'] ?? null);
+            if (
+                self::every($children, static fn (array $child): bool => ($child['type'] ?? null) === 'text'
+                && preg_match('/^[ \t]*$/D', self::stringValue($child['value'] ?? null)) === 1)
+            ) {
+                continue;
+            }
+            $previous = $nodes[$index - 1] ?? null;
+            $next = $nodes[$index + 1] ?? null;
+            $before = $previous === null ? $leading
+                : (($previous['type'] ?? null) === 'hard_break' || $this->inlineEndsWithSpace($previous));
+            $after = $next === null ? $trailing
+                : (($next['type'] ?? null) === 'hard_break'
+                    || (($next['type'] ?? null) === 'text' && $this->inlineStartsWithSpace($next)));
+            $node['children'] = $this->trimBlockEdges($children, $before, $after);
+        }
+        unset($node);
 
         return $nodes;
     }
