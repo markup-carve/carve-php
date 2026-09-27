@@ -5133,7 +5133,6 @@ class BlockParser
                     // sibling markers inside it are the nested list's own
                     // business and must not get a loosening blank injected.
                     $subSawListMarker = false;
-                    $subFenceOwnedByItem = false;
                     // Entries this loop DEDENTED by the item's content column,
                     // by index - the same proof collectMarkerLeadItem() records
                     // and for the same reader (markup-carve/carve#1896).
@@ -5223,13 +5222,7 @@ class BlockParser
                             // invisible block here ends the paragraph under it
                             // rather than folding a flush-left line in
                             // (carve-php#1866).
-                            $subWasInFence = $subTrailingState['inFence'];
-                            $subNestedColumn = $subTrailingState['nestedColumn'];
                             $subTrailingState = $this->advanceTrailingBlockState($subTrailingState, $stripped, true);
-                            if (!$subWasInFence && $subTrailingState['inFence']) {
-                                $subFenceOwnedByItem = $subNestedColumn === 0
-                                    || $subTrailingState['fenceColumn'] < $subNestedColumn;
-                            }
                             $sawBlankLine = false;
                             $i++;
                         } elseif ($lineIndent === $baseIndent) {
