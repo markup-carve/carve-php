@@ -167,16 +167,17 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var list<string>
      */
-    private const LOOKAHEAD_CHARACTERS = ['<', '&', '!', ':', '.'];
+    private const LOOKAHEAD_CHARACTERS = ['<', '&', '!', ':', '.', '@'];
 
     /**
      * The GFM autolink starters of PART 11 §8i. Only a text `:` or `.` that
      * could still complete a form on the line becomes a sentinel, so a `1.`
-     * or a `[x]:` reaches the line rules as itself.
+     * or a `[x]:` reaches the line rules as itself. Every text `@` waits for
+     * the emitted line, where E1 can recognize addresses across spans.
      *
      * @var string
      */
-    private const AUTOLINK_CANDIDATE = '/(?<=[A-Za-z]|^):(?=\/\/|\/?$)|(?<=www)\.|^w{0,2}\K\./';
+    private const AUTOLINK_CANDIDATE = '/@|(?<=[A-Za-z]|^):(?=\/\/|\/?$)|(?<=www)\.|^w{0,2}\K\./';
 
     /**
      * The openers this target emits that interrupt a paragraph, matched against
@@ -256,7 +257,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var string
      */
-    protected string $narrowedSentinelClass = '[\x{E004}-\x{E00C}]';
+    protected string $narrowedSentinelClass = '[\x{E004}-\x{E00D}]';
 
     /**
      * Sentinels for the characters PART 11 §8d-§8f decide by lookahead.
@@ -269,6 +270,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         '!' => "\u{E00A}",
         ':' => "\u{E00B}",
         '.' => "\u{E00C}",
+        '@' => "\u{E00D}",
     ];
 
     /**
@@ -665,7 +667,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                         || ($char === '_' && isset($pairs[$at])));
 
             $out .= substr($markdown, $read, $offset - $read);
-            $out .= $keep ? '\\' . $char : $char;
+            $out .= $keep ? ($char === '@' ? '<!---->@' : '\\' . $char) : $char;
             $read = $offset + strlen($sentinel);
         }
 
@@ -684,6 +686,64 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     }
 
     /**
+     * Match GFM's email extension at a text @ on the emitted line (§8i E1).
+     */
+    protected function gfmEmailAt(string $line, int $at): bool
+    {
+        $start = $at;
+        $xmpp = false;
+        while ($start > 0) {
+            $char = $line[$start - 1];
+            if (ctype_alnum($char) || str_contains('.+-_', $char)) {
+                $start--;
+
+                continue;
+            }
+            if ($char === ':') {
+                foreach (['mailto:', 'xmpp:'] as $protocol) {
+                    $before = $start - strlen($protocol);
+                    if (
+                        $before >= 0 && substr($line, $before, strlen($protocol)) === $protocol
+                        && ($before === 0 || !ctype_alnum($line[$before - 1]))
+                    ) {
+                        $xmpp = $xmpp || $protocol === 'xmpp:';
+                        $start--;
+
+                        continue 2;
+                    }
+                }
+            }
+
+            break;
+        }
+        if ($start === $at) {
+            return false;
+        }
+
+        $dots = 0;
+        $end = $at + 1;
+        $length = strlen($line);
+        for (; $end < $length; $end++) {
+            $char = $line[$end];
+            if (ctype_alnum($char) || $char === '-' || $char === '_' || ($xmpp && $char === '/')) {
+                continue;
+            }
+            if ($char === '@') {
+                return false;
+            }
+            if ($char === '.' && $end + 1 < $length && ctype_alnum($line[$end + 1])) {
+                $dots++;
+
+                continue;
+            }
+
+            break;
+        }
+
+        return $dots > 0 && ctype_alpha($line[$end - 1]);
+    }
+
+    /**
      * Whether a lookahead character is escaped (PART 11 §8d-§8f), decided on
      * what the emitted line carries after it.
      *
@@ -697,6 +757,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function lookaheadEscapes(string $char, string $line, int $at, string $nextRaw): bool
     {
         return match ($char) {
+            '@' => $this->gfmEmailAt($line, $at),
             '<' => preg_match('/[A-Za-z\/!?]/', $line[$at + 1] ?? '') === 1,
             '&' => preg_match(
                 '/\G&(?:#[0-9]{1,7};|#[xX][0-9a-fA-F]{1,6};|[A-Za-z][A-Za-z0-9]*;)/',
