@@ -20,9 +20,10 @@ use PHPUnit\Framework\TestCase;
  *
  * The starts asserted here are markup-carve/carve-js#2179's, which is the half
  * the spec fixture `a-partly-consumed-container-tab-keeps-the-authored-span`
- * pins. That fixture asserts starts only, and so does this file: the paragraph's
- * END is measured below without being asserted as intent, because no ruling
- * states it.
+ * pins. That fixture asserts starts only. The paragraph's END is asserted here
+ * too (#2587): column 6 named a character line 4 does not have and offset 18
+ * reached into line 5, which is wrong under any column unit rather than a
+ * reading a ruling could settle either way.
  */
 class APartlyConsumedContainerTabKeepsTheAuthoredSpanTest extends TestCase
 {
@@ -249,5 +250,82 @@ class APartlyConsumedContainerTabKeepsTheAuthoredSpanTest extends TestCase
         }
 
         return $out;
+    }
+
+    public function testTheParagraphAndEveryPlacedNodeKeepTheirAuthoredSpans(): void
+    {
+        $source = self::SOURCE;
+        $tree = $this->publish($source);
+        $paragraph = $tree['children'][0]['items'][0]['children'][1]['children'][0];
+
+        $this->assertSame(4, $paragraph['pos']['endLine']);
+        $this->assertSame(5, $paragraph['pos']['endColumn']);
+        $this->assertSame(17, $paragraph['pos']['endOffset']);
+
+        $rows = [];
+        $unplacedGaps = 0;
+        foreach ([$paragraph, ...$paragraph['children']] as $node) {
+            $pos = $node['pos'] ?? null;
+            $rows[] = [
+                $node['type'],
+                $pos['startLine'] ?? null,
+                $pos['startColumn'] ?? null,
+                $pos['startOffset'] ?? null,
+                $pos['endOffset'] ?? null,
+            ];
+            if ($node['type'] === 'non_breaking_space' && $pos === null) {
+                $unplacedGaps++;
+            }
+        }
+        $this->assertSame([
+            ['paragraph', 4, 1, 13, 17],
+            ['non_breaking_space', null, null, null, null],
+            ['non_breaking_space', 4, 1, 13, 14],
+            ['non_breaking_space', 4, 2, 14, 15],
+            ['non_breaking_space', 4, 3, 15, 16],
+            ['text', 4, 4, 16, 17],
+        ], $rows);
+        $this->assertSame(1, $unplacedGaps);
+
+        $text = $paragraph['children'][4];
+        $this->assertSame('x', $text['value']);
+        $this->assertSame(16, $text['pos']['startOffset']);
+        $this->assertSame(17, $text['pos']['endOffset']);
+        $this->assertSame('x', mb_substr(
+            $source,
+            $text['pos']['startOffset'],
+            $text['pos']['endOffset'] - $text['pos']['startOffset'],
+            'UTF-8',
+        ));
+
+        $lineStarts = [];
+        $lineEnds = [];
+        $offset = 0;
+        foreach (explode("\n", $source) as $index => $line) {
+            $lineStarts[$index + 1] = $offset;
+            $lineEnds[$index + 1] = $offset + mb_strlen($line, 'UTF-8');
+            $offset = $lineEnds[$index + 1] + 1;
+        }
+        $walk = function (array $value) use (&$walk, $lineStarts, $lineEnds): void {
+            if (isset($value['type'], $value['pos'])) {
+                $pos = $value['pos'];
+                $this->assertGreaterThanOrEqual(1, $pos['startColumn']);
+                $this->assertSame(
+                    $lineStarts[$pos['startLine']] + $pos['startColumn'] - 1,
+                    $pos['startOffset'],
+                );
+                $this->assertSame(
+                    $lineStarts[$pos['endLine']] + $pos['endColumn'] - 1,
+                    $pos['endOffset'],
+                );
+                $this->assertLessThanOrEqual($lineEnds[$pos['endLine']], $pos['endOffset']);
+            }
+            foreach ($value as $child) {
+                if (is_array($child)) {
+                    $walk($child);
+                }
+            }
+        };
+        $walk($tree);
     }
 }
