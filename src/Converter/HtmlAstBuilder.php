@@ -12,9 +12,11 @@ use DOMText;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use SplObjectStorage;
+use Throwable;
 
 /**
  * Builds the public Carve AST directly from an HTML DOM.
@@ -1012,7 +1014,14 @@ final class HtmlAstBuilder
         $headings = [];
         $written = [];
         $this->collectHeadingIds($tree, $headings, $written);
+        $slugs = $this->renderedHeadingSlugs($tree);
         $kept = [];
+        foreach ($headings as $index => $heading) {
+            if ($slugs === null && $heading['candidate']) {
+                $kept[$index] = true;
+            }
+            $headings[$index]['slug'] = $slugs[$index] ?? $heading['slug'];
+        }
         foreach ($headings as $index => $heading) {
             $id = (string)$heading['id'];
             if ($heading['candidate'] && $id !== $heading['slug'] && preg_match('/^' . preg_quote($heading['slug'], '/') . '-[1-9][0-9]*$/D', $id) !== 1) {
@@ -1044,6 +1053,57 @@ final class HtmlAstBuilder
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         $this->applySectionIds($children, $kept, $index);
         $tree['children'] = $children;
+    }
+
+    /**
+     * The slug the renderer derives for each heading, from its converted
+     * content; null when the decoded headings do not line up with the tree.
+     *
+     * @param array<string, mixed> $tree
+     *
+     * @return array<int, string>|null
+     */
+    private function renderedHeadingSlugs(array $tree): ?array
+    {
+        $count = 0;
+        $this->stripSectionMarkers($tree, $count);
+        try {
+            $document = (new AstCodec())->decodeImporterTree($tree);
+        } catch (Throwable) {
+            return null;
+        }
+        $tracker = new HeadingIdTracker();
+        $slugs = [];
+        $stack = [$document];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node instanceof Heading) {
+                $slugs[] = $tracker->normalizeId($tracker->getPlainText($node));
+            }
+            foreach (array_reverse($node->getChildren()) as $child) {
+                $stack[] = $child;
+            }
+        }
+
+        return count($slugs) === $count ? $slugs : null;
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param int $headings
+     */
+    private function stripSectionMarkers(array &$node, int &$headings): void
+    {
+        if (($node['type'] ?? null) === 'heading' && is_string($node[self::SLUG_KEY] ?? null)) {
+            $headings++;
+        }
+        unset($node[self::SLUG_KEY], $node[self::SECTION_ID_KEY]);
+        foreach ($node as &$child) {
+            if (is_array($child)) {
+                $this->stripSectionMarkers($child, $headings);
+            }
+        }
+        unset($child);
     }
 
     /**

@@ -69,6 +69,8 @@ class ASectionWrapperGivesItsIdToItsHeadingTest extends TestCase
                 '<section id="A"><h2>A</h2></section><section id="A-1"><h2>A</h2></section><section id="A-2"><h2>A</h2></section>',
             ],
             'explicit id elsewhere' => ['<h2 id="X">A</h2><section id="A-2"><h2>A</h2></section>'],
+            // A break is a space in the written heading, so its slug is A-B.
+            'break in the heading' => ['<h2>AB</h2><section id="AB-2"><h2>A<br>B</h2></section>'],
         ];
     }
 
