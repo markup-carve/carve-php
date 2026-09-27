@@ -763,10 +763,18 @@ final class HtmlAstBuilder
             return [$paragraph];
         }
         if (preg_match('/^h([1-6])$/D', $tag, $match) === 1) {
+            $children = $this->blockInlines($node);
+            if ($children === []) {
+                if (!$this->session->inInlineProjection) {
+                    $this->session->droppedEmptyHeadings[$node] = null;
+                }
+
+                return [];
+            }
             $heading = [
                 'type' => 'heading',
                 'level' => (int)$match[1],
-                'children' => $this->blockInlines($node),
+                'children' => $children,
                 self::SLUG_KEY => (new HeadingIdTracker())->normalizeId(trim($node->textContent)),
             ];
             $skip = ['data-djot-source-level', 'data-djot-explicit-id'];

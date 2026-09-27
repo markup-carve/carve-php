@@ -400,6 +400,7 @@ class HtmlToCarve
             $this->summaryImportTitles = null;
             $this->keptRawImportElements = null;
             $this->droppedEmptyImportElements = null;
+            $this->droppedEmptyImportHeadings = null;
             $this->urlListImportCarriers = null;
             $this->droppedBlankImportRows = null;
             $this->mergedImportDefinitionLists = null;
@@ -800,11 +801,23 @@ class HtmlToCarve
             if ($emptyParagraph) {
                 $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped <p> holding no content', 'warning', $path);
             }
+            $emptyHeading = isset($this->droppedEmptyImportHeadings[$node]);
+            if ($emptyHeading) {
+                $this->addImportDiagnostic(
+                    $diagnostics,
+                    'element-dropped',
+                    $this->holdsOnlyLayoutCharacters($node)
+                        ? 'Dropped whitespace-only <' . $tag . '> holding no content character'
+                        : 'Dropped <' . $tag . '> holding no content',
+                    'warning',
+                    $path,
+                );
+            }
             if ($tag === 'span' && isset($this->droppedEmptyImportElements[$node])) {
                 $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped empty <span> element', 'warning', $path);
             }
             if (!$mathLeaves) {
-                $this->coveredImportAttributes = $emptyList || $emptyParagraph || $whitespaceOnly ? $this->spelledAttributeNames($node) : [];
+                $this->coveredImportAttributes = $emptyList || $emptyParagraph || $emptyHeading || $whitespaceOnly ? $this->spelledAttributeNames($node) : [];
                 try {
                     $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
                 } finally {
@@ -945,13 +958,23 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'code' && $this->codeSpanLosesBlockBoundary($node)) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'structure-unspellable',
+                "A code span's value cannot hold the block boundary inside <code>",
+                'warning',
+                $path,
+            );
+        }
+
         // Before the children, as the other engines order it.
         if ($this->directAstInlineFlattens($node)) {
             $keepsContent = $this->directAstHasSurvivingContent($node);
             $this->addImportDiagnostic(
                 $diagnostics,
                 $keepsContent ? 'element-unwrapped' : 'element-dropped',
-                $keepsContent ? 'Unwrapped unsupported <' . $tag . '> element' : 'Dropped empty <' . $tag . '> element',
+                $keepsContent ? $this->flattenedBlockMessage($node, $tag) : 'Dropped empty <' . $tag . '> element',
                 $keepsContent ? 'info' : 'warning',
                 $path,
             );
@@ -962,7 +985,7 @@ class HtmlToCarve
             $this->addImportDiagnostic(
                 $diagnostics,
                 $keepsContent ? 'element-unwrapped' : 'element-dropped',
-                $keepsContent ? 'Unwrapped unsupported <' . $tag . '> element' : 'Dropped empty <' . $tag . '> element',
+                $keepsContent ? $this->flattenedBlockMessage($node, $tag) : 'Dropped empty <' . $tag . '> element',
                 $keepsContent ? 'info' : 'warning',
                 $path,
             );
@@ -974,7 +997,7 @@ class HtmlToCarve
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
-                'Unwrapped unsupported <' . $tag . '> element',
+                $this->flattenedBlockMessage($node, $tag),
                 'info',
                 $path,
             );
@@ -1306,6 +1329,80 @@ class HtmlToCarve
         }
 
         return false;
+    }
+
+    /**
+     * What an `element-unwrapped` row says about a block flattened into an
+     * inline slot. A code span's slot is named, because the row for a boundary
+     * that slot could not hold sits beside it (markup-carve/carve#2441).
+     */
+    private function flattenedBlockMessage(DOMElement $node, string $tag): string
+    {
+        return $this->enclosingImportCodeSpan($node) instanceof DOMElement
+            ? 'Unwrapped <' . $tag . '> inside <code>'
+            : 'Unwrapped unsupported <' . $tag . '> element';
+    }
+
+    /**
+     * The `<code>` whose VALUE this node is flattened into, if any.
+     *
+     * A `<pre><code>` is a code BLOCK, whose value holds a newline, so nothing
+     * of the boundary is lost there.
+     */
+    private function enclosingImportCodeSpan(DOMElement $node): ?DOMElement
+    {
+        for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+            if (strtolower(HtmlDomLoader::elementName($ancestor)) !== 'code') {
+                continue;
+            }
+            $parent = $ancestor->parentNode;
+
+            return $parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'pre'
+                ? null
+                : $ancestor;
+        }
+
+        return null;
+    }
+
+    /**
+     * Did a `<code>`'s verbatim value join two sides a block boundary separated?
+     *
+     * The runs split at every BLOCK element rather than at the ones
+     * {@see directAstInlineFlattens()} reports, because that predicate defers to
+     * the cell and caption flatten paths and excludes a `<figure>`. Those are
+     * decisions about which row says what was unwrapped; none of them keeps the
+     * boundary out of the code span's value.
+     */
+    private function codeSpanLosesBlockBoundary(DOMElement $node): bool
+    {
+        $parent = $node->parentNode;
+        if ($parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'pre') {
+            return false;
+        }
+
+        $runs = [''];
+        $walk = function (DOMNode $parent) use (&$walk, &$runs): void {
+            foreach ($parent->childNodes as $child) {
+                if ($child instanceof DOMText) {
+                    $runs[array_key_last($runs)] .= $child->textContent;
+                } elseif ($child instanceof DOMElement) {
+                    // A block bounds the run on BOTH sides, so text after it is
+                    // a side of its own too.
+                    $block = in_array(strtolower(HtmlDomLoader::elementName($child)), $this->blockElements, true);
+                    if ($block) {
+                        $runs[] = '';
+                    }
+                    $walk($child);
+                    if ($block) {
+                        $runs[] = '';
+                    }
+                }
+            }
+        };
+        $walk($node);
+
+        return count(array_filter($runs, static fn (string $run): bool => $run !== '')) >= 2;
     }
 
     private function directAstUnwraps(DOMElement $node): bool
@@ -3363,6 +3460,7 @@ class HtmlToCarve
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
+        $this->droppedEmptyImportHeadings = null;
         $this->urlListImportCarriers = null;
         $this->droppedBlankImportRows = null;
         if (preg_match('/^\s*<!doctype\b[^>]*>\s*$/iD', $html) === 1) {
@@ -3390,6 +3488,7 @@ class HtmlToCarve
             $this->summaryImportTitles = $result->session->summaryTitles;
             $this->keptRawImportElements = $result->session->keptRawElements;
             $this->droppedEmptyImportElements = $result->session->droppedEmptyElements;
+            $this->droppedEmptyImportHeadings = $result->session->droppedEmptyHeadings;
             $this->urlListImportCarriers = $result->session->urlListCarriers;
             $this->droppedBlankImportRows = $result->session->droppedBlankTableRows;
             $this->mergedImportDefinitionLists = $result->session->mergedDefinitionLists;
@@ -4549,6 +4648,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $droppedEmptyImportElements = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $droppedEmptyImportHeadings = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null
