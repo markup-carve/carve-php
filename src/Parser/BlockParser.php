@@ -14595,50 +14595,13 @@ class BlockParser
      */
     protected function splitLines(string $input): array
     {
-        $normalized = str_replace(["\r\n", "\r"], "\n", $input);
-        $lines = explode("\n", $normalized);
+        $source = new SourceLines($input, $this->originalSource);
+        $this->sourceLines = $source->lines;
+        $this->normalizedSource = $source->normalized;
+        $this->lineStartOffsets = $source->byteLineStarts;
+        $this->positionIndex = $this->trackPositions ? new PositionIndex($source->original) : null;
 
-        // Record where each line starts in the NORMALIZED source, while the
-        // information still exists. After this point the block layer strips
-        // indentation and re-joins lines, and a byte offset into what it builds
-        // no longer relates to the document (PART 12 §4).
-        $this->lineStartOffsets = [];
-        $this->sourceLines = $lines;
-        $this->normalizedSource = $normalized;
-        // MEASURED ON THE SOURCE AS GIVEN. `strlen($line) + 1` assumes every
-        // line ending is one byte, and a stripped BOM is three more - so a CRLF
-        // or BOM-led document had every span land before the text it named
-        // (carve#876). The widths come from the original, so `\n`, `\r\n` and a
-        // lone `\r` are each counted at their real size, and the mark is
-        // skipped so line 0 starts at the first real character.
-        $original = $this->originalSource !== '' ? $this->originalSource : $normalized;
-        $this->positionIndex = $this->trackPositions ? new PositionIndex($original) : null;
-        $offset = str_starts_with($original, "\u{FEFF}") ? 3 : 0;
-        foreach ($lines as $index => $line) {
-            $this->lineStartOffsets[$index] = $offset;
-            $offset += strlen($line);
-            $ending = substr($original, $offset, 2);
-            if (str_starts_with($ending, "\r\n")) {
-                $offset += 2;
-
-                continue;
-            }
-            $offset += 1;
-        }
-
-        // Drop the empty line a TERMINAL newline leaves behind. `explode` on
-        // "a\n" yields ['a', ''] and the document has one line, not two.
-        //
-        // It belongs here, where the string is known to be a whole document.
-        // The fence collector used to do it instead, by refusing to absorb a
-        // blank LAST line - which also refused the real blank at the end of a
-        // container body, so a fence ended by a div closer or a bare quote
-        // marker came out a line short (carve-php#1177).
-        if (end($lines) === '') {
-            array_pop($lines);
-        }
-
-        return $lines;
+        return $source->blockLines();
     }
 
     /**
