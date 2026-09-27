@@ -9,6 +9,7 @@ use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
+use DOMXPath;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
@@ -928,39 +929,58 @@ final class HtmlAstBuilder
     private function section(DOMElement $node): array
     {
         $blocks = $this->blocks($this->children($node));
-        $skip = ['data-djot-explicit-id', 'role'];
-        foreach ($node->childNodes as $child) {
-            if (
-                $child instanceof DOMElement
-                && preg_match('/^h[1-6]$/iD', $child->tagName) === 1
-                && !$node->hasAttribute('data-djot-explicit-id')
-                && $node->hasAttribute('id')
-                && $node->getAttribute('id') === (new HeadingIdTracker())->normalizeId(trim($child->textContent))
-            ) {
-                $skip[] = 'id';
+        // Only the id is the renderer's: it moves a heading's id onto the section
+        // it opens (CARVE-P9-019). Anything else on a section has no carrier.
+        $heading = $this->firstElementChild($node);
+        if (
+            $heading === null
+            || preg_match('/^h[1-6]$/iD', $heading->tagName) !== 1
+            || !$node->hasAttribute('id')
+            || $heading->hasAttribute('id')
+            || (!$node->hasAttribute('data-djot-explicit-id') && $this->isDerivedHeadingId($node->getAttribute('id'), $heading))
+        ) {
+            return $blocks;
+        }
+        foreach ($blocks as &$block) {
+            if (($block['type'] ?? null) === 'heading') {
+                $headingAttrs = self::attrsValue($block['attrs'] ?? null);
+                $headingAttrs['id'] = $node->getAttribute('id');
+                $headingAttrs['order'] = ['#id', ...array_values(array_diff($headingAttrs['order'] ?? [], ['#id']))];
+                $block['attrs'] = $headingAttrs;
 
                 break;
             }
         }
-        $attrs = $this->attrs($node, $skip);
-        if ($attrs !== []) {
-            foreach ($blocks as &$block) {
-                if (($block['type'] ?? null) === 'heading') {
-                    $headingAttrs = self::attrsValue($block['attrs'] ?? null);
-                    $merged = $this->mergeAttrs($headingAttrs, $attrs);
-                    $merged['order'] = array_values(array_unique([
-                        ...($attrs['order'] ?? []),
-                        ...($headingAttrs['order'] ?? []),
-                    ]));
-                    $block['attrs'] = $merged;
-
-                    break;
-                }
-            }
-            unset($block);
-        }
+        unset($block);
 
         return $blocks;
+    }
+
+    private function firstElementChild(DOMElement $node): ?DOMElement
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                return $child;
+            }
+        }
+
+        return null;
+    }
+
+    private function isDerivedHeadingId(string $id, DOMElement $heading): bool
+    {
+        $base = (new HeadingIdTracker())->normalizeId(trim($heading->textContent));
+        // The renderer numbers a repeated slug by how many headings before it share it.
+        $earlier = 0;
+        $xpath = new DOMXPath($heading->ownerDocument ?? new DOMDocument());
+        $preceding = $xpath->query('preceding::*[self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6]', $heading);
+        foreach ($preceding === false ? [] : $preceding as $other) {
+            if ($other instanceof DOMElement && (new HeadingIdTracker())->normalizeId(trim($other->textContent)) === $base) {
+                $earlier++;
+            }
+        }
+
+        return $id === ($earlier === 0 ? $base : $base . '-' . ($earlier + 1));
     }
 
     private function headingIdWasGenerated(DOMElement $node): bool

@@ -99,25 +99,13 @@ class AnImportedHeadingKeepsItsElementsAttributeOrderTest extends TestCase
     }
 
     /**
-     * ONE `#id` SLOT, AND THE CALLER'S SKIP DECIDES WHOSE.
-     *
-     * processSection() writes the section wrapper's id and asks the heading's
-     * writer to leave the heading's own id out. The writer read `id` off the
-     * node before it looked at the skip list, so the skip was inert and a
-     * `<section id="S">` around an `<h1 id="X">` wrote `{#S #X .k}` - two id
-     * slots in one block, of which the parser takes the LAST, silently
-     * inverting the priority the call site had spelled and rendering
-     * `<section id="X">`.
-     *
-     * Now the skip is honored and the section id is the one that survives,
-     * which is what the call site asked for. This is the same value-versus-
-     * presence confusion carve-php#1698 fixed one line above, seen from the
-     * skip side instead of the empty side.
+     * One `#id` slot: a heading that carries its own id keeps it, and the
+     * section's id, which the renderer never writes beside one, is reported.
      */
-    public function testASectionIdIsNotOverriddenByTheHeadingsOwn(): void
+    public function testAHeadingsOwnIdIsNotOverriddenByTheSections(): void
     {
         $this->assertSame(
-            "{#S .k}\n# H\n",
+            "{#X .k}\n# H\n",
             (new HtmlToCarve())->convert('<section id="S"><h1 id="X" class="k">H</h1></section>'),
         );
     }
