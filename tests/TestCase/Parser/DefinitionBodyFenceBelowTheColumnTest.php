@@ -84,7 +84,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
             ],
             'past the column, keeping the column it wrote past it' => [
                 ":: t\n:  ```\n    body\n    ```\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code> body\n</code></pre>\n  </dd>\n</dl>\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code> body\n ```\n</code></pre>\n  </dd>\n</dl>\n",
             ],
         ];
     }

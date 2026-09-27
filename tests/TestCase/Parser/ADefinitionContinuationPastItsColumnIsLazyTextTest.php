@@ -161,7 +161,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
             'a fenced code block, at the column' => [":: t\n: ```\n  c\n  ```\n", '<pre><code>c </code></pre>'],
             'a fenced code block, one past it' => [
                 ":: t\n: ```\n   c\n   ```\n",
-                '<pre><code> c </code></pre>',
+                '<pre><code> c ``` </code></pre>',
             ],
         ];
     }
