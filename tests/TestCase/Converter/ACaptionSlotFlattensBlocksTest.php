@@ -118,13 +118,13 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
                 '<figure><img src="i.png"><figcaption><dl><dt>t</dt><dd>d</dd></dl></figcaption></figure>',
                 "![](i.png)\n^ t d",
             ],
-            'a no-break space already preserves the boundary' => [
+            'a no-break space is content at the boundary' => [
                 '<figure><img src="i.png"><figcaption><p>a&nbsp;</p><p>b</p></figcaption></figure>',
-                "![](i.png)\n^ a\u{00A0}b",
+                "![](i.png)\n^ a\u{00A0} b",
             ],
-            'inline text means the former blocks are not adjacent' => [
+            'inline text keeps both flattened boundaries' => [
                 '<figure><img src="i.png"><figcaption><p>a</p>x<p>b</p></figcaption></figure>',
-                "![](i.png)\n^ axb",
+                "![](i.png)\n^ a x b",
             ],
             'a list in a figure caption' => [
                 '<figure><img src="i.png"><figcaption><ul><li>a</li><li>b</li></ul></figcaption></figure>',

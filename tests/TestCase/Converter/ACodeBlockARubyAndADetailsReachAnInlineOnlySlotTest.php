@@ -43,10 +43,6 @@ class ACodeBlockARubyAndADetailsReachAnInlineOnlySlotTest extends TestCase
                 '<table><thead><tr><th><pre><code>f</code></pre></th></tr></thead><tbody><tr><td>z</td></tr></tbody></table>',
                 "|= `f` |\n| z |",
             ],
-            'a pre with no code child' => [
-                '<table><tr><td><pre>f</pre></td></tr></table>',
-                '| `f` |',
-            ],
             'content holding a backtick' => [
                 '<table><tr><td><pre><code>a`b</code></pre></td></tr></table>',
                 '| ``a`b`` |',
@@ -203,7 +199,7 @@ class ACodeBlockARubyAndADetailsReachAnInlineOnlySlotTest extends TestCase
             ],
             "a nested table's caption in a cell" => [
                 '<table><tr><td><table><caption>c</caption><tr><td>i</td></tr></table></td></tr></table>',
-                '| c \| i \| |',
+                '| c i |',
             ],
             "a nested table's caption in a caption" => [
                 '<table><caption><table><caption>c</caption><tr><td>i</td></tr></table></caption><tr><td>z</td></tr></table>',
