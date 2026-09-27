@@ -119,7 +119,12 @@ class HtmlImportRecognitionTest extends TestCase
     {
         return [
             'holding the title delimiter' => ['<details><summary>He said "hi"</summary><p>Body</p></details>'],
-            'holding several blocks' => ['<details><summary><p>one</p><p>two</p></summary><p>Body</p></details>'],
+            'holding a line break' => ["<details><summary>one\ntwo</summary><p>Body</p></details>"],
+            // A `<br>` reaches no text content, so the title looked writable and
+            // the opener it produced took the whole container down.
+            'holding a break element' => ['<details><summary>one<br>two</summary><p>Body</p></details>'],
+            'holding one inside a block' => ['<details><summary><p>one<br>two</p></summary><p>Body</p></details>'],
+            'holding one inside emphasis' => ['<details><summary><em>one<br>two</em></summary><p>Body</p></details>'],
         ];
     }
 
@@ -130,6 +135,7 @@ class HtmlImportRecognitionTest extends TestCase
 
         $this->assertStringNotContainsString('::: details "', $carve);
         $this->assertContains('element-unwrapped', $this->diagnosticCodes($html));
+        $this->assertStringContainsString('<details', $this->disclosure->convert($carve));
     }
 
     /**

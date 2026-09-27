@@ -2588,10 +2588,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 return;
             }
             if ($slot === '.class') {
+                $classes = [];
+                $allExplicit = true;
                 foreach (preg_split('/\s+/', trim($attrs['class'] ?? '')) ?: [] as $class) {
                     if ($class !== '' && !isset($structural[$class])) {
+                        $classes[] = $class;
+                        $allExplicit = $allExplicit && $this->isExplicitIdOrClassIdentifier($class);
+                    }
+                }
+                if ($allExplicit) {
+                    foreach ($classes as $class) {
                         $parts[] = '.' . $this->escapeAttrNameValue($class);
                     }
+                } else {
+                    $parts[] = 'class=' . $this->quoteAttrValue(implode(' ', $classes), true);
                 }
 
                 return;
@@ -3259,7 +3269,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $content = $node->getContent();
         if ($node->isDelimited()) {
-            return '{% ' . $content . ' %}';
+            return '{%' . (str_starts_with($content, "\n") ? '' : ' ')
+                . $content . ' %}';
         }
         $recorded = $node->getFenceLength();
         if ($recorded === null && !str_contains($content, "\n")) {
@@ -4725,10 +4736,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 return;
             }
             if ($slot === '.class') {
+                $classes = [];
+                $allExplicit = true;
                 foreach (preg_split('/\s+/', trim($attrs['class'] ?? '')) ?: [] as $class) {
                     if ($class !== '') {
+                        $classes[] = $class;
+                        $allExplicit = $allExplicit && $this->isExplicitIdOrClassIdentifier($class);
+                    }
+                }
+                if ($allExplicit) {
+                    foreach ($classes as $class) {
                         $parts[] = '.' . $this->escapeAttrNameValue($class);
                     }
+                } elseif ($classes !== []) {
+                    $parts[] = 'class=' . $this->quoteAttrValue(implode(' ', $classes), true);
                 }
 
                 return;
@@ -6014,11 +6035,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return preg_match('/^[A-Za-z][\w-]*$/', $text) === 1;
     }
 
-    protected function quoteAttrValue(string $value): string
+    protected function quoteAttrValue(string $value, bool $forceQuotes = false): string
     {
         // `\|` is the only pipe a table row's cell cut leaves in place
         // ([CARVE-P2-019]), so a pipe is escaped wherever the value sits.
-        if (preg_match('/^[^\s"\'{}|]+$/u', $value) === 1) {
+        if (!$forceQuotes && preg_match('/^[^\s"\'{}|]+$/u', $value) === 1) {
             return $value;
         }
 

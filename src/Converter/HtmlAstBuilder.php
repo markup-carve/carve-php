@@ -282,6 +282,14 @@ final class HtmlAstBuilder
         return $this->session->mergedDefinitionLists;
     }
 
+    /**
+     * @return \SplObjectStorage<\DOMElement, null>
+     */
+    public function flattenedSummaryBlocks(): SplObjectStorage
+    {
+        return $this->session->flattenedSummaryBlocks;
+    }
+
     private function keepRaw(DOMElement $node): void
     {
         $this->session->keptRawElements[$node] = null;
@@ -1171,7 +1179,12 @@ final class HtmlAstBuilder
         foreach ($domChildren as $index => $child) {
             if ($child instanceof DOMElement && strtolower($child->tagName) === 'summary') {
                 if ($this->summaryCanBeTitle($child)) {
-                    $title = $this->blockInlines($child);
+                    $title = $this->captionInlines($child);
+                    foreach ($child->childNodes as $block) {
+                        if ($block instanceof DOMElement && $this->isBlock($block)) {
+                            $this->session->flattenedSummaryBlocks[$block] = null;
+                        }
+                    }
                     unset($domChildren[$index]);
                 }
 
@@ -1196,11 +1209,10 @@ final class HtmlAstBuilder
         if (str_contains($summary->textContent, '"') || str_contains($summary->textContent, "\n")) {
             return false;
         }
-        $blockChildren = 0;
-        foreach ($summary->childNodes as $child) {
-            if ($child instanceof DOMElement && $this->isBlock($child) && ++$blockChildren > 1) {
-                return false;
-            }
+        // A `<br>` reaches no text content but renders as a line break, which the
+        // opener cannot hold any more than an authored one.
+        if ($summary->getElementsByTagName('br')->length > 0) {
+            return false;
         }
 
         return $this->blockInlines($summary) !== [];

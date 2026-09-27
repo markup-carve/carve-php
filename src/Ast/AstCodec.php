@@ -2295,8 +2295,13 @@ class AstCodec
 
         if ($node instanceof TableRow) {
             // The reference has no row flag: a header row is one whose cells are
-            // header cells, so recompute rather than invent a field.
-            $cells = $node->getChildren();
+            // header cells, so recompute rather than invent a field. PART 11 §10n
+            // gives a placeholder to the cell whose span covers it, so its own
+            // flag does not vote.
+            $cells = array_filter(
+                $node->getChildren(),
+                static fn ($cell): bool => !$cell instanceof TableCell || $cell->getSpanMarker() === null,
+            );
             $allHeaders = $cells !== [];
             foreach ($cells as $cell) {
                 if (!$cell instanceof TableCell || !$cell->isHeader()) {
