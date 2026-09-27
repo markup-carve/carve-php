@@ -2579,14 +2579,16 @@ final class HtmlAstBuilder
         $attrs = $this->attrs($node, $skipAttrs);
         $classes = $attrs['classes'] ?? [];
         $structuralKind = trim($node->getAttribute('data-djot-admonition-type'));
-        if ($classes !== [] || $structuralKind !== '') {
-            $tag = strtolower($node->tagName);
-            $kindIndex = $tag === 'aside' && ($classes[0] ?? null) === 'admonition' && isset($classes[1]) ? 1 : 0;
-            $lineBlockIndex = array_search('line-block', $classes, true);
-            if ($lineBlockIndex !== false) {
-                $kindIndex = $lineBlockIndex;
-            }
-            $classKind = $classes[$kindIndex] ?? '';
+        $tag = strtolower($node->tagName);
+        $kindIndex = $tag === 'aside' && ($classes[0] ?? null) === 'admonition' && isset($classes[1]) ? 1 : 0;
+        $lineBlockIndex = array_search('line-block', $classes, true);
+        if ($lineBlockIndex !== false) {
+            $kindIndex = $lineBlockIndex;
+        }
+        $classKind = $classes[$kindIndex] ?? '';
+        $classKindIsSpellable = $classKind === 'line-block'
+            || preg_match('/^[A-Za-z_][\w-]*$/D', $classKind) === 1;
+        if ($structuralKind !== '' || $classKindIsSpellable) {
             $kind = $structuralKind !== '' ? $structuralKind : ($classKind === 'line-block' ? '|' : $classKind);
             $container = $kind === '|'
                 ? ['type' => 'line_block', 'children' => $children]
