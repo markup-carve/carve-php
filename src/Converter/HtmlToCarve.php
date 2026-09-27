@@ -137,6 +137,18 @@ class HtmlToCarve
     protected const ACTIVE_ELEMENTS = ['script', 'style', 'template', 'noscript'];
 
     /**
+     * Inline-only slots whose block children are flattened into the slot.
+     *
+     * @var list<string>
+     */
+    protected const INLINE_SLOT_ELEMENTS = [
+        'a', 'abbr', 'b', 'cite', 'code', 'del', 'dfn', 'em', 'i', 'ins',
+        'kbd', 'mark', 'q', 's', 'samp',
+        'span', 'strike', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'h1', 'h2',
+        'h3', 'h4', 'h5', 'h6',
+    ];
+
+    /**
      * Elements an HTML parser reads the content of as TEXT rather than as
      * markup, so nothing inside them can fire.
      *
@@ -982,6 +994,18 @@ class HtmlToCarve
             );
         }
 
+        // Before the children, as the other engines order it.
+        if ($this->directAstInlineFlattens($node)) {
+            $keepsContent = $this->directAstHasSurvivingContent($node);
+            $this->addImportDiagnostic(
+                $diagnostics,
+                $keepsContent ? 'element-unwrapped' : 'element-dropped',
+                $keepsContent ? 'Unwrapped unsupported <' . $tag . '> element' : 'Dropped empty <' . $tag . '> element',
+                $keepsContent ? 'info' : 'warning',
+                $path,
+            );
+        }
+
         $this->inspectImportChildren($node, $tag, $path, $diagnostics);
 
         if ($this->directAstCaptionFlattens($node) && $this->hasImportContentToUnwrap($node)) {
@@ -1300,6 +1324,32 @@ class HtmlToCarve
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
             if (in_array(strtolower($ancestor->tagName), ['td', 'th'], true)) {
                 return !$this->cellIsWrittenAsAListTableItem($ancestor);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A block inside an inline element or a heading, which the import keeps
+     * inline and flattens (carve-php#2545).
+     */
+    private function directAstInlineFlattens(DOMElement $node): bool
+    {
+        $tag = strtolower($node->tagName);
+        if (
+            $this->usedStoredRoundTripSource
+            || !in_array($tag, $this->blockElements, true)
+            || $this->directAstCaptionFlattens($node)
+            || $this->directAstCellFlattens($node)
+            || $this->directAstUnwraps($node)
+            || $tag === 'figure'
+        ) {
+            return false;
+        }
+        for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+            if (in_array(strtolower($ancestor->tagName), self::INLINE_SLOT_ELEMENTS, true)) {
+                return true;
             }
         }
 

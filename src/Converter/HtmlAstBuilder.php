@@ -390,6 +390,38 @@ final class HtmlAstBuilder
     ];
 
     /**
+     * Elements the inline arm spells, which stay inline and flatten any block
+     * they hold (HTML import contract, "A flattened boundary keeps a separator").
+     *
+     * @var array<string, true>
+     */
+    private const INLINE_SPELLED_TAGS = [
+        'a' => true,
+        'abbr' => true,
+        'b' => true,
+        'cite' => true,
+        'code' => true,
+        'del' => true,
+        'dfn' => true,
+        'em' => true,
+        'i' => true,
+        'ins' => true,
+        'kbd' => true,
+        'mark' => true,
+        'q' => true,
+        's' => true,
+        'samp' => true,
+        'span' => true,
+        'strike' => true,
+        'strong' => true,
+        'sub' => true,
+        'sup' => true,
+        'time' => true,
+        'u' => true,
+        'var' => true,
+    ];
+
+    /**
      * @return array<string, mixed>
      */
     public function build(string $html, ?int $sourceByteLength = null): array
@@ -633,6 +665,9 @@ final class HtmlAstBuilder
         $tag = strtolower($node->tagName);
         if (isset(self::BLOCK_TAGS[$tag])) {
             return true;
+        }
+        if (isset(self::INLINE_SPELLED_TAGS[$tag])) {
+            return false;
         }
 
         return $this->holdsBlock($node, !isset(self::SPELLED_NON_BLOCK_TAGS[$tag]));
@@ -3188,8 +3223,24 @@ final class HtmlAstBuilder
     private function inlines(array $nodes): array
     {
         $out = [];
+        $afterBlock = false;
         foreach ($nodes as $node) {
-            foreach ($this->inline($node) as $inline) {
+            $parts = $this->inline($node);
+            if ($parts === []) {
+                continue;
+            }
+            $isBlock = $node instanceof DOMElement && $this->isBlock($node);
+            // A flattened block keeps a separator from its neighbors (HTML
+            // import contract, "A flattened boundary keeps a separator").
+            if (
+                ($isBlock || $afterBlock)
+                && self::edgeIsContent($out, true)
+                && self::edgeIsContent($parts, false)
+            ) {
+                $out[] = ['type' => 'text', 'value' => ' '];
+            }
+            $afterBlock = $isBlock;
+            foreach ($parts as $inline) {
                 $out[] = $inline;
             }
         }
@@ -3209,6 +3260,40 @@ final class HtmlAstBuilder
         }
 
         return $this->hoistedRun($out);
+    }
+
+    /**
+     * Whether the last (`$end`) or first inline of `$nodes` ends in something
+     * other than whitespace. Containers are read through to their text.
+     *
+     * @param list<array<string, mixed>> $nodes
+     * @param bool $end
+     */
+    private static function edgeIsContent(array $nodes, bool $end): bool
+    {
+        $node = $end ? end($nodes) : reset($nodes);
+        while (is_array($node)) {
+            $type = $node['type'] ?? null;
+            if ($type === 'text') {
+                $value = self::stringValue($node['value'] ?? null);
+                if ($value === '') {
+                    return false;
+                }
+                $char = $end ? substr($value, -1) : $value[0];
+
+                return !in_array($char, [' ', "\t", "\n"], true);
+            }
+            if ($type === 'soft_break' || $type === 'hard_break') {
+                return false;
+            }
+            $children = $node['children'] ?? null;
+            if (!is_array($children) || $children === []) {
+                return true;
+            }
+            $node = $end ? end($children) : reset($children);
+        }
+
+        return false;
     }
 
     /**
