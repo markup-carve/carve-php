@@ -14263,23 +14263,31 @@ class BlockParser
         // linear in the number of lines.
         $fenceChar = null;
         $fenceLength = 0;
+        $fenceBase = 0;
         $k = 0;
         while ($k < $n) {
             $sl = $subLines[$k];
             if ($fenceChar !== null) {
-                if ($this->fencedBlockParser->isCodeFenceCloser($sl, $fenceChar, $fenceLength)) {
+                if (
+                    IndentationHelper::getLeadingColumns($sl, $fenceBase + 1) <= $fenceBase
+                    && $this->fencedBlockParser->isCodeFenceCloser(ltrim($sl, " \t"), $fenceChar, $fenceLength)
+                ) {
                     $fenceChar = null;
                 }
                 $k++;
 
                 continue;
             }
-            $opener = $this->fencedBlockParser->parseCodeFenceOpener($sl);
+            $authored = ltrim($sl, " \t");
+            $canOpen = $authored === $sl || $k === 0 || IndentationHelper::isBlankLine($subLines[$k - 1]);
+            $opener = $canOpen
+                ? ($this->fencedBlockParser->parseCodeFenceOpener($authored)
+                    ?? $this->fencedBlockParser->parseRawBlockOpener($authored))
+                : null;
             if ($opener !== null) {
-                /** @var string $fenceChar */
-                $fenceChar = $opener['char'];
-                /** @var int $fenceLength */
+                $fenceChar = $opener['fence'][0];
                 $fenceLength = $opener['length'];
+                $fenceBase = IndentationHelper::getLeadingColumns($sl);
                 $k++;
 
                 continue;

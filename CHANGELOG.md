@@ -15,6 +15,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- A code or raw fence opened past a list item's content column keeps its interior blank lines from loosening the item (#2598).
+
 - Native HTML import preserves tables after foster-parented `plaintext` elements, restores SVG and MathML namespaces, and checks template depth before creating hidden template content fragments.
 
 - Unquoted attribute values reject pipes and backslashes and accept opening braces. The Carve writer quotes backslashes so its output parses back to the same value (#2572).
