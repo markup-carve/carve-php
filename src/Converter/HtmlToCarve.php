@@ -3159,7 +3159,7 @@ class HtmlToCarve
                         $counts[$key] = ($counts[$key] ?? 0) + 1;
                     }
                 } else {
-                    if ($value === $name || ($value === '' && in_array($name, self::PRESENCE_ATTRIBUTES, true))) {
+                    if ($value === $name || $value === '') {
                         $content ??= $this->importElementContentKey($element);
                     }
                     $key = $this->importSurvivorKey($name, $value, $content ?? '');

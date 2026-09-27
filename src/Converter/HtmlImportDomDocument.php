@@ -15,7 +15,7 @@ final class HtmlImportDomDocument extends DOMDocument
     /**
      * @var int
      */
-    public const MAX_DEPTH = 256;
+    public const MAX_DEPTH = 512;
 
     public function __construct()
     {

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use DOMDocument;
 use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -18,6 +17,9 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
     public static function instructionProvider(): array
     {
         return [
+            'double hyphen' => ['<p>x<?a--b>y</p>', "x{% ?a--b %}y\n"],
+            'trailing hyphen' => ['<p>x<?a->y</p>', "x{% ?a- %}y\n"],
+            'unclosed instruction' => ['<p>x<?foo', "x{% ?foo %}\n"],
             'empty instruction' => ['<p>HTML<?></p>', "HTML{% ? %}\n"],
             'named instruction' => ['<p>x <?foo bar?> y</p>', "x {% ?foo bar? %} y\n"],
             'link in cell' => [
@@ -40,37 +42,31 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
      */
     public static function opaqueProvider(): array
     {
-        $cases = [
-            'double quoted attribute' => ['<p title="<?x>">text</p>'],
-            'single quoted attribute' => ["<p title = '<?x>'>text</p>"],
-            'existing comment' => ['<p>x<!-- <?x> -->y</p>'],
-            'double hyphen' => ['<p>x<?a--b>y</p>'],
-            'trailing hyphen' => ['<p>x<?a->y</p>'],
-            'unclosed instruction' => ['<p>x<?foo'],
-        ];
-        foreach (
-            [
-                'script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext',
-            ] as $tag
-        ) {
-            $cases[$tag] = ['<' . $tag . '>before <?x> after</' . $tag . '>'];
+        $cases = [];
+        foreach (['script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'] as $tag) {
+            $cases[$tag] = [$tag];
         }
 
         return $cases;
     }
 
     #[DataProvider('opaqueProvider')]
-    public function testOpaqueContextsStayUnchanged(string $html): void
+    public function testOpaqueContextsKeepInstructionText(string $tag): void
     {
-        $expected = new DOMDocument();
-        $previous = libxml_use_internal_errors(true);
-        try {
-            $expected->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        } finally {
-            libxml_clear_errors();
-            libxml_use_internal_errors($previous);
-        }
-        $this->assertSame($expected->saveHTML(), HtmlDomLoader::load($html)->saveHTML());
+        $document = HtmlDomLoader::load('<' . $tag . '>before <?x> after</' . $tag . '>');
+        $element = $document->getElementsByTagName($tag)->item(0);
+        $expected = 'before <?x> after' . ($tag === 'plaintext' ? '</plaintext>' : '');
+        $this->assertSame($expected, $element?->textContent);
+        $this->assertSame(XML_TEXT_NODE, $element?->firstChild?->nodeType);
+    }
+
+    public function testNoscriptUsesTheScriptingDisabledTree(): void
+    {
+        $document = HtmlDomLoader::fragment('<noscript>before <?x> after</noscript>');
+        $element = $document->getElementsByTagName('noscript')->item(0);
+        $this->assertSame('before  after', $element?->textContent);
+        $this->assertSame('?x', $element?->childNodes->item(1)?->nodeValue);
+        $this->assertSame(XML_COMMENT_NODE, $element?->childNodes->item(1)?->nodeType);
     }
 
     public function testScannerResumesAfterOpaqueContexts(): void

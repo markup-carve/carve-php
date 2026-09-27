@@ -103,12 +103,12 @@ final class HtmlDomLoader
 
     public static function serialize(DOMNode $node): string
     {
+        $copy = $node->cloneNode(true);
         if (
-            $node instanceof DOMElement || $node instanceof DOMText || $node instanceof DOMComment
-            || $node instanceof DOMDocument || $node instanceof DOMDocumentFragment
-            || $node instanceof DOMDocumentType || $node instanceof DOMProcessingInstruction
+            $copy instanceof DOMElement || $copy instanceof DOMText || $copy instanceof DOMComment
+            || $copy instanceof DOMDocument || $copy instanceof DOMDocumentFragment
+            || $copy instanceof DOMDocumentType || $copy instanceof DOMProcessingInstruction
         ) {
-            $copy = $node->cloneNode(true);
             $stack = [$copy];
             while ($stack !== []) {
                 $current = array_pop($stack);

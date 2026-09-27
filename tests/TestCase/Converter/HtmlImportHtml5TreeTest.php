@@ -20,7 +20,7 @@ class HtmlImportHtml5TreeTest extends TestCase
 
     public function testOrdinaryNestingAndRawTextRemainReadable(): void
     {
-        $document = HtmlDomLoader::fragment(str_repeat('<div>', 200) . 'content');
+        $document = HtmlDomLoader::fragment(str_repeat('<ul><li>', 200) . 'content');
         self::assertSame('content', $document->documentElement?->textContent);
         $text = str_repeat('<div>', 8000);
         $document = HtmlDomLoader::fragment('<textarea>' . $text . '</textarea>');
