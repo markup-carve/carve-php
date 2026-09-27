@@ -11,6 +11,7 @@ parse and walk the **AST**. They are separate classes because they answer
 separate questions, and none can be expressed in another's terms.
 
 ```php
+use MarkupCarve\Carve\Lint\DefinitionTermFoldLinter;
 use MarkupCarve\Carve\Lint\FigureGroupLinter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
 use MarkupCarve\Carve\Lint\QuoteFenceLinter;
@@ -28,6 +29,7 @@ $warnings = array_merge(
     (new TemplateSourceLinter())->lint($source),
     (new FigureGroupLinter())->lint($source),
     (new QuoteFenceLinter())->lint($source),
+    (new DefinitionTermFoldLinter())->lint($source),
     (new ReferencesPlacementLinter())->lint($source, ['extensions' => ['citations']]),
 );
 ```
@@ -47,7 +49,10 @@ and an `aligns` / `valigns` axis the table's own `|=` markers already set.
 `if`, `for`, `block` or a closer), a sign that Liquid, Nunjucks or Twig source
 reached Carve before template rendering. `QuoteFenceLinter` reports a `::: >`
 opener at the column of the quote above it, which ends that quote instead of
-nesting inside it.
+nesting inside it. `DefinitionTermFoldLinter` reports a block opener indented
+under a `:: ` term: a term has no content column, so the line folds into the
+term as text (`definition-term-block-folded`). Dedent it to the container's
+content column to open the block.
 
 `ReferencesPlacementLinter` reports a `::: references` marker inside a
 container when citations are enabled. The marker renders as an ordinary div

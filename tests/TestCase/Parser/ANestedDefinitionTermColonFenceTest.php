@@ -16,111 +16,6 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
     public static function fenceCases(): array
     {
         return [
-            'reported' => [
-                ':: a
-: b
-  :: c
-    :::
-',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c</dt>
-    </dl>
-    <div>
-
-    </div>
-  </dd>
-</dl>
-',
-            ],
-            'closed' => [
-                ':: a
-: b
-  :: c
-    ::: box
-    text
-    :::
-',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c</dt>
-    </dl>
-    <div class="box">
-      <p>text</p>
-    </div>
-  </dd>
-</dl>
-',
-            ],
-            'tab' => [
-                ':: a
-: b
-  :: c
-	::: box
-	text
-	:::
-',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c</dt>
-    </dl>
-    <div class="box">
-      <p>text</p>
-    </div>
-  </dd>
-</dl>
-',
-            ],
-            'overindent' => [
-                ':: a
-: b
-  :: c
-      ::: box
-      text
-      :::
-',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c</dt>
-    </dl>
-    <div class="box">
-      <p>text</p>
-    </div>
-  </dd>
-</dl>
-',
-            ],
-            'list' => [
-                '- a
-  :: c
-    ::: box
-    text
-    :::
-',
-                '<ul>
-  <li>a
-    <dl>
-      <dt>c</dt>
-    </dl>
-    <div class="box">
-      <p>text</p>
-    </div>
-  </li>
-</ul>
-',
-            ],
             'description' => [
                 ':: a
 : b
@@ -217,6 +112,131 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
 ',
             ],
         ];
+    }
+
+    /**
+     * A term has no content column, so a colon fence indented past the
+     * enclosing container's content column folds into the term
+     * (markup-carve/carve#2411, superseding markup-carve/carve-php#2513).
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function foldedCases(): array
+    {
+        return [
+            'reported' => [
+                ':: a
+: b
+  :: c
+    :::
+',
+                '<dl>
+  <dt>a</dt>
+  <dd>
+    <p>b</p>
+    <dl>
+      <dt>c
+  :::</dt>
+    </dl>
+  </dd>
+</dl>
+',
+            ],
+            'closed' => [
+                ':: a
+: b
+  :: c
+    ::: box
+    text
+    :::
+',
+                '<dl>
+  <dt>a</dt>
+  <dd>
+    <p>b</p>
+    <dl>
+      <dt>c
+  ::: box
+  text
+  :::</dt>
+    </dl>
+  </dd>
+</dl>
+',
+            ],
+            'tab' => [
+                ':: a
+: b
+  :: c
+	::: box
+	text
+	:::
+',
+                '<dl>
+  <dt>a</dt>
+  <dd>
+    <p>b</p>
+    <dl>
+      <dt>c
+  ::: box
+  text
+  :::</dt>
+    </dl>
+  </dd>
+</dl>
+',
+            ],
+            'overindent' => [
+                ':: a
+: b
+  :: c
+      ::: box
+      text
+      :::
+',
+                '<dl>
+  <dt>a</dt>
+  <dd>
+    <p>b</p>
+    <dl>
+      <dt>c
+    ::: box
+    text
+    :::</dt>
+    </dl>
+  </dd>
+</dl>
+',
+            ],
+            'list' => [
+                '- a
+  :: c
+    ::: box
+    text
+    :::
+',
+                '<ul>
+  <li>a
+    <dl>
+      <dt>c
+  ::: box
+  text
+  :::</dt>
+    </dl>
+  </li>
+</ul>
+',
+            ],
+        ];
+    }
+
+    #[DataProvider('foldedCases')]
+    public function testFenceIndentedUnderTheTermIsTermText(string $source, string $expected): void
+    {
+        self::assertSame($expected, (new CarveConverter())->convert($source));
+        $formatted = CarveConverter::toCarve($source);
+        self::assertSame($expected, (new CarveConverter())->convert($formatted));
+        self::assertSame($formatted, CarveConverter::toCarve($formatted));
     }
 
     #[DataProvider('fenceCases')]

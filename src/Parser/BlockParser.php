@@ -5843,15 +5843,6 @@ class BlockParser
                 if ($contentColumn !== null && $indent < $contentColumn) {
                     break;
                 }
-                // Before the first description, a colon fence belongs to the
-                // enclosing container, which supplies its authored block base.
-                if (
-                    !$opensList
-                    && $contentColumn === null
-                    && $this->fencedBlockParser->parseDivFenceOpener(ltrim($candidate, " \t")) !== null
-                ) {
-                    break;
-                }
                 $end = $j;
 
                 continue;
