@@ -386,6 +386,7 @@ class HtmlToCarve
             $this->emittedHasRawHtml = null;
             $this->builtImportDocument = null;
             $this->keptRawImportElements = null;
+            $this->retainedEmptyImportParagraphs = null;
             $this->droppedBlankImportRows = null;
             $this->mergedImportDefinitionLists = null;
             $this->entrylessImportDefinitionLists = [];
@@ -910,7 +911,7 @@ class HtmlToCarve
             $this->addImportDiagnostic($diagnostics, 'structure-unspellable', $message, 'warning', $path);
         }
 
-        if ($tag === 'p' && $this->holdsOnlyLayoutCharacters($node)) {
+        if ($tag === 'p' && $this->holdsOnlyLayoutCharacters($node) && !isset($this->retainedEmptyImportParagraphs[$node])) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-dropped',
@@ -2134,6 +2135,8 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' with a denied URL scheme on <' . $tag . '>', 'warning', $path);
             } elseif (str_starts_with($name, 'on')) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
+            } elseif ($tag === 'hr' && $name === 'data-char' && in_array($attribute->value, ['-', '*', '_'], true)) {
+                continue;
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
                 // Read as instruction or as content, never written back as an
                 // attribute - so asking the output for it is the wrong
@@ -3301,6 +3304,7 @@ class HtmlToCarve
         $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
         $this->keptRawImportElements = null;
+        $this->retainedEmptyImportParagraphs = null;
         $this->droppedBlankImportRows = null;
         if (preg_match('/^\s*<!doctype\b[^>]*>\s*$/iD', $html) === 1) {
             return '';
@@ -3324,6 +3328,7 @@ class HtmlToCarve
         if ($this->captureImportIdentity) {
             $this->builtImportDocument = $builder->builtDocument();
             $this->keptRawImportElements = $builder->keptRawElements();
+            $this->retainedEmptyImportParagraphs = $builder->retainedEmptyParagraphs();
             $this->droppedBlankImportRows = $builder->droppedBlankTableRows();
             $this->mergedImportDefinitionLists = $builder->mergedDefinitionLists();
             $this->displacedImportFigureAttributes = $builder->displacedFigureAttributes();
@@ -4475,6 +4480,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $keptRawImportElements = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $retainedEmptyImportParagraphs = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null

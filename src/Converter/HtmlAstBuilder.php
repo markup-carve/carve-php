@@ -34,6 +34,19 @@ final class HtmlAstBuilder
     private ?DOMDocument $builtDocument = null;
 
     /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    private SplObjectStorage $retainedEmptyParagraphs;
+
+    /**
+     * @return \SplObjectStorage<\DOMElement, null>
+     */
+    public function retainedEmptyParagraphs(): SplObjectStorage
+    {
+        return $this->retainedEmptyParagraphs;
+    }
+
+    /**
      * @var array<string, list<string>>
      */
     private array $retainedTableAttributes = [];
@@ -312,6 +325,7 @@ final class HtmlAstBuilder
         private readonly array $labels = [],
     ) {
         $this->displacedFigureAttributes = [];
+        $this->retainedEmptyParagraphs = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -446,6 +460,7 @@ final class HtmlAstBuilder
     public function build(string $html, ?int $sourceByteLength = null): array
     {
         $this->displacedFigureAttributes = [];
+        $this->retainedEmptyParagraphs = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -745,8 +760,21 @@ final class HtmlAstBuilder
         }
         if ($tag === 'p') {
             $children = $this->blockInlines($node);
+            $attrs = $this->attrs($node, []);
+            if ($children === [] && $attrs === []) {
+                return [];
+            }
+            if ($children === []) {
+                $this->retainedEmptyParagraphs[$node] = null;
+            }
+            if ($children === [] && $this->sourceSafe) {
+                // An empty span anchors the attribute line to this paragraph.
+                $children = [['type' => 'span', 'children' => []]];
+            }
             $paragraph = ['type' => 'paragraph', 'children' => $children];
-            $this->attachAttrs($paragraph, $node, []);
+            if ($attrs !== []) {
+                $paragraph['attrs'] = $attrs;
+            }
 
             return [$paragraph];
         }

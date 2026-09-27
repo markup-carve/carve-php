@@ -11,6 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- HTML import preserves attributes on empty paragraphs and thematic breaks without moving an empty paragraph's attributes onto the next block (#2526, #2535).
+
 - HTML import preserves authored `role` attributes and reports role loss on unwrapped sections without transferring the role to a heading (#2521, #2531).
 
 - Report a figure/target ID collision with the message required by the updated shared fixture (markup-carve/carve#2386).
