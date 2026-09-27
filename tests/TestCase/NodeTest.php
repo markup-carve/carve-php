@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use InvalidArgumentException;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Text;
 use PHPUnit\Framework\TestCase;
 
@@ -151,5 +153,126 @@ class NodeTest extends TestCase
 
         $this->assertFalse($result);
         $this->assertCount(1, $paragraph->getChildren());
+    }
+
+    public function testReplacementDetachesOldChildAndPreservesSelfReplacement(): void
+    {
+        $parent = new Paragraph();
+        $old = new Text('old');
+        $new = new Text('new');
+        $parent->appendChild($old);
+        $parent->replaceChild(0, $new);
+        $this->assertNull($old->getParent());
+        $this->assertSame($parent, $new->getParent());
+        $this->assertTrue($parent->replaceChildNode($new, $new));
+        $this->assertSame([$new], $parent->getChildren());
+        $this->assertSame($parent, $new->getParent());
+    }
+
+    public function testMovingAChildRepairsBothParents(): void
+    {
+        $first = new Paragraph();
+        $second = new Paragraph();
+        $child = new Text('move');
+        $first->appendChild($child);
+        $second->prependChild($child);
+        $this->assertSame([], $first->getChildren());
+        $this->assertSame([$child], $second->getChildren());
+        $this->assertSame($second, $child->getParent());
+        $first->appendChild($child);
+        $this->assertSame([], $second->getChildren());
+        $this->assertSame($first, $child->getParent());
+    }
+
+    public function testAppendingAnExistingChildMovesItWithoutDuplicatingIt(): void
+    {
+        $parent = new Paragraph();
+        $first = new Text('first');
+        $second = new Text('second');
+        $parent->setChildren([$first, $second]);
+        $parent->appendChild($first);
+        $this->assertSame([$second, $first], $parent->getChildren());
+        $parent->prependChild($first);
+        $this->assertSame([$first, $second], $parent->getChildren());
+    }
+
+    public function testBulkReplacementMovesAndDetachesChildren(): void
+    {
+        $first = new Paragraph();
+        $second = new Paragraph();
+        $a = new Text('a');
+        $b = new Text('b');
+        $c = new Text('c');
+        $first->setChildren([$a, $b]);
+        $second->appendChild($c);
+        $second->setChildren([$b, $a]);
+        $this->assertSame([], $first->getChildren());
+        $this->assertSame([$b, $a], $second->getChildren());
+        $this->assertNull($c->getParent());
+        $this->assertSame($second, $a->getParent());
+        $this->assertSame($second, $b->getParent());
+        $second->setChildren([]);
+        $this->assertNull($a->getParent());
+        $this->assertNull($b->getParent());
+    }
+
+    public function testUnwrappingAChildMovesItsChildren(): void
+    {
+        $root = new Document();
+        $wrapper = new Paragraph();
+        $text = new Text('text');
+        $wrapper->appendChild($text);
+        $root->appendChild($wrapper);
+        $this->assertTrue($root->replaceChildWithMany($wrapper, $wrapper->getChildren()));
+        $this->assertSame([$text], $root->getChildren());
+        $this->assertSame([], $wrapper->getChildren());
+        $this->assertNull($wrapper->getParent());
+        $this->assertSame($root, $text->getParent());
+    }
+
+    public function testReplacementCanMoveASiblingFromBeforeTheTarget(): void
+    {
+        $parent = new Paragraph();
+        $a = new Text('a');
+        $b = new Text('b');
+        $c = new Text('c');
+        $parent->setChildren([$a, $b, $c]);
+        $parent->replaceChild(2, $a);
+        $this->assertSame([$b, $a], $parent->getChildren());
+        $this->assertNull($c->getParent());
+        $this->assertSame($parent, $a->getParent());
+    }
+
+    public function testDuplicateBulkChildrenAreRejectedBeforeMutation(): void
+    {
+        $parent = new Paragraph();
+        $child = new Text('child');
+        $parent->appendChild($child);
+        try {
+            $parent->setChildren([$child, $child]);
+            $this->fail('Duplicate children were accepted');
+        } catch (InvalidArgumentException) {
+            $this->assertSame([$child], $parent->getChildren());
+            $this->assertSame($parent, $child->getParent());
+        }
+    }
+
+    public function testCyclesAreRejectedBeforeMovingChildren(): void
+    {
+        $root = new Document();
+        $parent = new Paragraph();
+        $text = new Text('child');
+        $root->appendChild($parent);
+        $parent->appendChild($text);
+        foreach ([$parent, $root] as $invalid) {
+            try {
+                $parent->setChildren([$invalid]);
+                $this->fail('A cycle was accepted');
+            } catch (InvalidArgumentException) {
+                $this->assertSame([$parent], $root->getChildren());
+                $this->assertSame([$text], $parent->getChildren());
+                $this->assertSame($root, $parent->getParent());
+            }
+        }
     }
 }
