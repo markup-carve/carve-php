@@ -386,7 +386,7 @@ class HtmlToCarve
             $this->emittedHasRawHtml = null;
             $this->builtImportDocument = null;
             $this->keptRawImportElements = null;
-            $this->retainedEmptyImportParagraphs = null;
+            $this->droppedEmptyImportElements = null;
             $this->droppedBlankImportRows = null;
             $this->mergedImportDefinitionLists = null;
             $this->entrylessImportDefinitionLists = [];
@@ -835,8 +835,16 @@ class HtmlToCarve
             if ($emptyList) {
                 $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped <' . $tag . '> holding no item', 'warning', $path);
             }
+            $whitespaceOnly = $tag === 'p' && $this->holdsOnlyLayoutCharacters($node);
+            $emptyParagraph = $tag === 'p' && !$whitespaceOnly && isset($this->droppedEmptyImportElements[$node]);
+            if ($emptyParagraph) {
+                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped <p> holding no content', 'warning', $path);
+            }
+            if ($tag === 'span' && isset($this->droppedEmptyImportElements[$node])) {
+                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped empty <span> element', 'warning', $path);
+            }
             if (!$mathLeaves) {
-                $this->coveredImportAttributes = $emptyList ? $this->spelledAttributeNames($node) : [];
+                $this->coveredImportAttributes = $emptyList || $emptyParagraph || $whitespaceOnly ? $this->spelledAttributeNames($node) : [];
                 try {
                     $this->inspectImportAttributes($node, $tag, $path, $diagnostics);
                 } finally {
@@ -918,7 +926,7 @@ class HtmlToCarve
             $this->addImportDiagnostic($diagnostics, 'structure-unspellable', $message, 'warning', $path);
         }
 
-        if ($tag === 'p' && $this->holdsOnlyLayoutCharacters($node) && !isset($this->retainedEmptyImportParagraphs[$node])) {
+        if ($tag === 'p' && $this->holdsOnlyLayoutCharacters($node)) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-dropped',
@@ -3313,7 +3321,7 @@ class HtmlToCarve
         $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
         $this->keptRawImportElements = null;
-        $this->retainedEmptyImportParagraphs = null;
+        $this->droppedEmptyImportElements = null;
         $this->droppedBlankImportRows = null;
         if (preg_match('/^\s*<!doctype\b[^>]*>\s*$/iD', $html) === 1) {
             return '';
@@ -3337,7 +3345,7 @@ class HtmlToCarve
         if ($this->captureImportIdentity) {
             $this->builtImportDocument = $builder->builtDocument();
             $this->keptRawImportElements = $builder->keptRawElements();
-            $this->retainedEmptyImportParagraphs = $builder->retainedEmptyParagraphs();
+            $this->droppedEmptyImportElements = $builder->droppedEmptyElements();
             $this->droppedBlankImportRows = $builder->droppedBlankTableRows();
             $this->mergedImportDefinitionLists = $builder->mergedDefinitionLists();
             $this->displacedImportFigureAttributes = $builder->displacedFigureAttributes();
@@ -4493,7 +4501,7 @@ class HtmlToCarve
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
-    private ?SplObjectStorage $retainedEmptyImportParagraphs = null;
+    private ?SplObjectStorage $droppedEmptyImportElements = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null

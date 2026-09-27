@@ -36,14 +36,14 @@ final class HtmlAstBuilder
     /**
      * @var \SplObjectStorage<\DOMElement, null>
      */
-    private SplObjectStorage $retainedEmptyParagraphs;
+    private SplObjectStorage $droppedEmptyElements;
 
     /**
      * @return \SplObjectStorage<\DOMElement, null>
      */
-    public function retainedEmptyParagraphs(): SplObjectStorage
+    public function droppedEmptyElements(): SplObjectStorage
     {
-        return $this->retainedEmptyParagraphs;
+        return $this->droppedEmptyElements;
     }
 
     /**
@@ -327,7 +327,7 @@ final class HtmlAstBuilder
         private readonly array $labels = [],
     ) {
         $this->displacedFigureAttributes = [];
-        $this->retainedEmptyParagraphs = new SplObjectStorage();
+        $this->droppedEmptyElements = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -462,7 +462,7 @@ final class HtmlAstBuilder
     public function build(string $html, ?int $sourceByteLength = null): array
     {
         $this->displacedFigureAttributes = [];
-        $this->retainedEmptyParagraphs = new SplObjectStorage();
+        $this->droppedEmptyElements = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
         $this->keptRawElements = new SplObjectStorage();
         $this->droppedBlankTableRows = new SplObjectStorage();
@@ -772,15 +772,13 @@ final class HtmlAstBuilder
         if ($tag === 'p') {
             $children = $this->blockInlines($node);
             $attrs = $this->attrs($node, []);
-            if ($children === [] && ($attrs === [] || $this->inInlineProjection)) {
-                return [];
-            }
             if ($children === []) {
-                $this->retainedEmptyParagraphs[$node] = null;
-            }
-            if ($children === [] && $this->sourceSafe) {
-                // An empty span anchors the attribute line to this paragraph.
-                $children = [['type' => 'span', 'children' => []]];
+                // Carve has no empty paragraph; an attribute line would attach to the next block.
+                if ($attrs !== [] && !$this->inInlineProjection) {
+                    $this->droppedEmptyElements[$node] = null;
+                }
+
+                return [];
             }
             $paragraph = ['type' => 'paragraph', 'children' => $children];
             if ($attrs !== []) {
@@ -1593,18 +1591,6 @@ final class HtmlAstBuilder
             $items[] = $term;
         } elseif ($tag === 'dd') {
             $description = ['type' => 'definition_description', 'children' => $this->blocks($this->children($child))];
-            if (
-                $this->sourceSafe
-                && count($description['children']) === 1
-                && ($description['children'][0]['type'] ?? null) === 'paragraph'
-                && ($description['children'][0]['children'] ?? null) === [['type' => 'span', 'children' => []]]
-            ) {
-                // A single description paragraph renders as inline content.
-                $description['children'] = [];
-                foreach ($child->getElementsByTagName('p') as $paragraph) {
-                    unset($this->retainedEmptyParagraphs[$paragraph]);
-                }
-            }
             $this->attachAttrs($description, $child);
             $items[] = $description;
         }
@@ -3626,6 +3612,10 @@ final class HtmlAstBuilder
             }
 
             if ($tag === 'span' && $attrs === []) {
+                if ($span['children'] === []) {
+                    $this->droppedEmptyElements[$node] = null;
+                }
+
                 return $span['children'];
             }
 
