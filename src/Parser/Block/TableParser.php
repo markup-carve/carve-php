@@ -104,7 +104,7 @@ class TableParser
         // `|` and is not a table row at all. carve-js and carve-rs leave such a
         // line a paragraph; without this gate the block was stripped whatever
         // it held and the row was built anyway.
-        if (preg_match('/^(.*\|)\{([^{}]+)\}[ \t]*$/', $line, $matches)) {
+        if (preg_match('/^(.*\|)\{((?:[^}"\']|"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')+)\}[ \t]*$/', $line, $matches)) {
             if (AttributeParser::isValidInlinePayload($matches[2])) {
                 return $matches[1];
             }
@@ -126,7 +126,7 @@ class TableParser
             return [];
         }
 
-        if (preg_match('/\|\{([^{}]+)\}[ \t]*$/', $line, $matches)) {
+        if (preg_match('/\|\{((?:[^}"\']|"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')+)\}[ \t]*$/', $line, $matches)) {
             // Same §14 gate as stripRowAttributes: an invalid payload is not a
             // row-attribute block, so it contributes no attributes either.
             //

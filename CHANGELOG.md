@@ -11,6 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- Unquoted attribute values reject pipes and backslashes and accept opening braces. The Carve writer quotes backslashes so its output parses back to the same value (#2572).
+
 - AST child mutations keep parent links consistent, move attached children out of their previous parent, and reject cycles and duplicate bulk children before changing the tree. Replacing a missing child index throws `OutOfBoundsException`.
 - HTML import reports a missing `ext-dom` capability explicitly; Composer lists the extension as an optional requirement.
 

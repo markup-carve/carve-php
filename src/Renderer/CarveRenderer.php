@@ -4188,9 +4188,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * Attributes an authored inline already states in its trailing `{...}` block.
      *
-     * QUOTE-AWARE: a value may itself contain a brace (`{k="{y}"}`), so the block's
-     * opening brace is the last one seen OUTSIDE quotes - `strrpos()` finds the one
-     * inside the value and mis-parses the payload (corpus 71).
+     * Opening braces inside quoted or unquoted values belong to the value.
      *
      * @return array<string, string>
      */
@@ -4201,7 +4199,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         $quote = null;
         $open = null;
+        $inUnquotedValue = false;
+        $escaped = false;
         foreach (str_split($text) as $i => $ch) {
+            if ($escaped) {
+                $escaped = false;
+
+                continue;
+            }
+            if ($quote !== null && $ch === '\\') {
+                $escaped = true;
+
+                continue;
+            }
             if ($quote !== null) {
                 if ($ch === $quote) {
                     $quote = null;
@@ -4214,8 +4224,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
                 continue;
             }
-            if ($ch === '{') {
+            if ($ch === '{' && !$inUnquotedValue) {
                 $open = $i;
+            } elseif ($ch === '=' && $open !== null) {
+                $inUnquotedValue = true;
+            } elseif ($ch === ' ' || $ch === "\t" || $ch === '}') {
+                $inUnquotedValue = false;
             }
         }
         if ($open === null) {
@@ -6039,7 +6053,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         // `\|` is the only pipe a table row's cell cut leaves in place
         // ([CARVE-P2-019]), so a pipe is escaped wherever the value sits.
-        if (!$forceQuotes && preg_match('/^[^\s"\'{}|]+$/u', $value) === 1) {
+        if (!$forceQuotes && preg_match('/^[^\s"\'{}|\\\\]+$/u', $value) === 1) {
             return $value;
         }
 
