@@ -17,8 +17,6 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
-- Unfinished code fences in nested list items retain every trailing blank line when the item ends.
-
 - A code or raw fence opened past a list item's content column keeps its interior blank lines from loosening the item (#2598).
 - Class hardening removes refused entries independently, so `{class="javascript:alert(1)" .b}` retains `b`. The writer chooses shorthand or a quoted value for each entry without joining or splitting entries (#2585).
 
