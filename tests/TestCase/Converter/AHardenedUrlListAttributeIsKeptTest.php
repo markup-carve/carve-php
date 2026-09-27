@@ -44,6 +44,13 @@ class AHardenedUrlListAttributeIsKeptTest extends TestCase
         $this->assertNotContains('Dropped unsupported attribute srcset on <img>', $messages);
     }
 
+    public function testAnAttributeTheWriterDoesNotSpellIsReported(): void
+    {
+        $result = (new HtmlToCarve())->convertWithReport('<table><tbody ping="javascript:x"><tr><td>x</td></tr></tbody></table>');
+
+        $this->assertContains('Dropped unsupported attribute ping on <tbody>', array_column($result->report()['diagnostics'], 'message'));
+    }
+
     public function testOneKeptCopyAnswersForOneElement(): void
     {
         $result = (new HtmlToCarve())->convertWithReport(

@@ -2954,10 +2954,11 @@ class HtmlToCarve
         // A URL-list attribute is kept in the source and only hardened by the
         // renderer, which blanks a value with a denied token (carve-rs#2036).
         if (
-            in_array($name, ['srcset', 'imagesrcset', 'ping', 'attributionsrc'], true)
+            in_array($name, self::URL_LIST_ATTRIBUTES, true)
             && ((new HtmlRenderer())->sanitizeAttributes([$name => $value])[$name] ?? '') === ''
             && $this->inspectedElement !== null
             && isset($this->urlListImportCarriers[$this->inspectedElement])
+            && $this->consumeSurvivingAttribute($name . "\0\0blanked")
         ) {
             return true;
         }
@@ -3114,6 +3115,9 @@ class HtmlToCarve
             foreach ($element->attributes as $attribute) {
                 $name = strtolower($attribute->name);
                 $value = trim($attribute->value);
+                if ($value === '' && in_array($name, self::URL_LIST_ATTRIBUTES, true)) {
+                    $counts[$name . "\0\0blanked"] = ($counts[$name . "\0\0blanked"] ?? 0) + 1;
+                }
                 if ($value === '') {
                     continue;
                 }
@@ -4525,6 +4529,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $urlListImportCarriers = null;
+
+    /**
+     * @var array<string>
+     */
+    private const URL_LIST_ATTRIBUTES = ['srcset', 'imagesrcset', 'ping', 'attributionsrc'];
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null
