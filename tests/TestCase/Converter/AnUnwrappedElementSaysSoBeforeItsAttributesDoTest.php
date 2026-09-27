@@ -314,7 +314,7 @@ class AnUnwrappedElementSaysSoBeforeItsAttributesDoTest extends TestCase
             ['element-dropped', 'attribute-dropped', 'attribute-dropped'],
             array_column($rows, 'code'),
         );
-        $this->assertSame('Dropped unsupported <progress> element', $rows[0]['message']);
+        $this->assertSame('Dropped empty <progress> element', $rows[0]['message']);
         $this->assertSame('warning', $rows[0]['severity']);
     }
 

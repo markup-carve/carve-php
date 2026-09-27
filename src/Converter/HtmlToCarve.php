@@ -1681,7 +1681,7 @@ class HtmlToCarve
         $this->addImportDiagnostic(
             $diagnostics,
             'element-dropped',
-            'Dropped unsupported <' . $tag . '> element',
+            'Dropped empty <' . $tag . '> element',
             'warning',
             $path,
         );

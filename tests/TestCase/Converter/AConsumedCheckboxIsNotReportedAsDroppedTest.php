@@ -154,7 +154,7 @@ class AConsumedCheckboxIsNotReportedAsDroppedTest extends TestCase
         $this->assertSame("- [ ] task\n", $this->carve($html));
         $this->assertSame(
             [
-                ['element-dropped', 'warning', 'Dropped unsupported <input> element'],
+                ['element-dropped', 'warning', 'Dropped empty <input> element'],
                 ['attribute-dropped', 'info', 'Dropped unsupported attribute type on <input>'],
             ],
             $this->diagnostics($html),
@@ -177,7 +177,7 @@ class AConsumedCheckboxIsNotReportedAsDroppedTest extends TestCase
         $this->assertSame("- [ ] a\n", $this->carve($html));
         $this->assertSame(
             [
-                ['element-dropped', 'warning', 'Dropped unsupported <input> element'],
+                ['element-dropped', 'warning', 'Dropped empty <input> element'],
                 ['attribute-dropped', 'info', 'Dropped unsupported attribute type on <input>'],
             ],
             $this->diagnostics($html),
@@ -232,7 +232,7 @@ class AConsumedCheckboxIsNotReportedAsDroppedTest extends TestCase
         $this->assertSame("\n", $this->carve($html));
         $this->assertSame(
             [
-                ['element-dropped', 'warning', 'Dropped unsupported <input> element'],
+                ['element-dropped', 'warning', 'Dropped empty <input> element'],
                 ['attribute-dropped', 'info', 'Dropped unsupported attribute type on <input>'],
             ],
             $this->diagnostics($html),

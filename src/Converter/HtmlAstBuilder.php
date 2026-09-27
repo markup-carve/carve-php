@@ -643,6 +643,15 @@ final class HtmlAstBuilder
                         if ($sibling instanceof DOMText && trim($sibling->textContent) === '') {
                             continue;
                         }
+                        // An element that imports to nothing is no neighbor (carve-rs#2029).
+                        if (
+                            $sibling instanceof DOMElement
+                            && !$this->isBlock($sibling)
+                            && (trim($sibling->textContent) === '' || in_array(strtolower($sibling->tagName), ['script', 'style', 'template', 'noscript'], true))
+                            && $this->inline($sibling) === []
+                        ) {
+                            continue;
+                        }
                         $inlineRun = !$this->isBlock($sibling) && !$sibling instanceof DOMComment;
 
                         break;
