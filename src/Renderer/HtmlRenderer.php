@@ -2078,22 +2078,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $tableRows[] = $child;
             }
         }
-        $countAttribute = static function (mixed $value): ?int {
-            if (!is_string($value)) {
-                return 0;
-            }
-            if (trim($value) === '') {
-                return 1;
-            }
-
-            return preg_match('/^\d+$/', trim($value)) === 1 ? (int)trim($value) : null;
-        };
-        $explicitPartition = $node->getAttribute('header-rows') !== null || $node->getAttribute('footer-rows') !== null;
-        $headerRowCount = $countAttribute($node->getAttribute('header-rows'));
-        $footerRowCount = $countAttribute($node->getAttribute('footer-rows'));
-        if (!$explicitPartition || $headerRowCount === null || $footerRowCount === null || $headerRowCount + $footerRowCount > count($tableRows)) {
-            $headerRowCount = 0;
-            $footerRowCount = 0;
+        // ONE SPELLING of what the count attributes state, shared with the AST
+        // encoder: a second copy of the refusals here is how the wire came to
+        // disagree with the render in the first place.
+        $stated = $node->statedRowGroups();
+        $headerRowCount = 0;
+        $footerRowCount = 0;
+        if ($stated !== null) {
+            $headerRowCount = $stated['headRows'];
+            $footerRowCount = $stated['footRows'];
+        } else {
             foreach ($tableRows as $index => $row) {
                 if ($row->isHeader() && $headerRowCount === $index) {
                     $headerRowCount++;
@@ -2192,6 +2186,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $bodyStart = $headerRowCount;
         foreach ($bodies as $body) {
             $bodyEnd = $bodyStart + $body['headRows'] + $body['bodyRows'];
+            // A BODY GROUP THAT CONSUMES NO ROWS AND CARRIES NO ATTRIBUTES
+            // RENDERS NOTHING. The derived fallback beside this loop already
+            // omitted the group in that case, so once `{header-rows=2}` over
+            // two rows began stating its partition here, the same structure
+            // rendered an empty `<tbody>` through this branch and none through
+            // the fallback. An empty section that carries attributes still
+            // renders: the attributes are the thing it is there to hold.
+            if ($bodyEnd === $bodyStart && !isset($body['attrs'])) {
+                continue;
+            }
             $tbody = '';
             for ($i = $bodyStart; $i < $bodyEnd; $i++) {
                 $header = $i < $bodyStart + $body['headRows'];

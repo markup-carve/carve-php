@@ -51,6 +51,68 @@ class Table extends BlockNode
         $this->rowGroups = $groups;
     }
 
+    /**
+     * The partition the table's own `header-rows` / `footer-rows` attributes
+     * STATE, or null when they state none that partitions the rows.
+     *
+     * An authored count is explicit structure, so it belongs on the wire under
+     * `rowGroups` (PART 12, `resources/ast-schema.json`) and not only in an
+     * attribute a foreign reader has to know how to interpret. carve-php
+     * published the attributes alone, so carve-js and carve-rs fed its JSON
+     * rendered every row as a body row (markup-carve/carve-php#2633).
+     *
+     * The three refusals are the same ones the renderer falls back on: a count
+     * that is not a number, and a head plus foot that overruns the rows. A
+     * partition that does not account for every row exactly once is invalid
+     * under the schema, and the decoder refuses it.
+     *
+     * @return array{headRows: int, footRows: int, bodies: list<array{headRows: int, bodyRows: int}>}|null
+     */
+    public function statedRowGroups(): ?array
+    {
+        if ($this->getAttribute('header-rows') === null && $this->getAttribute('footer-rows') === null) {
+            return null;
+        }
+
+        $head = self::statedRowCount($this->getAttribute('header-rows'));
+        $foot = self::statedRowCount($this->getAttribute('footer-rows'));
+        if ($head === null || $foot === null) {
+            return null;
+        }
+
+        $rows = 0;
+        foreach ($this->getChildren() as $child) {
+            if ($child instanceof TableRow) {
+                $rows++;
+            }
+        }
+        if ($head + $foot > $rows) {
+            return null;
+        }
+
+        return [
+            'headRows' => $head,
+            'bodies' => [['headRows' => 0, 'bodyRows' => $rows - $head - $foot]],
+            'footRows' => $foot,
+        ];
+    }
+
+    /**
+     * A row count an attribute states: absent is none, a valueless attribute is
+     * one row, and anything but digits states nothing at all.
+     */
+    private static function statedRowCount(mixed $value): ?int
+    {
+        if (!is_string($value)) {
+            return 0;
+        }
+        if (trim($value) === '') {
+            return 1;
+        }
+
+        return preg_match('/^\d+$/', trim($value)) === 1 ? (int)trim($value) : null;
+    }
+
     protected ?Caption $caption = null;
 
     /**

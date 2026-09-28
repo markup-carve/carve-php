@@ -10244,6 +10244,13 @@ class BlockParser
         }
 
         $this->applyPendingAttributes($table);
+        // An authored `header-rows` / `footer-rows` is EXPLICIT structure, so
+        // the partition goes on the node - and from there onto the wire - rather
+        // than staying an attribute every foreign reader has to reinterpret
+        // (markup-carve/carve-php#2633). Set after the attributes arrive and
+        // after every row is appended, because the partition is measured against
+        // the row count.
+        $table->setRowGroups($table->statedRowGroups());
         $this->applyTableColumns($table);
         $rows = $table->getChildren();
         if ($rows !== []) {
