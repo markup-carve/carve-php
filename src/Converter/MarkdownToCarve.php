@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use RuntimeException;
 use Throwable;
@@ -4174,6 +4175,12 @@ class MarkdownToCarve
             flags: PREG_OFFSET_CAPTURE,
         ) ?? $line;
 
+        $imageLabel = function (string $label) use (&$protected): string {
+            $alt = $this->plainAltText(substr($label, 2, -1), $protected);
+
+            return BracketScanner::rawRunCloses($alt) ? '![' . $alt . ']' : $label;
+        };
+
         $encodeDest = function (string $paren) use ($protected): string {
             $inner = trim(substr($paren, 1, -1), " \t");
             if (preg_match('/^(\S+)([\s\S]*)$/', $inner, $matches)) {
@@ -4187,7 +4194,7 @@ class MarkdownToCarve
             if (preg_match('/^([ \t]+)(["\'])([\s\S]*)\2([ \t]*)$/', $rest, $title) === 1 && !str_contains($title[3], $title[2])) {
                 $decoded = $this->decodeLinkTitle($title[3], $protected);
                 $escaped = str_replace(['\\', $title[2]], ['\\\\', '\\' . $title[2]], $decoded);
-                $rest = $title[1] . $title[2] . $escaped . $title[2] . $title[4];
+                $rest = ' ' . $title[2] . $escaped . $title[2];
             }
 
             return '(' . $this->writeMarkdownDestination($url, $protected) . $rest . ')';
@@ -4196,7 +4203,7 @@ class MarkdownToCarve
         $line = preg_replace_callback(
             '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\]\n]|\n(?![ \t]*\n))*\])*\])(\((?:[^()\s]|\([^()\n]*\))+[ \t]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\')[ \t]*\))/',
             fn (array $match): string => str_starts_with($match[1], '!')
-                ? $protect($match[1] . $encodeDest($match[2]))
+                ? $protect($imageLabel($match[1]) . $encodeDest($match[2]))
                 : $match[1] . $protect($encodeDest($match[2])),
             $line,
         ) ?? $line;
@@ -4204,12 +4211,25 @@ class MarkdownToCarve
         $destination = '\((?:[^()\n]|\([^()\n]*\))*\)';
         $line = preg_replace_callback(
             '/(!\[(?:[^[\]]|\[[^\]]*\])*\])(' . $destination . ')/',
-            fn (array $match): string => $protect($match[1] . $encodeDest($match[2])),
+            fn (array $match): string => $protect($imageLabel($match[1]) . $encodeDest($match[2])),
             $line,
         ) ?? $line;
         $line = preg_replace_callback(
             '/(?<=\])(' . $destination . ')/',
             fn (array $match): string => $protect($encodeDest($match[1])),
+            $line,
+        ) ?? $line;
+        $line = preg_replace_callback(
+            '/!\[((?:[^\[\]]|\[[^\]]*\])*)\](?:\[([^\]\n]*)\])?/',
+            function (array $match) use ($protected, $protect, $imageLabel): string {
+                $label = ($match[2] ?? '') !== '' ? $match[2] : $match[1];
+                $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
+                if ($canonical === null || strpbrk($canonical, '[]') !== false) {
+                    return $match[0];
+                }
+
+                return $protect($imageLabel('![' . $match[1] . ']') . '[' . ($canonical === $match[1] && preg_match('/^[\p{L}\p{N} .-]*$/u', $canonical) === 1 ? '' : $canonical) . ']');
+            },
             $line,
         ) ?? $line;
         $line = preg_replace_callback('/(?<=\])\[[^\]]*\]/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
@@ -5040,6 +5060,11 @@ class MarkdownToCarve
     {
         do {
             $previous = $label;
+            $label = preg_replace_callback('/\x00P(\d+)\x00/', static function (array $match) use ($protected): string {
+                $span = $protected[(int)$match[1]] ?? $match[0];
+
+                return str_starts_with($span, '(') || str_starts_with($span, '![') ? $span : $match[0];
+            }, $label) ?? $label;
             $label = preg_replace('/!?\[((?:[^[\]\n]|(\[(?:[^[\]\n]|(?-1))*\]))*)\]\([^()\n]*\)/', '$1', $label) ?? $label;
             $label = preg_replace_callback(
                 '/!?\[(?<text>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)\](?:\[(?<reference>[^[\]\n]*)\])?(?![[(:])/',
@@ -5048,8 +5073,9 @@ class MarkdownToCarve
                 )]) ? $match['text'] : $match[0],
                 $label,
             ) ?? $label;
-            $label = preg_replace('/(\*{1,3}|_{1,3}|~~)(?!\s)(.+?)(?<!\s)\1/', '$2', $label) ?? $label;
         } while ($label !== $previous);
+
+        $label = MarkdownEmphasis::convert($label, protectedSpans: $protected, plainText: true);
 
         return preg_replace_callback(
             '/\x00P(\d+)\x00/',

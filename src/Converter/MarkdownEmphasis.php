@@ -13,9 +13,15 @@ final class MarkdownEmphasis
      * @param \Closure|null $onFlatten
      * @param \Closure|null $onStep
      * @param array<string> $protectedSpans
+     * @param bool $plainText
      */
-    public static function convert(string $source, ?Closure $onFlatten = null, ?Closure $onStep = null, array $protectedSpans = []): string
-    {
+    public static function convert(
+        string $source,
+        ?Closure $onFlatten = null,
+        ?Closure $onStep = null,
+        array $protectedSpans = [],
+        bool $plainText = false,
+    ): string {
         $neighbor = static function (int $offset, bool $left) use ($source, $protectedSpans): string {
             $index = $left ? $offset - 1 : $offset;
             if (($source[$index] ?? '') === "\x00" && $index >= 0) {
@@ -127,6 +133,17 @@ final class MarkdownEmphasis
                 }
             }
         }
+        if ($plainText) {
+            $text = '';
+            for ($i = 0, $length = strlen($source); $i < $length; $i++) {
+                if (!isset($claimed[$i])) {
+                    $text .= $source[$i];
+                }
+            }
+
+            return $text;
+        }
+
         foreach ($runs as $run) {
             $neighbors = self::before($source, $run->start) . self::after($source, $run->end);
             $partiallyClaimed = isset($claimed[$run->start]) || isset($claimed[$run->end - 1]);
