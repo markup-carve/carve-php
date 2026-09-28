@@ -129,6 +129,22 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
     }
 
     /**
+     * Safe does not map the declaration, so the presentational attribute beside
+     * it is the only alignment left and has to survive (carve-php#2631).
+     */
+    public function testSafeKeepsValignWhenTheDeclarationBesideItDoesNotMap(): void
+    {
+        foreach (['td' => '|', 'th' => '|='] as $tag => $marker) {
+            foreach (['top', 'middle', 'bottom'] as $value) {
+                $html = '<table><tr><' . $tag . ' valign="top" style="vertical-align:' . $value . '">x</' . $tag . '></tr></table>';
+
+                $this->assertSame($marker . "{valign=top} x |\n", $this->imported($html, 'safe'), $tag . ' ' . $value);
+                $this->assertSame(['style-unmapped'], $this->codes($html, 'safe'), $tag . ' ' . $value);
+            }
+        }
+    }
+
+    /**
      * The control. Without it the change reads as a blanket "stop reporting".
      */
     public function testAPropertyTheLanguageCannotSpellStillReports(): void
