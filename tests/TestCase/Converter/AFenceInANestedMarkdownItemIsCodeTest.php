@@ -51,7 +51,7 @@ class AFenceInANestedMarkdownItemIsCodeTest extends TestCase
             ],
             'a nested item fence info with a raw-block equals sign' => [
                 "- a\n\n  - b\n\n    ```=html\n    <b>\n    ```",
-                "{loose}\n- a\n\n  {loose}\n  - b\n\n    ```html\n    <b>\n    ```",
+                "{loose}\n- a\n\n  {loose}\n  - b\n\n    ```\n    <b>\n    ```",
             ],
             'a nested item fence indented three columns past its item' => [
                 "- a\n\n  - b\n\n       ```\n       code\n       ```",
