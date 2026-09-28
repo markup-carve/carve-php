@@ -209,7 +209,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         // The prefix is read off the line the tag opens, so no host has to know
         // the boundary exists - and a host nested inside another gets both
         // halves. A nested quote writes `> >`, a quote inside a list item writes
-        // `  >`, and a description writes nothing at its three-column indent.
+        // `  >`. A description ends before the blank run instead.
         $this->assertSame(
             "> > - a\n> >\n> >\n> >\n> > - b\n",
             $this->converter->toCarve("> > - a\n> >\n> >\n> >\n> > - b\n"),
@@ -218,7 +218,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         $this->assertRoundTrips("- x\n\n  > - a\n  >\n  >\n  >\n  > - b\n");
         $this->assertRoundTrips("- x\n\n  > - o\n  >\n  >   - a\n  >\n  >\n  >\n  >   - b\n");
         $this->assertSame(
-            ":: t\n: - a\n\n\n\n  - b\n",
+            ":: t\n: - a\n\n- b\n",
             $this->converter->toCarve(":: t\n: - a\n\n\n\n  - b\n"),
         );
         $this->assertRoundTrips(":: t\n: - a\n\n\n\n  - b\n");

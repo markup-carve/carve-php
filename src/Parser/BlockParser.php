@@ -7321,8 +7321,8 @@ class BlockParser
      * Does the definition body open at `$openColumn` continue BELOW this blank?
      *
      * Asked at the blank rather than after it, because whether the blank is
-     * INSIDE the body or AFTER it is decided by the line below and by nothing
-     * on the blank itself. Inside, the body's run carries across (PART 1 S4);
+     * INSIDE the body or AFTER it is decided by the immediate next line. A
+     * second blank ends the body. Inside, its run carries across (PART 1 S4);
      * after, the blank ends the item's run exactly as it did before there was
      * a body to ask about - and it is that second answer §17 L1 needs, because
      * a blank separating two of the ITEM's blocks loosens the list.
@@ -7346,18 +7346,14 @@ class BlockParser
         int $contentIndent,
         int $openColumn,
     ): bool {
-        $bodyColumn = $contentIndent + $openColumn;
-        for ($j = $index + 1; $j < $count; $j++) {
-            if (IndentationHelper::isBlankLine($lines[$j])) {
-                continue;
-            }
-
-            return IndentationHelper::getLeadingColumns($lines[$j], $bodyColumn) >= $bodyColumn;
+        $after = $index + 1 < $count ? $lines[$index + 1] : null;
+        if ($after === null || IndentationHelper::isBlankLine($after)) {
+            return false;
         }
 
-        // The item ends at the blank. Nothing follows for the body to hold, so
-        // the run ends here and the trailing blanks are dropped as they were.
-        return false;
+        $bodyColumn = $contentIndent + $openColumn;
+
+        return IndentationHelper::getLeadingColumns($after, $bodyColumn) >= $bodyColumn;
     }
 
     /**
@@ -8931,6 +8927,11 @@ class BlockParser
                         $look = $i;
                         while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
                             $look++;
+                        }
+                        // Two blanks end the description even when its last
+                        // block is an unfinished fence (carve-php#2681).
+                        if ($look - $i > 1) {
+                            break;
                         }
                         $after = $lines[$look] ?? null;
                         // The SECOND spelling of the same rule, with a different
@@ -14060,9 +14061,9 @@ class BlockParser
      * (carve-php#2233).
      *
      * BOUNDED WHERE THE BODY REALLY ENDS, which is the half `hasFenceCloserInView()`
-     * has no way to spell: a new entry marker and a blank line no later line
-     * continues both end the description, and a closer written past either of
-     * them belongs to the document rather than to this body (corpus `478-*-5`).
+     * has no way to spell: a new entry marker, two blanks, or a blank without
+     * an indented continuation ends the description. A closer past that
+     * boundary belongs to the document (corpus `478-*-5`, carve-php#2681).
      *
      * AT THE OPENER'S OWN COLUMN, which is what the sibling lookahead
      * {@see self::hasFenceCloserInView()} already asks: a closer below it is
@@ -14109,7 +14110,8 @@ class BlockParser
                 }
                 $after = $lines[$look] ?? null;
                 if (
-                    $after === null
+                    $look - $j > 1
+                    || $after === null
                     || IndentationHelper::getLeadingColumns($after, $bodyColumn) < $bodyColumn
                 ) {
                     return false;
