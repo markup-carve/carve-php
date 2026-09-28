@@ -13,10 +13,41 @@ use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Converter\MigrationDiagnostic;
 use MarkupCarve\Carve\Converter\MigrationResult;
+use MarkupCarve\Carve\Converter\ReportsMigrationFidelity;
 use PHPUnit\Framework\TestCase;
 
 final class MigrationResultTest extends TestCase
 {
+    public function testLiteralTextHasExactEvidence(): void
+    {
+        foreach ([new MarkdownToCarve(), new DjotToCarve(), new BbcodeToCarve()] as $importer) {
+            foreach (['', 'hello', 'plain text', 'Grüße 123', '日本語', "hello\r\n\r\n"] as $source) {
+                $rows = $importer->convertWithFidelityReport($source)->diagnostics;
+                $this->assertCount(1, $rows);
+                $this->assertSame('literal-text-verified', $rows[0]->code);
+                $this->assertSame('preserved', $rows[0]->fidelity);
+                $this->assertSame('exact', $rows[0]->confidence);
+            }
+            foreach (['# heading', '*bold*', '[b]text[/b]', "a\nb", '    code', '1. item', 'a  b', "a\tb", 'hello!', ' hello', 'hello ', "a\u{00a0}b", "e\u{0301}", "a\r\nb", "a\rb"] as $source) {
+                $rows = $importer->convertWithFidelityReport($source)->diagnostics;
+                $this->assertContains('fidelity-unverified', array_map(fn ($row) => $row->code, $rows));
+            }
+        }
+    }
+
+    public function testChangedOutputOrKnownLossCannotVerifyLiteralText(): void
+    {
+        $assessor = new class {
+            use ReportsMigrationFidelity {
+                assessedMigrationResult as public assess;
+            }
+        };
+        foreach ([['changed', false], ['hello', true]] as [$value, $knownLoss]) {
+            $result = $assessor->assess('hello', $value, 'markdown', $knownLoss);
+            $this->assertSame('fidelity-unverified', $result->diagnostics[0]->code);
+        }
+    }
+
     public function testEveryImporterUsesTheVersionedFidelityEnvelope(): void
     {
         $results = [
@@ -40,9 +71,9 @@ final class MigrationResultTest extends TestCase
     public function testImportersWithoutConstructEvidenceFailClosed(): void
     {
         $results = [
-            (new MarkdownToCarve())->convertWithFidelityReport('plain text'),
-            (new DjotToCarve())->convertWithFidelityReport('plain text'),
-            (new BbcodeToCarve())->convertWithFidelityReport('plain text'),
+            (new MarkdownToCarve())->convertWithFidelityReport('plain text!'),
+            (new DjotToCarve())->convertWithFidelityReport('plain text!'),
+            (new BbcodeToCarve())->convertWithFidelityReport('plain text!'),
         ];
 
         foreach ($results as $result) {

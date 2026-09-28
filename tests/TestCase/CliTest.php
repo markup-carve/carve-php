@@ -633,6 +633,18 @@ class CliTest extends TestCase
         $this->assertSame('dropped', $report['diagnostics'][0]['fidelity']);
     }
 
+    public function testMigrateLossCheckUsesLiteralTextEvidence(): void
+    {
+        foreach (['markdown', 'djot', 'bbcode'] as $format) {
+            foreach ([['hello', 0], ['hello!', 1]] as [$source, $expected]) {
+                $result = $this->runCliInput(['migrate', '--from', $format, '--check-loss', '--report', '-'], $source);
+                $this->assertSame($expected, $result['exit']);
+                $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
+                $this->assertSame($expected === 0 ? 'literal-text-verified' : 'fidelity-unverified', $report['diagnostics'][0]['code']);
+            }
+        }
+    }
+
     public function testMigrateReportsHtmlDiagnosticTruncationAsLoss(): void
     {
         $source = str_repeat('<p onclick="x()">x</p>', 1100);

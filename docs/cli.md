@@ -21,9 +21,13 @@ report classifies findings as `preserved`, `normalized`, `degraded`, or
 `dropped`, with explicit confidence. `--check-loss` exits with status 1 when
 the report contains degraded or dropped content.
 
-Markdown, Djot, and BBCode currently fail closed as `dropped` with `fallback`
-confidence, under the diagnostic code `fidelity-unverified`, because those
-importers do not yet produce construct-level evidence. HTML reports its import
+Markdown, Djot, and BBCode verify a narrow literal-text subset: empty input or
+Unicode letters and numbers separated by single ASCII spaces, with optional
+trailing line endings. When the imported text matches and no known loss was
+reported, `literal-text-verified` records preserved/exact evidence. All other
+inputs retain the dropped/fallback `fidelity-unverified` warning.
+
+HTML reports its import
 `mode` and `adapter`; its resource-limit exceptions are reported as command
 errors rather than partial migration reports. Opaque raw HTML is `degraded` even
 when its bytes survive, because the importer neither models nor can edit it.
