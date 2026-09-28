@@ -4380,6 +4380,7 @@ class BlockParser
         $quoteAttributeOrder = $this->pendingAttributeOrder;
         $this->pendingAttributeOrder = [];
 
+        $parts = [];
         $innerLines = [];
         $innerLineMap = [];
         $lazyState = self::initialBlockQuoteLazyState();
@@ -4414,8 +4415,13 @@ class BlockParser
                 [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
                 $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
                 if ($attached !== []) {
-                    // $innerLines always holds the quote's first content line, so
-                    // a leading blank separates the attached block from it.
+                    if ($lazyState['mode'] === BlockQuoteLazyMode::CodeFence && $lazyState['divDepth'] === 0) {
+                        $parts[] = [$innerLines, $innerLineMap];
+                        $innerLines = [];
+                        $innerLineMap = [];
+                        $lazyState = self::initialBlockQuoteLazyState();
+                    }
+                    // Separate the attachment from any preceding paragraph.
                     $innerLines[] = '';
                     $innerLineMap[] = -1;
                     foreach ($attached as $attachedIndex => $attachedLine) {
@@ -4466,7 +4472,10 @@ class BlockParser
         }
 
         $blockQuote->setPos($this->wholeLinesSpan($start, $i - 1, $quoteOpeningColumn));
-        $this->parseBlocks($blockQuote, $innerLines, 0, $innerLineMap);
+        $parts[] = [$innerLines, $innerLineMap];
+        foreach ($parts as [$partLines, $partLineMap]) {
+            $this->parseBlocks($blockQuote, $partLines, 0, $partLineMap);
+        }
         // A DANGLING ATTRIBUTE LINE BELONGS TO THIS CONTAINER AND DIES AT ITS
         // BOUNDARY (§15 A4: a pending run that reaches the end with no block
         // element to attach to is dropped). The state is parser-global, so
@@ -4869,6 +4878,17 @@ class BlockParser
         // ever changed the PAST-the-column case - and there it folded the
         // unquoted line below into the quote (markup-carve/carve-php#2651).
             $isCommentLine = $this->isCommentLineOrFence($trimmed);
+
+            // A list's first block supplies the claim at the start of a quote.
+            // A list marker in an open paragraph still folds as text.
+            if (!$state['paragraphOpen'] && $this->listParser->parseListItemMarker($content) !== null) {
+                $itemState = $this->advanceTrailingState(new TrailingBlockState(), $content, true);
+                if (!$itemState->openParagraph) {
+                    $state['paragraphOpen'] = false;
+
+                    return;
+                }
+            }
 
             $leavesNoParagraph = $isHeading
             || $isThematicBreak
