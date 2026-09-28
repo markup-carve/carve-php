@@ -715,8 +715,17 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $target = $node->getTargetId();
         // Exact match first, then a case-insensitive fallback (matches HtmlRenderer).
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
-        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
-        if ($id === null || $label === null) {
+        if ($id === null) {
+            return '</#' . $this->stripControls($target) . '>';
+        }
+
+        // Ask the budget before doing the work it would reject (carve-php#2647).
+        if (!$this->labelExpansionStillAffordable($id)) {
+            return $this->style($this->stripControls($target), self::UNDERLINE . self::FG_BLUE);
+        }
+
+        $label = $this->headingIdTracker->getTextForId($id, $this->smartTypography);
+        if ($label === null) {
             return '</#' . $this->stripControls($target) . '>';
         }
 
@@ -731,7 +740,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $rendered = $nodes === null
             ? $this->stripControls($label)
             : $this->renderDerivedLabel($nodes);
-        if (!$this->chargeExpansion($rendered)) {
+        if (!$this->chargeLabelExpansion($id, $rendered)) {
             $rendered = $this->stripControls($target);
         }
 

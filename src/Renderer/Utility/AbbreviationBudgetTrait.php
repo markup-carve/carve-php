@@ -60,6 +60,14 @@ trait AbbreviationBudgetTrait
     protected int $abbreviationBudget = self::ABBREVIATION_BUDGET_BASE;
 
     /**
+     * Bytes each already-rendered cross-reference label cost, keyed by resolved
+     * target id, for the current render.
+     *
+     * @var array<string, int>
+     */
+    protected array $labelExpansionCosts = [];
+
+    /**
      * Reset the budget counter and (re)compute it for a fresh render of $document.
      *
      * Every renderer sizes its budget through this one call, so the length a
@@ -81,10 +89,49 @@ trait AbbreviationBudgetTrait
     protected function resetAbbreviationBudget(int $sourceLength): void
     {
         $this->abbreviationExpansionBytes = 0;
+        $this->labelExpansionCosts = [];
         $this->abbreviationBudget = max(
             self::ABBREVIATION_BUDGET_BASE,
             self::ABBREVIATION_BUDGET_FACTOR * $sourceLength,
         );
+    }
+
+    /**
+     * Whether this target's label can still be emitted, asked BEFORE it is
+     * built.
+     *
+     * The budget caps the bytes a render writes; it did not cap the work spent
+     * reaching them. A label costs the same on every reference to one target
+     * within a render, so the first reference's cost answers every later one:
+     * once it no longer fits, the derivation and the render would only be
+     * discarded (carve-php#2647).
+     *
+     * True for a target whose cost is not known yet, so the first reference to
+     * it renders and nothing degrades on a guess.
+     */
+    protected function labelExpansionStillAffordable(string $id): bool
+    {
+        $cost = $this->labelExpansionCosts[$id] ?? null;
+
+        return $cost === null
+            || $this->abbreviationExpansionBytes + $cost <= $this->abbreviationBudget;
+    }
+
+    /**
+     * Charge a rendered cross-reference label and record what it cost, so the
+     * next reference to the same target can consult the budget first.
+     *
+     * @param string $id Resolved target id.
+     * @param string $emitted The label bytes this reference emits.
+     *
+     * @return bool True if it fits within budget and may be emitted (the bytes
+     *   are charged); false if the reference must degrade.
+     */
+    protected function chargeLabelExpansion(string $id, string $emitted): bool
+    {
+        $this->labelExpansionCosts[$id] = strlen($emitted);
+
+        return $this->chargeExpansion($emitted);
     }
 
     /**

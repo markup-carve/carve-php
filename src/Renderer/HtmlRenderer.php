@@ -2725,10 +2725,19 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // a lowercase `</#getting-started>` resolves to a case-preserved
         // `Getting-Started` id. The emitted href uses the ACTUAL id.
         $id = $tracker->findIdCaseInsensitive($target);
-        $label = $id === null ? null : $tracker->getTextForId($id, $this->smartTypography);
-        if ($id === null || $label === null) {
+        if ($id === null) {
             // An unresolved </#id> renders as its literal source text,
             // not a dangling self-link (matches the spec and carve-js).
+            return $this->escape('</#' . $target . '>');
+        }
+
+        // Ask the budget before doing the work it would reject (carve-php#2647).
+        if (!$this->labelExpansionStillAffordable($id)) {
+            return '<a href="#' . $this->escapeAttribute($id) . '">' . $this->escape($target) . '</a>';
+        }
+
+        $label = $tracker->getTextForId($id, $this->smartTypography);
+        if ($label === null) {
             return $this->escape('</#' . $target . '>');
         }
 
@@ -2749,7 +2758,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $rendered = $nodes === null
             ? $this->escape($label)
             : $this->renderInlineNodesFragment($nodes);
-        if (!$this->chargeExpansion($rendered)) {
+        if (!$this->chargeLabelExpansion($id, $rendered)) {
             $rendered = $this->escape($target);
         }
 
