@@ -49,6 +49,13 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        // ARRIVED WITH THE PIN BUMP carve-php#2669 CARRIES (spec 9b938e8a,
+        // markup-carve/carve#2527). A comment span's ownership is read at its
+        // OPENER's column, so the closer's column stops deciding who owns the
+        // line below; the engine work landed in carve-php#2675 and all thirteen
+        // documents render byte-identically to their corpus HTML here, verified
+        // per document.
+        'a-comment-span-s-closer-column-does-not-move-the-item-s-ownership',
         // ARRIVED WITH THIS PIN BUMP (spec c4012ca, markup-carve/carve#291).
         // A directive with NO resolver configured is ordinary text, which is
         // what this engine renders whether or not it knows the construct
