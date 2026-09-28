@@ -175,12 +175,12 @@ class ContainerPrefixTest extends TestCase
     public function testTrimmedQuoteScansUseTheSameMarkerRule(string $line): void
     {
         $scan = rtrim($line, " \t");
-        preg_match('/^(?:>(?: |$))*/', $scan, $match);
+        preg_match('/^(?:>(?: |$))*/D', $scan, $match);
         $this->assertSame(substr_count($match[0], '>'), ContainerPrefix::countLeadingQuoteMarkers($line));
         $this->assertSame(substr($scan, strlen($match[0])), ContainerPrefix::afterLeadingQuoteMarkers($line));
     }
 
-    public function testTrimmedQuoteScansHandleDeepPrefixesWithoutCopyingTails(): void
+    public function testTrimmedQuoteScansHandleDeepPrefixes(): void
     {
         $line = str_repeat('> ', 20000) . "content \t";
         $this->assertSame(20000, ContainerPrefix::countLeadingQuoteMarkers($line));
