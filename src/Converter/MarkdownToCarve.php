@@ -747,7 +747,7 @@ class MarkdownToCarve
             // 0. `- outer` / `  - inner` / blank / `    <footer>x</footer>`
             // left the element fenced below the whole list.
             if (
-                ($prevLineType === 'blank' || $prevLineType === 'code_fence')
+                in_array($prevLineType, ['blank', 'code_fence', 'heading'], true)
                 && $this->indentWidth($line) >= $contentCol + 4
             ) {
                 $block = $this->collectIndentedCode($lines, $i, $contentCol);
@@ -2652,7 +2652,10 @@ class MarkdownToCarve
      */
     protected function fenceLanguage(string $info): string
     {
-        return preg_match('~[A-Za-z0-9_+#/.-]+~', $info, $token) === 1 ? $token[0] : '';
+        $decoded = $this->decodeLinkTitle($info);
+        $word = preg_split('/[ \t]/', trim($decoded), 2)[0] ?? '';
+
+        return str_contains($word, '`') ? '' : (preg_match('~[A-Za-z0-9_+#/.-]+~', $decoded, $token) === 1 ? $token[0] : '');
     }
 
     /**
@@ -3623,7 +3626,7 @@ class MarkdownToCarve
             // Strip the container's columns plus the one indent step CommonMark
             // takes, then put the container's columns back, so the body sits at
             // the item's content column and its own indentation survives.
-            $dedented = trim($line) === '' ? '' : $margin . $this->stripColumns($line, $contentCol + 4);
+            $dedented = $margin . $this->stripColumns($line, $contentCol + 4);
             $body[] = $dedented;
             $length = strlen($dedented);
             for ($i = 0; $i < $length; $i++) {
