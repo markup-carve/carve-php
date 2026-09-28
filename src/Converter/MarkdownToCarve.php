@@ -5049,9 +5049,7 @@ class MarkdownToCarve
      */
     protected function escapeDecodedCharacterReference(string $text): string
     {
-        $escaped = preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-])/', '\\\\$1', $text) ?? $text;
-
-        return str_replace(['"', "'"], ['\\"', "\\'"], $escaped);
+        return preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-])/', '\\\\$1', $text) ?? $text;
     }
 
     /**
