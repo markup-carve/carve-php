@@ -150,6 +150,7 @@ class DjotToCarve
     {
         $source = str_replace(["\r\n", "\r"], "\n", $djot);
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
+        $source = $this->foldHeadingContinuations($source);
         $source = $this->convertDjotBlockMarkers($source);
         $source = $this->convertDefinitionLists($source);
         $djotBody = $source;
@@ -220,6 +221,46 @@ class DjotToCarve
         $carve = $this->applyHeadingIdPreservation($carve, $djotBody);
 
         return $frontmatter === '' ? $carve : $frontmatter . $separator . $carve;
+    }
+
+    private function foldHeadingContinuations(string $source): string
+    {
+        $lines = explode("\n", $source);
+        $masked = explode("\n", $this->maskCodeAndDestinations($source));
+        $block = '/^(?:[#>|{]|[-*+][ \t]|[0-9]+[.)][ \t]|:[ \t]|:{2,}|\([0-9a-zA-Z]+\)[ \t]|[`~]{3,}|\^[ \t]|%{3,}|\[[^\]\n]*\]:|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$)/';
+        $result = [];
+        $count = count($lines);
+        for ($i = 0; $i < $count; $i++) {
+            $line = $lines[$i];
+            if (($i > 0 && trim($lines[$i - 1]) !== '') || ($masked[$i][0] ?? '') !== '#' || preg_match('/^(#{1,6}) +\S/', $line, $heading) !== 1) {
+                $result[] = $line;
+
+                continue;
+            }
+            $prefix = $heading[1] . ' ';
+            while ($i + 1 < $count) {
+                if ((strlen($line) - strlen(rtrim($line, '\\'))) % 2 === 1) {
+                    break;
+                }
+                $next = ltrim($lines[$i + 1], " \t");
+                if (str_starts_with($next, $prefix)) {
+                    $part = ltrim(substr($next, strlen($prefix)), ' ');
+                    if (trim($part) === '') {
+                        break;
+                    }
+                } else {
+                    if (trim($next) === '' || preg_match($block, $next) === 1) {
+                        break;
+                    }
+                    $part = $next;
+                }
+                $line .= ' ' . $part;
+                $i++;
+            }
+            $result[] = $line;
+        }
+
+        return implode("\n", $result);
     }
 
     /**
