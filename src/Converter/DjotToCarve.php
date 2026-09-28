@@ -156,6 +156,7 @@ class DjotToCarve
         $djotBody = $source;
         $strongSpans = [];
         $source = $this->protectAttributedStrong($source, $strongSpans);
+        $source = $this->escapeInvalidAttributeHashes($source);
         $masked = $this->maskCodeAndDestinations($source);
         $source = $this->escapePlainDjotText($source, $masked);
         $masked = $this->maskCode($source);
@@ -522,6 +523,90 @@ class DjotToCarve
         }
 
         return $bytes;
+    }
+
+    private function escapeInvalidAttributeHashes(string $source): string
+    {
+        $masked = preg_replace_callback('~<[A-Za-z][A-Za-z0-9+.-]*:[^<>\s]*>~', static fn (array $match): string => str_repeat(' ', strlen($match[0])), $this->maskCodeAndDestinations($source)) ?? $source;
+        $escapes = [];
+        $length = strlen($source);
+        for ($i = 0; $i < $length; $i++) {
+            if ($source[$i] !== '{' || $masked[$i] !== '{') {
+                continue;
+            }
+            $slashes = 0;
+            for ($before = $i - 1; $before >= 0 && $source[$before] === '\\'; $before--) {
+                $slashes++;
+            }
+            if ($slashes % 2 !== 0) {
+                continue;
+            }
+            $quote = false;
+            $comment = false;
+            $invalid = false;
+            for ($end = $i + 1; $end < $length; $end++) {
+                $char = $source[$end];
+                if ($char === "\n" && preg_match('/\G[ \t]*\n/', $source, offset: $end + 1) === 1) {
+                    break;
+                }
+                if ($quote) {
+                    if ($char === '\\' && ($source[$end + 1] ?? '') !== "\n") {
+                        $end++;
+                    } elseif ($char === '"') {
+                        $quote = false;
+                    }
+
+                    continue;
+                }
+                if ($masked[$end] !== $source[$end]) {
+                    $invalid = true;
+
+                    continue;
+                }
+                if ($char === '\\') {
+                    $invalid = true;
+                    if (($source[$end + 1] ?? '') !== "\n") {
+                        $end++;
+                    }
+
+                    continue;
+                }
+                if ($char === '}') {
+                    break;
+                }
+                if ($char === '%') {
+                    $comment = !$comment;
+
+                    continue;
+                }
+                if ($comment) {
+                    continue;
+                }
+                if ($char === '"') {
+                    $quote = true;
+
+                    continue;
+                }
+                if ($char === '{') {
+                    break;
+                }
+                if ($char === '<' || $char === '>') {
+                    $invalid = true;
+                }
+            }
+            if (($source[$i + 1] ?? '') === '#' && (($source[$end] ?? '') !== '}' || $invalid)) {
+                $escapes[] = $i;
+            }
+            $i = max($i, $end - (($source[$end] ?? '') === '{' ? 1 : 0));
+        }
+        $output = '';
+        $cursor = 0;
+        foreach ($escapes as $at) {
+            $output .= substr($source, $cursor, $at - $cursor) . '\\{\\#';
+            $cursor = $at + 2;
+        }
+
+        return $output . substr($source, $cursor);
     }
 
     protected function escapePlainDjotText(string $source, string $masked): string
