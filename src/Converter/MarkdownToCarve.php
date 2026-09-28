@@ -424,10 +424,10 @@ class MarkdownToCarve
                 if ($lazyQuote !== null) {
                     $shiftCol = $lazyQuote['col'];
                     $shiftBy = $listMarkers->shiftAt($shiftCol);
-                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text);
+                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
                     $itemQuote = $lazyQuote;
                 } else {
-                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $listCols === [] ? 0 : (int)end($listCols)) . $text);
+                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $listCols === [] ? 0 : (int)end($listCols)) . $text, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
                     $itemParagraph = true;
                 }
                 $prevLineType = 'list';
@@ -457,11 +457,11 @@ class MarkdownToCarve
                     $shiftBy = $listMarkers->shiftAt($shiftCol);
                     $lazyLine = str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text;
                     $lazyLine = $this->escapeDefinitionContinuation($lazyLine, $lines[$i - 1] ?? '', (string)end($result));
-                    $result[] = $this->convertInlineFormatting($lazyLine);
+                    $result[] = $this->convertInlineFormatting($lazyLine, !$this->nextLineContinuesThisParagraph($lazyLine, $lines[$i + 1] ?? '', false));
                     $itemQuote = $lazyQuote;
                 } else {
                     $lazyLine = $this->escapeDefinitionContinuation(str_repeat(' ', $lazyCol) . $text, $lines[$i - 1] ?? '', (string)end($result));
-                    $result[] = $this->convertInlineFormatting($lazyLine);
+                    $result[] = $this->convertInlineFormatting($lazyLine, !$this->nextLineContinuesThisParagraph($lazyLine, $lines[$i + 1] ?? '', false));
                     $itemParagraph = true;
                 }
                 $prevLineType = 'list';
@@ -476,7 +476,7 @@ class MarkdownToCarve
             if (!$inCodeBlock && $prevLineType === 'text' && $listCols === [] && $trimmed !== '' && $lineIndent >= 4) {
                 // An ordered marker other than 1 interrupts no paragraph anyway.
                 $opener = preg_match('/^0*(?:[2-9]|1\d)\d*[.)]/', $trimmed) === 1 ? $trimmed : $this->escapeBlockOpener($trimmed);
-                $result[] = $this->convertInlineFormatting($opener);
+                $result[] = $this->convertInlineFormatting($opener, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
 
                 continue;
             }
@@ -597,7 +597,7 @@ class MarkdownToCarve
                 if ($plain || $this->indentWidth($line) >= 4) {
                     $text = $plain ? $line : $this->escapeBlockOpener(ltrim($line, " \t"));
                     $text = $this->escapeDefinitionContinuation($quoteLazy . $text, $lines[$i - 1] ?? '', (string)end($result));
-                    $result[] = $this->convertInlineFormatting($text);
+                    $result[] = $this->convertInlineFormatting($text, !$this->nextLineContinuesThisParagraph($text, $lines[$i + 1] ?? '', false));
                     $quotePrev = null;
 
                     continue;
@@ -920,6 +920,7 @@ class MarkdownToCarve
                             $listCols,
                             (string)end($result),
                         ),
+                        !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', $isList),
                     );
                 }
                 $this->trackItemParagraph($line, $isList, $contentCol, $itemParagraph, $itemQuote);
@@ -946,7 +947,7 @@ class MarkdownToCarve
 
                 $texts = [];
                 for ($at = $i; $at < $setext; $at++) {
-                    $texts[] = $this->setextLineText($lines[$at]);
+                    $texts[] = $this->setextLineText($lines[$at], $at + 1 === $setext);
                 }
                 $marker = trim($lines[$setext])[0] === '=' ? '#' : '##';
                 $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($marker . ' ' . implode(' ', $texts));
@@ -1132,7 +1133,7 @@ class MarkdownToCarve
                 unset($part);
                 $converted = implode("\n", $parts);
             } else {
-                $converted = $this->convertInlineFormatting($body);
+                $converted = $this->convertInlineFormatting($body, $isHeading || !$this->nextLineContinuesThisParagraph($body, $lines[$i + 1] ?? '', $isList));
             }
 
             // A Markdown HARD BREAK is two or more spaces at the end of a line;
@@ -2221,12 +2222,15 @@ class MarkdownToCarve
 
     /**
      * One line of a setext heading's paragraph as it joins the ATX line. A
-     * one-line heading has no spelling for a hard break, so a trailing
-     * backslash goes rather than turning into an escaped space.
+     * non-final line loses its hard-break marker when folded. A backslash on
+     * the final line is literal Markdown text and must be retained.
      */
-    protected function setextLineText(string $line): string
+    protected function setextLineText(string $line, bool $last = false): string
     {
         $text = trim($line);
+        if ($last) {
+            return $text;
+        }
         $run = strlen($text) - strlen(rtrim($text, '\\'));
 
         return $run % 2 === 1 ? substr($text, 0, -1) : $text;
@@ -2370,7 +2374,7 @@ class MarkdownToCarve
             return null;
         }
         $contentCol = $this->columnWidth($lead);
-        $texts = [$this->setextLineText($first)];
+        $texts = [trim($first)];
         $above = $first;
         $aboveOver = 0;
         for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
@@ -2380,7 +2384,8 @@ class MarkdownToCarve
                 if (preg_match('/^[ \t]*(?:[-*+]|0*1[.)])(?:[ \t]|$)/', $lines[$at]) === 1 || !$this->isParagraphLine($lines, $at)) {
                     return null;
                 }
-                $texts[] = $this->setextLineText($lines[$at]);
+                $texts[count($texts) - 1] = $this->setextLineText((string)end($texts));
+                $texts[] = trim($lines[$at]);
                 $above = trim($lines[$at]);
                 $aboveOver = 0;
 
@@ -2412,7 +2417,8 @@ class MarkdownToCarve
             if (!$this->foldsIntoSetext([$rest], 0, trim($rest), $over)) {
                 return null;
             }
-            $texts[] = $this->setextLineText($rest);
+            $texts[count($texts) - 1] = $this->setextLineText((string)end($texts));
+            $texts[] = trim($rest);
             $above = $rest;
             $aboveOver = $over;
         }
@@ -3698,7 +3704,7 @@ class MarkdownToCarve
     {
         if (preg_match('/^\s*(?:>\s?)+/', $body, $matches)) {
             if (!preg_match('/^\s*(?:>\s?)+/', $next, $nextMatches)) {
-                return false;
+                return $this->continuesParagraph($next);
             }
 
             return $this->continuesParagraph(substr($next, strlen($nextMatches[0])));
@@ -3711,10 +3717,10 @@ class MarkdownToCarve
                 return false;
             }
 
-            return preg_match('/^\s+\S/', $next) === 1;
+            return preg_match('/^\s+\S/', $next) === 1 || $this->continuesParagraph($next);
         }
 
-        return $this->continuesParagraph($next);
+        return ($this->indentWidth($next) >= 4 && trim($next) !== '') || $this->continuesParagraph($next);
     }
 
     protected function continuesParagraph(string $line): bool
@@ -3985,7 +3991,7 @@ class MarkdownToCarve
         return ['body' => implode("\n", $parts), 'first' => $prefix, 'next' => $continuation, 'end' => $end];
     }
 
-    protected function convertInlineFormatting(string $line): string
+    protected function convertInlineFormatting(string $line, bool $terminal = true): string
     {
         $line = $this->escapeCarveOnlyMarker($line);
         $protected = [];
@@ -4033,7 +4039,7 @@ class MarkdownToCarve
                 $escaped .= $pair === '\\>' ? $protect('\\') . '>' : $protect($pair);
                 $i += 2;
             } else {
-                $escaped .= $line[$i] === '\\' && ($line[$i + 1] ?? '') === ' ' ? $protect('\\\\') : $line[$i];
+                $escaped .= $line[$i] === '\\' && (($line[$i + 1] ?? '') === ' ' || ($terminal && $i + 1 === $length)) ? $protect('\\\\') : $line[$i];
                 $i++;
             }
         }
