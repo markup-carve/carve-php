@@ -63,9 +63,6 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixes
 
-- Track comment spans opened on nested list markers so a dedented closer does
-  not keep following text in the outer item (carve#2550).
-
 - The Markdown target keeps every block a list item holds. A continuation line is
   padded from the item's marker rather than from a task item's checkbox, and a
   block below a nested list gets the blank line that stops GFM reading it as a
