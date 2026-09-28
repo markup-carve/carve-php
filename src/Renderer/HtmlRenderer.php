@@ -3748,6 +3748,35 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * Render a footnote's blocks, and report whether the body ends IN a paragraph.
+     *
+     * The backlink may only be folded into the body when it does. A trailing block
+     * whose HTML rendering carries no text - an empty raw block, or one whose format
+     * this target drops - still holds a slot, so the paragraph above it is not the
+     * body's end even though the string still trails `</p>` (carve-php#2680). A
+     * comment holds no slot and cannot end the body, which is why the block kind
+     * decides this rather than the rendered length.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\Footnote $node
+     *
+     * @return array{content: string, endsInParagraph: bool}
+     */
+    protected function renderFootnoteBody(Footnote $node): array
+    {
+        $html = '';
+        $endsInParagraph = false;
+        foreach ($node->getChildren() as $child) {
+            $rendered = $this->renderNode($child);
+            $html .= $rendered;
+            if (!$child instanceof Comment) {
+                $endsInParagraph = str_ends_with(rtrim($rendered, "\n"), '</p>');
+            }
+        }
+
+        return ['content' => trim($html), 'endsInParagraph' => $endsInParagraph];
+    }
+
+    /**
      * Render all collected footnotes as end section
      */
     protected function renderFootnotesSection(): string
@@ -3757,6 +3786,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // Pre-render all footnote contents to discover any nested footnote references
         // Keep iterating until no new footnotes are discovered
         $renderedContents = [];
+        $endsInParagraph = [];
         $processedNumbers = [];
 
         // Suppress `::: footnotes` placement while rendering footnote bodies, so
@@ -3779,11 +3809,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                     if (isset($context->inlineFootnoteRenderers[$number])) {
                         // Inline footnote - invoke deferred renderer
                         $renderedContents[$number] = trim(($context->inlineFootnoteRenderers[$number])());
+                        $endsInParagraph[$number] = true;
                     } elseif (isset($context->collectedFootnotes[$label])) {
                         // Regular footnote - rendering may discover new footnote references
-                        $renderedContents[$number] = trim($this->renderChildren($context->collectedFootnotes[$label]));
+                        $body = $this->renderFootnoteBody($context->collectedFootnotes[$label]);
+                        $renderedContents[$number] = $body['content'];
+                        $endsInParagraph[$number] = $body['endsInParagraph'];
                     } else {
                         $renderedContents[$number] = '';
+                        $endsInParagraph[$number] = false;
                     }
 
                     // Check if new footnotes were discovered during rendering
@@ -3848,9 +3882,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             // Generate backlinks - multiple if footnote referenced multiple times
             $backlinks = $this->generateBacklinks($number, $refCount);
 
-            // Add backlink - if content ends with </p>, insert before it
-            // Otherwise add as separate paragraph
-            if ($content !== '' && preg_match('/^(.*)(<\/p>\n?)$/s', $content, $matches)) {
+            // Add backlink - if the body ends IN a paragraph, insert before its
+            // close; otherwise add as a separate paragraph.
+            if ($content !== '' && ($endsInParagraph[$number] ?? true) && preg_match('/^(.*)(<\/p>\n?)$/s', $content, $matches)) {
                 $content = $matches[1] . $backlinks . '</p>';
                 $html .= $this->indentFootnoteBody($content) . "\n";
             } else {
