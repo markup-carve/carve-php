@@ -5186,7 +5186,17 @@ class BlockParser
                         }
                         // ADVANCED AFTER THE BREAK TEST, so the closer line is
                         // still answered against the span it ends.
+                        //
+                        // The span state the line ARRIVED with is what decides
+                        // whether it may move the paragraph: a payload line is
+                        // opaque and a closer travels with its opener
+                        // (`CARVE-P9-053`), so neither speaks for this column
+                        // (markup-carve/carve#2527).
+                        $inSubCommentSpan = $subOpenCommentLength !== null;
                         $subOpenCommentLength = $this->advanceItemCommentFence($subOpenCommentLength, $subLine, $lines, $i);
+                        $subSpanClosedHere = $inSubCommentSpan && $subOpenCommentLength === null;
+                        $subWasOpenParagraph = $subTrailingState->openParagraph;
+                        $subWasAfterComment = $subTrailingState->afterComment;
 
                         // Check if line has at least the subIndent level
                         if ($lineIndent >= $subIndent) {
@@ -5276,6 +5286,14 @@ class BlockParser
                                     $subInterruptedParagraphFence = false;
                                 }
                             }
+                            if ($inSubCommentSpan) {
+                                // The opener already closed the paragraph and set
+                                // the retention flag. A payload line that reopened
+                                // the paragraph made the CLOSER's column decide who
+                                // owned the line below.
+                                $subTrailingState->openParagraph = $subWasOpenParagraph;
+                                $subTrailingState->afterComment = $subWasAfterComment;
+                            }
                             $sawBlankLine = false;
                             $i++;
                         } elseif ($lineIndent === $baseIndent) {
@@ -5326,6 +5344,15 @@ class BlockParser
                                 $subLines[] = $this->keptCommentDelimiter($subLine);
                                 $subLineMap[] = $this->sourceLineFor($i);
                                 $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
+                                if ($subSpanClosedHere) {
+                                    // A CLOSER LEAVES THE SPAN'S OWN STATE, NOT
+                                    // THIS COLUMN'S: the run closes the span at
+                                    // any column (`CARVE-P0-013`), so the span
+                                    // ends here as it would at its opener's own
+                                    // column.
+                                    $subTrailingState->openParagraph = false;
+                                    $subTrailingState->afterComment = true;
+                                }
                                 $i++;
 
                                 continue;
@@ -5391,6 +5418,26 @@ class BlockParser
                                 $subLines[] = str_repeat(' ', $lineIndent - $baseIndent) . $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);
                                 $subTrailingState = $this->advanceTrailingState($subTrailingState, $subLine);
+                                $i++;
+
+                                continue;
+                            }
+                            // A SPAN'S CLOSER STAYS WITH ITS SPAN at this
+                            // column too. `CARVE-P0-013` has the run close the
+                            // span at any column, so ending the stream here
+                            // split it and the item's own parse published the
+                            // payload. The `=== $baseIndent` arm above already
+                            // answers this one column further left; until
+                            // markup-carve/carve#2527 the span's PAYLOAD had
+                            // reopened the paragraph, and the lazy-text path
+                            // below carried the closer in by accident.
+                            if ($subSpanClosedHere && $subLines !== []) {
+                                $subLines[] = $this->keptCommentDelimiter($subLine);
+                                $subLineMap[] = $this->sourceLineFor($i);
+                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
+                                $subTrailingState->openParagraph = false;
+                                $subTrailingState->afterComment = true;
+                                $sawBlankLine = false;
                                 $i++;
 
                                 continue;
@@ -7609,6 +7656,9 @@ class BlockParser
             $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
             $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
         }
+        // A span opened on the MARKER LINE is the item's first block
+        // (`CARVE-P0-007`), so it retains nothing for a below-column follower.
+        $spanFromMarkerLine = $openCommentLength !== null;
         while ($i < $count) {
             $nextLine = $lines[$i];
 
@@ -7699,7 +7749,14 @@ class BlockParser
                         $contentIndent,
                     ) ?? 0;
                 }
+                // Did this line ARRIVE inside an open span? Its payload is opaque
+                // and its closer travels with its opener (`CARVE-P9-053`), so
+                // neither may move the paragraph or the after-comment state.
+                $inCommentSpan = $openCommentLength !== null;
                 $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $contentLine, $lines, $i);
+                if (!$inCommentSpan && $openCommentLength !== null) {
+                    $spanFromMarkerLine = false;
+                }
                 if ($this->paragraphHasUnclaimedColonFenceLine($contentLine)) {
                     $sawIndentedUnclaimedColonFence = true;
                 }
@@ -7718,6 +7775,7 @@ class BlockParser
                 // which is what keeps corpus 183 and 214-2 folding a comment
                 // written BELOW the column.
                 $wasOpenParagraph = $trailingState->openParagraph;
+                $wasAfterComment = $trailingState->afterComment;
                 $wasInFence = $trailingState->fence !== null;
                 // A CLOSER PAST THE BLANK THAT ENDS THIS ITEM IS NOT THIS
                 // FENCE'S (§10 I4 over carve#1379, markup-carve/carve#2509).
@@ -7739,6 +7797,14 @@ class BlockParser
                         true,
                         $contentIndent,
                     );
+                if ($inCommentSpan) {
+                    // The opener already closed the paragraph and set the
+                    // retention flag; a payload line that reopened the paragraph
+                    // made the CLOSER's column decide who owned the line below
+                    // (markup-carve/carve#2527).
+                    $trailingState->openParagraph = $wasOpenParagraph;
+                    $trailingState->afterComment = $wasAfterComment;
+                }
                 if ($wasInFence && $trailingState->fence === null) {
                     $interruptedParagraphFence = false;
                 } elseif ($wasOpenParagraph && !$wasInFence && ($trailingState->fence !== null)) {
@@ -7764,6 +7830,28 @@ class BlockParser
             // the item came out TIGHT where every other reader says LOOSE.
             if ($openCommentLength !== null) {
                 $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $nextTrimmed, $lines, $i);
+                // A CLOSER LEAVES THE SPAN'S OWN STATE, NOT THIS COLUMN'S. The
+                // body and closer travel with the opener (`CARVE-P9-053`) and
+                // the run closes the span at any column (`CARVE-P0-013`), so
+                // the span ends here exactly as it would at the opener's own
+                // column: the closer stays in the item, no paragraph is left
+                // open, and the frame survives unless the span was the marker
+                // line's own first block (markup-carve/carve#2527).
+                if ($openCommentLength === null && $itemLines !== []) {
+                    // ONE COLUMN of the authored indentation is kept, for the
+                    // reason the fold branch below keeps it: the item's own
+                    // parse must still tell an authored flush-left run from one
+                    // an enclosing dedent clamped.
+                    $itemLines[] = $nextIndent > 0 ? ' ' . $nextTrimmed : $nextTrimmed;
+                    $itemLineMap[] = $this->sourceLineFor($i);
+                    $trailingState->openParagraph = false;
+                    if (!$spanFromMarkerLine) {
+                        $trailingState->afterComment = true;
+                    }
+                    $i++;
+
+                    continue;
+                }
             }
 
             // A FRAMED LINE IS THE OPEN FENCE'S BODY, not the end of the item
