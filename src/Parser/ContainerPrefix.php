@@ -343,15 +343,9 @@ class ContainerPrefix
         $scan = rtrim($line, " \t");
         $depth = 0;
         $length = strlen($scan);
-        for ($at = 0; $at < $length && $scan[$at] === '>'; $at += 2) {
-            if ($at + 1 === $length) {
-                $depth++;
-
-                break;
-            }
-            if ($scan[$at + 1] !== ' ') {
-                break;
-            }
+        $at = 0;
+        while (($width = self::quoteMarkerWidth($scan, $at, $length)) !== null) {
+            $at += $width;
             $depth++;
         }
 
@@ -370,14 +364,8 @@ class ContainerPrefix
     {
         $length = strlen($scan);
         $at = 0;
-        while ($at < $length && $scan[$at] === '>') {
-            if ($at + 1 === $length) {
-                return $length;
-            }
-            if ($scan[$at + 1] !== ' ') {
-                return $at;
-            }
-            $at += 2;
+        while (($width = self::quoteMarkerWidth($scan, $at, $length)) !== null) {
+            $at += $width;
         }
 
         return $at;
