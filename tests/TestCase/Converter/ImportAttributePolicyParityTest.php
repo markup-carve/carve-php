@@ -9,6 +9,36 @@ use PHPUnit\Framework\TestCase;
 
 class ImportAttributePolicyParityTest extends TestCase
 {
+    public function testCssSurvivalCreditsStayWithTheElement(): void
+    {
+        foreach (['safe', 'semantic'] as $mode) {
+            foreach (['right', 'RIGHT'] as $value) {
+                $result = (new HtmlToCarve(importMode: $mode))->convertWithReport("<p align=\"{$value}\">text</p>");
+                $this->assertSame([], $result->report()['diagnostics']);
+            }
+            $source = '<table><tr><td style="text-align:right">same</td></tr></table><p><font align="right">same</font></p>';
+            $rows = (new HtmlToCarve(importMode: $mode))->convertWithReport($source)->report()['diagnostics'];
+            $drops = array_filter($rows, fn (array $row): bool => $row['code'] === 'attribute-dropped');
+            $this->assertCount(1, $drops);
+        }
+        $source = '<p style="text-align:right">same</p><font align="right">same</font>';
+        $rows = (new HtmlToCarve(importMode: 'semantic'))->convertWithReport($source)->report()['diagnostics'];
+        $this->assertCount(1, array_filter($rows, fn (array $row): bool => $row['code'] === 'attribute-dropped'));
+    }
+
+    public function testCssPrecedenceDependsOnTheImportMode(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['align="right" style="text-align:left"', 'style="text-align:left" align="right"'] as $attrs) {
+                $result = (new HtmlToCarve(importMode: $mode))->convertWithReport("<p {$attrs}>text</p>");
+                $rows = $result->report()['diagnostics'];
+                $this->assertCount(1, $rows);
+                $this->assertSame($mode === 'safe' ? 'style-unmapped' : 'attribute-dropped', $rows[0]['code']);
+                $this->assertStringContainsString($mode === 'safe' ? 'align=right' : 'align=left', $result->value);
+            }
+        }
+    }
+
     public function testSemanticMarkerCollisionsAreReported(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
