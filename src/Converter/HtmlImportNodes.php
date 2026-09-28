@@ -62,4 +62,22 @@ final class HtmlImportNodes
     {
         return ['type' => 'figure', 'target' => $target, 'caption' => $caption];
     }
+
+    /**
+     * @return array{type: 'text', value: string}
+     */
+    public static function text(string $value): array
+    {
+        return ['type' => 'text', 'value' => $value];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $children
+     *
+     * @return array{type: 'list_item', children: list<array<string, mixed>>}
+     */
+    public static function listItem(array $children): array
+    {
+        return ['type' => 'list_item', 'children' => $children];
+    }
 }

@@ -9,6 +9,7 @@ use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
+use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Div;
@@ -30,6 +31,7 @@ use Throwable;
  * @phpstan-import-type DocumentTree from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  * @phpstan-import-type Attrs from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type MathNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  * @phpstan-import-type TableRowNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  */
 final class HtmlAstBuilder
@@ -155,67 +157,76 @@ final class HtmlAstBuilder
 
     private static function stringValue(mixed $value): string
     {
-        return is_string($value) ? $value : '';
+        if ($value === null) {
+            return '';
+        }
+        if (!is_string($value)) {
+            throw new LogicException('An imported text field must be a string.');
+        }
+
+        return $value;
     }
 
     /**
+     * @throws \LogicException
+     *
      * @return list<array<string, mixed>>
      */
     private static function nodeList(mixed $value): array
     {
-        if (!is_array($value)) {
+        if ($value === null) {
             return [];
         }
-
-        $nodes = [];
-        foreach ($value as $item) {
-            if (!is_array($item)) {
-                continue;
+        if (!is_array($value) || !array_is_list($value)) {
+            throw new LogicException('Imported children must be a node list.');
+        }
+        foreach ($value as $node) {
+            if (!is_array($node)) {
+                throw new LogicException('An imported child must be a node.');
             }
-            $node = [];
-            foreach ($item as $key => $entry) {
-                if (is_string($key)) {
-                    $node[$key] = $entry;
+            foreach ($node as $key => $_) {
+                if (!is_string($key)) {
+                    throw new LogicException('An imported node must have named fields.');
                 }
             }
-            $nodes[] = $node;
         }
+        /** @var list<array<string, mixed>> $value */
 
-        return $nodes;
+        return $value;
     }
 
     /**
+     * @throws \LogicException
+     *
      * @return Attrs
      */
     private static function attrsValue(mixed $value): array
     {
-        if (!is_array($value)) {
+        if ($value === null) {
             return [];
         }
-        $attrs = [];
-        if (is_string($value['id'] ?? null)) {
-            $attrs['id'] = $value['id'];
+        if (!is_array($value)) {
+            throw new LogicException('Imported attributes must be an attribute map.');
         }
-        $classes = is_array($value['classes'] ?? null)
-            ? array_values(array_filter($value['classes'], 'is_string'))
-            : [];
-        if ($classes !== []) {
-            $attrs['classes'] = $classes;
+        if (array_key_exists('id', $value) && !is_string($value['id'])) {
+            throw new LogicException('An imported ID must be a string.');
         }
-        $keyValues = is_array($value['keyValues'] ?? null)
-            ? array_filter($value['keyValues'], 'is_string')
-            : [];
-        if ($keyValues !== []) {
-            $attrs['keyValues'] = $keyValues;
+        foreach (['classes', 'order', 'keyValues'] as $slot) {
+            if (!array_key_exists($slot, $value)) {
+                continue;
+            }
+            if (!is_array($value[$slot]) || ($slot !== 'keyValues' && !array_is_list($value[$slot]))) {
+                throw new LogicException('An imported attribute collection has an invalid shape.');
+            }
+            foreach ($value[$slot] as $entry) {
+                if (!is_string($entry)) {
+                    throw new LogicException('An imported attribute value must be a string.');
+                }
+            }
         }
-        $order = is_array($value['order'] ?? null)
-            ? array_values(array_filter($value['order'], 'is_string'))
-            : [];
-        if ($order !== []) {
-            $attrs['order'] = $order;
-        }
+        /** @var Attrs $value */
 
-        return $attrs;
+        return $value;
     }
 
     /**
@@ -814,7 +825,7 @@ final class HtmlAstBuilder
                     }
                 }
                 if (!$hasCode) {
-                    return [['type' => 'paragraph', 'children' => $this->inlines($this->children($node))]];
+                    return [HtmlImportNodes::paragraph($this->inlines($this->children($node)))];
                 }
             }
 
@@ -1499,7 +1510,7 @@ final class HtmlAstBuilder
                     break;
                 }
             }
-            $item = ['type' => 'list_item', 'children' => $itemChildren];
+            $item = HtmlImportNodes::listItem($itemChildren);
             $skipItemAttrs = $consumesTaskState ? ['data-task-state'] : [];
             if ($task !== null && strtolower($child->getAttribute('data-type')) === 'taskitem') {
                 $skipItemAttrs[] = 'data-type';
@@ -2138,14 +2149,16 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param array<string, mixed> $cell
+     * @phpstan-param TableCellNode $cell
+     *
+     * @param array $cell
      */
     private static function cellWritesBlank(array $cell): bool
     {
-        if (isset($cell['span']) || isset($cell['align']) || isset($cell['valign']) || self::attrsValue($cell['attrs'] ?? null) !== []) {
+        if (isset($cell['span']) || isset($cell['align']) || isset($cell['valign']) || ($cell['attrs'] ?? []) !== []) {
             return false;
         }
-        foreach (self::nodeList($cell['children'] ?? null) as $child) {
+        foreach ($cell['children'] as $child) {
             $type = $child['type'] ?? null;
             if ($type === 'hard_break' || $type === 'soft_break') {
                 continue;
@@ -2237,7 +2250,7 @@ final class HtmlAstBuilder
                         'children' => [
                             [
                                 'type' => 'paragraph',
-                                'children' => [['type' => 'text', 'value' => $span === 'rowspan' ? '^' : '<']],
+                                'children' => [HtmlImportNodes::text($span === 'rowspan' ? '^' : '<')],
                             ],
                         ],
                     ];
@@ -2277,7 +2290,7 @@ final class HtmlAstBuilder
                     $attrs['keyValues'] = $keyValues;
                     $attrs['order'] = $order;
                 }
-                $item = ['type' => 'list_item', 'children' => $children];
+                $item = HtmlImportNodes::listItem($children);
                 if ($attrs !== []) {
                     $item['attrs'] = $attrs;
                 }
@@ -2998,7 +3011,7 @@ final class HtmlAstBuilder
                     && !$this->captionBoundaryHasSpace($out[array_key_last($out)], false)
                     && !$this->captionBoundaryHasSpace($current[0], true)
                 ) {
-                    $out[] = ['type' => 'text', 'value' => ' '];
+                    $out[] = HtmlImportNodes::text(' ');
                 }
                 foreach ($current as $inline) {
                     $out[] = $inline;
@@ -3223,7 +3236,7 @@ final class HtmlAstBuilder
                 && self::edgeIsContent($out, true)
                 && self::edgeIsContent($parts, false)
             ) {
-                $out[] = ['type' => 'text', 'value' => ' '];
+                $out[] = HtmlImportNodes::text(' ');
             }
             $afterBlock = $isBlock;
             foreach ($parts as $inline) {
@@ -3376,13 +3389,13 @@ final class HtmlAstBuilder
             }
             $previous = $out === [] ? null : $out[array_key_last($out)];
             if (($owed || $lead) && !$deepEndsBlank($previous) && !($owed && !$lead && $deepStartsBlank($node))) {
-                $out[] = ['type' => 'text', 'value' => ' '];
+                $out[] = HtmlImportNodes::text(' ');
             }
             $out[] = $node;
             $owed = $trail;
         }
         if ($owed) {
-            $out[] = ['type' => 'text', 'value' => ' '];
+            $out[] = HtmlImportNodes::text(' ');
         }
 
         return $out;
@@ -3398,7 +3411,7 @@ final class HtmlAstBuilder
                 ? $node->textContent
                 : (preg_replace('/[ \t\n\f\r]+/', ' ', $node->textContent) ?? $node->textContent);
 
-            return $value === '' ? [] : [['type' => 'text', 'value' => $value]];
+            return $value === '' ? [] : [HtmlImportNodes::text($value)];
         }
         if ($node instanceof DOMComment) {
             if (
@@ -3468,7 +3481,7 @@ final class HtmlAstBuilder
                 if ($this->importMode !== 'roundtrip') {
                     $text = self::linearMathText($node);
 
-                    return $text === null ? [] : [['type' => 'text', 'value' => $text]];
+                    return $text === null ? [] : [HtmlImportNodes::text($text)];
                 }
                 $html = HtmlDomLoader::serialize($node);
                 $this->keepRaw($node);
@@ -3548,7 +3561,7 @@ final class HtmlAstBuilder
                     return [
                         [
                             'type' => 'span',
-                            'children' => [['type' => 'text', 'value' => $alt]],
+                            'children' => [HtmlImportNodes::text($alt)],
                             'attrs' => [
                                 'keyValues' => ['title' => $node->getAttribute('title')],
                                 'order' => ['title'],
@@ -3557,7 +3570,7 @@ final class HtmlAstBuilder
                     ];
                 }
 
-                return $alt === '' ? [] : [['type' => 'text', 'value' => $alt]];
+                return $alt === '' ? [] : [HtmlImportNodes::text($alt)];
             }
             if (
                 $this->importMode === 'roundtrip'
@@ -3727,9 +3740,9 @@ final class HtmlAstBuilder
                 --$this->session->quoteDepth;
             }
             $children = [
-                ['type' => 'text', 'value' => $opening],
+                HtmlImportNodes::text($opening),
                 ...$quoted,
-                ['type' => 'text', 'value' => $closing],
+                HtmlImportNodes::text($closing),
             ];
 
             if ($node->hasAttribute('cite')) {
@@ -3751,7 +3764,7 @@ final class HtmlAstBuilder
             $abbr = trim($node->textContent);
             $expansion = $node->getAttribute('title');
             if ($abbr !== '' && ($this->session->abbreviationDefinitions[$abbr] ?? null) === $expansion) {
-                return [['type' => 'text', 'value' => $abbr]];
+                return [HtmlImportNodes::text($abbr)];
             }
         }
 
@@ -3840,7 +3853,7 @@ final class HtmlAstBuilder
         if ($tag === 'input' && strtolower($node->getAttribute('type')) === 'checkbox') {
             $bracket = $this->session->orderedTaskBrackets[spl_object_id($node)] ?? null;
 
-            return $bracket === null ? [] : [['type' => 'text', 'value' => $bracket]];
+            return $bracket === null ? [] : [HtmlImportNodes::text($bracket)];
         }
 
         if ($this->isBlock($node)) {
@@ -3909,9 +3922,9 @@ final class HtmlAstBuilder
                 }
                 if ($associated || $base === []) {
                     self::flushRubyRun($run, $output);
-                    $output[] = ['type' => 'text', 'value' => '('];
+                    $output[] = HtmlImportNodes::text('(');
                     array_push($output, ...$annotation);
-                    $output[] = ['type' => 'text', 'value' => ')'];
+                    $output[] = HtmlImportNodes::text(')');
                 } else {
                     $run[] = ['base' => $base, 'annotation' => $annotation];
                     $base = [];
@@ -3942,9 +3955,9 @@ final class HtmlAstBuilder
         }
         self::flushRubyRun($run, $output);
         foreach ($rtc as $content) {
-            $output[] = ['type' => 'text', 'value' => '('];
+            $output[] = HtmlImportNodes::text('(');
             array_push($output, ...$content);
-            $output[] = ['type' => 'text', 'value' => ')'];
+            $output[] = HtmlImportNodes::text(')');
         }
 
         if ($output === []) {
@@ -4381,7 +4394,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return MathNode|null
      */
     private function delimitedMath(DOMElement $node): ?array
     {
@@ -4506,7 +4519,7 @@ final class HtmlAstBuilder
         foreach ($blocks as $block) {
             $children = $this->projectToInlines($block);
             if ($out !== [] && $children !== []) {
-                $out[] = ['type' => 'text', 'value' => ' '];
+                $out[] = HtmlImportNodes::text(' ');
             }
             foreach ($children as $child) {
                 $out[] = $child;
@@ -4610,7 +4623,7 @@ final class HtmlAstBuilder
             foreach (self::nodeList($node['items'] ?? null) as $item) {
                 $projected = $this->projectToInlines($item);
                 if ($out !== [] && $projected !== []) {
-                    $out[] = ['type' => 'text', 'value' => ' '];
+                    $out[] = HtmlImportNodes::text(' ');
                 }
                 array_push($out, ...$projected);
             }
@@ -4629,7 +4642,7 @@ final class HtmlAstBuilder
                 foreach (self::nodeList($row['cells'] ?? null) as $cell) {
                     $projected = $this->projectToInlines($cell);
                     if ($out !== [] && $projected !== []) {
-                        $out[] = ['type' => 'text', 'value' => ' '];
+                        $out[] = HtmlImportNodes::text(' ');
                     }
                     array_push($out, ...$projected);
                 }
@@ -4653,7 +4666,7 @@ final class HtmlAstBuilder
                     && !$this->inlineEndsWithSpace($out[count($out) - 1])
                     && !$this->inlineStartsWithSpace($projected[0])
                 ) {
-                    $out[] = ['type' => 'text', 'value' => ' '];
+                    $out[] = HtmlImportNodes::text(' ');
                 }
                 foreach ($projected as $inline) {
                     $out[] = $inline;

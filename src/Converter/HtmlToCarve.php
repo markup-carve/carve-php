@@ -394,19 +394,7 @@ class HtmlToCarve
         try {
             $diagnostics = $this->inspectImportLoss($html);
         } finally {
-            $this->inspectedCarve = null;
-            $this->emittedHasRawHtml = null;
-            $this->builtImportDocument = null;
-            $this->summaryImportTitles = null;
-            $this->keptRawImportElements = null;
-            $this->droppedEmptyImportElements = null;
-            $this->droppedEmptyImportHeadings = null;
-            $this->urlListImportCarriers = null;
-            $this->droppedBlankImportRows = null;
-            $this->mergedImportDefinitionLists = null;
-            $this->flattenedImportSummaryBlocks = null;
-            $this->entrylessImportDefinitionLists = [];
-            $this->displacedImportFigureAttributes = [];
+            $this->releaseImportInspection();
         }
 
         return new HtmlImportResult(
@@ -415,6 +403,38 @@ class HtmlToCarve
             $this->importAdapter,
             $diagnostics,
         );
+    }
+
+    private function releaseImportInspection(): void
+    {
+        $this->inspectedContentKey = null;
+        $this->inspectedCarve = null;
+        $this->emittedHasRawHtml = null;
+        $this->builtImportDocument = null;
+        $this->summaryImportTitles = null;
+        $this->keptRawImportElements = null;
+        $this->droppedEmptyImportElements = null;
+        $this->droppedEmptyImportHeadings = null;
+        $this->urlListImportCarriers = null;
+        $this->droppedBlankImportRows = null;
+        $this->mergedImportDefinitionLists = null;
+        $this->flattenedImportSummaryBlocks = null;
+        $this->entrylessImportDefinitionLists = [];
+        $this->displacedImportFigureAttributes = [];
+    }
+
+    private function captureBuiltImport(HtmlImportSession $session): void
+    {
+        $this->builtImportDocument = $session->builtDocument;
+        $this->summaryImportTitles = $session->summaryTitles;
+        $this->keptRawImportElements = $session->keptRawElements;
+        $this->droppedEmptyImportElements = $session->droppedEmptyElements;
+        $this->droppedEmptyImportHeadings = $session->droppedEmptyHeadings;
+        $this->urlListImportCarriers = $session->urlListCarriers;
+        $this->droppedBlankImportRows = $session->droppedBlankTableRows;
+        $this->mergedImportDefinitionLists = $session->mergedDefinitionLists;
+        $this->flattenedImportSummaryBlocks = $session->flattenedSummaryBlocks;
+        $this->displacedImportFigureAttributes = $session->displacedFigureAttributes;
     }
 
     public function convertWithFidelityReport(string $html): MigrationResult
@@ -431,9 +451,7 @@ class HtmlToCarve
      */
     public function convertToAstWithReport(string $html): HtmlImportAstResult
     {
-        $source = $this->convertWithReport($html);
         $normalized = $this->normalizeHtmlForDirectAst($html);
-
         $builder = new HtmlAstBuilder(
             $this->listTableForBlockCells,
             $this->importMode,
@@ -443,35 +461,24 @@ class HtmlToCarve
             $this->labels,
         );
         $result = $builder->buildResult($normalized, strlen($html));
-        $tree = $result->publicTree();
-        $attributes = $result->session->retainedTableAttributes;
-        $partitions = $result->session->retainedTablePartitions;
-        $diagnostics = array_values(array_filter($source->diagnostics, static function (HtmlImportDiagnostic $diagnostic) use ($attributes, $partitions): bool {
-            $path = $diagnostic->path ?? '';
-            if ($diagnostic->code === 'attribute-dropped' && preg_match('/^Dropped unsupported attribute (\S+) on <(?:thead|tbody|tfoot)>$/', $diagnostic->message, $match) === 1 && in_array($match[1], $attributes[$path] ?? [], true)) {
-                return false;
-            }
-            if ($diagnostic->code === 'table-degraded' && isset($partitions[$path]) && preg_match('/^(?:Moved \d+ <tfoot>|Merged \d+ <tbody>|The table head changes from )/', $diagnostic->message) === 1) {
-                return false;
-            }
-
-            return true;
-        }));
+        try {
+            $this->astImportSession = $result->session;
+            $this->captureBuiltImport($result->session);
+            $this->usedStoredRoundTripSource = $this->trustedRoundTrip && $this->singleStoredRoundTripSource($normalized) !== null;
+            $this->inspectedAst = $result;
+            $diagnostics = $this->inspectImportLoss($html);
+        } finally {
+            $this->astImportSession = null;
+            $this->inspectedAst = null;
+            $this->inspectedAstHtml = null;
+            $this->releaseImportInspection();
+        }
 
         return new HtmlImportAstResult(
-            $tree,
-            $source->mode,
-            $source->adapter,
-            array_values(array_filter(
-                $diagnostics,
-                static fn (HtmlImportDiagnostic $diagnostic): bool => !($diagnostic->code === 'structure-unspellable'
-                    && (str_starts_with($diagnostic->message, 'Flattened <ruby> annotations')
-                        // Only a WRITER loses an ordered task item's box (PART 12
-                        // section 16): this tree keeps `checked` on the item, so
-                        // the row the source exit owes would be a loss that did
-                        // not happen here (carve-php#2381).
-                        || $diagnostic->message === self::ORDERED_TASK_ITEM_UNSPELLABLE)),
-            )),
+            $result->publicTree(),
+            $this->importMode,
+            $this->importAdapter,
+            $diagnostics,
         );
     }
 
@@ -492,6 +499,7 @@ class HtmlToCarve
     {
         // Built on first demand, from the output of THIS conversion, and only
         // if the walk actually reaches a question that needs it.
+        $this->inspectedContentKey = null;
         $this->survivingImportAttributes = null;
         $this->emittedImportValues = [];
 
@@ -525,6 +533,7 @@ class HtmlToCarve
             // the pool before rebuilding it. `finally`, so a throwing walk
             // cannot leave one behind. The observation read off the same
             // render goes with it, for the same reason.
+            $this->inspectedContentKey = null;
             $this->survivingImportAttributes = null;
             $this->emittedImportValues = [];
         }
@@ -768,7 +777,7 @@ class HtmlToCarve
                     'info',
                     $path,
                 );
-            } elseif ($this->inspectedOrderedTaskCheckbox !== null) {
+            } elseif ($this->inspectedOrderedTaskCheckbox !== null && $this->astImportSession === null) {
                 // The row the box's own loss owes, in place of the element and
                 // attribute rows it would otherwise spend: a Carve task marker
                 // is spelled behind a bullet only, so the characters survive and
@@ -1222,7 +1231,7 @@ class HtmlToCarve
         if ($base) {
             $this->addImportDiagnostic($diagnostics, 'element-unwrapped', 'Unwrapped ruby base with no annotation', 'info', $path);
         }
-        if ($paired) {
+        if ($paired && $this->astImportSession === null) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'structure-unspellable',
@@ -1843,9 +1852,14 @@ class HtmlToCarve
             return true;
         }
 
-        $emitted = (string)preg_replace('/[^\p{L}\p{N}]+/u', '', $this->inspectedCarve ?? '');
+        if ($this->inspectedContentKey === null) {
+            $text = $this->inspectedAst !== null
+                ? html_entity_decode(strip_tags($this->inspectedAstHtml()), ENT_QUOTES | ENT_HTML5, 'UTF-8')
+                : ($this->inspectedCarve ?? '');
+            $this->inspectedContentKey = (string)preg_replace('/[^\p{L}\p{N}]+/u', '', $text);
+        }
 
-        return str_contains($emitted, $key);
+        return str_contains($this->inspectedContentKey, $key);
     }
 
     /**
@@ -2347,6 +2361,8 @@ class HtmlToCarve
                 && preg_match('/[\r\n]/', $attribute->value) === 1
             ) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . '>: its value spans a line break, which a Carve attribute value cannot', 'warning', $path);
+            } elseif (in_array($name, $this->astImportSession?->retainedTableAttributes[$path] ?? [], true)) {
+                continue;
             } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
@@ -2813,7 +2829,7 @@ class HtmlToCarve
                 $path,
             );
         }
-        if ($footRows > 0) {
+        if ($footRows > 0 && !isset($this->astImportSession?->retainedTablePartitions[$path])) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'table-degraded',
@@ -2822,7 +2838,7 @@ class HtmlToCarve
                 $path,
             );
         }
-        if ($bodyGroups > 1) {
+        if ($bodyGroups > 1 && !isset($this->astImportSession?->retainedTablePartitions[$path])) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'table-degraded',
@@ -2870,7 +2886,7 @@ class HtmlToCarve
             $derived++;
         }
 
-        if ($declared === $derived) {
+        if ($declared === $derived || isset($this->astImportSession?->retainedTablePartitions[$path])) {
             return;
         }
 
@@ -3240,12 +3256,14 @@ class HtmlToCarve
         // questions looking at an empty document rather than the last one.
         $this->emittedImportValues = [];
 
-        if (trim($carve) === '') {
+        if ($this->inspectedAst === null && trim($carve) === '') {
             return [];
         }
 
         try {
-            $html = (new CarveConverter())->convert($carve);
+            $html = $this->inspectedAst !== null
+                ? $this->inspectedAstHtml()
+                : (new CarveConverter())->convert($carve);
         } catch (Throwable) {
             return [];
         }
@@ -3529,16 +3547,7 @@ class HtmlToCarve
         $result = $builder->buildResult($normalized, strlen($html));
         $tree = $result->tree;
         if ($this->captureImportIdentity) {
-            $this->builtImportDocument = $result->session->builtDocument;
-            $this->summaryImportTitles = $result->session->summaryTitles;
-            $this->keptRawImportElements = $result->session->keptRawElements;
-            $this->droppedEmptyImportElements = $result->session->droppedEmptyElements;
-            $this->droppedEmptyImportHeadings = $result->session->droppedEmptyHeadings;
-            $this->urlListImportCarriers = $result->session->urlListCarriers;
-            $this->droppedBlankImportRows = $result->session->droppedBlankTableRows;
-            $this->mergedImportDefinitionLists = $result->session->mergedDefinitionLists;
-            $this->flattenedImportSummaryBlocks = $result->session->flattenedSummaryBlocks;
-            $this->displacedImportFigureAttributes = $result->session->displacedFigureAttributes;
+            $this->captureBuiltImport($result->session);
         }
         $document = (new AstCodec())->decodeImporterTree($tree);
 
@@ -4674,6 +4683,29 @@ class HtmlToCarve
      * standing would let a later walk read the previous document's output.
      */
     protected ?string $inspectedCarve = null;
+
+    private ?HtmlImportSession $astImportSession = null;
+
+    private ?HtmlAstBuildResult $inspectedAst = null;
+
+    private ?string $inspectedAstHtml = null;
+
+    private ?string $inspectedContentKey = null;
+
+    private function inspectedAstHtml(): string
+    {
+        if ($this->inspectedAstHtml === null) {
+            try {
+                $this->inspectedAstHtml = $this->inspectedAst !== null
+                    ? (new HtmlRenderer())->render((new AstCodec())->decodeImporterTree($this->inspectedAst->tree))
+                    : '';
+            } catch (Throwable) {
+                $this->inspectedAstHtml = '';
+            }
+        }
+
+        return $this->inspectedAstHtml;
+    }
 
     private ?DOMDocument $builtImportDocument = null;
 
