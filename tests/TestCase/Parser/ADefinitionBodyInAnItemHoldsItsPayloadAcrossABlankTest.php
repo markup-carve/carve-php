@@ -76,14 +76,6 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
                 . "        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n",
         ];
 
-        // TWO blanks, so the lookahead walks past one to reach the payload. A
-        // run of blanks is still one separator between the body's blocks.
-        yield 'two blank lines above a payload at the body column' => [
-            "- intro\n  :: term\n  : definition\n\n\n    > quote\n",
-            "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>definition</p>\n"
-                . "        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n",
-        ];
-
         yield 'a second entry follows the payload in ONE list' => [
             "- intro\n  :: t1\n  : d1\n\n    > q\n  :: t2\n  : d2\n",
             "<ul>\n  <li>intro\n    <dl>\n      <dt>t1</dt>\n      <dd>\n        <p>d1</p>\n"
@@ -101,6 +93,13 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
      */
     public static function outsideTheDescription(): iterable
     {
+        // Two blanks end the description even when the next block reaches its column.
+        yield 'two blank lines above a payload at the body column' => [
+            "- intro\n  :: term\n  : definition\n\n\n    > quote\n",
+            "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
+                . "    <blockquote><p>quote</p></blockquote>\n  </li>\n</ul>\n",
+        ];
+
         yield 'one-space separator, quote one column short' => [
             "- intro\n  :: term\n  : definition\n\n   > quote\n",
             "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
@@ -141,7 +140,7 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
     }
 
     #[DataProvider('outsideTheDescription')]
-    public function testPayloadBelowTheBodyColumnStaysOutsideTheDescription(string $source, string $expected): void
+    public function testPayloadOutsideTheBodyStaysOutsideTheDescription(string $source, string $expected): void
     {
         $this->assertSame($expected, $this->html($source));
     }
