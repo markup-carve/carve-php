@@ -20,6 +20,7 @@ class P1ImportParityTest extends TestCase
                 '`code`__bold__' => '<p><code>code</code><strong>bold</strong></p>',
                 '__bold__`code`' => '<p><strong>bold</strong><code>code</code></p>',
                 '[a](http://x)__b__' => '<p><a href="http://x">a</a><strong>b</strong></p>',
+                '***foo**' => '<p>*<strong>foo</strong></p>',
                 '*(*word*)*' => '<p><em>(word)</em></p>',
                 '__one __two__ three__' => '<p><strong>one two three</strong></p>',
                 'alpha*beta*gamma' => '<p>alpha<em>beta</em>gamma</p>',

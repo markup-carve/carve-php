@@ -12,7 +12,7 @@ final class MarkdownEmphasis
      * @param string $source
      * @param \Closure|null $onFlatten
      * @param \Closure|null $onStep
-@param list<string> $protectedSpans
+     * @param array<string> $protectedSpans
      */
     public static function convert(string $source, ?Closure $onFlatten = null, ?Closure $onStep = null, array $protectedSpans = []): string
     {
