@@ -166,13 +166,13 @@ class MarkdownToCarveTest extends TestCase
                 '<https://example.com/_v1_/index>',
                 '<https://example.com/_v1_/index>',
             ],
-            'does not convert delimiters inside image alt text' => [
+            'removes Markdown formatting from image alt text' => [
                 '![*logo*](/x.png)',
-                '![*logo*](/x.png)',
+                '![logo](/x.png)',
             ],
             'protects image alt text containing nested brackets' => [
                 '![*logo* [small]](/x.png)',
-                '![*logo* [small]](/x.png)',
+                '![logo [small]](/x.png)',
             ],
             'reduces an extended fence info string to its language' => [
                 "```js title=\"demo\"\n*a*\n```",
