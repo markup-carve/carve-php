@@ -9,11 +9,11 @@ use LogicException;
 use MarkupCarve\Carve\CarveConverter;
 
 /**
- * Source-authoritative UTF-8 editing with a full parse after each update.
+ * Source-authoritative UTF-8 editing with conservative paragraph reuse.
  *
  * @phpstan-type MappedNode array{path: string, startByte: int, endByte: int, type: string|null, tokens: list<array{role: string, startByte: int, endByte: int}>}
- * @phpstan-type Snapshot array{revision: int, encoding: 'utf-8', source: string, ast: array<string, mixed>, layout: array<string, mixed>, nodes: list<array{path: string, startByte: int, endByte: int, type: string|null, tokens: list<array{role: string, startByte: int, endByte: int}>}>, identity: array{version: 1, session: string, nodes: list<array{id: string, path: string}>}}
- * @phpstan-type Update array{revision: int, encoding: 'utf-8', source: string, ast: array<string, mixed>, layout: array<string, mixed>, nodes: list<array{path: string, startByte: int, endByte: int, type: string|null, tokens: list<array{role: string, startByte: int, endByte: int}>}>, identity: array{version: 1, session: string, nodes: list<array{id: string, path: string}>}, changedPaths: list<string>}
+ * @phpstan-type Snapshot array{parsedSourceBytes: int, reusedPreviousTree: bool, revision: int, encoding: 'utf-8', source: string, ast: array<string, mixed>, layout: array<string, mixed>, nodes: list<array{path: string, startByte: int, endByte: int, type: string|null, tokens: list<array{role: string, startByte: int, endByte: int}>}>, identity: array{version: 1, session: string, nodes: list<array{id: string, path: string}>}}
+ * @phpstan-type Update array{parsedSourceBytes: int, reusedPreviousTree: bool, revision: int, encoding: 'utf-8', source: string, ast: array<string, mixed>, layout: array<string, mixed>, nodes: list<array{path: string, startByte: int, endByte: int, type: string|null, tokens: list<array{role: string, startByte: int, endByte: int}>}>, identity: array{version: 1, session: string, nodes: list<array{id: string, path: string}>}, changedPaths: list<string>}
  */
 final class EditorSession
 {
@@ -138,7 +138,13 @@ final class EditorSession
      */
     private function build(string $source, int $revision, array $changes): array
     {
-        $parsed = $this->converter->parseWithSourceLayout($source);
+        $parsedSourceBytes = 0;
+        $parsed = $this->reparseParagraph($source, $changes, $parsedSourceBytes);
+        $reusedPreviousTree = $parsed !== null && ($changes === [] || (is_array($parsed['ast']['children'] ?? null) && count($parsed['ast']['children']) > 1));
+        if ($parsed === null) {
+            $parsedSourceBytes += strlen($source);
+            $parsed = $this->converter->parseWithSourceLayout($source);
+        }
         $ast = $parsed['ast'];
         $validPaths = array_fill_keys(SidecarPath::nodePaths($ast), true);
         $nodes = [];
@@ -194,6 +200,8 @@ final class EditorSession
         }
 
         return [
+            'parsedSourceBytes' => $parsedSourceBytes,
+            'reusedPreviousTree' => $reusedPreviousTree,
             'revision' => $revision,
             'encoding' => 'utf-8',
             'source' => $source,
@@ -202,6 +210,155 @@ final class EditorSession
             'nodes' => $nodes,
             'identity' => $this->identity->emit($ast, $retained),
         ];
+    }
+
+    /**
+     * @param mixed $node
+     *
+     * @return array{startOffset: int, endOffset: int, startLine: int, endLine: int, startColumn: int, endColumn: int}|null
+     */
+    private static function position(mixed $node): ?array
+    {
+        $pos = is_array($node) ? ($node['pos'] ?? null) : null;
+        if (
+            !is_array($pos) || !is_int($pos['startOffset'] ?? null) || !is_int($pos['endOffset'] ?? null)
+            || !is_int($pos['startLine'] ?? null) || !is_int($pos['endLine'] ?? null)
+            || !is_int($pos['startColumn'] ?? null) || !is_int($pos['endColumn'] ?? null)
+        ) {
+            return null;
+        }
+
+        return $pos;
+    }
+
+    /**
+     * @param string $source
+@param array<string, mixed> $ast
+     */
+    private static function reusableParagraphs(string $source, array $ast): bool
+    {
+        if (
+            preg_match('/\A[\pL\pN\pM .,!?\n]*\z/u', $source) !== 1
+            || !is_array($ast['children'] ?? null) || $ast['children'] === [] || !array_is_list($ast['children'])
+        ) {
+            return false;
+        }
+        foreach ($ast['children'] as $block) {
+            $pos = self::position($block);
+            if (
+                !is_array($block) || ($block['type'] ?? null) !== 'paragraph' || isset($block['attrs'])
+                || $pos === null || $pos['startColumn'] !== 1 || $pos['startLine'] !== $pos['endLine']
+                || !is_array($block['children'] ?? null)
+            ) {
+                return false;
+            }
+            foreach ($block['children'] as $inline) {
+                if (!is_array($inline) || ($inline['type'] ?? null) !== 'text' || self::position($inline) === null) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param int $lines
+     * @param int $offset
+     *
+     * @return array<mixed>
+     */
+    private static function shiftParagraph(array $node, int $offset, int $lines): array
+    {
+        $pos = self::position($node);
+        if ($pos !== null) {
+            $pos['startOffset'] += $offset;
+            $pos['endOffset'] += $offset;
+            $pos['startLine'] += $lines;
+            $pos['endLine'] += $lines;
+            $node['pos'] = $pos;
+        }
+        if (is_array($node['children'] ?? null)) {
+            foreach ($node['children'] as $key => $child) {
+                if (is_array($child)) {
+                    $node['children'][$key] = self::shiftParagraph($child, $offset, $lines);
+                }
+            }
+        }
+
+        return $node;
+    }
+
+    /**
+     * @param string $source
+     * @param list<array{from: int, to: int, insert: string}> $changes
+     * @param int $parsedBytes
+     *
+     * @return array{ast: array<string, mixed>, layout: array<string, mixed>}|null
+     */
+    private function reparseParagraph(string $source, array $changes, int &$parsedBytes): ?array
+    {
+        if ($this->current === null || !$this->converter->supportsIncrementalParagraphReuse()) {
+            return null;
+        }
+        $previous = $this->current;
+        $ast = $previous['ast'];
+        if (!self::reusableParagraphs($previous['source'], $ast)) {
+            return null;
+        }
+        if ($changes === []) {
+            return ['ast' => $ast, 'layout' => $previous['layout']];
+        }
+        if (count($changes) !== 1 || !is_array($ast['children'] ?? null)) {
+            return null;
+        }
+        $change = $changes[0];
+        if (preg_match('/\A[\pL\pN\pM .,!?]*\z/u', $change['insert']) !== 1) {
+            return null;
+        }
+        $offsets = [0];
+        $bytes = 0;
+        foreach (preg_split('//u', $previous['source'], -1, PREG_SPLIT_NO_EMPTY) ?: [] as $char) {
+            $bytes += strlen($char);
+            $offsets[] = $bytes;
+        }
+        foreach ($ast['children'] as $index => $block) {
+            $pos = self::position($block);
+            if ($pos === null) {
+                return null;
+            }
+            $start = $offsets[$pos['startOffset']] ?? null;
+            $end = $offsets[$pos['endOffset']] ?? null;
+            if ($start === null || $end === null || $change['from'] < $start || $change['to'] > $end) {
+                continue;
+            }
+            $fragment = substr($previous['source'], $start, $change['from'] - $start) . $change['insert']
+                . substr($previous['source'], $change['to'], $end - $change['to']);
+            if ($fragment === '' || str_contains($fragment, "\n") || str_starts_with($fragment, ' ') || str_ends_with($fragment, ' ')) {
+                return null;
+            }
+            $parsedBytes += strlen($fragment);
+            $replacement = $this->converter->parseWithSourceLayout($fragment)['ast'];
+            if (
+                !self::reusableParagraphs($fragment, $replacement) || !is_array($replacement['children'] ?? null)
+                || count($replacement['children']) !== 1 || !is_array($replacement['children'][0] ?? null)
+            ) {
+                return null;
+            }
+            $delta = mb_strlen($fragment, 'UTF-8') - ($pos['endOffset'] - $pos['startOffset']);
+            $ast['children'][$index] = self::shiftParagraph($replacement['children'][0], $pos['startOffset'], $pos['startLine'] - 1);
+            foreach ($ast['children'] as $following => $node) {
+                if ($following > $index && is_array($node)) {
+                    $ast['children'][$following] = self::shiftParagraph($node, $delta, 0);
+                }
+            }
+            $ast['srcByteLength'] = strlen($source);
+
+            return ['ast' => $ast, 'layout' => SourceLayout::build($source, $ast)];
+        }
+
+        return null;
     }
 
     /**
