@@ -1097,6 +1097,20 @@ class MarkdownToCarve
             if ($isList) {
                 $body = $this->normalizeHeldQuoteMarkers($this->escapeTaskItemOpener($body));
             }
+            // Pair emphasis across the ordinary paragraph. Quotes and list
+            // items retain their container collectors.
+            if (!$isHeading && !$isList && !$isBlockquote && $listCols === [] && strpbrk($body, '*_') !== false) {
+                $run = [$body];
+                while ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '' && ($this->isParagraphLine($lines, $i + 1) || $this->indentWidth($lines[$i + 1]) >= 4)) {
+                    $next = $lines[++$i];
+                    if ($this->indentWidth($next) >= 4) {
+                        $next = $this->escapeBlockOpener(ltrim($next, " \t"));
+                    }
+                    $next = $this->escapeDefinitionContinuation($next, $lines[$i - 1], (string)end($run));
+                    $run[] = $this->escapeCarveOnlyMarker($next);
+                }
+                $body = implode("\n", $run);
+            }
             $converted = $this->convertInlineFormatting($body);
 
             // A Markdown HARD BREAK is two or more spaces at the end of a line;
@@ -3893,6 +3907,7 @@ class MarkdownToCarve
         };
 
         $line = $this->protectCodeSpans($line, $protect);
+        $line = preg_replace('/ {2,}\n/', "\\\n", $line) ?? $line;
 
         // Carve has no pointy destination, so `<a b>` is written as `a%20b`
         // before the angle brackets can read as raw HTML.
@@ -4202,6 +4217,10 @@ class MarkdownToCarve
         $line = $this->escapeTypographicDashes($line);
         if (!$this->convertAttributes) {
             $line = $this->escapeAttributeListsThatAttach($line);
+        }
+
+        if (!$this->convertAttributes) {
+            $line = preg_replace('/["\']/', '\\\\$0', $line) ?? $line;
         }
 
         // Restore stashes and protected spans until stable: a protected or
@@ -4926,7 +4945,7 @@ class MarkdownToCarve
      */
     protected function escapeDecodedCharacterReference(string $text): string
     {
-        return preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-])/', '\\\\$1', $text) ?? $text;
+        return preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-"\'])/', '\\\\$1', $text) ?? $text;
     }
 
     /**
