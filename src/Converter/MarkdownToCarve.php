@@ -3963,7 +3963,6 @@ class MarkdownToCarve
         };
 
         $line = $this->protectCodeSpans($line, $protect);
-        $line = preg_replace('/ {2,}\n/', "\\\n", $line) ?? $line;
 
         // Carve has no pointy destination, so `<a b>` is written as `a%20b`
         // before the angle brackets can read as raw HTML.
@@ -4120,7 +4119,7 @@ class MarkdownToCarve
         };
 
         $line = preg_replace_callback(
-            '/(!?\[(?:[^\[\]\n]|\[[^\]\n]*\])*\])(\((?:[^()\s]|\([^()\n]*\))+[ \t]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\')[ \t]*\))/',
+            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\]\n]|\n(?![ \t]*\n))*\])*\])(\((?:[^()\s]|\([^()\n]*\))+[ \t]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\')[ \t]*\))/',
             fn (array $match): string => str_starts_with($match[1], '!')
                 ? $protect($match[1] . $encodeDest($match[2]))
                 : $match[1] . $protect($encodeDest($match[2])),
@@ -4222,6 +4221,8 @@ class MarkdownToCarve
             $line = $this->escapeAttributeBlockOpener($line);
         }
 
+        $line = preg_replace('/ {2,}\n/', "\\\n", $line) ?? $line;
+
         $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
         $line = $this->restoreNumericReferenceHashes($line);
 
@@ -4292,10 +4293,20 @@ class MarkdownToCarve
         }
 
         if ($this->convertAttributes) {
+            $wholeLine = trim($line);
+            $subject = $line;
             $line = preg_replace_callback(
                 '/(?<!\\\\)\{((?:[^{}"\'\\\\]|\\\\.|"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')*)\}/',
-                fn (array $match): string => AttributeParser::isValidPayload($match[1]) ? $protect($match[0]) : $match[0],
+                static function (array $match) use ($wholeLine, $subject, $protect): string {
+                    $offset = $match[0][1];
+                    $before = $offset > 0 ? $subject[$offset - 1] : '';
+                    $attached = preg_match('/[\x00\]\\/*_~=,^}]/', $before) === 1;
+
+                    return ($wholeLine === $match[0][0] || $attached) && AttributeParser::isValidPayload($match[1][0])
+                        ? $protect($match[0][0]) : $match[0][0];
+                },
                 $line,
+                flags: PREG_OFFSET_CAPTURE,
             ) ?? $line;
         }
         $line = preg_replace_callback('/["\']|\x00P(\d+)\x00/', static function (array $match) use ($protected): string {

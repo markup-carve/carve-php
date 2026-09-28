@@ -13,6 +13,9 @@ class MarkdownEmphasisFidelityTest extends TestCase
     public function testInlineMeaning(): void
     {
         $cases = [
+            ["[a\nb](/u \"t\nx\")", "<p><a href=\"/u\" title=\"t\nx\">a\nb</a></p>"],
+            ["> [a\n> b](/u \"t\n> x\")", "<blockquote><p><a href=\"/u\" title=\"t\nx\">a\nb</a></p></blockquote>"],
+
             ['![&quot;alt&quot;](/i)', '<img src="/i" alt="&quot;alt&quot;">'],
             ["[l](/u \"t\nx\")", "<p><a href=\"/u\" title=\"t\nx\">l</a></p>"],
             ["![a](/i \"t\nx\")", "<img src=\"/i\" alt=\"a\" title=\"t\nx\">"],
@@ -66,5 +69,21 @@ class MarkdownEmphasisFidelityTest extends TestCase
     {
         $written = (new MarkdownToCarve())->convert('[link](/url "title "and" title")');
         $this->assertStringNotContainsString('<a ', (new CarveConverter())->convert($written));
+    }
+
+    public function testRawHtmlRetainsItsSpaces(): void
+    {
+        foreach (["<span title=\"x  \ny\">b</span>", "<!-- x  \ny -->"] as $html) {
+            $written = (new MarkdownToCarve())->convert('*a ' . $html . "\nc*");
+            $this->assertStringContainsString($html, $written);
+            $this->assertStringNotContainsString("x\\\ny", $written);
+        }
+    }
+
+    public function testUnattachedAttributesRemainText(): void
+    {
+        $source = '"a" {.c title="x y"} \'b\'';
+        $written = (new MarkdownToCarve(convertAttributes: true))->convert($source);
+        $this->assertSame('<p>"a" {.c title="x y"} \'b\'</p>', rtrim((new CarveConverter())->convert($written), "\n"));
     }
 }
