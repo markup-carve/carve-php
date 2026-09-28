@@ -4428,10 +4428,15 @@ class InlineParser
         // character either. `\s` is byte-based and let one through, so
         // `[x](<U+202F>https://e.com)` linked with the invisible
         // character sitting in the href (carve#404).
+        //
+        // An angle bracket is an ordinary `destination_char`, so nothing here
+        // rejects `<foo>`: PART 3's "there is NO angle-bracket-wrapped
+        // destination form" says the brackets are not STRIPPED, and `[t](<u v>)`
+        // is refused by the whitespace test above and not by its brackets
+        // (carve-php#2641).
         if (
             $url === ''
             || preg_match('/[\p{Z}\x{0009}-\x{000D}\x{0085}]/u', $url)
-            || (str_starts_with($url, '<') && str_ends_with($url, '>'))
         ) {
             return $this->destinationScans[$urlStart] = $notADestination;
         }
