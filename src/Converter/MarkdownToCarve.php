@@ -4126,7 +4126,7 @@ class MarkdownToCarve
                 $rest = $title[1] . $title[2] . $escaped . $title[2] . $title[4];
             }
 
-            return '(' . str_replace(['(', ')'], ['%28', '%29'], $url) . $rest . ')';
+            return '(' . str_replace(['(', ')'], ['%28', '%29'], $this->encodeMarkdownDestination($url, $protected)) . $rest . ')';
         };
 
         $line = preg_replace_callback(
@@ -4181,9 +4181,21 @@ class MarkdownToCarve
         // on a nested item's marker line too, which is where fmt writes it.
         $line = preg_replace_callback(
             '/^([ \t]*' . self::DEFINITION_MARKER . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
-            fn (array $match): string => isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])
-                ? $match[1] . $protect($match[2])
-                : $match[0],
+            function (array $match) use ($protect, $protected): string {
+                if (!isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])) {
+                    return $match[0];
+                }
+                $definition = preg_replace_callback(
+                    '/^(\[[^\]]*\]:[ \t]*)(<[^>\n]*>|[^ \t\n]+)(.*)$/s',
+                    fn (array $parts): string => $parts[1] . $this->encodeMarkdownDestination(
+                        str_starts_with($parts[2], '<') ? substr($parts[2], 1, -1) : $parts[2],
+                        $protected,
+                    ) . $parts[3],
+                    $match[2],
+                ) ?? $match[2];
+
+                return $match[1] . $protect($definition);
+            },
             $line,
         ) ?? $line;
         // Carve has no shortcut reference, so a defined `[r]` is written in the
@@ -4998,6 +5010,17 @@ class MarkdownToCarve
         $url = preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $pointy) ?? $pointy;
 
         return preg_replace_callback('/[\s()<>\\\\]/', static fn (array $match): string => rawurlencode($match[0]), $url) ?? $url;
+    }
+
+    /**
+     * @param string $url
+     * @param array<string> $protected
+     */
+    protected function encodeMarkdownDestination(string $url, array $protected = []): string
+    {
+        $decoded = $this->decodeLinkTitle($url, $protected);
+
+        return preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
     }
 
     protected function normalizeReferenceLabel(string $label): string

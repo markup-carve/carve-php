@@ -79,7 +79,7 @@ class AnEmptyMarkdownDestinationIsNotALinkTest extends TestCase
     public static function kept(): array
     {
         return [
-            'a quoted destination after a space' => ['[u]( "t")', '[u]("t")'],
+            'a quoted destination after a space' => ['[u]( "t")', '[u](%22t%22)'],
             'spaces around a destination' => ['[k]( /u )', '[k](/u)'],
             'a definition interrupting a paragraph' => ["text\n[p]: <>", "text\n\\[p]: <>"],
             'a definition lazily continuing a quoted paragraph' => ["> text\n[p]: <>", "> text\n> \\[p]: <>"],
