@@ -7579,6 +7579,17 @@ class BlockParser
                 continue;
             }
 
+            // A COMMENT FENCE'S CLOSER IS THE SAME DELIMITER AT EVERY COLUMN
+            // (PART 9 §28, markup-carve/carve#2471), so the tracker has to see
+            // the below-column lines too. Advanced only inside the branch
+            // above, a closer written BELOW the item's content column left the
+            // span latched: the blank under it then read as fence payload
+            // rather than as the separator §17 L1 decides looseness from, and
+            // the item came out TIGHT where every other reader says LOOSE.
+            if ($openCommentLength !== null) {
+                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $nextTrimmed, $lines, $i);
+            }
+
             // A FRAMED LINE IS THE OPEN FENCE'S BODY, not the end of the item
             // (markup-carve/carve-php#1900). The frame says an ENCLOSING
             // container already folded this line in below its own column, so it
