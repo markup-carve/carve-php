@@ -26,4 +26,11 @@ class DjotEscapedEmphasisTest extends TestCase
             $this->assertSame($expected, rtrim((new CarveConverter())->convert($written), "\n"));
         }
     }
+
+    public function testEscapedNewlinesCannotHideParagraphBoundaries(): void
+    {
+        foreach (["_a\\\n\nb_", "_a\\\n  \nb_", "a_b\\\n\nc_d"] as $source) {
+            $this->assertSame($source, (new DjotToCarve())->convert($source));
+        }
+    }
 }
