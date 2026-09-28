@@ -1218,7 +1218,8 @@ class MarkdownToCarve
 
     public function convertWithFidelityReport(string $markdown): MigrationResult
     {
-        $result = $this->unverifiedMigrationResult($this->convert($markdown), 'markdown');
+        $value = $this->convert($markdown);
+        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== []);
         if ($this->unspellableOrderedTasks === []) {
             return $result;
         }

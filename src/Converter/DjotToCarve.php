@@ -221,7 +221,7 @@ class DjotToCarve
 
     public function convertWithFidelityReport(string $djot): MigrationResult
     {
-        return $this->unverifiedMigrationResult($this->convert($djot), 'djot');
+        return $this->assessedMigrationResult($djot, $this->convert($djot), 'djot');
     }
 
     /**

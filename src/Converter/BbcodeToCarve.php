@@ -166,7 +166,7 @@ class BbcodeToCarve
 
     public function convertWithFidelityReport(string $bbcode): MigrationResult
     {
-        return $this->unverifiedMigrationResult($this->convert($bbcode), 'bbcode');
+        return $this->assessedMigrationResult($bbcode, $this->convert($bbcode), 'bbcode');
     }
 
     /**

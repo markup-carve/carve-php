@@ -20,8 +20,20 @@ trait ReportsMigrationFidelity
     public const ORDERED_TASK_ITEM_UNSPELLABLE = 'An ordered task item is not spellable as a Carve task item; '
         . 'the checkbox marker was kept as text';
 
-    protected function unverifiedMigrationResult(string $value, string $format): MigrationResult
+    protected function assessedMigrationResult(string $source, string $value, string $format, bool $hasKnownLosses = false): MigrationResult
     {
+        $literal = rtrim(str_replace(["\r\n", "\r"], "\n", $source), "\n");
+        if (!$hasKnownLosses && ($literal === '' || preg_match('/\A[\p{L}\p{N}]+(?: [\p{L}\p{N}]+)*\z/u', $literal) === 1) && rtrim($value, "\n") === $literal) {
+            return new MigrationResult($value, $format, [
+                new MigrationDiagnostic(
+                    'literal-text-verified',
+                    'Verified the complete input as literal text.',
+                    'info',
+                    'preserved',
+                    'exact',
+                ),
+            ]);
+        }
         $diagnostics = [
             new MigrationDiagnostic(
                 'fidelity-unverified',
