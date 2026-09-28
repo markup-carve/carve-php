@@ -71,7 +71,7 @@ class MarkdownHtmlAndCharacterReferenceTest extends TestCase
     {
         $converter = new MarkdownToCarve();
 
-        $this->assertSame('`<span>inline</span>`{=html} rest', $converter->convert('<span>inline</span> rest'));
+        $this->assertSame('`<span>`{=html}inline`</span>`{=html} rest', $converter->convert('<span>inline</span> rest'));
         $this->assertSame(
             "```=html\n<details><summary>More</summary>body</details>\n```",
             $converter->convert('<details><summary>More</summary>body</details>'),

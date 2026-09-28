@@ -24,11 +24,11 @@ class MarkdownInlineHtmlEdgesTest extends TestCase
     {
         // The class would be lost if `<b>` converted to `*...*`.
         $this->assertSame(
-            'a `<b class="x">y</b>`{=html} c',
+            'a `<b class="x">`{=html}y`</b>`{=html} c',
             $this->convert("a <b class=\"x\">y</b> c\n"),
         );
         $this->assertSame(
-            'a `<span data-x="1">y</span>`{=html} c',
+            'a `<span data-x="1">`{=html}y`</span>`{=html} c',
             $this->convert("a <span data-x=\"1\">y</span> c\n"),
         );
     }
