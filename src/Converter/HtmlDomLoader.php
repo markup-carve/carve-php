@@ -65,8 +65,59 @@ final class HtmlDomLoader
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
         }
+        self::impliedTableBodies($document);
 
         return $document;
+    }
+
+    /**
+     * Put a table's bare rows and cells in the row group HTML5 implies.
+     *
+     * The HTML5 tree builder opens a `tbody` for every run of rows or cells a
+     * table holds directly, and an implied `tr` for a cell with no row. libxml
+     * leaves both where they were written, so a diagnostic path read off this
+     * tree lost the `tbody` step the other engines report, and the raw-kept
+     * bytes came back a level shallower (markup-carve/carve#2485).
+     *
+     * Each run gets its OWN group, so an explicit `thead` or `tbody` between two
+     * bare rows separates them the way the tree builder does rather than
+     * collecting every row a table holds into one group.
+     */
+    public static function impliedTableBodies(DOMDocument $document): void
+    {
+        /** @var list<\DOMElement> $tables */
+        $tables = iterator_to_array($document->getElementsByTagName('table'));
+        foreach ($tables as $table) {
+            $group = null;
+            $row = null;
+            foreach (iterator_to_array($table->childNodes) as $child) {
+                if (!$child instanceof DOMElement) {
+                    continue;
+                }
+                $name = strtolower(self::elementName($child));
+                if (!in_array($name, ['tr', 'td', 'th'], true)) {
+                    $group = null;
+                    $row = null;
+
+                    continue;
+                }
+                if ($group === null) {
+                    $group = $document->createElement('tbody');
+                    $table->insertBefore($group, $child);
+                }
+                if ($name === 'tr') {
+                    $group->appendChild($child);
+                    $row = null;
+
+                    continue;
+                }
+                if ($row === null) {
+                    $row = $document->createElement('tr');
+                    $group->appendChild($row);
+                }
+                $row->appendChild($child);
+            }
+        }
     }
 
     /**
