@@ -183,6 +183,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected array $bracedSpans = [];
 
     /**
+     * @var array<int, true>
+     */
+    private array $bracedForAttributes = [];
+
+    /**
+     * @var array<int, true>
+     */
+    private array $expandedBoldItalic = [];
+
+    /**
      * Inside an inline note's content, where `^[` opens nothing.
      *
      * PART 9 §16: a note's content is parsed with footnote recognition
@@ -610,6 +620,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->verbatimSentinels = $this->pickVerbatimSentinels($this->collectStrings($document));
         $this->treeCacheSource = null;
         $this->bracedSpans = [];
+        $this->bracedForAttributes = [];
+        $this->expandedBoldItalic = [];
         $this->treeCache = null;
         $this->structuralEscapes = [];
         $this->pairedClosers = [];
@@ -4044,7 +4056,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function spellSameKind(Node $node, string $delimiter, string $written): string
     {
-        if (!str_starts_with($written, '{') && $this->separatesAnOuterKind($node)) {
+        if (!str_starts_with($written, '{') && ($this->separatesAnOuterKind($node) || isset($this->bracedForAttributes[spl_object_id($node)]))) {
             $written = '{' . $written . '}';
         }
 
@@ -4109,10 +4121,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $content = $this->renderInlines($inner->getChildren());
             // `/*` needs content that hugs it: `/* x*/` or `/**/` reparses as an
             // emphasis holding literal stars, so fall back to the nested spelling.
-            if ($content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content)) {
+            if ($content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) && !isset($this->bracedForAttributes[spl_object_id($node)])) {
                 return '/*' . $content . '*/';
             }
         }
+
+        $this->expandedBoldItalic[spl_object_id($node)] = true;
+        unset($this->bracedForAttributes[spl_object_id($node)]);
 
         return $this->renderEmphasis(
             '*',
@@ -4776,7 +4791,39 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return '';
         }
 
-        return $this->renderAttrList($node->getAttributeEntries(), $node->getAttributeOrder());
+        $enclosures = [];
+        $markers = '';
+        for ($parent = $node->getParent(); $parent instanceof InlineNode; $parent = $parent->getParent()) {
+            $marker = match (true) {
+                $parent instanceof Emphasis => '/',
+                $parent instanceof Strong => $parent->isBoldItalic() && !isset($this->expandedBoldItalic[spl_object_id($parent)]) ? '*/' : '*',
+                $parent instanceof Underline => '_',
+                $parent instanceof Strike => '~',
+                $parent instanceof Superscript => '^',
+                $parent instanceof Subscript => ',',
+                $parent instanceof Highlight => '=',
+                $parent instanceof Insert => '+',
+                $parent instanceof Delete => '-',
+                $parent instanceof Substitution => '~',
+                default => '',
+            };
+            if ($marker !== '') {
+                $enclosures[spl_object_id($parent)] = $marker;
+                $markers .= $marker;
+            }
+        }
+        $rendered = $this->renderAttrList($node->getAttributeEntries(), $node->getAttributeOrder(), $markers);
+        $payload = '';
+        foreach ($node->getAttributeEntries() as $key => $value) {
+            $payload .= $key . (is_array($value) ? implode('', $value) : $value);
+        }
+        foreach ($enclosures as $id => $marker) {
+            if (strpbrk($payload, $marker) !== false) {
+                $this->bracedForAttributes[$id] = true;
+            }
+        }
+
+        return $rendered;
     }
 
     /**
@@ -4787,15 +4834,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @param array<string, string|list<string>> $attrs
      * @param list<string> $order
+     * @param string $markers
      */
-    protected function renderAttrList(array $attrs, array $order): string
+    protected function renderAttrList(array $attrs, array $order, string $markers = ''): string
     {
         if ($attrs === []) {
             return '';
         }
         $parts = [];
         $seen = [];
-        $emit = function (string $slot) use (&$parts, &$seen, $attrs): void {
+        $emit = function (string $slot) use (&$parts, &$seen, $attrs, $markers): void {
             if ($slot === '#id') {
                 if (isset($seen['id']) || !array_key_exists('id', $attrs)) {
                     return;
@@ -4805,13 +4853,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if (!is_string($id)) {
                     return;
                 }
-                $parts[] = $this->isExplicitIdOrClassIdentifier($id) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id);
+                $parts[] = $this->isExplicitIdOrClassIdentifier($id) && ($markers === '' || strpbrk($id, $markers) === false) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id, ($markers !== '' && strpbrk($id, $markers) !== false));
 
                 return;
             }
             if ($slot === '.class') {
                 foreach ((array)($attrs['class'] ?? []) as $class) {
-                    $parts[] = $this->isExplicitIdOrClassIdentifier($class)
+                    $parts[] = $this->isExplicitIdOrClassIdentifier($class) && ($markers === '' || strpbrk($class, $markers) === false)
                         ? '.' . $this->escapeAttrNameValue($class)
                         : 'class=' . $this->quoteAttrValue($class, true);
                 }
@@ -4848,7 +4896,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // breaks PART 11 SS1 (carve#1137).
             if ($slot === 'lang' && ($value === '' || preg_match('/^[A-Za-z0-9]{1,8}(?:-[A-Za-z0-9]{1,8})*$/D', $value) === 1)) {
                 $parts[] = ':' . $value;
-            } elseif ($value === '' && $this->isBooleanAttrName($slot)) {
+            } elseif ($value === '' && $this->isBooleanAttrName($slot) && ($markers === '' || strpbrk($slot, $markers) === false)) {
                 // PART 11 SS6c: a value-less attribute comes back as the bare
                 // name, which is the production the language has for it. A key
                 // needing escaping has no bare spelling to fall back to, and
@@ -4858,7 +4906,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // writer would change the document, which PART 11 SS1 forbids.
                 $parts[] = $this->escapeAttrKey($slot);
             } else {
-                $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value);
+                $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value, ($markers !== '' && strpbrk($value, $markers) !== false));
             }
         };
 
