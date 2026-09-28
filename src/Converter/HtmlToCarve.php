@@ -2253,7 +2253,7 @@ class HtmlToCarve
         bool $preserved = false,
         ?string $keptTag = null,
     ): void {
-        $styleSlots = $preserved ? $this->mappedImportStyleSlots($node) : [];
+        $styleSlots = $this->mappedImportStyleSlots($node);
         $covered = $preserved ? [] : $this->coveredImportAttributes;
         if (!$preserved && $tag === 'dl' && isset($this->entrylessImportDefinitionLists[$path])) {
             // The list-specific rows already named these; a refused one still reports.
@@ -2312,6 +2312,8 @@ class HtmlToCarve
                         $path,
                     );
                 }
+            } elseif (isset($styleSlots[$name])) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . '>: a mapped CSS declaration already sets it', 'info', $path);
             } elseif ($name === 'scope' && $tag === 'th' && in_array('scope', $this->tableCellSkipAttributes($node), true)) {
                 // The value this cell's position generates. It is skipped so a
                 // round trip does not write the renderer's own output back as
@@ -3111,6 +3113,13 @@ class HtmlToCarve
             return true;
         }
 
+        if (
+            in_array($name, ['align', 'valign'], true)
+            && $this->consumeSurvivingAttribute("\0css-slot\0" . $name . "\0" . strtolower($value) . "\0" . $tag . "\0" . $this->inspectedContentKey())
+        ) {
+            return true;
+        }
+
         // A browser encodes a space in a URL as `%20` itself, so the writer's
         // `a%20b` is the same destination. Not tabs or newlines: a browser
         // deletes those, so their `%09`/`%0A` is a different URL.
@@ -3261,6 +3270,20 @@ class HtmlToCarve
             foreach ($element->attributes as $attribute) {
                 $name = strtolower(HtmlDomLoader::attributeName($attribute));
                 $value = trim($attribute->value);
+                if ($name === 'style') {
+                    foreach ($this->styleDeclarations($value) as [$property, $styleValue]) {
+                        $slot = match ($property) {
+                            'text-align' => 'align',
+                            'vertical-align' => 'valign',
+                            default => null,
+                        };
+                        if ($slot !== null) {
+                            $content ??= $this->importElementContentKey($element);
+                            $key = "\0css-slot\0" . $slot . "\0" . $styleValue . "\0" . strtolower(HtmlDomLoader::elementName($element)) . "\0" . $content;
+                            $counts[$key] = ($counts[$key] ?? 0) + 1;
+                        }
+                    }
+                }
                 if ($value === '' && in_array($name, self::URL_LIST_ATTRIBUTES, true)) {
                     $counts[$name . "\0\0blanked"] = ($counts[$name . "\0\0blanked"] ?? 0) + 1;
                 }
