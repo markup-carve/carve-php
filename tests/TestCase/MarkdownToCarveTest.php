@@ -52,19 +52,19 @@ class MarkdownToCarveTest extends TestCase
             ],
             'converts ***bold italic*** to Carve /*bold italic*/' => [
                 'a ***strong em*** word',
-                'a /*strong em*/ word',
+                'a {/*strong em*/} word',
             ],
             'leaves space-flanked asterisks literal' => [
                 '2 * 3 * 4',
                 '2 * 3 * 4',
             ],
-            'leaves intraword asterisk emphasis literal' => [
+            'preserves intraword asterisk emphasis' => [
                 'foo*bar*baz',
-                'foo*bar*baz',
+                'foo{/bar/}baz',
             ],
             'converts ___bold italic___ to Carve /*bold italic*/' => [
                 'a ___strong em___ word',
-                'a /*strong em*/ word',
+                'a {/*strong em*/} word',
             ],
             'converts **bold with *italic* inside**' => [
                 '**outer *inner* end**',
@@ -76,7 +76,7 @@ class MarkdownToCarveTest extends TestCase
             ],
             'converts emphasis nested inside ***bold italic***' => [
                 '***outer _inner_ end***',
-                '/*outer /inner/ end*/',
+                '{/*outer /inner/ end*/}',
             ],
             'converts Markdown ~~strike~~ to Carve ~strike~' => [
                 'a ~~gone~~ word',
@@ -648,7 +648,7 @@ class MarkdownToCarveTest extends TestCase
         return [
             'strong asterisks' => ['**b**', '*b*'],
             'strong underscores' => ['__b__', '*b*'],
-            'bold italic asterisks' => ['***bi***', '/*bi*/'],
+            'bold italic asterisks' => ['***bi***', '{/*bi*/}'],
             'underscore emphasis' => ['_em_', '/em/'],
             'asterisk emphasis' => ['*em*', '/em/'],
             'GFM strike' => ['~~s~~', '~s~'],
