@@ -205,11 +205,16 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
     {
         $html = '<ul><li>a<ul><p>x</p><li>b</li></ul></li></ul>';
 
-        $this->assertSame("- a\n\n  x\n\n  - b\n", $this->carve($html));
+        // The item holds no direct `<p>`, so the list is TIGHT and the hoisted
+        // block takes the `+` continuation marker rather than a blank line and
+        // an indent (carve-php#2642). A tight item renders its blocks with no
+        // `<p>` wrapper, which is why the reparse looks for the text.
+        $this->assertSame("- a\n+\nx\n\n  - b\n", $this->carve($html));
 
         $reparsed = (new CarveConverter())->convert($this->carve($html));
         $this->assertSame(2, substr_count($reparsed, '<ul>'));
-        $this->assertStringContainsString('<p>x</p>', $reparsed);
+        $this->assertStringNotContainsString('<p>x</p>', $reparsed);
+        $this->assertMatchesRegularExpression('/<li>a\s+x\s+<ul>/', $reparsed);
 
         $this->assertSame(
             [

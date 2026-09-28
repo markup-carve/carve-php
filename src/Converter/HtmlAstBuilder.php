@@ -705,6 +705,38 @@ final class HtmlAstBuilder
     }
 
     /**
+     * Does a `<p>` reach this list item? The vote a list's tightness turns on.
+     *
+     * An unsupported element holding a block gives way to its children, so the
+     * `<p>` inside `<li><x-a><p>a</p><p>b</p></x-a></li>` is the item's own once
+     * the wrapper is spliced, and the item is loose - the
+     * `unsupported-element-keeps-its-blocks` contract fixture.
+     */
+    private function holdsAParagraph(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $tag = strtolower(HtmlDomLoader::elementName($child));
+            if ($tag === 'p') {
+                return true;
+            }
+            if (
+                !isset(self::BLOCK_TAGS[$tag])
+                && !isset(self::SPELLED_NON_BLOCK_TAGS[$tag])
+                && !isset(self::INLINE_SPELLED_TAGS[$tag])
+                && $this->isBlock($child)
+                && $this->holdsAParagraph($child)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Does a block sit under this element? An unsupported element is replaced
      * by its children, so with `$throughWrappers` the search also looks through
      * unsupported ones: `<x-a><x-b><p>` holds the paragraph as `<x-a><p>` does.
@@ -1475,7 +1507,6 @@ final class HtmlAstBuilder
     private function list(DOMElement $node, bool $ordered): array
     {
         $items = [];
-        $hasLooseItem = false;
         foreach ($node->childNodes as $child) {
             if (!$child instanceof DOMElement || strtolower(HtmlDomLoader::elementName($child)) !== 'li') {
                 continue;
@@ -1503,13 +1534,6 @@ final class HtmlAstBuilder
                     . ']';
             }
             $itemChildren = $this->blocks($this->children($child));
-            foreach (array_slice($itemChildren, 1) as $laterBlock) {
-                if (in_array($laterBlock['type'] ?? null, ['paragraph', 'figure'], true)) {
-                    $hasLooseItem = true;
-
-                    break;
-                }
-            }
             $item = HtmlImportNodes::listItem($itemChildren);
             $skipItemAttrs = $consumesTaskState ? ['data-task-state'] : [];
             if ($task !== null && strtolower($child->getAttribute('data-type')) === 'taskitem') {
@@ -1527,17 +1551,22 @@ final class HtmlAstBuilder
             }
             $items[] = $item;
         }
-        $tight = !$hasLooseItem;
+        // Tightness is decided by the ITEM SHAPE alone: a `<p>` in an item makes
+        // the list loose, a bare-text `<li>` keeps it tight (the HTML import
+        // contract, "Lists keep the source's tightness"). A SECOND block in an
+        // item does not vote, because bare text beside a heading is one:
+        // counting it read the tight `<li><h2>Bar</h2>baz</li>` of CommonMark
+        // example 300 as loose, and the round trip then added a `<p>` the source
+        // HTML never had (carve-php#2642).
+        $tight = true;
         foreach ($node->childNodes as $itemElement) {
             if (!$itemElement instanceof DOMElement || strtolower(HtmlDomLoader::elementName($itemElement)) !== 'li') {
                 continue;
             }
-            foreach ($itemElement->childNodes as $itemChild) {
-                if ($itemChild instanceof DOMElement && strtolower(HtmlDomLoader::elementName($itemChild)) === 'p') {
-                    $tight = false;
+            if ($this->holdsAParagraph($itemElement)) {
+                $tight = false;
 
-                    break 2;
-                }
+                break;
             }
         }
         $list = ['type' => 'list', 'ordered' => $ordered, 'tight' => $tight, 'items' => $items];
