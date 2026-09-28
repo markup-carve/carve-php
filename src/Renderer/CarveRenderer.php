@@ -4911,7 +4911,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function guardThematicBreakLines(string $body): string
     {
-        if (!str_contains($body, '-')) {
+        // Line-block bodies parse as inline content; padding would add a no-break space.
+        if ($this->inLineBlock > 0 || !str_contains($body, '-')) {
             return $body;
         }
 
