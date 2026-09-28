@@ -1,0 +1,97 @@
+[
+  {
+    "example": 20,
+    "source": "<https://example.com?find=\\*>\n",
+    "html": "<p><a href=\"https://example.com?find=%5C*\">https://example.com?find=\\*</a></p>"
+  },
+  {
+    "example": 594,
+    "source": "<http://foo.bar.baz>\n",
+    "html": "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>"
+  },
+  {
+    "example": 595,
+    "source": "<https://foo.bar.baz/test?q=hello&id=22&boolean>\n",
+    "html": "<p><a href=\"https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean\">https://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean</a></p>"
+  },
+  {
+    "example": 596,
+    "source": "<irc://foo.bar:2233/baz>\n",
+    "html": "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>"
+  },
+  {
+    "example": 597,
+    "source": "<MAILTO:FOO@BAR.BAZ>\n",
+    "html": "<p><a href=\"MAILTO:FOO@BAR.BAZ\">MAILTO:FOO@BAR.BAZ</a></p>"
+  },
+  {
+    "example": 598,
+    "source": "<a+b+c:d>\n",
+    "html": "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>"
+  },
+  {
+    "example": 599,
+    "source": "<made-up-scheme://foo,bar>\n",
+    "html": "<p><a href=\"made-up-scheme://foo,bar\">made-up-scheme://foo,bar</a></p>"
+  },
+  {
+    "example": 600,
+    "source": "<https://../>\n",
+    "html": "<p><a href=\"https://../\">https://../</a></p>"
+  },
+  {
+    "example": 601,
+    "source": "<localhost:5001/foo>\n",
+    "html": "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>"
+  },
+  {
+    "example": 602,
+    "source": "<https://foo.bar/baz bim>\n",
+    "html": "<p>&lt;https://foo.bar/baz bim&gt;</p>"
+  },
+  {
+    "example": 603,
+    "source": "<https://example.com/\\[\\>\n",
+    "html": "<p><a href=\"https://example.com/%5C%5B%5C\">https://example.com/\\[\\</a></p>"
+  },
+  {
+    "example": 604,
+    "source": "<foo@bar.example.com>\n",
+    "html": "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>"
+  },
+  {
+    "example": 605,
+    "source": "<foo+special@Bar.baz-bar0.com>\n",
+    "html": "<p><a href=\"mailto:foo+special@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>"
+  },
+  {
+    "example": 607,
+    "source": "<>\n",
+    "html": "<p>&lt;&gt;</p>"
+  },
+  {
+    "example": 608,
+    "source": "< https://foo.bar >\n",
+    "html": "<p>&lt; https://foo.bar &gt;</p>"
+  },
+  {
+    "example": 609,
+    "source": "<m:abc>\n",
+    "html": "<p>&lt;m:abc&gt;</p>"
+  },
+  {
+    "example": 610,
+    "source": "<foo.bar.baz>\n",
+    "html": "<p>&lt;foo.bar.baz&gt;</p>"
+  },
+  {
+    "example": 611,
+    "source": "https://example.com\n",
+    "html": "<p>https://example.com</p>"
+  },
+  {
+    "example": 612,
+    "source": "foo@bar.example.com\n",
+    "html": "<p>foo@bar.example.com</p>"
+  }
+]
