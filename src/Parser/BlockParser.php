@@ -4551,7 +4551,10 @@ class BlockParser
             if ($text !== '' && $column < $fence['base']) {
                 $host['fence'] = null;
             } else {
-                if ($column <= $fence['column'] && $this->fencedBlockParser->isCodeFenceCloser($text, $fence['char'], $fence['length'])) {
+                if (
+                    ($column === $fence['column'] || $column === $fence['base'])
+                    && $this->fencedBlockParser->isCodeFenceCloser($text, $fence['char'], $fence['length'])
+                ) {
                     $host['fence'] = null;
                 }
                 $state['paragraphOpen'] = false;
