@@ -98,7 +98,8 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
     }
 
     /**
-     * THE TICKET'S OWN MATRIX, every cell measured against carve-js.
+     * The ticket's column matrix, with two-blank rows checked against the
+     * spec oracle at 9b938e8a (carve-php#2681).
      *
      * The `dd`'s content column is 3, so the note body's column is 5. Below it
      * the line belongs to the description; at or past it, to the note.

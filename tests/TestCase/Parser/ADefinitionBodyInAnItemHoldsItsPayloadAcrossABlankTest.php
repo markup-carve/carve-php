@@ -93,7 +93,7 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
      */
     public static function outsideTheDescription(): iterable
     {
-        // Two blanks end the description even when the next block reaches its column.
+        // The oracle places this quote outside the description after two blanks.
         yield 'two blank lines above a payload at the body column' => [
             "- intro\n  :: term\n  : definition\n\n\n    > quote\n",
             "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
