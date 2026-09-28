@@ -1006,6 +1006,37 @@ class CarveCorpusTest extends TestCase
         // diverges on LOOSENESS rather than on the residue and is declared
         // below.
         'a-verbatim-line-keeps-what-sits-past-its-fence-opener-not-past-its-container',
+        // Arrived with the bump to carve 9d799afd. Forty-two documents across
+        // five categories, every one rendered through CarveConverter and diffed
+        // byte for byte against its `.html` before these lines were added, and
+        // every one already matched: the engine work had landed as its own PR
+        // ahead of the pin in each case, so the red CI on the bump draft was
+        // this guard asking to be told, not a divergence. None is deferred, so
+        // KNOWN_GAPS stays empty. The merge that closed each was measured by
+        // rendering the category against src/ at that commit and at its parent.
+        //
+        // 507 is markup-carve/carve#2494: a list marker below a raised colon
+        // container folds into the container's open paragraph. Sixteen
+        // documents, all byte-exact from carve-php#2638 onward.
+        'a-list-marker-in-a-raised-colon-container-folds-into-its-open-paragraph',
+        // 508 is markup-carve/carve#2503: a comment span's closer below its
+        // host's column is still that span's delimiter. Six documents, two of
+        // them byte-exact before carve-php#2655 and all six after.
+        'a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter',
+        // 509 is markup-carve/carve#2509: a fence closer below a nested item's
+        // column ends containers down to the one that owns the fence. Twelve
+        // documents, eight byte-exact before carve-php#2660 and all twelve
+        // after.
+        'a-fence-closer-below-a-nested-item-s-column-ends-containers-down-to-its-owner',
+        // 510 is markup-carve/carve#2510: a nested quoted term leaves no
+        // paragraph for a lazy line to continue. One document, byte-exact here
+        // before any of the merges in this window.
+        'a-nested-quoted-term-leaves-no-paragraph-for-a-lazy-line',
+        // 511 is markup-carve/carve#2514 and #2517, PART 0's continuation-claim
+        // rule (CARVE-P0-006): a closed fence establishes no claim, so an
+        // unmarked line after one leaves every quote. Seven documents, four
+        // byte-exact before carve-php#2659 and all seven after.
+        'a-fence-in-a-quote-stores-no-continuation-claim',
     ];
 
     /**
