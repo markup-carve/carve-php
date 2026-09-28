@@ -94,8 +94,7 @@ class MarkdownHabitLinter
             $lineNumber = $index + 1;
             if (preg_match_all('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', $line, $bidi, PREG_OFFSET_CAPTURE)) {
                 foreach ($bidi[0] as [$control, $byteColumn]) {
-                    $prefix = substr($line, 0, $byteColumn);
-                    $column = preg_match_all('/./us', $prefix) + 1;
+                    $column = SourceOffsets::toColumn($line, $byteColumn);
                     $warnings[] = new LintWarning(
                         $lineNumber,
                         $column,
@@ -236,7 +235,7 @@ class MarkdownHabitLinter
                 $inner = $this->truncate((string)$matches[1][$position][0]);
                 $warnings[] = new LintWarning(
                     line: $lineNumber,
-                    column: $match[1] + 1,
+                    column: SourceOffsets::toColumn($masked, $match[1]),
                     rule: $rule,
                     message: sprintf('`%s` ', $match[0]) . sprintf($explanation, $inner),
                     start: $offset + $match[1],
@@ -287,7 +286,7 @@ class MarkdownHabitLinter
                     $token = (string)$match[0];
                     $warnings[] = new LintWarning(
                         line: $lineNumber,
-                        column: $match[1] + 1,
+                        column: SourceOffsets::toColumn($masked, $match[1]),
                         rule: $rule,
                         message: sprintf(
                             '%s re-linkifies %s in published output, so "%s" becomes a link that notifies or references something unrelated; %s.',

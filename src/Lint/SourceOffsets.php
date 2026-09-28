@@ -59,4 +59,24 @@ class SourceOffsets
 
         return $byteAt[$codepointOffset] ?? $sourceLength;
     }
+
+    /**
+     * The 1-based CODEPOINT column a byte offset into a line names.
+     *
+     * A `LintWarning`'s `start` and `end` are byte offsets by design, stated
+     * above. Its `column` is not: it is the same number a `SourceSpan` carries,
+     * so a consumer can line a diagnostic up with a node, and PART 12 §4 counts
+     * that in codepoints. Three source-scanning rules passed the byte offset
+     * straight through, so one `carve lint` run reported columns in two units on
+     * any line holding a non-ASCII character - and, within one file, the bidi
+     * rule converted while the Markdown-habit rules beside it did not
+     * (markup-carve/carve-php#2636).
+     *
+     * @param string $line The line the offset is measured into.
+     * @param int $byteOffset A byte offset from the start of that line.
+     */
+    public static function toColumn(string $line, int $byteOffset): int
+    {
+        return mb_strlen(substr($line, 0, max(0, min($byteOffset, strlen($line)))), 'UTF-8') + 1;
+    }
 }

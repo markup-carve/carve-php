@@ -7579,6 +7579,17 @@ class BlockParser
                 continue;
             }
 
+            // A COMMENT FENCE'S CLOSER IS THE SAME DELIMITER AT EVERY COLUMN
+            // (PART 9 §28, markup-carve/carve#2471), so the tracker has to see
+            // the below-column lines too. Advanced only inside the branch
+            // above, a closer written BELOW the item's content column left the
+            // span latched: the blank under it then read as fence payload
+            // rather than as the separator §17 L1 decides looseness from, and
+            // the item came out TIGHT where every other reader says LOOSE.
+            if ($openCommentLength !== null) {
+                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $nextTrimmed, $lines, $i);
+            }
+
             // A FRAMED LINE IS THE OPEN FENCE'S BODY, not the end of the item
             // (markup-carve/carve-php#1900). The frame says an ENCLOSING
             // container already folded this line in below its own column, so it
@@ -10233,6 +10244,13 @@ class BlockParser
         }
 
         $this->applyPendingAttributes($table);
+        // An authored `header-rows` / `footer-rows` is EXPLICIT structure, so
+        // the partition goes on the node - and from there onto the wire - rather
+        // than staying an attribute every foreign reader has to reinterpret
+        // (markup-carve/carve-php#2633). Set after the attributes arrive and
+        // after every row is appended, because the partition is measured against
+        // the row count.
+        $table->setRowGroups($table->statedRowGroups());
         $this->applyTableColumns($table);
         $rows = $table->getChildren();
         if ($rows !== []) {
@@ -11142,7 +11160,16 @@ class BlockParser
             || $node instanceof DefinitionList
             || $node instanceof DefinitionTerm
             || $node instanceof ListBlock
-            || $node instanceof BlockQuote
+            // A QUOTE HAS TWO SPELLINGS AND ONLY ONE OF THEM ENDS AT ITS LAST
+            // CHILD. The `>` prefix form has no closer, so its extent is the
+            // lines it consumed; the `::: >` form has one, and every other
+            // colon-fence container spans it. Keyed by class alone, the fenced
+            // quote was shrunk off its own closer, so it reported `1->2` where
+            // a div, an admonition and a line block over the same three lines
+            // all report `1->3` - and the linter, which reads the node's extent
+            // to find the closer, then reported a closed fence as unclosed
+            // (markup-carve/carve-php#2636).
+            || ($node instanceof BlockQuote && !$node->isFenced())
             || $node instanceof Figure
             || $node instanceof Footnote
             || $node instanceof Heading;

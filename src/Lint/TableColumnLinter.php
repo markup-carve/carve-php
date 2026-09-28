@@ -39,6 +39,16 @@ class TableColumnLinter
             if (!str_contains($line, 'aligns=') && !str_contains($line, 'valigns=') && !str_contains($line, 'widths=')) {
                 continue;
             }
+            // THE LINE HAS TO BE A BLOCK-ATTRIBUTE LINE, not merely hold a
+            // brace run. A `{...}` with text beside it attaches to nothing
+            // (PART 9 §15) - it is paragraph text - so nothing it lists is the
+            // table's column metadata, and every rule below was reporting on a
+            // table that had not been configured at all
+            // (markup-carve/carve-php#2636).
+            $attributeLine = rtrim($line);
+            if (!str_starts_with(ltrim($attributeLine), '{') || !str_ends_with($attributeLine, '}')) {
+                continue;
+            }
             $next = $lines[$lineIndex + 1] ?? '';
             if (!str_starts_with(ltrim($next), '|')) {
                 continue;
@@ -74,9 +84,17 @@ class TableColumnLinter
 
     private function warning(string $source, int $lineIndex, int $column, int $length, string $rule, string $message): LintWarning
     {
-        $before = implode("\n", array_slice(preg_split('/\R/', $source) ?: [], 0, $lineIndex));
+        $lines = preg_split('/\R/', $source) ?: [];
+        $before = implode("\n", array_slice($lines, 0, $lineIndex));
         $start = ($lineIndex === 0 ? 0 : strlen($before) + 1) + $column;
 
-        return new LintWarning($lineIndex + 1, $column + 1, $rule, $message, $start, $start + $length);
+        return new LintWarning(
+            $lineIndex + 1,
+            SourceOffsets::toColumn((string)($lines[$lineIndex] ?? ''), $column),
+            $rule,
+            $message,
+            $start,
+            $start + $length,
+        );
     }
 }
