@@ -1789,7 +1789,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         $label = $node->getLabel();
-        if ($label !== null && $label !== '') {
+        // AN EMPTY LABEL IS A LABEL. `null` is the no-label case; `''` is what
+        // `:::[]` writes, and the fallback caption is what says the slot was
+        // there (markup-carve/carve-php#2632).
+        if ($label !== null) {
             $titleLine .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
         }
 
@@ -1841,7 +1844,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $id = $titleId === null ? '' : ' id="' . $this->escapeAttribute($titleId) . '"';
                 $titleLine = '  <p class="admonition-title"' . $id . '>'
                     . $this->renderInlineNodesFragment($node->getHeaderNodes()) . "</p>\n";
-                if ($label !== null && $label !== '') {
+                if ($label !== null) {
                     $titleLine .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
                 }
             }

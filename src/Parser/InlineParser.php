@@ -3041,12 +3041,24 @@ class InlineParser
                 return null;
             }
 
-            // A line comment consumes the rest of its source line before the
-            // delimiter stack can decide whether a later delimiter closes this
-            // run. Leave the opener literal so the outer inline scan reaches
-            // and consumes the comment.
+            // A LINE COMMENT ENDS AT ITS OWN LINE BREAK, not at the end of the
+            // block. It consumes the rest of its source line, so a closer on a
+            // LATER line of the same paragraph is still reachable: `*b %%` over
+            // `b*` is one strong span in the oracle, carve-js and carve-rs, and
+            // bailing out here left the opener literal (markup-carve/carve-php#2632).
+            // With no line break after the comment nothing can close the run,
+            // which is the one case that still gives up. The sibling scan for
+            // the combined token's `*/` closer already skipped the comment this
+            // way; only the delimiter scan carried the give-up.
             if ($this->isLineCommentOpener($text, $searchPos)) {
-                return null;
+                $commentLineEnd = strpos($text, "\n", $searchPos + 2);
+                if ($commentLineEnd === false) {
+                    return null;
+                }
+                $searchPos = $commentLineEnd;
+                $scanSkipped = true;
+
+                continue;
             }
 
             // Skip escape sequences

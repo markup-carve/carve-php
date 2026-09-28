@@ -185,7 +185,12 @@ class FencedBlockParser
             // classified, so `:::\t` is the same generic div as `:::`.
             $rest = '';
         } elseif ($tail[0] === '[') {
-            $rest = $tail;
+            // TRAILING LINE WHITESPACE IS NOT PART OF THE LABEL, exactly as it
+            // is not part of a typed opener's info string. Kept, the run made
+            // the bracket run fail its own anchored match, so `:::[Tab] ` was
+            // an ordinary paragraph where `:::[Tab]` opened a div
+            // (markup-carve/carve-php#2632).
+            $rest = rtrim($tail, StringUtil::WHITESPACE_CHARS);
         } elseif ($tail[0] === ' ') {
             $rest = rtrim(ltrim($tail, ' '), StringUtil::WHITESPACE_CHARS);
         } else {
