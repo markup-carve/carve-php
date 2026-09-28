@@ -4809,7 +4809,14 @@ class BlockParser
         // quote. A reference definition is a definition at either level.
             $rawLine = $sourceLines[$sourceIndex] ?? '';
             $isFlushLeftCandidate = !str_starts_with(ltrim($rawLine, " \t"), '>');
-            $isDefinitionLine = $this->isReferenceDefinitionLine($trimmed)
+        // A REFERENCE DEFINITION NEEDS THE CONTENT COLUMN TOO, once it is
+        // written inside the quote. Indented there it is ordinary paragraph
+        // text - the same answer `>  {.k}` already gives one row down - so a
+        // lazy line continues it, and closing the paragraph over it sent that
+        // line out of the quote (markup-carve/carve-php#2632). A definition
+        // written FLUSH LEFT after the quote reaches this tracker at column 0,
+        // so it stays a definition and still ends the quote.
+            $isDefinitionLine = ($atContentColumn && $this->isReferenceDefinitionLine($trimmed))
             || ($isFlushLeftCandidate && $this->isAbbreviationDefinitionLine($trimmed));
 
         // A FLOATING ATTRIBUTE ATTACHES FORWARD, so it is not a paragraph the
@@ -8043,13 +8050,22 @@ class BlockParser
                     || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $nextLine)
                     || $this->endsDefinitionTerm($nextLine, $lines, $i)
                     // A construct that renders nothing is not term text. The
-                    // term was folding a comment, a reference / footnote /
-                    // abbreviation definition and a block-attribute line in
-                    // as continuation, putting their SOURCE in the `<dt>`.
-                    // A comment BLOCK already ended the term, so this engine
-                    // disagreed with itself as well as with the other two
-                    // (carve-php#671).
-                    || $this->isInvisibleOrAttributeLine($nextLine)
+                    // term was folding a comment, a reference / footnote
+                    // definition and a block-attribute line in as continuation,
+                    // putting their SOURCE in the `<dt>`. A comment BLOCK
+                    // already ended the term, so this engine disagreed with
+                    // itself as well as with the other two (carve-php#671).
+                    //
+                    // AN ABBREVIATION DEFINITION IS NOT ONE OF THEM. PART 12 §7
+                    // recognizes it only as a direct child of the document, and
+                    // a line the term folds is the term's own content - so under
+                    // a term the same line renders, and it is term text. Counted
+                    // invisible with the other three it ended the term and was
+                    // then consumed as a definition, so `:: t` over `*[A]: b`
+                    // dropped the authored line from the output altogether
+                    // (markup-carve/carve-php#2632). The flag exists for this
+                    // distinction and three other scans already pass it.
+                    || $this->isInvisibleOrAttributeLine($nextLine, false)
                 ) {
                     break;
                 }
@@ -12292,13 +12308,25 @@ class BlockParser
         return $pos === false ? -1 : $pos;
     }
 
+    /**
+     * Whether a collected line renders nothing and so folds as text.
+     *
+     * Asked only about lines already INSIDE a container, which is why the
+     * abbreviation definition does not count: PART 12 §7 recognizes one only as
+     * a direct child of the document, so under an item it renders and is
+     * ordinary content. Counted invisible it was appended to the entry above it
+     * rather than pushed as its own line, and `. :: t` over `*[A]: b` handed
+     * the nested parse one entry holding a newline - which no longer matched the
+     * term pattern, so the definition list was never built
+     * (markup-carve/carve-php#2632).
+     */
     protected function isFoldableInvisibleLine(string $line): bool
     {
         if (preg_match('/^[ \t]*%%/', $line) === 1) {
             return false;
         }
 
-        return $this->isInvisibleOrAttributeLine($line);
+        return $this->isInvisibleOrAttributeLine($line, false);
     }
 
     protected function isInvisibleOrAttributeLine(string $line, bool $abbreviationCounts = true): bool
@@ -12609,8 +12637,12 @@ class BlockParser
             if ($this->startsNewBlock($nextLine, $lines, $i)) {
                 break;
             }
-            // Stop at new table
-            if (preg_match('/^\|/', $nextLine)) {
+            // Stop at a new TABLE, which is not the same as a line beginning
+            // with a pipe. A bare `|` is no row - `isTableRow()` says so, and a
+            // `|` line on its own renders as a paragraph everywhere - so asking
+            // the character rather than the parser ended the caption over
+            // ordinary text (markup-carve/carve-php#2632).
+            if ($this->isTableBlockStart($nextLine, $lines, $i)) {
                 break;
             }
             // A line that RENDERS NOTHING is not caption text: a link,
@@ -14744,27 +14776,16 @@ class BlockParser
             return true;
         }
 
-        // List markers - these indicate a new list at this level. A marker is a
-        // list only with non-empty content (a content-less `- ` is paragraph
-        // text, not a block start), matching ListParser::parseListItemMarker.
-        // Bullet lists: - or * followed by space + content (`+` is not a bullet
-        // in Carve -- it is the list-continuation marker).
-        if (preg_match('/^[-*] +' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
-            return true;
-        }
-
-        // Ordered lists: digit(s) or letter plus delimiter, or the bare-dot
-        // shorthand, followed by space + content.
-        if (preg_match('/^(?:\.|(\d+|[a-zA-Z])[.)]) +' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
-            return true;
-        }
-
-        // Task lists: - [ ] or - [x]
-        if (preg_match('/^- \[[xX ]\] /', $line)) {
-            return true;
-        }
-
-        return false;
+        // LIST MARKERS COME FROM THE MARKER PARSER, not from a copy of its
+        // patterns. Three hand-spelled arms stood here - bullet, ordered, task -
+        // and each had drifted from `ListParser::parseListItemMarker()`: neither
+        // the abutting `{...}` attribute block (grammar `item_attributes`) nor a
+        // multi-letter roman marker matched, so `-{} x` and `iv. x` opened a
+        // list everywhere a list is parsed while answering "not a block start"
+        // here. In a quote that answer decides laziness, so `> . a` over a lazy
+        // `.{} b` promoted the lazy line to a nested list where every other
+        // reader keeps it paragraph text (markup-carve/carve-php#2632).
+        return $this->listParser->parseListItemMarker($line) !== null;
     }
 
     /**
