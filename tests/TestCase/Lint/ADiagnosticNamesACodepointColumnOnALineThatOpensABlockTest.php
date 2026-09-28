@@ -179,19 +179,19 @@ class ADiagnosticNamesACodepointColumnOnALineThatOpensABlockTest extends TestCas
             'an astral character ahead of the runs' => [
                 "😀 é **b** ~~d~~\n",
                 [
-                    ['line' => 1, 'column' => 5, 'rule' => 'markdown-strong-asterisks'],
-                    ['line' => 1, 'column' => 11, 'rule' => 'markdown-strikethrough'],
+                    ['line' => 1, 'column' => 5, 'rule' => 'markdown-strong-double-star'],
+                    ['line' => 1, 'column' => 11, 'rule' => 'markdown-strikethrough-double-tilde'],
                 ],
             ],
             'a two-byte character ahead of the run' => [
                 "é **b**\n",
-                [['line' => 1, 'column' => 3, 'rule' => 'markdown-strong-asterisks']],
+                [['line' => 1, 'column' => 3, 'rule' => 'markdown-strong-double-star']],
             ],
             // ASCII already answered correctly, which is why the defect stayed
             // invisible: every column in the fixtures was also a byte column.
             'pure ASCII is unchanged' => [
                 "a **b**\n",
-                [['line' => 1, 'column' => 3, 'rule' => 'markdown-strong-asterisks']],
+                [['line' => 1, 'column' => 3, 'rule' => 'markdown-strong-double-star']],
             ],
         ];
     }

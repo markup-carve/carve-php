@@ -36,16 +36,27 @@ class SourceLinter
         $map = SourceOffsets::map($source);
         $length = strlen($source);
         $warnings = [];
-        $emit = static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows): void {
+        $emit = static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows, $length): void {
             if (!isset($rows[$line - 1])) {
                 return;
             }
             [$text, $start] = $rows[$line - 1];
             $at = min($at, strlen($text));
-            $warnings[] = new LintWarning($line, mb_strlen(substr($text, 0, $at), 'UTF-8') + 1, $rule, $message, $start + $at, $start + min($at + $size, strlen($text)));
+            $warnings[] = new LintWarning($line, mb_strlen(substr($text, 0, $at), 'UTF-8') + 1, $rule, $message, $start + $at, min($start + $at + $size, $length));
         };
+        foreach ($converter->getParser()->getUnattachedBlockAttributes() as $span) {
+            $warnings[] = new LintWarning(
+                $span->startLine,
+                $span->startColumn,
+                'unattached-block-attribute',
+                'This block attribute reaches no block before its document or container ends. Move it above the block it describes, or delete it.',
+                SourceOffsets::toByte($span->startOffset, $map, $length),
+                SourceOffsets::toByte($span->endOffset, $map, $length),
+            );
+        }
         $ignored = [];
         $inlineVerbatim = [];
+        $ambiguousFenceEnds = [];
         $paragraphs = [];
         $headings = [];
         $starts = [];
@@ -62,6 +73,12 @@ class SourceLinter
                     $textSpans[] = [SourceOffsets::toByte($pos->startOffset, $map, $length), SourceOffsets::toByte($pos->endOffset, $map, $length)];
                 }
                 // A multi-line inline verbatim span owns its later lines, so they open no block.
+                if ($type === 'code' && $pos->endLine > $pos->startLine) {
+                    $opening = $rows[$pos->startLine - 1][0] ?? '';
+                    if (preg_match('/^[ \t]+`{3,}/', $opening)) {
+                        $ambiguousFenceEnds[$pos->endLine] = true;
+                    }
+                }
                 if (in_array($type, ['code', 'math', 'raw_inline'], true)) {
                     for ($ln = $pos->startLine + 1; $ln <= $pos->endLine; $ln++) {
                         $inlineVerbatim[$ln] = true;
@@ -131,6 +148,45 @@ class SourceLinter
                 $textRuns[] = [$from, $to];
             }
         }
+        $inText = static function (int $from, int $to) use ($textRuns): bool {
+            $lo = 0;
+            $hi = count($textRuns);
+            while ($lo < $hi) {
+                $mid = intdiv($lo + $hi, 2);
+                if ($textRuns[$mid][0] <= $from) {
+                    $lo = $mid + 1;
+                } else {
+                    $hi = $mid;
+                }
+            }
+
+            return $lo > 0 && $textRuns[$lo - 1][1] >= $to;
+        };
+        foreach (
+            [
+                'djot-plus-bullet' => '/^[ \t]*\K\+(?=[ \t]+\S)/m',
+                'djot-superscript-caret' => '/(?<![{[])\^(?![\s[])((?:(?!\n[ \t]*\n)[^\^])+?)(?<![\s[])\^(?!\})/u',
+            ] as $rule => $pattern
+        ) {
+            preg_match_all($pattern, $source, $matches, PREG_OFFSET_CAPTURE);
+            foreach ($matches[0] as [$match, $from]) {
+                $slashes = 0;
+                for ($i = $from - 1; $i >= 0 && $source[$i] === '\\'; $i--) {
+                    $slashes++;
+                }
+                $to = $from + strlen($match);
+                if ($slashes % 2 === 1 || !$inText($from, $from + 1) || !$inText($to - 1, $to)) {
+                    continue;
+                }
+                $index = 0;
+                while ($index + 1 < $rowCount && $rows[$index + 1][1] <= $from) {
+                    $index++;
+                }
+                $emit($index + 1, $from - $rows[$index][1], strlen($match), $rule, $rule === 'djot-plus-bullet'
+                    ? 'A plus bullet is literal text in Carve. Use a dash for a list item.'
+                    : 'Bare carets are literal text in Carve. Use {^text^} for superscript.');
+            }
+        }
         $listLines = [];
         foreach ((new DefinitionTermFoldLinter())->lint($source) as $warning) {
             $listLines[$warning->line] = true;
@@ -148,7 +204,7 @@ class SourceLinter
             $containing = null;
             foreach ($active as $key => $item) {
                 if ($item['last'] < $ln) {
-                    if ($ended === null || $item['last'] >= $ended['last']) {
+                    if ($ended === null || [$item['last'], -$item['first'], $item['content']] > [$ended['last'], -$ended['first'], $ended['content']]) {
                         $ended = $item;
                     }
                     unset($active[$key]);
@@ -160,7 +216,7 @@ class SourceLinter
             [$view, $at] = self::quotedView($text, $owner['quotes'] ?? 0);
             $column = self::visual(substr($text, 0, $at));
             if ($openFence !== null) {
-                if (($owner['first'] ?? null) === $openFence[0]) {
+                if ($containing !== null && $containing['first'] === $openFence[0]) {
                     $run = strspn($view, $openFence[1]);
                     if ($run >= $openFence[2] && trim(substr($view, $run)) === '') {
                         $openFence = null;
@@ -177,7 +233,7 @@ class SourceLinter
             if ($owner !== null && $owner['deepest'] > $owner['content'] && $owner['deepest'] === $column) {
                 continue;
             }
-            $fenceChar = isset($view[0]) && str_contains('`~:', $view[0]) ? $view[0] : null;
+            $fenceChar = isset($view[0]) && str_contains('`~:', $view[0]) && strspn($view, $view[0]) >= 3 ? $view[0] : null;
             if (isset($ignored[$ln]) && $fenceChar === null) {
                 $listLines[$ln] = true;
 
@@ -224,7 +280,7 @@ class SourceLinter
             $at = strlen($text) - strlen($view);
             if (preg_match('/^([ \t]*)(`{3,}|~{3,})[ \t]*raw[ \t]+\S+/', $view, $match)) {
                 $emit($ln, $at + strlen($match[1]), strlen($view) - strlen($match[1]), 'raw-block-syntax', 'Use a fence followed by =FORMAT for a raw block; raw FORMAT does not open one.');
-            } elseif (isset($paragraphs[$ln]) && !isset($inlineVerbatim[$ln]) && preg_match('/^(`{3,}|~{3,})/', $view, $match)) {
+            } elseif (isset($paragraphs[$ln]) && (!isset($inlineVerbatim[$ln]) || isset($ambiguousFenceEnds[$ln])) && preg_match('/^(`{3,}|~{3,})/', $view, $match)) {
                 $run = $match[1];
                 if (!str_contains(substr($view, strlen($run)), $run)) {
                     if ($fenceParser->parseCodeFenceOpener($view) === null) {
@@ -271,7 +327,7 @@ class SourceLinter
             }
             [$text, $start] = $rows[$pos->startLine - 1];
             $at = max(0, SourceOffsets::toByte($pos->startOffset, $map, $length) - $start);
-            $title = preg_match('/^:{3,}[ \t]+[A-Za-z_][\w-]*[ \t]+([^"\[].*)$/', ltrim($text));
+            $title = preg_match('/^:{3,}[ \t]+[A-Za-z_][\w-]*[ \t]+([^"\[ \t].*)$/', ltrim($text));
             $emit($pos->startLine, $at, $title ? strlen($view) : (str_starts_with($view, ':') ? strspn($view, ':') : 2), $title ? 'fence-title-syntax' : 'block-marker-as-text', $title ? 'A fence title must use straight double quotes; put attributes on a separate preceding line.' : 'This block-shaped marker parsed as text. Check its syntax and container indentation.');
         }
         usort($fences, static fn (array $a, array $b): int => ($a['first'] <=> $b['first']) ?: ($b['last'] <=> $a['last']));

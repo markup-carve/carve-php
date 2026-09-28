@@ -302,7 +302,7 @@ class CliTest extends TestCase
         $this->assertStringContainsString('-:1:7 semantic-attribute-value-ignored', $result['out']);
         $this->assertStringContainsString('-:3:3 semantic-attribute-outside-span', $result['out']);
         $this->assertLessThan(
-            strpos($result['out'], 'markdown-strong-asterisks'),
+            strpos($result['out'], 'markdown-strong-double-star'),
             strpos($result['out'], 'semantic-attribute-outside-span'),
             'findings on one line are ordered by column, across both passes',
         );
@@ -335,7 +335,7 @@ class CliTest extends TestCase
         $this->assertSame(1, $result['exit']);
         $this->assertStringContainsString('-:1:2 table-cell-attribute-before-marker', $result['out']);
         $this->assertLessThan(
-            strpos($result['out'], 'markdown-strong-asterisks'),
+            strpos($result['out'], 'markdown-strong-double-star'),
             strpos($result['out'], 'table-cell-attribute-before-marker'),
             'findings are ordered by position, across all three passes',
         );
