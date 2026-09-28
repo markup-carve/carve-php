@@ -156,6 +156,7 @@ class DjotToCarve
         $djotBody = $source;
         $strongSpans = [];
         $source = $this->protectAttributedStrong($source, $strongSpans);
+        $source = $this->protectAttributedWords($source, $strongSpans);
         $source = $this->escapeInvalidAttributeHashes($source);
         $masked = $this->maskCodeAndDestinations($source);
         $source = $this->escapePlainDjotText($source, $masked);
@@ -303,6 +304,172 @@ class DjotToCarve
 
             return $key;
         }, $source, flags: PREG_OFFSET_CAPTURE) ?? $source;
+    }
+
+    /**
+     * @return array{end: int, source: string}|null
+     */
+    private function readDjotWordAttributes(string $source, int $start): ?array
+    {
+        $parts = [];
+        $length = strlen($source);
+        $i = $start + 1;
+        $quoteValue = static fn (string $value): string => '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
+        while ($i < $length) {
+            while ($i < $length && str_contains(" \t\n\r", $source[$i])) {
+                if ($source[$i] === "\n" && preg_match('/\G[ \t]*\n/', $source, offset: $i + 1) === 1) {
+                    return null;
+                }
+                $i++;
+            }
+            if (($source[$i] ?? '') === '}') {
+                return $parts !== [] ? ['end' => $i + 1, 'source' => '{' . implode(' ', $parts) . '}'] : null;
+            }
+            if (($source[$i] ?? '') === '%') {
+                $end = $i + 1;
+                while ($end < $length && $source[$end] !== '%' && $source[$end] !== '}') {
+                    $end++;
+                }
+                if ($end === $length || preg_match('/\n[ \t]*\n/', substr($source, $i, $end - $i)) === 1) {
+                    return null;
+                }
+                $i = $source[$end] === '%' ? $end + 1 : $end;
+
+                continue;
+            }
+            if (($source[$i] ?? '') === '#' || ($source[$i] ?? '') === '.') {
+                $kind = $source[$i++];
+                $from = $i;
+                while ($i < $length && preg_match('/[\s{}%"\'=<>]/', $source[$i]) !== 1) {
+                    $i++;
+                }
+                if ($i === $from) {
+                    return null;
+                }
+                $value = substr($source, $from, $i - $from);
+                $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/', $value) === 1
+                    ? $kind . $value
+                    : ($kind === '#' ? 'id' : 'class') . '=' . $quoteValue($value);
+            } else {
+                if (preg_match('/\G[A-Za-z][A-Za-z0-9_-]*=/', $source, $key, offset: $i) !== 1) {
+                    return null;
+                }
+                $i += strlen($key[0]);
+                $from = $i;
+                if (($source[$i] ?? '') === '"') {
+                    $i++;
+                    while ($i < $length && $source[$i] !== '"') {
+                        if ($source[$i] === "\n" || $source[$i] === "\r") {
+                            return null;
+                        }
+                        if ($source[$i] === '\\') {
+                            $i++;
+                        }
+                        $i++;
+                    }
+                    if (($source[$i] ?? '') !== '"') {
+                        return null;
+                    }
+                    $i++;
+                    $parts[] = $key[0] . substr($source, $from, $i - $from);
+                } else {
+                    while ($i < $length && preg_match('/[\s{}%"\'=<>]/', $source[$i]) !== 1) {
+                        $i++;
+                    }
+                    if ($i === $from) {
+                        return null;
+                    }
+                    $parts[] = $key[0] . $quoteValue(substr($source, $from, $i - $from));
+                }
+            }
+            if ($i < $length && preg_match('/[\s}%]/', $source[$i]) !== 1) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string $source
+     * @param array<string, string> $spans
+     */
+    private function protectAttributedWords(string $source, array &$spans): string
+    {
+        $masked = $this->maskCodeAndDestinations($source);
+        $prefix = "\0DJOTWORD";
+        while (str_contains($source, $prefix)) {
+            $prefix .= "\0";
+        }
+        $output = '';
+        $cursor = 0;
+        $lastClose = strrpos($source, '}');
+        $lastDelimiters = [];
+        foreach (str_split('_*~^') as $delimiter) {
+            $lastDelimiters[$delimiter] = strrpos($source, $delimiter);
+        }
+        for ($i = 0; $lastClose !== false && $i <= $lastClose; $i++) {
+            if ($source[$i] !== '{' || $masked[$i] !== '{') {
+                continue;
+            }
+            $slashes = 0;
+            for ($at = $i - 1; $at >= 0 && $source[$at] === '\\'; $at--) {
+                $slashes++;
+            }
+            if ($slashes % 2 !== 0) {
+                continue;
+            }
+            $attrs = $this->readDjotWordAttributes($source, $i);
+            if ($attrs === null) {
+                continue;
+            }
+            $start = $i;
+            if ($i > 0 && $masked[$i - 1] === $source[$i - 1] && !str_contains('`*_~^]}>', $source[$i - 1])) {
+                while ($start > $cursor && $masked[$start - 1] === $source[$start - 1] && !str_contains(" \t\n\r\v\f\"'{}[]`\0)>|", $source[$start - 1])) {
+                    $start--;
+                }
+                if ($start < $i && preg_match('/[^\s]+$/u', substr($source, $start, $i - $start), $word, PREG_OFFSET_CAPTURE) === 1) {
+                    $start += $word[0][1];
+                } else {
+                    $start = $i;
+                }
+                $closer = $source[$attrs['end']] ?? '';
+                if ($closer !== '' && str_contains('_*~^', $closer)) {
+                    for ($at = $i - 1; $at >= $start; $at--) {
+                        if ($source[$at] !== $closer) {
+                            continue;
+                        }
+                        $escapes = 0;
+                        for ($back = $at - 1; $back >= 0 && $source[$back] === '\\'; $back--) {
+                            $escapes++;
+                        }
+                        if ($escapes % 2 === 0) {
+                            $start = $at + 1;
+
+                            break;
+                        }
+                    }
+                } elseif ($start < $i && str_contains('_*~^', $source[$start]) && $lastDelimiters[$source[$start]] >= $attrs['end']) {
+                    $start = $i;
+                }
+                if ($start > 0 && $source[$start - 1] === '{' && str_contains('+-=', $source[$start] ?? '')) {
+                    $start++;
+                }
+            }
+            if ($start < $i) {
+                $token = $prefix . count($spans) . "\0";
+                $body = substr($this->convert('x ' . substr($source, $start, $i - $start)), 2);
+                if (str_starts_with($body, '^')) {
+                    $body = '\\' . $body;
+                }
+                $spans[$token] = '[' . $body . ']' . $attrs['source'];
+                $output .= substr($source, $cursor, $start - $cursor) . $token;
+                $cursor = $attrs['end'];
+            }
+            $i = $attrs['end'] - 1;
+        }
+
+        return $output . substr($source, $cursor);
     }
 
     public function convertWithFidelityReport(string $djot): MigrationResult
