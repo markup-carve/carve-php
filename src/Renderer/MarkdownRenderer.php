@@ -1559,6 +1559,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // `</#getting-started>` resolves to a case-preserved id and the emitted
         // href uses the ACTUAL id (matches HtmlRenderer).
         $id = $this->headingIdTracker->findIdCaseInsensitive($target);
+        if ($id !== null && !$this->labelExpansionStillAffordable($id)) {
+            // Ask the budget before doing the work it would reject
+            // (carve-php#2647).
+            return $this->headingRefLink($id, $this->escapeText($target));
+        }
+
         $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
         if ($id === null || $label === null) {
             // Unresolved target: keep the literal source (matches HtmlRenderer).
@@ -1588,10 +1594,19 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             : $this->renderDerivedLabel($nodes);
         // Charged as the characters it resolves to: a sentinel is three bytes
         // standing for one.
-        if (!$this->chargeExpansion(strtr($rendered, $this->sentinelCharacters()))) {
+        if (!$this->chargeLabelExpansion($id, strtr($rendered, $this->sentinelCharacters()))) {
             $rendered = $this->escapeText($target);
         }
 
+        return $this->headingRefLink($id, $rendered);
+    }
+
+    /**
+     * A heading target gets a real link; a caption target has no Markdown
+     * anchor to point at, so its label stays plain text.
+     */
+    protected function headingRefLink(string $id, string $rendered): string
+    {
         if (isset($this->gfmSlugs[$id])) {
             return '[' . $rendered . '](#' . $this->gfmSlugs[$id] . ')';
         }
