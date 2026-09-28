@@ -4029,8 +4029,19 @@ class MarkdownToCarve
             return $protect(rtrim((new CarveRenderer())->render($document), "\n"));
         });
 
-        // Carve has no pointy destination, so `<a b>` is written as `a%20b`
-        // before the angle brackets can read as raw HTML.
+        $line = preg_replace_callback(
+            '/\]\(([ \t]*)</',
+            function (array $match) use ($line, $protect): string {
+                $offset = $match[0][1];
+                if (preg_match('/\G\]\([ \t]*<((?:[^<>\n\\\\]|\\\\.)*)>(?=(?:[ \t]*(?:\n[ \t]*)?\)|[ \t\n]+["\'\(]))/', $line, offset: $offset) === 1) {
+                    return $match[0][0];
+                }
+
+                return ']' . $protect('\\(') . $match[1][0] . '<';
+            },
+            $line,
+            flags: PREG_OFFSET_CAPTURE,
+        ) ?? $line;
         $line = preg_replace_callback(
             '/(\]\([ \t]*|^ {0,3}\[(?:[^\]\n\\\\]|\\\\.)+\]:[ \t]*)<((?:[^<>\n\\\\]|\\\\.)+)>/',
             fn (array $match): string => $match[1] . $this->bareDestination($match[2]),
