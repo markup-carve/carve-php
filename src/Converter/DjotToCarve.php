@@ -153,6 +153,8 @@ class DjotToCarve
         $source = $this->convertDjotBlockMarkers($source);
         $source = $this->convertDefinitionLists($source);
         $djotBody = $source;
+        $strongSpans = [];
+        $source = $this->protectAttributedStrong($source, $strongSpans);
         $masked = $this->maskCodeAndDestinations($source);
         $source = $this->escapePlainDjotText($source, $masked);
         $masked = $this->maskCode($source);
@@ -214,9 +216,51 @@ class DjotToCarve
 
         $carve = $this->collapseFalseListBoundaries($this->normalizePlusBullets($source, $masked));
 
+        $carve = strtr($carve, $strongSpans);
         $carve = $this->applyHeadingIdPreservation($carve, $djotBody);
 
         return $frontmatter === '' ? $carve : $frontmatter . $separator . $carve;
+    }
+
+    /**
+     * @param string $source
+     * @param array<string, string> $spans
+     */
+    private function protectAttributedStrong(string $source, array &$spans): string
+    {
+        if (!str_contains($source, '{')) {
+            return $source;
+        }
+        $masked = $this->maskCodeAndDestinations($source);
+        $attribute = '\{(?:\s*(?:[.#][^\s{}"=]+|[\w:-]+=(?:"(?:\\\\.|[^"\\\\])*"|[^\s{}"]+)))+\s*\}';
+        $pattern = '~(?<![\\\\*])\*(?![\s*])([^*\n{}]+)(' . $attribute . ')([^*\n{}]*)(?<!\s)\*(?!\*)~u';
+        $prefix = "\0DJOTSTRONG";
+        while (str_contains($source, $prefix)) {
+            $prefix .= "\0";
+        }
+
+        $token = "\0DJOTATTR\0";
+        while (str_contains($source, $token)) {
+            $token .= "\0";
+        }
+
+        return preg_replace_callback($pattern, function (array $match) use ($masked, $token, $prefix, &$spans): string {
+            if (
+                ($masked[$match[0][1]] ?? '') !== '*'
+                || ($masked[$match[0][1] + strlen($match[0][0]) - 1] ?? '') !== '*'
+                || str_ends_with($match[3][0], '\\')
+            ) {
+                return $match[0][0];
+            }
+            if (!preg_match('/[^\s*{}\[\]`_~^]+$/u', $match[1][0], $word, PREG_OFFSET_CAPTURE)) {
+                return $match[0][0];
+            }
+            $body = $this->convert(substr($match[1][0], 0, $word[0][1]) . '[' . $word[0][0] . ']' . $token . $match[3][0]);
+            $key = $prefix . count($spans) . "\0";
+            $spans[$key] = '{*' . str_replace($token, $match[2][0], $body) . '*}';
+
+            return $key;
+        }, $source, flags: PREG_OFFSET_CAPTURE) ?? $source;
     }
 
     public function convertWithFidelityReport(string $djot): MigrationResult

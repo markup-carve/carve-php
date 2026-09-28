@@ -124,6 +124,8 @@ class MarkdownToCarve
      */
     protected array $unspellableOrderedTasks = [];
 
+    protected bool $flattenedEmphasis = false;
+
     /**
      * Whether a GFM table is under way at each source line asked about, so the
      * answer is built once per line. Reset by every `convert()`.
@@ -215,6 +217,7 @@ class MarkdownToCarve
     {
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
         $this->unspellableOrderedTasks = [];
+        $this->flattenedEmphasis = false;
         $this->tableUnderWay = [];
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
@@ -957,6 +960,7 @@ class MarkdownToCarve
                 $body = str_repeat(' ', $contentCol) . $this->escapeBlockOpener(ltrim($line, " \t"));
             }
             if ($isHeading) {
+                $body = preg_replace('/^([ \t]*#{1,6})[ \t]+/', '$1 ', $body) ?? $body;
                 $body = preg_replace('/[ \t]+#+[ \t]*$/', '', $body) ?? $body;
             }
             if ($isBlockquote) {
@@ -1219,14 +1223,23 @@ class MarkdownToCarve
     public function convertWithFidelityReport(string $markdown): MigrationResult
     {
         $value = $this->convert($markdown);
-        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== []);
-        if ($this->unspellableOrderedTasks === []) {
+        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis);
+        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
         // shape Carve has no spelling for, and its fidelity and confidence are
         // properties of that code rather than of this producer.
         $diagnostics = $result->diagnostics;
+        if ($this->flattenedEmphasis) {
+            $diagnostics[] = new MigrationDiagnostic(
+                'structure-unspellable',
+                'Unwrapped nested emphasis of the same kind; its text is preserved',
+                'warning',
+                'dropped',
+                'exact',
+            );
+        }
         foreach ($this->unspellableOrderedTasks as $line) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
@@ -4125,25 +4138,9 @@ class MarkdownToCarve
         $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
         $line = $this->restoreNumericReferenceHashes($line);
 
-        $stash = [];
-        $hold = function (string $span) use (&$stash): string {
-            $stash[] = $span;
-
-            return "\x00S" . (count($stash) - 1) . "\x00";
-        };
-
-        $convertNestedEm = static function (string $inner): string {
-            $inner = preg_replace('/(?<![A-Za-z0-9*])\*(?!\s)([^*]+?)(?<!\s)\*(?![A-Za-z0-9*])/', '/$1/', $inner) ?? $inner;
-
-            return preg_replace('/(?<![A-Za-z0-9_])_(?!\s)([^_]+?)(?<!\s)_(?![A-Za-z0-9_])/', '/$1/', $inner) ?? $inner;
-        };
-
-        $line = preg_replace_callback('/\*{3}(?!\s)(.+?)(?<!\s)\*{3}/', fn (array $match): string => $hold('/*' . $convertNestedEm($match[1]) . '*/'), $line) ?? $line;
-        $line = preg_replace_callback('/(?<![A-Za-z0-9])___(?!\s)(.+?)(?<!\s)___(?![A-Za-z0-9])/', fn (array $match): string => $hold('/*' . $convertNestedEm($match[1]) . '*/'), $line) ?? $line;
-        $line = preg_replace_callback('/\*\*(?!\s)(.+?)(?<!\s)\*\*/', fn (array $match): string => $hold('*' . $convertNestedEm($match[1]) . '*'), $line) ?? $line;
-        $line = preg_replace_callback('/(?<![A-Za-z0-9])__(?!\s)(.+?)(?<!\s)__(?![A-Za-z0-9])/', fn (array $match): string => $hold('*' . $convertNestedEm($match[1]) . '*'), $line) ?? $line;
-        $line = preg_replace('/(?<![A-Za-z0-9*])\*(?!\s)([^*]+?)(?<!\s)\*(?![A-Za-z0-9*])/', '/$1/', $line) ?? $line;
-        $line = preg_replace('/(?<![A-Za-z0-9_])_(?!\s)([^_]+?)(?<!\s)_(?![A-Za-z0-9_])/', '/$1/', $line) ?? $line;
+        $line = MarkdownEmphasis::convert($line, function (): void {
+            $this->flattenedEmphasis = true;
+        }, null, $protected);
         $line = preg_replace('/~~([^~]+)~~/', '~$1~', $line) ?? $line;
         // The single-tilde form is strikethrough too (GFM: "a matching pair of
         // one or two tildes"), and Carve's own spelling is the single tilde, so
@@ -4213,7 +4210,6 @@ class MarkdownToCarve
         // not enough.
         do {
             $previous = $line;
-            $line = preg_replace_callback('/\x00S(\d+)\x00/', fn (array $match): string => $stash[(int)$match[1]], $line) ?? $line;
             $line = preg_replace_callback('/\x00P(\d+)\x00/', fn (array $match): string => $protected[(int)$match[1]], $line) ?? $line;
         } while ($line !== $previous);
 
