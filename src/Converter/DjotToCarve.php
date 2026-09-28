@@ -108,7 +108,7 @@ class DjotToCarve
         [
             'id' => 'djot-emphasis-underscore',
             'family' => '_',
-            'pattern' => '/(?<![A-Za-z0-9_])_(?!\s)((?:(?!\n[ \t]*\n)[^_])+?)(?<!\s)_(?![A-Za-z0-9_])/',
+            'pattern' => '/(?<![A-Za-z0-9_])_(?!\s)((?:(?!\n[ \t]*\n)(?:\\\\[\s\S]|[^_\\\\]))+?)(?<!\s)_(?![A-Za-z0-9_])/',
             'open' => '/',
             'close' => '/',
         ],
@@ -130,7 +130,7 @@ class DjotToCarve
             // the correct one.
             'id' => 'djot-intraword-underscore',
             'family' => '_',
-            'pattern' => '/(?<=[A-Za-z0-9])_(?!\s)((?:(?!\n[ \t]*\n)[^_])+?)(?<!\s)_(?=[A-Za-z0-9])/',
+            'pattern' => '/(?<=[A-Za-z0-9])_(?!\s)((?:(?!\n[ \t]*\n)(?:\\\\[\s\S]|[^_\\\\]))+?)(?<!\s)_(?=[A-Za-z0-9])/',
             'open' => '{/',
             'close' => '/}',
         ],
