@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use RuntimeException;
 use Throwable;
@@ -1097,7 +1098,19 @@ class MarkdownToCarve
             if ($isList) {
                 $body = $this->normalizeHeldQuoteMarkers($this->escapeTaskItemOpener($body));
             }
-            $converted = $this->convertInlineFormatting($body);
+            $inlineRun = !$isHeading ? $this->collectInlineParagraph($lines, $i, $body, $listCols === [] ? 0 : $contentCol) : null;
+            if ($inlineRun !== null) {
+                $body = $inlineRun['body'];
+                $i = $inlineRun['end'];
+                $parts = explode("\n", $this->convertInlineFormatting($body));
+                foreach ($parts as $at => &$part) {
+                    $part = ($at === 0 ? $inlineRun['first'] : $inlineRun['next']) . $part;
+                }
+                unset($part);
+                $converted = implode("\n", $parts);
+            } else {
+                $converted = $this->convertInlineFormatting($body);
+            }
 
             // A Markdown HARD BREAK is two or more spaces at the end of a line;
             // Carve spells it with a trailing backslash. Trailing spaces mean
@@ -1120,7 +1133,7 @@ class MarkdownToCarve
                 $converted = rtrim($converted) . '\\';
             }
 
-            $result[] = $converted;
+            array_push($result, ...explode("\n", $converted));
 
             if ($isHeading && $i + 1 < $lineCount) {
                 $nextTrimmed = trim($lines[$i + 1]);
@@ -1170,9 +1183,7 @@ class MarkdownToCarve
                 if ($result !== []) {
                     $result[] = '';
                 }
-                foreach ($footnote as $line) {
-                    $result[] = $this->convertInlineFormatting($line);
-                }
+                array_push($result, ...explode("\n", $this->convertInlineFormatting(implode("\n", $footnote))));
             }
             foreach ($this->movedDefinitions as $definition) {
                 if ($result !== []) {
@@ -3882,6 +3893,65 @@ class MarkdownToCarve
         return preg_replace('/^([ \t]*(?:>[ \t]?)*[ \t]*)\[(?=(?:[^\]\\\\\n]|\\\\.)+\]:)/', '$1\\\\[', $line, 1) ?? $line;
     }
 
+    /**
+     * @param array<string> $lines
+     * @param int $columns
+     * @param string $body
+     * @param int $index
+     *
+     * @return array{body: string, first: string, next: string, end: int}|null
+     */
+    private function collectInlineParagraph(array $lines, int $index, string $body, int $columns): ?array
+    {
+        preg_match('/^([ \t]*(?:(?:[-*+]|\d+[.)])[ \t]+|>[ \t]?)*)(.*)$/s', $body, $first);
+        $text = $first[2] ?? $body;
+        if (strpbrk($text, '*_[') === false || !$this->isParagraphLine([$text], 0)) {
+            return null;
+        }
+        $prefix = $first[1] ?? '';
+        $depth = substr_count($prefix, '>');
+        $continuation = str_repeat(' ', $columns) . str_repeat('> ', $depth);
+        $inside = function (string $candidate) use ($columns, $depth): ?string {
+            if (trim($candidate) === '' || $this->indentWidth($candidate) < $columns) {
+                return null;
+            }
+            $candidate = $this->stripColumns($candidate, $columns);
+            if ($depth > 0) {
+                $quoted = $this->normalizeBlockquoteMarkers($this->expandLeadingTabs($candidate));
+                $quotePrefix = $this->quotePrefixOf($quoted);
+                if (substr_count($quotePrefix, '>') !== $depth) {
+                    return null;
+                }
+                $candidate = substr($quoted, strlen($quotePrefix));
+            }
+
+            return trim($candidate) === '' ? null : $candidate;
+        };
+        $parts = [$text];
+        $end = $index;
+        $count = count($lines);
+        for ($at = $index + 1; $at < $count; $at++) {
+            $candidate = $inside($lines[$at]);
+            if ($candidate === null) {
+                break;
+            }
+            $after = $inside($lines[$at + 1] ?? '') ?? '';
+            if ($this->indentWidth($candidate) >= 4) {
+                $candidate = $this->escapeBlockOpener(ltrim($candidate, " \t"));
+            } elseif (!$this->isParagraphLine([$candidate, $after], 0)) {
+                break;
+            }
+            $candidate = $this->escapeDefinitionContinuation($candidate, (string)end($parts), (string)end($parts));
+            $parts[] = $this->escapeCarveOnlyMarker($candidate);
+            $end = $at;
+        }
+        if ($end === $index) {
+            return null;
+        }
+
+        return ['body' => implode("\n", $parts), 'first' => $prefix, 'next' => $continuation, 'end' => $end];
+    }
+
     protected function convertInlineFormatting(string $line): string
     {
         $line = $this->escapeCarveOnlyMarker($line);
@@ -4029,7 +4099,7 @@ class MarkdownToCarve
             flags: PREG_OFFSET_CAPTURE,
         ) ?? $line;
 
-        $encodeDest = static function (string $paren): string {
+        $encodeDest = function (string $paren) use ($protected): string {
             $inner = trim(substr($paren, 1, -1), " \t");
             if (preg_match('/^(\S+)([\s\S]*)$/', $inner, $matches)) {
                 $url = $matches[1];
@@ -4039,8 +4109,22 @@ class MarkdownToCarve
                 $rest = '';
             }
 
+            if (preg_match('/^([ \t]+)(["\'])([\s\S]*)\2([ \t]*)$/', $rest, $title) === 1 && !str_contains($title[3], $title[2])) {
+                $decoded = $this->decodeLinkTitle($title[3], $protected);
+                $escaped = str_replace(['\\', $title[2]], ['\\\\', '\\' . $title[2]], $decoded);
+                $rest = $title[1] . $title[2] . $escaped . $title[2] . $title[4];
+            }
+
             return '(' . str_replace(['(', ')'], ['%28', '%29'], $url) . $rest . ')';
         };
+
+        $line = preg_replace_callback(
+            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\]\n]|\n(?![ \t]*\n))*\])*\])(\((?:[^()\s]|\([^()\n]*\))+[ \t]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\')[ \t]*\))/',
+            fn (array $match): string => str_starts_with($match[1], '!')
+                ? $protect($match[1] . $encodeDest($match[2]))
+                : $match[1] . $protect($encodeDest($match[2])),
+            $line,
+        ) ?? $line;
 
         $destination = '\((?:[^()\n]|\([^()\n]*\))*\)';
         $line = preg_replace_callback(
@@ -4085,8 +4169,10 @@ class MarkdownToCarve
         // A definition kept where it stands is a definition, not link text -
         // on a nested item's marker line too, which is where fmt writes it.
         $line = preg_replace_callback(
-            '/^([ \t]*' . self::DEFINITION_MARKER . ')(\[[^^\]][^\]]*\]:\s*\S.*)$/',
-            fn (array $match): string => $match[1] . $protect($match[2]),
+            '/^([ \t]*' . self::DEFINITION_MARKER . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
+            fn (array $match): string => isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])
+                ? $match[1] . $protect($match[2])
+                : $match[0],
             $line,
         ) ?? $line;
         // Carve has no shortcut reference, so a defined `[r]` is written in the
@@ -4134,6 +4220,8 @@ class MarkdownToCarve
         if (!$this->convertAttributes) {
             $line = $this->escapeAttributeBlockOpener($line);
         }
+
+        $line = preg_replace('/ {2,}\n/', "\\\n", $line) ?? $line;
 
         $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
         $line = $this->restoreNumericReferenceHashes($line);
@@ -4203,6 +4291,29 @@ class MarkdownToCarve
         if (!$this->convertAttributes) {
             $line = $this->escapeAttributeListsThatAttach($line);
         }
+
+        if ($this->convertAttributes) {
+            $wholeLine = trim($line);
+            $subject = $line;
+            $line = preg_replace_callback(
+                '/(?<!\\\\)\{((?:[^{}"\'\\\\]|\\\\.|"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')*)\}/',
+                static function (array $match) use ($wholeLine, $subject, $protect): string {
+                    $offset = $match[0][1];
+                    $before = $offset > 0 ? $subject[$offset - 1] : '';
+                    $attached = preg_match('/[\x00\]\\/*_~=,^}]/', $before) === 1;
+
+                    return ($wholeLine === $match[0][0] || $attached) && AttributeParser::isValidPayload($match[1][0])
+                        ? $protect($match[0][0]) : $match[0][0];
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+        }
+        $line = preg_replace_callback('/["\']|\x00P(\d+)\x00/', static function (array $match) use ($protected): string {
+            $text = isset($match[1]) ? $protected[(int)$match[1]] : $match[0];
+
+            return in_array($text, ['"', "'"], true) ? '\\' . $text : $match[0];
+        }, $line) ?? $line;
 
         // Restore stashes and protected spans until stable: a protected or
         // stashed span may itself contain placeholders (e.g. a reference
