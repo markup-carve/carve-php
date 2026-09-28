@@ -426,6 +426,21 @@ class BlockParser
     protected array $pendingAttributes = [];
 
     /**
+     * @var list<\MarkupCarve\Carve\Ast\SourceSpan>
+     */
+    private array $unattachedBlockAttributes = [];
+
+    private ?SourceSpan $pendingAttributeSpan = null;
+
+    /**
+     * @return list<\MarkupCarve\Carve\Ast\SourceSpan>
+     */
+    public function getUnattachedBlockAttributes(): array
+    {
+        return $this->unattachedBlockAttributes;
+    }
+
+    /**
      * @see \MarkupCarve\Carve\Parser\BlockParseSession::$pendingAttributeOrder
      *
      * @var list<string>
@@ -1351,16 +1366,20 @@ class BlockParser
                 // attributes belong after the document, not before this
                 // deferred body, so isolate the same parser-global state that
                 // the standalone footnote pass isolates below.
+                $outerPendingSpan = $this->pendingAttributeSpan;
                 $outerPendingAttributes = $this->pendingAttributes;
                 $outerPendingAttributeOrder = $this->pendingAttributeOrder;
                 $this->pendingAttributes = [];
+                $this->pendingAttributeSpan = null;
                 $this->pendingAttributeOrder = [];
                 $this->footnoteBodyDepth++;
                 try {
                     $this->parseBlocks($this->footnotes[$label], $body['lines'], 0, $body['lineMap']);
+                    $this->endContainerAttributeScope();
                 } finally {
                     $this->footnoteBodyDepth--;
                     $this->discoveringDefinitions = false;
+                    $this->pendingAttributeSpan = $outerPendingSpan;
                     $this->pendingAttributes = $outerPendingAttributes;
                     $this->pendingAttributeOrder = $outerPendingAttributeOrder;
                 }
@@ -1837,6 +1856,8 @@ class BlockParser
      */
     protected function resetParseState(): void
     {
+        $this->unattachedBlockAttributes = [];
+        $this->pendingAttributeSpan = null;
         $this->bindNewSession();
     }
 
@@ -2444,6 +2465,11 @@ class BlockParser
             // Try to parse block attributes first
             $attrConsumed = $this->tryParseBlockAttributes($lines, $i);
             if ($attrConsumed !== null) {
+                $this->pendingAttributeSpan ??= $this->wholeLinesSpan(
+                    $i,
+                    $i + $attrConsumed - 1,
+                    $this->authoredColumnOf($i, $line) ?? 0,
+                );
                 $i += $attrConsumed;
 
                 continue;
@@ -2625,6 +2651,9 @@ class BlockParser
                 $this->blockEndSourceLine($i, $consumed, $sourceLine),
             );
             $i += $consumed;
+        }
+        if ($topLevel) {
+            $this->endContainerAttributeScope();
         }
     }
 
@@ -3114,11 +3143,13 @@ class BlockParser
             return null;
         }
 
+        $savedSpan = $this->pendingAttributeSpan;
         $savedAttributes = $this->pendingAttributes;
         $savedOrder = $this->pendingAttributeOrder;
         try {
             return $this->tryParseBlockAttributes($lines, $start);
         } finally {
+            $this->pendingAttributeSpan = $savedSpan;
             $this->pendingAttributes = $savedAttributes;
             $this->pendingAttributeOrder = $savedOrder;
         }
@@ -3324,6 +3355,7 @@ class BlockParser
         if ($this->pendingAttributes !== []) {
             $node->setAttributesWithOrder($this->pendingAttributes, $this->pendingAttributeOrder);
             $this->pendingAttributes = [];
+            $this->pendingAttributeSpan = null;
             $this->pendingAttributeOrder = [];
         }
     }
@@ -3393,6 +3425,7 @@ class BlockParser
     {
         $attrs = $this->pendingAttributes;
         $this->pendingAttributes = [];
+        $this->pendingAttributeSpan = null;
         $this->pendingAttributeOrder = [];
 
         return $attrs;
@@ -3761,6 +3794,7 @@ class BlockParser
         // the extension serializer appends it after the ordered attributes.
         $div->setAttributeOrder($authorOrder);
         $this->pendingAttributes = [];
+        $this->pendingAttributeSpan = null;
         $this->pendingAttributeOrder = [];
 
         $body = $this->collectColonFenceBody($lines, $start, $fenceLength, true);
@@ -3775,8 +3809,7 @@ class BlockParser
         // A dangling attribute line belongs to this container and dies at its
         // boundary. Letting the pending state escape attached it to the next
         // outer block (carve#1028).
-        $this->pendingAttributes = [];
-        $this->pendingAttributeOrder = [];
+        $this->endContainerAttributeScope();
         $this->lineOffset = $previousOffset;
 
         // (Pending block attributes were already applied before the
@@ -3834,6 +3867,7 @@ class BlockParser
         $this->applyPendingContainerAttributes($group);
         $group->setAttributeOrder($authorOrder);
         $this->pendingAttributes = [];
+        $this->pendingAttributeSpan = null;
         $this->pendingAttributeOrder = [];
 
         $body = $this->collectColonFenceBody($lines, $start, $fenceLength, true);
@@ -3851,8 +3885,7 @@ class BlockParser
         }
         // A dangling attribute line belongs to this container and dies at its
         // boundary, exactly as in tryParseDiv() (carve#1028).
-        $this->pendingAttributes = [];
-        $this->pendingAttributeOrder = [];
+        $this->endContainerAttributeScope();
         $this->lineOffset = $previousOffset;
 
         $parent->appendChild($group);
@@ -3894,8 +3927,7 @@ class BlockParser
         $previousOffset = $this->lineOffset;
         $this->lineOffset = $previousOffset + $start + 1;
         $this->parseBlocks($quote, $innerLines, 0, $innerLineMap);
-        $this->pendingAttributes = [];
-        $this->pendingAttributeOrder = [];
+        $this->endContainerAttributeScope();
         $this->lineOffset = $previousOffset;
 
         $parent->appendChild($quote);
@@ -3933,6 +3965,7 @@ class BlockParser
         // class. Adding the values one by one reversed both facts.
         $div->mergeLeadingAttributes($this->pendingAttributes, $this->pendingAttributeOrder);
         $this->pendingAttributes = [];
+        $this->pendingAttributeSpan = null;
         $this->pendingAttributeOrder = [];
 
         $body = $this->collectColonFenceBody($lines, $start, $fenceLength, true);
@@ -3943,8 +3976,7 @@ class BlockParser
         $previousOffset = $this->lineOffset;
         $this->lineOffset = $previousOffset + $start + 1;
         $this->parseBlocks($div, $innerLines, 0, $innerLineMap);
-        $this->pendingAttributes = [];
-        $this->pendingAttributeOrder = [];
+        $this->endContainerAttributeScope();
         $this->lineOffset = $previousOffset;
 
         $this->convertDirectParagraphSoftBreaksToHardBreaks($div);
@@ -4381,6 +4413,7 @@ class BlockParser
         // Save and clear pending attributes - they apply to the blockquote, not inner content
         $quoteAttributes = $this->pendingAttributes;
         $this->pendingAttributes = [];
+        $this->pendingAttributeSpan = null;
         $quoteAttributeOrder = $this->pendingAttributeOrder;
         $this->pendingAttributeOrder = [];
 
@@ -5032,6 +5065,7 @@ class BlockParser
         // Save and clear pending attributes - they apply to the list, not inner content
         $listAttributes = $this->pendingAttributes;
         $this->pendingAttributes = [];
+        $this->pendingAttributeSpan = null;
         $listAttributeOrder = $this->pendingAttributeOrder;
         $this->pendingAttributeOrder = [];
 
@@ -6713,7 +6747,11 @@ class BlockParser
      */
     private function endContainerAttributeScope(): void
     {
+        if ($this->pendingAttributes !== [] && $this->pendingAttributeSpan !== null) {
+            $this->unattachedBlockAttributes[] = $this->pendingAttributeSpan;
+        }
         $this->pendingAttributes = [];
+        $this->pendingAttributeSpan = null;
         $this->pendingAttributeOrder = [];
     }
 
@@ -7428,11 +7466,13 @@ class BlockParser
      */
     protected function matchesRegisteredBlockOpener(array $lines, int $start): bool
     {
+        $savedSpan = $this->pendingAttributeSpan;
         $savedAttributes = $this->pendingAttributes;
         $savedOrder = $this->pendingAttributeOrder;
         try {
             return $this->tryBlockMatchers(new Document(), $lines, $start) !== null;
         } finally {
+            $this->pendingAttributeSpan = $savedSpan;
             $this->pendingAttributes = $savedAttributes;
             $this->pendingAttributeOrder = $savedOrder;
         }
@@ -15583,6 +15623,7 @@ class BlockParser
         array $headingReferences,
         int $sourceLength,
     ): Document {
+        $this->unattachedBlockAttributes = [];
         $this->references = [];
         $this->headingReferencesByFoldedLabel = [];
         $this->footnotes = [];
@@ -15592,6 +15633,7 @@ class BlockParser
         $this->abbreviationDefinitions = [];
         $this->abbreviationsBeforeBody = false;
         $this->pendingAttributes = [];
+        $this->pendingAttributeSpan = null;
         $this->pendingAttributeOrder = [];
         $this->warnings = [];
         $this->usedReferences = [];

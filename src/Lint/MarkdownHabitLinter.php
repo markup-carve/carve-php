@@ -28,7 +28,7 @@ class MarkdownHabitLinter
     /**
      * @var string
      */
-    public const RULE_STRONG_ASTERISKS = 'markdown-strong-asterisks';
+    public const RULE_STRONG_ASTERISKS = 'markdown-strong-double-star';
 
     /**
      * @var string
@@ -38,7 +38,7 @@ class MarkdownHabitLinter
     /**
      * @var string
      */
-    public const RULE_STRIKETHROUGH = 'markdown-strikethrough';
+    public const RULE_STRIKETHROUGH = 'markdown-strikethrough-double-tilde';
 
     /**
      * @var string
@@ -89,6 +89,7 @@ class MarkdownHabitLinter
         $offset = 0;
         $inFence = false;
         $fenceMarker = '';
+        $habitSource = '';
 
         foreach ($lines as $index => $line) {
             $lineNumber = $index + 1;
@@ -126,16 +127,13 @@ class MarkdownHabitLinter
                     $fenceMarker = '';
                 }
 
+                $habitSource .= str_repeat(' ', strlen($line)) . "\n";
                 $offset += strlen($line) + 1;
 
                 continue;
             }
 
-            if (!$inFence) {
-                foreach ($this->inlineWarnings($line, $lineNumber, $offset) as $warning) {
-                    $warnings[] = $warning;
-                }
-            }
+            $habitSource .= ($inFence ? str_repeat(' ', strlen($line)) : $line) . "\n";
 
             if ($platforms !== [] && !isset($platformSkipLines[$index])) {
                 foreach ($this->platformWarnings($line, $lineNumber, $offset, $platforms) as $warning) {
@@ -144,6 +142,10 @@ class MarkdownHabitLinter
             }
 
             $offset += strlen($line) + 1;
+        }
+
+        foreach ($this->inlineWarnings($habitSource, 1, 0) as $warning) {
+            $warnings[] = $warning;
         }
 
         // Only when the platform pass ran. The two passes append per line, so
@@ -213,7 +215,7 @@ class MarkdownHabitLinter
 
         $rules = [
             self::RULE_STRONG_ASTERISKS => [
-                '/\*\*(?!\s)((?:[^*]|\*(?!\*))+?)(?<!\s)\*\*/',
+                '/\*\*(?!\s)((?:(?!\n[ \t]*\n)[^*])+?)(?<!\s)\*\*/',
                 'renders as literal asterisks, not bold. Carve writes strong as *%s*.',
             ],
             self::RULE_STRONG_UNDERSCORES => [
@@ -221,7 +223,7 @@ class MarkdownHabitLinter
                 'renders as literal underscores, not bold. Carve writes strong as *%s*.',
             ],
             self::RULE_STRIKETHROUGH => [
-                '/~~(?!\s)((?:[^~]|~(?!~))+?)(?<!\s)~~/',
+                '/~~(?!\s)((?:(?!\n[ \t]*\n)[^~])+?)(?<!\s)~~/',
                 'renders as literal tildes, not strikethrough. Carve writes strike as ~%s~.',
             ],
         ];
@@ -232,10 +234,13 @@ class MarkdownHabitLinter
             }
 
             foreach ($matches[0] as $position => $match) {
+                $before = substr($masked, 0, $match[1]);
+                $rowStart = strrpos($before, "\n");
+                $rowStart = $rowStart === false ? 0 : $rowStart + 1;
                 $inner = $this->truncate((string)$matches[1][$position][0]);
                 $warnings[] = new LintWarning(
-                    line: $lineNumber,
-                    column: SourceOffsets::toColumn($masked, $match[1]),
+                    line: $lineNumber + substr_count($before, "\n"),
+                    column: SourceOffsets::toColumn(substr($masked, $rowStart), $match[1] - $rowStart),
                     rule: $rule,
                     message: sprintf('`%s` ', $match[0]) . sprintf($explanation, $inner),
                     start: $offset + $match[1],
@@ -244,7 +249,7 @@ class MarkdownHabitLinter
             }
         }
 
-        usort($warnings, static fn (LintWarning $a, LintWarning $b): int => $a->column <=> $b->column);
+        usort($warnings, static fn (LintWarning $a, LintWarning $b): int => [$a->line, $a->column] <=> [$b->line, $b->column]);
 
         return $warnings;
     }
@@ -302,7 +307,7 @@ class MarkdownHabitLinter
             }
         }
 
-        usort($warnings, static fn (LintWarning $a, LintWarning $b): int => $a->column <=> $b->column);
+        usort($warnings, static fn (LintWarning $a, LintWarning $b): int => [$a->line, $a->column] <=> [$b->line, $b->column]);
 
         return $warnings;
     }

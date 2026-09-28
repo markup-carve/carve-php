@@ -68,9 +68,9 @@ and degrade to literal text.
 
 | rule | what it catches |
 |---|---|
-| `markdown-strong-asterisks` | `**bold**`, which renders as literal asterisks |
+| `markdown-strong-double-star` | `**bold**`, which renders as literal asterisks |
 | `markdown-strong-underscores` | `__bold__`, likewise |
-| `markdown-strikethrough` | `~~gone~~` |
+| `markdown-strikethrough-double-tilde` | `~~gone~~` |
 
 `*x*` and `_x_` are NOT reported: they are correct Carve, and warning on them
 would punish authors writing the language properly. Verbatim spans are skipped,
@@ -370,3 +370,14 @@ in a block quote, in a list item, at any content column its container gives it -
 and a line scan would have to reconstruct all of that to decide whether `|...|`
 is a row at all. It would also report a fenced **example** of the retired
 spelling as if it were a document, which is what every example on this page is.
+
+`SourceLinter` also reports `unattached-block-attribute` when a pending attribute
+run reaches the end of its document or container, plus `djot-plus-bullet` and
+`djot-superscript-caret` for literal `+ item` and `^text^` spellings. Table
+continuations and braced superscripts are valid Carve and do not trigger these
+habit checks.
+
+The Markdown habit IDs are now `markdown-strong-double-star` and
+`markdown-strikethrough-double-tilde`, matching the other engines. They replace
+`markdown-strong-asterisks` and `markdown-strikethrough`, respectively. The
+`MarkdownHabitLinter` constant names are unchanged.
