@@ -982,7 +982,7 @@ class MarkdownToCarve
             if ($isHeading) {
                 $body = preg_replace('/^([ \t]*#{1,6})[ \t]+/', '$1 ', $body) ?? $body;
                 $body = preg_replace('/[ \t]+#+[ \t]*$/', '', $body) ?? $body;
-                if (preg_match('/^(#{1,6})(?:[ \t]+#*)?[ \t]*$/', $trimmed, $emptyHeading) === 1) {
+                if (preg_match('/^[ \t]*(#{1,6})(?:[ \t]+#*)?[ \t]*$/', $line, $emptyHeading) === 1) {
                     $level = strlen($emptyHeading[1]);
                     $pad = str_repeat(' ', $contentCol);
                     if ($result !== [] && trim((string)end($result)) !== '') {
