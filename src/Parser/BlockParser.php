@@ -7357,7 +7357,10 @@ class BlockParser
     }
 
     /**
+     * @param string $content
+     * @param string $line
      * @param array<string> $lines
+     * @param int $index
      */
     private function markerCommentSpanFits(string $content, string $line, array $lines, int $index): bool
     {
