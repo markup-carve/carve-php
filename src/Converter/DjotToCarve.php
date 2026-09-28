@@ -549,13 +549,8 @@ class DjotToCarve
                 if ($char === "\n" && preg_match('/\G[ \t]*\n/', $source, offset: $end + 1) === 1) {
                     break;
                 }
-                if ($masked[$end] !== $source[$end]) {
-                    $invalid = true;
-
-                    continue;
-                }
                 if ($quote) {
-                    if ($char === '\\') {
+                    if ($char === '\\' && ($source[$end + 1] ?? '') !== "\n") {
                         $end++;
                     } elseif ($char === '"') {
                         $quote = false;
@@ -563,9 +558,16 @@ class DjotToCarve
 
                     continue;
                 }
+                if ($masked[$end] !== $source[$end]) {
+                    $invalid = true;
+
+                    continue;
+                }
                 if ($char === '\\') {
                     $invalid = true;
-                    $end++;
+                    if (($source[$end + 1] ?? '') !== "\n") {
+                        $end++;
+                    }
 
                     continue;
                 }
