@@ -8,7 +8,7 @@ namespace MarkupCarve\Carve\Parser;
  * The trailing block of a collected container body.
  *
  * @internal
- * @phpstan-type LegacyState array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
+ * @phpstan-type LegacyState array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
  */
 final class TrailingBlockState
 {
@@ -63,7 +63,7 @@ final class TrailingBlockState
             nestedColumn: $state['nestedColumn'],
         );
         if ($state['inFence'] || $state['fenceLength'] > 0) {
-            $result->lastFence = new TrailingCodeFence($state['fenceChar'], $state['fenceLength'], $state['fenceColumn']);
+            $result->lastFence = new TrailingCodeFence($state['fenceChar'], $state['fenceLength'], $state['fenceColumn'], $state['fenceHostColumn']);
             $result->fence = $state['inFence'] ? $result->lastFence : null;
         }
 
@@ -72,9 +72,9 @@ final class TrailingBlockState
         return $result;
     }
 
-    public function openFence(string $char, int $length, int $column): void
+    public function openFence(string $char, int $length, int $column, int $hostColumn = 0): void
     {
-        $this->fence = new TrailingCodeFence($char, $length, $column);
+        $this->fence = new TrailingCodeFence($char, $length, $column, $hostColumn);
         $this->lastFence = $this->fence;
     }
 
@@ -89,6 +89,7 @@ final class TrailingBlockState
             'fenceChar' => ($this->fence ?? $this->lastFence)->char ?? '',
             'fenceLength' => ($this->fence ?? $this->lastFence)->length ?? 0,
             'fenceColumn' => ($this->fence ?? $this->lastFence)->column ?? 0,
+            'fenceHostColumn' => ($this->fence ?? $this->lastFence)->hostColumn ?? 0,
             'inDiv' => $this->inDiv,
             'divFenceLength' => $this->divFenceLength,
             'divColumn' => $this->divColumn,
