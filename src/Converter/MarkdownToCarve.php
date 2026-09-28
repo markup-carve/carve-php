@@ -578,7 +578,7 @@ class MarkdownToCarve
                 $trimmed = $trimmed . ' +';
             }
             $isBlank = $trimmed === '';
-            $isHeading = (bool)preg_match('/^#{1,6}\s/', $trimmed);
+            $isHeading = (bool)preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed);
             $indent = strlen($line) - strlen(ltrim($line));
             $isBlockquote = str_starts_with($trimmed, '>');
             $ordered = preg_match('/^(\d+)[.)]\s/', $trimmed, $orderedMatches) === 1 ? $orderedMatches : null;
@@ -982,6 +982,17 @@ class MarkdownToCarve
             if ($isHeading) {
                 $body = preg_replace('/^([ \t]*#{1,6})[ \t]+/', '$1 ', $body) ?? $body;
                 $body = preg_replace('/[ \t]+#+[ \t]*$/', '', $body) ?? $body;
+                if (preg_match('/^(#{1,6})(?:[ \t]+#*)?[ \t]*$/', $trimmed, $emptyHeading) === 1) {
+                    $level = strlen($emptyHeading[1]);
+                    $pad = str_repeat(' ', $contentCol);
+                    if ($result !== [] && trim((string)end($result)) !== '') {
+                        $result[] = '';
+                    }
+                    array_push($result, $pad . '```=html', $pad . "<h{$level}></h{$level}>", $pad . '```', '');
+                    $prevLineType = 'heading';
+
+                    continue;
+                }
             }
             if ($isBlockquote) {
                 // The markers and the indentation behind them count real
@@ -2127,7 +2138,7 @@ class MarkdownToCarve
         if ($trimmed === '' || preg_match('/^ {0,3}(`{3,}|~{3,})/', $line) === 1) {
             return false;
         }
-        if (preg_match('/^#{1,6}\s/', $trimmed) === 1 || str_starts_with($trimmed, '>')) {
+        if (preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed) === 1 || str_starts_with($trimmed, '>')) {
             return false;
         }
         $underline = trim($lines[$index + 1] ?? '');
