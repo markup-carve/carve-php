@@ -4329,7 +4329,7 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
-        $line = preg_replace_callback('/<[^>\s@]+@[^>\s]+>/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
+        $line = preg_replace_callback('/<[^>\s@]+@[^>\s]+>/', fn (array $match): string => str_contains($match[0], "\0") || str_contains($match[0], '\\') ? $match[0] : $protect($match[0]), $line) ?? $line;
         $line = preg_replace_callback('/\bhttps?:\/\/[^\s<>`]+/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         // A definition kept where it stands is a definition, not link text -
         // on a nested item's marker line too, which is where fmt writes it.
