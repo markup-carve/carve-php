@@ -5687,7 +5687,7 @@ class BlockParser
         ?array $authoredBaseEligible = null,
         ?int $leadNestedColumn = null,
     ): void {
-        $lines = $this->rebaseOverindentedItemBlocks($lines, $authoredBaseEligible, $leadNestedColumn);
+        $lines = $this->rebaseOverindentedItemBlocks($lines, $authoredBaseEligible, $leadNestedColumn, absorbLeadNoteBody: true);
         // THESE LINES ARE THE ITEM'S BODY, so their column 0 IS the item's
         // content column and a marker reaching it opens a sublist (PART 9 §24
         // C3, markup-carve/carve#1517). Passed the way `$topLevel` is passed and
@@ -5904,14 +5904,8 @@ class BlockParser
      * @param bool $includeSublists
      * @param bool $skipOpaqueAtMinimum
      * @param bool $skipOnlyClosedOpaqueAtMinimum
-     * @param bool $absorbLeadNoteBody When the chunk's own LEAD is a footnote
-     *   definition, its body owns a block opener at PART 9 §16's floor too, so
-     *   the opener is absorbed by the note rather than rebased into the host.
-     *   Only the description-body host passes this: markup-carve/carve#1974
-     *   rules the opener-at-a-dd-hosted-note's-floor corner to match a plain
-     *   continuation line, which this engine already owns to the note. A note
-     *   reached AFTER other content is the `$i > $firstContentLine` case the
-     *   walk already handles for every host.
+     * @param bool $absorbLeadNoteBody Let a note at the start of a collected
+     *   list or description chunk own openers at its body floor (PART 9 §16).
      *
      * @return array<string>
      */
@@ -6182,14 +6176,8 @@ class BlockParser
                     // body column and is untouched here, so the host keeps it
                     // (carve#1957).
                     //
-                    // A NOTE THAT IS THE CHUNK'S OWN LEAD OWNS ITS BODY TOO,
-                    // but only where the host asks it (markup-carve/carve#1974).
-                    // The lead-note form is where carve-js and carve-rs diverge,
-                    // so it stayed pinned to `$i > $firstContentLine` for every
-                    // host; carve#1974 rules it for the description body, where
-                    // an opener at the note's §16 floor is the note's exactly as
-                    // a plain continuation line already is - and the description
-                    // collector is the one caller that passes the flag.
+                    // A note can begin a new chunk within the same item.
+                    // Its body floor is independent of that chunk boundary.
                     if (
                         $firstContentLine !== null
                         && (
