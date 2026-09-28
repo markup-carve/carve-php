@@ -616,6 +616,11 @@ class MarkdownToCarve
             // would be read as a setext underline and stay text.
             $rule = $inHtmlBlock ? null : $this->thematicBreakLine($line, $contentCol);
             if ($rule !== null) {
+                $rulePrefix = $this->quotePrefixOf(ltrim($line));
+                $ruleKey = str_repeat('> ', substr_count($rulePrefix, '>'));
+                if (isset($quoteMarkers[$ruleKey])) {
+                    $quoteMarkers[$ruleKey]->end($this->indentWidth(substr(ltrim($line), strlen($rulePrefix))));
+                }
                 $result[] = $rule;
                 $next = $lines[$i + 1] ?? null;
                 if ($next !== null && trim($next) !== '') {
@@ -645,6 +650,7 @@ class MarkdownToCarve
                     $i,
                     $contentCol,
                     in_array($prevLineType, ['text', 'list', 'blockquote'], true),
+                    $quoteMarkers,
                 );
                 if ($htmlBlock !== null) {
                     $container = $this->containerKey($line, $contentCol);
@@ -982,6 +988,11 @@ class MarkdownToCarve
                 $body = $this->normalizeBlockquoteMarkers($this->expandLeadingTabs($body));
                 $quoteFence = $this->collectQuotedFence($lines, $i, $body);
                 if ($quoteFence !== null) {
+                    $fencePrefix = $this->quotePrefixOf($body);
+                    $fenceKey = str_repeat('> ', substr_count($fencePrefix, '>'));
+                    if (isset($quoteMarkers[$fenceKey])) {
+                        $quoteMarkers[$fenceKey]->end($this->indentWidth(substr($body, strlen($fencePrefix))));
+                    }
                     $quotePrefix = rtrim($quoteFence['prefix']);
                     if ($prevLineType === 'blockquote') {
                         $result[] = $quotePrefix;
@@ -1460,6 +1471,15 @@ class MarkdownToCarve
         return ltrim($rest, " \t");
     }
 
+    protected function expandHtmlQuoteTabs(string $line): string
+    {
+        if (preg_match('/^[ \t]*(?:>[ \t]?)+/', $line, $match) !== 1) {
+            return $line;
+        }
+
+        return $this->expandLeadingTabs($match[0]) . substr($line, strlen($match[0]));
+    }
+
     /**
      * A line inside an open HTML block with its container prefix removed - the
      * block quote markers, then the enclosing list item's content column - and
@@ -1568,12 +1588,8 @@ class MarkdownToCarve
      */
     protected function htmlBlockCloser(string $rest): ?string
     {
-        if (preg_match('/^<(script|pre|style|textarea)(?:[ \t>]|$)/i', $rest, $tag) === 1) {
-            // The block ends on its OWN end tag. carve-js closes a `<script>`
-            // block on `</script>` only, not on `</pre>`, so a mismatched end
-            // tag leaves the block open and it runs to the next blank line or
-            // EOF - this engine matches that.
-            return '/<\/' . strtolower($tag[1]) . '>/i';
+        if (preg_match('/^<(script|pre|style|textarea)(?:[ \t>]|$)/i', $rest) === 1) {
+            return '/<\/(?:script|pre|style|textarea)>/i';
         }
         if (str_starts_with($rest, '<!--')) {
             return '/-->/';
@@ -1598,6 +1614,7 @@ class MarkdownToCarve
      * @param int $start
      * @param int $contentCol
      * @param bool $paragraphOpen
+     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $quoteMarkers
      *
      * @return array{lines: array<int, string>, end: int}|null
      */
@@ -1606,8 +1623,10 @@ class MarkdownToCarve
         int $start,
         int $contentCol,
         bool $paragraphOpen,
+        array $quoteMarkers = [],
     ): ?array {
-        $first = $this->stripContainerPrefix($lines[$start], $contentCol);
+        $opening = $this->expandHtmlQuoteTabs($lines[$start]);
+        $first = $this->stripContainerPrefix($opening, $contentCol);
         if ($first === null) {
             return null;
         }
@@ -1644,7 +1663,7 @@ class MarkdownToCarve
                 if ($this->containerKey($lines[$i], $contentCol) !== $container) {
                     break;
                 }
-                $rest = $this->htmlContinuationLine($lines[$i], $contentCol);
+                $rest = $this->htmlContinuationLine($this->expandHtmlQuoteTabs($lines[$i]), $contentCol);
                 if ($rest === null || ($closer === null && trim($rest, " \t") === '')) {
                     break;
                 }
@@ -1664,17 +1683,21 @@ class MarkdownToCarve
             }
         }
 
-        $sourcePrefix = $this->htmlContainerPrefix($lines[$start], $first);
-        if (str_contains($sourcePrefix, '>')) {
-            $prefix = $contentCol === 0 ? ltrim($sourcePrefix, " \t") : $sourcePrefix;
-            $continuation = $prefix;
-        } elseif ($contentCol > 0) {
-            $prefix = $sourcePrefix;
-            $continuation = $sourcePrefix;
+        $sourcePrefix = $this->htmlContainerPrefix($opening, $first);
+        if (preg_match('/^[ \t]*(?:>[ \t]?)+/', $sourcePrefix, $quote) === 1) {
+            $quotePrefix = str_repeat('> ', substr_count($quote[0], '>'));
+            $inner = substr($sourcePrefix, strlen($quote[0]));
+            $markers = $quoteMarkers[$quotePrefix] ?? null;
+            $holder = $markers?->contentAt($this->indentWidth($inner)) ?? 0;
+            $shift = $markers?->shiftAt($holder) ?? 0;
+            $parts[0] = $inner . $parts[0];
+            $parts = array_map(fn (string $part): string => $this->stripColumns($part, $holder), $parts);
+            $prefix = str_repeat(' ', $contentCol) . $quotePrefix . str_repeat(' ', $holder + $shift);
         } else {
-            $prefix = '';
-            $continuation = $sourcePrefix;
+            $prefix = str_repeat(' ', $contentCol);
+            $parts[0] = $this->stripColumns($sourcePrefix, $contentCol) . $parts[0];
         }
+        $continuation = $prefix;
         $fenceLength = 3;
         foreach ($parts as $part) {
             if (preg_match_all('/`+/', $part, $runs) > 0) {
