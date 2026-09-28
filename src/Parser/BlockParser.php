@@ -11160,7 +11160,16 @@ class BlockParser
             || $node instanceof DefinitionList
             || $node instanceof DefinitionTerm
             || $node instanceof ListBlock
-            || $node instanceof BlockQuote
+            // A QUOTE HAS TWO SPELLINGS AND ONLY ONE OF THEM ENDS AT ITS LAST
+            // CHILD. The `>` prefix form has no closer, so its extent is the
+            // lines it consumed; the `::: >` form has one, and every other
+            // colon-fence container spans it. Keyed by class alone, the fenced
+            // quote was shrunk off its own closer, so it reported `1->2` where
+            // a div, an admonition and a line block over the same three lines
+            // all report `1->3` - and the linter, which reads the node's extent
+            // to find the closer, then reported a closed fence as unclosed
+            // (markup-carve/carve-php#2636).
+            || ($node instanceof BlockQuote && !$node->isFenced())
             || $node instanceof Figure
             || $node instanceof Footnote
             || $node instanceof Heading;
