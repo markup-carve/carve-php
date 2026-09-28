@@ -30,6 +30,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Performance\BorrowedExtensionPlan;
 use MarkupCarve\Carve\Performance\BorrowedHtmlLayout;
+use MarkupCarve\Carve\Performance\HtmlOutput;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
@@ -488,11 +489,13 @@ class CarveConverter
     }
 
     /**
-     * Deliver accepted borrowed HTML in newline-terminated chunks.
-     * HTML is buffered before delivery. Rejected input never calls the sink.
+     * Validate borrowed HTML, then emit UTF-8 chunks of at most 4096 bytes.
+     * Rejected input never calls the sink.
      *
      * @param string $source
      * @param callable(string): void $sink
+     *
+     * @throws \LogicException
      *
      * @return 'complete'|'needs-ast'
      */
@@ -503,20 +506,14 @@ class CarveConverter
         if ($plan === null) {
             return 'needs-ast';
         }
-        $attempt = (new BorrowedHtmlLayout())->render($source, false, $plan);
+        $attempt = (new BorrowedHtmlLayout())->render($source, false, $plan, new HtmlOutput(discard: true));
         if ($attempt === null) {
             return 'needs-ast';
         }
         BorrowedExtensionPlan::commit($this->extensions, $attempt['headings']);
-        $html = $attempt['html'];
-        $length = strlen($html);
-        for ($start = 0; $start < $length; $start = $end) {
-            $newline = strpos($html, "\n", $start);
-            $end = $newline === false ? $length : $newline + 1;
-            $sink(substr($html, $start, $end - $start));
-        }
-        if ($length === 0) {
-            $sink('');
+        $emitted = (new BorrowedHtmlLayout())->render($source, false, $plan, new HtmlOutput($sink));
+        if ($emitted === null) {
+            throw new LogicException('Validated layout changed during rendering');
         }
 
         return 'complete';

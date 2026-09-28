@@ -15,10 +15,13 @@ if ($outcome === 'needs-ast') {
 }
 ```
 
-Accepted output arrives in newline-terminated chunks, followed by any final
-unterminated line. Empty accepted output calls the sink once with an empty
-string. Sink exceptions propagate.
+Accepted output arrives in UTF-8 chunks of at most 4096 bytes. Chunks end at
+newlines where possible; long lines span multiple chunks. Empty accepted output
+calls the sink once with an empty string. Sink exceptions propagate.
 
-The complete HTML string is buffered before delivery. Acceptance depends on
-the borrowed renderer's supported syntax and converter configuration. This API
-adds callback delivery; unbuffered rendering remains future work.
+A validation pass discards output before any callback runs. A second pass writes
+to the bounded output buffer without assembling the complete HTML string.
+Source lines, reference definitions, and extension heading metadata still use
+memory proportional to the input. Supported extension heading state is committed
+before the first callback. Unsupported syntax or configuration returns `needs-ast`.
+The normal renderer's 64 KiB fast-path limit does not apply to streaming.
