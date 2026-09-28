@@ -1914,7 +1914,7 @@ final class HtmlAstBuilder
                 if ($horizontal !== null) {
                     $skipAttrs[] = 'align';
                 }
-                if ($vertical !== null) {
+                if (isset($cell['valign'])) {
                     $skipAttrs[] = 'valign';
                 }
                 $this->attachAttrs($cell, $cellElement, $skipAttrs);
