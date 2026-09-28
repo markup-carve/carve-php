@@ -904,7 +904,7 @@ class MarkdownToCarve
                     $line = $this->escapeTaskItemOpener($line);
                 }
                 $line = $this->normalizeHeldQuoteMarkers($line);
-                $inlineRun = str_contains($line, '`') ? $this->collectInlineParagraph($lines, $i, $line, $contentCol) : null;
+                $inlineRun = strpbrk($line, '`<') !== false ? $this->collectInlineParagraph($lines, $i, $line, $contentCol) : null;
                 if ($inlineRun !== null) {
                     $i = $inlineRun['end'];
                     $parts = explode("\n", $this->convertInlineFormatting($inlineRun['body']));
@@ -1641,16 +1641,11 @@ class MarkdownToCarve
         if ($closer === null && !$this->htmlBlockInterrupts($first)) {
             // Not a condition 1-5 or 6 opener, so only condition 7 can start a
             // block here: the line must be a SINGLE tag ending at its first `>`
-            // with nothing after it. A TAG NAME is what makes it a tag -
-            // `[A-Za-z][A-Za-z0-9-]*`, the CommonMark production - so
-            // `<http://a>` and `<foo@bar.example.com>` are autolink text and
-            // not an HTML block (carve-php#2635). `[^>]*` (not `.*`) then draws
-            // the line between `<x foo=>` (one tag alone - opens a block,
-            // matching carve-js even though the attribute is malformed) and
-            // `<span>a b c</span>` (tag, content, tag - stays inline).
+            // with nothing after it. Malformed attributes leave the line as
+            // paragraph text, so a later block opener can still interrupt it.
             if (
                 $paragraphOpen
-                || preg_match('/^<\/?[A-Za-z][A-Za-z0-9-]*(?:[ \t][^>]*)?[ \t]*\/?>[ \t]*$/', $first) !== 1
+                || ($this->htmlTagAt(rtrim($first, " \t"), 0)['end'] ?? -1) !== strlen(rtrim($first, " \t"))
             ) {
                 return null;
             }
@@ -3943,7 +3938,7 @@ class MarkdownToCarve
     {
         preg_match('/^([ \t]*(?:(?:[-*+]|\d+[.)])[ \t]+|>[ \t]?)*)(.*)$/s', $body, $first);
         $text = $first[2] ?? $body;
-        if (strpbrk($text, '*_[`') === false || !$this->isParagraphLine([$text], 0)) {
+        if (strpbrk($text, $this->convertRawHtml ? '*_[`' : '*_[`<') === false || !$this->isParagraphLine([$text], 0)) {
             return null;
         }
         $prefix = $first[1] ?? '';
@@ -4027,11 +4022,22 @@ class MarkdownToCarve
 
         // A backslash is literal inside an autolink, including before its
         // closing bracket. Leave that bracket available to the autolink pass.
-        $line = preg_replace_callback(
-            '/\\\\[^A-Za-z0-9\s]/',
-            fn (array $match): string => $match[0] === '\\>' ? $protect('\\') . '>' : $protect($match[0]),
-            $line,
-        ) ?? $line;
+        $escaped = '';
+        for ($i = 0, $length = strlen($line); $i < $length;) {
+            $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
+            if ($tag !== null) {
+                $escaped .= substr($line, $i, $tag['end'] - $i);
+                $i = $tag['end'];
+            } elseif ($line[$i] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $line[$i + 1] ?? '') === 1) {
+                $pair = substr($line, $i, 2);
+                $escaped .= $pair === '\\>' ? $protect('\\') . '>' : $protect($pair);
+                $i += 2;
+            } else {
+                $escaped .= $line[$i] === '\\' && ($line[$i + 1] ?? '') === ' ' ? $protect('\\\\') : $line[$i];
+                $i++;
+            }
+        }
+        $line = $escaped;
         // `<code>x</code>` becomes a Carve code span in BOTH modes - carve-js
         // does this unconditionally, ahead of any raw-HTML handling, so verbatim
         // mode must not emit it as `<code>...</code>`{=html}.
@@ -4082,21 +4088,23 @@ class MarkdownToCarve
                 $rawInline,
                 $line,
             ) ?? $line;
-            // The `>` (not `\b`) in the native lookahead is what keeps ONLY a
-            // BARE native tag out of the raw wrap: `<b>` is left for `$htmlRules`
-            // to convert, while an attributed `<b class="x">` is wrapped raw so
-            // its attributes survive - matching carve-js, which never converts
-            // an attributed tag.
-            $line = preg_replace_callback(
-                '/<(?!(?:' . $nativeInline . ')>)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+[^<>]*?)?>[\s\S]*?<\/\1[ \t]*>/i',
-                $rawInline,
-                $line,
-            ) ?? $line;
-            $line = preg_replace_callback(
-                '/<\/?(?!(?:' . $nativeInline . ')>)[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
-                $rawInline,
-                $line,
-            ) ?? $line;
+            $written = '';
+            for ($i = 0, $length = strlen($line); $i < $length;) {
+                $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
+                if ($tag === null) {
+                    $written .= $line[$i++];
+
+                    continue;
+                }
+                $end = $tag['end'];
+                if (preg_match('~^</?(?:' . $nativeInline . ')>$~i', substr($line, $i, $end - $i)) === 1) {
+                    $written .= substr($line, $i, $end - $i);
+                } else {
+                    $written .= $rawInline([substr($line, $i, $end - $i)]);
+                }
+                $i = $end;
+            }
+            $line = $written;
         }
         $line = preg_replace_callback(
             '/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
@@ -5273,6 +5281,56 @@ class MarkdownToCarve
     }
 
     /**
+     * @return array{end: int, name: string, closing: bool, attrs: bool}|null
+     */
+    protected function htmlTagAt(string $source, int $start): ?array
+    {
+        if (preg_match('/\G<(\/?)([A-Za-z][A-Za-z0-9-]*)/', $source, $head, 0, $start) !== 1) {
+            return null;
+        }
+        $i = $start + strlen($head[0]);
+        $length = strlen($source);
+        $closing = $head[1] === '/';
+        $attrs = false;
+        while ($i < $length) {
+            $beforeSpace = $i;
+            $i += strspn($source, " \t\n\r\f", $i);
+            if (($source[$i] ?? '') === '>' || (!$closing && substr($source, $i, 2) === '/>')) {
+                return ['end' => $i + ($source[$i] === '/' ? 2 : 1), 'name' => strtolower($head[2]), 'closing' => $closing, 'attrs' => $attrs];
+            }
+            if ($closing || $i === $beforeSpace || preg_match('/\G[A-Za-z_:][A-Za-z0-9_.:-]*/', $source, $attribute, 0, $i) !== 1) {
+                return null;
+            }
+            $attrs = true;
+            $i += strlen($attribute[0]);
+            $afterName = $i;
+            $i += strspn($source, " \t\n\r\f", $i);
+            if (($source[$i] ?? '') !== '=') {
+                $i = $afterName;
+
+                continue;
+            }
+            $i++;
+            $i += strspn($source, " \t\n\r\f", $i);
+            if (($source[$i] ?? '') === '"' || ($source[$i] ?? '') === "'") {
+                $end = strpos($source, $source[$i], $i + 1);
+                if ($end === false || str_contains(substr($source, $i, $end - $i), "\0")) {
+                    return null;
+                }
+                $i = $end + 1;
+            } else {
+                $width = strcspn($source, " \t\n\r\f\"'=<>`\0", $i);
+                if ($width === 0) {
+                    return null;
+                }
+                $i += $width;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Protect inline code spans, including multi-backtick spans.
      *
      * @param string $line
@@ -5308,9 +5366,10 @@ class MarkdownToCarve
 
                 continue;
             }
-            if ($line[$i] === '<' && preg_match('~\G</?[A-Za-z][A-Za-z0-9-]*(?=[\s/>])(?:[^<>"\'`]++|"[^"]*"|\'[^\']*\')*>~s', $line, $tag, 0, $i) === 1) {
-                $out .= $tag[0];
-                $i += strlen($tag[0]);
+            $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
+            if ($tag !== null) {
+                $out .= substr($line, $i, $tag['end'] - $i);
+                $i = $tag['end'];
 
                 continue;
             }

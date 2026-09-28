@@ -65,7 +65,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
 
     private static function rawInline(string $html): string
     {
-        return '`' . $html . '`{=html}';
+        return preg_replace('/(<[^>]+>)/', '`$1`{=html}', $html) ?? $html;
     }
 
     protected function setUp(): void
@@ -137,7 +137,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // opens nothing - both readers keep it as paragraph text. Treating it as
         // a block suppressed the genuine opener two lines below it.
         $this->assertSame(
-            self::rawBlock("<x foo=>\nprose\n<footer>y</footer>"),
+            "<x foo=>\nprose\n\n" . self::rawBlock('<footer>y</footer>'),
             $this->converter->convert("<x foo=>\nprose\n<footer>y</footer>\n"),
         );
 
@@ -275,7 +275,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
     {
         $inline = str_contains($opener, '@') || str_starts_with($opener, '<https://')
             ? $opener
-            : self::rawInline($opener);
+            : preg_replace_callback('~<[^>]+>~', static fn (array $match): string => self::rawInline($match[0]), $opener);
         $expected = $interrupts
             ? "prose line\n\n" . self::rawBlock($opener)
             : "prose line\n" . $inline . "\n";

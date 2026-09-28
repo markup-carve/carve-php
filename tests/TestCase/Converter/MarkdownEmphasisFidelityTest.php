@@ -75,7 +75,7 @@ class MarkdownEmphasisFidelityTest extends TestCase
     {
         foreach (["<span title=\"x  \ny\">b</span>", "<!-- x  \ny -->"] as $html) {
             $written = (new MarkdownToCarve())->convert('*a ' . $html . "\nc*");
-            $this->assertStringContainsString($html, $written);
+            $this->assertStringContainsString(str_replace('>b</span>', '>', $html), $written);
             $this->assertStringNotContainsString("x\\\ny", $written);
         }
     }
