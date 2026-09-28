@@ -4830,11 +4830,12 @@ class BlockParser
         // paragraph text and a flush-left line lazily continues it. Read
         // ltrimmed, this closed a paragraph the parser had built.
             $isAttributeLine = $atContentColumn && $this->isBlockAttributeLine($trimmed);
-        // AN INVISIBLE LINE AT THE CONTENT COLUMN IS A BLOCK, and ends the
-        // paragraph exactly as a definition does (markup-carve/carve#1350).
-        // BELOW the column the same line is a lazy continuation and adds no
-        // block, which is what keeps `> a` / `%% c` / `b` folding.
-            $isCommentLine = $atContentColumn && $this->isCommentLineOrFence($trimmed);
+        // A COMMENT IS A BLOCK AT EVERY COLUMN (PART 9 §24 C3), so this row
+        // asks no column question where the two above it do. A `%%` reaching
+        // this tracker at column 0 was admitted either way, so the gate only
+        // ever changed the PAST-the-column case - and there it folded the
+        // unquoted line below into the quote (markup-carve/carve-php#2651).
+            $isCommentLine = $this->isCommentLineOrFence($trimmed);
 
             $leavesNoParagraph = $isHeading
             || $isThematicBreak
