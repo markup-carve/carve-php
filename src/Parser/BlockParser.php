@@ -7710,14 +7710,26 @@ class BlockParser
                 // written BELOW the column.
                 $wasOpenParagraph = $trailingState->openParagraph;
                 $wasInFence = $trailingState->fence !== null;
-                $trailingState = $this->advanceTrailingStateWithFenceLookahead(
-                    $trailingState,
-                    $contentLine,
-                    $lines,
-                    $i,
-                    true,
-                    $contentIndent,
-                );
+                // A CLOSER PAST THE BLANK THAT ENDS THIS ITEM IS NOT THIS
+                // FENCE'S (§10 I4 over carve#1379, markup-carve/carve#2509).
+                // The general lookahead reads to end of source, so a run whose
+                // only closer sits under a blank no later line continues at the
+                // content column armed a fence the item cannot hold and
+                // swallowed the blank; `CARVE-P0-014` folds the run into the
+                // paragraph instead. carve-php#2660 asked this one container in;
+                // the single-item path asks it here.
+                $trailingState = $wasOpenParagraph
+                    && !$wasInFence
+                    && $this->itemFenceRunOutlivesTheItem($lines, $i, $contentLine, $contentIndent)
+                    ? $this->advanceTrailingState($trailingState, 'text', true)
+                    : $this->advanceTrailingStateWithFenceLookahead(
+                        $trailingState,
+                        $contentLine,
+                        $lines,
+                        $i,
+                        true,
+                        $contentIndent,
+                    );
                 if ($wasInFence && $trailingState->fence === null) {
                     $interruptedParagraphFence = false;
                 } elseif ($wasOpenParagraph && !$wasInFence && ($trailingState->fence !== null)) {
@@ -14032,6 +14044,63 @@ class BlockParser
         $opener = $this->itemFenceOpenerAt($trimmed);
 
         return $opener !== null && !$this->itemFenceCloserAhead($lines, $index, $opener, $columns);
+    }
+
+    /**
+     * Does a fence-shaped body line have its only closer past the item's end?
+     *
+     * A blank line no later line continues at the item's content column ends
+     * the item (carve#1379), so a closer written below it belongs to the
+     * document and §10 I4 has nothing to arm the fence on. The oracle asks the
+     * same question in `bodyFenceOpens` (markup-carve/carve#2509).
+     *
+     * AT THE RUN'S OWN COLUMN, which is the only column §10 reads a closer at,
+     * while the blank is measured against the item's content column: the two
+     * differ whenever the author wrote the fence past that column.
+     *
+     * @param array<string> $lines The SOURCE view.
+     * @param int $index Source index of the run.
+     * @param string $contentLine The line dedented by `$contentColumn`.
+     * @param int $contentColumn The item's content column.
+     */
+    private function itemFenceRunOutlivesTheItem(
+        array $lines,
+        int $index,
+        string $contentLine,
+        int $contentColumn,
+    ): bool {
+        $opener = $this->itemFenceOpenerAt($contentLine);
+        if ($opener === null) {
+            return false;
+        }
+
+        $columns = $contentColumn + IndentationHelper::getLeadingColumns($contentLine);
+        $char = $opener['char'] ?? $opener['fence'][0];
+        $probe = max($columns, $contentColumn) + 1;
+        $count = count($lines);
+        $blanked = false;
+        for ($j = $index + 1; $j < $count; $j++) {
+            $line = $lines[$j];
+            if (IndentationHelper::isBlankLine($line)) {
+                $blanked = true;
+
+                continue;
+            }
+            $indent = IndentationHelper::getLeadingColumns($line, $probe);
+            if ($blanked && $indent < $contentColumn) {
+                return true;
+            }
+            $blanked = false;
+            if ($indent !== $columns) {
+                continue;
+            }
+            $candidate = $columns > 0 ? IndentationHelper::stripLeadingColumns($line, $columns) : $line;
+            if ($this->fencedBlockParser->isCodeFenceCloser($candidate, $char, $opener['length'])) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**
