@@ -4685,6 +4685,14 @@ class BlockParser
         // two ways is a bug in one of the two paths
         // (markup-carve/carve#920, corpus 271).
             if ($state['mode'] === BlockQuoteLazyMode::Div) {
+                // AT THE DEPTH THE DIV WAS OPENED AT, which is the only depth its
+                // own closer can be written at. Read off the whole line, every
+                // test below missed a `> > :::` closer because of the marker in
+                // front of it, the div stayed open, and its body branch then
+                // reported an open paragraph that folded the unmarked line below
+                // into the OUTER quote (markup-carve/carve#2519). The code and
+                // comment branches above read at this depth for the same reason.
+                $content = self::quotedContentAtDepth($content, $state['innerDepth']) ?? $content;
                 if ($this->fencedBlockParser->isDivFenceCloser($content, $state['divFenceLength'])) {
                     // A CLOSED container holds no open paragraph either.
                     $state['divDepth']--;
