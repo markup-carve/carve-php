@@ -152,7 +152,8 @@ class ContainerBoundaryRulingsTest extends TestCase
     /**
      * BELOW the column the same line is a LAZY continuation and still folds.
      *
-     * The corpus pins both of these, and they are what keeps the rule about the
+     * The corpus pins the item rows here - `183-a-comment-is-recognized-at-any-
+     * column` and `214-...-2` - and they are what keeps the rule about the
      * COLUMN rather than about the character.
      *
      * @return array<string, array{string, string}>
@@ -165,15 +166,40 @@ class ContainerBoundaryRulingsTest extends TestCase
             // One column short of the item's content column, so it is not the
             // definition the column would have made it.
             'reference definition one column short' => ["- a\n [r]: /u\ntail\n", '[r]: /u'],
-            // NOT AT THE COLUMN reads in both directions. A comment written
-            // with a space of indentation INSIDE the quote is ordinary
-            // paragraph text, exactly as an indented attribute line there is,
-            // so a flush-left line still folds into the quote. This is the
-            // control for the quote row above: without it the column test can
-            // be dropped and every comment closes.
-            'comment indented inside a quote' => [
+            // A COMMENT PAST THE COLUMN IS STILL A BLOCK, so this row does not
+            // belong to the rule above and is no longer read as its control.
+            // After the `> ` prefix is stripped the quote's content column is 0
+            // and this comment sits at 1 - one column PAST the boundary, where
+            // the three item rows above really are below theirs. §24 C3 makes a
+            // comment invisible at every column, so it ends the paragraph and
+            // the unquoted line goes to document level.
+            //
+            // It asserted carve-php's own output until
+            // markup-carve/carve-php#2651: the oracle and carve-js both publish
+            // `tail` outside the quote, and no corpus document carries this
+            // shape. An indented ATTRIBUTE line is the genuine control for the
+            // column test, and it is the row below.
+            'comment past the column inside a quote' => [
                 "> a\n>  %% c\ntail\n",
-                "<blockquote>\n  <p>a</p>\n  <p>tail</p>\n</blockquote>\n",
+                "<blockquote><p>a</p></blockquote>\n<p>tail</p>\n",
+            ],
+            // WHAT THE ROW ABOVE WAS MISTAKEN FOR, and the pair that proves the
+            // column test beside the comment is still live.
+            // `tryParseBlockAttributes()` requires the line to BEGIN with `{`,
+            // so an indented brace run in a quote is paragraph text - and the
+            // flush-left line below it continues that SAME paragraph, which is
+            // why all three lines land in one `<p>`.
+            'attribute line indented inside a quote' => [
+                "> q\n>  {.k}\ntail\n",
+                "<blockquote><p>q\n{.k}\ntail</p></blockquote>\n",
+            ],
+            // The same attribute AT the column is a block, so it ends the
+            // paragraph and the flush-left line leaves the quote. A fix that
+            // dropped the attribute row's gate along with the comment's would
+            // make these two agree, and they must not.
+            'attribute line at the content column' => [
+                "> q\n> {.k}\ntail\n",
+                "<blockquote><p>q</p></blockquote>\n<p>tail</p>\n",
             ],
         ];
     }

@@ -13,13 +13,13 @@ use PHPUnit\Framework\TestCase;
  * from the executable spec, each with the rows around it that must not move
  * (markup-carve/carve-php#2632).
  *
- * The seventh - a comment indented inside a quote - is NOT settled here. The
- * oracle says it ends the paragraph just as a comment at the content column
- * does, which is what PART 9 §24 C3 implies, but
- * `ContainerBoundaryRulingsTest::testAnInvisibleLineBelowTheColumnStillFolds`
- * pins the opposite as a container-boundary ruling. Nothing in the corpus pins
- * either answer, so overturning a ruling on the oracle's word alone is a
- * decision rather than a fix.
+ * The seventh - a comment PAST a quote's content column - was held back from
+ * this file and fixed in markup-carve/carve-php#2651 instead. It looked like a
+ * dispute between the oracle and a container-boundary ruling, and it was not:
+ * carve-js answers what the oracle answers, so this engine was the lone reader
+ * out and there was nothing to rule. The appearance came from measuring carve-js
+ * through a three-day-old `dist/` in a checkout carrying another lane's
+ * uncommitted edits - built clean, it sides with the oracle.
  *
  * Every expectation below is the oracle's output - `scripts/spec/layout.mjs`
  * plus `scripts/spec/html.mjs` in markup-carve/carve at 38829a97 - captured by
@@ -71,13 +71,10 @@ class SixFuzzShapesAgreeWithTheOracleTest extends TestCase
                 ">\n^ -\n| a |\n",
                 "<figure>\n  <blockquote>\n\n  </blockquote>\n  <figcaption>-</figcaption>\n</figure>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n",
             ],
-            // A comment INDENTED inside a quote belongs with these two and is
-            // not here: the oracle says it ends the paragraph exactly as the
-            // one at the content column does, but
-            // `ContainerBoundaryRulingsTest` pins the opposite as a ruling
-            // (markup-carve/carve#1350 via #1424), so that row of
-            // markup-carve/carve-php#2632 is left for a decision rather than
-            // settled here.
+            // A comment PAST the column belongs with this one and is not here:
+            // it was the seventh row, and markup-carve/carve-php#2651 fixed it
+            // separately once carve-js turned out to answer what the oracle
+            // answers.
             'a comment at the content column is unchanged' => [
                 "> %%\np\n",
                 "<blockquote>\n\n</blockquote>\n<p>p</p>\n",
