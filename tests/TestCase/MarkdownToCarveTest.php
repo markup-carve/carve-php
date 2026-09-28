@@ -128,7 +128,7 @@ class MarkdownToCarveTest extends TestCase
             ],
             'percent-encodes parentheses in a link destination' => [
                 '[wiki](https://host/Titan_(moon))',
-                '[wiki](https://host/Titan_%28moon%29)',
+                '[wiki](https://host/Titan_\\(moon\\))',
             ],
             'does not rewrite delimiters inside a bare URL' => [
                 'see https://example.com/api/_v1_/index here',
