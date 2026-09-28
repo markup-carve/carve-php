@@ -4037,8 +4037,19 @@ class MarkdownToCarve
             '/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
             function (array $match) use ($protect): string {
                 $decoded = html_entity_decode($match[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                if (preg_match('/^&#([xX]?)([0-9a-fA-F]+);$/', $match[0], $numeric) === 1) {
+                    $point = intval($numeric[2], $numeric[1] === '' ? 10 : 16);
+                    if ($point === 0 || $point > 0x10ffff || ($point >= 0xd800 && $point <= 0xdfff)) {
+                        $decoded = "\u{FFFD}";
+                    } else {
+                        $decoded = mb_chr($point, 'UTF-8');
+                    }
+                }
                 if ($decoded === $match[0]) {
                     return $match[0];
+                }
+                if ($decoded === "\r" || $decoded === "\n") {
+                    $decoded = ' ';
                 }
 
                 return $protect($this->escapeDecodedCharacterReference($decoded));
@@ -4151,7 +4162,7 @@ class MarkdownToCarve
                     $previous = $body;
                     $body = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]], $body) ?? $body;
                 } while ($body !== $previous);
-                if (!str_contains($body, '\\')) {
+                if (!str_contains($body, '\\') && !str_contains($body, '`')) {
                     return $protect($match[0]);
                 }
                 // Backslashes are literal in a CommonMark autolink. Encode
@@ -4225,6 +4236,7 @@ class MarkdownToCarve
 
         $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
         $line = $this->restoreNumericReferenceHashes($line);
+        $line = str_replace('&#', '&\\#', $line);
 
         $line = MarkdownEmphasis::convert($line, function (): void {
             $this->flattenedEmphasis = true;
@@ -5037,7 +5049,9 @@ class MarkdownToCarve
      */
     protected function escapeDecodedCharacterReference(string $text): string
     {
-        return preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-])/', '\\\\$1', $text) ?? $text;
+        $escaped = preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-])/', '\\\\$1', $text) ?? $text;
+
+        return str_replace(['"', "'"], ['\\"', "\\'"], $escaped);
     }
 
     /**
@@ -5157,6 +5171,18 @@ class MarkdownToCarve
         $i = 0;
         $length = strlen($line);
         while ($i < $length) {
+            if ($line[$i] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $line[$i + 1] ?? '') === 1) {
+                $out .= substr($line, $i, 2);
+                $i += 2;
+
+                continue;
+            }
+            if ($line[$i] === '<' && preg_match('/\G<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>/', $line, $autolink, 0, $i) === 1) {
+                $out .= $autolink[0];
+                $i += strlen($autolink[0]);
+
+                continue;
+            }
             if ($line[$i] !== '`') {
                 $out .= $line[$i];
                 $i++;
