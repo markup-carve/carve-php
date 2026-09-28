@@ -315,4 +315,59 @@ class ContainerPrefix
 
         return ['line' => $at === 0 ? $line : substr($line, $at), 'quoteDepth' => $quoteDepth];
     }
+
+    /**
+     * The content after all leading block-quote markers and trailing whitespace.
+     *
+     * ONE SCAN, no tail copied. The rule is ContainerPrefix::quoteContent()'s -
+     * `>` then a literal space, or a lone `>` ending the line - counted rather
+     * than applied, because applying it materializes the remainder once per
+     * marker and a line's marker count is bounded only by the line.
+     *
+     * @param string $line
+     */
+    public static function afterLeadingQuoteMarkers(string $line): string
+    {
+        $scan = rtrim($line, " \t");
+
+        return substr($scan, self::leadingQuoteMarkerWidth($scan));
+    }
+
+    /**
+     * How many leading block-quote markers a line carries.
+     *
+     * @param string $line
+     */
+    public static function countLeadingQuoteMarkers(string $line): int
+    {
+        $scan = rtrim($line, " \t");
+        $depth = 0;
+        $length = strlen($scan);
+        $at = 0;
+        while (($width = self::quoteMarkerWidth($scan, $at, $length)) !== null) {
+            $at += $width;
+            $depth++;
+        }
+
+        return $depth;
+    }
+
+    /**
+     * The byte width of the leading block-quote markers on an rtrimmed line.
+     *
+     * The same scan {@see ContainerPrefix::countLeadingQuoteMarkers()} walks, reported as
+     * an offset so the tail is materialized once rather than per marker.
+     *
+     * @param string $scan A line with trailing whitespace already removed.
+     */
+    private static function leadingQuoteMarkerWidth(string $scan): int
+    {
+        $length = strlen($scan);
+        $at = 0;
+        while (($width = self::quoteMarkerWidth($scan, $at, $length)) !== null) {
+            $at += $width;
+        }
+
+        return $at;
+    }
 }
