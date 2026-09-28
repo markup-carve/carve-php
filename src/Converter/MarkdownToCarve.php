@@ -1586,11 +1586,17 @@ class MarkdownToCarve
         if ($closer === null && !$this->htmlBlockInterrupts($first)) {
             // Not a condition 1-5 or 6 opener, so only condition 7 can start a
             // block here: the line must be a SINGLE tag ending at its first `>`
-            // with nothing after it. `[^>]*` (not `.*`) is what draws the line
-            // between `<x foo=>` (one tag alone - opens a block, matching
-            // carve-js even though the attribute is malformed) and
+            // with nothing after it. A TAG NAME is what makes it a tag -
+            // `[A-Za-z][A-Za-z0-9-]*`, the CommonMark production - so
+            // `<http://a>` and `<foo@bar.example.com>` are autolink text and
+            // not an HTML block (carve-php#2635). `[^>]*` (not `.*`) then draws
+            // the line between `<x foo=>` (one tag alone - opens a block,
+            // matching carve-js even though the attribute is malformed) and
             // `<span>a b c</span>` (tag, content, tag - stays inline).
-            if ($paragraphOpen || preg_match('/^<[^>]*>[ \t]*$/', $first) !== 1) {
+            if (
+                $paragraphOpen
+                || preg_match('/^<\/?[A-Za-z][A-Za-z0-9-]*(?:[ \t][^>]*)?[ \t]*\/?>[ \t]*$/', $first) !== 1
+            ) {
                 return null;
             }
         }
