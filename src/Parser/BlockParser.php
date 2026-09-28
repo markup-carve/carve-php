@@ -5334,7 +5334,14 @@ class BlockParser
                         // (`CARVE-P9-053`), so neither speaks for this column
                         // (markup-carve/carve#2527).
                         $inSubCommentSpan = $subOpenCommentLength !== null;
-                        $subOpenCommentLength = $this->advanceItemCommentFence($subOpenCommentLength, $subLine, $lines, $i);
+                        $subMarkerComment = null;
+                        if (!$inSubCommentSpan && $subTrailingState->fence === null && $lineIndent >= $subIndent) {
+                            $markerContent = $this->markerFreeContent(ltrim($subLine, " \t"));
+                            if ($this->markerCommentSpanFits($markerContent, $subLine, $lines, $i)) {
+                                $subMarkerComment = $markerContent;
+                            }
+                        }
+                        $subOpenCommentLength = $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i);
                         $subSpanClosedHere = $inSubCommentSpan && $subOpenCommentLength === null;
                         $subWasOpenParagraph = $subTrailingState->openParagraph;
                         $subWasAfterComment = $subTrailingState->afterComment;
@@ -5422,7 +5429,7 @@ class BlockParser
                                 }
                             } else {
                                 $wasSubInFence = $subTrailingState->fence !== null;
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
+                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $subMarkerComment ?? $stripped, true);
                                 if ($wasSubInFence && $subTrailingState->fence === null) {
                                     $subInterruptedParagraphFence = false;
                                 }
@@ -7350,6 +7357,37 @@ class BlockParser
     }
 
     /**
+     * @param string $content
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     */
+    private function markerCommentSpanFits(string $content, string $line, array $lines, int $index): bool
+    {
+        $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($content);
+        if ($info === null || $this->lastCommentFenceIndex($lines, $info['length']) <= $index) {
+            return false;
+        }
+        $column = IndentationHelper::getLeadingColumns($line);
+        $local = ltrim($line, " \t");
+        $marker = $this->listParser->parseListItemMarker($local);
+        if ($marker === null) {
+            return false;
+        }
+        $column += $this->listMarkerWidth($local, $marker);
+        for ($j = $index + 1, $count = count($lines); $j < $count; $j++) {
+            if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$j], $info['length'])) {
+                return true;
+            }
+            if (!IndentationHelper::isBlankLine($lines[$j]) && IndentationHelper::getLeadingColumns($lines[$j], $column) < $column) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Advance a list item's own comment-fence tracker over ONE collected line.
      *
      * Null means no comment fence is open; an int is the EXACT delimiter width
@@ -7896,7 +7934,14 @@ class BlockParser
                 // and its closer travels with its opener (`CARVE-P9-053`), so
                 // neither may move the paragraph or the after-comment state.
                 $inCommentSpan = $openCommentLength !== null;
-                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $contentLine, $lines, $i);
+                $trackedContent = $contentLine;
+                if (!$inCommentSpan && $trailingState->fence === null) {
+                    $markerContent = $this->markerFreeContent(ltrim($contentLine, " \t"));
+                    if ($this->markerCommentSpanFits($markerContent, $lines[$i], $lines, $i)) {
+                        $trackedContent = $markerContent;
+                    }
+                }
+                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $trackedContent, $lines, $i);
                 if (!$inCommentSpan && $openCommentLength !== null) {
                     $spanFromMarkerLine = false;
                 }
@@ -7934,7 +7979,7 @@ class BlockParser
                     ? $this->advanceTrailingState($trailingState, 'text', true)
                     : $this->advanceTrailingStateWithFenceLookahead(
                         $trailingState,
-                        $contentLine,
+                        $trackedContent,
                         $lines,
                         $i,
                         true,
