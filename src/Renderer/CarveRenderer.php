@@ -4800,6 +4800,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $parent instanceof Highlight => '=',
                 $parent instanceof Insert => '+',
                 $parent instanceof Delete => '-',
+                $parent instanceof Substitution => '~',
                 default => '',
             };
             if ($marker !== '') {
@@ -4808,8 +4809,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             }
         }
         $rendered = $this->renderAttrList($node->getAttributeEntries(), $node->getAttributeOrder(), $markers);
+        $payload = '';
+        foreach ($node->getAttributeEntries() as $key => $value) {
+            $payload .= $key . (is_array($value) ? implode('', $value) : $value);
+        }
         foreach ($enclosures as $id => $marker) {
-            if (strpbrk($rendered, $marker) !== false) {
+            if (strpbrk($payload, $marker) !== false) {
                 $this->bracedForAttributes[$id] = true;
             }
         }

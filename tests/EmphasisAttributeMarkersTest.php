@@ -27,7 +27,7 @@ class EmphasisAttributeMarkersTest extends TestCase
             $this->assertSame($converter->convert($source), $converter->convert($written), $source);
             $this->assertSame($written, CarveConverter::toCarve($written), $source);
         }
-        foreach (['/*[b]{key="/"}*/', '/*[b]{key="*"}*/', '{_[b]{id="a_"}_}', '{_[b]{class="a_"}_}', '{*[b]{key="*}"}*}', '{*[/b/]{key="*"}*}'] as $source) {
+        foreach (['{~x[y]{key="~"}~>z~}', '{~x~>y[z]{key="~"}~}', '/*[b]{key="/"}*/', '/*[b]{key="*"}*/', '{_[b]{id="a_"}_}', '{_[b]{class="a_"}_}', '{*[b]{key="*}"}*}', '{*[/b/]{key="*"}*}'] as $source) {
             $written = CarveConverter::toCarve($source);
             $this->assertSame($converter->convert($source), $converter->convert($written), $source);
             $this->assertSame($written, CarveConverter::toCarve($written), $source);
