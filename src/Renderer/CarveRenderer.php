@@ -182,10 +182,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected array $bracedSpans = [];
 
-    /** @var array<int, true> */
+    /**
+     * @var array<int, true>
+     */
     private array $bracedForAttributes = [];
 
-    /** @var array<int, true> */
+    /**
+     * @var array<int, true>
+     */
     private array $expandedBoldItalic = [];
 
     /**
@@ -4830,6 +4834,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @param array<string, string|list<string>> $attrs
      * @param list<string> $order
+     * @param string $markers
      */
     protected function renderAttrList(array $attrs, array $order, string $markers = ''): string
     {
