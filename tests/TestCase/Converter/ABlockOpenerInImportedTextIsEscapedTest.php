@@ -50,7 +50,10 @@ class ABlockOpenerInImportedTextIsEscapedTest extends TestCase
             'a list item after a hard break' => ['<ul><li>a<br>- x</li></ul>', "- a\\\n  \\- x"],
             'a lone plus in a list item' => ['<ul><li>+</li></ul>', '- \\+'],
             'a description' => ['<dl><dt>t</dt><dd># x</dd></dl>', ":: t\n: \\# x"],
-            'a lone plus below the first part of an item' => ['<ul><li>a<div>+</div></li></ul>', "- a\n\n  +"],
+            // The item is TIGHT, so the part below the lead takes the `+`
+            // continuation marker and the content's own `+` lands at column 0,
+            // where it needs the escape (carve-php#2642).
+            'a lone plus below the first part of an item' => ['<ul><li>a<div>+</div></li></ul>', "- a\n+\n\\+"],
             'a comment that starts the paragraph' => ['<p><!-- c -->- x</p>', '{%  c  %}- x'],
             'a lone plus in a description' => ['<dl><dt>t</dt><dd>+</dd></dl>', ":: t\n: \\+"],
             'text in a quote' => ['<blockquote>1. x</blockquote>', '> 1\\. x'],

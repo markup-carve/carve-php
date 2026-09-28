@@ -142,15 +142,22 @@ class AnImportedItemsBareTextLeadStaysTightTest extends TestCase
     }
 
     /**
-     * THE LIMIT OF THE RULE: a part that does not OPEN a block keeps its blank
-     * line, because written tight it would fold into the lead.
+     * THE LIMIT OF THE RULE: a part that does not OPEN a block takes the item's
+     * `+` continuation marker, because abutted it would fold into the lead.
      *
      * These are the shapes that make the vote insufficient on its own. None of
      * them holds a direct `<p>`, so the list is tight and the rows above would
      * abut them - but each is written as a bare inline run at the item's
      * content column, where it is lazy continuation of the lead paragraph
-     * (PART 9 §10 I2) rather than a block of its own. Abutting them costs a
-     * BLOCK, not a spelling.
+     * (PART 9 §10 I2) rather than a block of its own. What the marker buys is a
+     * BLOCK boundary the blank line alone cannot give a tight item.
+     *
+     * These rows used to spell the same shapes as a blank line plus an indented
+     * run, which is the LOOSE spelling and made the tree loose with them -
+     * `<li>a<div>d</div></li>` came back as two `<p>` wrappers the source HTML
+     * never had. Only a direct `<p>` votes, so the list is tight and the marker
+     * is the spelling that keeps it tight (carve-php#2642). Every row matches
+     * carve-js byte for byte.
      *
      * `testNoShapeChangesWhatItRenders()` is what proves the list is complete;
      * these rows record the specific shapes it was built from.
@@ -159,7 +166,7 @@ class AnImportedItemsBareTextLeadStaysTightTest extends TestCase
      * @param string $expected
      */
     #[DataProvider('foldingPartProvider')]
-    public function testAPartThatOpensNoBlockKeepsItsBlankLine(string $html, string $expected): void
+    public function testAPartThatOpensNoBlockTakesTheContinuationMarker(string $html, string $expected): void
     {
         $this->assertSame($expected, $this->import($html));
     }
@@ -172,22 +179,22 @@ class AnImportedItemsBareTextLeadStaysTightTest extends TestCase
         return [
             'a bare div, degraded to its text' => [
                 '<ul><li>a<div>d</div></li></ul>',
-                "- a\n\n  d\n",
+                "- a\n+\nd\n",
             ],
             'a figure, written as an inline run plus a caption line' => [
                 '<ul><li>a<figure><img src="i.png"><figcaption>c</figcaption></figure></li></ul>',
-                "- a\n\n  ![](i.png)\n  ^ c\n",
+                "- a\n+\n![](i.png)\n^ c\n",
             ],
             'a sublist with a stray block hoisted in front of it' => [
                 '<ul><li>a<ul><p>x</p><li>b</li></ul></li></ul>',
-                "- a\n\n  x\n\n  - b\n",
+                "- a\n+\nx\n\n  - b\n",
             ],
             // THE EMPTY LIST MUST NOT ANSWER FOR THE RUN. It writes nothing, so
             // the nested run still starts with the stray paragraph below it -
             // and an empty list that got the vote abutted `x` into the lead.
             'an empty sublist ahead of one with a stray block' => [
                 '<ul><li>a<ul></ul><ul><p>x</p><li>b</li></ul></li></ul>',
-                "- a\n\n  x\n\n  - b\n",
+                "- a\n+\nx\n\n  - b\n",
             ],
         ];
     }
