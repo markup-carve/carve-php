@@ -617,6 +617,23 @@ class CarveConverter
         return ['ast' => $ast, 'layout' => SourceLayout::build($source, $ast)];
     }
 
+    /**
+     * @internal
+     */
+    public function supportsIncrementalParagraphReuse(): bool
+    {
+        if (!$this->borrowedHtmlConfiguration || static::class !== self::class || $this->profile !== null) {
+            return false;
+        }
+        foreach ($this->extensions as $extension) {
+            if (!in_array(get_class($extension), [FrontmatterExtension::class, MentionsExtension::class], true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function createEditorSession(string $source): EditorSession
     {
         return new EditorSession($this, $source);

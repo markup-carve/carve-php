@@ -76,4 +76,51 @@ final class EditorSessionTest extends TestCase
         $update = $session->update([['from' => $start, 'to' => $start + 4, 'insert' => '/two']]);
         $this->assertContains('/children/0/children/0', $update['changedPaths']);
     }
+
+    public function testLocalUnicodeEditsReuseOtherParagraphs(): void
+    {
+        $converter = new CarveConverter();
+        $session = $converter->createEditorSession("één\n\nMitte\n\n終わり\n");
+        $update = $session->update([['from' => 7, 'to' => 12, 'insert' => '日本語']]);
+        self::assertTrue($update['reusedPreviousTree']);
+        self::assertSame(9, $update['parsedSourceBytes']);
+        $fresh = (new CarveConverter())->parseWithSourceLayout($update['source']);
+        self::assertSame($fresh['ast'], $update['ast']);
+        self::assertSame($fresh['layout'], $update['layout']);
+        $copy = $session->snapshot();
+        $copy['ast']['children'] = [];
+        self::assertNotEmpty($session->snapshot()['ast']['children']);
+    }
+
+    public function testRepeatedEditsAndStructuralFallbacksMatchFreshParsing(): void
+    {
+        $session = (new CarveConverter())->createEditorSession("first\n\ntext\n\nlast");
+        for ($index = 0; $index < 100; $index++) {
+            $source = $session->snapshot()['source'];
+            $end = strpos($source, "\n", 7);
+            self::assertNotFalse($end);
+            $update = $session->update([['from' => 7, 'to' => $end, 'insert' => "paragraph $index é"]]);
+            $fresh = (new CarveConverter())->parseWithSourceLayout($update['source']);
+            self::assertSame($fresh['ast'], $update['ast']);
+            self::assertSame($fresh['layout'], $update['layout']);
+            self::assertTrue($update['reusedPreviousTree']);
+            self::assertLessThan(strlen($update['source']), $update['parsedSourceBytes']);
+        }
+        foreach (['# Heading', '[ref]: /url', "first\n\nsecond", '1. item', ''] as $insert) {
+            $session = (new CarveConverter())->createEditorSession("before\n\ntext\n\nafter");
+            $update = $session->update([['from' => 8, 'to' => 12, 'insert' => $insert]]);
+            self::assertFalse($update['reusedPreviousTree']);
+            self::assertSame((new CarveConverter())->parseWithSourceLayout($update['source'])['ast'], $update['ast']);
+        }
+    }
+
+    public function testAccessingCustomParserDisablesReuse(): void
+    {
+        $converter = new CarveConverter();
+        $converter->getParser();
+        $session = $converter->createEditorSession("first\n\ntext\n\nlast");
+        $update = $session->update([['from' => 7, 'to' => 11, 'insert' => 'edited']]);
+        self::assertFalse($update['reusedPreviousTree']);
+        self::assertSame(strlen($update['source']), $update['parsedSourceBytes']);
+    }
 }
