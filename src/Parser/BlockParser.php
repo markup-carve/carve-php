@@ -3576,6 +3576,10 @@ class BlockParser
         }
         $i = $start + 1;
         $count = count($lines);
+        // The payload is read relative to the OPENER's column, the way a code
+        // fence's is, because the opener is what establishes the base and the
+        // closer only takes it (grammar.ebnf PART 9 §24, markup-carve/carve#2503).
+        $indent = IndentationHelper::getLeadingColumns($line);
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -3586,7 +3590,7 @@ class BlockParser
                 break;
             }
 
-            $contentLines[] = $currentLine;
+            $contentLines[] = IndentationHelper::stripLeadingColumns($currentLine, $indent);
             $i++;
         }
 
@@ -6470,22 +6474,19 @@ class BlockParser
                 // payload renders nothing, so no document can show whether it
                 // was rebased - but writing the rollback unconditionally would
                 // say a terminated fence owns no payload, which is false.
-                // Walked and rolled back rather than pre-scanned so the dedent
-                // rule that ends the walk stays in one place.
+                //
+                // A COLUMN ENDS NO SPAN. §28 pairs the delimiters on LENGTH
+                // ALONE and CARVE-P0-013 has the run close the span at any
+                // column, so a line below the base is payload and does not end
+                // the search - the same question `hasClosingCommentFenceAhead()`
+                // asks when the fence opens. Stopping there rolled a CLOSED
+                // span back to its opener, and the payload then reached the
+                // nested parse carrying the base the opener had lost
+                // (markup-carve/carve#2503).
                 $closed = false;
                 for ($j = $i + 1; $j < $count; $j++) {
-                    $candidate = $lines[$j];
-                    if (
-                        !IndentationHelper::isBlankLine($candidate)
-                        && IndentationHelper::getLeadingColumns($candidate, $base) < $base
-                    ) {
-                        break;
-                    }
                     $end = $j;
-                    $local = IndentationHelper::isBlankLine($candidate)
-                        ? ''
-                        : IndentationHelper::stripLeadingColumns($candidate, $base);
-                    if ($this->fencedBlockParser->isFencedCommentCloser($local, $width)) {
+                    if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$j], $width)) {
                         $closed = true;
 
                         break;
@@ -8425,18 +8426,6 @@ class BlockParser
         $comment = $holder->getChildren()[0] ?? new Comment();
         if (!$comment instanceof Comment) {
             $comment = new Comment();
-        }
-        $fence = $comment->getFenceLength();
-        if ($fence !== null) {
-            // The body is read relative to its fence, as a term writes it back.
-            $indent = IndentationHelper::getLeadingColumns($lines[$i]);
-            $body = array_map(
-                static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $indent),
-                explode("\n", $comment->getContent()),
-            );
-            $pos = $comment->getPos();
-            $comment = new Comment(implode("\n", $body), $fence);
-            $comment->setPos($pos);
         }
         $i += $consumed;
 
