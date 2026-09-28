@@ -56,10 +56,6 @@ use WeakMap;
 
 /**
  * Block-level parser for Carve
- *
- * @phpstan-type QuoteHostFence array{char:string, length:int, column:int}
- * @phpstan-type QuoteFenceHosts array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, fence:QuoteHostFence|null, pending:QuoteHostFence|null}
- * @phpstan-type QuoteLazyState array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:QuoteFenceHosts}
  */
 class BlockParser
 {
@@ -3191,7 +3187,7 @@ class BlockParser
      * `{` opener followed by many lines that never close stays LINEAR rather
      * than copying the growing run on every line.
      *
-     * @param QuoteLazyState $state Mutated in place.
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, fence:array{char:string, length:int, column:int}|null, pending:array{char:string, length:int, column:int}|null}} $state Mutated in place.
      * @param string $content
      */
     private function trackWrappedAttributeRun(array &$state, string $content): bool
@@ -4539,7 +4535,7 @@ class BlockParser
      * Track a fence at a quoted item's or footnote's content column.
      *
      * @param string $content
-     * @param QuoteLazyState $state
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, fence:array{char:string, length:int, column:int}|null, pending:array{char:string, length:int, column:int}|null}} $state
      * @param array<string> $lines
      * @param int $index
      * @param array<string, array{from:int, end:int, maxRun:int}> $memo
@@ -4637,7 +4633,7 @@ class BlockParser
     /**
      * A quote's lazy tracker before it has read a line.
      *
-     * @return QuoteLazyState
+     * @return array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, fence:array{char:string, length:int, column:int}|null, pending:array{char:string, length:int, column:int}|null}}
      */
     private static function initialBlockQuoteLazyState(): array
     {
@@ -4658,7 +4654,7 @@ class BlockParser
 
     /**
      * @param string $content Inner content line (after the "> " marker is stripped).
-     * @param QuoteLazyState $state
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, fence:array{char:string, length:int, column:int}|null, pending:array{char:string, length:int, column:int}|null}} $state
      *     Running state, mutated in place.
      * @param array<string> $sourceLines
      * @param int $sourceIndex
