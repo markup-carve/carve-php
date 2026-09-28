@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Renderer;
 use Closure;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
+use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
@@ -516,7 +517,32 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // survives a re-render as `&nbsp;` and is never mistaken for an indented
         // code-block prefix the way ordinary leading spaces would be. Done after
         // trimming so placeholder-derived leading indentation survives.
-        return $markdown;
+        return $this->prependFrontmatter($document, $markdown);
+    }
+
+    /**
+     * PART 11 §10r: frontmatter is emitted first, with the format token wherever
+     * the format is not `yaml`, and the content verbatim.
+     *
+     * Prepended after the body is normalized, because the blank-line collapse
+     * and the escape resolution above must not reach metadata the clause
+     * requires verbatim. Only the Trojan-Source overrides and isolates go, which
+     * is what this target removes from every other byte it emits.
+     */
+    protected function prependFrontmatter(Document $document, string $markdown): string
+    {
+        $node = $document->getChildren()[0] ?? null;
+        if (!$node instanceof Frontmatter) {
+            return $markdown;
+        }
+
+        $format = $node->getFormat() === 'yaml' ? '' : $node->getFormat();
+        $content = (string)preg_replace('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $node->getContent());
+        $block = '---' . $format . "\n" . $content . "\n---";
+
+        // A document that is only frontmatter has no body to separate it from,
+        // and the trim above leaves a bare newline for one.
+        return $markdown === "\n" ? $block . "\n" : $block . "\n\n" . $markdown;
     }
 
     /**
