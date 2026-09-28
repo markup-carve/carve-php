@@ -17,6 +17,8 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 final class BorrowedHtmlLayout
 {
+    private HtmlOutput $output;
+
     /**
      * @var array{
      *   headingNumbers: array{minLevel: int}|null,
@@ -67,11 +69,14 @@ final class BorrowedHtmlLayout
      *   mathBlockLanguage?: string|null,
      *   collectHeadings?: bool
      * } $events
+     * @param \MarkupCarve\Carve\Performance\HtmlOutput|null $output
      *
      * @return array{html: string, accepted: array<string, int>, headings: list<array{level: int, text: string, html: string, id: string}>}|null
      */
-    public function render(string $source, bool $observe = false, array $events = []): ?array
+    public function render(string $source, bool $observe = false, array $events = [], ?HtmlOutput $output = null): ?array
     {
+        $streaming = $output !== null;
+        $this->output = $output ?? new HtmlOutput();
         $this->events = array_replace(
             [
                 'headingNumbers' => null,
@@ -86,7 +91,7 @@ final class BorrowedHtmlLayout
         $this->headings = [];
         $this->numberLevels = [];
         $this->numbers = [];
-        if (!$this->eligibleSource($source)) {
+        if (!$this->eligibleSource($source, $streaming)) {
             return null;
         }
 
@@ -109,18 +114,21 @@ final class BorrowedHtmlLayout
         if ($rendered === null) {
             return null;
         }
-        $html = $rendered['html'];
+        if ($rendered['wrote'] && !$rendered['endsWithoutNewline']) {
+            $this->output->push("\n");
+        }
+        $html = $this->output->finish();
 
         return [
-            'html' => $html === '' ? '' : $html . ($rendered['endsWithoutNewline'] ? '' : "\n"),
+            'html' => $html,
             'accepted' => $observe ? $stats : [],
             'headings' => $this->headings,
         ];
     }
 
-    private function eligibleSource(string $source): bool
+    private function eligibleSource(string $source, bool $streaming): bool
     {
-        return strlen($source) <= self::MAX_SOURCE_BYTES
+        return ($streaming || strlen($source) <= self::MAX_SOURCE_BYTES)
             && preg_match('/[^\x00-\x7F]|[\x00\x09\x0B\x0C\x0D]/', $source) !== 1
             && !str_starts_with($source, '---')
             && !str_contains($source, '[^')
@@ -208,11 +216,10 @@ final class BorrowedHtmlLayout
      * @param array<string, array{href: string, title: ?string}> $definitions
      * @param array<string, int> $stats
      *
-     * @return array{html: string, endsWithoutNewline: bool}|null
+     * @return array{wrote: bool, endsWithoutNewline: bool}|null
      */
     private function renderBlocks(array $lines, array $definitions, array &$stats): ?array
     {
-        $out = [];
         $sections = [];
         $ids = new HeadingIdTracker();
         if ($this->events['lowercaseIds']) {
@@ -236,21 +243,19 @@ final class BorrowedHtmlLayout
                     return null;
                 }
                 while ($sections !== [] && end($sections) >= $level) {
-                    $out[] = "\n" . $this->indent(count($sections) - 1) . '</section>';
+                    $this->output->push("\n" . $this->indent(count($sections) - 1) . '</section>');
                     array_pop($sections);
                 }
                 if ($wrote && !$previousMath) {
-                    $out[] = "\n";
+                    $this->output->push("\n");
                 }
                 $previousMath = false;
                 $id = $ids->getIdForText($title);
-                $heading = $this->escape($title);
+                $number = null;
                 if ($this->events['headingNumbers'] !== null) {
                     $number = $this->nextHeadingNumber($level, $this->events['headingNumbers']['minLevel']);
-                    if ($number !== null) {
-                        $heading = '<span class="section-number">' . $number . '</span> ' . $heading;
-                    }
                 }
+                $anchor = null;
                 $permalink = $this->events['headingPermalinks'];
                 if ($permalink !== null && in_array($level, $permalink['levels'], true)) {
                     $anchor = '<a href="#' . $this->escapeAttribute($id)
@@ -261,9 +266,6 @@ final class BorrowedHtmlLayout
                     if ($permalink['showOnHover']) {
                         $anchor = '<span class="permalink-wrapper permalink-hover">' . $anchor . '</span>';
                     }
-                    $heading = $permalink['position'] === 'before'
-                        ? $anchor . ' ' . $heading
-                        : $heading . ' ' . $anchor;
                 }
                 if ($this->events['collectHeadings']) {
                     $this->headings[] = [
@@ -273,9 +275,20 @@ final class BorrowedHtmlLayout
                         'id' => $id,
                     ];
                 }
-                $out[] = $this->indent(count($sections)) . '<section id="' . $this->escapeAttribute($id) . '">' . "\n"
-                    . $this->indent(count($sections) + 1) . '<h' . $level . '>' . $heading
-                    . '</h' . $level . '>';
+                $this->output->push($this->indent(count($sections)), '<section id="');
+                $this->output->attr($id);
+                $this->output->push('">', "\n", $this->indent(count($sections) + 1), '<h' . $level . '>');
+                if ($anchor !== null && $permalink['position'] === 'before') {
+                    $this->output->push($anchor, ' ');
+                }
+                if ($number !== null) {
+                    $this->output->push('<span class="section-number">', $number, '</span> ');
+                }
+                $this->output->text($title);
+                if ($anchor !== null && $permalink['position'] !== 'before') {
+                    $this->output->push(' ', $anchor);
+                }
+                $this->output->push('</h' . $level . '>');
                 $this->accept($stats, 'headings', $i, $i + 1);
                 $sections[] = $level;
                 $wrote = true;
@@ -284,7 +297,7 @@ final class BorrowedHtmlLayout
                 continue;
             }
             if ($wrote && !$previousMath) {
-                $out[] = "\n";
+                $this->output->push("\n");
             }
             $previousMath = false;
             $depth = count($sections);
@@ -305,25 +318,20 @@ final class BorrowedHtmlLayout
                 if (str_starts_with($slot, '  ') || ($info !== '' && preg_match('/^[A-Za-z0-9-]+$/', $info) !== 1)) {
                     return null;
                 }
-                $code = '';
+                $math = $info === $this->events['mathBlockLanguage'];
+                $this->output->push($this->indent($depth), $math ? '<div class="math display">\\[' : '<pre><code'
+                    . ($info === '' ? '' : ' class="language-' . $info . '"') . '>');
                 for ($j = $i + 1; $j < $close; $j++) {
-                    $code .= $this->escape($lines[$j]) . "\n";
+                    $this->output->text($lines[$j]);
+                    if (!$math || $j + 1 < $close) {
+                        $this->output->push("\n");
+                    }
                 }
-                if ($info === $this->events['mathBlockLanguage']) {
-                    $math = substr($code, 0, -1);
-                    $out[] = $this->indent($depth) . '<div class="math display">\\[' . $math . '\\]</div>';
-                    $this->accept($stats, 'codeFences', $i, $close + 1);
-                    $i = $close + 1;
-                    $wrote = true;
-                    $previousMath = true;
-
-                    continue;
+                if (!$math && $close === $i + 1) {
+                    $this->output->push("\n");
                 }
-                if ($code === '') {
-                    $code = "\n";
-                }
-                $out[] = $this->indent($depth) . '<pre><code'
-                    . ($info === '' ? '' : ' class="language-' . $info . '"') . '>' . $code . '</code></pre>';
+                $this->output->push($math ? '\\]</div>' : '</code></pre>');
+                $previousMath = $math;
                 $this->accept($stats, 'codeFences', $i, $close + 1);
                 $i = $close + 1;
                 $wrote = true;
@@ -335,14 +343,13 @@ final class BorrowedHtmlLayout
                 if ($rendered === null) {
                     return null;
                 }
-                $out[] = $rendered['html'];
                 $i = $rendered['next'];
                 $wrote = true;
 
                 continue;
             }
             if ($this->thematicBreak($line)) {
-                $out[] = $this->indent($depth) . '<hr>';
+                $this->output->push($this->indent($depth) . '<hr>');
                 $this->accept($stats, 'thematicBreaks', $i, $i + 1);
                 $i++;
                 $wrote = true;
@@ -354,7 +361,6 @@ final class BorrowedHtmlLayout
                 if ($rendered === null) {
                     return null;
                 }
-                $out[] = $rendered['html'];
                 $i = $rendered['next'];
                 $wrote = true;
 
@@ -362,20 +368,21 @@ final class BorrowedHtmlLayout
             }
             if (str_starts_with($line, '> ')) {
                 $start = $i;
-                $quote = [];
+                $this->output->push($this->indent($depth), '<blockquote><p>');
                 while (isset($lines[$i]) && str_starts_with($lines[$i], '> ')) {
                     $text = substr($lines[$i], 2);
-                    $html = $this->blockish($text) ? null : $this->renderInline($text, $definitions);
-                    if ($html === null) {
+                    if ($i > $start) {
+                        $this->output->push("\n");
+                    }
+                    if ($this->blockish($text) || $this->renderInline($text, $definitions) === null) {
                         return null;
                     }
-                    $quote[] = $html;
                     $i++;
                 }
                 if (isset($lines[$i]) && trim($lines[$i]) !== '') {
                     return null;
                 }
-                $out[] = $this->indent($depth) . '<blockquote><p>' . implode("\n", $quote) . '</p></blockquote>';
+                $this->output->push('</p></blockquote>');
                 $this->accept($stats, 'blockQuotes', $start, $i);
                 $wrote = true;
 
@@ -386,7 +393,6 @@ final class BorrowedHtmlLayout
                 if ($rendered === null) {
                     return null;
                 }
-                $out[] = $rendered['html'];
                 $i = $rendered['next'];
                 $wrote = true;
 
@@ -396,30 +402,31 @@ final class BorrowedHtmlLayout
                 return null;
             }
             $start = $i;
-            $paragraph = [];
+            $this->output->push($this->indent($depth), '<p>');
             while (isset($lines[$i]) && trim($lines[$i]) !== '') {
                 if ($this->blockish($lines[$i])) {
                     return null;
                 }
-                $html = $this->renderInline($lines[$i], $definitions);
-                if ($html === null) {
+                if ($i > $start) {
+                    $this->output->push("\n");
+                }
+                if ($this->renderInline($lines[$i], $definitions) === null) {
                     return null;
                 }
-                $paragraph[] = $html;
                 $i++;
             }
-            $out[] = $this->indent($depth) . '<p>' . implode("\n", $paragraph) . '</p>';
+            $this->output->push('</p>');
             $this->accept($stats, 'paragraphs', $start, $i);
             $wrote = true;
         }
         $hadOpenSections = $sections !== [];
         while ($sections !== []) {
-            $out[] = "\n" . $this->indent(count($sections) - 1) . '</section>';
+            $this->output->push("\n" . $this->indent(count($sections) - 1) . '</section>');
             array_pop($sections);
         }
 
         return [
-            'html' => implode('', $out),
+            'wrote' => $wrote,
             'endsWithoutNewline' => $previousMath && !$hadOpenSections,
         ];
     }
@@ -428,12 +435,11 @@ final class BorrowedHtmlLayout
      * @param string $text
      * @param array<string, array{href: string, title: ?string}> $definitions
      */
-    private function renderInline(string $text, array $definitions): ?string
+    private function renderInline(string $text, array $definitions): ?bool
     {
         if ($this->inlineComplex($text)) {
             return null;
         }
-        $out = '';
         $plain = 0;
         $length = strlen($text);
         for ($i = 0; $i < $length;) {
@@ -443,7 +449,7 @@ final class BorrowedHtmlLayout
 
                 continue;
             }
-            $out .= $this->escape(substr($text, $plain, $i - $plain));
+            $this->output->text(substr($text, $plain, $i - $plain));
             if ($delimiter === '*' || $delimiter === '/') {
                 $close = strpos($text, $delimiter, $i + 1);
                 if (
@@ -456,12 +462,12 @@ final class BorrowedHtmlLayout
                 ) {
                     return null;
                 }
-                $inner = $this->renderInline(substr($text, $i + 1, $close - $i - 1), $definitions);
-                if ($inner === null) {
+                $tag = $delimiter === '*' ? 'strong' : 'em';
+                $this->output->push('<' . $tag . '>');
+                if ($this->renderInline(substr($text, $i + 1, $close - $i - 1), $definitions) === null) {
                     return null;
                 }
-                $tag = $delimiter === '*' ? 'strong' : 'em';
-                $out .= '<' . $tag . '>' . $inner . '</' . $tag . '>';
+                $this->output->push('</' . $tag . '>');
                 $i = $close + 1;
             } elseif ($delimiter === '`') {
                 $close = strpos($text, '`', $i + 1);
@@ -472,7 +478,9 @@ final class BorrowedHtmlLayout
                 if ($code !== trim($code)) {
                     return null;
                 }
-                $out .= '<code>' . $this->escape($code) . '</code>';
+                $this->output->push('<code>');
+                $this->output->text($code);
+                $this->output->push('</code>');
                 $i = $close + 1;
             } else {
                 $labelEnd = strpos($text, ']', $i + 1);
@@ -509,19 +517,26 @@ final class BorrowedHtmlLayout
                 if (!$this->safeUrl($href)) {
                     return null;
                 }
-                $inner = $this->renderInline($label, $definitions);
-                if ($inner === null) {
+                $this->output->push('<a href="');
+                $this->output->attr($href);
+                $this->output->push('"');
+                if ($title !== null) {
+                    $this->output->push(' title="');
+                    $this->output->attr($title);
+                    $this->output->push('"');
+                }
+                $this->output->push($this->externalLinkAttributes($href), '>');
+                if ($this->renderInline($label, $definitions) === null) {
                     return null;
                 }
-                $out .= '<a href="' . $this->escapeAttribute($href) . '"'
-                    . ($title === null ? '' : ' title="' . $this->escapeAttribute($title) . '"')
-                    . $this->externalLinkAttributes($href)
-                    . '>' . $inner . '</a>';
+                $this->output->push('</a>');
             }
             $plain = $i;
         }
 
-        return $out . $this->escape(substr($text, $plain));
+        $this->output->text(substr($text, $plain));
+
+        return true;
     }
 
     /**
@@ -532,11 +547,11 @@ final class BorrowedHtmlLayout
      * @param array<string, array{href: string, title: ?string}> $definitions
      * @param array<string, int> $stats
      *
-     * @return array{html: string, next: int}|null
+     * @return array{next: int}|null
      */
     private function renderList(array $lines, int $start, int $offset, int $depth, array $definitions, array &$stats): ?array
     {
-        $out = $this->indent($depth) . '<ul>';
+        $this->output->push($this->indent($depth), '<ul>');
         $i = $start;
         $count = count($lines);
         while ($i < $count) {
@@ -549,13 +564,14 @@ final class BorrowedHtmlLayout
                 return null;
             }
             $text = substr($line, $leading + 2);
-            $inline = ($text === '' || $text === '+' || str_starts_with($text, ' ') || $this->blockish($text))
-                ? null : $this->renderInline($text, $definitions);
-            if ($inline === null) {
+            if ($text === '' || $text === '+' || str_starts_with($text, ' ') || $this->blockish($text)) {
                 return null;
             }
             $this->accept($stats, 'unorderedListItems', $i, $i + 1);
-            $out .= "\n" . $this->indent($depth + 1) . '<li>' . $inline;
+            $this->output->push("\n", $this->indent($depth + 1), '<li>');
+            if ($this->renderInline($text, $definitions) === null) {
+                return null;
+            }
             $i++;
             if (isset($lines[$i])) {
                 $nextIndent = strlen($lines[$i]) - strlen(ltrim($lines[$i]));
@@ -563,15 +579,16 @@ final class BorrowedHtmlLayout
                     if ($nextIndent !== $offset + 2 || !str_starts_with(substr($lines[$i], $nextIndent), '- ')) {
                         return null;
                     }
+                    $this->output->push("\n");
                     $nested = $this->renderList($lines, $i, $offset + 2, $depth + 2, $definitions, $stats);
                     if ($nested === null) {
                         return null;
                     }
-                    $out .= "\n" . $nested['html'] . "\n" . $this->indent($depth + 1);
+                    $this->output->push("\n", $this->indent($depth + 1));
                     $i = $nested['next'];
                 }
             }
-            $out .= '</li>';
+            $this->output->push('</li>');
             if (isset($lines[$i]) && trim($lines[$i]) === '') {
                 for ($next = $i + 1; isset($lines[$next]) && trim($lines[$next]) === ''; $next++) {
                 }
@@ -585,9 +602,9 @@ final class BorrowedHtmlLayout
                 break;
             }
         }
-        $out .= "\n" . $this->indent($depth) . '</ul>';
+        $this->output->push("\n" . $this->indent($depth) . '</ul>');
 
-        return ['html' => $out, 'next' => $i];
+        return ['next' => $i];
     }
 
     /**
@@ -597,7 +614,7 @@ final class BorrowedHtmlLayout
      * @param array<string, array{href: string, title: ?string}> $definitions
      * @param array<string, int> $stats
      *
-     * @return array{html: string, next: int}|null
+     * @return array{next: int}|null
      */
     private function renderOrderedList(array $lines, int $start, int $depth, array $definitions, array &$stats): ?array
     {
@@ -605,7 +622,7 @@ final class BorrowedHtmlLayout
         if ($first === null) {
             return null;
         }
-        $out = $this->indent($depth) . '<ol' . ($first['number'] === 1 ? '' : ' start="' . $first['number'] . '"') . '>';
+        $this->output->push($this->indent($depth) . '<ol' . ($first['number'] === 1 ? '' : ' start="' . $first['number'] . '"') . '>');
         $i = $start;
         $expected = $first['number'];
         while (isset($lines[$i]) && ($item = $this->decimalListItem($lines[$i])) !== null) {
@@ -613,11 +630,11 @@ final class BorrowedHtmlLayout
             if ($item['number'] !== $expected || $item['text'] === '+' || $this->blockish($item['text'])) {
                 return null;
             }
-            $inline = $this->renderInline($item['text'], $definitions);
-            if ($inline === null) {
+            $this->output->push("\n", $this->indent($depth + 1), '<li>');
+            if ($this->renderInline($item['text'], $definitions) === null) {
                 return null;
             }
-            $out .= "\n" . $this->indent($depth + 1) . '<li>' . $inline . '</li>';
+            $this->output->push('</li>');
             $this->accept($stats, 'orderedListItems', $i, $i + 1);
             $expected++;
             $i++;
@@ -632,9 +649,9 @@ final class BorrowedHtmlLayout
         if (isset($lines[$i]) && trim($lines[$i]) !== '') {
             return null;
         }
-        $out .= "\n" . $this->indent($depth) . '</ol>';
+        $this->output->push("\n" . $this->indent($depth) . '</ol>');
 
-        return ['html' => $out, 'next' => $i];
+        return ['next' => $i];
     }
 
     /**
@@ -644,7 +661,7 @@ final class BorrowedHtmlLayout
      * @param array<string, array{href: string, title: ?string}> $definitions
      * @param array<string, int> $stats
      *
-     * @return array{html: string, next: int}|null
+     * @return array{next: int}|null
      */
     private function renderTable(array $lines, int $start, int $depth, array $definitions, array &$stats): ?array
     {
@@ -664,27 +681,43 @@ final class BorrowedHtmlLayout
             }
             $aligns[] = $align;
         }
-        $renderRow = function (array $cells, string $tag) use ($definitions, $aligns): ?string {
-            $row = '';
+        $renderRow = function (array $cells, string $tag) use ($definitions, $aligns): ?bool {
             foreach ($cells as $index => $cell) {
-                $inline = $this->renderInline($cell, $definitions);
-                if ($inline === null) {
+                $this->output->push('<' . $tag . ($tag === 'th' ? ' scope="col"' : '')
+                    . ($aligns[$index] === null ? '' : ' style="text-align: ' . $aligns[$index] . ';"') . '>');
+                if ($this->renderInline($cell, $definitions) === null) {
                     return null;
                 }
-                $row .= '<' . $tag . ($tag === 'th' ? ' scope="col"' : '')
-                    . ($aligns[$index] === null ? '' : ' style="text-align: ' . $aligns[$index] . ';"')
-                    . '>' . $inline . '</' . $tag . '>';
+                $this->output->push('</' . $tag . '>');
             }
 
-            return $row;
+            return true;
         };
-        $header = $renderRow($heads, 'th');
-        if ($header === null) {
+        $this->output->push(
+            $this->indent($depth),
+            '<table>',
+            "\n",
+            $this->indent($depth + 1),
+            '<thead>',
+            "\n",
+            $this->indent($depth + 2),
+            '<tr>',
+        );
+        if ($renderRow($heads, 'th') === null) {
             return null;
         }
+        $this->output->push(
+            '</tr>',
+            "\n",
+            $this->indent($depth + 1),
+            '</thead>',
+            "\n",
+            $this->indent($depth + 1),
+            '<tbody>',
+        );
         $this->accept($stats, 'tableRows', $start, $start + 2);
         $i = $start + 2;
-        $rows = [];
+        $rows = 0;
         while (isset($lines[$i]) && str_starts_with(ltrim($lines[$i]), '|')) {
             $row = $this->cells($lines[$i]);
             if ($row === null || count($row) !== count($heads)) {
@@ -693,28 +726,22 @@ final class BorrowedHtmlLayout
             if (in_array('^', $row, true) || in_array('<', $row, true)) {
                 return null;
             }
+            $this->output->push("\n", $this->indent($depth + 2), '<tr>');
             $rendered = $renderRow($row, 'td');
             if ($rendered === null) {
                 return null;
             }
-            $rows[] = $rendered;
+            $this->output->push('</tr>');
+            $rows++;
             $this->accept($stats, 'tableRows', $i, $i + 1);
             $i++;
         }
-        if ($rows === []) {
+        if ($rows === 0) {
             return null;
         }
-        $out = $this->indent($depth) . '<table>' . "\n"
-            . $this->indent($depth + 1) . '<thead>' . "\n"
-            . $this->indent($depth + 2) . '<tr>' . $header . '</tr>' . "\n"
-            . $this->indent($depth + 1) . '</thead>' . "\n"
-            . $this->indent($depth + 1) . '<tbody>';
-        foreach ($rows as $row) {
-            $out .= "\n" . $this->indent($depth + 2) . '<tr>' . $row . '</tr>';
-        }
-        $out .= "\n" . $this->indent($depth + 1) . '</tbody>' . "\n" . $this->indent($depth) . '</table>';
+        $this->output->push("\n" . $this->indent($depth + 1) . '</tbody>' . "\n" . $this->indent($depth) . '</table>');
 
-        return ['html' => $out, 'next' => $i];
+        return ['next' => $i];
     }
 
     /**

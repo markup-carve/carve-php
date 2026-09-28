@@ -15,7 +15,13 @@ final class SourceLayout
     public static function build(string $source, array $ast): array
     {
         $chars = preg_split('//u', $source, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        $byteAt = static fn (int $offset): int => strlen(implode('', array_slice($chars, 0, $offset)));
+        $byteOffsets = [0];
+        $bytes = 0;
+        foreach ($chars as $char) {
+            $bytes += strlen($char);
+            $byteOffsets[] = $bytes;
+        }
+        $byteAt = static fn (int $offset): int => $byteOffsets[$offset] ?? $bytes;
         $nodes = [];
         self::walk($ast, '', $byteAt, $nodes);
         usort($nodes, static fn (array $a, array $b): int => strcmp($a['path'], $b['path']));

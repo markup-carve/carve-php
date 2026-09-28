@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use LengthException;
 use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Ast\EditorSession;
 use MarkupCarve\Carve\Ast\NodeIdentitySession;
 use MarkupCarve\Carve\Ast\Provenance;
 use MarkupCarve\Carve\Ast\SourceLayout;
@@ -29,6 +30,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Performance\BorrowedExtensionPlan;
 use MarkupCarve\Carve\Performance\BorrowedHtmlLayout;
+use MarkupCarve\Carve\Performance\HtmlOutput;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
@@ -487,6 +489,37 @@ class CarveConverter
     }
 
     /**
+     * Validate borrowed HTML, then emit UTF-8 chunks of at most 4096 bytes.
+     * Rejected input never calls the sink.
+     *
+     * @param string $source
+     * @param callable(string): void $sink
+     *
+     * @throws \LogicException
+     *
+     * @return 'complete'|'needs-ast'
+     */
+    public function tryRenderHtmlStreaming(string $source, callable $sink): string
+    {
+        $this->enforceProfileMaxLength($source);
+        $plan = $this->borrowedHtmlPlan($source);
+        if ($plan === null) {
+            return 'needs-ast';
+        }
+        $attempt = (new BorrowedHtmlLayout())->render($source, false, $plan, new HtmlOutput(discard: true));
+        if ($attempt === null) {
+            return 'needs-ast';
+        }
+        BorrowedExtensionPlan::commit($this->extensions, $attempt['headings']);
+        $emitted = (new BorrowedHtmlLayout())->render($source, false, $plan, new HtmlOutput($sink));
+        if ($emitted === null) {
+            throw new LogicException('Validated layout changed during rendering');
+        }
+
+        return 'complete';
+    }
+
+    /**
      * Convert with a bounded report of raw formats omitted by this target.
      */
     public function convertWithReport(string $source, bool $strictLosses = false, int $maxRenderLosses = 100): RenderResult
@@ -582,6 +615,11 @@ class CarveConverter
         $ast = (new AstCodec())->encode($this->parse($source));
 
         return ['ast' => $ast, 'layout' => SourceLayout::build($source, $ast)];
+    }
+
+    public function createEditorSession(string $source): EditorSession
+    {
+        return new EditorSession($this, $source);
     }
 
     /**

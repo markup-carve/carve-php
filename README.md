@@ -88,6 +88,8 @@ the author intended. The rules and options are in [docs/lint.md](https://github.
 
 ## Documentation
 
+- [Editor sessions](docs/editor-session.md) - UTF-8 source edits, mapped nodes, and identities.
+- [Streaming render](docs/streaming-render.md) - acceptance-aware chunk delivery.
 - [Importing HTML](https://github.com/markup-carve/carve-php/blob/main/docs/html-import.md) - the loss report and the diagnostic path locator.
 - [Extensions](https://github.com/markup-carve/carve-php/blob/main/docs/extensions.md) - the extension set, and writing a parse-stage matcher.
 - [Command line](https://github.com/markup-carve/carve-php/blob/main/docs/cli.md) - every subcommand and flag.
