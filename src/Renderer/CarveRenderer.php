@@ -3469,6 +3469,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     ) {
                         $out = substr($out, 0, -1) . '\\^';
                     }
+                    // A bare `!` the previous node ended on opens an IMAGE
+                    // against the link this node writes, in both passes.
+                    if (
+                        str_ends_with($out, '!')
+                        && self::backslashRunBefore($out, strlen($out) - 1) % 2 === 0
+                        && self::imageCouldOpen($node, $rendered)
+                    ) {
+                        $out = substr($out, 0, -1) . '\\!';
+                    }
                     // A bare `:name` the previous node ended on opens an inline
                     // extension against that `[` (markup-carve/carve#2068).
                     if (str_starts_with($rendered, '[') && preg_match('/:[A-Za-z_][A-Za-z0-9_-]*\z/', $out, $name, PREG_OFFSET_CAPTURE) === 1) {
@@ -5448,6 +5457,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * Does the written text from the `(` at `$at` read as an inline link
      * destination that closes?
      *
+     * The GRAMMAR decides this, not this engine's reader. `destination_char`
+     * admits every character but `(`, `)` and Unicode whitespace, so `<foo>` is
+     * an ordinary destination and `[link](<foo>)` is a link - "there is NO
+     * angle-bracket-wrapped destination form" (PART 3 `link_destination`) says
+     * the brackets are not STRIPPED, not that the run is refused. This engine's
+     * reader does refuse it (carve-php#2634 follow-up), and matching the writer
+     * to that refusal is what let the importer write literal `[link](<foo>)`
+     * bare, which carve-js and carve-rs then read as a link.
+     *
      * @param array{array<int, int>, array<int, int>} $scan
      * @param string $flat
      * @param int $at
@@ -5473,7 +5491,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return false;
         }
 
-        return !($flat[$at + 1] === '<' && $flat[$end - 1] === '>');
+        return true;
     }
 
     /**
@@ -5845,6 +5863,36 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $body = substr($text, $openPos + 1, $close - $openPos - 1);
 
         return trim($body, StringUtil::WHITESPACE_CHARS) !== '';
+    }
+
+    /**
+     * Does the next node's written form turn a bare `!` before it into an IMAGE?
+     *
+     * An image is a `!` glued to a LINK (`parseImage()` reads the tail with
+     * `parseLink()`), so the question is answered by the node that writes the
+     * `[`, not by the text node holding the `!`. A span, a footnote reference
+     * and a shortcut reference all write a `[` too, and `![t]{.c}`, `![^1]` and
+     * `![r]` stay a literal `!` beside the construct - escaping those would add
+     * an `escaped_text` node the source never had.
+     *
+     * The SHORTCUT form is the one exclusion among links: `renderLink()` writes
+     * it as the label alone, so nothing follows its closing `]` and no image
+     * tail exists. The inline form's `(` and the full or collapsed reference's
+     * `[` are both written by this writer and are well formed by construction,
+     * so the character after the balanced `]` decides it.
+     */
+    private static function imageCouldOpen(Node $next, string $rendered): bool
+    {
+        if (!$next instanceof Link || !str_starts_with($rendered, '[')) {
+            return false;
+        }
+        $close = BracketScanner::balancedBracketEnd($rendered, 0);
+        if ($close === null) {
+            return false;
+        }
+        $tail = $rendered[$close + 1] ?? '';
+
+        return $tail === '(' || $tail === '[';
     }
 
     /**
