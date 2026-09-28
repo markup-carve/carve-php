@@ -4553,7 +4553,7 @@ class BlockParser
                 // (tests/TestCase/DeepNestingTest). The marker rule is spelled once
                 // in ContainerPrefix and this counts the same shape without
                 // materializing the tail.
-                $depth = self::countLeadingQuoteMarkers($content);
+                $depth = ContainerPrefix::countLeadingQuoteMarkers($content);
                 if ($state['innerDepth'] !== $depth) {
                     $paragraphOpen = $state['paragraphOpen'];
                     $state = self::initialBlockQuoteLazyState();
@@ -4771,7 +4771,7 @@ class BlockParser
                 // `:::` run. At every intermediate level the content still begins
                 // with `> `, so none of them matches, and only the innermost
                 // content reaches a branch that does.
-                $content = self::afterLeadingQuoteMarkers($content);
+                $content = ContainerPrefix::afterLeadingQuoteMarkers($content);
                 $nested = true;
 
                 continue;
@@ -4853,73 +4853,6 @@ class BlockParser
 
             return;
         }
-    }
-
-    /**
-     * How many leading block-quote markers a line carries.
-     *
-     * ONE SCAN, no tail copied. The rule is ContainerPrefix::quoteContent()'s -
-     * `>` then a literal space, or a lone `>` ending the line - counted rather
-     * than applied, because applying it materializes the remainder once per
-     * marker and a line's marker count is bounded only by the line.
-     *
-     * @param string $line
-     */
-    private static function afterLeadingQuoteMarkers(string $line): string
-    {
-        $scan = rtrim($line, " \t");
-
-        return substr($scan, self::leadingQuoteMarkerWidth($scan));
-    }
-
-    /**
-     * How many leading block-quote markers a line carries.
-     *
-     * @param string $line
-     */
-    private static function countLeadingQuoteMarkers(string $line): int
-    {
-        $scan = rtrim($line, " \t");
-        $depth = 0;
-        $length = strlen($scan);
-        for ($at = 0; $at < $length && $scan[$at] === '>'; $at += 2) {
-            if ($at + 1 === $length) {
-                $depth++;
-
-                break;
-            }
-            if ($scan[$at + 1] !== ' ') {
-                break;
-            }
-            $depth++;
-        }
-
-        return $depth;
-    }
-
-    /**
-     * The byte width of the leading block-quote markers on an rtrimmed line.
-     *
-     * The same scan {@see self::countLeadingQuoteMarkers()} walks, reported as
-     * an offset so the tail is materialized once rather than per marker.
-     *
-     * @param string $scan A line with trailing whitespace already removed.
-     */
-    private static function leadingQuoteMarkerWidth(string $scan): int
-    {
-        $length = strlen($scan);
-        $at = 0;
-        while ($at < $length && $scan[$at] === '>') {
-            if ($at + 1 === $length) {
-                return $length;
-            }
-            if ($scan[$at + 1] !== ' ') {
-                return $at;
-            }
-            $at += 2;
-        }
-
-        return $at;
     }
 
     /**

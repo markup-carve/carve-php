@@ -14,6 +14,9 @@ use LogicException;
  *
  * @phpstan-type DocumentTree array{type: 'document', srcByteLength: int, children: list<array<string, mixed>>}
  * @phpstan-type Attrs array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}
+ * @phpstan-type FigureTargetNode array{type: 'image'|'block_quote'|'code_block', ...<string, mixed>}
+ * @phpstan-type FigureNode array{type: 'figure', target: FigureTargetNode, caption: list<array<string, mixed>>, attrs?: Attrs}
+ * @phpstan-type ParagraphNode array{type: 'paragraph', children: list<array<string, mixed>>, attrs?: Attrs}
  * @phpstan-type TableCellNode array{type: 'table_cell', header: bool, children: list<array<string, mixed>>, span?: 'rowspan'|'colspan', align?: string, valign?: string, attrs?: Attrs}
  * @phpstan-type TableRowNode array{type: 'table_row', cells: list<TableCellNode>, attrs?: Attrs}
  */

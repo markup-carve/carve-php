@@ -588,7 +588,7 @@ final class HtmlAstBuilder
                 if (count($children) === 1 && ($children[0]['type'] ?? null) === 'image') {
                     $blocks[] = $children[0];
                 } else {
-                    $blocks[] = ['type' => 'paragraph', 'children' => $children];
+                    $blocks[] = HtmlImportNodes::paragraph($children);
                 }
             }
         };
@@ -738,7 +738,7 @@ final class HtmlAstBuilder
         if (in_array($tag, ['th', 'td', 'dt', 'dd'], true)) {
             $children = $this->blockInlines($node);
 
-            return $children === [] ? [] : [['type' => 'paragraph', 'children' => $children]];
+            return $children === [] ? [] : [HtmlImportNodes::paragraph($children)];
         }
         $roundTripBlocks = $this->roundTripBlocks($node);
         if ($roundTripBlocks !== null) {
@@ -755,7 +755,7 @@ final class HtmlAstBuilder
 
                 return [];
             }
-            $paragraph = ['type' => 'paragraph', 'children' => $children];
+            $paragraph = HtmlImportNodes::paragraph($children);
             if ($attrs !== []) {
                 $paragraph['attrs'] = $attrs;
             }
@@ -1248,7 +1248,7 @@ final class HtmlAstBuilder
         $document = (new AstCodec())->decodeImporterTree([
             'type' => 'document',
             'srcByteLength' => 0,
-            'children' => [['type' => 'paragraph', 'children' => $inlines]],
+            'children' => [HtmlImportNodes::paragraph($inlines)],
         ]);
         $source = trim((new CarveRenderer())->render($document));
         if ($source === '' || str_contains($source, '"') || str_contains($source, "\n")) {
@@ -1836,7 +1836,7 @@ final class HtmlAstBuilder
         $sawBodyRow = false;
         /** @var array<int, int> $rowspans */
         $rowspans = [];
-        foreach ($this->directTableRows($node) as $rowElement) {
+        foreach (HtmlTableStructure::directTableRows($node) as $rowElement) {
             $cells = [];
             $cellBlocks = [];
             $ownAlignment = [];
@@ -1855,7 +1855,7 @@ final class HtmlAstBuilder
                 $isHeader = $tag === 'th';
                 $rowIsAllHeader = $rowIsAllHeader && $isHeader;
                 while (($activeRowspans[$column] ?? 0) > 0) {
-                    $cells[] = $this->spanCell('rowspan');
+                    $cells[] = HtmlTableStructure::spanCell('rowspan');
                     $cellBlocks[] = null;
                     $ownAlignment[] = null;
                     if ($activeRowspans[$column] > 1) {
@@ -1885,11 +1885,7 @@ final class HtmlAstBuilder
                     $this->session->tableCellAllowsEmptyCode = $previousCellContext;
                     $this->session->inInlineProjection = $previousProjection;
                 }
-                $cell = [
-                    'type' => 'table_cell',
-                    'header' => $tag === 'th',
-                    'children' => $children,
-                ];
+                $cell = HtmlImportNodes::tableCell($children, $tag === 'th');
                 $horizontal = $this->styleEnum($cellElement, 'text-align', ['left', 'right', 'center']);
                 $vertical = $this->styleEnum($cellElement, 'vertical-align', ['top', 'middle', 'bottom']);
                 if ($horizontal !== null) {
@@ -1920,7 +1916,7 @@ final class HtmlAstBuilder
                         $rowspans[$column + $offset] = $rowspan - 1;
                     }
                     if ($offset > 0) {
-                        $cells[] = $this->spanCell('colspan');
+                        $cells[] = HtmlTableStructure::spanCell('colspan');
                         $cellBlocks[] = null;
                         $ownAlignment[] = null;
                     }
@@ -1928,7 +1924,7 @@ final class HtmlAstBuilder
                 $column += $colspan;
             }
             while (($activeRowspans[$column] ?? 0) > 0) {
-                $cells[] = $this->spanCell('rowspan');
+                $cells[] = HtmlTableStructure::spanCell('rowspan');
                 $cellBlocks[] = null;
                 $ownAlignment[] = null;
                 if ($activeRowspans[$column] > 1) {
@@ -1947,7 +1943,7 @@ final class HtmlAstBuilder
 
                     continue;
                 }
-                $row = ['type' => 'table_row', 'cells' => $cells];
+                $row = HtmlImportNodes::tableRow($cells);
                 if (!$listForm) {
                     $this->attachAttrs($row, $rowElement);
                 }
@@ -2134,7 +2130,7 @@ final class HtmlAstBuilder
         ) {
             $this->setPrivateAttribute($table, "\0carve-col-widths", $node->getAttribute('data-djot-col-widths'));
         }
-        if ($this->sourceSafe && $headerRows > 0 && $this->importedTableNeedsDelimiter($rows)) {
+        if ($this->sourceSafe && $headerRows > 0 && HtmlTableStructure::importedTableNeedsDelimiter($rows)) {
             $this->addHint($table, "\0carve-delimiter-row");
         }
 
@@ -2162,57 +2158,9 @@ final class HtmlAstBuilder
         return true;
     }
 
-    /**
-     * @phpstan-param list<TableRowNode> $rows
-     *
-     * @param list<array<string, mixed>> $rows
-     */
-    private function importedTableNeedsDelimiter(array $rows): bool
-    {
-        $cells = $rows[0]['cells'] ?? [];
-        $firstSpan = null;
-        foreach ($cells as $index => $cell) {
-            if (isset($cell['span'])) {
-                $firstSpan = $index;
-
-                break;
-            }
-        }
-        if ($firstSpan === null) {
-            return false;
-        }
-        if ($firstSpan === 0) {
-            return true;
-        }
-        foreach (array_slice($cells, $firstSpan) as $cell) {
-            if (($cell['span'] ?? null) !== 'colspan') {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @phpstan-return TableCellNode
-     *
-     * @phpstan-param 'rowspan'|'colspan' $span
-     *
-     * @return array<string, mixed>
-     */
-    private function spanCell(string $span): array
-    {
-        return [
-            'type' => 'table_cell',
-            'span' => $span,
-            'header' => false,
-            'children' => [],
-        ];
-    }
-
     private function tableHasBlockCell(DOMElement $table): bool
     {
-        foreach ($this->directTableRows($table) as $row) {
+        foreach (HtmlTableStructure::directTableRows($table) as $row) {
             foreach ($row->childNodes as $cell) {
                 if (
                     $cell instanceof DOMElement
@@ -2412,7 +2360,7 @@ final class HtmlAstBuilder
 
     private function tableCellElementAt(DOMElement $table, int $rowIndex, int $column): ?DOMElement
     {
-        $rows = $this->directTableRows($table);
+        $rows = HtmlTableStructure::directTableRows($table);
         $row = $rows[$rowIndex] ?? null;
         if (!$row instanceof DOMElement) {
             return null;
@@ -2425,35 +2373,6 @@ final class HtmlAstBuilder
         }
 
         return $cells[$column] ?? null;
-    }
-
-    /**
-     * @return list<\DOMElement>
-     */
-    private function directTableRows(DOMElement $table): array
-    {
-        $rows = [];
-        foreach ($table->childNodes as $child) {
-            if (!$child instanceof DOMElement) {
-                continue;
-            }
-            $tag = strtolower(HtmlDomLoader::elementName($child));
-            if ($tag === 'tr') {
-                $rows[] = $child;
-
-                continue;
-            }
-            if (!in_array($tag, ['thead', 'tbody', 'tfoot'], true)) {
-                continue;
-            }
-            foreach ($child->childNodes as $row) {
-                if ($row instanceof DOMElement && strtolower(HtmlDomLoader::elementName($row)) === 'tr') {
-                    $rows[] = $row;
-                }
-            }
-        }
-
-        return $rows;
     }
 
     /**
@@ -2553,7 +2472,7 @@ final class HtmlAstBuilder
             if (!$keepsRaw) {
                 return [
                     $target,
-                    ['type' => 'paragraph', 'children' => $caption],
+                    HtmlImportNodes::paragraph($caption),
                 ];
             }
         }
@@ -2589,7 +2508,7 @@ final class HtmlAstBuilder
             if ($shared) {
                 unset($target['attrs']);
             }
-            $figure = ['type' => 'figure', 'target' => $target, 'caption' => $caption];
+            $figure = HtmlImportNodes::figure($target, $caption);
             $this->attachAttrs($figure, $node);
             $this->removeStructuralClass($figure, 'carve-figure-panel');
             if ($shared) {
