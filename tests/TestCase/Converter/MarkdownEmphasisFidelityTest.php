@@ -19,7 +19,7 @@ class MarkdownEmphasisFidelityTest extends TestCase
             ['![&quot;alt&quot;](/i)', '<img src="/i" alt="&quot;alt&quot;">'],
             ["[l](/u \"t\nx\")", "<p><a href=\"/u\" title=\"t\nx\">l</a></p>"],
             ["![a](/i \"t\nx\")", "<img src=\"/i\" alt=\"a\" title=\"t\nx\">"],
-            ['[a](/u?q=&quot;x&quot;)', '<p><a href="/u?q=&quot;x&quot;">a</a></p>'],
+            ['[a](/u?q=&quot;x&quot;)', '<p><a href="/u?q=%22x%22">a</a></p>'],
             ["> *foo\n> bar*", "<blockquote><p><em>foo\nbar</em></p></blockquote>"],
             ["- *foo\n  bar*", "<ul>\n  <li><em>foo\nbar</em></li>\n</ul>"],
             ["1. *foo\n   bar*", "<ol>\n  <li><em>foo\nbar</em></li>\n</ol>"],
