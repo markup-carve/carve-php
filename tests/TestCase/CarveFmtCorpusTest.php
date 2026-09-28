@@ -52,7 +52,7 @@ use function trim;
  *  - MINIMALITY, PART 11 §2's other half: an escape is written IF AND ONLY IF
  *    omitting it would change the re-parse. The tree comparison cannot see
  *    this one, because it has to forgive escaping or §1 contradicts §2 - so an
- *    invented escape passes every property above. It is red on 28 documents
+ *    invented escape passes every property above. It is red on two documents
  *    and gated by a shrink-only ratchet (carve-php#1533).
  *
  * Plus a clean-parse guard: the formatted output must re-parse without error.
@@ -68,19 +68,20 @@ use function trim;
 class CarveFmtCorpusTest extends TestCase
 {
     /**
-     * The two causes measured here, one of which every ratchet entry below
-     * must name. An entry belonging to none of them is a cause nobody has
-     * looked at yet, which is a finding rather than a resident.
+     * The one cause measured here, which every ratchet entry below must name.
+     * An entry belonging to none of them is a cause nobody has looked at yet,
+     * which is a finding rather than a resident.
      *
-     * TWO HAVE BEEN RETIRED BY WORK. `escalation: ` went when PART 11 §2b
-     * narrowed the fallback from the document to the failing unit, and
-     * `unit scope: ` went when §2's test was taken per opener occurrence inside
-     * that unit (markup-carve/carve#1533). What is left is the two causes that
-     * are not scope questions at all.
+     * THREE HAVE BEEN RETIRED. `escalation: ` went when PART 11 §2b narrowed
+     * the fallback from the document to the failing unit, and `unit scope: `
+     * went when §2's test was taken per opener occurrence inside that unit
+     * (markup-carve/carve#1533). `opener run: ` went when the sweep started
+     * asking §2's question of the opener rather than of the byte, which is the
+     * only one of the three the WRITER never had a part in.
      *
      * @var array<int, string>
      */
-    private const IDLE_ESCAPE_CAUSES = ['opener run: ', 'minimal class: '];
+    private const IDLE_ESCAPE_CAUSES = ['minimal class: '];
 
     /**
      * THE DEBT, NOT A BLESSING: documents where the writer emits an escape the
@@ -103,9 +104,10 @@ class CarveFmtCorpusTest extends TestCase
      * escalation, and carried to 25 and 59 by the pin that brought §2b's own
      * corpus document with it. §2's per-OPENER-OCCURRENCE test then retired the
      * 47 that were one unit written conservatively in full, and this is what is
-     * left: 12 escapes across 5 documents (markup-carve/carve#1533). carve-js
-     * measures the same 5 with the same counts, character for character, and
-     * the two writers agree byte for byte on every corpus document.
+     * left: 12 escapes across 5 documents (markup-carve/carve#1533). Correcting
+     * the sweep to ask §2's question of the OPENER rather than of the byte took
+     * it to 3 escapes across 2 documents, and the two writers agree byte for
+     * byte on every corpus document.
      *
      * `unit scope` WAS THE 20-DOCUMENT CAUSE AND IS GONE. PART 11 §4's
      * two-render strategy has one knob per unit - minimal or conservative - so
@@ -115,38 +117,30 @@ class CarveFmtCorpusTest extends TestCase
      * same halving search one level finer: `\{.note}` where the unit-scoped form
      * wrote `\{\.note\}`.
      *
-     * OPENER RUN, three documents since the pin moved past carve#1516: §2's
-     * THE UNIT IS THE OPENER requires the WHOLE
-     * opener run escaped - `\#\# H` and not `\## H`, `\*\*\*` and not `\***` -
-     * and PART 11 §2b names the first of those as its own worked example. The
-     * sweep removes ONE backslash at a time, so it reads the second `\#` as
-     * idle: with the first still there no heading forms either way. These
-     * entries are a floor this measurement cannot go below while §2 says what
-     * it says, and they are here to be seen rather than to be fixed. The
-     * occurrence search is why they are a floor rather than an accident: it
-     * offers a RUN back whole, so the half-escaped run §2 forbids is not a
-     * state it can reach.
+     * `opener run` WAS THE OTHER THREE AND IS GONE TOO, as an artifact of the
+     * sweep rather than of the writer. §2's THE UNIT IS THE OPENER requires the
+     * WHOLE opener run escaped - `\#\# H` and not `\## H`, `\*\*\*` and not
+     * `\***` - and PART 11 §2b names the first of those as its own worked
+     * example. The sweep removed ONE backslash at a time, so every backslash in
+     * a load-bearing run answered "idle" on its own: with the others still
+     * there no heading formed either way. What that scored was the half-escaped
+     * run §2 forbids, which the occurrence search cannot even reach, so the
+     * three entries measured a spelling no writer was allowed to emit. The
+     * sweep now puts §2's own question to the run whole (see
+     * {@see self::escapedOpenerRuns()}), the three read 0, and the fourth
+     * document that would have joined them arrived with the pin that brought
+     * corpus category 509.
      *
-     * The third opener-run document arrived WITH THE CORPUS rather than with
-     * the writer. `396-an-idle-escape-does-not-spread-from-the-block-that-
-     * needed-one` is the document carve#1516 added - an indented `## H` plus a
-     * second paragraph - and this writer emits the spec's own `.fmt` golden for
-     * it byte for byte, as carve-js and carve-rs do, each measuring the same 2
-     * on it. PART 11 §2b's prose still says two opener-run documents and 24 /
-     * 57 overall; that count was taken on a pin that predated its own corpus
-     * case.
-     *
-     * MINIMAL CLASS, the other two: both passes agree, so nothing escalated,
-     * and the escape is still idle.
+     * MINIMAL CLASS, the two that are left: both passes agree, so nothing
+     * escalated, and the escape is still idle. Grouping cost
+     * `72-escape-coverage-2` two of its four as well, because a doubled
+     * backslash is ONE escape and was being judged as two.
      *
      * @var array<string, array{0: int, 1: string}>
      */
     private const IDLE_ESCAPE_RATCHET = [
-        '72-escape-coverage-2' => [4, 'minimal class: a literal backslash is written doubled, and a lone backslash before a non-escapable character re-parses the same bare'],
-        '103-heading-marker-column-zero-2' => [2, 'opener run: the heading opener `##` is escaped in full, and removing either backslash alone still leaves a paragraph'],
-        '132-thematic-break-requires-contiguous-markers-3' => [3, 'opener run: the break opener `***` is escaped in full, and removing any one backslash alone still leaves a paragraph'],
+        '72-escape-coverage-2' => [2, 'minimal class: a literal backslash is written doubled, and a lone backslash before a non-escapable character re-parses the same bare'],
         '390-a-table-cell-s-marker-run-ends-at-a-space-5' => [1, 'minimal class: an authored `\=` is kept after the writer\'s own cell padding retired it - padded, the `=` no longer starts the cell'],
-        '396-an-idle-escape-does-not-spread-from-the-block-that-needed-one' => [2, 'opener run: the heading opener `##` is escaped in full, and removing either backslash alone still leaves a paragraph'],
     ];
 
     /**
@@ -749,20 +743,63 @@ class CarveFmtCorpusTest extends TestCase
         }
 
         $idle = [];
+        foreach (self::escapedOpenerRuns($source) as [$offsets, $escaped]) {
+            $without = $source;
+            foreach (array_reverse($offsets) as $offset) {
+                $without = substr($without, 0, $offset) . substr($without, $offset + 1);
+            }
+            if (self::escapeFingerprint($converter, $codec, $without) !== $base) {
+                continue;
+            }
+            $idle[$escaped] = ($idle[$escaped] ?? 0) + count($offsets);
+        }
+
+        return $idle;
+    }
+
+    /**
+     * The backslash offsets of the source, grouped into OPENER RUNS.
+     *
+     * §2's "only if" is asked of the OPENER, not the byte: where a construct
+     * opens on a run of characters the whole run is escaped, and `\-\-` is the
+     * escaped form of `--` exactly as `\--` is. So a run's backslashes stand or
+     * fall together, and the question to put to the re-parse is whether the run
+     * is load bearing - not whether the run survives losing one backslash.
+     *
+     * Removing them one at a time cannot ask that. Every backslash in a
+     * load-bearing run answers "idle" on its own, because the run is still
+     * broken by the ones that remain: `\~\~\~` at column zero scored three idle
+     * escapes while the half-escaped `\~~~` the score implies is the spelling
+     * §2 forbids. The three `opener run` entries this file used to carry were
+     * that artifact rather than debt.
+     *
+     * A run is maximal and same-character: `\~\~\~` is one, `\~\-` is two.
+     *
+     * @return array<int, array{array<int, int>, string}>
+     */
+    private static function escapedOpenerRuns(string $source): array
+    {
+        $runs = [];
         $length = strlen($source);
         for ($i = 0; $i < $length; $i++) {
             if ($source[$i] !== '\\') {
                 continue;
             }
-            $without = substr($source, 0, $i) . substr($source, $i + 1);
-            if (self::escapeFingerprint($converter, $codec, $without) !== $base) {
-                continue;
-            }
             $escaped = $i + 1 < $length ? $source[$i + 1] : '';
-            $idle[$escaped] = ($idle[$escaped] ?? 0) + 1;
+            $offsets = [$i];
+            // A doubled backslash is one escaped `\`, so the pair is consumed
+            // whole: reading the second as another opener would pair it with
+            // whatever follows.
+            $i += $escaped === '' ? 1 : 2;
+            while ($escaped !== '' && $i + 1 < $length && $source[$i] === '\\' && $source[$i + 1] === $escaped) {
+                $offsets[] = $i;
+                $i += 2;
+            }
+            $i--;
+            $runs[] = [$offsets, $escaped];
         }
 
-        return $idle;
+        return $runs;
     }
 
     /**
@@ -783,8 +820,7 @@ class CarveFmtCorpusTest extends TestCase
      * What is left is a FLOOR, not an exact count: two idle escapes of the
      * SAME character, one retired and one invented in another place, still
      * cancel. Positional matching would close that, and nothing in the corpus
-     * currently exercises it - the per-character count reproduces the seeded
-     * 28 documents and 72 escapes exactly.
+     * currently exercises it.
      */
     private static function inventedIdleEscapes(string $crv): int
     {
@@ -822,7 +858,9 @@ class CarveFmtCorpusTest extends TestCase
      *
      * Red on 28 of 1341 documents when this landed, so it is gated by the
      * shrink-only ratchet above rather than an allowlist - the entries are
-     * known violations with a number attached, not blessings.
+     * known violations with a number attached, not blessings. Two are left, and
+     * the sweep asks §2's question of the OPENER: a run's escapes stand or fall
+     * together, or the score is a half-escaped run §2 forbids.
      */
     #[DataProvider('corpusProvider')]
     public function testTheWriterInventsNoEscapeTheReParseDoesNotNeed(string $slug, string $crv): void
@@ -881,6 +919,15 @@ class CarveFmtCorpusTest extends TestCase
 
         // Needed: at column zero, bare it opens a quote.
         $this->assertSame([], self::idleEscapes("\\> a\n"));
+
+        // AND THE SAME BOTH WAYS FOR A RUN, which is what a per-byte sweep
+        // could not ask: §2 escapes the whole opener, so the run stands or
+        // falls together. Mid-line `##` opens nothing and both escapes are
+        // idle; at column zero the run opens a heading and neither is.
+        $this->assertSame(['#' => 2], self::idleEscapes("a \\#\\# b\n"));
+        $this->assertSame([], self::idleEscapes("\\#\\# H\n"));
+        $this->assertSame(['~' => 3], self::idleEscapes("a \\~\\~\\~ b\n"));
+        $this->assertSame([], self::idleEscapes("\\~\\~\\~\n\ntail\n"));
 
         // And the count is backslashes that do nothing, not backslashes.
         $this->assertSame([], self::idleEscapes("a > b\n"));
