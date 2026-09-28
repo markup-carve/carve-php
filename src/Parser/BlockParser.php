@@ -4245,25 +4245,25 @@ class BlockParser
      * lazy continuation - which needs an open paragraph and nothing else
      * (PART 1 S4, markup-carve/carve-php#1897).
      *
-     * A FENCE INSIDE THE QUOTE LEAVES THE PARAGRAPH WHERE IT WAS. After `> q`,
-     * the line below belongs to the quote whether the fence closes or not.
-     * With no paragraph above the fence, the line belongs to the item. The fence
-     * decides nothing here and a heading, a table row, a thematic break or a
-     * bare `>` decides everything, which is why the flag is carried across the
-     * fence rather than recomputed inside it. Tracked locally because
-     * `advanceTrailingBlockState()` does not carry a QUOTED fence between
-     * lines - it reads each `>` line through a fresh inner state.
+     * Use the quote parser's tracker so a closed fence releases the next line
+     * to the enclosing item's block classification.
      *
      * @param array<string> $lines
      * @param int $start
      */
     protected function blockQuoteLazyExtentEnd(array $lines, int $start): int
     {
-        $state = $this->advanceTrailingState(new TrailingBlockState(), $lines[$start]);
-        $paragraphOpen = $state->quoteParagraph;
+        $state = self::initialBlockQuoteLazyState();
+        $codeCloserMemo = [];
+        $this->trackBlockQuoteLazyState(
+            $this->blockQuoteLineContent($lines[$start]) ?? $lines[$start],
+            $state,
+            $lines,
+            $start,
+            $codeCloserMemo,
+        );
         $end = $start;
         $count = count($lines);
-        $fence = $this->quotedFenceOpenedBy($lines[$start], null);
 
         for ($j = $start + 1; $j < $count; $j++) {
             $line = $lines[$j];
@@ -4277,18 +4277,13 @@ class BlockParser
             }
 
             if ($quoteContent !== null) {
-                $next = $this->quotedFenceOpenedBy($line, $fence);
-                if ($fence === null && $next === null) {
-                    $state = $this->advanceTrailingState($state, $line);
-                    $paragraphOpen = $state->quoteParagraph;
-                }
-                $fence = $next;
+                $this->trackBlockQuoteLazyState($quoteContent, $state, $lines, $j, $codeCloserMemo);
                 $end = $j;
 
                 continue;
             }
 
-            if (!$paragraphOpen || $this->endsBlockQuote($line, true, $lines, $j)) {
+            if (!$state['paragraphOpen'] || $this->endsBlockQuote($line, true, $lines, $j)) {
                 break;
             }
 
@@ -4388,10 +4383,11 @@ class BlockParser
         $innerLines = [];
         $innerLineMap = [];
         $lazyState = self::initialBlockQuoteLazyState();
+        $codeCloserMemo = [];
 
         $innerLines[] = $content;
         $innerLineMap[] = $this->sourceLineFor($start);
-        $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start);
+        $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start, $codeCloserMemo);
 
         $i = $start + 1;
         $count = count($lines);
@@ -4441,7 +4437,7 @@ class BlockParser
             if ($content !== null) {
                 $innerLines[] = $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
-                $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $i);
+                $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $i, $codeCloserMemo);
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
@@ -4462,7 +4458,7 @@ class BlockParser
                 $lazySourceLine = $this->sourceLineFor($i);
                 $innerLineMap[] = $lazySourceLine;
                 $this->blockQuoteLazySourceLines[$lazySourceLine] = true;
-                $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i);
+                $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i, $codeCloserMemo);
                 $i++;
             } else {
                 break;
@@ -4517,6 +4513,7 @@ class BlockParser
      *     Running state, mutated in place.
      * @param array<string> $sourceLines
      * @param int $sourceIndex
+     * @param array<string, array{from:int, end:int, maxRun:int}> $codeCloserMemo
      * @param bool $nested
      */
     private function trackBlockQuoteLazyState(
@@ -4524,6 +4521,7 @@ class BlockParser
         array &$state,
         array $sourceLines,
         int $sourceIndex,
+        array &$codeCloserMemo,
         bool $nested = false,
     ): void {
         // A NESTED RUN OWNS ITS STATE, AND ONLY WHILE IT LASTS. The state is
@@ -4547,22 +4545,51 @@ class BlockParser
                 // in ContainerPrefix and this counts the same shape without
                 // materializing the tail.
                 $depth = ContainerPrefix::countLeadingQuoteMarkers($content);
+                if ($depth < $state['innerDepth'] && $state['paragraphOpen']) {
+                    $leaf = ContainerPrefix::afterLeadingQuoteMarkers($content);
+                    $opener = $this->fencedBlockParser->parseRawBlockOpener($leaf)
+                        ?? $this->fencedBlockParser->parseCodeFenceOpener($leaf);
+                    $interrupts = $opener !== null
+                        ? $this->quotedCodeFenceHasCloser(
+                            $sourceLines,
+                            $sourceIndex,
+                            $depth + 1,
+                            $opener['char'] ?? $opener['fence'][0],
+                            $opener['length'],
+                            $codeCloserMemo,
+                        )
+                        : $this->endsBlockQuote($leaf, true, $sourceLines, $sourceIndex);
+                    if (!IndentationHelper::isBlankLine($leaf) && !$interrupts) {
+                        // A missing inner marker can continue the same paragraph.
+                        // Keep its depth for the next explicitly marked line.
+                        return;
+                    }
+                }
+                $opaque = $state['mode'] === BlockQuoteLazyMode::CodeFence
+                    || $state['mode'] === BlockQuoteLazyMode::CommentFence;
+                if ($opaque && $depth >= $state['innerDepth']) {
+                    $depth = $state['innerDepth'];
+                }
                 if ($state['innerDepth'] !== $depth) {
-                    $paragraphOpen = $state['paragraphOpen'];
+                    $paragraphOpen = $depth < $state['innerDepth'] && $state['paragraphOpen'];
                     $state = self::initialBlockQuoteLazyState();
                     $state['innerDepth'] = $depth;
-                    // The PARAGRAPH survives a change of depth: it is the outer
-                    // quote's own last block, and what ends is the nested run.
+                    // A new inner quote starts without a paragraph. A shallower
+                    // line is classified in the surviving outer context.
                     $state['paragraphOpen'] = $paragraphOpen;
                 }
             }
 
-            // A definition in a quote's open lazy paragraph stays
-            // paragraph text and leaves the run open (carve-php#1908, S4).
+            // Definitions and fence-shaped lazy lines remain paragraph text
+            // when a nested quote replays them.
             if (
                 $state['paragraphOpen']
                 && isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($sourceIndex)])
-                && $this->isReferenceDefinitionLine(ltrim($content, " \t"))
+                && (
+                    $this->isReferenceDefinitionLine(ltrim($content, " \t"))
+                    || $this->fencedBlockParser->parseCodeFenceOpener($content) !== null
+                    || $this->fencedBlockParser->parseRawBlockOpener($content) !== null
+                )
             ) {
                 return;
             }
@@ -4580,7 +4607,7 @@ class BlockParser
             $state['inTable'] = false;
 
             if ($state['mode'] === BlockQuoteLazyMode::CommentFence) {
-                if ($this->fencedBlockParser->isFencedCommentCloser($content, $state['commentLength'])) {
+                if ($this->fencedBlockParser->isFencedCommentCloser(self::quotedContentAtDepth($content, $state['innerDepth']) ?? $content, $state['commentLength'])) {
                     $state['mode'] = BlockQuoteLazyMode::Content;
                 }
                 $state['paragraphOpen'] = false;
@@ -4589,7 +4616,7 @@ class BlockParser
             }
 
             if ($state['mode'] === BlockQuoteLazyMode::CodeFence) {
-                if ($this->fencedBlockParser->isCodeFenceCloser($content, $state['fenceChar'], $state['fenceLength'])) {
+                if ($this->fencedBlockParser->isCodeFenceCloser(self::quotedContentAtDepth($content, $state['innerDepth']) ?? $content, $state['fenceChar'], $state['fenceLength'])) {
                     $state['mode'] = BlockQuoteLazyMode::Content;
                 }
                 $state['paragraphOpen'] = false;
@@ -4606,24 +4633,32 @@ class BlockParser
                 return;
             }
 
-        // This only tracks LAZY-CONTINUATION state (which non-">" lines extend the
-        // quote), not how the collected content is block-parsed -- §10 paragraph
-        // interruption (with its fence/div closer lookahead) is applied later by
-        // parseBlocks. A fence/comment/div opener begins a fence/comment/div state
-        // only when no paragraph is open (the opener is the first content, or
-        // follows a blank line); a marker mid-paragraph leaves the paragraph open
-        // so a following unquoted line still lazily continues it.
-            if (!$state['paragraphOpen']) {
-                $fenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($content);
-                if ($fenceInfo !== null) {
+            // A fence interrupts a paragraph only when its own quoted region
+            // contains a closer. At block start it needs no closer.
+            $fenceInfo = $this->fencedBlockParser->parseRawBlockOpener($content)
+                ?? $this->fencedBlockParser->parseCodeFenceOpener($content);
+            if ($fenceInfo !== null) {
+                $char = $fenceInfo['char'] ?? $fenceInfo['fence'][0];
+                if (
+                    !$state['paragraphOpen']
+                    || $this->quotedCodeFenceHasCloser(
+                        $sourceLines,
+                        $sourceIndex,
+                        $state['innerDepth'] + 1,
+                        $char,
+                        $fenceInfo['length'],
+                        $codeCloserMemo,
+                    )
+                ) {
                     $state['mode'] = BlockQuoteLazyMode::CodeFence;
-                    $state['fenceChar'] = $fenceInfo['char'];
+                    $state['fenceChar'] = $char;
                     $state['fenceLength'] = $fenceInfo['length'];
                     $state['paragraphOpen'] = false;
 
                     return;
                 }
-
+            }
+            if (!$state['paragraphOpen']) {
                 $commentInfo = $this->fencedBlockParser->parseFencedCommentOpener($content);
                 if ($commentInfo !== null && $this->hasClosingCommentFenceAheadInBlockQuote($sourceLines, $sourceIndex, $commentInfo['length'])) {
                     $state['mode'] = BlockQuoteLazyMode::CommentFence;
@@ -13241,6 +13276,10 @@ class BlockParser
                 return $this->blockQuoteLineContent($line) !== null;
             case '`':
             case '~':
+                if ($index !== null && isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($index)])) {
+                    return false;
+                }
+
                 // Code fences interrupt only if a matching closer exists ahead.
                 return $this->hasClosingFenceAhead($line, $lines, $index);
             case ':':
@@ -13356,6 +13395,59 @@ class BlockParser
         }
 
         return $this->commentFenceLastIndex[$length] ?? -1;
+    }
+
+    /**
+     * @param string $line
+     * @param int $depth
+     */
+    private static function quotedContentAtDepth(string $line, int $depth): ?string
+    {
+        $at = 0;
+        for ($level = 0; $level < $depth; $level++) {
+            $width = ContainerPrefix::quoteMarkerWidth($line, $at);
+            if ($width === null) {
+                return null;
+            }
+            $at += $width;
+        }
+
+        return substr($line, $at);
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $depth
+     * @param string $char
+     * @param int $length
+     * @param array<string, array{from:int, end:int, maxRun:int}> $memo
+     */
+    private function quotedCodeFenceHasCloser(array $lines, int $index, int $depth, string $char, int $length, array &$memo): bool
+    {
+        $key = $depth . ':' . $char;
+        $start = $index + 1;
+        $cached = $memo[$key] ?? null;
+        if ($cached !== null && $start >= $cached['from'] && $start <= $cached['end'] && $length > $cached['maxRun']) {
+            return false;
+        }
+        $maxRun = 0;
+        $count = count($lines);
+        for ($i = $start; $i < $count; $i++) {
+            $content = self::quotedContentAtDepth($lines[$i], $depth);
+            if ($content === null) {
+                break;
+            }
+            if ($this->fencedBlockParser->isCodeFenceCloser($content, $char, $length)) {
+                return true;
+            }
+            if (preg_match('/^(`{3,}|~{3,})[ \t]*$/', $content, $match) === 1 && $match[1][0] === $char) {
+                $maxRun = max($maxRun, strlen($match[1]));
+            }
+        }
+        $memo[$key] = ['from' => $start, 'end' => $i, 'maxRun' => $maxRun];
+
+        return false;
     }
 
     /**

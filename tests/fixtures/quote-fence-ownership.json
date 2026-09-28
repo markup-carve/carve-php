@@ -1,0 +1,117 @@
+[
+  {
+    "name": "closed 1 ```",
+    "source": "> a\n> ```\n> ```\ny\n",
+    "html": "<blockquote>\n  <p>a</p>\n  <pre><code>\n</code></pre>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "closed 1 ~~~",
+    "source": "> a\n> ~~~\n> ~~~\ny\n",
+    "html": "<blockquote>\n  <p>a</p>\n  <pre><code>\n</code></pre>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "closed 1 ``` =html",
+    "source": "> a\n> ``` =html\n> <b>p</b>\n> ```\ny\n",
+    "html": "<blockquote>\n  <p>a</p>\n  <b>p</b>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "reopen 1",
+    "source": "> a\n> ```\n> ```\n> b\ny\n",
+    "html": "<blockquote>\n  <p>a</p>\n  <pre><code>\n</code></pre>\n  <p>b\ny</p>\n</blockquote>"
+  },
+  {
+    "name": "unclosed paragraph 1",
+    "source": "> a\n> ```\ny\n",
+    "html": "<blockquote><p>a\n<code>\ny</code></p></blockquote>"
+  },
+  {
+    "name": "closed 2 ```",
+    "source": "> > a\n> > ```\n> > ```\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code>\n</code></pre>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "closed 2 ~~~",
+    "source": "> > a\n> > ~~~\n> > ~~~\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code>\n</code></pre>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "closed 2 ``` =html",
+    "source": "> > a\n> > ``` =html\n> > <b>p</b>\n> > ```\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <b>p</b>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "reopen 2",
+    "source": "> > a\n> > ```\n> > ```\n> > b\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code>\n</code></pre>\n    <p>b\ny</p>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "name": "unclosed paragraph 2",
+    "source": "> > a\n> > ```\ny\n",
+    "html": "<blockquote>\n  <blockquote><p>a\n<code>\ny</code></p></blockquote>\n</blockquote>"
+  },
+  {
+    "name": "closed 3 ```",
+    "source": "> > > a\n> > > ```\n> > > ```\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code>\n</code></pre>\n    </blockquote>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "closed 3 ~~~",
+    "source": "> > > a\n> > > ~~~\n> > > ~~~\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code>\n</code></pre>\n    </blockquote>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "closed 3 ``` =html",
+    "source": "> > > a\n> > > ``` =html\n> > > <b>p</b>\n> > > ```\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <b>p</b>\n    </blockquote>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "reopen 3",
+    "source": "> > > a\n> > > ```\n> > > ```\n> > > b\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code>\n</code></pre>\n      <p>b\ny</p>\n    </blockquote>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "name": "unclosed paragraph 3",
+    "source": "> > > a\n> > > ```\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote><p>a\n<code>\ny</code></p></blockquote>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "name": "new inner fence",
+    "source": "> a\n> > ```\nc\n",
+    "html": "<blockquote>\n  <p>a</p>\n  <blockquote>\n    <pre><code>\n</code></pre>\n  </blockquote>\n</blockquote>\n<p>c</p>"
+  },
+  {
+    "name": "new quote after blank",
+    "source": "> > a\n>\n> > ```\nc\n",
+    "html": "<blockquote>\n  <blockquote><p>a</p></blockquote>\n  <blockquote>\n    <pre><code>\n</code></pre>\n  </blockquote>\n</blockquote>\n<p>c</p>"
+  },
+  {
+    "name": "lazy inner paragraph survives a shallower line",
+    "source": "> > a\n> b\n> > ```\nc\n",
+    "html": "<blockquote>\n  <blockquote><p>a\nb\n<code>\nc</code></p></blockquote>\n</blockquote>"
+  },
+  {
+    "name": "a lazy fence-shaped line remains paragraph text",
+    "source": "> > a\n> ```\n> > ```\ny\n",
+    "html": "<blockquote>\n  <blockquote><p>a\n<code>\n</code>\ny</p></blockquote>\n</blockquote>"
+  },
+  {
+    "name": "blank payload at quote depth 1",
+    "source": "> a\n> ```\n>\n> ```\ny\n",
+    "html": "<blockquote>\n  <p>a</p>\n  <pre><code>\n</code></pre>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "blank payload at quote depth 2",
+    "source": "> > a\n> > ```\n> >\n> > ```\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code>\n</code></pre>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "blank payload at quote depth 3",
+    "source": "> > > a\n> > > ```\n> > >\n> > > ```\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code>\n</code></pre>\n    </blockquote>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "a quote fence inside a list inside a quote",
+    "source": "> - a\n>   > q\n>   > ```\n>   > ```\n>   y\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <blockquote>\n        <p>q</p>\n        <pre><code>\n</code></pre>\n      </blockquote>\n      y\n    </li>\n  </ul>\n</blockquote>"
+  }
+]
