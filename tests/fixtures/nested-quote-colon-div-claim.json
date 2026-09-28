@@ -1,0 +1,52 @@
+[
+  {
+    "name": "an empty div at depth 2",
+    "source": "> > :::\n> > :::\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <div>\n\n    </div>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "a div with a body at depth 2",
+    "source": "> > ::: d\n> > p\n> > :::\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <div class=\"d\">\n      <p>p</p>\n    </div>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "a div with a body at depth 3",
+    "source": "> > > ::: d\n> > > p\n> > > :::\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <div class=\"d\">\n        <p>p</p>\n      </div>\n    </blockquote>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "a quoted line after the closer stores the claim again",
+    "source": "> > ::: d\n> > p\n> > :::\n> > b\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <div class=\"d\">\n      <p>p</p>\n    </div>\n    <p>b\ny</p>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "name": "an admonition kind at depth 2",
+    "source": "> > ::: note\n> > :::\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n\n    </aside>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "depth 1 is unchanged",
+    "source": "> :::\n> :::\ny\n",
+    "html": "<blockquote>\n  <div>\n\n  </div>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "an unterminated div at depth 2 still claims the line",
+    "source": "> > :::\n> > p\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <div>\n      <p>p\ny</p>\n    </div>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "name": "a closer one level shallower than the opener",
+    "source": "> > :::\n> :::\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <div>\n\n    </div>\n  </blockquote>\n  <div>\n\n  </div>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "a wider closer does not close a narrower div",
+    "source": "> > :::\n> > ::::\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <div>\n      <div>\n\n      </div>\n    </div>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+  },
+  {
+    "name": "a body after the closer at depth 3",
+    "source": "> > > :::\n> > > :::\n> > > b\ny\n",
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <div>\n\n      </div>\n      <p>b\ny</p>\n    </blockquote>\n  </blockquote>\n</blockquote>"
+  }
+]

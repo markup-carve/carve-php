@@ -463,4 +463,88 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
     {
         $this->assertSame($html, $this->html($source));
     }
+
+    /**
+     * A closer past a blank line no later line continues, at all three depths.
+     *
+     * The blank ends the item (carve#1379), so a closer written under it is the
+     * document's and §10 I4 has nothing to arm the fence on. At ONE container
+     * deep the run therefore folds into the paragraph the item still holds; two
+     * and three deep an ancestor collector has already answered I4 for the line
+     * and the fence opens, which is the asymmetry carve-php#2661 reports and the
+     * oracle keeps.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function aCloserPastAnUncontinuedBlank(): array
+    {
+        return [
+            'code at depth 1 folds' => [
+                "- a\n  ```\n  p\n\ndone\n  ```\n",
+                "<ul>\n  <li>a\n<code>\np</code></li>\n</ul>\n<p>done\n<code></code></p>",
+            ],
+            'tilde at depth 1 folds' => [
+                "- a\n  ~~~\n  p\n\ndone\n  ~~~\n",
+                "<ul>\n  <li>a\n~~~\np</li>\n</ul>\n<p>done\n~~~</p>",
+            ],
+            'code at depth 1, fence past the content column, folds' => [
+                "- a\n   ```\n   p\n\ndone\n   ```\n",
+                "<ul>\n  <li>a\n<code>\np</code></li>\n</ul>\n<p>done\n<code></code></p>",
+            ],
+            'code at depth 2 opens' => [
+                "- a\n  - b\n    ```\n    p\n\ndone\n    ```\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done\n<code></code></p>",
+            ],
+            'tilde at depth 2 opens' => [
+                "- a\n  - b\n    ~~~\n    p\n\ndone\n    ~~~\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done\n~~~</p>",
+            ],
+            'code at depth 3 opens' => [
+                "- a\n  - b\n    - c\n      ```\n      p\n\ndone\n      ```\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done\n<code></code></p>",
+            ],
+            'tilde at depth 3 opens' => [
+                "- a\n  - b\n    - c\n      ~~~\n      p\n\ndone\n      ~~~\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done\n~~~</p>",
+            ],
+        ];
+    }
+
+    #[DataProvider('aCloserPastAnUncontinuedBlank')]
+    public function testACloserPastAnUncontinuedBlankIsNotThisFences(string $source, string $html): void
+    {
+        $this->assertSame($html, $this->html($source));
+    }
+
+    /**
+     * CONTROL: the blank IS continued, so the closer is the fence's own.
+     *
+     * One line moves, from column 0 to the item's content column, and the depth-1
+     * reading above turns back into a code block that holds the blank.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function aContinuedBlankLeavesTheCloserReachable(): array
+    {
+        return [
+            'code at depth 1' => [
+                "- a\n  ```\n  p\n\n  done\n  ```\n",
+                "<ul>\n  <li>a\n    <pre><code>p\n\ndone\n</code></pre>\n  </li>\n</ul>",
+            ],
+            'tilde at depth 1' => [
+                "- a\n  ~~~\n  p\n\n  done\n  ~~~\n",
+                "<ul>\n  <li>a\n    <pre><code>p\n\ndone\n</code></pre>\n  </li>\n</ul>",
+            ],
+            'code at depth 1, no blank at all' => [
+                "- a\n  ```\n  p\n  q\n  ```\n",
+                "<ul>\n  <li>a\n    <pre><code>p\nq\n</code></pre>\n  </li>\n</ul>",
+            ],
+        ];
+    }
+
+    #[DataProvider('aContinuedBlankLeavesTheCloserReachable')]
+    public function testAContinuedBlankKeepsTheFenceArmed(string $source, string $html): void
+    {
+        $this->assertSame($html, $this->html($source));
+    }
 }
