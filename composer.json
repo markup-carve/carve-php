@@ -57,7 +57,7 @@
         "schema-map-check": "@php scripts/check-schema-map.php",
         "stan": "phpstan analyze",
         "test": "@php -d pcov.enabled=0 vendor/bin/phpunit",
-        "test-parallel": "@php -d pcov.enabled=0 vendor/bin/paratest",
+        "test-parallel": "@php -d pcov.enabled=0 vendor/bin/paratest --passthru-php=\"-d pcov.enabled=0\"",
         "test-all": [
             "@test",
             "@test-scaling"
