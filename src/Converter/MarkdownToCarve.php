@@ -11,6 +11,8 @@ use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -895,15 +897,24 @@ class MarkdownToCarve
                     $line = $this->escapeTaskItemOpener($line);
                 }
                 $line = $this->normalizeHeldQuoteMarkers($line);
-                $result[] = $this->convertInlineFormatting(
-                    $this->escapeRowContinuation(
-                        $this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)),
-                        $lines,
-                        $i,
-                        $listCols,
-                        (string)end($result),
-                    ),
-                );
+                $inlineRun = str_contains($line, '`') ? $this->collectInlineParagraph($lines, $i, $line, $contentCol) : null;
+                if ($inlineRun !== null) {
+                    $i = $inlineRun['end'];
+                    $parts = explode("\n", $this->convertInlineFormatting($inlineRun['body']));
+                    foreach ($parts as $at => $part) {
+                        $result[] = ($at === 0 ? $inlineRun['first'] : $inlineRun['next']) . $part;
+                    }
+                } else {
+                    $result[] = $this->convertInlineFormatting(
+                        $this->escapeRowContinuation(
+                            $this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)),
+                            $lines,
+                            $i,
+                            $listCols,
+                            (string)end($result),
+                        ),
+                    );
+                }
                 $this->trackItemParagraph($line, $isList, $contentCol, $itemParagraph, $itemQuote);
                 $prevLineType = 'list';
 
@@ -3908,7 +3919,7 @@ class MarkdownToCarve
     {
         preg_match('/^([ \t]*(?:(?:[-*+]|\d+[.)])[ \t]+|>[ \t]?)*)(.*)$/s', $body, $first);
         $text = $first[2] ?? $body;
-        if (strpbrk($text, '*_[') === false || !$this->isParagraphLine([$text], 0)) {
+        if (strpbrk($text, '*_[`') === false || !$this->isParagraphLine([$text], 0)) {
             return null;
         }
         $prefix = $first[1] ?? '';
@@ -3965,7 +3976,22 @@ class MarkdownToCarve
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
 
-        $line = $this->protectCodeSpans($line, $protect);
+        $line = $this->protectCodeSpans($line, function (string $span) use ($protect): string {
+            $fence = strspn($span, '`');
+            if ($fence === 0 || $fence > 2 || !str_contains($span, "\n")) {
+                return $protect($span);
+            }
+            $value = preg_replace('/\n[ \t]*/', ' ', substr($span, $fence, -$fence)) ?? '';
+            if (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, ' ') !== '') {
+                $value = substr($value, 1, -1);
+            }
+            $document = new Document();
+            $paragraph = new Paragraph();
+            $paragraph->appendChild(new Code($value));
+            $document->appendChild($paragraph);
+
+            return $protect(rtrim((new CarveRenderer())->render($document), "\n"));
+        });
 
         // Carve has no pointy destination, so `<a b>` is written as `a%20b`
         // before the angle brackets can read as raw HTML.
@@ -3994,8 +4020,10 @@ class MarkdownToCarve
         $nativeInline = 'code|mark|ins|del|s|sup|sub|strong|b|em|i';
         if ($this->convertRawHtml) {
             $line = preg_replace_callback(
-                '/(?:<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
-                fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
+                '/(?:<!--(?:>|->|[\s\S]*?-->)|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
+                fn (array $match): string => str_starts_with($match[0], '<!--')
+                    ? ''
+                    : $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
                 $line,
             ) ?? $line;
             $line = preg_replace_callback(
@@ -4014,9 +4042,19 @@ class MarkdownToCarve
                 $line,
             ) ?? $line;
         } else {
-            $rawInline = fn (array $match): string => $protect($this->verbatimHtmlInline($match[0]));
+            $rawInline = function (array $match) use ($protect, &$protected): string {
+                $head = substr($match[0], 0, strcspn($match[0], '>'));
+                preg_match_all('/\x00P(\d+)\x00/', $head, $tokens);
+                foreach ($tokens[1] as $index) {
+                    if (str_starts_with($protected[(int)$index] ?? '', '`')) {
+                        return $match[0];
+                    }
+                }
+
+                return $protect($this->verbatimHtmlInline($match[0]));
+            };
             $line = preg_replace_callback(
-                '/(?:<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
+                '/(?:<!--(?:>|->|[\s\S]*?-->)|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
                 $rawInline,
                 $line,
             ) ?? $line;
@@ -5195,6 +5233,7 @@ class MarkdownToCarve
     {
         $out = '';
         $i = 0;
+        $commentEnd = strpos($line, '-->');
         $length = strlen($line);
         while ($i < $length) {
             if ($line[$i] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $line[$i + 1] ?? '') === 1) {
@@ -5203,9 +5242,26 @@ class MarkdownToCarve
 
                 continue;
             }
+            if (substr($line, $i, 4) === '<!--') {
+                if ($commentEnd !== false && $commentEnd < $i + 2) {
+                    $commentEnd = strpos($line, '-->', $i + 2);
+                }
+                if ($commentEnd !== false) {
+                    $out .= substr($line, $i, $commentEnd + 3 - $i);
+                    $i = $commentEnd + 3;
+
+                    continue;
+                }
+            }
             if ($line[$i] === '<' && preg_match('/\G<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>/', $line, $autolink, 0, $i) === 1) {
                 $out .= $autolink[0];
                 $i += strlen($autolink[0]);
+
+                continue;
+            }
+            if ($line[$i] === '<' && preg_match('~\G</?[A-Za-z][A-Za-z0-9-]*(?=[\s/>])(?:[^<>"\'`]++|"[^"]*"|\'[^\']*\')*>~s', $line, $tag, 0, $i) === 1) {
+                $out .= $tag[0];
+                $i += strlen($tag[0]);
 
                 continue;
             }
