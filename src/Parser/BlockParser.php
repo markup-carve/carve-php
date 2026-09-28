@@ -56,6 +56,10 @@ use WeakMap;
 
 /**
  * Block-level parser for Carve
+ *
+ * @phpstan-type QuoteHostFence array{char:string, length:int, column:int}
+ * @phpstan-type QuoteFenceHosts array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, fence:QuoteHostFence|null, pending:QuoteHostFence|null}
+ * @phpstan-type QuoteLazyState array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:QuoteFenceHosts}
  */
 class BlockParser
 {
@@ -3187,7 +3191,7 @@ class BlockParser
      * `{` opener followed by many lines that never close stays LINEAR rather
      * than copying the growing run on every line.
      *
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null} $state Mutated in place.
+     * @param QuoteLazyState $state Mutated in place.
      * @param string $content
      */
     private function trackWrappedAttributeRun(array &$state, string $content): bool
@@ -4532,9 +4536,108 @@ class BlockParser
     }
 
     /**
+     * Track a fence at a quoted item's or footnote's content column.
+     *
+     * @param string $content
+     * @param QuoteLazyState $state
+     * @param array<string> $lines
+     * @param int $index
+     * @param array<string, array{from:int, end:int, maxRun:int}> $memo
+     */
+    private function trackQuotedHostFence(string $content, array &$state, array $lines, int $index, array &$memo): bool
+    {
+        $state['hosts'] ??= ['columns' => [0], 'markers' => [], 'kinds' => [], 'fence' => null, 'pending' => null];
+        $host = &$state['hosts'];
+        $column = IndentationHelper::getLeadingColumns($content);
+        $text = ltrim($content, " \t");
+        if ($host['fence'] !== null) {
+            $fence = $host['fence'];
+            if ($text !== '' && $column < $fence['column']) {
+                $host['fence'] = null;
+            } else {
+                if ($column === $fence['column'] && $this->fencedBlockParser->isCodeFenceCloser($text, $fence['char'], $fence['length'])) {
+                    $host['fence'] = null;
+                }
+                $state['paragraphOpen'] = false;
+
+                return true;
+            }
+        }
+        if ($text === '') {
+            return false;
+        }
+        $paragraph = $state['paragraphOpen'];
+        $sibling = false;
+        foreach ($host['markers'] as $i => $col) {
+            $sibling = $sibling || ($col === $column && $host['kinds'][$i] === 'item');
+        }
+        while (($host['columns'][array_key_last($host['columns']) ?? 0] ?? 0) > $column) {
+            array_pop($host['columns']);
+            array_pop($host['markers']);
+            array_pop($host['kinds']);
+        }
+        $insideItem = end($host['kinds']) === 'item';
+        $inner = $text;
+        $at = $column;
+        $blockStart = false;
+        while (true) {
+            $marker = $this->listParser->parseListItemMarker($inner);
+            if ($marker !== null) {
+                if ($paragraph && !$insideItem && !$sibling) {
+                    break;
+                }
+                $host['markers'][] = $at;
+                $at += $this->listMarkerWidth($inner, $marker);
+                $host['columns'][] = $at;
+                $host['kinds'][] = 'item';
+                $blockStart = true;
+                $at += IndentationHelper::getLeadingColumns($marker['content']);
+                $inner = ltrim($marker['content'], " \t");
+
+                continue;
+            }
+            if (preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $inner) === 1) {
+                $host['markers'][] = $at;
+                $host['columns'][] = $at + self::FOOTNOTE_BODY_COLUMN;
+                $host['kinds'][] = 'note';
+            }
+
+            break;
+        }
+        $floor = $host['columns'][array_key_last($host['columns']) ?? 0] ?? 0;
+        if ($host['pending'] !== null && $host['pending']['column'] > $floor) {
+            $host['pending'] = null;
+        }
+        $open = $this->fencedBlockParser->parseRawBlockOpener($inner)
+            ?? $this->fencedBlockParser->parseCodeFenceOpener($inner);
+        if ($open === null || $floor === 0) {
+            return false;
+        }
+        $char = $open['char'] ?? $open['fence'][0];
+        $length = $open['length'];
+        if ($host['pending'] !== null && $char === $host['pending']['char'] && $length >= $host['pending']['length']) {
+            $host['pending'] = null;
+
+            return false;
+        }
+        $fence = ['char' => $char, 'length' => $length, 'column' => $floor];
+        if ($at === $floor && ($blockStart || !$paragraph || $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $floor))) {
+            $host['fence'] = $fence;
+            $state['paragraphOpen'] = false;
+
+            return true;
+        }
+        if ($at !== $floor) {
+            $host['pending'] = $fence;
+        }
+
+        return false;
+    }
+
+    /**
      * A quote's lazy tracker before it has read a line.
      *
-     * @return array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null}
+     * @return QuoteLazyState
      */
     private static function initialBlockQuoteLazyState(): array
     {
@@ -4555,7 +4658,7 @@ class BlockParser
 
     /**
      * @param string $content Inner content line (after the "> " marker is stripped).
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null} $state
+     * @param QuoteLazyState $state
      *     Running state, mutated in place.
      * @param array<string> $sourceLines
      * @param int $sourceIndex
@@ -4665,6 +4768,14 @@ class BlockParser
                 }
                 $state['paragraphOpen'] = false;
 
+                return;
+            }
+
+            if (
+                $content !== '>' && !str_starts_with($content, '> ')
+                && !isset($this->blockQuoteLazySourceLines[$this->sourceLineFor($sourceIndex)])
+                && $this->trackQuotedHostFence($content, $state, $sourceLines, $sourceIndex, $codeCloserMemo)
+            ) {
                 return;
             }
 
@@ -13653,10 +13764,11 @@ class BlockParser
      * @param string $char
      * @param int $length
      * @param array<string, array{from:int, end:int, maxRun:int}> $memo
+     * @param int $column
      */
-    private function quotedCodeFenceHasCloser(array $lines, int $index, int $depth, string $char, int $length, array &$memo): bool
+    private function quotedCodeFenceHasCloser(array $lines, int $index, int $depth, string $char, int $length, array &$memo, int $column = 0): bool
     {
-        $key = $depth . ':' . $char;
+        $key = $depth . ':' . $column . ':' . $char;
         $start = $index + 1;
         $cached = $memo[$key] ?? null;
         if ($cached !== null && $start >= $cached['from'] && $start <= $cached['end'] && $length > $cached['maxRun']) {
@@ -13669,6 +13781,10 @@ class BlockParser
             if ($content === null) {
                 break;
             }
+            if (IndentationHelper::getLeadingColumns($content) !== $column) {
+                continue;
+            }
+            $content = IndentationHelper::stripLeadingColumns($content, $column);
             if ($this->fencedBlockParser->isCodeFenceCloser($content, $char, $length)) {
                 return true;
             }
