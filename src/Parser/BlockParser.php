@@ -5100,6 +5100,10 @@ class BlockParser
                     // sibling markers inside it are the nested list's own
                     // business and must not get a loosening blank injected.
                     $subSawListMarker = false;
+                    // Whether a fence in this stream interrupted an open
+                    // paragraph on the strength of a closer only the SOURCE view
+                    // shows. See the hand-down below the loop.
+                    $subInterruptedParagraphFence = false;
                     // Entries this loop DEDENTED by the item's content column,
                     // by index - the same proof collectMarkerLeadItem() records
                     // and for the same reader (markup-carve/carve#1896).
@@ -5204,7 +5208,42 @@ class BlockParser
                             // invisible block here ends the paragraph under it
                             // rather than folding a flush-left line in
                             // (carve-php#1866).
-                            $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
+                            //
+                            // THROUGH §10's CLOSER LOOKAHEAD, at the column the
+                            // AUTHOR wrote the fence at. Armed unconditionally,
+                            // an indented fence with no closer of its own left
+                            // this stream reporting a closed block, and the run
+                            // below the fence's base then ended the list where
+                            // `CARVE-P0-014` folds it into the open paragraph
+                            // (markup-carve/carve#2509).
+                            //
+                            // NOT OVER A BLANK LINE, which closes the paragraph
+                            // §10 I4's veto needs: this loop does not advance
+                            // the tracker across a blank, so `openParagraph` is
+                            // still set there and the veto would refuse a fence
+                            // that opens on its own.
+                            $subFenceOpener = $sawBlankLine || $subTrailingState->fence !== null
+                                || !$subTrailingState->openParagraph
+                                ? null
+                                : $this->itemFenceOpenerAt($stripped);
+                            if ($subFenceOpener !== null) {
+                                $subFenceColumns = $subIndent + IndentationHelper::getLeadingColumns($stripped);
+                                if ($this->itemFenceCloserAhead($lines, $i, $subFenceOpener, $subFenceColumns)) {
+                                    $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
+                                    $subInterruptedParagraphFence = $subTrailingState->fence !== null;
+                                } else {
+                                    // A neutral prose line advances every
+                                    // non-fence flag exactly as this failed
+                                    // opener must; only its literal bytes differ.
+                                    $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text', true);
+                                }
+                            } else {
+                                $wasSubInFence = $subTrailingState->fence !== null;
+                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
+                                if ($wasSubInFence && $subTrailingState->fence === null) {
+                                    $subInterruptedParagraphFence = false;
+                                }
+                            }
                             $sawBlankLine = false;
                             $i++;
                         } elseif ($lineIndent === $baseIndent) {
@@ -5255,6 +5294,28 @@ class BlockParser
                                 $subLines[] = $this->keptCommentDelimiter($subLine);
                                 $subLineMap[] = $this->sourceLineFor($i);
                                 $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
+                                $i++;
+
+                                continue;
+                            }
+                            // A FENCE RUN THAT OPENS NOTHING IS PARAGRAPH TEXT
+                            // (`CARVE-P0-014`, markup-carve/carve#2509). §10 I4
+                            // opens a fence over an open paragraph only when a
+                            // closer follows at the run's OWN column; with none
+                            // the run is inline verbatim text, so no container
+                            // ends and the line folds into the paragraph the
+                            // stack still holds. Asked before the block-start
+                            // break below, which cannot tell the two apart.
+                            if (
+                                $subTrailingState->openParagraph
+                                && $subTrailingState->fence === null
+                                && $subLines !== []
+                                && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
+                            ) {
+                                $subLines[] = $trimmedLine;
+                                $subLineMap[] = $this->sourceLineFor($i);
+                                $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
+                                $sawBlankLine = false;
                                 $i++;
 
                                 continue;
@@ -5361,6 +5422,20 @@ class BlockParser
                     }
                     // The nested parser decides whether trailing blanks are
                     // fence payload or spacing outside the last block.
+
+                    // THE OWNERSHIP ANSWER IS HANDED DOWN, not re-derived. The
+                    // closer this stream armed its fence on sits below the line
+                    // that ended the stream, so the nested parse sees an opener
+                    // with none and reads the body back as an inline code span -
+                    // carve#1399 one container further in (markup-carve/carve#2509).
+                    // Written at the fence's own column, because that is the only
+                    // column §10 accepts a closer at and the parse one level down
+                    // asks the same question again.
+                    if ($subInterruptedParagraphFence && $subTrailingState->fence !== null) {
+                        $subLines[] = str_repeat(' ', $subTrailingState->fence->column)
+                            . str_repeat($subTrailingState->fence->char, $subTrailingState->fence->length);
+                        $subLineMap[] = -1;
+                    }
 
                     // Compact-list rule (carve#322): an internal blank line in
                     // the item's collected content loosens THIS list only when
@@ -13896,6 +13971,93 @@ class BlockParser
                     $opener['length'],
                 )
             ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A code or raw fence opener on a line, whatever column it was written at.
+     *
+     * @param string $line
+     *
+     * @return array{fence: string, length: int, char?: string}|null
+     */
+    private function itemFenceOpenerAt(string $line): ?array
+    {
+        $subject = ltrim($line, " \t");
+
+        return $this->fencedBlockParser->parseRawBlockOpener($subject)
+            ?? $this->fencedBlockParser->parseCodeFenceOpener($subject);
+    }
+
+    /**
+     * Is a code or raw fence run at `$columns` an opener that opens nothing?
+     *
+     * §10 I4 opens a fence over an open paragraph only when a closer follows,
+     * and `CARVE-P0-004`'s owner table never sees a run that opens nothing: it
+     * is inline verbatim text, so the paragraph the container stack holds takes
+     * it and nothing ends (`CARVE-P0-014`, markup-carve/carve#2509).
+     *
+     * @param string $trimmed The run with its indentation removed.
+     * @param array<string> $lines The SOURCE view, where a closer below the
+     *   collected stream's last line is still visible.
+     * @param int $index Source index of the run.
+     * @param int $columns Leading columns of the run.
+     */
+    private function fenceRunOpensNothing(string $trimmed, array $lines, int $index, int $columns): bool
+    {
+        $opener = $this->itemFenceOpenerAt($trimmed);
+
+        return $opener !== null && !$this->itemFenceCloserAhead($lines, $index, $opener, $columns);
+    }
+
+    /**
+     * Does a fence run written at `$columns` have a closer of its own?
+     *
+     * AT THE RUN'S OWN COLUMN, which is where §10 has a closer written and the
+     * only column `CARVE-P0-013` reads one at: a run below it is not a closer
+     * and one indented past it is body text.
+     *
+     * BOUNDED AT A MARKER BELOW THAT COLUMN, which ends the item holding the
+     * run. Unbounded, the scan accepted a closer out of the next SIBLING item
+     * and opened a fence in an item whose own lines hold no closer at all
+     * (markup-carve/carve#2509).
+     *
+     * REFUTED FROM THE INDEX FIRST, as the other closer lookaheads are: the
+     * index is a superset of what the matcher accepts, so a negative answer is
+     * final and a ladder of closerless fences pays one binary search each.
+     *
+     * @param array<string> $lines The SOURCE view.
+     * @param int $openIndex Source index of the run.
+     * @param array{fence: string, length: int, char?: string} $opener
+     * @param int $columns Leading columns of the run.
+     */
+    private function itemFenceCloserAhead(array $lines, int $openIndex, array $opener, int $columns): bool
+    {
+        $char = $opener['char'] ?? $opener['fence'][0];
+        if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $openIndex)) {
+            return false;
+        }
+
+        $count = count($lines);
+        for ($j = $openIndex + 1; $j < $count; $j++) {
+            $line = $lines[$j];
+            $indent = IndentationHelper::getLeadingColumns($line, $columns + 1);
+            if ($indent < $columns) {
+                if ($this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null) {
+                    return false;
+                }
+
+                continue;
+            }
+            if ($indent !== $columns) {
+                continue;
+            }
+            $candidate = $columns > 0 ? IndentationHelper::stripLeadingColumns($line, $columns) : $line;
+            if ($this->fencedBlockParser->isCodeFenceCloser($candidate, $char, $opener['length'])) {
                 return true;
             }
         }
