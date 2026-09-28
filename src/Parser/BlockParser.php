@@ -5207,6 +5207,25 @@ class BlockParser
 
                                 break;
                             }
+                            // A COMMENT INSIDE A SPAN THE COLLECTED LINES
+                            // ALREADY HOLD IS NOT A BLOCK START
+                            // (markup-carve/carve#2488). Section 28 pairs the
+                            // delimiters, indentation is part of neither, and
+                            // breaking here split the span: the item's own parse
+                            // then read an opener with no closer and published
+                            // the payload while both delimiters went missing.
+                            // {@see self::linesLeaveACommentSpanOpen()}
+                            if (
+                                $this->isCommentLineOrFence($trimmedLine)
+                                && $this->linesLeaveACommentSpanOpen($subLines)
+                            ) {
+                                $subLines[] = $this->keptCommentDelimiter($subLine);
+                                $subLineMap[] = $this->sourceLineFor($i);
+                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
+                                $i++;
+
+                                continue;
+                            }
                             // Content at base indent that's not a matching list marker
                             // Check if it's a block element - if so, end list content collection
                             // Use isBlockElementStart() which detects blocks regardless of mode
@@ -8484,6 +8503,25 @@ class BlockParser
                     // which is what keeps a definition BELOW the column folding
                     // as §24 C3 requires.
                     $trimmedCont = ltrim($contLine, " \t");
+                    // A COMMENT INSIDE A SPAN THE BODY ALREADY HOLDS IS NOT "A
+                    // COMMENT BELOW THE COLUMN" (markup-carve/carve#2488).
+                    // Section 28 pairs the delimiters and indentation is part of
+                    // neither, so ending the body here split the span: the body's
+                    // own parse then read an opener with no closer, and the
+                    // payload reached the page while both delimiters did not.
+                    // {@see self::linesLeaveACommentSpanOpen()}
+                    if (
+                        $indent < $continuationColumn
+                        && !IndentationHelper::isBlankLine($contLine)
+                        && $this->isCommentLineOrFence($trimmedCont)
+                        && $this->linesLeaveACommentSpanOpen($body)
+                    ) {
+                        $body[] = $this->keptCommentDelimiter($contLine);
+                        $bodyMap[] = $this->sourceLineFor($i);
+                        $i++;
+
+                        continue;
+                    }
                     $definitionPastTheColumn = $indent > $continuationColumn
                         && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
                         && $this->isReferenceDefinitionLine($trimmedCont)
@@ -10627,6 +10665,18 @@ class BlockParser
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $i++;
+            } elseif (
+                // A COMMENT INSIDE A SPAN THE BODY ALREADY HOLDS IS NOT "A
+                // COMMENT BELOW THE COLUMN" (markup-carve/carve#2488).
+                // {@see self::linesLeaveACommentSpanOpen()}
+                $this->isCommentLineOrFence(ltrim($nextLine, " \t"))
+                && $this->linesLeaveACommentSpanOpen($bodyLines)
+            ) {
+                $bodyLine = $this->keptCommentDelimiter($nextLine);
+                $bodyLines[] = $bodyLine;
+                $bodyLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                $i++;
             } else {
                 break;
             }
@@ -12158,6 +12208,115 @@ class BlockParser
         }
 
         return null;
+    }
+
+    /**
+     * A comment delimiter as a container keeps it: one column of the authored
+     * indentation, so the container's own parse cannot read a delimiter written
+     * below its column back as an authored column-0 one.
+     */
+    protected function keptCommentDelimiter(string $line): string
+    {
+        $rest = ltrim($line, " \t");
+
+        return $rest === $line ? $rest : ' ' . $rest;
+    }
+
+    /**
+     * Do these collected lines leave a comment span OPEN?
+     *
+     * Section 28 pairs a span's delimiters and indentation is part of neither
+     * (markup-carve/carve#2471), so a closer written BELOW a container's content
+     * column still belongs to the span the container already holds. Ending the
+     * container there split the span, the container's own parse then read an
+     * opener with no closer, section 28 made that one `%%` line comment, and the
+     * PAYLOAD reached the page while both delimiters did not
+     * (markup-carve/carve#2488, carve-php#2650).
+     *
+     * A code fence's payload is opaque, so a `%%%` written inside one opens
+     * nothing. BOTH DIRECTIONS LEAK: an invented opaque body hides a real
+     * opener, and a missed one invents a span that claims a real delimiter as
+     * its closer - hence the block-start flag rather than a stripped line
+     * everywhere (markup-carve/carve#2505). A list marker never interrupts
+     * (section 10 I2), so its line is walked off only where a block may begin;
+     * mid-paragraph the same characters are text.
+     *
+     * @param array<string> $lines Lines as the collector holds them.
+     */
+    protected function linesLeaveACommentSpanOpen(array $lines): bool
+    {
+        $openComment = null;
+        $openCode = null;
+        $atBlockStart = true;
+        foreach ($lines as $raw) {
+            foreach (explode("\n", self::stripLazyFrame($raw)) as $part) {
+                $line = ltrim($part, " \t");
+                if ($openComment !== null) {
+                    if ($this->fencedBlockParser->isFencedCommentCloser($line, $openComment)) {
+                        $openComment = null;
+                        $atBlockStart = true;
+                    }
+
+                    continue;
+                }
+                if ($openCode !== null) {
+                    if ($this->closesCodeFence($line, $openCode['char'], $openCode['length'])) {
+                        $openCode = null;
+                        $atBlockStart = true;
+                    }
+
+                    continue;
+                }
+                if ($line === '') {
+                    $atBlockStart = true;
+
+                    continue;
+                }
+                $opener = $atBlockStart ? $this->markerFreeContent($line) : $line;
+                $atBlockStart = false;
+                $code = $this->fencedBlockParser->parseCodeFenceOpener($opener);
+                if ($code !== null) {
+                    $openCode = ['char' => $code['char'], 'length' => $code['length']];
+
+                    continue;
+                }
+                $comment = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($opener);
+                if ($comment !== null) {
+                    $openComment = $comment['length'];
+                }
+            }
+        }
+
+        return $openComment !== null;
+    }
+
+    /**
+     * A closing code fence of at least the opener's run, and nothing after it.
+     */
+    private function closesCodeFence(string $line, string $char, int $length): bool
+    {
+        if (preg_match('/^(' . preg_quote($char, '/') . '+)[ \t]*$/', $line, $m) !== 1) {
+            return false;
+        }
+
+        return strlen($m[1]) >= $length;
+    }
+
+    /**
+     * A line's content with every leading list marker walked off.
+     */
+    private function markerFreeContent(string $line): string
+    {
+        $content = $line;
+        for ($guard = 0; $guard < 64; $guard++) {
+            $marker = $this->listParser->parseListItemMarker($content);
+            if ($marker === null) {
+                return $content;
+            }
+            $content = ltrim($marker['content'], " \t");
+        }
+
+        return $content;
     }
 
     /**
