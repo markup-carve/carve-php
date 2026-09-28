@@ -113,5 +113,10 @@
     "name": "a quote fence inside a list inside a quote",
     "source": "> - a\n>   > q\n>   > ```\n>   > ```\n>   y\n",
     "html": "<blockquote>\n  <ul>\n    <li>a\n      <blockquote>\n        <p>q</p>\n        <pre><code>\n</code></pre>\n      </blockquote>\n      y\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "name": "a shallower comment fence ends the inner paragraph",
+    "source": "> > a\n> %%%\n> ::: note\n> %%%\ntail\n",
+    "html": "<blockquote>\n  <blockquote><p>a</p></blockquote>\n</blockquote>\n<p>tail</p>"
   }
 ]

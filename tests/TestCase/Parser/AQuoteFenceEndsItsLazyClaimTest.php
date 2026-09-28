@@ -13,7 +13,7 @@ class AQuoteFenceEndsItsLazyClaimTest extends TestCase
     {
         /** @var list<array{name:string, source:string, html:string}> $rows*/
         $rows = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/quote-fence-ownership.json'), true, flags: JSON_THROW_ON_ERROR);
-        $this->assertCount(23, $rows);
+        $this->assertCount(24, $rows);
         $converter = new CarveConverter();
         $failures = [];
         foreach ($rows as $row) {

@@ -4571,12 +4571,10 @@ class BlockParser
                     $depth = $state['innerDepth'];
                 }
                 if ($state['innerDepth'] !== $depth) {
-                    $paragraphOpen = $depth < $state['innerDepth'] && $state['paragraphOpen'];
                     $state = self::initialBlockQuoteLazyState();
                     $state['innerDepth'] = $depth;
-                    // A new inner quote starts without a paragraph. A shallower
-                    // line is classified in the surviving outer context.
-                    $state['paragraphOpen'] = $paragraphOpen;
+                    // A new quote or an interrupting shallower block starts
+                    // without inheriting the previous inner paragraph.
                 }
             }
 
