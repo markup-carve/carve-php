@@ -4195,9 +4195,9 @@ class MarkdownToCarve
             return BracketScanner::rawRunCloses($alt) ? '![' . $alt . ']' : $label;
         };
 
-        $encodeDest = function (string $paren) use ($protected): string {
+        $encodeDest = function (string $paren) use ($protected): ?string {
             $inner = trim(substr($paren, 1, -1), " \t");
-            if (preg_match('/^(\S+)([\s\S]*)$/', $inner, $matches)) {
+            if (preg_match('/^((?:\x00P\d+\x00|[^\x00-\x20\x7f])+)([\s\S]*)$/', $inner, $matches)) {
                 $url = $matches[1];
                 $rest = $matches[2];
             } else {
@@ -4205,32 +4205,42 @@ class MarkdownToCarve
                 $rest = '';
             }
 
-            if (preg_match('/^([ \t]+)(["\'])([\s\S]*)\2([ \t]*)$/', $rest, $title) === 1 && !str_contains($title[3], $title[2])) {
-                $decoded = $this->decodeLinkTitle($title[3], $protected);
-                $escaped = str_replace(['\\', $title[2]], ['\\\\', '\\' . $title[2]], $decoded);
-                $rest = ' ' . $title[2] . $escaped . $title[2];
+            if (trim($rest) !== '') {
+                if (preg_match('/^[ \t\n]+("[^"\n]*(?:\n(?![ \t]*\n)[^"\n]*)*"|\'[^\'\n]*(?:\n(?![ \t]*\n)[^\'\n]*)*\'|\([^()]*\))[ \t\n]*$/', $rest, $title) !== 1) {
+                    return null;
+                }
+                $quote = $title[1][0] === '(' ? '"' : $title[1][0];
+                $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
+                $escaped = str_replace(['\\', $quote], ['\\\\', '\\' . $quote], $decoded);
+                $rest = ' ' . $quote . $escaped . $quote;
             }
 
             return '(' . $this->writeMarkdownDestination($url, $protected) . $rest . ')';
         };
 
+        $protectDestination = function (string $alt, string $paren) use ($encodeDest, $protect): string {
+            $encoded = $encodeDest($paren);
+
+            return $encoded === null ? $alt . '\\(' . substr($paren, 1) : $protect($alt . $encoded);
+        };
+
         $line = preg_replace_callback(
-            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\]\n]|\n(?![ \t]*\n))*\])*\])(\((?:[^()\s]|\([^()\n]*\))+[ \t]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\')[ \t]*\))/',
+            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\]\n]|\n(?![ \t]*\n))*\])*\])(\([ \t]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
             fn (array $match): string => str_starts_with($match[1], '!')
-                ? $protect($imageLabel($match[1]) . $encodeDest($match[2]))
-                : $match[1] . $protect($encodeDest($match[2])),
+                ? $protectDestination($imageLabel($match[1]), $match[2])
+                : $match[1] . $protectDestination('', $match[2]),
             $line,
         ) ?? $line;
 
         $destination = '\((?:[^()\n]|\([^()\n]*\))*\)';
         $line = preg_replace_callback(
             '/(!\[(?:[^[\]]|\[[^\]]*\])*\])(' . $destination . ')/',
-            fn (array $match): string => $protect($imageLabel($match[1]) . $encodeDest($match[2])),
+            fn (array $match): string => $protectDestination($imageLabel($match[1]), $match[2]),
             $line,
         ) ?? $line;
         $line = preg_replace_callback(
             '/(?<=\])(' . $destination . ')/',
-            fn (array $match): string => $protect($encodeDest($match[1])),
+            fn (array $match): string => $protectDestination('', $match[1]),
             $line,
         ) ?? $line;
         $line = preg_replace_callback(
