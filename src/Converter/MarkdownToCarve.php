@@ -3889,7 +3889,13 @@ class MarkdownToCarve
             $line,
         ) ?? $line;
 
-        $line = preg_replace_callback('/\\\\[^A-Za-z0-9\s]/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
+        // A backslash is literal inside an autolink, including before its
+        // closing bracket. Leave that bracket available to the autolink pass.
+        $line = preg_replace_callback(
+            '/\\\\[^A-Za-z0-9\s]/',
+            fn (array $match): string => $match[0] === '\\>' ? $protect('\\') . '>' : $protect($match[0]),
+            $line,
+        ) ?? $line;
         // `<code>x</code>` becomes a Carve code span in BOTH modes - carve-js
         // does this unconditionally, ahead of any raw-HTML handling, so verbatim
         // mode must not emit it as `<code>...</code>`{=html}.
@@ -4035,7 +4041,32 @@ class MarkdownToCarve
             $line,
         ) ?? $line;
         $line = preg_replace_callback('/(?<=\])\[[^\]]*\]/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
-        $line = preg_replace_callback('/<[A-Za-z][A-Za-z0-9+.-]*:[^>\s]+>/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
+        $line = preg_replace_callback(
+            '/<([A-Za-z][A-Za-z0-9+.-]*):[^<>\s]*>/',
+            function (array $match) use ($protect, $protected): string {
+                // CommonMark requires 2–32 scheme characters. Keep a Carve-only
+                // autolink literal while the surrounding Markdown still parses.
+                if (strlen($match[1]) < 2 || strlen($match[1]) > 32) {
+                    return $protect('\\<') . substr($match[0], 1);
+                }
+                $body = substr($match[0], 1, -1);
+                do {
+                    $previous = $body;
+                    $body = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]], $body) ?? $body;
+                } while ($body !== $previous);
+                if (!str_contains($body, '\\')) {
+                    return $protect($match[0]);
+                }
+                // Backslashes are literal in a CommonMark autolink. Encode
+                // them in the destination and write its label as literal text.
+                $url = str_replace(['\\', '[', ']', '(', ')', '`'], ['%5C', '%5B', '%5D', '%28', '%29', '%60'], $body);
+                $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
+                    . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
+
+                return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
+            },
+            $line,
+        ) ?? $line;
         $line = preg_replace_callback('/<[^>\s@]+@[^>\s]+>/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         $line = preg_replace_callback('/\bhttps?:\/\/[^\s<>`]+/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         // A definition kept where it stands is a definition, not link text -
@@ -4218,6 +4249,13 @@ class MarkdownToCarve
         $length = strlen($line);
         for ($i = 0; $i < $length; $i++) {
             $char = $line[$i];
+            if ($char === '<' && preg_match('/\\G<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\\s]*>/', $line, $autolink, 0, $i) === 1) {
+                // An autolink also prevents an enclosing Markdown link.
+                $deactivatedBefore = $i + strlen($autolink[0]);
+                $i = $deactivatedBefore - 1;
+
+                continue;
+            }
             if ($char === '[') {
                 $image = $i > 0 && $line[$i - 1] === '!';
                 $openers[] = ['start' => $i, 'image' => $image];
