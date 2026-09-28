@@ -274,6 +274,7 @@ class CarveCorpusTest extends TestCase
         'collapsed-reference-link',
         'colon-fence-as-a-block-opener-in-a-list-item',
         'colspan-marker-scans-left-past-a-consumed-cell',
+        'comment-columns-and-surviving-list-items',
         'comment-fence-with-trailing-text',
         'comments',
         'compact-list-blocks',
