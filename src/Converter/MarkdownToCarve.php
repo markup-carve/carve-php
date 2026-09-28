@@ -4129,7 +4129,7 @@ class MarkdownToCarve
                 $rest = $title[1] . $title[2] . $escaped . $title[2] . $title[4];
             }
 
-            return '(' . str_replace(['(', ')'], ['%28', '%29'], $this->encodeMarkdownDestination($url, $protected)) . $rest . ')';
+            return '(' . $this->writeMarkdownDestination($url, $protected) . $rest . ')';
         };
 
         $line = preg_replace_callback(
@@ -4190,7 +4190,7 @@ class MarkdownToCarve
                 }
                 $definition = preg_replace_callback(
                     '/^(\[[^\]]*\]:[ \t]*)(<[^>\n]*>|[^ \t\n]+)(.*)$/s',
-                    fn (array $parts): string => $parts[1] . $this->encodeMarkdownDestination(
+                    fn (array $parts): string => $parts[1] . $this->writeMarkdownDestination(
                         str_starts_with($parts[2], '<') ? substr($parts[2], 1, -1) : $parts[2],
                         $protected,
                     ) . $parts[3],
@@ -5012,18 +5012,20 @@ class MarkdownToCarve
     {
         $url = preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $pointy) ?? $pointy;
 
-        return preg_replace_callback('/[\s()<>\\\\]/', static fn (array $match): string => rawurlencode($match[0]), $url) ?? $url;
+        return preg_replace_callback('/[\s()<>\\\\]/', static fn (array $match): string => in_array($match[0], ['(', ')'], true) ? '\\' . $match[0] : rawurlencode($match[0]), $url) ?? $url;
     }
 
     /**
      * @param string $url
      * @param array<string> $protected
      */
-    protected function encodeMarkdownDestination(string $url, array $protected = []): string
+    protected function writeMarkdownDestination(string $url, array $protected = []): string
     {
         $decoded = $this->decodeLinkTitle($url, $protected);
 
-        return preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
+        $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
+
+        return str_replace(['(', ')'], ['\\(', '\\)'], $encoded);
     }
 
     protected function normalizeReferenceLabel(string $label): string
