@@ -4240,7 +4240,52 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
-        $line = preg_replace_callback('/(?<=\])\[[^\]]*\]/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
+        $linkClosers = [];
+        $openLabels = [];
+        for ($at = 0, $length = strlen($line); $at < $length; $at++) {
+            if ($this->convertMath && $line[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$[^$\s][^$]*\$(?!\d))/', $line, $math, 0, $at) === 1) {
+                $at += strlen($math[0]) - 1;
+
+                continue;
+            }
+            if (($line[$at] === '<' || $line[$at] === 'h') && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>|https?://[^\s<>`]+)~', $line, $url, 0, $at) === 1) {
+                $at += strlen($url[0]) - 1;
+
+                continue;
+            }
+            if ($line[$at] === '[') {
+                $openLabels[] = $at;
+            } elseif ($line[$at] === ']' && $openLabels !== []) {
+                $open = array_pop($openLabels);
+                if (($line[$open + 1] ?? '') !== '^') {
+                    $linkClosers[$at] = $open;
+                }
+            }
+        }
+        $referenceClosers = [];
+        $subject = $line;
+        $line = preg_replace_callback(
+            '/(?<=\])\[([^\]]*)\]/',
+            function (array $match) use ($subject, $protected, $protect, $linkClosers, &$referenceClosers): string {
+                $reference = $match[1][0];
+                $offset = $match[0][1];
+                if (!isset($linkClosers[$offset - 1]) || isset($referenceClosers[$offset - 1])) {
+                    return $protect($match[0][0]);
+                }
+                $referenceClosers[$offset + strlen($match[0][0]) - 1] = true;
+                $labelStart = $reference === '' ? strrpos(substr($subject, 0, max(0, $offset - 1)), '[') : false;
+                $preceding = $labelStart === false ? '' : substr($subject, $labelStart + 1, $offset - $labelStart - 2);
+                $label = $reference !== '' ? $reference : (strpbrk($preceding, "]\n") === false ? $preceding : null);
+                $canonical = $label !== null && ($reference === '' || strpbrk($label, "\\&\0") === false)
+                    ? ($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null)
+                    : null;
+                $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1;
+
+                return $protect($canonical === null || strpbrk($canonical, '[]') !== false || $collapsed ? $match[0][0] : '[' . $canonical . ']');
+            },
+            $line,
+            flags: PREG_OFFSET_CAPTURE,
+        ) ?? $line;
         $line = preg_replace_callback(
             '/<([A-Za-z][A-Za-z0-9+.-]*):[^<>\s]*>/',
             function (array $match) use ($protect, $protected): string {
