@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Parser\SourceMap;
 use function array_values;
+use function rtrim;
 
 /**
  * The inline nodes of a CONTAINER LABEL - a div's or an admonition's unconsumed
@@ -57,16 +58,27 @@ final class ContainerLabelParser
         $map->add(0, 0, strlen($label), 1, 1);
         $inlineParser->parse($container, $label, sourceMap: $map);
         $nodes = array_values($container->getChildren());
+        // A comment that reaches the label's end is its trailing comment, in
+        // either spelling: a `{%% %%}` left in the string leaks into Markdown,
+        // plain text and ANSI exactly as a bare `%%` would, because those targets
+        // write the label as the source the author typed.
         foreach ($nodes as $node) {
-            if (
-                $node instanceof Comment && !$node->isDelimited()
-                && $node->getPos()?->endOffset === strlen($label)
-            ) {
+            if ($node instanceof Comment && $node->getPos()?->endOffset === strlen($label)) {
                 $commentOffset = $node->getPos()->startOffset;
 
                 break;
             }
         }
+        // The run the caption publishes is the run of the label the CUT LEFT, so
+        // the separator the comment took with it does not survive as trailing text
+        // in the node before it.
+        if ($commentOffset !== null) {
+            $cut = rtrim(substr($label, 0, $commentOffset), " \t");
+            $ignored = null;
+
+            return $cut === '' ? [] : self::parse($cut, $inlineParser, $ignored);
+        }
+
         // NO INVENTED POSITION. The run is read from the opener's label slot
         // without the slot's own offset, and PART 12 section 4 forbids making one
         // up, so the nodes carry none rather than a wrong one.
