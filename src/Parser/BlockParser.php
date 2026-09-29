@@ -5089,10 +5089,15 @@ class BlockParser
     /**
      * @param array<string> $lines
      * @param int $i
+     * @param int $baseIndent The item's marker column.
      * @param int $contentIndent
      */
-    private function indentedContinuationOpensBlock(array $lines, int $i, int $contentIndent): bool
-    {
+    private function indentedContinuationOpensBlock(
+        array $lines,
+        int $i,
+        int $baseIndent,
+        int $contentIndent,
+    ): bool {
         $line = IndentationHelper::stripLeadingColumns($lines[$i], $contentIndent);
         $trimmed = ltrim($line, " \t");
         if (
@@ -5107,12 +5112,19 @@ class BlockParser
             return false;
         }
 
-        // Invisible lines do not separate two paragraphs.
-        if (
-            $this->isInvisibleOrAttributeLine($line)
-            && $this->fencedBlockParser->parseFencedCommentOpener($line) === null
-        ) {
-            $next = $this->firstVisibleLineAfterInvisible($lines, $i, $contentIndent);
+        // Invisible lines do not separate two paragraphs. A `%%%` span is one of
+        // them, and the scan starts past its CLOSER: its payload is still not
+        // mistaken for the second paragraph, and the paragraph behind the closer
+        // now reaches the question (corpus 517, document 4). An opener with no
+        // closer has no line behind it - every line below is payload - so the
+        // scan starts past the end and the list stays tight, which is what the
+        // oracle reads for that shape at either column.
+        if ($this->isInvisibleOrAttributeLine($line)) {
+            $commentFence = $this->fencedBlockParser->parseFencedCommentOpener($line);
+            $from = $commentFence === null
+                ? $i
+                : $this->commentSpanEndForLooseness($lines, $i, $commentFence['length'], $baseIndent, $contentIndent);
+            $next = $this->firstVisibleLineAfterInvisible($lines, $from, $baseIndent, $contentIndent);
 
             return $next === null || $this->lineOpensBlockForLooseness($next);
         }
@@ -5239,7 +5251,7 @@ class BlockParser
                 // Content after blank line with indentation belongs to previous item
                 $lastItem = $this->listParser->getLastListItem($list);
                 if ($lastItem !== null) {
-                    if (!$this->indentedContinuationOpensBlock($lines, $i, $lastItemContentIndent)) {
+                    if (!$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)) {
                         $list->setTight(false);
                     }
 
@@ -5609,7 +5621,21 @@ class BlockParser
                                 || $this->isFoldableInvisibleLine($trimmedLine);
                             $dedentedOpener = $blockShaped
                                 && !$sawBlankLine
-                                && $subTrailingState->openParagraph
+                                && (
+                                    $subTrailingState->openParagraph
+                                    // AN INVISIBLE LINE CLOSES NO BLOCK, so the
+                                    // marker behind one still reaches the item -
+                                    // §17 L2 and the content-column branch say so
+                                    // for the same document two columns over,
+                                    // where this already nested (corpus 517,
+                                    // document 5). ONLY a marker: measured
+                                    // against carve-js, a band heading or quote
+                                    // behind an invisible line stays at document
+                                    // level, and forwarding those too moved 64
+                                    // documents off the oracle's reading.
+                                    || ($subTrailingState->afterInvisible
+                                        && $this->listParser->parseListItemMarker($trimmedLine) !== null)
+                                )
                                 && $subLines !== [];
                             if ($dedentedOpener) {
                                 // Forward it with exactly ONE column, the way
@@ -15287,6 +15313,48 @@ class BlockParser
     }
 
     /**
+     * The line index of a fenced comment span's closer, opened at `$openIdx`,
+     * for the looseness scan - or the last index when the item ends first.
+     *
+     * The caller's `continue` steps one further, so the last index lands past the
+     * end and the scan finds nothing visible. That is the right answer twice
+     * over. With no closer, PART 9 §28 gives the fence a body that recognizes no
+     * block construct, so every line below the opener is payload. And a span
+     * whose payload DEDENTS OUT of the item takes the item's end with it: the
+     * collector stops there, so a paragraph written below the closer is not the
+     * item's second one, and skipping to the closer regardless let an outside
+     * paragraph loosen the list.
+     *
+     * @param array<string> $lines
+     * @param int $openIdx The index of the opener line.
+     * @param int $fenceLength The opener's percent-run length.
+     * @param int $baseIndent The item's marker column.
+     * @param int $contentIndent The item's content column, bounding the measure.
+     */
+    protected function commentSpanEndForLooseness(
+        array $lines,
+        int $openIdx,
+        int $fenceLength,
+        int $baseIndent,
+        int $contentIndent,
+    ): int {
+        $n = count($lines);
+        for ($j = $openIdx + 1; $j < $n; $j++) {
+            if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$j], $fenceLength)) {
+                return $j;
+            }
+            if (
+                !IndentationHelper::isBlankLine($lines[$j])
+                && IndentationHelper::getLeadingColumns($lines[$j], $contentIndent) <= $baseIndent
+            ) {
+                return $n;
+            }
+        }
+
+        return $n;
+    }
+
+    /**
      * The marker width of a list item, i.e. the column its content starts at
      * relative to the marker's own indent.
      *
@@ -15388,33 +15456,66 @@ class BlockParser
      * line neither is the second paragraph nor separates one from the blank
      * before it.
      *
+     * NEITHER L1 NOR L1b CARRIES A COLUMN TERM, so the band between the marker
+     * column and the content column is not where the item ends. A line written
+     * there folds as the item's own paragraph text - the collector keeps it, and
+     * the tree it builds is the content-column tree - so reading the item as
+     * ended at `$contentIndent` answered the tightness question for a document
+     * this parser does not produce: 54 of 180 band/content-column pairs whose
+     * layout trees were identical disagreed on tightness, every one of them a
+     * prose follower reading tight where its content-column twin read loose
+     * (markup-carve/carve#2558, corpus 517). The item ends at or below the
+     * MARKER column, which is where the collector detaches the line to document
+     * level.
+     *
      * @param array<string> $lines
+     * @param int $baseIndent The item's marker column.
      * @param int $contentIndent
      * @param int $index
      *
      * @return string|null
      */
-    protected function firstVisibleLineAfterInvisible(array $lines, int $index, int $contentIndent): ?string
-    {
+    protected function firstVisibleLineAfterInvisible(
+        array $lines,
+        int $index,
+        int $baseIndent,
+        int $contentIndent,
+    ): ?string {
         $count = count($lines);
+        $sawBlank = false;
         for ($j = $index + 1; $j < $count; $j++) {
             $line = $lines[$j];
             if (IndentationHelper::isBlankLine($line)) {
+                $sawBlank = true;
+
                 continue;
             }
 
-            // Dedented out of the item: nothing of the item follows.
-            if (IndentationHelper::getLeadingColumns($line, $contentIndent) < $contentIndent) {
+            // Dedented out of the item: nothing of the item follows. The band
+            // reaches the item only as a LAZY line - once a blank has
+            // intervened the collected stream is closed, so a band line behind
+            // one detaches to document level and the content column is the floor
+            // again. Without that half `- t` / blank / `  %% c` / blank / ` z`
+            // loosened a list whose `z` is not in it.
+            $reach = IndentationHelper::getLeadingColumns($line, $contentIndent);
+            if ($reach <= $baseIndent || ($sawBlank && $reach < $contentIndent)) {
                 return null;
             }
 
             $stripped = IndentationHelper::stripLeadingColumns($line, $contentIndent);
-            // A fenced percent block is one block, not an invisible opener
-            // followed by visible payload. Returning its opener lets the
-            // looseness predicate keep the list tight and prevents the payload
-            // from being mistaken for a second paragraph.
-            if ($this->fencedBlockParser->parseFencedCommentOpener($stripped) !== null) {
-                return $stripped;
+            // A FENCED PERCENT BLOCK IS ONE INVISIBLE BLOCK, so the scan steps
+            // over the whole span rather than over its opener. Its payload is
+            // not the second paragraph - returning the opener was the guard
+            // against reading `c` as one - but neither is the span the end of
+            // the item, and returning the opener said it was: the paragraph
+            // BELOW the closer never reached this scan, so corpus 517's `%%%`
+            // spelling read tight where its `%%` twin read loose. With no closer
+            // everything below is payload and the scan correctly finds nothing.
+            $commentFence = $this->fencedBlockParser->parseFencedCommentOpener($stripped);
+            if ($commentFence !== null) {
+                $j = $this->commentSpanEndForLooseness($lines, $j, $commentFence['length'], $baseIndent, $contentIndent);
+
+                continue;
             }
             // The second half of PART 12 §7's consequence. §7 recognizes an
             // abbreviation definition only as a direct child of the document,
