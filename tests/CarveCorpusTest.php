@@ -1080,10 +1080,17 @@ class CarveCorpusTest extends TestCase
      * @var array<string, array{reason: string, html: string}>
      */
     protected const AHEAD_OF_PIN = [
-        // EMPTY. `101-table-header-cell-rowspan` stood here on carve#2224 and
-        // came out with the pin that merged it: the golden now states what this
-        // engine already rendered, which is the entry failing in the direction
-        // it was written to fail in.
+        // `101-table-header-cell-rowspan` stood here on carve#2224 and came out
+        // with the pin that merged it: the golden now states what this engine
+        // already rendered, which is the entry failing in the direction it was
+        // written to fail in.
+        '372-an-all-blank-raw-payload-still-emits-its-line' => [
+            'html' => "\n\n<p>after</p>\n",
+            'reason' => 'One blank payload line contributes one newline and the block still '
+                . 'takes its own line, so the two newlines are the payload and the terminator. '
+                . 'The pinned golden carries the collapsed reading the oracle had before '
+                . 'markup-carve/carve#2574 re-snapshotted this row',
+        ],
     ];
 
     protected CarveConverter $converter;

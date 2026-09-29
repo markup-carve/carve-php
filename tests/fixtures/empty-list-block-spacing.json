@@ -4,7 +4,7 @@
     {
       "name": "plain/```/empty/0",
       "source": "- a\n\n  ```=html\n```\n",
-      "phpHtml": "<ul>\n  <li>a</li>\n</ul>\n<pre><code>\n</code></pre>\n",
+      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code>\n</code></pre>\n",
       "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code>\n</code></pre>",
       "imported": "- a\n\n```\n\n```\n",
       "formatted": "- a\n  ```=html\n\n  ```\n\n```\n\n```\n",
@@ -13,7 +13,7 @@
     {
       "name": "plain/```/empty/2",
       "source": "- a\n\n  ```=html\n  ```\n",
-      "phpHtml": "<ul>\n  <li>a</li>\n</ul>\n",
+      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n",
       "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>",
       "imported": "- a\n",
       "formatted": "- a\n  ```=html\n\n  ```\n",
@@ -22,7 +22,7 @@
     {
       "name": "plain/```/below/0",
       "source": "- a\n\n  ```=html\n <b>payload</b>\n```\n",
-      "phpHtml": "<ul>\n  <li>a</li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n",
+      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n",
       "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>",
       "imported": "- a\n\n<b>payload</b> ``\n",
       "formatted": "- a\n  ```=html\n\n  ```\n\n<b>payload</b>\n``\n",
@@ -31,7 +31,7 @@
     {
       "name": "plain/```/below/2",
       "source": "- a\n\n  ```=html\n <b>payload</b>\n  ```\n",
-      "phpHtml": "<ul>\n  <li>a</li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n",
+      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n",
       "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>",
       "imported": "- a\n\n<b>payload</b> ``\n",
       "formatted": "- a\n  ```=html\n\n  ```\n\n<b>payload</b>\n``\n",
@@ -58,7 +58,7 @@
     {
       "name": "plain/~~~/empty/0",
       "source": "- a\n\n  ~~~=html\n~~~\n",
-      "phpHtml": "<ul>\n  <li>a</li>\n</ul>\n<pre><code>\n</code></pre>\n",
+      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code>\n</code></pre>\n",
       "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code>\n</code></pre>",
       "imported": "- a\n\n```\n\n```\n",
       "formatted": "- a\n  ```=html\n\n  ```\n\n```\n\n```\n",
@@ -67,7 +67,7 @@
     {
       "name": "plain/~~~/empty/2",
       "source": "- a\n\n  ~~~=html\n  ~~~\n",
-      "phpHtml": "<ul>\n  <li>a</li>\n</ul>\n",
+      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n",
       "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>",
       "imported": "- a\n",
       "formatted": "- a\n  ```=html\n\n  ```\n",
@@ -76,7 +76,7 @@
     {
       "name": "plain/~~~/below/0",
       "source": "- a\n\n  ~~~=html\n <b>payload</b>\n~~~\n",
-      "phpHtml": "<ul>\n  <li>a</li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n",
+      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n",
       "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>",
       "imported": "- a\n\n<b>payload</b> ~~~\n",
       "formatted": "- a\n  ```=html\n\n  ```\n\n<b>payload</b>\n~~~\n",
@@ -85,7 +85,7 @@
     {
       "name": "plain/~~~/below/2",
       "source": "- a\n\n  ~~~=html\n <b>payload</b>\n  ~~~\n",
-      "phpHtml": "<ul>\n  <li>a</li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n",
+      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n",
       "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>",
       "imported": "- a\n\n<b>payload</b> ~~~\n",
       "formatted": "- a\n  ```=html\n\n  ```\n\n<b>payload</b>\n~~~\n",
@@ -112,7 +112,7 @@
     {
       "name": "nested/```/empty/0",
       "source": "- outer\n\n  - a\n\n    ```=html\n```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n</code></pre>\n",
+      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n</code></pre>\n",
       "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n</code></pre>",
       "imported": "- outer\n  - a\n\n```\n\n```\n",
       "formatted": "- outer\n  - a\n    ```=html\n\n    ```\n\n```\n\n```\n",
@@ -121,7 +121,7 @@
     {
       "name": "nested/```/empty/4",
       "source": "- outer\n\n  - a\n\n    ```=html\n    ```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>\n",
+      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n",
       "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>",
       "imported": "- outer\n  - a\n",
       "formatted": "- outer\n  - a\n    ```=html\n\n    ```\n",
@@ -130,7 +130,7 @@
     {
       "name": "nested/```/below/0",
       "source": "- outer\n\n  - a\n\n    ```=html\n   <b>payload</b>\n```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a</li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n<code></code>\n  </li>\n</ul>\n",
+      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n<code></code>\n  </li>\n</ul>\n",
       "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n<code></code>\n  </li>\n</ul>",
       "imported": "- outer\n  - a\n  <b>payload</b> ``\n",
       "formatted": "- outer\n  - a\n    ```=html\n\n    ```\n  <b>payload</b>\n  ``\n",
@@ -139,7 +139,7 @@
     {
       "name": "nested/```/below/4",
       "source": "- outer\n\n  - a\n\n    ```=html\n   <b>payload</b>\n    ```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a</li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n<code></code>\n  </li>\n</ul>\n",
+      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n<code></code>\n  </li>\n</ul>\n",
       "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n<code></code>\n  </li>\n</ul>",
       "imported": "- outer\n  - a\n  <b>payload</b> ``\n",
       "formatted": "- outer\n  - a\n    ```=html\n\n    ```\n  <b>payload</b>\n  ``\n",
@@ -166,7 +166,7 @@
     {
       "name": "nested/~~~/empty/0",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n</code></pre>\n",
+      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n</code></pre>\n",
       "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n</code></pre>",
       "imported": "- outer\n  - a\n\n```\n\n```\n",
       "formatted": "- outer\n  - a\n    ```=html\n\n    ```\n\n```\n\n```\n",
@@ -175,7 +175,7 @@
     {
       "name": "nested/~~~/empty/4",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n    ~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>\n",
+      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n",
       "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>",
       "imported": "- outer\n  - a\n",
       "formatted": "- outer\n  - a\n    ```=html\n\n    ```\n",
@@ -184,7 +184,7 @@
     {
       "name": "nested/~~~/below/0",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n   <b>payload</b>\n~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a</li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n~~~\n  </li>\n</ul>\n",
+      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n~~~\n  </li>\n</ul>\n",
       "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n~~~\n  </li>\n</ul>",
       "imported": "- outer\n  - a\n  <b>payload</b> ~~~\n",
       "formatted": "- outer\n  - a\n    ```=html\n\n    ```\n  <b>payload</b>\n  ~~~\n",
@@ -193,7 +193,7 @@
     {
       "name": "nested/~~~/below/4",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n   <b>payload</b>\n    ~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a</li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n~~~\n  </li>\n</ul>\n",
+      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n~~~\n  </li>\n</ul>\n",
       "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n~~~\n  </li>\n</ul>",
       "imported": "- outer\n  - a\n  <b>payload</b> ~~~\n",
       "formatted": "- outer\n  - a\n    ```=html\n\n    ```\n  <b>payload</b>\n  ~~~\n",
@@ -220,7 +220,7 @@
     {
       "name": "quoted/```/empty/0",
       "source": "> - a\n>\n>   ```=html\n> ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <pre><code>\n</code></pre>\n</blockquote>\n",
+      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code>\n</code></pre>\n</blockquote>\n",
       "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code>\n</code></pre>\n</blockquote>",
       "imported": ">\n> - a\n>\n> ```\n>\n> ```\n",
       "formatted": "> - a\n>   ```=html\n>\n>   ```\n>\n> ```\n>\n> ```\n",
@@ -229,7 +229,7 @@
     {
       "name": "quoted/```/empty/2",
       "source": "> - a\n>\n>   ```=html\n>   ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n",
+      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>\n",
       "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>",
       "imported": ">\n> - a\n",
       "formatted": "> - a\n>   ```=html\n>\n>   ```\n",
@@ -238,7 +238,7 @@
     {
       "name": "quoted/```/below/0",
       "source": "> - a\n>\n>   ```=html\n>  <b>payload</b>\n> ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n</blockquote>\n",
+      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n</blockquote>\n",
       "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n</blockquote>",
       "imported": ">\n> - a\n>\n> <b>payload</b> ``\n",
       "formatted": "> - a\n>   ```=html\n>\n>   ```\n>\n> <b>payload</b>\n> ``\n",
@@ -247,7 +247,7 @@
     {
       "name": "quoted/```/below/2",
       "source": "> - a\n>\n>   ```=html\n>  <b>payload</b>\n>   ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n</blockquote>\n",
+      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n</blockquote>\n",
       "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n<code></code></p>\n</blockquote>",
       "imported": ">\n> - a\n>\n> <b>payload</b> ``\n",
       "formatted": "> - a\n>   ```=html\n>\n>   ```\n>\n> <b>payload</b>\n> ``\n",
@@ -274,7 +274,7 @@
     {
       "name": "quoted/~~~/empty/0",
       "source": "> - a\n>\n>   ~~~=html\n> ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <pre><code>\n</code></pre>\n</blockquote>\n",
+      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code>\n</code></pre>\n</blockquote>\n",
       "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code>\n</code></pre>\n</blockquote>",
       "imported": ">\n> - a\n>\n> ```\n>\n> ```\n",
       "formatted": "> - a\n>   ```=html\n>\n>   ```\n>\n> ```\n>\n> ```\n",
@@ -283,7 +283,7 @@
     {
       "name": "quoted/~~~/empty/2",
       "source": "> - a\n>\n>   ~~~=html\n>   ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n",
+      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>\n",
       "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>",
       "imported": ">\n> - a\n",
       "formatted": "> - a\n>   ```=html\n>\n>   ```\n",
@@ -292,7 +292,7 @@
     {
       "name": "quoted/~~~/below/0",
       "source": "> - a\n>\n>   ~~~=html\n>  <b>payload</b>\n> ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n</blockquote>\n",
+      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n</blockquote>\n",
       "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n</blockquote>",
       "imported": ">\n> - a\n>\n> <b>payload</b> ~~~\n",
       "formatted": "> - a\n>   ```=html\n>\n>   ```\n>\n> <b>payload</b>\n> ~~~\n",
@@ -301,7 +301,7 @@
     {
       "name": "quoted/~~~/below/2",
       "source": "> - a\n>\n>   ~~~=html\n>  <b>payload</b>\n>   ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n</blockquote>\n",
+      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n</blockquote>\n",
       "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;\n~~~</p>\n</blockquote>",
       "imported": ">\n> - a\n>\n> <b>payload</b> ~~~\n",
       "formatted": "> - a\n>   ```=html\n>\n>   ```\n>\n> <b>payload</b>\n> ~~~\n",
