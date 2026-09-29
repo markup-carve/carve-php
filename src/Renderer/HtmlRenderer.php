@@ -3753,12 +3753,17 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     /**
      * Render a footnote's blocks, and report whether the body ends IN a paragraph.
      *
-     * The backlink may only be folded into the body when it does. A trailing block
-     * whose HTML rendering carries no text - an empty raw block, or one whose format
-     * this target drops - still holds a slot, so the paragraph above it is not the
-     * body's end even though the string still trails `</p>` (carve-php#2680). A
-     * comment holds no slot and cannot end the body, which is why the block kind
-     * decides this rather than the rendered length.
+     * The backlink may only be folded into the body when it does. A HOST DECIDES ITS
+     * SHAPE BY WHAT ITS CHILDREN RENDER, not by how many it holds (markup-carve/carve#2570):
+     * a block that reaches the output holds a slot and ends the body even when its
+     * HTML carries no text, and a block that renders nothing at all cannot end it.
+     *
+     * An empty raw block whose format this target matches emits the line it occupies,
+     * so it holds a slot; one whose format the target DROPS emits nothing and leaves
+     * the paragraph above it as the body's end. Keying this on the block kind instead
+     * put the backlink in a paragraph of its own behind a dropped block, and keying it
+     * on the rendered string alone put it inside the paragraph above an empty raw
+     * block (carve-php#2680, carve-php#2711).
      *
      * @param \MarkupCarve\Carve\Node\Block\Footnote $node
      *
@@ -3771,7 +3776,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         foreach ($node->getChildren() as $child) {
             $rendered = $this->renderNode($child);
             $html .= $rendered;
-            if (!$child instanceof Comment) {
+            if ($rendered !== '') {
                 $endsInParagraph = str_ends_with(rtrim($rendered, "\n"), '</p>');
             }
         }
