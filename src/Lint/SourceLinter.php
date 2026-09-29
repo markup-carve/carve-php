@@ -283,7 +283,14 @@ class SourceLinter
             } elseif (isset($paragraphs[$ln]) && (!isset($inlineVerbatim[$ln]) || isset($ambiguousFenceEnds[$ln])) && preg_match('/^(`{3,}|~{3,})/', $view, $match)) {
                 $run = $match[1];
                 if (!str_contains(substr($view, strlen($run)), $run)) {
-                    if ($fenceParser->parseCodeFenceOpener($view) === null) {
+                    // A raw block's `=FORMAT` is a well-formed info string, not
+                    // an invalid one: `parseCodeFenceOpener` refuses it because
+                    // `parseRawBlockOpener` owns that spelling. Asking only the
+                    // code-fence reader reported a column defect as an info
+                    // string defect (carve-php#2764).
+                    $wellFormed = $fenceParser->parseCodeFenceOpener($view) !== null
+                        || $fenceParser->parseRawBlockOpener($view) !== null;
+                    if (!$wellFormed) {
                         $emit($ln, $at, strlen($view), 'fence-opener-fallback', 'This fence has an invalid info string and parses as paragraph content. Use a language, optional quoted title, and optional label.');
                     } elseif ($at > 0 && strspn($text, " \t") > 0 && !isset($listLines[$ln])) {
                         $emit($ln, $at, strlen($run), 'fence-delimiter-indentation', "This fence is indented past its container's content column and does not open a code block.");
