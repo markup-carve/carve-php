@@ -14985,9 +14985,22 @@ class BlockParser
                 $definitionAt = $past;
             }
         }
+        // A THEMATIC BREAK IS A VISIBLE BLOCK, so it closes the paragraph
+        // WITHOUT arming the invisible term. It shared the branch below while
+        // nothing read the difference; the band arm now does, and a rule left in
+        // the invisible set kept a band follower inside the item where the
+        // oracle writes it at document level (carve-php#2735). This is the same
+        // answer a heading gets one branch up, which is the shape a rule should
+        // match. The definition and the attribute line stay where they are: each
+        // has a tightness half that has to move with it, and that is a ruling.
+        if (preg_match('/([-*_])\1{2,}[ \t]*$/A', $line, $ignored, 0, $at) === 1) {
+            $state->openParagraph = false;
+
+            return $state;
+        }
+
         if (
-            preg_match('/([-*_])\1{2,}[ \t]*$/A', $line, $ignored, 0, $at) === 1
-            || (
+            (
                 ReferenceDefinitionExtractor::isDefinitionHead($line, $definitionAt)
                 && $this->isReferenceDefinitionLine(self::subjectFrom($line, $definitionAt, $end))
             )
@@ -14999,10 +15012,9 @@ class BlockParser
             $state->openParagraph = false;
             // A DEFINITION IS AN INVISIBLE BLOCK TOO (PART 9 section 10 I5), so
             // it ends the paragraph without ending the container, exactly as
-            // the comment above does. A thematic break is not invisible and an
-            // attribute block attaches forward, but neither keeps a container
-            // collecting either, so the flag is set for the branch rather than
-            // split three ways for a difference nothing reads.
+            // the comment above does. An attribute block attaches forward rather
+            // than rendering nothing, but it keeps no container collecting
+            // either, so the two share the flag.
             $state->afterInvisible = true;
             $state->afterComment = false;
             // ONLY A FOOTNOTE DEFINITION HAS A BODY. A reference definition is
