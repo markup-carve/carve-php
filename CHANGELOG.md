@@ -114,6 +114,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Six fuzz shapes now answer the way the oracle does (#2648).
 - Nested code-span formatting is fixed, as are three lint diagnostics, a comment-span tightness and a table's wire partition (#2612, #2646).
 - The canonical writer no longer spells `{loose}` on a one-item list whose own blank line already says it: the looseness re-parse read the writer's own sentinels as source (#2763).
+- `carve lint` reports an indented raw `=FORMAT` fence as `fence-delimiter-indentation`; `fence-opener-fallback` stays reserved for an invalid info string (#2767).
 
 ### Improvements
 
@@ -143,6 +144,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - The spec corpus pin reaches carve `aa3678a2` (#2254, #2409, #2749, #2757).
 - Nested note blocks stay inside collected list chunks (#2628).
 - A cross-reference label asks the budget before rendering (#2658).
+- Importing deeply nested HTML scans less indentation per level (#2766).
 
 ## [0.1.9] - 2026-09-19
 
