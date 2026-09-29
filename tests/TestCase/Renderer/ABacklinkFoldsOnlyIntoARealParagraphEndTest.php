@@ -14,16 +14,20 @@ use PHPUnit\Framework\TestCase;
  * is satisfied by any trailing block whose HTML carries no text, which put the
  * backlink inside the paragraph above it.
  *
- * The rows below vary the CONDITION rather than one spelling: the emptiness comes
- * from an empty raw body, from a format this target drops, and from a payload written
- * below its own column. A trailing comment holds no slot in the output and must still
- * fold, which is what separates this from a test on the rendered length - no non-raw
- * block renders to nothing in this engine, measured over every block kind a footnote
- * body accepts.
+ * What separates the two lists is whether the trailing block REACHES THE OUTPUT
+ * (markup-carve/carve#2570). An empty raw block whose format this target matches emits
+ * the line it occupies, so it holds a slot and the paragraph above it is not the body's
+ * end. A comment and a raw block whose format the target DROPS emit nothing at all, so
+ * they cannot end the body and the backlink still folds.
+ *
+ * The rows vary the CONDITION rather than one spelling: the emptiness comes from an
+ * empty raw body, from a payload written below its own column, and from a format this
+ * target drops.
  *
  * Expectations measured against scripts/spec/layout.mjs with scripts/spec/html.mjs in
- * markup-carve/carve at 3e2da233. The oracle also writes an empty slot line where the
- * dropped block stood; that spacing is tracked separately and is not asserted here.
+ * markup-carve/carve at 5b70a768. The oracle also writes an empty slot line for a body
+ * whose every block renders nothing; that spacing is tracked separately and is not
+ * asserted here.
  */
 class ABacklinkFoldsOnlyIntoARealParagraphEndTest extends TestCase
 {
@@ -39,10 +43,9 @@ class ABacklinkFoldsOnlyIntoARealParagraphEndTest extends TestCase
     {
         yield 'an empty raw html block' => ["```=html\n```"];
         yield 'an empty tilde raw html block' => ["~~~=html\n~~~"];
-        yield 'a raw block whose format this target drops' => ["```=latex\n\\x\n```"];
         yield 'a raw block payload below its own column' => ["```=html\nZ<b>a</b>\n```"];
-        yield 'a comment above a dropped raw block' => ["%%%\nh\n%%%\n\n```=html\n```"];
-        yield 'a dropped raw block above a comment' => ["```=html\n```\n\n%%%\nh\n%%%"];
+        yield 'a comment above an empty raw html block' => ["%%%\nh\n%%%\n\n```=html\n```"];
+        yield 'an empty raw html block above a comment' => ["```=html\n```\n\n%%%\nh\n%%%"];
         yield 'a code block' => ["```\nz\n```"];
         yield 'a block quote' => ['>'];
     }
@@ -56,6 +59,12 @@ class ABacklinkFoldsOnlyIntoARealParagraphEndTest extends TestCase
         yield 'a trailing comment' => ["%%%\nh\n%%%"];
         yield 'two trailing comments' => ["%%%\nh\n%%%\n\n%%%\ni\n%%%"];
         yield 'a comment above a paragraph' => ["%%%\nh\n%%%\n\nb"];
+
+        // Nothing of a dropped raw block reaches the output, so it holds no slot
+        // and the paragraph above it is still the body's end (carve-php#2711).
+        yield 'a raw block whose format this target drops' => ["```=latex\n\\x\n```"];
+        yield 'a dropped raw block above a comment' => ["```=latex\n\\x\n```\n\n%%%\nh\n%%%"];
+        yield 'a comment above a dropped raw block' => ["%%%\nh\n%%%\n\n```=latex\n\\x\n```"];
     }
 
     #[DataProvider('bodiesThatDoNotEndInAParagraph')]
