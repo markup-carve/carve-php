@@ -7,7 +7,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
-## [0.1.10]
+## [0.1.10] - 2026-09-29
 
 ### Breaking
 
@@ -137,7 +137,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - An HTML migration performs roughly a third fewer re-parses: a list item's attribute payload is validated once, and the escape search parses each candidate once (#2477, #2478, #2487, #2494, #2542).
 - Fence-ownership tracking that nothing read is gone, and a spanning cell's extent is settled without it (#2619).
 - Migration reports verify literal text (#2625).
-- The spec corpus pin reaches carve `4daf4c21` (#2254, #2409, #2749, #2757).
+- The spec corpus pin reaches carve `aa3678a2` (#2254, #2409, #2749, #2757).
 - Nested note blocks stay inside collected list chunks (#2628).
 - A cross-reference label asks the budget before rendering (#2658).
 
