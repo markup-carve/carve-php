@@ -52,11 +52,7 @@ class IncludeConformanceTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_DIFFERENCES = [
-        'i04-fragment-containment-unclosed-fence' => 'the golden predates markup-carve/carve#2616 - '
-            . 'the child fence ends at the child\'s EOF with no break, so its payload has none, and the '
-            . 'reference engine renders it the way this one does',
-    ];
+    protected const KNOWN_DIFFERENCES = [];
 
     /**
      * @throws \RuntimeException
