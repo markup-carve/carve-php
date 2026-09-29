@@ -21,6 +21,7 @@ class AStructuralBracketEscapeIsUnconditionalTest extends TestCase
     public static function provider(): array
     {
         return [
+            'an emphasis crossing the closing bracket' => ['<p>[<em>a](b)</em></p>', "\\[/a](b)/\n"],
             'a paren that would open a destination' => [
                 '<p>[a](b) and f(x) and (see above) and [a] (b) and [a](b c)</p><p><span class="c">[a](u)</span></p>',
                 "[a]\\(b) and f(x) and (see above) and [a] (b) and [a](b c)\n\n[[a]\\(u)]{.c}\n",

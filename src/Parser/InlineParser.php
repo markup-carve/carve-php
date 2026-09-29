@@ -652,6 +652,8 @@ class InlineParser
         $outerSkips = $this->destinationSkips;
         $outerScans = $this->destinationScans;
         $outerBracketRuns = $this->bracketRunEnds;
+        $outerLinkTriggerText = $this->linkTriggerText;
+        $outerLinkTriggerPresent = $this->linkTriggerPresent;
         $this->inlineDepth++;
         try {
             $this->parseInlinesImpl($parent, $text, $footnoteRecognitionEnabled);
@@ -663,6 +665,8 @@ class InlineParser
             $this->destinationSkips = $outerSkips;
             $this->destinationScans = $outerScans;
             $this->bracketRunEnds = $outerBracketRuns;
+            $this->linkTriggerText = $outerLinkTriggerText;
+            $this->linkTriggerPresent = $outerLinkTriggerPresent;
         }
     }
 
@@ -1268,6 +1272,24 @@ class InlineParser
                 $pos = $matchResult['end'];
 
                 continue;
+            }
+
+            // A bare bracket run owns its inline content before emphasis.
+            if ($char === '[') {
+                $end = $this->findBalancedBracketEnd($text, $pos);
+                if ($end !== null) {
+                    $end++;
+                    $opener = new Text('[');
+                    $this->placeAt($opener, $pos, $pos + 1);
+                    $parent->appendChild($opener);
+                    $this->parseInlinesAt($parent, substr($text, $pos + 1, $end - $pos - 2), $pos + 1);
+                    $closer = new Text(']');
+                    $this->placeAt($closer, $end - 1, $end);
+                    $parent->appendChild($closer);
+                    $pos = $end;
+
+                    continue;
+                }
             }
 
             // Regular character

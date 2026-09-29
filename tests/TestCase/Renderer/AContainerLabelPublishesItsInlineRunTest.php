@@ -94,6 +94,26 @@ class AContainerLabelPublishesItsInlineRunTest extends TestCase
     public static function furtherRuns(): array
     {
         return [
+            '{+a %% secret+}' => [
+                ":::[{+a %% secret+}]\nbody\n:::\n",
+                "<div>\n  <p class=\"div-label\"><ins>a</ins></p>\n  <p>body</p>\n</div>\n",
+            ],
+            '{-a %% secret-}' => [
+                ":::[{-a %% secret-}]\nbody\n:::\n",
+                "<div>\n  <p class=\"div-label\"><del>a</del></p>\n  <p>body</p>\n</div>\n",
+            ],
+            '{%a %% secret%}' => [
+                ":::[{%a %% secret%}]\nbody\n:::\n",
+                "<div>\n  <p class=\"div-label\"></p>\n  <p>body</p>\n</div>\n",
+            ],
+            '{#a %% secret#}' => [
+                ":::[{#a %% secret#}]\nbody\n:::\n",
+                "<div>\n  <p class=\"div-label\"><span class=\"critic-comment\">a %% secret</span></p>\n  <p>body</p>\n</div>\n",
+            ],
+            '{+a %% secret+} %% outer' => [
+                ":::[{+a %% secret+} %% outer]\nbody\n:::\n",
+                "<div>\n  <p class=\"div-label\"><ins>a</ins></p>\n  <p>body</p>\n</div>\n",
+            ],
             'two constructs in one label' => [
                 ":::[/i/ and *b*]\nbody\n:::\n",
                 "<div>\n  <p class=\"div-label\"><em>i</em> and <strong>b</strong></p>\n"

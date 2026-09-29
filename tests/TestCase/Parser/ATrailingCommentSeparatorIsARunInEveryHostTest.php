@@ -143,11 +143,9 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
             'an escaped tab still separates' => ["a \\\t%% hidden", 'a \\'],
             'an escaped space still separates' => ['a \\ %% hidden', 'a \\'],
             'an escaped percent opens no marker' => ['a \\%% b', 'a \\%% b'],
-            // A label renders a braced run as the literal text it holds, so a
-            // brace opens no opaque region and the clause applies straight
-            // through it. Only a code span and a raw inline are opaque.
-            'a comment brace opens no opaque region' => ['a {% x %% y %} z', 'a {% x'],
-            'an editorial brace opens no opaque region' => ['a {# x %% y #} z', 'a {# x'],
+            // Closed comment constructs own their content inside a label.
+            'a comment brace keeps its content' => ['a {% x %% y %} z', 'a {% x %% y %} z'],
+            'an editorial brace keeps its content' => ['a {# x %% y #} z', 'a {# x %% y #} z'],
             'a marker after a brace is a marker' => ['a {% x %} %% hidden', 'a {% x %}'],
             'an unopened emphasis run keeps no marker' => ['a *b %% c* d', 'a *b'],
             'an unseparated marker stays text' => ['a%%b and 50%%', 'a%%b and 50%%'],

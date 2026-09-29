@@ -143,18 +143,8 @@ class AnEmphasisMarkerDoesNotPairAcrossALinkBracketTest extends TestCase
         $this->assertSame($expected, (new CarveConverter())->convert($source));
     }
 
-    /**
-     * STILL DIVERGENT, and left that way on purpose: the mirror half, where the
-     * OPENER sits inside the run and the closer outside it. The oracle isolates
-     * the interior of every closed run; this engine only isolates a run that
-     * becomes a node, so a literal run's interior shares the enclosing stream.
-     * That is a separate defect with its own mechanism, no corpus row pins it, and
-     * it read this way before the fix above as well.
-     *
-     * @return void
-     */
-    public function testTheMirrorHalfIsNotFixedHere(): void
+    public function testAnOpenerInsideABareRunCannotPairWithAnOutsideCloser(): void
     {
-        $this->assertSame("<p>[<em>a] b</em></p>\n", (new CarveConverter())->convert("[/a] b/\n"));
+        $this->assertSame("<p>[/a] b/</p>\n", (new CarveConverter())->convert("[/a] b/\n"));
     }
 }
