@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -59,6 +61,8 @@ use PHPUnit\Framework\TestCase;
  */
 class BlockAttributeBlockSpansManyLinesTest extends TestCase
 {
+    use ScalingGuardTrait;
+
     /**
      * One row per line count, plus the two padding positions.
      *
@@ -234,46 +238,41 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
      * reasons and only one of them was quadratic before the bound.
      *
      * This mirrors `AttributeScanTest`, which guards the same class of defect
-     * for the INLINE attribute scanner.
+     * for the INLINE attribute scanner, and it now measures the same way and
+     * runs in the same job. It used to hand-roll the measurement: one wall-clock
+     * sample per size, no garbage-collection control, and a 2.0 bound copied
+     * from `ScalingGuardTrait` before #2455 raised the trait's to 3.0. That copy
+     * is what went red on `main` at 2.11 (#2708), in the COVERAGE leg, where
+     * paratest runs the samples against a runner shared with its own sibling
+     * workers. `BlockParser` had not changed since the previous green run, so
+     * the reading moved while its subject stood still.
+     *
+     * The trait reads process CPU time rather than wall clock, gives both sizes
+     * the same total byte count, takes the best of three alternating rounds, and
+     * carries the one bound the other ratio guards share. The `scaling` group
+     * keeps it out of the default and coverage runs, which is where a shared
+     * runner makes a timing say nothing either way, and puts it in the job that
+     * gets a runner to itself. 1000 repeats, not the trait's 12500, because a
+     * quadratic reading on this shape would take minutes at that size.
      */
+    #[Group('scaling')]
     public function testTheMultiLineScanStaysLinear(): void
     {
-        $shapes = [
-            // A block start per pair, no closing brace anywhere: the recorded
-            // range is what keeps this off the quadratic path.
-            'openers with no closing brace' => "{.a\n# h\n",
-            // A block start per pair sharing ONE distant closing brace: the
-            // per-line validity bound is what keeps this off it.
-            'openers sharing a distant closing brace' => "{.a\n# h\n",
-        ];
-        $suffixes = ['openers with no closing brace' => '', 'openers sharing a distant closing brace' => ".z}\n"];
+        $converter = new CarveConverter();
 
-        foreach ($shapes as $label => $fragment) {
-            $small = str_repeat($fragment, 1000) . $suffixes[$label];
-            $large = str_repeat($fragment, 4000) . $suffixes[$label];
+        // A block start per pair, no closing brace anywhere: the recorded range
+        // is what keeps this off the quadratic path.
+        $this->assertScanScalesLinearly($converter, "{.a\n# h\n", '', 'openers with no closing brace', 1000);
 
-            $converter = new CarveConverter();
-            $converter->convert($small);
-
-            $smallStart = microtime(true);
-            $converter->convert($small);
-            $smallPerByte = (microtime(true) - $smallStart) / strlen($small);
-
-            $largeStart = microtime(true);
-            $converter->convert($large);
-            $largePerByte = (microtime(true) - $largeStart) / strlen($large);
-
-            // Per BYTE, not total: linear measures ~1 whatever the size
-            // multiple, and quadratic measures the multiple itself (4). The
-            // threshold and the reasoning are ScalingGuardTrait's; this shape
-            // uses a smaller sample because a quadratic reading here would take
-            // minutes at that trait's 50,000 repeats.
-            $this->assertLessThan(
-                2.0,
-                $largePerByte / $smallPerByte,
-                "{$label}: per-byte cost grew with input size",
-            );
-        }
+        // A block start per pair sharing ONE distant closing brace: the per-line
+        // validity bound is what keeps this off it.
+        $this->assertScanScalesLinearly(
+            $converter,
+            "{.a\n# h\n",
+            ".z}\n",
+            'openers sharing a distant closing brace',
+            1000,
+        );
     }
 
     public function testEveryShapeIsStillCovered(): void
