@@ -258,6 +258,13 @@ class InlineParser
      */
     protected array $destinationScans = [];
 
+    /**
+     * Memo for bracketRunSkip(), per `[` position in the same text.
+     *
+     * @var array<int, int|null>
+     */
+    protected array $bracketRunEnds = [];
+
     protected ?string $destinationSkipText = null;
 
     /**
@@ -644,6 +651,7 @@ class InlineParser
         $outerSkipText = $this->destinationSkipText;
         $outerSkips = $this->destinationSkips;
         $outerScans = $this->destinationScans;
+        $outerBracketRuns = $this->bracketRunEnds;
         $this->inlineDepth++;
         try {
             $this->parseInlinesImpl($parent, $text, $footnoteRecognitionEnabled);
@@ -654,6 +662,7 @@ class InlineParser
             $this->destinationSkipText = $outerSkipText;
             $this->destinationSkips = $outerSkips;
             $this->destinationScans = $outerScans;
+            $this->bracketRunEnds = $outerBracketRuns;
         }
     }
 
@@ -2986,6 +2995,18 @@ class InlineParser
                 if ($skip !== null) {
                     $destinationEnds[$skip[0]] = $skip[1];
                 }
+
+                // The run itself is opaque, not only a destination behind it.
+                // Skipping to the `]` leaves a `(` destination to the branch
+                // above, which the next iteration reaches through
+                // $destinationEnds.
+                $runEnd = $this->bracketRunSkip($text, $searchPos);
+                if ($runEnd !== null) {
+                    $searchPos = $runEnd;
+                    $scanSkipped = true;
+
+                    continue;
+                }
             }
 
             if ($char === '<') {
@@ -4322,11 +4343,7 @@ class InlineParser
      */
     protected function scanInlineDestination(string $text, int $urlStart): ?array
     {
-        if ($text !== $this->destinationSkipText) {
-            $this->destinationSkipText = $text;
-            $this->destinationSkips = [];
-            $this->destinationScans = [];
-        }
+        $this->resetDestinationMemos($text);
         if (array_key_exists($urlStart, $this->destinationScans)) {
             return $this->destinationScans[$urlStart];
         }
@@ -4472,11 +4489,7 @@ class InlineParser
      */
     protected function linkDestinationSkip(string $text, int $pos): ?array
     {
-        if ($text !== $this->destinationSkipText) {
-            $this->destinationSkipText = $text;
-            $this->destinationSkips = [];
-            $this->destinationScans = [];
-        }
+        $this->resetDestinationMemos($text);
         if (array_key_exists($pos, $this->destinationSkips)) {
             return $this->destinationSkips[$pos];
         }
@@ -4493,6 +4506,46 @@ class InlineParser
         }
 
         return $this->destinationSkips[$pos] = $skip;
+    }
+
+    /**
+     * Drop the per-text scan memos when the scanned string changes.
+     */
+    protected function resetDestinationMemos(string $text): void
+    {
+        if ($text === $this->destinationSkipText) {
+            return;
+        }
+
+        $this->destinationSkipText = $text;
+        $this->destinationSkips = [];
+        $this->destinationScans = [];
+        $this->bracketRunEnds = [];
+    }
+
+    /**
+     * Where a bare closer scan resumes past the balanced bracket run opening at
+     * $pos: the index after its `]`, or null when the run does not close.
+     *
+     * PART 8 ranks a LINK at 5 and an emphasis MARKER at 7, so the bracket run is
+     * resolved before the marker is scanned and a delimiter inside it is label
+     * text by then. It holds whatever the run turns out to be: an inline link, a
+     * reference that resolves or does not, a note reference, an attributed span,
+     * or a run that stays literal. All of those are the same bracket run at the
+     * moment the marker asks, and the oracle reads every one of them the same way
+     * (markup-carve/carve#2577). An UNBALANCED `[` opens no run and is ordinary
+     * text, so a delimiter behind it still closes.
+     */
+    protected function bracketRunSkip(string $text, int $pos): ?int
+    {
+        $this->resetDestinationMemos($text);
+        if (array_key_exists($pos, $this->bracketRunEnds)) {
+            return $this->bracketRunEnds[$pos];
+        }
+
+        $labelEnd = $this->findBalancedBracketEnd($text, $pos);
+
+        return $this->bracketRunEnds[$pos] = $labelEnd === null ? null : $labelEnd + 1;
     }
 
     /**

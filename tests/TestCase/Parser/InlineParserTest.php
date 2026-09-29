@@ -748,27 +748,33 @@ class InlineParserTest extends TestCase
     }
 
     /**
-     * Test: Underscore in link text still triggers emphasis (bracket-text case)
+     * Test: a marker inside a link label does not close one outside it
      *
-     * This is intentionally NOT fixed by the destination-only approach.
-     * _[foo_](url) should still produce emphasis [foo then ](url) as text.
+     * PART 8 ranks a link at 5 and an emphasis marker at 7, so the link resolves
+     * first and the slash in its label is label text by the time the marker is
+     * scanned. The leading slash has no partner (markup-carve/carve#2577, corpus
+     * 522). This test asserted the opposite while the destination alone was
+     * opaque.
      */
-    public function testUnderscoreInLinkTextStillTriggersEmphasis(): void
+    public function testAMarkerInsideALinkLabelDoesNotCloseOneOutsideIt(): void
     {
         $para = $this->parseInline('/[bar/](url)');
 
         $children = $para->getChildren();
-        // The _ inside [bar_] closes the emphasis started at the beginning
-        // Result: <em>[bar</em>](url)
-        $this->assertInstanceOf(Emphasis::class, $children[0]);
+        $this->assertInstanceOf(Text::class, $children[0]);
+        $this->assertSame('/', $children[0]->getContent());
 
-        $emChildren = $children[0]->getChildren();
-        $this->assertInstanceOf(Text::class, $emChildren[0]);
-        $this->assertSame('[bar', $emChildren[0]->getContent());
+        $this->assertInstanceOf(Link::class, $children[1]);
+        $this->assertSame('url', $children[1]->getDestination());
 
-        // Remaining text after emphasis
-        $this->assertInstanceOf(Text::class, $children[1]);
-        $this->assertSame('](url)', $children[1]->getContent());
+        // parseInline() does not run the text-run coalescer, so the label's
+        // literal slash is its own run here.
+        $label = '';
+        foreach ($children[1]->getChildren() as $labelChild) {
+            $this->assertInstanceOf(Text::class, $labelChild);
+            $label .= $labelChild->getContent();
+        }
+        $this->assertSame('bar/', $label);
     }
 
     /**
