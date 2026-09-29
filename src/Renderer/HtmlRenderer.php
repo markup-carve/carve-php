@@ -78,6 +78,7 @@ use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\VerbatimPayload;
 
 /**
  * Renders AST to HTML
@@ -1226,13 +1227,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $code = str_replace("\t", str_repeat(' ', $this->codeBlockTabWidth), $code);
         }
 
-        // The renderer owns the newline that ends the payload's LAST LINE, which
-        // the parser strips off $content. A payload with no lines has no last line,
-        // and zero lines preserved literally is zero characters
-        // (markup-carve/carve#2560, corpus 524).
-        if (!$node->hasNoPayloadLines()) {
-            $code .= "\n";
-        }
+        // `<pre><code>` holds the payload as verbatim TEXT, every line
+        // newline-terminated, and `$content` carries the line count itself: a
+        // payload of no lines is no characters, and one of N blank lines is N
+        // newlines (markup-carve/carve#2560, corpus 524).
+        $code = VerbatimPayload::codeText($code);
 
         // Add data-djot-src for round-trip support
         $djotSrcAttr = '';

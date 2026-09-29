@@ -24,36 +24,6 @@ class CodeBlock extends BlockNode implements ContentNodeInterface
     ) {
     }
 
-    /**
-     * Whether the fence closed with NO payload line at all.
-     *
-     * `code_content` is any text until the matching fence, preserved literally, so
-     * zero lines preserved literally is zero characters (markup-carve/carve#2560,
-     * corpus category 524). One blank payload line keeps its newline, and the two
-     * are indistinguishable from $content alone: the parser strips the separator
-     * before the closing fence, which leaves both shapes with the empty string.
-     *
-     * The AST cannot carry this yet. `code_block` has a single `content` string in
-     * `resources/ast-schema.json`, and carve-js serializes the empty string for both
-     * shapes too, so a tree that has been through the codec renders the one-line
-     * reading. Nothing but the parser can set this.
-     *
-     * An UNCLOSED fence is not this shape: it runs to the end of its block and
-     * occupies a line whatever follows the opener, which is what the oracle writes
-     * for a bare ``` with nothing after it.
-     */
-    protected bool $noPayloadLines = false;
-
-    public function hasNoPayloadLines(): bool
-    {
-        return $this->noPayloadLines;
-    }
-
-    public function setNoPayloadLines(bool $noPayloadLines): void
-    {
-        $this->noPayloadLines = $noPayloadLines;
-    }
-
     public function getContent(): string
     {
         return $this->content;

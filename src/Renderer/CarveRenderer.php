@@ -83,6 +83,7 @@ use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\VerbatimPayload;
 use ReflectionObject;
 use stdClass;
 use Throwable;
@@ -1971,18 +1972,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $content = $node->getContent();
         $fence = $this->safeFence($content, 3);
         $info = $this->codeFenceInfo($node);
-        if ($node->hasNoPayloadLines()) {
-            // The `"\n"` pair below frames the payload's LAST LINE, and a fence
-            // that closed with no payload line has none. Writing one turned
-            // `<pre><code></code></pre>` into `<pre><code>\n</code></pre>` on a
-            // re-parse, which is PART 11 §1 `to_html(fmt(x)) == to_html(x)`
-            // (carve-php#2727, corpus 524). The flag is the only discriminator
-            // here: `$content` is the empty string for this shape and for one
-            // blank payload line alike.
-            return $fence . $info . "\n" . $fence;
-        }
 
-        return $fence . $info . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
+        // The trailing `"\n"` separates the payload's LAST LINE from the closing
+        // delimiter, and a terminated payload has no line left to separate: no
+        // lines at all, or an all-blank one whose newlines ARE its lines. Writing
+        // one anyway turned `<pre><code></code></pre>` into
+        // `<pre><code>` + newline on a re-parse, breaking PART 11 §1
+        // `to_html(fmt(x)) == to_html(x)` (carve-php#2727, corpus 524).
+        return $fence . $info . "\n" . $this->protectVerbatim($content)
+            . (VerbatimPayload::terminated($content) ? '' : "\n") . $fence;
     }
 
     protected function codeFenceInfo(CodeBlock $node): string
@@ -3292,14 +3290,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $body = $this->protectVerbatim($content);
 
-        // An EMPTY payload writes no line either, the same separator question as
-        // the code fence above. Here `$content` answers it - a raw block stores
-        // the empty string for zero lines and `"\n"` for one blank line, which
-        // corpus 521 says are not the same block - so the `$content !== ''`
-        // guard this condition used to carry wrote a line the author did not
-        // (carve-php#2727).
+        // The same separator question as the code fence above, and since
+        // carve-php#2726 the same answer: both block kinds encode their payload
+        // the one way, so both read the rule off `$content`.
         return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n"
-            . $body . (trim($content, "\n") === '' ? '' : "\n") . $fence;
+            . $body . (VerbatimPayload::terminated($content) ? '' : "\n") . $fence;
     }
 
     protected function renderComment(Comment $node): string
