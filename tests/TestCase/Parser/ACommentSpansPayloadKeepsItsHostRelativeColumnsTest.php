@@ -11,31 +11,10 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A comment span's payload is dedented by its OPENER's column, and the closer's
- * column is not a parameter.
- *
- * `resources/grammar.ebnf` PART 9 §24 puts the base on the opener - "opaque
- * payload indentation beyond `block_base` is authored data, and a closer belongs
- * to the base established by its opener" - and §28 pairs the delimiters on
- * length alone. Two readings disagreed with that (ruled in markup-carve/carve#2503,
- * measured on the gate's `508-*` documents):
- *
- * - the authored-base pass ended a span's extent at the first line below the
- *   base, so a CLOSED span whose closer sat lower rolled back to its opener
- *   alone: the opener reached the nested parse dedented and its payload did not;
- * - the payload was then stored as the container happened to hand it over, with
- *   no dedent of its own, so an indented span at document level kept its
- *   opener's columns too.
- *
- * Both are invisible in HTML - a comment renders nothing - so the corpus passed
- * while the canonical `carve` writer re-spelled the payload two columns in and
- * disagreed with carve-js and carve-rs on three documents.
- *
- * The rows sweep the closer column per host: one payload cannot have several
- * spellings depending on where the pair was closed. The last two providers are
- * controls at document level, where no container strip is involved.
+ * CARVE-P9-060 retains payload columns beyond the host's content column.
+ * The closer's column does not change the value (markup-carve/carve#2535).
  */
-class ACommentSpansPayloadIsReadFromItsOpenersColumnTest extends TestCase
+class ACommentSpansPayloadKeepsItsHostRelativeColumnsTest extends TestCase
 {
     /**
      * @return array<string> The content of every comment node, in tree order.
@@ -72,9 +51,9 @@ class ACommentSpansPayloadIsReadFromItsOpenersColumnTest extends TestCase
     }
 
     #[DataProvider('descriptionBodies')]
-    public function testADescriptionBodyReadsThePayloadAtTheOpenersColumn(string $source): void
+    public function testADescriptionBodyReadsThePayloadBeyondTheHostColumn(string $source): void
     {
-        $this->assertSame(['a'], $this->payloads($source));
+        $this->assertSame(['  a'], $this->payloads($source));
     }
 
     /**
@@ -96,9 +75,9 @@ class ACommentSpansPayloadIsReadFromItsOpenersColumnTest extends TestCase
     }
 
     #[DataProvider('descriptionBodiesWithAnOverIndentedPayload')]
-    public function testAnOverIndentedPayloadKeepsWhatItAuthoredPastTheOpener(string $source): void
+    public function testAnOverIndentedPayloadKeepsWhatItAuthoredPastTheHost(string $source): void
     {
-        $this->assertSame(['  a'], $this->payloads($source));
+        $this->assertSame(['    a'], $this->payloads($source));
     }
 
     /**
@@ -118,9 +97,9 @@ class ACommentSpansPayloadIsReadFromItsOpenersColumnTest extends TestCase
     }
 
     #[DataProvider('itemsHoldingTwoSpans')]
-    public function testAnItemReadsBothPayloadsAtTheirOpenersColumn(string $source): void
+    public function testAnItemReadsBothPayloadsBeyondTheHostColumn(string $source): void
     {
-        $this->assertSame(['a', 'b'], $this->payloads($source));
+        $this->assertSame(['  a', '  b'], $this->payloads($source));
     }
 
     /**
@@ -134,38 +113,38 @@ class ACommentSpansPayloadIsReadFromItsOpenersColumnTest extends TestCase
         return [
             'a description body' => [
                 ":: t\n:  head\n\n     %%%\n     a\n%%%\n",
-                ":: t\n: head\n\n  %%%\n  a\n  %%%\n",
+                ":: t\n: head\n\n  %%%\n    a\n  %%%\n",
             ],
             'a description body with a tail' => [
                 ":: t\n:  head\n\n     %%%\n     a\n%%%\n\n   tail\n",
-                ":: t\n: head\n\n  %%%\n  a\n  %%%\n\n  tail\n",
+                ":: t\n: head\n\n  %%%\n    a\n  %%%\n\n  tail\n",
             ],
             'an item holding two spans' => [
                 "- head\n\n    %%%\n    a\n%%%\n    %%%\n    b\n    %%%\n\n  tail\n",
-                "- head\n\n  %%%\n  a\n  %%%\n\n  %%%\n  b\n  %%%\n\n  tail\n",
+                "- head\n\n  %%%\n    a\n  %%%\n\n  %%%\n    b\n  %%%\n\n  tail\n",
             ],
         ];
     }
 
     #[DataProvider('writerDocuments')]
-    public function testTheWriterSpellsThePayloadAtItsFence(string $source, string $carve): void
+    public function testTheWriterSpellsThePayloadBeyondItsHost(string $source, string $carve): void
     {
         $this->assertSame($carve, CarveConverter::toCarve($source));
     }
 
     /**
      * CONTROL - document level, where no container strip stands between the
-     * opener and the payload. The span still reads its payload at its own fence.
+     * opener and the payload. Every payload column remains.
      *
      * @return array<string, array{string, array<string>}>
      */
     public static function documentLevelSpans(): array
     {
         return [
-            'payload at the opener, closer below it' => ["  %%%\n  a\n%%%\n", ['a']],
-            'payload at the opener, closer at it' => ["  %%%\n  a\n  %%%\n", ['a']],
-            'payload past the opener, closer below it' => ["  %%%\n    a\n%%%\n", ['  a']],
-            'payload past the opener, closer at it' => ["  %%%\n    a\n  %%%\n", ['  a']],
+            'payload at the opener, closer below it' => ["  %%%\n  a\n%%%\n", ['  a']],
+            'payload at the opener, closer at it' => ["  %%%\n  a\n  %%%\n", ['  a']],
+            'payload past the opener, closer below it' => ["  %%%\n    a\n%%%\n", ['    a']],
+            'payload past the opener, closer at it' => ["  %%%\n    a\n  %%%\n", ['    a']],
             'a flush opener keeps every column' => ["%%%\n    a\n%%%\n", ['    a']],
         ];
     }
@@ -175,20 +154,17 @@ class ACommentSpansPayloadIsReadFromItsOpenersColumnTest extends TestCase
      * @param array<string> $payloads
      */
     #[DataProvider('documentLevelSpans')]
-    public function testAControlADocumentLevelSpanReadsItsOwnFence(string $source, array $payloads): void
+    public function testAControlADocumentLevelSpanKeepsAllPayloadColumns(string $source, array $payloads): void
     {
         $this->assertSame($payloads, $this->payloads($source));
     }
 
     /**
-     * A comment folded into a term reads its payload at the fence like every
-     * other host, and reads it ONCE: the term path used to dedent the stored
-     * payload a second time, which ate the columns the author wrote past the
-     * fence.
+     * A term establishes no body column, so the payload keeps all six spaces.
      */
     public function testATermFoldsACommentWithoutDedentingItTwice(): void
     {
-        $this->assertSame(['    a'], $this->payloads(":: t\n  %%%\n      a\n  %%%\n:  body\n"));
+        $this->assertSame(['      a'], $this->payloads(":: t\n  %%%\n      a\n  %%%\n:  body\n"));
     }
 
     /**

@@ -3615,11 +3615,6 @@ class BlockParser
         }
         $i = $start + 1;
         $count = count($lines);
-        // The payload is read relative to the OPENER's column, the way a code
-        // fence's is, because the opener is what establishes the base and the
-        // closer only takes it (grammar.ebnf PART 9 §24, markup-carve/carve#2503).
-        $indent = IndentationHelper::getLeadingColumns($line);
-
         while ($i < $count) {
             $currentLine = $lines[$i];
 
@@ -3629,7 +3624,7 @@ class BlockParser
                 break;
             }
 
-            $contentLines[] = IndentationHelper::stripLeadingColumns($currentLine, $indent);
+            $contentLines[] = $currentLine;
             $i++;
         }
 
@@ -6197,6 +6192,18 @@ class BlockParser
                 if ($contentColumn !== null && $indent < $contentColumn) {
                     break;
                 }
+                if (!$opensList && $contentColumn === null) {
+                    $comment = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($candidate);
+                    if ($comment !== null) {
+                        for ($close = $j + 1; $close < $count; $close++) {
+                            if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$close], strlen($comment['fence']))) {
+                                $j = $close;
+
+                                break;
+                            }
+                        }
+                    }
+                }
                 $end = $j;
 
                 continue;
@@ -6682,6 +6689,7 @@ class BlockParser
                 ? $this->fencedBlockParser->parseDivFenceOpener($opener)
                 : null;
 
+            $commentClose = null;
             if ($code !== null) {
                 $fence = $code['fence'];
                 for ($j = $i + 1; $j < $count; $j++) {
@@ -6718,11 +6726,6 @@ class BlockParser
                 // heading and the `%% z` spelling of the same document folds it
                 // as text (carve-php#1877).
                 //
-                // The CLOSED half moves no measured byte - a terminated fence's
-                // payload renders nothing, so no document can show whether it
-                // was rebased - but writing the rollback unconditionally would
-                // say a terminated fence owns no payload, which is false.
-                //
                 // A COLUMN ENDS NO SPAN. §28 pairs the delimiters on LENGTH
                 // ALONE and CARVE-P0-013 has the run close the span at any
                 // column, so a line below the base is payload and does not end
@@ -6740,6 +6743,7 @@ class BlockParser
                         break;
                     }
                 }
+                $commentClose = $closed ? $end : null;
                 if (!$closed) {
                     $end = $i;
                 }
@@ -6873,6 +6877,9 @@ class BlockParser
             }
 
             for ($j = $i; $j <= $end; $j++) {
+                if ($comment !== null && $commentClose !== null && $j > $i && $j < $commentClose) {
+                    continue;
+                }
                 // Payload below the base keeps the residue past the
                 // container's column, which the dedent would clamp away.
                 if (
@@ -8150,7 +8157,9 @@ class BlockParser
             $commentFenceEnd = $this->commentFenceSpanEnd($nextTrimmed, $lines, $i);
             if ($commentFenceEnd !== null) {
                 for ($j = $i; $j < $commentFenceEnd; $j++) {
-                    $itemLines[] = ltrim($lines[$j], " \t");
+                    $itemLines[] = ($j > $i && $j < $commentFenceEnd - 1)
+                        ? IndentationHelper::stripLeadingColumns($lines[$j], $contentIndent)
+                        : ltrim($lines[$j], " \t");
                     $itemLineMap[] = $this->sourceLineFor($j);
                 }
                 $i = $commentFenceEnd;
