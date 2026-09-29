@@ -5663,8 +5663,26 @@ class BlockParser
 
                                 continue;
                             }
+                            // THE BAND REACHES THE ITEM ONLY AS A LAZY LINE, and a
+                            // lazy line needs an open paragraph to continue (PART 0
+                            // S4). Ungated, a band follower joined an item whose last
+                            // block was a closed fence, a heading, a table or a colon
+                            // fence, none of which leave anything open
+                            // (carve-php#2724).
+                            //
+                            // A line that CLOSED NO BLOCK retains the follower even
+                            // with no paragraph open, which is the same pair of terms
+                            // the plain-lead collector reads a dedent by: a comment
+                            // there, and the wider invisible set here, because that
+                            // set is what corpus 517's tightness half is decided from
+                            // and moving it needs that half moved with it.
                             if (
                                 !$sawBlankLine
+                                && (
+                                    $subTrailingState->openParagraph
+                                    || $subTrailingState->afterComment
+                                    || $subTrailingState->afterInvisible
+                                )
                                 && !$this->isBlockElementStart($trimmedLine, $lines, $i)
                                 && !$this->startsNewBlock($trimmedLine, $lines, $i)
                             ) {
