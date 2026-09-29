@@ -171,6 +171,22 @@ text, and ANSI render each pair as `base(annotation)` and report one
 `ruby-flattened` loss per ruby node. The CLI accepts `--allow-loss ruby-flattened`
 when that fallback is intentional.
 
+## A code payload keeps its line endings
+
+`code_block.content` is the payload text, kept as written, including the break
+after its last line when there is one. A fence holding `a` publishes `"a\n"`; a
+code element imported from HTML without a final break publishes `"a"`; an opener
+that collected no line publishes `""`. All four of `""`, `"\n"`, `"a"` and
+`"a\n"` survive a JSON round trip unchanged, and HTML prints the content between
+`<code>` and `</code>` without adding a newline of its own.
+
+Carve has no spelling for a payload whose last line has no break, so writing one
+inserts the break and reports a `field-unspellable` conversion diagnostic for
+`content`. Nothing about a stored `"a"` says whether an older producer dropped a
+break, so migrate a stored tree from its source rather than guessing.
+
+`raw_block.content` is unaffected and keeps its own encoding.
+
 ## Interchange-only shapes
 
 Some shapes have no Carve 0.1 source spelling. No parse produces them; they

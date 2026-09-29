@@ -44,7 +44,7 @@ class UnfinishedFenceOnANestedLeadOwnsItsBodyTest extends TestCase
             'flush-left body and closer' => ["- - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
             'body indented one below column' => ["- - ``` x\n code\n ```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
             'three levels deep' => ["- - - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code class=\"language-x\">code\n```\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'a quoted fence needs marked body lines' => ["> - ``` x\ncode\n```\n", "<blockquote>\n  <ul>\n    <li>\n      <pre><code class=\"language-x\">\n</code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>code\n<code></code></p>"],
+            'a quoted fence needs marked body lines' => ["> - ``` x\ncode\n```\n", "<blockquote>\n  <ul>\n    <li>\n      <pre><code class=\"language-x\"></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>code\n<code></code></p>"],
             'ordered markers' => ["1. 1. ``` x\ncode\n```\n", "<ol>\n  <li>\n    <ol>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ol>\n  </li>\n</ol>"],
             'tilde fence' => ["- - ~~~ x\ncode\n~~~\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n~~~\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
             'no info string' => ["- - ```\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
@@ -68,7 +68,7 @@ class UnfinishedFenceOnANestedLeadOwnsItsBodyTest extends TestCase
     public static function unchangedProvider(): array
     {
         return [
-            'outermost depth 1 (control)' => ["- ``` x\ncode\n```\n", "<ul>\n  <li>\n    <pre><code class=\"language-x\">\n</code></pre>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
+            'outermost depth 1 (control)' => ["- ``` x\ncode\n```\n", "<ul>\n  <li>\n    <pre><code class=\"language-x\"></code></pre>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
             'body at content column (control)' => ["- - ``` x\n    code\n    ```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
             'blank line above body (control)' => ["- - ``` x\n\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
             'colon container on lead (control)' => ["- - ::: d\nbody\n:::\n", "<ul>\n  <li>\n    <ul>\n      <li>::: d\nbody</li>\n    </ul>\n  </li>\n</ul>\n<div>\n\n</div>"],

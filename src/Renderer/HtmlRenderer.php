@@ -79,7 +79,6 @@ use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
-use MarkupCarve\Carve\VerbatimPayload;
 
 /**
  * Renders AST to HTML
@@ -1252,12 +1251,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($this->codeBlockTabWidth !== null) {
             $code = str_replace("\t", str_repeat(' ', $this->codeBlockTabWidth), $code);
         }
-
-        // `<pre><code>` holds the payload as verbatim TEXT, every line
-        // newline-terminated, and `$content` carries the line count itself: a
-        // payload of no lines is no characters, and one of N blank lines is N
-        // newlines (markup-carve/carve#2560, corpus 524).
-        $code = VerbatimPayload::codeText($code);
 
         // Add data-djot-src for round-trip support
         $djotSrcAttr = '';

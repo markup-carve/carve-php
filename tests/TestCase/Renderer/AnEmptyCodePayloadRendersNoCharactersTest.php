@@ -10,16 +10,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `code_content` is any text until the matching fence, preserved literally, so zero
- * payload lines is zero characters. A newline is content, and emitting one publishes
- * a character the author did not write (markup-carve/carve#2560, corpus category 524).
- *
- * The newline the renderer owns ends the payload's LAST LINE, and the count lives in
- * `content` itself: an all-blank payload is one newline per line, so a payload of no
- * lines and one of a single blank line no longer encode alike (carve-php#2726). An
- * UNCLOSED fence owns a final line break with no line collected - it runs to the end
- * of its block and the end supplies the break - which the rows below pin alongside the
- * one-blank-line spelling.
+ * `code_block.content` is literal payload text, so zero payload lines is zero
+ * characters and HTML adds no newline of its own (`CARVE-P12-064`, corpus category
+ * 524). The break before a closing fence belongs to the last payload line, which is
+ * why a closed fence holding `a` reads `"a\n"`; a fence that ends at EOF without a
+ * closer keeps whether its last line had one, and an opener that collected no line
+ * has no payload at all.
  *
  * EVERY ROW RUNS TWICE, on a fresh converter and on one that has already rendered.
  * `CarveConverter::convert()` has two spellings of the code fence: a borrowed layout
@@ -56,12 +52,12 @@ class AnEmptyCodePayloadRendersNoCharactersTest extends TestCase
                 "- a\n\n  ```\n  ```\n",
                 "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n",
             ],
-            // An unclosed opener takes a line whatever follows it.
-            'unclosed, nothing after the opener' => ["```\n", "<pre><code>\n</code></pre>\n"],
-            'unclosed, not even a line break' => ['```', "<pre><code>\n</code></pre>\n"],
+            // An unclosed opener collects the lines below it and no more.
+            'unclosed, nothing after the opener' => ["```\n", "<pre><code></code></pre>\n"],
+            'unclosed, not even a line break' => ['```', "<pre><code></code></pre>\n"],
             'unclosed, one blank line' => ["```\n\n", "<pre><code>\n</code></pre>\n"],
             'unclosed, a text line' => ["```\nq\n", "<pre><code>q\n</code></pre>\n"],
-            'unclosed, a text line and no break' => ["```\nq", "<pre><code>q\n</code></pre>\n"],
+            'unclosed, a text line and no break' => ["```\nq", "<pre><code>q</code></pre>\n"],
         ];
     }
 
@@ -81,14 +77,10 @@ class AnEmptyCodePayloadRendersNoCharactersTest extends TestCase
     }
 
     /**
-     * THE COUNT RIDES IN `content`, so the codec carries it and both of this
-     * engine's renderers answer alike about the same document (carve-php#2726).
-     *
-     * An all-blank payload is one newline per line, the way `raw_block.content`
-     * has read it since markup-carve/carve#2574, so a payload of no lines and one
-     * of a single blank line no longer encode alike. carve-js `2fa9df92`
-     * serializes every value below identically, and no field was added: the AST
-     * schema closes `code_block` to new properties.
+     * THE BREAK RIDES IN `content`, so the codec carries it and both of this
+     * engine's renderers answer alike about the same document. `""`, `"\n"`,
+     * `"a"` and `"a\n"` are four different payloads and survive JSON as four
+     * different values.
      *
      * @return array<string, array{string, string}>
      */
@@ -99,17 +91,19 @@ class AnEmptyCodePayloadRendersNoCharactersTest extends TestCase
             'one blank payload line' => ["```\n\n```\n", "\n"],
             'two blank payload lines' => ["```\n\n\n```\n", "\n\n"],
             'three blank payload lines' => ["```\n\n\n\n```\n", "\n\n\n"],
-            'one text line' => ["```\na\n```\n", 'a'],
-            'a text line then a blank' => ["```\na\n\n```\n", "a\n"],
-            'a blank then a text line' => ["```\n\na\n```\n", "\na"],
-            'one whitespace-only line' => ["```\n \n```\n", ' '],
-            // An unclosed opener owns a final line break with no line collected,
-            // which is the line corpus 276 and 69 pin.
-            'unclosed, nothing after the opener' => ["```\n", "\n"],
-            'unclosed, not even a line break' => ['```', "\n"],
-            'unclosed, a text line' => ["```\na\n", 'a'],
-            'a fence whose body fell below the content column' => ["- ```\nx\n```\n", "\n"],
-            'an opener a quote closed before any payload line' => ["> ```\n", "\n"],
+            'one text line' => ["```\na\n```\n", "a\n"],
+            'a text line then a blank' => ["```\na\n\n```\n", "a\n\n"],
+            'a blank then a text line' => ["```\n\na\n```\n", "\na\n"],
+            'one whitespace-only line' => ["```\n \n```\n", " \n"],
+            // An opener that collected no line has no payload, whatever ended it.
+            'unclosed, nothing after the opener' => ["```\n", ''],
+            'unclosed, not even a line break' => ['```', ''],
+            'unclosed, a text line' => ["```\na\n", "a\n"],
+            // Only a fence reaching EOF can keep an unterminated last line.
+            'unclosed at EOF, a text line with no break' => ["```\na", 'a'],
+            'unclosed at EOF inside a quote' => ["> ```\n> a", 'a'],
+            'a fence whose body fell below the content column' => ["- ```\nx\n```\n", ''],
+            'an opener a quote closed before any payload line' => ["> ```\n", ''],
         ];
     }
 

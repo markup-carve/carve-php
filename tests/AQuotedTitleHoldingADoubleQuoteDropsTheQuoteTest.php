@@ -49,7 +49,7 @@ class AQuotedTitleHoldingADoubleQuoteDropsTheQuoteTest extends TestCase
                 ],
                 [
                     'type' => 'code_block',
-                    'content' => 'x',
+                    'content' => "x\n",
                     'lang' => 'php',
                     'header' => 'say "hi" now',
                 ],

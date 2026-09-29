@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -111,7 +112,7 @@ class CodeCalloutsExtension implements ExtensionInterface
 
     private function renderCode(CodeBlock $node, HtmlRenderer $renderer): string
     {
-        $lines = explode("\n", $node->getContent());
+        $lines = CodePayload::lines($node->getContent());
         $body = '';
         foreach ($lines as $i => $line) {
             if ($i > 0) {
@@ -129,7 +130,11 @@ class CodeCalloutsExtension implements ExtensionInterface
         if ($tabWidth !== null) {
             $body = str_replace("\t", str_repeat(' ', $tabWidth), $body);
         }
-        $body .= "\n";
+        // The payload's own ending: a last line that owns its break keeps it, an
+        // unterminated one gets none (`CARVE-P12-064`).
+        if (CodePayload::terminated($node->getContent())) {
+            $body .= "\n";
+        }
 
         $attrs = $renderer->renderAttributesExcluding($node, []);
         // Preserve round-trip source exactly like core renderCodeBlock: the

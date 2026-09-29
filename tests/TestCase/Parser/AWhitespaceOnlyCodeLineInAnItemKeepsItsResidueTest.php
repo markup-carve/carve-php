@@ -26,10 +26,10 @@ class AWhitespaceOnlyCodeLineInAnItemKeepsItsResidueTest extends TestCase
     public static function documents(): array
     {
         return [
-            'on the marker line' => ["- ```\n  a\n    \n  b\n  ```\n", "a\n  \nb"],
-            'after a blank line' => ["- x\n\n  ```\n  a\n     \n  b\n  ```\n", "a\n   \nb"],
-            'no wider than the content column' => ["- ```\n  a\n  \n  b\n  ```\n", "a\n\nb"],
-            'in a block quote, the control' => ["> ```\n> a\n>   \n> b\n> ```\n", "a\n  \nb"],
+            'on the marker line' => ["- ```\n  a\n    \n  b\n  ```\n", "a\n  \nb\n"],
+            'after a blank line' => ["- x\n\n  ```\n  a\n     \n  b\n  ```\n", "a\n   \nb\n"],
+            'no wider than the content column' => ["- ```\n  a\n  \n  b\n  ```\n", "a\n\nb\n"],
+            'in a block quote, the control' => ["> ```\n> a\n>   \n> b\n> ```\n", "a\n  \nb\n"],
         ];
     }
 
@@ -44,7 +44,10 @@ class AWhitespaceOnlyCodeLineInAnItemKeepsItsResidueTest extends TestCase
         $source = (new HtmlToCarve())->convert("<ul><li><pre>a\n \nb</pre></li></ul>");
         $document = (new CarveConverter())->parse($source);
 
-        $this->assertSame(["a\n \nb"], $this->codeContents($document));
+        // The imported payload's last line has no break, so the canonical writer
+        // supplies one before the closing fence; re-parsing reads that break back
+        // as payload (`CARVE-P12-064`).
+        $this->assertSame(["a\n \nb\n"], $this->codeContents($document));
         $this->assertSame($source, (new CarveRenderer())->render($document));
     }
 

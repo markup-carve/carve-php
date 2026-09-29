@@ -12,12 +12,12 @@ use DOMText;
 use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\VerbatimPayload;
 use SplObjectStorage;
 use Throwable;
 
@@ -1539,7 +1539,7 @@ final class HtmlAstBuilder
         // blank line and not none. Dropping it unconditionally lost a line on
         // every all-blank payload, this engine's own output included
         // (carve-php#2726).
-        $block = ['type' => 'code_block', 'content' => VerbatimPayload::contentFromCodeText($content)];
+        $block = ['type' => 'code_block', 'content' => CodePayload::contentFromCodeText($content)];
         $class = $source->getAttribute('class');
         $language = $this->codeLanguage($node, $code);
         if ($language !== null) {

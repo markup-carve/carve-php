@@ -178,7 +178,7 @@ class HtmlRendererTest extends TestCase
     public function testRenderCodeBlock(): void
     {
         $doc = new Document();
-        $codeBlock = new CodeBlock("echo 'hello';", 'php');
+        $codeBlock = new CodeBlock("echo 'hello';\n", 'php');
         $doc->appendChild($codeBlock);
 
         $result = $this->renderer->render($doc);
@@ -189,7 +189,7 @@ class HtmlRendererTest extends TestCase
     public function testRenderCodeBlockEscapesLanguageAttribute(): void
     {
         $doc = new Document();
-        $codeBlock = new CodeBlock('echo 1;', 'php" onclick="alert(1)');
+        $codeBlock = new CodeBlock("echo 1;\n", 'php" onclick="alert(1)');
         $doc->appendChild($codeBlock);
 
         $result = $this->renderer->render($doc);
@@ -203,7 +203,7 @@ class HtmlRendererTest extends TestCase
     public function testRenderCodeBlockWithoutLanguage(): void
     {
         $doc = new Document();
-        $codeBlock = new CodeBlock('plain code');
+        $codeBlock = new CodeBlock("plain code\n");
         $doc->appendChild($codeBlock);
 
         $result = $this->renderer->render($doc);

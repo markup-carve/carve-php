@@ -20,71 +20,71 @@ class AWhitespaceOnlyCodeLineKeepsTheFencesResidueTest extends TestCase
         return [
             'A top-level, line of 2' => [
                 "```\na\n  \nb\n```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'B item at 2, fence at 2, line 2' => [
                 "- item\n\n  ```\n  a\n  \n  b\n  ```\n",
-                "a\n\nb",
+                "a\n\nb\n",
             ],
             'C item at 2, fence at 4, line 4' => [
                 "- item\n\n    ```\n    a\n    \n    b\n    ```\n",
-                "a\n\nb",
+                "a\n\nb\n",
             ],
             'D item at 2, fence at 4, line 6' => [
                 "- item\n\n    ```\n    a\n      \n    b\n    ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'E note at 4, fence at 4, line 6' => [
                 "x[^1]\n\n[^1]: note\n\n    ```\n    a\n      \n    b\n    ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'F note at 4, fence at 6, line 6' => [
                 "x[^1]\n\n[^1]: note\n\n      ```\n      a\n      \n      b\n      ```\n",
-                "a\n\nb",
+                "a\n\nb\n",
             ],
             'G note at 4, fence at 6, line 8' => [
                 "x[^1]\n\n[^1]: note\n\n      ```\n      a\n        \n      b\n      ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'H nested item, fence at 4, line 6' => [
                 "- - item\n\n    ```\n    a\n      \n    b\n    ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'I nested item, fence at 6, line 6' => [
                 "- - item\n\n      ```\n      a\n      \n      b\n      ```\n",
-                "a\n\nb",
+                "a\n\nb\n",
             ],
             'J nested item, fence at 6, line 8' => [
                 "- - item\n\n      ```\n      a\n        \n      b\n      ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'K defn desc at 3, fence at 5, line 7' => [
                 ":: t\n:  d\n\n     ```\n     a\n       \n     b\n     ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'L quote+item, fence at 4, line 6' => [
                 "> - item\n>\n>     ```\n>     a\n>       \n>     b\n>     ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'M item at 2, fence at 4, line 5' => [
                 "- item\n\n    ```\n    a\n     \n    b\n    ```\n",
-                "a\n \nb",
+                "a\n \nb\n",
             ],
             'a deeper fence run does not close the block' => [
                 "- item\n\n    ```\n    a\n      ```\n      \n    b\n    ```\n",
-                "a\n  ```\n  \nb",
+                "a\n  ```\n  \nb\n",
             ],
             'tab reaches the opener column' => [
                 "- item\n\n\t```\n\ta\n\t\n\tb\n\t```\n",
-                "a\n\nb",
+                "a\n\nb\n",
             ],
             'spaces past a tab-indented opener' => [
                 "- item\n\n\t```\n\ta\n\t  \n\tb\n\t```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'tab crosses the opener column' => [
                 "- item\n\n   ```\n   a\n\t\n   b\n   ```\n",
-                "a\n \nb",
+                "a\n \nb\n",
             ],
         ];
     }

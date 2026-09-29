@@ -71,19 +71,17 @@ class PresentationTargetVerbatimAndSpansTest extends TestCase
     }
 
     /**
-     * An EMPTIED code block still renders one line.
-     *
-     * The first attempt at the fix above tested the SPLIT rather than the
-     * content - "is the last element empty" - which cannot tell content `''`,
-     * whose one empty line is the block, from a terminator's leftover. It
-     * silently deleted the line for four corpus documents that reach an
-     * emptied fence through a list marker.
+     * An EMPTIED code block renders no line, and a one-blank payload renders
+     * one: `""` and `"\n"` are different payloads (`CARVE-P12-064`). The pair
+     * runs together because an assertion on absence alone cannot show that the
+     * target still draws the line it should.
      */
-    public function testAnEmptiedCodeBlockStillRendersItsLine(): void
+    public function testAnEmptiedCodeBlockRendersNoLineAndABlankPayloadRendersOne(): void
     {
-        $ansi = $this->ansi("- ```\nx\n```\n");
+        $blankLine = "\x1b[97m  \x1b[0m";
 
-        $this->assertStringContainsString("\x1b[97m  \x1b[0m", $ansi);
+        $this->assertStringNotContainsString($blankLine, $this->ansi("- ```\nx\n```\n"));
+        $this->assertStringContainsString($blankLine, $this->ansi("```\n\n```\n"));
     }
 
     /**

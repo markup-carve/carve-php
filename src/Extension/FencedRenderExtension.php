@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Extension;
 
 use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -329,7 +330,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         // static output never loses authored metadata and matches carve-js/rs.
         // Round-trip mode carries the same data-djot-src the interactive openTag()
         // emits, so Carve -> static HTML -> Carve still reconstructs the fence.
-        $source = $node->getContent();
+        $source = CodePayload::joinedLines($node->getContent());
         $build = $renderer->getStaticRenderer($this->cssClass);
         $defaults = [];
         if ($this->roundTripMode) {
@@ -390,7 +391,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
     {
         // Escape & and < to block injection, but preserve > so arrow syntax
         // (e.g. -->) survives. Matches the historical Mermaid behavior.
-        $content = str_replace(['&', '<'], ['&amp;', '&lt;'], $node->getContent());
+        $content = str_replace(['&', '<'], ['&amp;', '&lt;'], CodePayload::joinedLines($node->getContent()));
 
         return $this->openTag($node) . $content . '</' . $this->tag . ">\n";
     }
@@ -405,7 +406,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         // Replacing `</` with `<\/` keeps the JSON byte-equivalent (in JSON `\/`
         // decodes to `/`) while preventing an early close. This is the standard
         // JSON-in-script-tag guard.
-        $content = str_replace('</', '<\/', $node->getContent());
+        $content = str_replace('</', '<\/', CodePayload::joinedLines($node->getContent()));
 
         return $this->openTag($node)
             . '<script type="application/json">' . $content . '</script>'

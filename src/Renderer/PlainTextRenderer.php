@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
@@ -654,7 +655,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
             $prefix .= $this->stripControls($label) . "\n\n";
         }
 
-        return $prefix . $this->stripControls($node->getContent()) . "\n\n";
+        return $prefix . $this->stripControls(CodePayload::joinedLines($node->getContent())) . "\n\n";
     }
 
     /**

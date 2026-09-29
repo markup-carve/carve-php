@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -78,7 +79,7 @@ class MathBlockExtension implements StaticRenderExtensionInterface
             return false;
         }
 
-        $source = $node->getContent();
+        $source = CodePayload::joinedLines($node->getContent());
         $build = $renderer->getStaticRenderer(self::RENDERER_NAME);
         if ($build !== null) {
             // The build-time renderer owns its own escaping (it emits MathML /
@@ -107,7 +108,7 @@ class MathBlockExtension implements StaticRenderExtensionInterface
             : ' class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"';
 
         return '<div' . $attrs . '>\\['
-            . $this->escapeMath($node->getContent()) . '\\]</div>';
+            . $this->escapeMath(CodePayload::joinedLines($node->getContent())) . '\\]</div>';
     }
 
     /**
