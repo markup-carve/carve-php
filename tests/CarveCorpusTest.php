@@ -1113,6 +1113,10 @@ class CarveCorpusTest extends TestCase
      * @var array<string, array{reason: string, html: string}>
      */
     protected const AHEAD_OF_PIN = [
+        '517-a-band-paragraph-after-an-invisible-line-leaves-the-item-loose-5' => [
+            'reason' => 'Retained markers below the content column stay text (markup-carve/carve#2619).',
+            'html' => "<ul>\n  <li><p>t</p>\n    <p>- b</p>\n  </li>\n  <li><p>s</p></li>\n</ul>",
+        ],
         '277-a-below-column-marker-after-a-comment-where-no-paragraph-is-open' => [
             'reason' => 'Retained markers below the content column stay text (markup-carve/carve#2619).',
             'html' => "<ul>\n  <li>a\n    - s\n  </li>\n</ul>",

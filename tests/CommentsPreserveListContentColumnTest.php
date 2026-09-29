@@ -7,16 +7,30 @@ namespace MarkupCarve\Carve\Test;
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class CommentsPreserveListContentColumnTest extends TestCase
 {
     /**
+     * @throws \RuntimeException
+     *
      * @return iterable<string, array{string, string}>
      */
     public static function cases(): iterable
     {
-        $cases = json_decode(file_get_contents(__DIR__ . '/fixtures/comment-list-content-column.json'), true, flags: JSON_THROW_ON_ERROR);
+        $json = file_get_contents(__DIR__ . '/fixtures/comment-list-content-column.json');
+        if ($json === false) {
+            throw new RuntimeException('Cannot read comment fixtures.');
+        }
+        $cases = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+        if (!is_array($cases)) {
+            throw new RuntimeException('Expected an array of comment fixtures.');
+        }
         foreach ($cases as $case) {
+            if (!is_array($case) || !isset($case['source'], $case['html']) || !is_string($case['source']) || !is_string($case['html'])) {
+                throw new RuntimeException('Expected source and HTML strings.');
+            }
+
             yield $case['source'] => [$case['source'], $case['html']];
         }
     }
