@@ -1000,8 +1000,12 @@ class ProseMirrorRenderer
             if ($directiveKind !== null) {
                 $attrs['kind'] = $directiveKind;
             }
+            // An empty label is a spelled slot, like the empty title below: the
+            // writer puts `::: note []` on a label whose whole content was a
+            // comment, so dropping it on `=== ''` brought the document back as
+            // `::: note` (corpus 518-…-10).
             $label = $node->getLabel();
-            if ($label !== null && $label !== '') {
+            if ($label !== null) {
                 $attrs['label'] = $label;
             }
             // An empty title is meaningful - `::: note ""` suppresses the

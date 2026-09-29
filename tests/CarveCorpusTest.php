@@ -49,6 +49,39 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (spec 9b938e8a ->
+        // 578d564d, corpus 513 through 531). All nineteen are comment
+        // ownership, container column, raw payload and inline pairing rulings
+        // this engine already answers: each of the 142 documents renders
+        // byte-identically to its corpus HTML here, measured per document, so
+        // none is deferred and KNOWN_GAPS stays empty. Spec sources in corpus
+        // order: markup-carve/carve#2540, #2544, #2549, #2547, #2558, #2562,
+        // #2563, #2569, #2574, #2577 (523 and 522 both), #2579, #2586, #2589
+        // (526 and 527 both), #2597, #2600, #2605, #2612.
+        //
+        // The pin stops at 578d564d rather than carve's tip on purpose:
+        // markup-carve/carve#2616 re-snapshots nine goldens in EXISTING
+        // categories to the reading carve-php#2734 measured against and ruled
+        // out, so porting it is engine work, tracked in carve-php#2748.
+        'a-comment-span-opened-below-every-content-column-is-located-there',
+        'a-fence-a-container-inside-a-quote-holds-open-stores-no-claim',
+        'a-nested-marker-comment-keeps-its-own-ownership',
+        'a-heading-comment-preserves-code-span-content',
+        'a-band-paragraph-after-an-invisible-line-leaves-the-item-loose',
+        'a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator',
+        'a-shifted-fence-in-a-quoted-item-stores-no-continuation-claim',
+        'a-dropped-raw-block-takes-no-line-in-the-container-that-holds-it',
+        'a-zero-line-and-a-one-blank-raw-payload-are-not-the-same-block',
+        'an-emphasis-marker-does-not-pair-across-a-link-bracket',
+        'a-link-title-crosses-a-soft-wrap-and-an-attribute-value-does-not',
+        'an-empty-code-payload-renders-no-characters',
+        'a-link-inside-a-span-s-label-keeps-its-destination',
+        'a-quoted-value-and-a-quoted-title-escape-different-sets',
+        'a-tab-does-not-open-the-title-slot',
+        'a-footnote-body-whose-every-block-renders-nothing-is-an-empty-body',
+        'a-container-label-publishes-its-inline-run',
+        'a-fence-after-a-footnote-quote-has-its-own-base',
+        'an-opener-under-a-quote-in-a-nested-host-opens-at-one-column-only',
         // ARRIVED WITH THE PIN BUMP carve-php#2669 CARRIES (spec 9b938e8a,
         // markup-carve/carve#2527). A comment span's ownership is read at its
         // OPENER's column, so the closer's column stops deciding who owns the
@@ -1080,17 +1113,12 @@ class CarveCorpusTest extends TestCase
      * @var array<string, array{reason: string, html: string}>
      */
     protected const AHEAD_OF_PIN = [
-        // `101-table-header-cell-rowspan` stood here on carve#2224 and came out
-        // with the pin that merged it: the golden now states what this engine
-        // already rendered, which is the entry failing in the direction it was
-        // written to fail in.
-        '372-an-all-blank-raw-payload-still-emits-its-line' => [
-            'html' => "\n\n<p>after</p>\n",
-            'reason' => 'One blank payload line contributes one newline and the block still '
-                . 'takes its own line, so the two newlines are the payload and the terminator. '
-                . 'The pinned golden carries the collapsed reading the oracle had before '
-                . 'markup-carve/carve#2574 re-snapshotted this row',
-        ],
+        // `372-an-all-blank-raw-payload-still-emits-its-line` stood here until
+        // this bump. markup-carve/carve#2574 is inside the range it carries, so
+        // the pinned golden now states the two newlines this engine already
+        // rendered and the entry's second assertion fails in the direction it
+        // was written to fail in. Measured at spec 578d564d: golden and output
+        // are byte-identical.
     ];
 
     protected CarveConverter $converter;

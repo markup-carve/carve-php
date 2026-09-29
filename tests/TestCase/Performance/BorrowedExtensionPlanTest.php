@@ -219,11 +219,11 @@ CRV;
             }
         }
 
-        // 49 apiece since the bump to carve 5bc9c5f - the same one new corpus
-        // document (`448-a-marker-folds-into-a-quote-below-it-6`) the
-        // unconfigured layout newly accepts, and it renders identically under
+        // 52 apiece since the bump to carve 578d564d - the same three new corpus
+        // documents the unconfigured layout newly accepts (corpus 522 and 524,
+        // named in BorrowedHtmlLayoutTest), and each renders identically under
         // both profiles.
-        self::assertSame(['tier2' => 49, 'events' => 49], $accepted, 'A configured fast-path routing change needs explicit review.');
+        self::assertSame(['tier2' => 52, 'events' => 52], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]

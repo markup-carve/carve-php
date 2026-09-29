@@ -47,6 +47,31 @@ class HtmlImportReportTest extends TestCase
     private const AHEAD_OF_PIN = [];
 
     /**
+     * The other side of the same window: a fixture the pin states and this
+     * engine does not yet write.
+     *
+     * Same two-way guard as AHEAD_OF_PIN, so an entry cannot outlive its cause:
+     * the declared source must still be what this engine produces, and it must
+     * still DIFFER from the fixture, so the entry fails and has to be deleted
+     * in the commit that closes the gap.
+     *
+     * @var array<string, array{carve: string, reason: string}>
+     */
+    private const BEHIND_THE_PIN = [
+        'paren-after-a-closed-bracket' => [
+            'carve' => "[a]\\(b) and f(x) and (see above) and [a] (b) and [a](b c)\n\n"
+                . "[[a]\\(u)]{.c}\n\n"
+                . "[`a`]\\(b)\n\n"
+                . "[/a]\\(b)/\n\n"
+                . "[a]\\(b(xy)d) and [a]()\n",
+            'reason' => 'markup-carve/carve#2610 moved the fourth paragraph\'s escape to the '
+                . 'bracket opener, and this engine still escapes the paren. The spec repo '
+                . 'declares the same gap for the pinned reference engine in '
+                . 'resources/html-import-pin-drift.txt. Tracked in carve-php#2747',
+        ],
+    ];
+
+    /**
      * Shared fixtures whose direct-import tree and canonical-source exit do not
      * yet agree in this engine. Every entry is checked in both directions: the
      * named mismatch must still exist, and an unnamed mismatch fails.
@@ -75,6 +100,7 @@ class HtmlImportReportTest extends TestCase
         $present = array_map('basename', (array)glob($root . '/*', GLOB_ONLYDIR));
 
         $this->assertSame([], array_values(array_diff(array_keys(self::AHEAD_OF_PIN), $present)));
+        $this->assertSame([], array_values(array_diff(array_keys(self::BEHIND_THE_PIN), $present)));
         $this->assertSame([], array_values(array_diff(array_keys(self::AST_DIVERGENCES), $present)));
     }
 
@@ -160,6 +186,7 @@ class HtmlImportReportTest extends TestCase
             $astResult = (new HtmlToCarve(...$options))->convertToAstWithReport($html);
             $actual = $result->report()['diagnostics'];
             $ahead = self::AHEAD_OF_PIN[basename($fixture)] ?? null;
+            $behind = self::BEHIND_THE_PIN[basename($fixture)] ?? null;
             if ($ahead !== null && array_key_exists('carve', $ahead)) {
                 $this->assertSame($ahead['carve'], $result->value, $ahead['reason']);
                 // THE STALENESS HALF. When the pin moves past the clause the
@@ -171,6 +198,13 @@ class HtmlImportReportTest extends TestCase
                     $ahead['carve'],
                     $expected,
                     basename($fixture) . ' now matches the pin: delete its AHEAD_OF_PIN entry',
+                );
+            } elseif ($behind !== null) {
+                $this->assertSame($behind['carve'], $result->value, $behind['reason']);
+                $this->assertNotSame(
+                    $behind['carve'],
+                    $expected,
+                    basename($fixture) . ' now matches the pin: delete its BEHIND_THE_PIN entry',
                 );
             } else {
                 $this->assertSame($expected, $result->value, basename($fixture));
