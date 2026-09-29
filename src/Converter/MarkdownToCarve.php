@@ -4337,12 +4337,12 @@ class MarkdownToCarve
                     $previous = $body;
                     $body = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]], $body) ?? $body;
                 } while ($body !== $previous);
-                if (!str_contains($body, '\\') && !str_contains($body, '`')) {
+                if (!str_contains($body, '\\') && !str_contains($body, '`') && BracketScanner::rawRunCloses($body)) {
                     return $protect($match[0]);
                 }
                 // Backslashes are literal in a CommonMark autolink. Encode
                 // them in the destination and write its label as literal text.
-                $url = str_replace(['\\', '[', ']', '(', ')', '`'], ['%5C', '%5B', '%5D', '%28', '%29', '%60'], $body);
+                $url = str_replace(['\\', '[', ']', '`'], ['%5C', '%5B', '%5D', '%60'], $body);
                 $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
                     . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
 

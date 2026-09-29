@@ -18,6 +18,33 @@ class MarkdownToCarveTest extends TestCase
         $this->converter = new MarkdownToCarve(convertRawHtml: true);
     }
 
+    #[DataProvider('bracketAutolinkProvider')]
+    public function testAutolinkBracketsRemainDestinationData(string $markdown, string $html): void
+    {
+        $this->assertSame($html . "\n", (new CarveConverter())->convert($this->converter->convert($markdown)));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function bracketAutolinkProvider(): array
+    {
+        return [
+            'literal backslash with parentheses' => [
+                '<https://a.com/\\(x)>',
+                '<p><a href="https://a.com/%5C(x)">https://a.com/\\(x)</a></p>',
+            ],
+            'inline-looking suffix' => [
+                "[foo<https://example.com/?search=](uri)>\n",
+                '<p>[foo<a href="https://example.com/?search=%5D(uri)">https://example.com/?search=](uri)</a></p>',
+            ],
+            'reference-looking suffix' => [
+                "[foo<https://example.com/?search=][ref]>\n\n[ref]: /uri\n",
+                '<p>[foo<a href="https://example.com/?search=%5D%5Bref%5D">https://example.com/?search=][ref]</a></p>',
+            ],
+        ];
+    }
+
     /**
      * @param string $markdown
      * @param string $expected
