@@ -76,4 +76,43 @@ class ARawBlockInteriorIsVerbatimTest extends TestCase
 
         $this->assertStringContainsString('        <li>one</li>', $html);
     }
+
+    /**
+     * The placement is about the block, not about the byte that opens it
+     * (carve-php#2703). Every case above spells the payload `<b>x</b>`, so the
+     * footnote body indenter could place a raw block by asking whether the line
+     * starts with a tag and still satisfy all of them. A payload that opens with
+     * plain text tells the two rules apart.
+     */
+    public function testAPlainTextPayloadIsPlacedAtTheBodyColumn(): void
+    {
+        $html = $this->html("[^a]: note\n\n  ```=html\n  x\n  ```\n\nsee[^a]\n");
+
+        $this->assertStringContainsString("\n      x\n", $html);
+    }
+
+    public function testAPlainTextPayloadKeepsItsInteriorAtColumnZero(): void
+    {
+        // Both halves at once: the opening moves, the interior does not.
+        $html = $this->html("[^a]: note\n\n  ```=html\n  x\n  y\n  ```\n\nsee[^a]\n");
+
+        $this->assertStringContainsString("      x\ny\n", $html);
+    }
+
+    public function testAnInteriorLineOpeningWithATagStaysVerbatim(): void
+    {
+        // The inverse: a tag-leading line in the INTERIOR must not be placed.
+        $html = $this->html("[^a]: note\n\n  ```=html\n  x\n  <b>y</b>\n  ```\n\nsee[^a]\n");
+
+        $this->assertStringContainsString("      x\n<b>y</b>\n", $html);
+    }
+
+    public function testAPayloadWrittenPastTheFenceKeepsItsExtraColumns(): void
+    {
+        // The body column is added to what the author wrote, not substituted
+        // for it, so two authored columns become eight.
+        $html = $this->html("[^a]: note\n\n  ```=html\n    x\n  ```\n\nsee[^a]\n");
+
+        $this->assertStringContainsString("\n        x\n", $html);
+    }
 }
