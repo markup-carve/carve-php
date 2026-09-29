@@ -51,6 +51,7 @@ use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\VerbatimPayload;
 use ReflectionMethod;
 use WeakMap;
 
@@ -3453,11 +3454,10 @@ class BlockParser
         $label = $fenceInfo['label'];
         $indentLen = strlen($fenceInfo['indent']);
 
-        $content = '';
+        $payload = [];
         $i = $start + 1;
         $count = count($lines);
         $closed = false;
-        $payloadLines = 0;
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -3479,8 +3479,7 @@ class BlockParser
             $currentLine = $this->fencedBlockParser->removeIndent($currentLine, $indentLen);
             $currentLine = self::stripLazyFrame($currentLine);
 
-            $content .= $currentLine . "\n";
-            $payloadLines++;
+            $payload[] = $currentLine;
             $i++;
         }
 
@@ -3492,21 +3491,19 @@ class BlockParser
         // canonical djot), rather than degrading to an inline code span.
         if (!$closed) {
             $this->addWarning('Unclosed code fence', $start, 1, true);
+            // AN UNCLOSED OPENER OWNS A FINAL LINE BREAK WITH NO LINE COLLECTED:
+            // it runs to the end of its container and the end supplies the break.
+            // That is the line corpus 276 pins for a fence on a marker line whose
+            // body sits below the item's content column, so reading it as zero
+            // lines would empty those documents (carve-js#2353).
+            if ($payload === []) {
+                $payload = [''];
+            }
         }
 
         $language = $info !== '' ? $info : null;
 
-        // Drop only the line separator before the closing fence. Code content
-        // itself, including blank lines, is preserved verbatim.
-        if (str_ends_with($content, "\n")) {
-            $content = substr($content, 0, -1);
-        }
-
-        $codeBlock = new CodeBlock($content, $language, $label, $header);
-        // Stripping the separator above leaves a closed fence with one blank line
-        // holding the same empty string as one with no line at all, so the count
-        // has to be carried rather than read back off $content (carve-php#2721).
-        $codeBlock->setNoPayloadLines($closed && $payloadLines === 0);
+        $codeBlock = new CodeBlock(VerbatimPayload::content($payload), $language, $label, $header);
         $this->applyPendingAttributes($codeBlock);
         // The opener "header" becomes the <pre> title attribute (rendering A),
         // unless a preceding {title=...} block-attribute line already set one

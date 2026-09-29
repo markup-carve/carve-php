@@ -230,9 +230,19 @@ class AnEmptyCodeSpanImportsOnlyWhereItsRunEndsTest extends TestCase
 
     /**
      * A fenced block is not an inline run, and its emptiness is spellable.
+     *
+     * The newline before `</code>` TERMINATES the last payload line rather than
+     * adding one, so a `<pre><code>` holding nothing is a payload of no lines and
+     * imports as a fence with none. Written with one blank line, the import was
+     * not a fixed point: it rendered back a newline the source did not hold
+     * (carve-php#2726).
      */
     public function testAnEmptyPreIsUntouched(): void
     {
-        $this->assertSame("```\n\n```\n", $this->import('<pre><code></code></pre>'));
+        $this->assertSame("```\n```\n", $this->import('<pre><code></code></pre>'));
+        $this->assertSame('<pre><code></code></pre>', rtrim($this->html($this->import('<pre><code></code></pre>')), "\n"));
+        // Its neighbour, which is one blank payload line and keeps its newline.
+        $this->assertSame("```\n\n```\n", $this->import("<pre><code>\n</code></pre>"));
+        $this->assertSame("<pre><code>\n</code></pre>", rtrim($this->html($this->import("<pre><code>\n</code></pre>")), "\n"));
     }
 }

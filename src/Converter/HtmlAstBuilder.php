@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\VerbatimPayload;
 use SplObjectStorage;
 use Throwable;
 
@@ -1466,10 +1467,12 @@ final class HtmlAstBuilder
         if (!HtmlDomLoader::usesHtml5() && $source === $node && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
             $content = substr($content, 1);
         }
-        if (str_ends_with($content, "\n")) {
-            $content = substr($content, 0, -1);
-        }
-        $block = ['type' => 'code_block', 'content' => $content];
+        // The newline before `</code>` TERMINATES the last payload line rather
+        // than adding one, so a `<pre><code>` holding a single newline is one
+        // blank line and not none. Dropping it unconditionally lost a line on
+        // every all-blank payload, this engine's own output included
+        // (carve-php#2726).
+        $block = ['type' => 'code_block', 'content' => VerbatimPayload::contentFromCodeText($content)];
         $class = $source->getAttribute('class');
         $language = $this->codeLanguage($node, $code);
         if ($language !== null) {

@@ -78,6 +78,7 @@ use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\VerbatimPayload;
 use Normalizer;
 
 /**
@@ -2499,7 +2500,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $info .= ' [' . str_replace(['[', ']', '`'], '', $this->stripControls($label)) . ']';
         }
 
-        return $backticks . $info . "\n" . $content . "\n" . $backticks . "\n\n";
+        // The separator a payload of no lines does not own, and an all-blank one
+        // already carries; the same rule the Carve target reads
+        // (carve-php#2726).
+        $closerSeparator = VerbatimPayload::terminated($content) ? '' : "\n";
+
+        return $backticks . $info . "\n" . $content . $closerSeparator . $backticks . "\n\n";
     }
 
     protected function renderBlockQuote(BlockQuote $node): string
