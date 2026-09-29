@@ -6407,6 +6407,9 @@ class BlockParser
             ) {
                 continue;
             }
+            if ($probeNestedColumns !== [] && $base < end($probeNestedColumns) && $this->isCommentLineOrFence(ltrim($line, " \t"))) {
+                continue;
+            }
             while ($probeNestedColumns !== [] && $base < end($probeNestedColumns)) {
                 array_pop($probeNestedColumns);
             }
@@ -6504,6 +6507,8 @@ class BlockParser
                     || (
                         $this->fencedBlockParser->parseCodeFenceOpener($line) === null
                         && $this->fencedBlockParser->parseRawBlockOpener($line) === null
+                        && $this->blockQuoteLineContent($line) === null
+                        && $this->containerContentColumn($line, 0) === null
                     )
                 )
             ) {
@@ -6516,6 +6521,9 @@ class BlockParser
                 && $base < end($nestedColumns)
                 && !$this->authoredBaseReachesEnclosingColumn($eligible, $i, $base, $line)
             ) {
+                continue;
+            }
+            if ($nestedColumns !== [] && $base < end($nestedColumns) && $this->isCommentLineOrFence(ltrim($line, " \t"))) {
                 continue;
             }
             while ($nestedColumns !== [] && $base < end($nestedColumns)) {
@@ -8425,7 +8433,8 @@ class BlockParser
                 // to the caller's loop, and a stream ending in a closed block
                 // has nothing to continue: both end the item.
                 if (
-                    !$trailingState->openParagraph
+                    (!$trailingState->openParagraph
+                        && !($trailingState->afterComment && $trailingState->nestedColumn > 0 && $nextIndent > $baseIndent))
                     || $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
                     || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
                 ) {
@@ -8497,7 +8506,9 @@ class BlockParser
                 // the fence at the closer and the run below it left the item.
                 $trailingState = $this->advanceTrailingState(
                     $trailingState,
-                    str_starts_with($folded, self::LAZY_FRAME) ? $folded : $nextLine,
+                    str_starts_with($folded, self::LAZY_FRAME)
+                        ? $folded
+                        : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine),
                 );
                 $i++;
 
@@ -14656,6 +14667,7 @@ class BlockParser
         if (
             $nestedColumn > 0
             && !IndentationHelper::isBlankFrom($line, $at)
+            && !$this->isCommentLineOrFence($line, $at)
             && IndentationHelper::pastLeadingWhitespace($line, $at) - $at < $nestedColumn
         ) {
             $nestedColumn = 0;
