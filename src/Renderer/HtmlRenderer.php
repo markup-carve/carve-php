@@ -1226,10 +1226,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $code = str_replace("\t", str_repeat(' ', $this->codeBlockTabWidth), $code);
         }
 
-        // Add the renderer-owned trailing newline inside code blocks (official
-        // djot behavior), while preserving any newline already present in the
-        // verbatim code content.
-        $code .= "\n";
+        // The renderer owns the newline that ends the payload's LAST LINE, which
+        // the parser strips off $content. A payload with no lines has no last line,
+        // and zero lines preserved literally is zero characters
+        // (markup-carve/carve#2560, corpus 524).
+        if (!$node->hasNoPayloadLines()) {
+            $code .= "\n";
+        }
 
         // Add data-djot-src for round-trip support
         $djotSrcAttr = '';

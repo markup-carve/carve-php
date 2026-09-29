@@ -2347,9 +2347,12 @@ DJOT;
         $djot = "```\n```";
         $result = $this->converter->convert($djot);
 
-        // An empty fenced code block still carries the trailing newline inside
-        // <code> (PART 10 §6: content + trailing newline), matching carve-js.
-        $this->assertStringContainsString("<pre><code>\n</code></pre>", $result);
+        // `code_content` is any text until the matching fence, preserved literally,
+        // so zero payload lines is zero characters (markup-carve/carve#2560, corpus
+        // 524). The newline the renderer owns ends the payload's LAST LINE, and a
+        // payload with no lines has none. An UNCLOSED opener still takes a line,
+        // which testUnclosedFenceAtBlockStartIsBlockCode below pins.
+        $this->assertStringContainsString('<pre><code></code></pre>', $result);
     }
 
     public function testUnclosedFenceAtBlockStartIsBlockCode(): void

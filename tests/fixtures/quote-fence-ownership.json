@@ -2,12 +2,12 @@
   {
     "name": "closed 1 ```",
     "source": "> a\n> ```\n> ```\ny\n",
-    "html": "<blockquote>\n  <p>a</p>\n  <pre><code>\n</code></pre>\n</blockquote>\n<p>y</p>"
+    "html": "<blockquote>\n  <p>a</p>\n  <pre><code></code></pre>\n</blockquote>\n<p>y</p>"
   },
   {
     "name": "closed 1 ~~~",
     "source": "> a\n> ~~~\n> ~~~\ny\n",
-    "html": "<blockquote>\n  <p>a</p>\n  <pre><code>\n</code></pre>\n</blockquote>\n<p>y</p>"
+    "html": "<blockquote>\n  <p>a</p>\n  <pre><code></code></pre>\n</blockquote>\n<p>y</p>"
   },
   {
     "name": "closed 1 ``` =html",
@@ -17,7 +17,7 @@
   {
     "name": "reopen 1",
     "source": "> a\n> ```\n> ```\n> b\ny\n",
-    "html": "<blockquote>\n  <p>a</p>\n  <pre><code>\n</code></pre>\n  <p>b\ny</p>\n</blockquote>"
+    "html": "<blockquote>\n  <p>a</p>\n  <pre><code></code></pre>\n  <p>b\ny</p>\n</blockquote>"
   },
   {
     "name": "unclosed paragraph 1",
@@ -27,12 +27,12 @@
   {
     "name": "closed 2 ```",
     "source": "> > a\n> > ```\n> > ```\ny\n",
-    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code>\n</code></pre>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code></code></pre>\n  </blockquote>\n</blockquote>\n<p>y</p>"
   },
   {
     "name": "closed 2 ~~~",
     "source": "> > a\n> > ~~~\n> > ~~~\ny\n",
-    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code>\n</code></pre>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code></code></pre>\n  </blockquote>\n</blockquote>\n<p>y</p>"
   },
   {
     "name": "closed 2 ``` =html",
@@ -42,7 +42,7 @@
   {
     "name": "reopen 2",
     "source": "> > a\n> > ```\n> > ```\n> > b\ny\n",
-    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code>\n</code></pre>\n    <p>b\ny</p>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <p>a</p>\n    <pre><code></code></pre>\n    <p>b\ny</p>\n  </blockquote>\n</blockquote>"
   },
   {
     "name": "unclosed paragraph 2",
@@ -52,12 +52,12 @@
   {
     "name": "closed 3 ```",
     "source": "> > > a\n> > > ```\n> > > ```\ny\n",
-    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code>\n</code></pre>\n    </blockquote>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code></code></pre>\n    </blockquote>\n  </blockquote>\n</blockquote>\n<p>y</p>"
   },
   {
     "name": "closed 3 ~~~",
     "source": "> > > a\n> > > ~~~\n> > > ~~~\ny\n",
-    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code>\n</code></pre>\n    </blockquote>\n  </blockquote>\n</blockquote>\n<p>y</p>"
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code></code></pre>\n    </blockquote>\n  </blockquote>\n</blockquote>\n<p>y</p>"
   },
   {
     "name": "closed 3 ``` =html",
@@ -67,7 +67,7 @@
   {
     "name": "reopen 3",
     "source": "> > > a\n> > > ```\n> > > ```\n> > > b\ny\n",
-    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code>\n</code></pre>\n      <p>b\ny</p>\n    </blockquote>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <blockquote>\n      <p>a</p>\n      <pre><code></code></pre>\n      <p>b\ny</p>\n    </blockquote>\n  </blockquote>\n</blockquote>"
   },
   {
     "name": "unclosed paragraph 3",
@@ -112,7 +112,7 @@
   {
     "name": "a quote fence inside a list inside a quote",
     "source": "> - a\n>   > q\n>   > ```\n>   > ```\n>   y\n",
-    "html": "<blockquote>\n  <ul>\n    <li>a\n      <blockquote>\n        <p>q</p>\n        <pre><code>\n</code></pre>\n      </blockquote>\n      y\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <blockquote>\n        <p>q</p>\n        <pre><code></code></pre>\n      </blockquote>\n      y\n    </li>\n  </ul>\n</blockquote>"
   },
   {
     "name": "a shallower comment fence ends the inner paragraph",

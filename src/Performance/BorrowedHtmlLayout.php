@@ -327,9 +327,6 @@ final class BorrowedHtmlLayout
                         $this->output->push("\n");
                     }
                 }
-                if (!$math && $close === $i + 1) {
-                    $this->output->push("\n");
-                }
                 $this->output->push($math ? '\\]</div>' : '</code></pre>');
                 $previousMath = $math;
                 $this->accept($stats, 'codeFences', $i, $close + 1);
