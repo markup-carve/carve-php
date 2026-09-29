@@ -276,6 +276,17 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     ];
 
     /**
+     * The sentinel that ends a code fence's opener line and its closer line, so
+     * the blank-line collapse can tell a payload from the space between blocks.
+     *
+     * Picked in the same run as the families above and stripped right after the
+     * collapse, before the escape resolve reads the run as a character class.
+     *
+     * @var string
+     */
+    protected string $fenceSentinel = "\u{E00E}";
+
+    /**
      * How many links' text is being rendered: GFM builds no link inside a
      * link, so §8i escapes nothing there.
      *
@@ -505,8 +516,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 : $markdown . "\n" . $residual;
         }
 
-        // Normalize multiple blank lines
-        $markdown = preg_replace("/\n{3,}/", "\n\n", $markdown) ?? $markdown;
+        // Normalize multiple blank lines, OUTSIDE a fenced payload.
+        $markdown = $this->collapseBlankRunsOutsideFences($markdown);
 
         $markdown = trim($markdown, StringUtil::TRIMMABLE_WHITESPACE) . "\n";
 
@@ -519,6 +530,37 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // code-block prefix the way ordinary leading spaces would be. Done after
         // trimming so placeholder-derived leading indentation survives.
         return $this->prependFrontmatter($document, $markdown);
+    }
+
+    /**
+     * Collapse runs of blank lines to one, except inside a fenced payload.
+     *
+     * A blank line between two blocks is spacing a reader can supply again; a
+     * blank line between two fence delimiters is CONTENT, and squeezing a run of
+     * them rewrote the payload the writer had just emitted correctly
+     * (carve-php#2736). renderCodeBlock() ends both delimiter lines with a
+     * sentinel, so the regions are exact rather than guessed off the text.
+     *
+     * The opener's own newline stays outside the region and is never collapsed
+     * with the payload below it: a delimiter line's last character before its
+     * sentinel is a backtick or an info byte, never a newline.
+     */
+    protected function collapseBlankRunsOutsideFences(string $markdown): string
+    {
+        $sentinel = preg_quote($this->fenceSentinel, '/');
+
+        // A PAYLOAD IS CONSUMED WHOLE, so a run inside one is never reached. The
+        // first branch is ordered ahead of the second and matches from the
+        // opener's sentinel, which stands BEFORE the payload's newlines. The
+        // negated class rather than a lazy `.*?` keeps a long payload linear and
+        // clear of the backtrack limit.
+        return (string)preg_replace_callback(
+            '/' . $sentinel . '[^' . $sentinel . ']*' . $sentinel . '|\n{3,}/su',
+            fn (array $match): string => $match[0][0] === "\n"
+                ? "\n\n"
+                : str_replace($this->fenceSentinel, '', $match[0]),
+            $markdown,
+        );
     }
 
     /**
@@ -604,9 +646,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $positional = count(self::AUTHORED_POSITIONAL);
         $run = DocumentSentinels::pick(
             DocumentSentinels::collectStrings($document),
-            $narrowed + $positional + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS),
+            $narrowed + $positional + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS) + 1,
             self::NARROWED_SENTINEL_FIRST,
         );
+        // LAST IN THE RUN, and outside the class below. The fence sentinel is
+        // gone before resolveNarrowedEscapes() runs, so widening the class to
+        // cover it would only give that pass a character it has no mapping for.
+        $this->fenceSentinel = $run[count($run) - 1];
+        $run = array_slice($run, 0, -1);
 
         // ONE RUN, TWO FAMILIES. Picked together so the collision search runs
         // once and the two families are guaranteed contiguous, which is what
@@ -2505,7 +2552,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // (carve-php#2726).
         $closerSeparator = VerbatimPayload::terminated($content) ? '' : "\n";
 
-        return $backticks . $info . "\n" . $content . $closerSeparator . $backticks . "\n\n";
+        // The two sentinels bracket the payload for the blank-line collapse in
+        // render(). Every blank line between the delimiters is content, and the
+        // collapse has no other way to tell it from the space between blocks
+        // (carve-php#2736). They end the delimiter lines rather than opening the
+        // payload, so no payload byte moves and the container passes that split
+        // this string on newlines still see the lines they saw.
+        $sentinel = $this->fenceSentinel;
+
+        return $backticks . $info . $sentinel . "\n"
+            . $content . $closerSeparator . $backticks . $sentinel . "\n\n";
     }
 
     protected function renderBlockQuote(BlockQuote $node): string
