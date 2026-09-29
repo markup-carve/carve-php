@@ -33,7 +33,7 @@ class MarkdownFenceLanguageTest extends TestCase
   ],
   [
     "````;\n````\n",
-    "<pre><code>\n</code></pre>"
+    "<pre><code></code></pre>"
   ],
   [
     "```=html\n<script>x</script>\n```",

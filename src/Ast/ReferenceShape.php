@@ -185,12 +185,21 @@ final class ReferenceShape
         // `isAutolink` IS the type name on the wire; the single text child is
         // published as `text`.
         'autolink' => ['isAutolink', 'referenceLabel', 'title', 'fromHeadingReference'],
-        // Nothing. `label` is authored (`[NPM]` on the opener), and the
-        // reference keeps `header` too - it is how a title written IN the fence
-        // is told apart from one written on an attribute line above it, which
-        // both land in `attrs.title`. A div's `header` is different: the
-        // reference has no such field there, so that one stays internal.
-        'code_block' => [],
+        // `label` is authored (`[NPM]` on the opener), and the reference keeps
+        // `header` too - it is how a title written IN the fence is told apart from
+        // one written on an attribute line above it, which both land in
+        // `attrs.title`. A div's `header` is different: the reference has no such
+        // field there, so that one stays internal.
+        //
+        // `noPayloadLines` is the one internal here the decoder CANNOT recompute.
+        // `content` is the empty string for a fence with no payload line and for
+        // one holding a single blank line, and the reference collapses them the
+        // same way: carve-js `c5df77f6` serializes `content: ""` for both, and
+        // `code_block` in the upstream `resources/ast-schema.json` has no second
+        // field to put the difference in. Publishing one would invent a field the
+        // reference has no counterpart for, which §3 refuses, so a tree that has
+        // been through the codec renders the one-line reading (carve-php#2721).
+        'code_block' => ['noPayloadLines'],
         'link' => ['isAutolink', 'fromHeadingReference'],
         'thematic_break' => [],
         // Fence WIDTH is a writer's concern, recomputed when formatting; the

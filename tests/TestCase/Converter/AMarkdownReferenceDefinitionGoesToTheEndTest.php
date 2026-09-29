@@ -118,7 +118,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
 
         $this->assertSame("- ```\n  ```\n\n```\n```\n\n[b]: /2 \"t\"\n", $imported);
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code>\n</code></pre>\n  </li>\n</ul>\n<pre><code>\n</code></pre>\n",
+            "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
             (new CarveConverter())->convert($imported),
         );
     }

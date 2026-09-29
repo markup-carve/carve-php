@@ -60,7 +60,7 @@ class TwoBlanksEndADescriptionFenceTest extends TestCase
     public function testACloserBeyondOneBlankCanInterruptTheParagraph(): void
     {
         $source = ":: term\n:  desc\n   ```\nlazy\n\n   ```\n";
-        $expected = "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>desc</p>\n    <pre><code>\n</code></pre>\n  </dd>\n</dl>\n"
+        $expected = "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>desc</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n"
             . "<p>lazy</p>\n<p><code></code></p>\n";
         $this->assertSame($expected, (new CarveConverter())->convert($source));
     }

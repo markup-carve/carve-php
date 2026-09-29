@@ -3457,6 +3457,7 @@ class BlockParser
         $i = $start + 1;
         $count = count($lines);
         $closed = false;
+        $payloadLines = 0;
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -3479,6 +3480,7 @@ class BlockParser
             $currentLine = self::stripLazyFrame($currentLine);
 
             $content .= $currentLine . "\n";
+            $payloadLines++;
             $i++;
         }
 
@@ -3501,6 +3503,10 @@ class BlockParser
         }
 
         $codeBlock = new CodeBlock($content, $language, $label, $header);
+        // Stripping the separator above leaves a closed fence with one blank line
+        // holding the same empty string as one with no line at all, so the count
+        // has to be carried rather than read back off $content (carve-php#2721).
+        $codeBlock->setNoPayloadLines($closed && $payloadLines === 0);
         $this->applyPendingAttributes($codeBlock);
         // The opener "header" becomes the <pre> title attribute (rendering A),
         // unless a preceding {title=...} block-attribute line already set one
