@@ -113,6 +113,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - AST child mutations keep parent links consistent, move a child out of its previous parent, and reject cycles and duplicate bulk children before changing the tree (#2550).
 - Six fuzz shapes now answer the way the oracle does (#2648).
 - Nested code-span formatting is fixed, as are three lint diagnostics, a comment-span tightness and a table's wire partition (#2612, #2646).
+- The canonical writer no longer spells `{loose}` on a one-item list whose own blank line already says it: the looseness re-parse read the writer's own sentinels as source (#2763).
 
 ### Improvements
 
