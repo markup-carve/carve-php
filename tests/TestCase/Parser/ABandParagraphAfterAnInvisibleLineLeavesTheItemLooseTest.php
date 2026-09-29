@@ -66,9 +66,9 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
                 "- t\n\n  %%%\n  c\n  %%%\n z\n",
                 "<ul>\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ul>",
             ],
-            'the attached sub-list that stays tight' => [
+            'the retained marker leaves the list loose' => [
                 "- t\n\n  %% c\n - b\n- s\n",
-                "<ul>\n  <li>t\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n  <li>s</li>\n</ul>",
+                "<ul>\n  <li><p>t</p>\n    <p>- b</p>\n  </li>\n  <li><p>s</p></li>\n</ul>",
             ],
         ];
     }
@@ -145,20 +145,15 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
     }
 
     /**
-     * A band-column marker after an invisible line nests, and the list goes on.
-     *
-     * The ownership half. Written at the content column this already produced
-     * one nested list inside the item and kept `s` as its sibling; written in
-     * the band it produced three lists, because the collector ended the item at
-     * the marker.
+     * Only a marker reaching the content column opens a child list.
      */
-    public function testABandColumnMarkerNestsInsideTheItem(): void
+    public function testABandColumnMarkerStaysTextInsideTheItem(): void
     {
         $expected = "<ul>\n  <li>t\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n  <li>s</li>\n</ul>";
 
         // The content-column spelling is the control: it read this way before.
         $this->assertSame($expected, $this->html("- t\n\n  %% c\n  - b\n- s\n"));
-        $this->assertSame($expected, $this->html("- t\n\n  %% c\n - b\n- s\n"));
+        $this->assertSame("<ul>\n  <li><p>t</p>\n    <p>- b</p>\n  </li>\n  <li><p>s</p></li>\n</ul>", $this->html("- t\n\n  %% c\n - b\n- s\n"));
     }
 
     /**

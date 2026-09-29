@@ -57,18 +57,14 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
     }
 
     /**
-     * A below-column MARKER opens a sublist, which is what all three engines
-     * do once the line survives at all. §24 C3's below-column branch reads
-     * like it should be item text - it says the line "folds in as lazy
-     * paragraph text" - but that presumes an OPEN paragraph, and the comment
-     * has just ended it. Filed as markup-carve/carve#682; pinned here so the
-     * engine cannot drift while the wording is settled.
+     * A retained marker below the content column remains paragraph text.
      */
-    public function testABelowColumnMarkerOpensASublist(): void
+    public function testABelowColumnMarkerStaysText(): void
     {
         $html = $this->html("- a\n  %%% x\n  y\n  %%%\n - s\n");
 
-        $this->assertStringContainsString('<li>s</li>', $html, "the author's line vanished");
+        $this->assertStringContainsString('- s', $html, "the author's line vanished");
+        $this->assertSame(1, substr_count($html, '<ul>'));
         $this->assertStringNotContainsString('%%%', $html);
     }
 

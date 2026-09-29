@@ -5300,6 +5300,7 @@ class BlockParser
                     // by index - the same proof collectMarkerLeadItem() records
                     // and for the same reader (markup-carve/carve#1896).
                     $subEligible = [];
+                    $subRetainedMarker = false;
                     while ($i < $count) {
                         $subLine = $lines[$i];
                         if (IndentationHelper::isBlankLine($subLine)) {
@@ -5644,7 +5645,10 @@ class BlockParser
                             if ($dedentedOpener) {
                                 // Markers retain their text classification. Other
                                 // openers keep one column on the nested reparse.
-                                $subLines[] = $this->listParser->parseListItemMarker($trimmedLine) !== null
+                                $retainMarker = !$inSubCommentSpan && $subTrailingState->afterComment
+                                    && $this->listParser->parseListItemMarker($trimmedLine) !== null;
+                                $subRetainedMarker = $subRetainedMarker || $retainMarker;
+                                $subLines[] = $retainMarker
                                     ? self::LAZY_FRAME . $trimmedLine
                                     : ' ' . $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);
@@ -5676,7 +5680,10 @@ class BlockParser
                                 && !$this->isBlockElementStart($trimmedLine, $lines, $i)
                                 && !$this->startsNewBlock($trimmedLine, $lines, $i)
                             ) {
-                                $subLines[] = $this->listParser->parseListItemMarker($trimmedLine) !== null
+                                $retainMarker = !$inSubCommentSpan && $subTrailingState->afterComment
+                                    && $this->listParser->parseListItemMarker($trimmedLine) !== null;
+                                $subRetainedMarker = $subRetainedMarker || $retainMarker;
+                                $subLines[] = $retainMarker
                                     ? self::LAZY_FRAME . $trimmedLine
                                     : $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);
@@ -5725,7 +5732,7 @@ class BlockParser
                     if ($subLines !== []) {
                         $before = count($lastItem->getChildren());
                         $this->parseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible);
-                        if ($lastItemHadBlankAfter) {
+                        if ($lastItemHadBlankAfter && $subRetainedMarker) {
                             foreach (array_slice($lastItem->getChildren(), $before) as $child) {
                                 if ($child instanceof Comment) {
                                     continue;
@@ -8198,7 +8205,8 @@ class BlockParser
 
             // Retained markers below the content column stay text on reparse.
             if (
-                $this->listParser->parseListItemMarker($nextTrimmed) !== null
+                $openCommentLength === null
+                && $this->listParser->parseListItemMarker($nextTrimmed) !== null
                 && ($trailingState->afterComment
                     || $this->isCommentLineOrFence($itemLines[count($itemLines) - 1] ?? ''))
             ) {
