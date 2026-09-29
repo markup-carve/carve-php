@@ -2878,7 +2878,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $outerTerm = $this->inTerm;
                 $this->inTerm = true;
                 try {
-                    $out[] = ':: ' . str_replace("\n%%", "\n %%", $this->renderInlines($child->getChildren()));
+                    $out[] = ':: ' . $this->renderInlines($child->getChildren());
                 } finally {
                     $this->inTerm = $outerTerm;
                 }
@@ -3561,15 +3561,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // separator is what writes the marker at column 0.
                     $separator = ($out === '' || str_ends_with($out, "\n")) ? '' : ' ';
                     if ($node->getFenceLength() !== null) {
-                        // A comment fence folded into a term: every line one
-                        // column past the term's, so the fence stays in the
-                        // term (markup-carve/carve#2411).
-                        $out .= ' ' . str_replace("\n", "\n ", $this->renderComment($node));
+                        // Only the delimiters need padding to stay inside the term.
+                        $commentLines = explode("\n", $this->renderComment($node));
+                        $commentLines[0] = ' ' . $commentLines[0];
+                        $last = count($commentLines) - 1;
+                        $commentLines[$last] = ' ' . $commentLines[$last];
+                        $out .= implode("\n", $commentLines);
                         $lineNodeCount++;
                         $lineHostsCaption = false;
                         $captionCanOpen = false;
 
                         continue;
+                    }
+                    if ($this->inTerm && str_ends_with($out, "\n")) {
+                        $separator = ' ';
                     }
                     $out .= $node->isDelimited()
                         ? $this->renderComment($node)
