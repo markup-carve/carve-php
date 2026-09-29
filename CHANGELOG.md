@@ -17,6 +17,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- Code and raw fences indented past a quoted item's content column release following unmarked lines to the document (#2610).
+
 - Fences inside quoted lists and footnotes no longer absorb following unmarked lines (markup-carve/carve#2550).
 
 - A code or raw fence opened past a list item's content column keeps its interior blank lines from loosening the item (#2598).
