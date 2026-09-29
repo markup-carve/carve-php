@@ -1425,44 +1425,20 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * Indent a footnote body by 6 spaces, padding only block-boundary lines
-     * (the first line and any line starting a tag) so a paragraph's inline
-     * soft-break continuation stays at column 0 — matching how a block
-     * renders at an indent level in the reference implementation.
+     * Indent a footnote body by 6 spaces, the column a block takes in an endnote item.
+     *
+     * Every `\n` left in a rendered body is a block boundary: an inline newline
+     * travels as inlineBreakGuard() and a soft break as softBreakGuard(), so a
+     * paragraph and its continuation are ONE entry here, and so is a whole raw
+     * block with its interior lines. Only a `<pre>` payload keeps real newlines,
+     * and indentBlock() already guards those. So the body indents on the same
+     * rule as a list item, and the tag-leading test this used to apply was
+     * refusing to place a raw block whose payload opens with plain text
+     * (carve-php#2703).
      */
     protected function indentFootnoteBody(string $content): string
     {
-        $lines = explode("\n", rtrim($content, "\n"));
-        // Verbatim content is off limits, exactly as in indentBlock(). Without the
-        // guard, `</code></pre>` starts with a tag, so it was padded - and that
-        // padding sits INSIDE the `<pre>`, giving the rendered code trailing
-        // whitespace the author never wrote (carve-php#815). carve-js and carve-rs
-        // both leave the closer at column 0.
-        $inPre = false;
-        foreach ($lines as $i => $line) {
-            if ($inPre) {
-                if (str_contains($line, '</pre>')) {
-                    $inPre = false;
-                }
-
-                continue;
-            }
-            // A NESTED block line carries its own indentation, so it does not
-            // START with the tag - only with whitespace before it - and was
-            // left under-indented relative to the other engines. Matching both
-            // puts a table, a list or a task list inside a note on the columns
-            // carve-js and carve-rs use. A paragraph's soft-break continuation
-            // is plain text at column 0 and still stays put, which is what the
-            // original test was protecting.
-            if ($line !== '' && ($i === 0 || preg_match('/^\s*</', $line) === 1)) {
-                $lines[$i] = '      ' . $line;
-            }
-            if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
-                $inPre = true;
-            }
-        }
-
-        return implode("\n", $lines);
+        return $this->indentBlock(rtrim($content, "\n"), 6);
     }
 
     protected function renderList(ListBlock $node): string
