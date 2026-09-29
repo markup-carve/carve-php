@@ -96,4 +96,70 @@ class AnEmptyCodePayloadRendersNoCharactersTest extends TestCase
         $this->assertSame("<pre><code></code></pre>\n", $converter->convert("```\n```\n"));
         $this->assertSame("<pre><code>\n</code></pre>\n", $converter->render($decoded));
     }
+
+    /**
+     * WHY THE READER KEEPS THE ONE-LINE READING, measured rather than argued
+     * (carve-php#2726).
+     *
+     * A reader holding `content: ""` renders a newline, which is wrong for corpus
+     * 524 and right for every other document that serializes the empty string: a
+     * fence whose body fell below its content column, and an opener a container
+     * closed before any payload line arrived. Over the pinned corpus plus the four
+     * documents carve `e778d33a` adds, reading the empty string as ZERO payload
+     * lines turns ONE `php->php` ingest mismatch into TEN. The two rows below are
+     * two of the nine it would break.
+     *
+     * So this is not a reader that can be corrected in place. The empty string has
+     * to stop denoting both shapes, which is a change to `code_block` in the
+     * upstream `resources/ast-schema.json` and to all three engines, not to this
+     * one.
+     *
+     * @return void
+     */
+    public function testTheEmptyContentStringAlsoMeansAOneLinePayload(): void
+    {
+        $codec = new AstCodec();
+        $converter = new CarveConverter();
+        $shapes = [
+            // Corpus 276: the fence body sits below the item's content column, so
+            // the fence takes no payload line and the body is a paragraph below.
+            "- ```\nx\n```\n" => "<ul>\n  <li>\n    <pre><code>\n</code></pre>\n  </li>\n</ul>\n"
+                . "<p>x\n<code></code></p>\n",
+            // Corpus 69: the quote ends the opener before a payload line arrives.
+            "> ```\n" => "<blockquote>\n  <pre><code>\n</code></pre>\n</blockquote>\n",
+        ];
+
+        foreach ($shapes as $source => $expected) {
+            $encoded = $codec->encode($converter->parse($source));
+            $this->assertSame('', $this->firstCodeBlockContent($encoded), $source);
+            // Both paths already agree here, and they agree on the newline.
+            $this->assertSame($expected, $converter->convert($source), $source);
+            $this->assertSame($expected, $converter->render($codec->decode($encoded)), $source);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $encoded
+     */
+    protected function firstCodeBlockContent(array $encoded): ?string
+    {
+        if (($encoded['type'] ?? null) === 'code_block') {
+            $content = $encoded['content'] ?? null;
+
+            return is_string($content) ? $content : null;
+        }
+        /** @var array<array<string, mixed>> $children */
+        $children = array_merge(
+            is_array($encoded['children'] ?? null) ? $encoded['children'] : [],
+            is_array($encoded['items'] ?? null) ? $encoded['items'] : [],
+        );
+        foreach ($children as $child) {
+            $found = $this->firstCodeBlockContent($child);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
 }

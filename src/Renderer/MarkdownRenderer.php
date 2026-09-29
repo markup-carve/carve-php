@@ -2669,9 +2669,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * paragraph and its own node is gone. Put the blank in wherever that can
      * happen (carve#2446).
      *
-     * It can only happen while the sublist's last item leaves a paragraph open,
-     * and only for a block that does not interrupt a paragraph on its own.
-     * Writing the blank anywhere else would loosen this item for nothing.
+     * It can only happen while the sublist's last WRITTEN line still holds an
+     * open paragraph, and only for a block that does not interrupt a paragraph
+     * on its own. Writing the blank anywhere else would loosen this item for
+     * nothing.
      *
      * @param array<\MarkupCarve\Carve\Node\Node> $children
      * @param array<int, string> $parts
@@ -2686,13 +2687,37 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 || $below === ''
                 || !str_ends_with($parts[$index], "\n")
                 || str_ends_with($parts[$index], "\n\n")
-                || !$this->leavesParagraphOpen($child)
+                || !$this->lastWrittenLineTakesLazyText($parts[$index])
                 || $this->opensWithParagraphInterrupter(explode("\n", $below)[0])
             ) {
                 continue;
             }
             $parts[$index] .= "\n";
         }
+    }
+
+    /**
+     * Whether the last line a nested list WROTE can take a lazy continuation.
+     *
+     * Read off the emitted text rather than off the node tree, for the same
+     * reason the seam above it is: a child this target drops writes nothing, so
+     * the item whose last child it is still leaves its paragraph open. Asking
+     * the tree asked the comment instead and answered no, and corpus
+     * `512-a-comment-span-s-closer-column-does-not-move-the-item-s-ownership-9`
+     * handed its outer item's `tail` to the inner one (carve-php#2728).
+     *
+     * A bare marker and a thematic break hold no text for a lazy line to join,
+     * and a line opening one of `#>|`~=` starts a construct of its own.
+     */
+    protected function lastWrittenLineTakesLazyText(string $rendered): bool
+    {
+        $tail = ltrim($this->lastNonBlankLine($rendered), " \t");
+        if (preg_match('/^(?:[-*+]|\d+[.)]) *$/', $tail) === 1 || preg_match('/^(-+|\*+|_+)[ \t]*$/', $tail) === 1) {
+            return false;
+        }
+        $text = (string)preg_replace('/^(?:[-*+]|\d+[.)]) +/', '', $tail);
+
+        return $text !== '' && !str_contains('#>|`~=', $text[0]);
     }
 
     /**
@@ -2744,32 +2769,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return false;
-    }
-
-    /**
-     * Whether this block's last line leaves a paragraph open, which is what a
-     * lazy continuation below it attaches to.
-     */
-    protected function leavesParagraphOpen(Node $node): bool
-    {
-        if ($node instanceof Paragraph) {
-            return true;
-        }
-        if (
-            !$node instanceof ListBlock
-            && !$node instanceof ListItem
-            && !$node instanceof BlockQuote
-            && !$node instanceof DefinitionList
-            && !$node instanceof DefinitionDescription
-        ) {
-            return false;
-        }
-        $children = array_values($node->getChildren());
-        if ($children === []) {
-            return false;
-        }
-
-        return $this->leavesParagraphOpen($children[count($children) - 1]);
     }
 
     protected function lastNonBlankLine(string $rendered): string
