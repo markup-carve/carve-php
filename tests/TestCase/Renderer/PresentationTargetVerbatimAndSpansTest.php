@@ -55,8 +55,8 @@ class PresentationTargetVerbatimAndSpansTest extends TestCase
     {
         $ansi = $this->ansi("```\nabc\n\n\n```\n\nafter\n");
 
-        // `abc`, then the surviving blank content line, each styled.
-        $this->assertSame(2, substr_count($ansi, "\x1b[97m  "));
+        // `abc` and both trailing blank payload lines are styled.
+        $this->assertSame(3, substr_count($ansi, "\x1b[97m  "));
     }
 
     /**

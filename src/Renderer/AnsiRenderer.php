@@ -72,6 +72,7 @@ use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\VerbatimPayload;
 
 /**
  * Renders AST to ANSI-formatted terminal output
@@ -852,10 +853,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $lang = $this->stripControls($lang);
         }
 
-        $lines = explode("\n", $content);
-        if (str_ends_with($content, "\n")) {
-            array_pop($lines);
-        }
+        $lines = VerbatimPayload::lines($content);
         $output = '';
 
         // PART 11 §10e T1: a fence header (`"src/app.js"`) and a grouping label

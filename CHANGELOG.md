@@ -17,6 +17,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- ANSI output preserves every code payload line, including trailing blank lines (markup-carve/carve-js#2357).
+
 - Fenced comments retain payload indentation beyond the host content column. Formatting preserves those columns, including comments folded into definition terms (markup-carve/carve#2535).
 
 - Code and raw fences indented past a quoted item's content column release following unmarked lines to the document (#2610).
