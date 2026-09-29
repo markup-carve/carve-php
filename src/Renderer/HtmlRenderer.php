@@ -72,6 +72,7 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\LabelKey;
+use MarkupCarve\Carve\Parser\Utility\ContainerLabelParser;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
@@ -816,6 +817,31 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 return $html;
             }),
         );
+    }
+
+    /**
+     * A container label's fallback caption content: its INLINE RUN, not the
+     * characters the author typed.
+     *
+     * `CARVE-P9-041` names a container label among the delimited regions parsed
+     * as `inline_content` in their own right (ruled on markup-carve/carve#2572).
+     * Escaping it instead published `a /b/` where every other inline host
+     * publishes `a <em>b</em>`, and it made one host answer two ways, since a
+     * trailing `%%` comment in a label is already consumed as a run.
+     *
+     * @see \MarkupCarve\Carve\Parser\Utility\ContainerLabelParser
+     */
+    public function renderContainerLabel(Div $node): string
+    {
+        $nodes = $node->getLabelNodes();
+        if ($nodes === []) {
+            // Nothing parsed this label: it arrived from the AST decoder or from
+            // the public API, both of which carry it as text. Reading the run
+            // here keeps the caption the same either way.
+            $nodes = ContainerLabelParser::parse((string)$node->getLabel());
+        }
+
+        return $this->renderInlineNodesFragment($nodes);
     }
 
     /**
@@ -1715,7 +1741,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
         $label = $node->getLabel();
         if ($label !== null && $label !== '') {
-            $head .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
+            $head .= '  <p class="div-label">' . $this->renderContainerLabel($node) . "</p>\n";
         }
 
         return ['name' => $name, 'head' => $head];
@@ -1785,7 +1811,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // `:::[]` writes, and the fallback caption is what says the slot was
         // there (markup-carve/carve-php#2632).
         if ($label !== null) {
-            $titleLine .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
+            $titleLine .= '  <p class="div-label">' . $this->renderContainerLabel($node) . "</p>\n";
         }
 
         // PROPOSAL (graceful degradation): a grouping `[label]` (grammar PART 9
@@ -1837,7 +1863,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $titleLine = '  <p class="admonition-title"' . $id . '>'
                     . $this->renderInlineNodesFragment($node->getHeaderNodes()) . "</p>\n";
                 if ($label !== null) {
-                    $titleLine .= '  <p class="div-label">' . $this->escape($label) . "</p>\n";
+                    $titleLine .= '  <p class="div-label">' . $this->renderContainerLabel($node) . "</p>\n";
                 }
             }
             $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");

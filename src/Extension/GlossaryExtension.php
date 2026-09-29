@@ -166,7 +166,7 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
         }
         $label = $div->getLabel();
         if ($label !== null && $label !== '') {
-            $parts[] = '<p class="div-label">' . $renderer->escapeText($label) . '</p>';
+            $parts[] = '<p class="div-label">' . $renderer->renderContainerLabel($div) . '</p>';
         }
         $firstDl = true;
         foreach ($div->getChildren() as $child) {

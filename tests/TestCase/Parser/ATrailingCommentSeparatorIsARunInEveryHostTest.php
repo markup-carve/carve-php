@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -128,20 +130,6 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
                 'a ' . $tick . 'x ' . $tick . $tick . $tick . ' %% y' . $tick . ' z',
                 'a ' . $tick . 'x ' . $tick . $tick . $tick . ' %% y' . $tick . ' z',
             ],
-            'an unclosed span reaches the label end' => [
-                'a ' . $tick . 'x %% y',
-                'a ' . $tick . 'x %% y',
-            ],
-            'an unclosed longer run reaches the label end' => [
-                'a ' . $tick . $tick . $tick . ' %% hidden',
-                'a ' . $tick . $tick . $tick . ' %% hidden',
-            ],
-            // An escaped backtick opens nothing, so the marker after it is a
-            // marker.
-            'an escaped backtick opens no span' => [
-                'a \\' . $tick . 'x %% hidden' . $tick . ' z',
-                'a \\' . $tick . 'x',
-            ],
             'a closed span leaves the marker outside it' => [
                 'a ' . $tick . 'x' . $tick . ' %% hidden',
                 'a ' . $tick . 'x' . $tick,
@@ -166,14 +154,52 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
         ];
     }
 
+    /**
+     * ASSERTED ON THE STORED LABEL, not on the caption. The claim is where the
+     * scan STOPS, and that is the string the parser keeps; the caption renders
+     * the label as an inline run now (markup-carve/carve#2572), so reading the
+     * answer off escaped HTML would measure the renderer instead.
+     */
     #[DataProvider('labelProvider')]
     public function testALabelScanReadsAMarkerWhereTheInlineParserDoes(string $label, string $expected): void
     {
         $source = '::: note [' . $label . "]\nbody\n:::\n";
-        $html = CarveConverter::create()->convert($source);
-        $this->assertStringContainsString(
-            '<p class="div-label">' . htmlspecialchars($expected, ENT_QUOTES) . '</p>',
-            $html,
+        $div = CarveConverter::create()->parse($source)->getChildren()[0] ?? null;
+        $this->assertInstanceOf(Div::class, $div, $source);
+        $this->assertSame($expected, $div->getLabel(), $source);
+    }
+
+    /**
+     * THE LABEL SLOT TAKES A BALANCED BRACKET RUN, so an UNCLOSED backtick run
+     * inside it swallows the closer and the opener line is prose - which is what
+     * a link text does with the same bytes (markup-carve/carve#2576). These three
+     * shapes were rows of the provider above while the slot ended at the first
+     * `]`; they have no label to scan now, so they moved here rather than being
+     * dropped. Byte-identical to carve-js at `db48137e8`.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function unclosedRunsInALabel(): array
+    {
+        $tick = '`';
+
+        return [
+            'an unclosed span reaches the label end' => ['a ' . $tick . 'x %% y'],
+            'an unclosed longer run reaches the label end' => ['a ' . $tick . $tick . $tick . ' %% hidden'],
+            'an escaped backtick opens no span, so the next one is unclosed' => [
+                'a \\' . $tick . 'x %% hidden' . $tick . ' z',
+            ],
+        ];
+    }
+
+    #[DataProvider('unclosedRunsInALabel')]
+    public function testAnUnclosedRunLeavesTheOpenerAsProse(string $label): void
+    {
+        $source = '::: note [' . $label . "]\nbody\n:::\n";
+
+        $this->assertInstanceOf(
+            Paragraph::class,
+            CarveConverter::create()->parse($source)->getChildren()[0] ?? null,
             $source,
         );
     }

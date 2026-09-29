@@ -292,7 +292,7 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         }
         $label = $div->getLabel();
         if ($label !== null && $label !== '') {
-            $head .= '<p class="div-label">' . $renderer->escapeText($label) . "</p>\n";
+            $head .= '<p class="div-label">' . $renderer->renderContainerLabel($div) . "</p>\n";
         }
 
         // Preserve any authored content inside the placeholder before the list.

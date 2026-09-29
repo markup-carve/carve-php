@@ -173,15 +173,18 @@ final class ReferenceShape
         'table_cell' => ['isHeader', 'rowspan', 'colspan', 'hasExplicitAlignment', 'hasExplicitVerticalAlignment', 'blockContent'],
         'table_row' => ['isHeader'],
         // Fence width is a writer concern, recomputed when formatting.
-        'div' => ['typed', 'header'],
+        // `labelNodes` is the label READ AS THE INLINE RUN it is; the reference
+        // holds a label as text and scans it where it renders, so the nodes are
+        // this engine's own and the decoder reads them back off `label`.
+        'div' => ['typed', 'header', 'labelNodes'],
         // `typed` IS the type name on the wire; `header` is re-rendered from
         // `title`. `label` stays: the reference has it (`[Build]` on the opener
         // is authored content, verified against carve-js).
-        'admonition' => ['typed', 'header'],
+        'admonition' => ['typed', 'header', 'labelNodes'],
         // `headerNodes` is NOT hidden here: the schema gained `directive.title`
         // with carve#2247, so the quoted opener publishes through the field map
         // above, the way an admonition's does.
-        'directive' => ['typed', 'header'],
+        'directive' => ['typed', 'header', 'labelNodes'],
         // `isAutolink` IS the type name on the wire; the single text child is
         // published as `text`.
         'autolink' => ['isAutolink', 'referenceLabel', 'title', 'fromHeadingReference'],

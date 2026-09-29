@@ -185,7 +185,7 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
         }
         $label = $div->getLabel();
         if ($label !== null && $label !== '') {
-            $head .= '<p class="div-label">' . $renderer->escapeText($label) . "</p>\n";
+            $head .= '<p class="div-label">' . $renderer->renderContainerLabel($div) . "</p>\n";
         }
 
         $attrs = $this->openAttributes($div, $renderer, $titleId === '' ? null : $titleId);
