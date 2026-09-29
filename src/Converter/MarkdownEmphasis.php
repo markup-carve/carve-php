@@ -67,9 +67,11 @@ final class MarkdownEmphasis
                 $right && ($text[0] === '*' || !$left || $afterPunct),
             );
         }
+        $brackets = self::bracketRuns($source, $protectedSpans);
         foreach ($runs as $index => $run) {
             $run->previous = $index - 1;
             $run->next = $index + 1;
+            $run->scope = self::innermostLink($brackets, $run->start);
         }
         $unlink = static function (int $index) use ($runs, $onStep): void {
             $onStep?->__invoke();
@@ -95,6 +97,10 @@ final class MarkdownEmphasis
                     $onStep?->__invoke();
                     $opener = $runs[$o];
                     if (!$opener->active || !$opener->open || $opener->char !== $closer->char || $opener->remaining() === 0) {
+                        continue;
+                    }
+                    // NOT ACROSS A LINK LABEL. See MarkdownDelimiterRun::$scope.
+                    if ($opener->scope !== $closer->scope) {
                         continue;
                     }
                     $a = $opener->remaining();
@@ -154,6 +160,9 @@ final class MarkdownEmphasis
                     }
                 }
             }
+        }
+        foreach (array_keys(self::straddledBracketClosers($brackets, $pairs)) as $offset) {
+            $literalEscapes[$offset] = true;
         }
         $flattened = false;
         $output = [];
@@ -237,6 +246,129 @@ final class MarkdownEmphasis
         }
 
         return implode('', $output);
+    }
+
+    /**
+     * Every balanced bracket run in the line, innermost last, each flagged with
+     * whether the READER resolves it as a link.
+     *
+     * A resolved link's tail - an inline `(destination)` or a `[reference]` - is
+     * already a protected span by the time the emphasis pass runs, so the flag is
+     * read off that span's first character rather than from a second copy of the
+     * link grammar. A run with no tail is prose brackets, which pair nothing and
+     * scope nothing, and that is the whole difference between carve-php#2740 and
+     * carve-php#2741.
+     *
+     * @param string $source
+     * @param array<string> $protectedSpans
+     *
+     * @return list<array{open: int, close: int, link: bool}>
+     */
+    private static function bracketRuns(string $source, array $protectedSpans): array
+    {
+        $out = [];
+        $open = [];
+        $length = strlen($source);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $source[$i];
+            if ($char === '\\') {
+                $i++;
+
+                continue;
+            }
+            if ($char === "\0") {
+                // A protected span is opaque: a bracket inside one is content the
+                // writer already committed to, and a code span arrives as one.
+                $end = strpos($source, "\0", $i + 1);
+                if ($end === false) {
+                    break;
+                }
+                $i = $end;
+
+                continue;
+            }
+            if ($char === '[') {
+                $open[] = $i;
+
+                continue;
+            }
+            if ($char === ']' && $open !== []) {
+                $out[] = ['open' => array_pop($open), 'close' => $i, 'link' => self::hasLinkTail($source, $i + 1, $protectedSpans)];
+            }
+        }
+
+        usort($out, static fn (array $a, array $b): int => $a['open'] <=> $b['open']);
+
+        return $out;
+    }
+
+    /**
+     * @param string $source
+     * @param int $at
+     * @param array<string> $protectedSpans
+     */
+    private static function hasLinkTail(string $source, int $at, array $protectedSpans): bool
+    {
+        if (preg_match('/\G\x00P(\d+)\x00/', $source, $match, 0, $at) !== 1) {
+            return false;
+        }
+        $first = ($protectedSpans[(int)$match[1]] ?? '')[0] ?? '';
+
+        return $first === '(' || $first === '[';
+    }
+
+    /**
+     * The innermost link label holding `$offset`, or -1 outside every one.
+     *
+     * @param list<array{open: int, close: int, link: bool}> $brackets
+     * @param int $offset
+     */
+    private static function innermostLink(array $brackets, int $offset): int
+    {
+        $scope = -1;
+        foreach ($brackets as $index => $run) {
+            if ($run['link'] && $offset > $run['open'] && $offset < $run['close']) {
+                $scope = $index;
+            }
+        }
+
+        return $scope;
+    }
+
+    /**
+     * The closing brackets of prose bracket runs a written pair straddles.
+     *
+     * A pair whose halves sit each side of a prose run reads back as literal text:
+     * the Carve reader resolves a balanced bracket run before it scans for an
+     * emphasis closer (PART 8 ranks a link at 5 and a marker at 7), so a marker
+     * inside the run is label text by the time the partner outside it looks for
+     * one. Escaping the `]` leaves no run, and the pair reads back
+     * (carve-php#2741).
+     *
+     * @param list<array{open: int, close: int, link: bool}> $brackets
+     * @param array<int, array{close: int, width: int, kind: string}> $pairs
+     *
+     * @return array<int, true>
+     */
+    private static function straddledBracketClosers(array $brackets, array $pairs): array
+    {
+        $escapes = [];
+        foreach ($brackets as $run) {
+            if ($run['link']) {
+                continue;
+            }
+            foreach ($pairs as $openAt => $pair) {
+                $openInside = $openAt > $run['open'] && $openAt < $run['close'];
+                $closeInside = $pair['close'] > $run['open'] && $pair['close'] < $run['close'];
+                if ($openInside !== $closeInside) {
+                    $escapes[$run['close']] = true;
+
+                    break;
+                }
+            }
+        }
+
+        return $escapes;
     }
 
     private static function before(string $source, int $offset): string
