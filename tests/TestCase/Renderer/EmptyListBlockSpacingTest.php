@@ -36,17 +36,17 @@ class EmptyListBlockSpacingTest extends TestCase
         return $cases;
     }
 
-    public function testMeasuredGridContainsTwentyFourWhitespaceDifferences(): void
+    public function testMeasuredGridDeclaresNoWhitespaceDifference(): void
     {
         $cases = self::shapes();
         $this->assertCount(36, $cases);
-        $differences = 0;
-        foreach ($cases as [, $phpHtml, $oracleHtml]) {
+        $differences = [];
+        foreach ($cases as $name => [, $phpHtml, $oracleHtml]) {
             if (rtrim($phpHtml) !== rtrim($oracleHtml)) {
-                $differences++;
+                $differences[] = $name;
             }
         }
-        $this->assertSame(24, $differences);
+        $this->assertSame([], $differences);
     }
 
     #[DataProvider('shapes')]
@@ -61,7 +61,10 @@ class EmptyListBlockSpacingTest extends TestCase
         $converter = new CarveConverter();
         $html = $converter->convert($source);
         $this->assertSame($phpHtml, $html);
-        $this->assertSame(preg_replace('/\s/', '', $phpHtml), preg_replace('/\s/', '', $oracleHtml));
+        // Against the LIVE render, not against the stored column beside it: the
+        // grid held a declared whitespace divergence for 24 of these shapes, and
+        // a comparison between two stored columns cannot see the render move.
+        $this->assertSame(rtrim($oracleHtml), rtrim($html));
 
         $importer = new HtmlToCarve();
         $this->assertSame($imported, $importer->convert($html));

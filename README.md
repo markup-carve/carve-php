@@ -102,7 +102,7 @@ the author intended. The rules and options are in [docs/lint.md](https://github.
 - [ProseMirror / Tiptap](https://github.com/markup-carve/carve-php/blob/main/docs/prosemirror.md) - editor interchange.
 - [AST JSON](https://github.com/markup-carve/carve-php/blob/main/docs/ast-json.md) - the interchange format.
 - [Integrated definition layout](https://github.com/markup-carve/carve-php/blob/main/docs/integrated-definition-layout.md) - collecting and resolving reference, footnote and abbreviation definitions.
-- [HTML whitespace differences](https://github.com/markup-carve/carve-php/blob/main/docs/html-whitespace.md) - empty blocks in list items.
+- [HTML whitespace differences](https://github.com/markup-carve/carve-php/blob/main/docs/html-whitespace.md) - the line an empty raw block occupies.
 - [Configured conversion fast path](https://github.com/markup-carve/carve-php/blob/main/docs/configured-conversion-fast-path.md) - reusing a configured converter.
 
 ## Development

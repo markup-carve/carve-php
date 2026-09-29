@@ -580,11 +580,17 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * falsified. Source cannot supply it, because the parser rewrites an input
      * NUL, but a host-built text node can: it rendered a footnotes `div` in the
      * middle of the author's paragraph (markup-carve/carve-php#1087). One run of
-     * three cannot collide with itself or with the document.
+     * four cannot collide with itself or with the document.
+     *
+     * A FOURTH guard stands for a rendered line whose content is empty, so the
+     * block machinery can see the line without a character surviving into the
+     * output. A container strips its children's trailing newlines and re-adds
+     * one, which cannot tell an empty last line from no line at all
+     * (markup-carve/carve-php#2714).
      *
      * @var list<string>
      */
-    protected array $breakGuards = ["\u{E001}", "\u{E002}", "\u{E003}"];
+    protected array $breakGuards = ["\u{E001}", "\u{E002}", "\u{E003}", "\u{E004}"];
 
     /**
      * The first code point of the run picked for the break guards.
@@ -623,6 +629,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * The guard standing for a rendered line with no content of its own.
+     */
+    protected function emptyLineGuard(): string
+    {
+        return $this->breakGuards[3];
+    }
+
+    /**
      * Choose guards this document does not contain.
      *
      * Called at every TOP-LEVEL render entry and nowhere else: a fragment
@@ -635,7 +649,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         $this->breakGuards = DocumentSentinels::pick(
             DocumentSentinels::collectStrings($root),
-            3,
+            4,
             self::BREAK_GUARD_FIRST,
         );
     }
@@ -688,8 +702,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function restoreSoftBreakGuards(string $html): string
     {
         return str_replace(
-            [$this->inlineBreakGuard(), $this->softBreakGuard()],
-            ["\n", $this->softBreakReplacement()],
+            [$this->inlineBreakGuard(), $this->softBreakGuard(), $this->emptyLineGuard()],
+            ["\n", $this->softBreakReplacement(), ''],
             $html,
         );
     }
@@ -3582,14 +3596,27 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 return '';
             }
             if ($mode === SafeMode::RAW_HTML_ESCAPE) {
-                $escaped = $this->guardInteriorNewlines($this->escape($content));
-
-                return $escaped . ($content !== '' && trim($content, "\n") === '' ? '' : "\n");
+                return $this->rawBlockLines($this->escape($content)) . "\n";
             }
         }
 
-        return $this->guardInteriorNewlines($content)
-            . ($content !== '' && trim($content, "\n") === '' ? '' : "\n");
+        return $this->rawBlockLines($content) . "\n";
+    }
+
+    /**
+     * A raw block's payload as the lines it occupies, terminator excluded.
+     *
+     * Zero payload lines contribute nothing and one blank payload line
+     * contributes one newline, and PART 2 `raw_block` forbids encoding the two
+     * identically. Both shapes leave the block's body empty, so the body alone
+     * cannot carry the difference through a container, which strips its
+     * children's trailing newlines and re-adds one. The empty-line guard gives
+     * the zero-line shape a body the strip cannot reach, and it restores to
+     * nothing at the top-level render exit (markup-carve/carve-php#2714).
+     */
+    protected function rawBlockLines(string $content): string
+    {
+        return $content === '' ? $this->emptyLineGuard() : $this->guardInteriorNewlines($content);
     }
 
     /**
