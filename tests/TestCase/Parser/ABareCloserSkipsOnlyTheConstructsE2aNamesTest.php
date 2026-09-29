@@ -12,6 +12,13 @@ use PHPUnit\Framework\TestCase;
  * PART 9 §9 E2a: a bare delimiter never pairs across a code span, raw inline,
  * inline math, braced inline, link destination or autolink. Every other
  * construct is transparent to it (markup-carve/carve#2027).
+ *
+ * A BRACKET RUN is opaque for a different reason, which is why it is in the first
+ * list without being in E2a's. PART 8 ranks a link at 5 and an emphasis marker at
+ * 7, so the run is resolved before the marker is scanned and a delimiter inside it
+ * is label text by then (markup-carve/carve#2577, corpus 522). The transparent rows
+ * below are the ones where no run closes: parentheses with no `[` before them, and
+ * a brace group, which is not a bracket run at all.
  */
 class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
 {
@@ -46,6 +53,10 @@ class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
             'a destination after an escaped caret' => ["~see \\^[a](b~) now~\n", "<p><s>see ^<a href=\"b~\">a</a> now</s></p>\n"],
             'an autolink' => ["/see <http://a.b/c> now/\n", "<p><em>see <a href=\"http://a.b/c\">http://a.b/c</a> now</em></p>\n"],
             'an autolink holding the only closer' => ["~<http://x/a~>\n", "<p>~<a href=\"http://x/a~\">http://x/a~</a></p>\n"],
+            // Not E2a's doing: the bracket run resolves first under PART 8's ranks.
+            'a link label' => ["~[a~](b)\n", "<p>~<a href=\"b\">a~</a></p>\n"],
+            'a label whose run resolves to nothing' => ["~[a~] b\n", "<p>~[a~] b</p>\n"],
+            'a label holding a nested run' => ["~[a [b~] c](/u)\n", "<p>~<a href=\"/u\">a [b~] c</a></p>\n"],
         ];
     }
 
@@ -61,7 +72,6 @@ class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
     public static function transparentProvider(): array
     {
         return [
-            'a link label' => ["~[a~](b)\n", "<p><s>[a</s>](b)</p>\n"],
             'parentheses after a bracket that opens no link' => ["~a](b~) c\n", "<p><s>a](b</s>) c</p>\n"],
             'parentheses that are not a destination' => ["~[a](b c~) d~\n", "<p><s>[a](b c</s>) d~</p>\n"],
             'parentheses after a note reference' => ["~[^n](b~) c~\n", "<p><s>[^n](b</s>) c~</p>\n"],
