@@ -99,6 +99,32 @@ class AnItemSBlocksSurviveTheMarkdownTargetTest extends TestCase
         $this->assertFalse($this->readsBackTight("- a\n  - b\n    # N\n\n  lazy\n"));
     }
 
+    /**
+     * carve-php#2728. The sublist item's last CHILD is a comment, which this
+     * target writes nothing for, so the paragraph above it is the last line
+     * written and `tail` joins it lazily. Asking the tree which block comes last
+     * asked the comment and answered "no open paragraph", so no separator went
+     * in; the seam has to be read off the emitted text, the way the seam beside
+     * it already is.
+     *
+     * The document is corpus
+     * `512-a-comment-span-s-closer-column-does-not-move-the-item-s-ownership-9`,
+     * whose HTML puts `tail` in the OUTER item after the nested list.
+     */
+    public function testATightItemSTailBelowANestedListSurvivesADroppedComment(): void
+    {
+        $written = $this->write("- a\n  - item\n    %%%\n    hidden\n%%%\n  tail\n");
+
+        $this->assertSame("- a\n  - item\n\n  tail\n", $written);
+        $this->assertSame(
+            [Paragraph::class, ListBlock::class, Paragraph::class],
+            $this->blocksInTheFirstItem($written),
+        );
+        // The control: the bytes this target used to write. `tail` is gone from
+        // the outer item, absorbed by the sublist item above it.
+        $this->assertSame([Paragraph::class, ListBlock::class], $this->blocksInTheFirstItem("- a\n  - item\n  tail\n"));
+    }
+
     public function testASiblingSublistKeepsNoSeparatorEither(): void
     {
         $written = $this->write("- outer\n\n  para\n\n  - a\n\n\n\n  - b\n");

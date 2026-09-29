@@ -49,6 +49,26 @@ class EmptyListBlockSpacingTest extends TestCase
         $this->assertSame([], $differences);
     }
 
+    /**
+     * PART 11 §1 over the whole grid: `to_html(fmt(x)) == to_html(x)`.
+     *
+     * The grid RECORDED this broken for 24 of the 36 shapes, because the writer
+     * gave an empty fenced payload one blank line and this engine's reader tells
+     * a zero-line payload from a one-blank one (carve-php#2727). A stored column
+     * that merely differed from the column beside it said nothing, so the
+     * comparison is made here instead.
+     */
+    public function testEveryShapeRendersTheSameAfterFormatting(): void
+    {
+        $broken = [];
+        foreach (self::shapes() as $name => [, $phpHtml, , , , $formattedHtml]) {
+            if (rtrim($formattedHtml, "\n") !== rtrim($phpHtml, "\n")) {
+                $broken[] = $name;
+            }
+        }
+        $this->assertSame([], $broken);
+    }
+
     #[DataProvider('shapes')]
     public function testSpacingDoesNotChangeHtmlImportOrFormatterStability(
         string $source,
