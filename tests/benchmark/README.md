@@ -157,3 +157,19 @@ Add to your CI pipeline:
 
 - PHP 8.2+
 - Composer dependencies installed
+
+## Nested containers
+
+`nested-containers.php` measures parse, render and combined HTML separately at
+quote/list depths 48, 96 and 192. It accepts an optional checkout path whose
+Composer autoloader supplies the implementation, so the same script can measure
+a baseline and a candidate:
+
+```sh
+php -n -d extension=mbstring -d extension=ctype tests/benchmark/nested-containers.php /path/to/checkout
+```
+
+Each operation warms for 150ms and records seven batches of at least 50ms.
+Run both orders in separate processes and retain all samples. Generated HTML
+contains indentation that grows with depth; timings are not linear-in-input
+budgets or cross-runtime rankings.

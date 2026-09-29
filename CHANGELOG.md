@@ -117,6 +117,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Improvements
 
+- HTML indentation uses native tag searches instead of scanning every padding byte in PHP, reducing nested list and quote rendering time. Multiline attributes and preformatted payloads keep their existing bytes.
+
 - Editor-facing AST APIs for node identity, annotation ranges and provenance sidecars, plus reversible AST patches carrying revision fingerprints (#2456).
 - Editor sessions with bounded HTML streaming, and plain paragraphs reused across updates (#2624, #2626).
 - `MarkupCarve\Carve\Ast\AstEnvelope` reads and writes the versioned AST interchange envelope, so a payload from a newer contract, one needing a missing extension, and a foreign vocabulary are each refused distinctly (#2453).

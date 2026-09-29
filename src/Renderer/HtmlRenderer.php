@@ -1440,23 +1440,24 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     private static function endsInsideTag(string $line, bool $inTag): bool
     {
-        $length = strlen($line);
-        for ($i = 0; $i < $length; $i++) {
-            $char = $line[$i];
+        $offset = 0;
+        while (true) {
             if ($inTag) {
-                if ($char === '>') {
-                    $inTag = false;
+                $close = strpos($line, '>', $offset);
+                if ($close === false) {
+                    return true;
                 }
-
-                continue;
+                $inTag = false;
+                $offset = $close + 1;
             }
-            // `<` opens a tag only before a name or a closing slash.
-            if ($char === '<' && preg_match('/[A-Za-z\/]/', $line[$i + 1] ?? '') === 1) {
-                $inTag = true;
+            $open = strpos($line, '<', $offset);
+            if ($open === false) {
+                return false;
             }
+            $next = $line[$open + 1] ?? '';
+            $inTag = $next === '/' || ($next >= 'A' && $next <= 'Z') || ($next >= 'a' && $next <= 'z');
+            $offset = $open + 1;
         }
-
-        return $inTag;
     }
 
     /**
