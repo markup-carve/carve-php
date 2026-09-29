@@ -380,6 +380,33 @@ class AConsumedLooseBooleanSpellsTheLoosenessNoBlankLineCanTest extends TestCase
     }
 
     /**
+     * A TRAILING PARAGRAPH AFTER THE FENCE loosens the one-item list on its own,
+     * so the key is idle - carve corpus
+     * `164-tight-list-item-keeps-trailing-text-after-a-block-bare-3`, and
+     * `514-a-fence-a-container-inside-a-quote-holds-open-stores-no-claim-7` for
+     * the same shape inside a quote. Both are the counterexample PART 9 §17 L7
+     * names: a one-item list whose own blank line does the spelling.
+     *
+     * The re-parse that decides this reads the body the writer has already
+     * built, and mid-render that body still carries the writer's private-use
+     * sentinels. U+E003 stands in for a blank payload line and lands in front of
+     * the closing fence, so the re-parsed fence never closed, the item swallowed
+     * the paragraph below it, and the list read TIGHT.
+     */
+    public function testTheWriterDoesNotDecorateAListWhoseTrailingParagraphAlreadySpellsIt(): void
+    {
+        $this->assertSame("- item\n\n  ```\n  c\n  ```\n\n  tail\n", $this->fmt("- item\n\n  ```\n  c\n  ```\n\n  tail\n"));
+    }
+
+    public function testTheWriterDoesNotDecorateThatListInsideAQuote(): void
+    {
+        $this->assertSame(
+            "> - a\n>\n>   ```\n>   x\n>   ```\n>\n>   z\n>   flush\n",
+            $this->fmt("> - a\n>\n>   ```\n>   x\n>   ```\n>\n>   z\nflush\n"),
+        );
+    }
+
+    /**
      * @return array<string, array{string}>
      */
     public static function shapes(): array
@@ -395,6 +422,8 @@ class AConsumedLooseBooleanSpellsTheLoosenessNoBlankLineCanTest extends TestCase
             'no such axis' => ["{loose}\n> q\n"],
             'nested sub-list' => ["- outer\n  {loose}\n  - inner\n"],
             'lead container' => ["- ::: d\n  b\n\n  tail\n  :::\n"],
+            'trailing paragraph after a fence' => ["- item\n\n  ```\n  c\n  ```\n\n  tail\n"],
+            'the same shape inside a quote' => ["> - a\n>\n>   ```\n>   x\n>   ```\n>\n>   z\n>   flush\n"],
         ];
     }
 
