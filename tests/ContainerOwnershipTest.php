@@ -12,13 +12,22 @@ use RuntimeException;
 class ContainerOwnershipTest extends TestCase
 {
     /**
-     * @throws \RuntimeException
-     *
      * @return iterable<string, array{string, string}>
      */
     public static function cases(): iterable
     {
-        $json = file_get_contents(__DIR__ . '/fixtures/container-ownership.json');
+        yield from self::fixtureCases('container-ownership.json');
+        yield from self::fixtureCases('container-ownership-boundaries.json');
+    }
+
+    /**
+     * @throws \RuntimeException
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    private static function fixtureCases(string $file): iterable
+    {
+        $json = file_get_contents(__DIR__ . '/fixtures/' . $file);
         if ($json === false) {
             throw new RuntimeException('Cannot read ownership fixtures.');
         }
