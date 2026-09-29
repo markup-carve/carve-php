@@ -8,7 +8,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
-
 ### Breaking
 
 - Class slots retain authored entries, including empty values and internal whitespace (#2585). `getClassList()` and AST `classes` expose that list; ProseMirror `attrs.class` carries it too. String setters store one entry, and `appendClass('')` claims an empty entry. Use `setClassList()` for separate entries; `getAttribute('class')` and `getAttributes()` still return joined strings.
@@ -16,6 +15,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - HTML import uses PHP's native HTML5 parser on PHP 8.4 and later. PHP 8.2–8.3 retain the legacy libxml parser. Malformed HTML and diagnostic paths can differ between these versions; no new Composer dependencies are required (#2546).
 
 ### Fixed
+
+- Keep retained list markers below the item's content column as text after
+  comments. A comment no longer lets an under-indented marker open a child list.
 
 - ANSI output preserves every code payload line, including trailing blank lines (markup-carve/carve-js#2357).
 
