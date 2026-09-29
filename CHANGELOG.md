@@ -161,5 +161,5 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - **The ProseMirror bridge drops a mention or tag that carries no name and reports it** (#2176), so a node with neither an `id` nor a `label` is left out and named in `droppedAttributes()` under its node kind, no field having held a name. It used to reach the writer, which refused the whole document. `CarveRenderer` still throws for a tree an API caller builds that way.
 - **A caption's `#` placeholder is literal inside inline markup** (#2181, markup-carve/carve#2112). `^ a *# x* b` keeps its `#`, a later top-level `#` still numbers, and the Carve writer stops escaping the bare one, which is what the other engines write.
 
-[0.1.10]: https://github.com/markup-carve/carve-php/compare/0.1.9...HEAD
+[0.1.10]: https://github.com/markup-carve/carve-php/compare/0.1.9...0.1.10
 [0.1.9]: https://github.com/markup-carve/carve-php/compare/0.1.8...0.1.9
