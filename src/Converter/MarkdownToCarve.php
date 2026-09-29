@@ -2700,9 +2700,9 @@ class MarkdownToCarve
     protected function fenceLanguage(string $info): string
     {
         $decoded = $this->decodeLinkTitle($info);
-        $word = preg_split('/[ \t]/', trim($decoded), 2)[0] ?? '';
+        $word = preg_split('/[ \t]/', trim($decoded, " \t"), 2)[0] ?? '';
 
-        return str_contains($word, '`') ? '' : (preg_match('~[A-Za-z0-9_+#/.-]+~', $decoded, $token) === 1 ? $token[0] : '');
+        return preg_match('~^[A-Za-z0-9_+#/.-]+$~', $word) === 1 ? $word : '';
     }
 
     /**
