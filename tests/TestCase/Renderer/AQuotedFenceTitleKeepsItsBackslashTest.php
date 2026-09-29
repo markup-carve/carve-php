@@ -44,7 +44,7 @@ class AQuotedFenceTitleKeepsItsBackslashTest extends TestCase
     public function testAQuoteStillDropsWithItsEscapingBackslash(): void
     {
         $document = new Document();
-        $document->appendChild(new CodeBlock('x', 'php', null, 'a\\"b'));
+        $document->appendChild(new CodeBlock("x\n", 'php', null, 'a\\"b'));
         $renderer = new CarveRenderer();
         $renderer->beginConversionDiagnosticCollection();
 

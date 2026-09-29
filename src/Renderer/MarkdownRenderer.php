@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use Closure;
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\Frontmatter;
@@ -78,7 +79,6 @@ use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
-use MarkupCarve\Carve\VerbatimPayload;
 use Normalizer;
 
 /**
@@ -2550,7 +2550,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // The separator a payload of no lines does not own, and an all-blank one
         // already carries; the same rule the Carve target reads
         // (carve-php#2726).
-        $closerSeparator = VerbatimPayload::terminated($content) ? '' : "\n";
+        $closerSeparator = CodePayload::terminated($content) ? '' : "\n";
 
         // The two sentinels bracket the payload for the blank-line collapse in
         // render(). Every blank line between the delimiters is content, and the

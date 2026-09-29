@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Exception\ParseException;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
@@ -52,7 +53,6 @@ use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
-use MarkupCarve\Carve\VerbatimPayload;
 use ReflectionMethod;
 use WeakMap;
 
@@ -3492,19 +3492,13 @@ class BlockParser
         // canonical djot), rather than degrading to an inline code span.
         if (!$closed) {
             $this->addWarning('Unclosed code fence', $start, 1, true);
-            // AN UNCLOSED OPENER OWNS A FINAL LINE BREAK WITH NO LINE COLLECTED:
-            // it runs to the end of its container and the end supplies the break.
-            // That is the line corpus 276 pins for a fence on a marker line whose
-            // body sits below the item's content column, so reading it as zero
-            // lines would empty those documents (carve-js#2353).
-            if ($payload === []) {
-                $payload = [''];
-            }
         }
 
         $language = $info !== '' ? $info : null;
 
-        $codeBlock = new CodeBlock(VerbatimPayload::content($payload), $language, $label, $header);
+        $content = CodePayload::content($payload, $closed || $this->lineOwnsBreak($i - 1));
+
+        $codeBlock = new CodeBlock($content, $language, $label, $header);
         $this->applyPendingAttributes($codeBlock);
         // The opener "header" becomes the <pre> title attribute (rendering A),
         // unless a preceding {title=...} block-attribute line already set one
@@ -3517,6 +3511,23 @@ class BlockParser
         $parent->appendChild($codeBlock);
 
         return $i - $start;
+    }
+
+    /**
+     * Whether the document line at container-relative `$line` ends with a break.
+     *
+     * Only the document's own last line can lack one, and only when the source
+     * does not end with a newline. A code fence that runs to EOF there keeps its
+     * last payload line unterminated rather than inventing a break
+     * (`CARVE-P12-064`).
+     */
+    protected function lineOwnsBreak(int $line): bool
+    {
+        if ($this->normalizedSource === '' || str_ends_with($this->normalizedSource, "\n")) {
+            return true;
+        }
+
+        return $this->sourceLineFor($line) !== count($this->sourceLines) - 1;
     }
 
     /**

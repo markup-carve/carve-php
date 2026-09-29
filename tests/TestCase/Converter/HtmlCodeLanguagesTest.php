@@ -36,7 +36,18 @@ class HtmlCodeLanguagesTest extends TestCase
                 };
                 $walk($ast->value);
                 $this->assertSame($case['languages'], $languages, $mode . ': ' . $case['name']);
-                $expectedBlocks = $blocks;
+                // A canonical fence needs a break before its closer, so a payload
+                // the import kept unterminated gains one on the way back through
+                // the writer (`CARVE-P12-064`).
+                $expectedBlocks = array_map(
+                    static fn (array $block): array => [
+                        'lang' => $block['lang'],
+                        'content' => $block['content'] === '' || str_ends_with($block['content'], "\n")
+                            ? $block['content']
+                            : $block['content'] . "\n",
+                    ],
+                    $blocks,
+                );
                 $source = $converter->convertWithReport($case['html'])->value;
                 $parsed = (new CarveConverter())->parse($source);
                 $blocks = [];

@@ -122,8 +122,11 @@ class AnItemEndedCodeBlockOwnsItsContentTest extends TestCase
         [$start, $end] = $this->extent($blocks[0]);
         $slice = substr($source, $start, $end - $start);
 
+        // The break the last payload line owns closes that line at the span's own
+        // end, so the span holds the payload without holding that byte
+        // (`CARVE-P12-064`); the text before it is what the span must cover.
         $this->assertStringContainsString(
-            (string)$blocks[0]['content'],
+            rtrim((string)$blocks[0]['content'], "\n"),
             $slice,
             'the code block reports content its own span does not cover',
         );

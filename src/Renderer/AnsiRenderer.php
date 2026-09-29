@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
@@ -72,7 +73,6 @@ use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
-use MarkupCarve\Carve\VerbatimPayload;
 
 /**
  * Renders AST to ANSI-formatted terminal output
@@ -853,7 +853,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $lang = $this->stripControls($lang);
         }
 
-        $lines = VerbatimPayload::lines($content);
+        $lines = CodePayload::lines($content);
         $output = '';
 
         // PART 11 §10e T1: a fence header (`"src/app.js"`) and a grouping label
@@ -885,10 +885,13 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $output .= $this->style($header, self::DIM) . "\n";
         }
 
-        // Code content with background
-        foreach ($lines as $line) {
+        // Code content with background. The last line keeps the payload's own
+        // ending: an unterminated one gets no break (`CARVE-P12-064`).
+        $terminated = CodePayload::terminated($node->getContent());
+        $last = count($lines) - 1;
+        foreach ($lines as $index => $line) {
             $styledLine = $this->style('  ' . $line, self::FG_BRIGHT_WHITE);
-            $output .= $styledLine . "\n";
+            $output .= $styledLine . ($index < $last || $terminated ? "\n" : '');
         }
 
         return $output . "\n";

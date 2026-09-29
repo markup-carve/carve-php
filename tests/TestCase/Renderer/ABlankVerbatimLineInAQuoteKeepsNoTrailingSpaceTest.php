@@ -45,9 +45,10 @@ class ABlankVerbatimLineInAQuoteKeepsNoTrailingSpaceTest extends TestCase
     public static function shapes(): array
     {
         return [
+            // An opener that collected no line has no payload to spell.
             'an unterminated fence in a quote' => [
                 "> ```\n",
-                "> ```\n>\n> ```\n",
+                "> ```\n> ```\n",
             ],
             'a blank line inside a fenced block in a quote' => [
                 "> ```\n> x\n>\n> y\n> ```\n",

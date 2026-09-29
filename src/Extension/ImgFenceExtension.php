@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Extension;
 
 use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -142,7 +143,7 @@ class ImgFenceExtension implements StaticRenderExtensionInterface
      */
     protected function renderCodeBlock(CodeBlock $node, HtmlRenderer $renderer): string
     {
-        $result = SvgSanitizer::sanitize($node->getContent(), $this->options);
+        $result = SvgSanitizer::sanitize(CodePayload::joinedLines($node->getContent()), $this->options);
         if (!$result['ok']) {
             return $this->sourceFallback($node);
         }
@@ -240,7 +241,7 @@ class ImgFenceExtension implements StaticRenderExtensionInterface
             ? ' class="language-' . StringUtil::escapeHtml($lang) . '"'
             : '';
 
-        return '<pre><code' . $langAttr . '>' . StringUtil::escapeHtml($node->getContent()) . "\n</code></pre>\n";
+        return '<pre><code' . $langAttr . '>' . StringUtil::escapeHtml(CodePayload::joinedLines($node->getContent())) . "\n</code></pre>\n";
     }
 
     /**

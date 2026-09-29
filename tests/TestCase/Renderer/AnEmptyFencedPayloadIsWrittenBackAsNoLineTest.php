@@ -14,13 +14,11 @@ use PHPUnit\Framework\TestCase;
  * tells the two apart, so the written document rendered something the authored
  * one did not (carve-php#2727).
  *
- * The two halves ask a different question of the same seam. A CODE fence stores
- * the empty string for a payload with no line and for one blank line alike, so
- * the count rides on the node (carve-php#2721) and the writer reads it there. A
- * RAW block stores the empty string only for the payload with no line - corpus
+ * The two halves read the same rule off two encodings. A CODE payload is literal
+ * text, so a payload of no lines is `""` and one blank line is `"\n"`
+ * (`CARVE-P12-064`). A RAW block keeps the joined encoding, where corpus
  * `521-a-zero-line-and-a-one-blank-raw-payload-are-not-the-same-block` is the
- * document that says the two are different blocks - so there the content answers
- * it.
+ * document that says the two are different blocks.
  *
  * EVERY ROW RUNS TWICE, on a fresh converter and on one that has already
  * rendered: `Performance\BorrowedHtmlLayout` writes HTML straight from the source
@@ -46,9 +44,8 @@ class AnEmptyFencedPayloadIsWrittenBackAsNoLineTest extends TestCase
             'code, a text line then a blank' => ["```\nq\n\n```\n", "```\nq\n\n```\n"],
             'code, no payload line with a language' => ["``` php\n```\n", "```php\n```\n"],
             'code, no payload line inside an item' => ["- a\n\n  ```\n  ```\n", "- a\n  ```\n  ```\n"],
-            // An unclosed opener takes a line whatever follows it, so the
-            // one-blank spelling is the one that reproduces it.
-            'code, unclosed opener' => ["```\n", "```\n\n```\n"],
+            // An unclosed opener that collected no line has no payload at all.
+            'code, unclosed opener' => ["```\n", "```\n```\n"],
             // Corpus 521 and its siblings: the raw-block half.
             'raw, no payload line' => ["```=html\n```\n", "```=html\n```\n"],
             'raw, one blank payload line' => ["```=html\n\n```\n", "```=html\n\n```\n"],

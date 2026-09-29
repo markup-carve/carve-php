@@ -77,12 +77,12 @@
   {
     "name": "new inner fence",
     "source": "> a\n> > ```\nc\n",
-    "html": "<blockquote>\n  <p>a</p>\n  <blockquote>\n    <pre><code>\n</code></pre>\n  </blockquote>\n</blockquote>\n<p>c</p>"
+    "html": "<blockquote>\n  <p>a</p>\n  <blockquote>\n    <pre><code></code></pre>\n  </blockquote>\n</blockquote>\n<p>c</p>"
   },
   {
     "name": "new quote after blank",
     "source": "> > a\n>\n> > ```\nc\n",
-    "html": "<blockquote>\n  <blockquote><p>a</p></blockquote>\n  <blockquote>\n    <pre><code>\n</code></pre>\n  </blockquote>\n</blockquote>\n<p>c</p>"
+    "html": "<blockquote>\n  <blockquote><p>a</p></blockquote>\n  <blockquote>\n    <pre><code></code></pre>\n  </blockquote>\n</blockquote>\n<p>c</p>"
   },
   {
     "name": "lazy inner paragraph survives a shallower line",

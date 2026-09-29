@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Renderer;
 use ArrayObject;
 use Closure;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
@@ -1973,14 +1974,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $fence = $this->safeFence($content, 3);
         $info = $this->codeFenceInfo($node);
 
-        // The trailing `"\n"` separates the payload's LAST LINE from the closing
-        // delimiter, and a terminated payload has no line left to separate: no
-        // lines at all, or an all-blank one whose newlines ARE its lines. Writing
-        // one anyway turned `<pre><code></code></pre>` into
-        // `<pre><code>` + newline on a re-parse, breaking PART 11 §1
-        // `to_html(fmt(x)) == to_html(x)` (carve-php#2727, corpus 524).
+        // A canonical fence needs a break before its closer, and nonempty content
+        // without a final one has no Carve spelling: the writer inserts the break
+        // and says so (`CARVE-P12-064`). Terminated content - none at all, or a
+        // last line that owns its break - needs no separator and reports nothing.
+        if (!CodePayload::terminated($content)) {
+            $this->recordUnspellableField(
+                $node,
+                'content',
+                'Carve source cannot spell a code payload whose last line has no break',
+            );
+        }
+
         return $fence . $info . "\n" . $this->protectVerbatim($content)
-            . (VerbatimPayload::terminated($content) ? '' : "\n") . $fence;
+            . (CodePayload::terminated($content) ? '' : "\n") . $fence;
     }
 
     protected function codeFenceInfo(CodeBlock $node): string
@@ -3290,9 +3297,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $body = $this->protectVerbatim($content);
 
-        // The same separator question as the code fence above, and since
-        // carve-php#2726 the same answer: both block kinds encode their payload
-        // the one way, so both read the rule off `$content`.
+        // The same separator question as the code fence above, on the raw block's
+        // own encoding: `raw_block.content` keeps the joined form the code fence
+        // left behind (markup-carve/carve#2616 changes only the code payload).
         return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n"
             . $body . (VerbatimPayload::terminated($content) ? '' : "\n") . $fence;
     }

@@ -68,13 +68,14 @@ class ContainerClosedFenceKeepsItsBlankTest extends TestCase
 
     /**
      * BOUND: the phantom element itself. A document ending in a single newline
-     * has no trailing blank line, and a document with no trailing newline at
-     * all must parse the same way.
+     * has no trailing blank line. The file that ends without one is a different
+     * payload, not the same one spelled differently: the last line keeps whether
+     * it owns a break (`CARVE-P12-064`).
      */
     public function testATerminalNewlineIsNotContent(): void
     {
         $this->assertSame("x\n", $this->code("```\nx\n"));
-        $this->assertSame("x\n", $this->code("```\nx"));
+        $this->assertSame('x', $this->code("```\nx"));
         $this->assertSame("x\n", $this->code("```\nx\n```\n"));
     }
 }

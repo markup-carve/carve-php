@@ -140,7 +140,7 @@ class BlockParserTest extends TestCase
         $codeBlock = $doc->getChildren()[0];
         $this->assertInstanceOf(CodeBlock::class, $codeBlock);
         $this->assertSame('php', $codeBlock->getLanguage());
-        $this->assertSame("echo 'hello';", $codeBlock->getContent());
+        $this->assertSame("echo 'hello';\n", $codeBlock->getContent());
     }
 
     public function testParseCodeBlockWithTildes(): void
@@ -678,7 +678,7 @@ DJOT;
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
         $this->assertInstanceOf(CodeBlock::class, $children[0]);
-        $this->assertSame("\nbin/cake linter\n", $children[0]->getContent());
+        $this->assertSame("\nbin/cake linter\n\n", $children[0]->getContent());
     }
 
     public function testCodeBlockPreservesInternalBlankLines(): void
@@ -688,7 +688,7 @@ DJOT;
 
         $children = $doc->getChildren();
         $this->assertInstanceOf(CodeBlock::class, $children[0]);
-        $this->assertSame("line1\n\nline2", $children[0]->getContent());
+        $this->assertSame("line1\n\nline2\n", $children[0]->getContent());
     }
 
     public function testRawBlockPreservesLeadingAndTrailingBlankLines(): void

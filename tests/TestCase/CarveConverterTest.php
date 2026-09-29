@@ -1903,7 +1903,14 @@ DJOT;
         $expected = "<p>a</p>\n<pre><code class=\"language-js\">code\n</code></pre>\n";
 
         yield 'trailing newline' => ["a\n\n``` js\ncode\n", $expected];
-        yield 'no trailing newline' => ["a\n\n``` js\ncode", $expected];
+
+        // The payload's last line keeps its own ending, so the break the file
+        // does not carry is not invented (`CARVE-P12-064`).
+        yield 'no trailing newline' => [
+            "a\n\n``` js\ncode",
+            "<p>a</p>\n<pre><code class=\"language-js\">code</code></pre>\n",
+        ];
+
         yield 'genuine blank line is kept' => [
             "a\n\n``` js\ncode\n\n",
             "<p>a</p>\n<pre><code class=\"language-js\">code\n\n</code></pre>\n",
@@ -2362,12 +2369,12 @@ DJOT;
         // carve-js and canonical djot. Mid-paragraph unterminated fences stay
         // inline via the §10 closer-lookahead, a separate path.
         $this->assertSame(
-            "<pre><code>code\n</code></pre>\n",
+            "<pre><code>code</code></pre>\n",
             $this->converter->convert("```\ncode"),
         );
         // Empty lone opener: empty block code with the trailing newline.
         $this->assertSame(
-            "<pre><code>\n</code></pre>\n",
+            "<pre><code></code></pre>\n",
             $this->converter->convert('```'),
         );
     }
@@ -2378,7 +2385,7 @@ DJOT;
         // (no ">") ends the quote, leaving an empty (never-closed) block code
         // fence. Pinned by spec corpus 80-...-fenced-block-3.
         $this->assertSame(
-            "<blockquote>\n  <pre><code>\n</code></pre>\n</blockquote>\n"
+            "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n"
             . "<p>code no marker</p>\n"
             . "<blockquote><p>still</p></blockquote>\n",
             $this->converter->convert("> ```\ncode no marker\n> still\n"),

@@ -48,67 +48,67 @@ class ANestedItemsFenceEndsWithTheItemTest extends TestCase
         return [
             'code opener at column 4, payload at column 2, run at column 0' => [
                 "- a\n  - b\n\n    ```\n  a\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
             ],
             'code opener at column 4, payload at column 2, run at column 1' => [
                 "- a\n  - b\n\n    ```\n  a\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
             ],
             'code opener at column 4, payload at column 3, run at column 0' => [
                 "- a\n  - b\n\n    ```\n   a\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
             ],
             'code opener at column 4, payload at column 3, run at column 1' => [
                 "- a\n  - b\n\n    ```\n   a\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
             ],
             'code opener at column 5, payload at column 2, run at column 0' => [
                 "- a\n  - b\n\n     ```\n  a\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
             ],
             'code opener at column 5, payload at column 2, run at column 1' => [
                 "- a\n  - b\n\n     ```\n  a\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
             ],
             'code opener at column 5, payload at column 3, run at column 0' => [
                 "- a\n  - b\n\n     ```\n   a\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
             ],
             'code opener at column 5, payload at column 3, run at column 1' => [
                 "- a\n  - b\n\n     ```\n   a\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
             ],
             'tilde opener at column 4, payload at column 2, run at column 0' => [
                 "- a\n  - b\n\n    ~~~\n  a\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
             ],
             'tilde opener at column 4, payload at column 2, run at column 1' => [
                 "- a\n  - b\n\n    ~~~\n  a\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
             ],
             'tilde opener at column 4, payload at column 3, run at column 0' => [
                 "- a\n  - b\n\n    ~~~\n   a\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
             ],
             'tilde opener at column 4, payload at column 3, run at column 1' => [
                 "- a\n  - b\n\n    ~~~\n   a\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
             ],
             'tilde opener at column 5, payload at column 2, run at column 0' => [
                 "- a\n  - b\n\n     ~~~\n  a\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
             ],
             'tilde opener at column 5, payload at column 2, run at column 1' => [
                 "- a\n  - b\n\n     ~~~\n  a\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
             ],
             'tilde opener at column 5, payload at column 3, run at column 0' => [
                 "- a\n  - b\n\n     ~~~\n   a\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
             ],
             'tilde opener at column 5, payload at column 3, run at column 1' => [
                 "- a\n  - b\n\n     ~~~\n   a\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
             ],
         ];
     }

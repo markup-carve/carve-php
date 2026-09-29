@@ -26,23 +26,23 @@ class AWhitespaceOnlyCodeLineInAFootnoteKeepsItsResidueTest extends TestCase
         return [
             'past the body column' => [
                 "x[^1]\n\n[^1]: note\n\n    ```\n    a\n      \n    b\n    ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'no wider than the body column' => [
                 "x[^1]\n\n[^1]: note\n\n    ```\n    a\n    \n    b\n    ```\n",
-                "a\n\nb",
+                "a\n\nb\n",
             ],
             'past a body written past its own column' => [
                 "x[^1]\n\n[^1]: note\n\n  ```\n  a\n    \n  b\n  ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
             'a content line in the same body keeps the same columns' => [
                 "x[^1]\n\n[^1]: note\n\n    ```\n    a\n      c\n    b\n    ```\n",
-                "a\n  c\nb",
+                "a\n  c\nb\n",
             ],
             'in a block quote, the control' => [
                 "> ```\n> a\n>   \n> b\n> ```\n",
-                "a\n  \nb",
+                "a\n  \nb\n",
             ],
         ];
     }
