@@ -5300,6 +5300,7 @@ class BlockParser
                     // by index - the same proof collectMarkerLeadItem() records
                     // and for the same reader (markup-carve/carve#1896).
                     $subEligible = [];
+                    $subRetainedMarker = false;
                     while ($i < $count) {
                         $subLine = $lines[$i];
                         if (IndentationHelper::isBlankLine($subLine)) {
@@ -5642,19 +5643,14 @@ class BlockParser
                                 )
                                 && $subLines !== [];
                             if ($dedentedOpener) {
-                                // Forward it with exactly ONE column, the way
-                                // collectMarkerLeadItem() forwards a dedented
-                                // line (#693): below the sub-list's content
-                                // column the nested parse reads a marker as
-                                // paragraph text, so the geometry decides it one
-                                // level in rather than this loop deciding it
-                                // here. Stripping it to column 0 would put it AT
-                                // the nested list's marker column and open a
-                                // sibling item; forwarding its OWN indent let
-                                // two columns reach the nested CONTENT column
-                                // and open a list one level deeper (carve#603).
-                                // One column reaches neither.
-                                $subLines[] = ' ' . $trimmedLine;
+                                // Markers retain their text classification. Other
+                                // openers keep one column on the nested reparse.
+                                $retainMarker = !$inSubCommentSpan && $subTrailingState->afterComment
+                                    && $this->listParser->parseListItemMarker($trimmedLine) !== null;
+                                $subRetainedMarker = $subRetainedMarker || $retainMarker;
+                                $subLines[] = $retainMarker
+                                    ? self::LAZY_FRAME . $trimmedLine
+                                    : ' ' . $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);
                                 $subTrailingState = $this->advanceTrailingState($subTrailingState, $subLine);
                                 $i++;
@@ -5684,7 +5680,12 @@ class BlockParser
                                 && !$this->isBlockElementStart($trimmedLine, $lines, $i)
                                 && !$this->startsNewBlock($trimmedLine, $lines, $i)
                             ) {
-                                $subLines[] = $trimmedLine;
+                                $retainMarker = !$inSubCommentSpan && $subTrailingState->afterComment
+                                    && $this->listParser->parseListItemMarker($trimmedLine) !== null;
+                                $subRetainedMarker = $subRetainedMarker || $retainMarker;
+                                $subLines[] = $retainMarker
+                                    ? self::LAZY_FRAME . $trimmedLine
+                                    : $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);
                                 $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
                                 $i++;
@@ -5727,9 +5728,22 @@ class BlockParser
                     if ($this->subContentHasLooseningBlank($subLines, false)) {
                         $list->setTight(false);
                     }
-                    // Parse nested content
+                    // A blank before a newly retained paragraph makes the list loose.
                     if ($subLines !== []) {
+                        $before = count($lastItem->getChildren());
                         $this->parseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible);
+                        if ($lastItemHadBlankAfter && $subRetainedMarker) {
+                            foreach (array_slice($lastItem->getChildren(), $before) as $child) {
+                                if ($child instanceof Comment) {
+                                    continue;
+                                }
+                                if ($child instanceof Paragraph) {
+                                    $list->setTight(false);
+                                }
+
+                                break;
+                            }
+                        }
                     }
                     // Blank lines within nested content don't make the parent list loose
                     // The list is only loose if there's a blank line directly after item content
@@ -8187,6 +8201,21 @@ class BlockParser
                 && $this->isDefinitionLineForEnclosingItem($nextTrimmed)
             ) {
                 break;
+            }
+
+            // Retained markers below the content column stay text on reparse.
+            if (
+                $openCommentLength === null
+                && $this->listParser->parseListItemMarker($nextTrimmed) !== null
+                && ($trailingState->afterComment
+                    || $this->isCommentLineOrFence($itemLines[count($itemLines) - 1] ?? ''))
+            ) {
+                $itemLines[] = self::LAZY_FRAME . $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState->openParagraph = true;
+                $i++;
+
+                continue;
             }
 
             // Reached only with a paragraph open, for the same reason.
@@ -11322,7 +11351,7 @@ class BlockParser
         bool $topLevel = false,
         bool $itemBody = false,
     ): int {
-        $line = $lines[$start];
+        $line = self::stripLazyFrame($lines[$start]);
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line, " \t");
         // WHERE THE PARAGRAPH BEGAN, relative to its container's content column,
@@ -11378,8 +11407,8 @@ class BlockParser
             }
 
             // Strip leading whitespace from continuation lines (matching JS reference)
-            $rawNextLine = $nextLine;
-            $nextLine = ltrim($nextLine, " \t");
+            $rawNextLine = self::stripLazyFrame($nextLine);
+            $nextLine = ltrim($rawNextLine, " \t");
             $this->appendParagraphContentLines(
                 $contentLines,
                 $this->sourceLineFor($i),

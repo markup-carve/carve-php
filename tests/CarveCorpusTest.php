@@ -1113,12 +1113,18 @@ class CarveCorpusTest extends TestCase
      * @var array<string, array{reason: string, html: string}>
      */
     protected const AHEAD_OF_PIN = [
-        // `372-an-all-blank-raw-payload-still-emits-its-line` stood here until
-        // this bump. markup-carve/carve#2574 is inside the range it carries, so
-        // the pinned golden now states the two newlines this engine already
-        // rendered and the entry's second assertion fails in the direction it
-        // was written to fail in. Measured at spec 578d564d: golden and output
-        // are byte-identical.
+        '517-a-band-paragraph-after-an-invisible-line-leaves-the-item-loose-5' => [
+            'reason' => 'Retained markers below the content column stay text (markup-carve/carve#2619).',
+            'html' => "<ul>\n  <li><p>t</p>\n    <p>- b</p>\n  </li>\n  <li><p>s</p></li>\n</ul>",
+        ],
+        '277-a-below-column-marker-after-a-comment-where-no-paragraph-is-open' => [
+            'reason' => 'Retained markers below the content column stay text (markup-carve/carve#2619).',
+            'html' => "<ul>\n  <li>a\n    - s\n  </li>\n</ul>",
+        ],
+        '277-a-below-column-marker-after-a-comment-where-no-paragraph-is-open-2' => [
+            'reason' => 'Retained markers below the content column stay text (markup-carve/carve#2619).',
+            'html' => "<ul>\n  <li>a\n    1. o\n  </li>\n</ul>",
+        ],
     ];
 
     protected CarveConverter $converter;

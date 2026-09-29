@@ -230,11 +230,10 @@ class ContainerBoundaryRulingsTest extends TestCase
                 "- a\n  %% x\n b\n\n- c\n",
                 "<li><p>a</p>\n    <p>b</p>\n  </li>",
             ],
-            // corpus 277: a below-column MARKER opens a nested list inside the
-            // item, after a comment FENCE at the content column.
+            // Corpus 277 retains the below-column marker as item text.
             'comment fence then a below-column marker' => [
                 "- a\n  %%%\n  x\n  %%%\n - s\n",
-                "<li>a\n    <ul>\n      <li>s</li>\n    </ul>\n  </li>",
+                "<li>a\n    - s\n  </li>",
             ],
         ];
     }
