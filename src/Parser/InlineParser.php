@@ -1046,9 +1046,21 @@ class InlineParser
                     // Check if this is an unclosed link (special handling)
                     if (isset($result['unclosed_link'])) {
                         // Output [ then parse linkText in isolation then output ](
-                        $parent->appendChild(new Text('['));
+                        //
+                        // Both literals are PLACED. Each is a contiguous slice of
+                        // the source, so PART 12 §4's exemption for a reassembled
+                        // node does not reach them, and an unplaced run swallows
+                        // the placed ones next to it: the coalescer returns no span
+                        // for a run holding one, which left the whole paragraph
+                        // starting at the label's first character instead of at the
+                        // `[` that opens it (carve-php#2713).
+                        $opener = new Text('[');
+                        $this->placeAt($opener, $pos, $pos + 1);
+                        $parent->appendChild($opener);
                         $this->parseInlinesAt($parent, $result['link_text'], $pos + 1);
-                        $parent->appendChild(new Text(']('));
+                        $tail = new Text('](');
+                        $this->placeAt($tail, $result['continue_pos'] - 2, $result['continue_pos']);
+                        $parent->appendChild($tail);
                         $pos = $result['continue_pos'];
 
                         continue;
