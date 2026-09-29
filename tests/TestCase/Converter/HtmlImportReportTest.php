@@ -57,19 +57,7 @@ class HtmlImportReportTest extends TestCase
      *
      * @var array<string, array{carve: string, reason: string}>
      */
-    private const BEHIND_THE_PIN = [
-        'paren-after-a-closed-bracket' => [
-            'carve' => "[a]\\(b) and f(x) and (see above) and [a] (b) and [a](b c)\n\n"
-                . "[[a]\\(u)]{.c}\n\n"
-                . "[`a`]\\(b)\n\n"
-                . "[/a]\\(b)/\n\n"
-                . "[a]\\(b(xy)d) and [a]()\n",
-            'reason' => 'markup-carve/carve#2610 moved the fourth paragraph\'s escape to the '
-                . 'bracket opener, and this engine still escapes the paren. The spec repo '
-                . 'declares the same gap for the pinned reference engine in '
-                . 'resources/html-import-pin-drift.txt. Tracked in carve-php#2747',
-        ],
-    ];
+    private const BEHIND_THE_PIN = [];
 
     /**
      * Shared fixtures whose direct-import tree and canonical-source exit do not

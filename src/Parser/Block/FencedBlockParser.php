@@ -259,7 +259,7 @@ class FencedBlockParser
             'fence' => $matches[1],
             'length' => strlen($matches[1]),
             'className' => $rest,
-            'label' => $label === null ? null : $this->takeLabelComment($label),
+            'label' => $label,
         ];
     }
 
@@ -292,102 +292,6 @@ class FencedBlockParser
         }
 
         return substr($rest, 1, -1);
-    }
-
-    /**
-     * The opener `[label]` with its trailing `%%` comment consumed
-     * (CARVE-P9-041, markup-carve/carve#2552).
-     *
-     * A label is a leaf host: its run begins mid-line, so no `%%` line at the
-     * block layer reaches it. The marker separates on a run of spaces or tabs
-     * or at the label's own start, and the run plus everything after it goes.
-     * A third percent is the first character of that remainder, not a guard.
-     * The AST holds a label as a string with no slot for a comment, so the
-     * comment is consumed here rather than kept for the Carve writer.
-     *
-     * Only a code span and a raw inline are opaque, which the clause states and
-     * carve#2547 fixed. A braced run is not: a label renders `{% x %}` and
-     * `{*b*}` as the literal text it holds, so brace scoping has no standing
-     * here and reading it in would be a rule the clause does not give.
-     */
-    protected function takeLabelComment(string $label): string
-    {
-        if (str_starts_with($label, '%%')) {
-            return '';
-        }
-
-        $length = strlen($label);
-        $pos = 0;
-        while ($pos < $length) {
-            $char = $label[$pos];
-            if ($char === '\\') {
-                // An escape covers the next byte, so an escaped backtick opens
-                // no span. Whitespace is the exception: the inline reader
-                // decides a marker on the preceding SOURCE byte, so an escaped
-                // space or tab still separates and has to stay visible here.
-                $escaped = $label[$pos + 1] ?? '';
-                $pos += $escaped === '' || $escaped === ' ' || $escaped === "\t" ? 1 : 2;
-
-                continue;
-            }
-            if ($char === '`') {
-                // A `%%` inside a code span or a raw inline stays literal, so
-                // the scan steps over the backtick run whole.
-                $pos = $this->skipBacktickRun($label, $pos);
-
-                continue;
-            }
-            if ($char !== ' ' && $char !== "\t") {
-                $pos++;
-
-                continue;
-            }
-            $runStart = $pos;
-            while ($pos < $length && ($label[$pos] === ' ' || $label[$pos] === "\t")) {
-                $pos++;
-            }
-            if (substr($label, $pos, 2) === '%%') {
-                return substr($label, 0, $runStart);
-            }
-        }
-
-        return $label;
-    }
-
-    /**
-     * The offset just past a code span opened at `$pos`.
-     *
-     * Only a run of the opener's own width closes it, so a longer run inside
-     * the span is content rather than a closer. An unclosed run reaches the end
-     * of the host, which is what the inline parser does with one too, so the
-     * label's remainder stays opaque instead of becoming comment territory.
-     */
-    protected function skipBacktickRun(string $label, int $pos): int
-    {
-        $length = strlen($label);
-        $open = $pos;
-        while ($open < $length && $label[$open] === '`') {
-            $open++;
-        }
-        $width = $open - $pos;
-        $scan = $open;
-        while ($scan < $length) {
-            if ($label[$scan] !== '`') {
-                $scan++;
-
-                continue;
-            }
-            $runEnd = $scan;
-            while ($runEnd < $length && $label[$runEnd] === '`') {
-                $runEnd++;
-            }
-            if ($runEnd - $scan === $width) {
-                return $runEnd;
-            }
-            $scan = $runEnd;
-        }
-
-        return $length;
     }
 
     /**

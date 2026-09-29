@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser\Utility;
 
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Parser\SourceMap;
 use function array_values;
 
 /**
@@ -32,10 +34,15 @@ final class ContainerLabelParser
     protected static ?BlockParser $fallback = null;
 
     /**
+     * @param string $label
+     * @param \MarkupCarve\Carve\Parser\InlineParser|null $inlineParser
+     * @param int|null $commentOffset Byte offset of a trailing comment in the outer run.
+     *
      * @return list<\MarkupCarve\Carve\Node\Node>
      */
-    public static function parse(string $label, ?InlineParser $inlineParser = null): array
+    public static function parse(string $label, ?InlineParser $inlineParser = null, ?int &$commentOffset = null): array
     {
+        $commentOffset = null;
         if ($label === '') {
             return [];
         }
@@ -46,8 +53,20 @@ final class ContainerLabelParser
         }
 
         $container = new Paragraph();
-        $inlineParser->parse($container, $label);
+        $map = new SourceMap();
+        $map->add(0, 0, strlen($label), 1, 1);
+        $inlineParser->parse($container, $label, sourceMap: $map);
         $nodes = array_values($container->getChildren());
+        foreach ($nodes as $node) {
+            if (
+                $node instanceof Comment && !$node->isDelimited()
+                && $node->getPos()?->endOffset === strlen($label)
+            ) {
+                $commentOffset = $node->getPos()->startOffset;
+
+                break;
+            }
+        }
         // NO INVENTED POSITION. The run is read from the opener's label slot
         // without the slot's own offset, and PART 12 section 4 forbids making one
         // up, so the nodes carry none rather than a wrong one.

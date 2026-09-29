@@ -3766,16 +3766,17 @@ class BlockParser
 
         $div = new Div();
 
-        // The opener `[label]` is inert structured metadata (NOT rendered); a
-        // group extension (tabs) reads it as the tab name. Mirrors a code
-        // fence's `[label]` on CodeBlock.
+        // Keep the label source for group extensions and its inline nodes for
+        // the fallback caption. Only a comment in the outer run cuts the source.
         if ($label !== null) {
-            $div->setLabel($label);
             // READ WITH THE DOCUMENT'S OWN INLINE PARSER. A container label is an
             // inline run (`CARVE-P9-041`, ruled on markup-carve/carve#2572), so an
             // extension-registered construct has to read the same inside a label
             // as outside one.
-            $div->setLabelNodes(ContainerLabelParser::parse($label, $this->inlineParser));
+            $commentOffset = null;
+            $labelNodes = ContainerLabelParser::parse($label, $this->inlineParser, $commentOffset);
+            $div->setLabel($commentOffset === null ? $label : rtrim(substr($label, 0, $commentOffset), " \t"));
+            $div->setLabelNodes($labelNodes);
         }
 
         // Leading block-attribute lines (`{.x}` before the opener) are the
@@ -5488,7 +5489,12 @@ class BlockParser
                                 // An unattached marker cannot close the nested
                                 // stream. Its indented follower may still fold
                                 // into the nested item's open paragraph.
-                                if ($this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)) {
+                                if (
+                                    $this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)
+                                    || ($subTrailingState->fence !== null
+                                        && isset($lines[$i + 1])
+                                        && IndentationHelper::isBlankLine($lines[$i + 1]))
+                                ) {
                                     $i++;
 
                                     continue;
@@ -7988,11 +7994,15 @@ class BlockParser
             // still has - `- a` / `  - b` / `  +` / `  c` gave `b` and `c` as
             // two blocks where `  c` folds into `b` on its own. Consumed and
             // skipped instead, which is what "as if the marker line had been a
-            // comment" means for this collector.
+            // comment" means for this collector. An open fence also keeps the
+            // blank payload lines after a marker that attaches nothing.
             if (
                 $nextIndent === $baseIndent
                 && $this->isContinuationMarker($nextTrimmed)
-                && $this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)
+                && ($this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)
+                    || ($trailingState->fence !== null
+                        && isset($lines[$i + 1])
+                        && IndentationHelper::isBlankLine($lines[$i + 1])))
             ) {
                 $i++;
 

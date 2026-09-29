@@ -5407,7 +5407,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $opener = array_pop($open);
                 $paired[$opener] = true;
                 $paired[$i] = true;
-                $closers[$at] = true;
+                $closers[$at] = $opener;
+                // Brackets across formatting boundaries must not isolate a delimiter.
+                if ($marks[$opener][4] !== $marks[$i][4]) {
+                    $this->structuralEscapes[$marks[$opener][1]][$marks[$opener][2]] = true;
+                }
                 if ($bracketed) {
                     $this->pairedClosers[$marks[$i][1]][$marks[$i][2]] = [$marks[$opener][1], $marks[$opener][2]];
                 }
@@ -5416,7 +5420,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $scan = null;
         foreach ($marks as $i => [$at, $id, $offset, $char]) {
             if ($char === '(') {
-                if (!isset($closers[$at - 1])) {
+                if (
+                    !isset($closers[$at - 1])
+                    || isset($this->structuralEscapes[$marks[$closers[$at - 1]][1]][$marks[$closers[$at - 1]][2]])
+                ) {
                     continue;
                 }
                 $scan ??= self::destinationScan($flat);
@@ -5443,7 +5450,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      * @param string $flat
-     * @param array<int, array{int, int, int, string}> $marks
+     * @param array<int, array{int, int, int, string, int}> $marks
      *
      * @return bool False where the scan stopped early.
      */
@@ -5461,7 +5468,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $id = spl_object_id($node);
                     preg_match_all('/[\[\](]/', $content, $found, PREG_OFFSET_CAPTURE);
                     foreach ($found[0] as [$char, $offset]) {
-                        $marks[] = [strlen($flat) + $offset, $id, $offset, $char];
+                        $marks[] = [strlen($flat) + $offset, $id, $offset, $char, spl_object_id($node->getParent() ?? $node)];
                     }
                 }
                 $flat .= $content;
