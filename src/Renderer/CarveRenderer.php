@@ -4745,7 +4745,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @param bool $isLoose whether the list is loose at all
      * @param int $itemCount how many items the written body holds
-     * @param string $body the body as written, without any key
+     * @param string $body the body as written, without any key and with every
+     *   writer sentinel already restored - it is re-parsed as Carve source
      */
     public static function looseKeyIsNeededForBody(bool $isLoose, int $itemCount, string $body): bool
     {
@@ -4802,7 +4803,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             //
             // The procedure itself is {@see self::looseKeyIsNeededForBody()},
             // which the HTML importer's writer calls too.
-            return self::looseKeyIsNeededForBody(true, count($items), $body);
+            //
+            // RESTORED FIRST. `$body` is mid-render text, so verbatim content
+            // still carries the writer's private-use sentinels, and a sentinel
+            // is not Carve: U+E003 stands in for a payload's blank line and
+            // lands in front of the closing fence, which stops the re-parse
+            // from closing the fence at all. The item then swallows the rest of
+            // the body, reads TIGHT, and the writer spells a `{loose}` the
+            // blank lines already said (carve-php#2762).
+            return self::looseKeyIsNeededForBody(true, count($items), $this->restoreVerbatim($body));
         }
 
         return $node->isLoose();
