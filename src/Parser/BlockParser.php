@@ -4312,10 +4312,6 @@ class BlockParser
             }
 
             $quoteContent = $this->blockQuoteLineContent($line);
-            if (IndentationHelper::getLeadingColumns($line) === 0 && $quoteContent === null) {
-                break;
-            }
-
             if ($quoteContent !== null) {
                 $this->trackBlockQuoteLazyState($quoteContent, $state, $lines, $j, $codeCloserMemo);
                 $end = $j;
@@ -6407,7 +6403,12 @@ class BlockParser
             ) {
                 continue;
             }
-            if ($probeNestedColumns !== [] && $base < end($probeNestedColumns) && $this->isCommentLineOrFence(ltrim($line, " \t"))) {
+            if (
+                $probeNestedColumns !== []
+                && $base < end($probeNestedColumns)
+                && $this->isCommentLineOrFence(ltrim($line, " \t"))
+                && $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line) === null
+            ) {
                 continue;
             }
             while ($probeNestedColumns !== [] && $base < end($probeNestedColumns)) {
@@ -6508,7 +6509,6 @@ class BlockParser
                         $this->fencedBlockParser->parseCodeFenceOpener($line) === null
                         && $this->fencedBlockParser->parseRawBlockOpener($line) === null
                         && $this->blockQuoteLineContent($line) === null
-                        && $this->containerContentColumn($line, 0) === null
                     )
                 )
             ) {
@@ -6523,7 +6523,12 @@ class BlockParser
             ) {
                 continue;
             }
-            if ($nestedColumns !== [] && $base < end($nestedColumns) && $this->isCommentLineOrFence(ltrim($line, " \t"))) {
+            if (
+                $nestedColumns !== []
+                && $base < end($nestedColumns)
+                && $this->isCommentLineOrFence(ltrim($line, " \t"))
+                && $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line) === null
+            ) {
                 continue;
             }
             while ($nestedColumns !== [] && $base < end($nestedColumns)) {
