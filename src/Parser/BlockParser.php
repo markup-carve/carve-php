@@ -46,6 +46,7 @@ use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Block\ListParser;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\ContainerLabelParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
@@ -3759,6 +3760,11 @@ class BlockParser
         // fence's `[label]` on CodeBlock.
         if ($label !== null) {
             $div->setLabel($label);
+            // READ WITH THE DOCUMENT'S OWN INLINE PARSER. A container label is an
+            // inline run (`CARVE-P9-041`, ruled on markup-carve/carve#2572), so an
+            // extension-registered construct has to read the same inside a label
+            // as outside one.
+            $div->setLabelNodes(ContainerLabelParser::parse($label, $this->inlineParser));
         }
 
         // Leading block-attribute lines (`{.x}` before the opener) are the

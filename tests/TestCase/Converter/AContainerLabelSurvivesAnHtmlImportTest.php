@@ -34,6 +34,15 @@ use PHPUnit\Framework\TestCase;
  * the bare `<div>`, the container-class `<div>`, the `<aside class="admonition">`
  * and the `data-djot-admonition-type` `<div>` alike.
  *
+ * THE LIFT TAKES MARKUP NOW. It refused anything but text while a label was
+ * published escaped, because lifting `<strong>` would have flattened it without a
+ * word. markup-carve/carve#2572 ruled the label an inline run, so the markup has a
+ * spelling on the opener and the refusals are asked of the WRITTEN form instead -
+ * the parser answers what an opener can carry, rather than a second copy of the
+ * grammar here. A text-only paragraph still lifts VERBATIM: its label round-trips
+ * byte for byte, padding included, and writing it through the writer would trim
+ * the block edges.
+ *
  * NO NODE BUDGET IS BYPASSED HERE. carve-rs's lift had to charge the paragraph
  * it removes, because a labelled container would otherwise cost less than its
  * unlabelled twin. This importer has no node or depth budget on the DOM walk at
@@ -78,10 +87,13 @@ class AContainerLabelSurvivesAnHtmlImportTest extends TestCase
             // carrying both.
             'a quoted title beside the label' => ["::: figure \"T\" [g]\nBody.\n:::\n"],
             'an admonition with both' => ["::: note \"T\" [g]\nBody.\n:::\n"],
-            // A label is a RAW run and a paragraph is not, so this is where a
-            // lift that re-read the paragraph's inline content would escape the
-            // asterisks and say something new on every pass.
-            'a label holding markup characters, kept raw' => ["::: figure [a *b*]\nBody.\n:::\n"],
+            // The label IS an inline run (ruled on markup-carve/carve#2572), so
+            // the paragraph the renderer degraded it to holds elements and the
+            // lift writes their source back. This is a fixed point either way,
+            // which is why it passed while the lift still refused markup.
+            'a label holding markup' => ["::: figure [a *b*]\nBody.\n:::\n"],
+            'emphasis' => ["::: [/i/]\nBody.\n:::\n"],
+            'a code span' => ["::: note [`x`]\nBody.\n:::\n"],
         ];
     }
 
@@ -102,16 +114,28 @@ class AContainerLabelSurvivesAnHtmlImportTest extends TestCase
     public static function refusedLifts(): array
     {
         return [
-            // The field is a raw string and the writer emits it raw, so lifting
-            // this would flatten the emphasis and lose it without a word.
-            'markup inside the label paragraph' => [
-                '<p class="div-label">a <em>b</em></p>',
-                "{.div-label}\na /b/\n\nBody.\n",
-            ],
-            // `]` has no spelling inside a bracket run on an opener line.
+            // `]` has no spelling inside a bracket run on an opener line. It is
+            // refused off the WRITTEN form now, so a `]` that reaches the label
+            // through a code span is refused with no `]` in the label's own text.
             'a bracket in the label text' => [
                 '<p class="div-label">a]b</p>',
                 "{.div-label}\na]b\n\nBody.\n",
+            ],
+            'a bracket through a code span' => [
+                '<p class="div-label"><code>]</code></p>',
+                "{.div-label}\n`]`\n\nBody.\n",
+            ],
+            // An empty code span writes the two backticks the opener reads as an
+            // unclosed run, so the opener does not read the label back. The
+            // parser answers that, rather than a second enumeration here.
+            'an empty code span' => [
+                '<p class="div-label"><code></code></p>',
+                "{.div-label}\n``\n\nBody.\n",
+            ],
+            // A newline ends the opener line.
+            'a hard break in the label paragraph' => [
+                '<p class="div-label">a<br>b</p>',
+                "{.div-label}\na\\\nb\n\nBody.\n",
             ],
             // carve-rs lifts and declares the loss; this importer writes source
             // text in a pass with no diagnostics channel, so the same lift would

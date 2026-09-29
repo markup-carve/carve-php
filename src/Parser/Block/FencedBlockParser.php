@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser\Block;
 
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -106,10 +107,10 @@ class FencedBlockParser
             }
             // optional bracketed [label]; nothing else may follow
             if ($rest !== '') {
-                if (!preg_match('/^\[([^\]]*)\]$/', $rest, $im)) {
+                $label = self::balancedLabel($rest);
+                if ($label === null) {
                     return null;
                 }
-                $label = $im[1];
             }
         }
 
@@ -199,9 +200,10 @@ class FencedBlockParser
 
         $label = null;
         if ($rest !== '') {
-            if (preg_match('/^\[([^\]]*)\]$/', $rest, $m)) {
+            $bare = self::balancedLabel($rest);
+            if ($bare !== null) {
                 // bare [label], no type -- a typeless generic div (tab member)
-                $label = $m[1];
+                $label = $bare;
                 $rest = '';
             } elseif (preg_match('/^(\|)$/', $rest, $m)) {
                 // THE BARE PIPE ONLY. `|` is the line-block opener, and it takes
@@ -240,10 +242,13 @@ class FencedBlockParser
             // so a form feed or a vertical tab would open an admonition the
             // grammar names nowhere. That narrowing came in with #947 and is
             // a fortiori still right now that the slot is a space.
-            } elseif (preg_match('/^([a-zA-Z0-9_][\w-]*(?: +"[^"]*")?)(?: +\[([^\]]*)\])?$/', $rest, $m)) {
+            } elseif (preg_match('/^([a-zA-Z0-9_][\w-]*(?: +"[^"]*")?)(?: +(\[[^\n]*\]))?$/D', $rest, $m)) {
                 $rest = $m[1];
                 if (isset($m[2])) {
-                    $label = $m[2];
+                    $label = self::balancedLabel($m[2]);
+                    if ($label === null) {
+                        return null;
+                    }
                 }
             } else {
                 return null;
@@ -256,6 +261,37 @@ class FencedBlockParser
             'className' => $rest,
             'label' => $label === null ? null : $this->takeLabelComment($label),
         ];
+    }
+
+    /**
+     * The content of a `[label]` slot that is exactly one BALANCED bracket run,
+     * or null when `$rest` is not one.
+     *
+     * The `label` production takes a balanced run (markup-carve/carve#2576), and
+     * a regex cannot spell one, which is why the three slots that carry it - the
+     * code fence's info line and both of the colon opener's - were written flat
+     * as `\[[^\]]*\]` and all three ended at the FIRST `]`. A label holding a
+     * nested bracket, an escaped `]` or a `]` inside a code span left trailing
+     * text after that first closer, the anchored match failed, and the whole
+     * line fell back to prose.
+     *
+     * The run is verified with {@see BracketScanner}, the same scan the inline
+     * pass resolves a link label with, so nesting is unbounded and the escape and
+     * code-span rules hold by construction rather than by a comment promising
+     * they do. ONE SHAPE MOVES THE OTHER WAY with it: a label holding an unclosed
+     * backtick run is prose, because the run swallows the closer - which is what
+     * a link text does with the same bytes.
+     */
+    protected static function balancedLabel(string $rest): ?string
+    {
+        if (($rest[0] ?? '') !== '[' || !str_ends_with($rest, ']')) {
+            return null;
+        }
+        if (BracketScanner::balancedBracketEnd($rest, 0) !== strlen($rest) - 1) {
+            return null;
+        }
+
+        return substr($rest, 1, -1);
     }
 
     /**

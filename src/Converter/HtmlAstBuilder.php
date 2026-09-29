@@ -1304,6 +1304,73 @@ final class HtmlAstBuilder
     }
 
     /**
+     * The container label a `<p class="div-label">` lifts onto the opener, or
+     * null when the opener cannot carry it.
+     *
+     * TWO PATHS, because they answer two different questions. A TEXT-ONLY
+     * paragraph lifts VERBATIM: its label round-trips byte for byte today,
+     * including the padding in `::: [ x ]`, and writing it through the writer
+     * would trim the block edges and lose it. A paragraph holding MARKUP is
+     * written back as source, which it could not be while the label was
+     * published escaped - lifting `<strong>` then flattened it without a word.
+     * The label is an inline run now (ruled on markup-carve/carve#2572), so the
+     * markup has a spelling on the opener.
+     *
+     * The refusals are asked of the WRITTEN form for the reason
+     * {@see self::summaryCanBeTitle()} gives about a quoted title: enumerating
+     * the spellings that can produce a `]` is a second copy of the grammar and
+     * goes stale, and the parser already knows. So a `]` reaching the label
+     * through a code span is refused with no `]` character in the label's own
+     * text, and an empty code span - two backticks the opener reads as an
+     * unclosed run - is refused because the opener does not read it back.
+     *
+     * THE WALK NEEDS NO REWIND, which was checked rather than assumed. carve-js
+     * had to rewind its equivalent, because its diagnostics are a list and a
+     * refused lift filed every one of them a second time when the body walked the
+     * paragraph again. This importer keys them by element and by path, so the
+     * report for a refused lift is byte-identical to the one before the lift
+     * existed. What the writer FLATTENS here it already flattened in the body -
+     * a MathML run, a ruby, an unmapped `style` - so the label carries the same
+     * loss the paragraph did, reported the same way.
+     */
+    private function containerLabelSource(DOMElement $paragraph): ?string
+    {
+        $kids = [...$paragraph->childNodes];
+        if (self::every($kids, static fn (DOMNode $part): bool => $part instanceof DOMText)) {
+            $text = $paragraph->textContent;
+
+            return str_contains($text, ']') || str_contains($text, "\n") ? null : $text;
+        }
+
+        $document = (new AstCodec())->decodeImporterTree([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [HtmlImportNodes::paragraph($this->blockInlines($paragraph))],
+        ]);
+        $source = trim((new CarveRenderer())->render($document));
+        if ($source === '' || str_contains($source, ']') || str_contains($source, "\n")) {
+            return null;
+        }
+
+        return $this->labelReadsBack($source) ? $source : null;
+    }
+
+    /**
+     * Whether the opener `::: [label]` reads that label back.
+     *
+     * The two characters an opener cannot carry are refused by name above,
+     * each for its own reason. Everything else is asked of the parser rather
+     * than enumerated here.
+     */
+    private function labelReadsBack(string $label): bool
+    {
+        $children = (new CarveConverter())->parse('::: [' . $label . "]\nx\n:::\n")->getChildren();
+        $first = $children[0] ?? null;
+
+        return $first instanceof Div && $first->getLabel() === $label;
+    }
+
+    /**
      * Would a raw region for this element have to fit on one line?
      *
      * A table row IS one line: a region holding a newline ends the row there and
@@ -2794,12 +2861,12 @@ final class HtmlAstBuilder
                 && strtolower(HtmlDomLoader::elementName($child)) === 'p'
                 && (preg_split('/\s+/', trim($child->getAttribute('class'))) ?: []) === ['div-label']
                 && $child->attributes->length === 1
-                && self::every([...$child->childNodes], static fn (DOMNode $part): bool => $part instanceof DOMText)
-                && !str_contains($child->textContent, ']')
-                && !str_contains($child->textContent, "\n")
             ) {
-                $label = $child->textContent;
-                $labelNode = $child;
+                $lifted = $this->containerLabelSource($child);
+                if ($lifted !== null) {
+                    $label = $lifted;
+                    $labelNode = $child;
+                }
             }
 
             break;

@@ -10,7 +10,6 @@ use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Hidden / blurred "spoiler" content, revealed on interaction (Tier-3).
@@ -166,7 +165,7 @@ class SpoilerExtension implements StaticRenderExtensionInterface
 
         $label = $node->getLabel();
         $labelLine = $label !== null && $label !== ''
-            ? '  <p class="div-label">' . $this->escapeHtml(StringUtil::stripBidiControls($label)) . "</p>\n"
+            ? '  <p class="div-label">' . $renderer->renderContainerLabel($node) . "</p>\n"
             : '';
 
         // An empty body renders as a single blank line, the same shape the

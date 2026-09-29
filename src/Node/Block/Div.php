@@ -46,6 +46,16 @@ class Div extends BlockNode
     protected ?string $label = null;
 
     /**
+     * Parsed inline form of {@see $label}. The raw label remains the source for
+     * formatters, round trips and a group extension's tab name; the caption a
+     * renderer publishes when no extension consumed the label reads these nodes
+     * (`CARVE-P9-041`, ruled on markup-carve/carve#2572).
+     *
+     * @var list<\MarkupCarve\Carve\Node\Node>
+     */
+    protected array $labelNodes = [];
+
+    /**
      * Quoted opener header (grammar PART 9 rule 12b). This is the ONLY source
      * of `<p class="admonition-title">`; distinct from a `title` attribute,
      * which is a plain HTML attribute.
@@ -81,6 +91,29 @@ class Div extends BlockNode
     public function setLabel(?string $label): void
     {
         $this->label = $label;
+        $this->labelNodes = [];
+    }
+
+    /**
+     * The parsed label inlines, or `[]` when nothing parsed them - a
+     * programmatically built Div, or one decoded from an AST, which carries the
+     * label as text. A renderer reads the run off {@see $label} in that case, so
+     * the caption publishes the same thing either way; the node itself stays
+     * clear of the parser.
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>
+     */
+    public function getLabelNodes(): array
+    {
+        return $this->labelNodes;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $labelNodes
+     */
+    public function setLabelNodes(array $labelNodes): void
+    {
+        $this->labelNodes = array_values($labelNodes);
     }
 
     public function getHeader(): ?string

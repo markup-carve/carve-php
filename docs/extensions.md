@@ -87,6 +87,13 @@ In static mode, an extension renders through an optional static-HTML path
 No construct falls through to "dropped": every authored token reaches at least
 the floor.
 
+The floor publishes the label's **inline run**, not the characters typed, so
+`::: [a /b/]` degrades to `<p class="div-label">a <em>b</em></p>`. A container
+label is an inline host (`CARVE-P9-041`), and the four extensions that write their
+own label element read it the same way. A reference, a footnote reference and an
+abbreviation inside a label are the known exceptions: they render as their source
+text, because the run is held beside the tree rather than in it.
+
 ### The `renderers` map (client-script extensions)
 
 Client-script extensions (mermaid, chart, plantuml, math, …) cannot produce
