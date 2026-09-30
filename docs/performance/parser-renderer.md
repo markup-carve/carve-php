@@ -18,13 +18,16 @@ These measurements compare baseline `c4227e19f3fd095df5e5fde4b572a11cb32a2b70` w
 | large.crv | html | 0.824 | 0.905 |
 
 Without JIT, deep-list parsing measured 4.2% slower across paired ratios of
-1.031–1.050, while its rendering used 37.7% less CPU. With tracing JIT,
-deep-list parsing and rendering used 5.1% and 4.2% less CPU. These results
+1.031-1.050, while its rendering used 37.7% less CPU. With tracing JIT,
+deep-list parsing had a 5.1% lower median, with paired ratios of 0.885-1.001
+that include no improvement; rendering used 4.2% less CPU. These results
 retain that tradeoff rather than claiming every phase improved.
 
 These are shared-host measurements, not a cross-engine ranking. Small differences and wide paired ranges should be treated as noise. The proofs runner disables JIT, while the bench runner enables tracing JIT; each worker records the actual runtime state.
 
 All paired runs retained identical input, AST and HTML hashes. The separate [ownership check](ownership-parity.json) retained exact AST and HTML fingerprints across all 472 proofs inputs. That check does not extend the formal model's claims.
+
+The corpus files come from [carve-bench at `eb84fcfa`](https://github.com/markup-carve/carve-bench/tree/eb84fcfa6ed2a7619a92b5347e81e8706b4de59b/corpus).
 
 [Summary, provenance and paired ranges](paired-results.json) and [raw worker batches](paired-results.jsonl) retain the measurements. The [isolated bracket report](brackets.md) measures only that change.
 

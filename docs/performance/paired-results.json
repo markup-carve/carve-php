@@ -27,7 +27,7 @@
     }
   },
   "workerSha256": "d0840c91e302cfb93c126d4223cfc011b28a535e27ff323cda62f1f3a6af2e60",
-  "corpusCommit": "9db91206d1a4a8a8cf795c48210bca49d66f14d6",
+  "corpusCommit": "eb84fcfa6ed2a7619a92b5347e81e8706b4de59b",
   "loadEnd": [
     5.7109375,
     7.2607421875,
@@ -415,5 +415,8 @@
       "baselineCpuMs": 1578.465,
       "candidateCpuMs": 1508.4769999999999
     }
-  ]
+  ],
+  "corpusRepository": "https://github.com/markup-carve/carve-bench",
+  "specRepository": "https://github.com/markup-carve/carve",
+  "specCommit": "9db91206d1a4a8a8cf795c48210bca49d66f14d6"
 }

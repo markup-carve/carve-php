@@ -1325,5 +1325,11 @@
     "/tmp/bench-analysis/corpus/medium.crv": {
       "medianCpuRatio": 1.0205946005002031
     }
-  }
+  },
+  "corpusRepository": "https://github.com/markup-carve/carve-bench",
+  "corpusCommit": "eb84fcfa6ed2a7619a92b5347e81e8706b4de59b",
+  "specRepository": "https://github.com/markup-carve/carve",
+  "specCommit": "9db91206d1a4a8a8cf795c48210bca49d66f14d6",
+  "candidateCommit": "d95cfe77a",
+  "equivalentRebasedCommit": "1b0ff5d5badccbcb49c4a0b8196d00d97f4c859a"
 }
