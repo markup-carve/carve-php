@@ -15,17 +15,18 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `CARVE-P2-024`'s `code` enum is CLOSED at `raw-format-dropped` and
- * `ruby-flattened` (PART 11 §1d, carve#2252 restored by carve#2344), and each
- * names a whole node one selected renderer dropped. A dropped FIELD goes to the
- * conversion-diagnostics channel as `field-unspellable`, which is the only one
- * of the two reports that can name a field.
+ * `CARVE-P2-024`'s `code` enum holds `raw-format-dropped`, `ruby-flattened` and
+ * `destination-denied` (PART 11 §1d, markup-carve/carve#2679), each naming a
+ * whole node or destination one selected renderer dropped, flattened or
+ * blanked. A dropped FIELD goes to the conversion-diagnostics channel as
+ * `field-unspellable`, which is the only one of the two reports that can name a
+ * field.
  *
  * THE BAR IS THE PUBLISHED SCHEMA, NOT THIS FILE'S LIST. The permitted codes are
  * read out of the vendored `render-loss-report.schema.json`, so a third code
  * added to either side fails here without anyone editing an assertion.
  */
-class ARenderLossReportNamesOnlyTheTwoSchemaCodesTest extends TestCase
+class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
 {
     /**
      * A table whose head, foot and single body each carry attributes: three
@@ -81,9 +82,12 @@ class ARenderLossReportNamesOnlyTheTwoSchemaCodesTest extends TestCase
         ];
     }
 
-    public function testTheSchemaStillClosesTheEnumAtTwoCodes(): void
+    public function testTheSchemaEnumHoldsExactlyTheThreeCodes(): void
     {
-        self::assertSame(['raw-format-dropped', 'ruby-flattened'], self::schemaCodes());
+        self::assertSame(
+            ['raw-format-dropped', 'ruby-flattened', 'destination-denied'],
+            self::schemaCodes(),
+        );
     }
 
     #[DataProvider('textTargets')]
@@ -96,10 +100,11 @@ class ARenderLossReportNamesOnlyTheTwoSchemaCodesTest extends TestCase
     }
 
     /**
-     * A document carrying all three: a dropped raw block, a flattened ruby and
-     * the three section-attribute fields. The union over the four writers must be
-     * exactly the schema's two codes - an empty union would pass a subset
-     * assertion while proving nothing.
+     * A document carrying all four: a dropped raw block, a flattened ruby, a
+     * link whose scheme the PART 9 section 25 denylist denies, and the three
+     * section-attribute fields. The union over the four writers must be exactly
+     * the schema's codes - an empty union would pass a subset assertion while
+     * proving nothing.
      */
     public function testEveryEmittedCodeIsOneTheSchemaPermits(): void
     {
@@ -118,6 +123,10 @@ class ARenderLossReportNamesOnlyTheTwoSchemaCodesTest extends TestCase
                         ],
                     ],
                 ],
+                [
+                    'type' => 'paragraph',
+                    'children' => [['type' => 'link', 'href' => 'javascript:one', 'children' => [['type' => 'text', 'value' => 'a']]]],
+                ],
                 self::tableWire(),
             ],
         ]);
@@ -131,8 +140,11 @@ class ARenderLossReportNamesOnlyTheTwoSchemaCodesTest extends TestCase
             self::assertSame(count($report->losses), $report->totalLosses, $target);
         }
 
-        ksort($seen);
-        self::assertSame(self::schemaCodes(), array_keys($seen));
+        $codes = array_keys($seen);
+        sort($codes);
+        $permitted = self::schemaCodes();
+        sort($permitted);
+        self::assertSame($permitted, $codes);
     }
 
     #[DataProvider('textTargets')]
