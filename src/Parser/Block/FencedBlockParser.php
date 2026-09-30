@@ -136,10 +136,11 @@ class FencedBlockParser
      */
     public function isCodeFenceCloser(string $line, string $fenceChar, int $fenceLength): bool
     {
-        // LINE PADDING, so PART 7's four characters and not `\s`. PCRE reads a
-        // VERTICAL TAB and a FORM FEED as `\s`, so a fence followed by one closed
-        // while the same fence followed by any other content character did not
-        // (markup-carve/carve#963).
+        if (($fenceChar === '`' || $fenceChar === '~') && ($line[0] ?? '') !== $fenceChar) {
+            return false;
+        }
+
+        // Only spaces and tabs may pad a closer (carve#963).
         $pattern = '/^(' . preg_quote($fenceChar, '/') . '+)[ \t]*$/';
         if (preg_match($pattern, $line, $m) !== 1) {
             return false;
