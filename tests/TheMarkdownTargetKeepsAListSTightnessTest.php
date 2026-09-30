@@ -119,7 +119,7 @@ class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
 
         $written = $this->write($source);
         $this->assertSame("- a\n\n  -\n", $written);
-        $this->assertSame("- a\n\n  -\n", $this->reader->convert($written));
+        $this->assertSame("{loose}\n- a\n\n  - +\n", $this->reader->convert($written));
         // The control: the same output without the blank folds the item's text
         // into a heading.
         $this->assertSame("- ## a\n", $this->reader->convert("- a\n  -\n"));
