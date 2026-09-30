@@ -403,11 +403,9 @@ class FencedBlockParser
 
     public function isFencedCommentCloser(string $line, int $fenceLength): bool
     {
-        if (preg_match('/^(%{3,})/', $line, $m) !== 1) {
-            return false;
-        }
+        $length = strspn($line, '%');
 
-        return strlen($m[1]) === $fenceLength;
+        return $length >= 3 && $length === $fenceLength;
     }
 
     /**

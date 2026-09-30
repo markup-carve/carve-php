@@ -13,9 +13,26 @@ use MarkupCarve\Carve\Util\StringUtil;
 /**
  * Parses bullet, ordered, and task-list markers.
  * `+` requires PlusBulletExtension; definition lists are parsed by BlockParser.
+ *
+ * @phpstan-type ListMarker array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, bareMarker?: bool, attributes?: array<string, string|list<string>>, attributesWidth?: int}
  */
 class ListParser
 {
+    /**
+     * @var int
+     */
+    private const PARSED_MARKER_CACHE_LIMIT = 128;
+
+    /**
+     * @var int
+     */
+    private const PARSED_MARKER_CACHE_LINE_BYTES = 2048;
+
+    /**
+     * @var array<string, ListMarker|null>
+     */
+    private array $parsedMarkerCache = [];
+
     /**
      * Roman numeral values for conversion
      *
@@ -111,6 +128,7 @@ class ListParser
      */
     public function allowPlusBullet(bool $enable = true): void
     {
+        $this->parsedMarkerCache = [];
         $this->bulletMarkerClass = $enable ? '-*+' : '-*';
         $this->markerHeads = null;
         $this->markerTokens = null;
@@ -510,9 +528,27 @@ class ListParser
      *
      * @param string $line The line to parse
      *
-     * @return array{type: string, marker: string, content: string, start?: int, checked?: bool, taskMarker?: string, style?: string, marker_indent?: int, ambiguous?: bool, alpha_start?: int, alpha_style?: string, bareMarker?: bool, attributes?: array<string, string|list<string>>, attributesWidth?: int}|null
+     * @return ListMarker|null
      */
     public function parseListItemMarker(string $line): ?array
+    {
+        if (static::class !== self::class || strlen($line) > self::PARSED_MARKER_CACHE_LINE_BYTES) {
+            return $this->parseListItemMarkerUncached($line);
+        }
+        if (array_key_exists($line, $this->parsedMarkerCache)) {
+            return $this->parsedMarkerCache[$line];
+        }
+        if (count($this->parsedMarkerCache) >= self::PARSED_MARKER_CACHE_LIMIT) {
+            $this->parsedMarkerCache = [];
+        }
+
+        return $this->parsedMarkerCache[$line] = $this->parseListItemMarkerUncached($line);
+    }
+
+    /**
+     * @return ListMarker|null
+     */
+    private function parseListItemMarkerUncached(string $line): ?array
     {
         $first = $line[0] ?? '';
         if ($first !== '-' && $first !== '*' && $first !== '.' && !$this->markerTokenCanStartAt($line, 0)) {
