@@ -5,7 +5,8 @@ pairs keep the same depth limit, and escapes, code spans and comments use the
 same scanner rules. A cached last-closer check skips runs without any possible
 closing bracket. Recursive inline parsing restores the enclosing scan caches.
 
-Six alternating fresh-process pairs against main `c4227e19f` measured median
+These measurements isolate the bracket change, before the container and
+renderer changes. Six alternating fresh-process pairs against main `c4227e19f` measured median
 candidate/baseline CPU-time ratios of 0.1125 for 1,024 unmatched openers and
 0.1050 when a trailing closer was present, about 89% and 90% less CPU time.
 Every pair retained identical AST and HTML fingerprints. The separate medium

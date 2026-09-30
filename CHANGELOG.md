@@ -7,6 +7,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
+## [Unreleased]
+
+### Improvements
+
+- Index balanced bracket pairs and failed openers to avoid repeated scans of malformed inline input.
+- Skip unnecessary marker checks and paragraph inline parsing during heading indexing.
+- Pad nested HTML in bulk while preserving preformatted text and multiline attributes.
+
 ## [0.1.10] - 2026-09-29
 
 ### Breaking
