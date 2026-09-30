@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use MarkupCarve\Carve\Ast\SourceSpan;
+
 /**
  * State owned by one document parse.
  *
@@ -199,4 +201,20 @@ final class BlockParseSession
      * @var array<int, true>
      */
     public array $blockQuoteLazySourceLines = [];
+
+    /**
+     * True when a reference failed to resolve during the parse, in either the
+     * collapsed `[text][]` or the explicit `[text][Label]` form. Both can
+     * still land on a heading, and the heading index is built from the parsed
+     * tree, so it does not exist yet. This is the trigger for the second pass;
+     * a document whose references all resolved never pays for it.
+     */
+    public bool $sawUnresolvedCollapsedReference = false;
+
+    /**
+     * @var list<\MarkupCarve\Carve\Ast\SourceSpan>
+     */
+    public array $unattachedBlockAttributes = [];
+
+    public ?SourceSpan $pendingAttributeSpan = null;
 }

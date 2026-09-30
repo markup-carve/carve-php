@@ -83,11 +83,16 @@ use MarkupCarve\Carve\Util\StringUtil;
 /**
  * Renders AST to HTML
  */
-class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterface
+class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterface, RenderTargetInterface, SmartTypographyRendererInterface, SymbolRendererInterface, SafeModeRendererInterface, RenderModeRendererInterface, StaticRenderersInterface, StaticRenderExtensionsInterface, RenderEventsInterface, HeadingIdRendererInterface
 {
     use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use EventDispatcherTrait;
+
+    public function getRenderTarget(): string
+    {
+        return 'html';
+    }
 
     /**
      * Attributes that record where a block was WRITTEN rather than describing

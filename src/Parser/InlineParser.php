@@ -346,6 +346,18 @@ class InlineParser
     }
 
     /**
+     * @internal
+     */
+    public function copyForBlockParser(BlockParser $blockParser): self
+    {
+        $copy = clone $this;
+        $copy->blockParser = $blockParser;
+        $copy->inlineMatcherContext = null;
+
+        return $copy;
+    }
+
+    /**
      * Register a custom inline pattern
      *
      * The pattern should be a regex that matches from the current position.
@@ -379,15 +391,13 @@ class InlineParser
         $this->customPatterns[$pattern] = $callback;
 
         $anchored = $pattern[0] . '\G' . substr($pattern, 1);
-        $self = $this;
-
         $this->registerInlineMatcher(
-            function (string $text, int $pos, MatcherContext $ctx) use ($anchored, $callback, $self): ?array {
+            static function (string $text, int $pos, MatcherContext $ctx) use ($anchored, $callback): ?array {
                 if (!preg_match($anchored, $text, $matches, 0, $pos)) {
                     return null;
                 }
 
-                $node = $callback($matches[0], $matches, $self);
+                $node = $callback($matches[0], $matches, $ctx->getInlineParser());
                 if ($node === null) {
                     return null;
                 }

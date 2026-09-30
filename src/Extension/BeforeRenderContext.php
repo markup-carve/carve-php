@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use Closure;
-use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\RendererInterface;
 use MarkupCarve\Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\Renderer\RenderModeRendererInterface;
+use MarkupCarve\Carve\Renderer\RenderTargetInterface;
+use MarkupCarve\Carve\Renderer\SafeModeRendererInterface;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
+use MarkupCarve\Carve\Renderer\SmartTypographyRendererInterface;
+use MarkupCarve\Carve\Renderer\StaticRenderersInterface;
+use MarkupCarve\Carve\Renderer\SymbolRendererInterface;
 use MarkupCarve\Carve\SafeMode;
 
 /**
@@ -50,16 +55,16 @@ final class BeforeRenderContext
      */
     public static function forRenderer(RendererInterface $renderer): self
     {
-        $targetIsHtml = $renderer instanceof HtmlRenderer;
+        $targetIsHtml = $renderer instanceof RenderTargetInterface && $renderer->getRenderTarget() === 'html';
 
         return new self(
-            $targetIsHtml ? $renderer->getSymbols() : [],
-            method_exists($renderer, 'getSmartTypography')
+            $targetIsHtml && $renderer instanceof SymbolRendererInterface ? $renderer->getSymbols() : [],
+            $renderer instanceof SmartTypographyRendererInterface || method_exists($renderer, 'getSmartTypography')
                 ? $renderer->getSmartTypography()
                 : SmartTypographyMode::Glyph,
-            $targetIsHtml ? $renderer->getSafeMode() : null,
-            $targetIsHtml ? $renderer->getStaticRenderers() : [],
-            $targetIsHtml ? $renderer->getRenderMode() : RenderMode::INTERACTIVE,
+            $targetIsHtml && $renderer instanceof SafeModeRendererInterface ? $renderer->getSafeMode() : null,
+            $targetIsHtml && $renderer instanceof StaticRenderersInterface ? $renderer->getStaticRenderers() : [],
+            $targetIsHtml && $renderer instanceof RenderModeRendererInterface ? $renderer->getRenderMode() : RenderMode::INTERACTIVE,
             $targetIsHtml,
         );
     }

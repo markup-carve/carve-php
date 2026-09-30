@@ -80,12 +80,17 @@ use MarkupCarve\Carve\Util\StringUtil;
  * Produces colored, styled text suitable for display in terminals
  * that support ANSI escape codes.
  */
-class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector
+class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector, RenderTargetInterface, SmartTypographyRendererInterface
 {
     use ConversionDiagnosticCollectorTrait;
     use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use DerivedLabelTrait;
+
+    public function getRenderTarget(): string
+    {
+        return 'ansi';
+    }
 
     /**
      * Presentation renderers emit the resolved glyph; the Carve renderer emits

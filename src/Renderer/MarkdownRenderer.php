@@ -84,7 +84,7 @@ use Normalizer;
 /**
  * Renders AST to Markdown (CommonMark compatible where possible)
  */
-class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector
+class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector, RenderTargetInterface, SmartTypographyRendererInterface, SymbolRendererInterface, RenderEventsInterface
 {
     use ConversionDiagnosticCollectorTrait;
     use RenderLossCollectorTrait;
@@ -92,6 +92,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     use DerivedLabelTrait;
 
     use EventDispatcherTrait;
+
+    public function getRenderTarget(): string
+    {
+        return 'markdown';
+    }
 
     /**
      * Presentation renderers emit the resolved glyph; the Carve renderer emits

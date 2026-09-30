@@ -22,6 +22,17 @@ class ReferenceDefinitionExtractor
     }
 
     /**
+     * @internal
+     */
+    public function copyForInlineParser(InlineParser $inlineParser): self
+    {
+        $copy = clone $this;
+        $copy->inlineParser = $inlineParser;
+
+        return $copy;
+    }
+
+    /**
      * Is a `: ` line here actually a definition list's DESCRIPTION?
      *
      * Only when a term opened the entry above it. A description line with no

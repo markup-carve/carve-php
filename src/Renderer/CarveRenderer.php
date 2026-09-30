@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
-use ArrayObject;
 use Closure;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\CodePayload;
@@ -85,8 +84,6 @@ use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
 use MarkupCarve\Carve\VerbatimPayload;
-use ReflectionObject;
-use stdClass;
 use Throwable;
 
 /**
@@ -97,10 +94,38 @@ use Throwable;
  * node's kind (PART 11 section 1c). It is THE ONLY ONE THE IMPORTER CAN BUILD;
  * the other carve-outs require a hand-built or ingested tree.
  */
-class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector
+class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector, RenderTargetInterface
 {
+    use LegacyCarveWriterProperties;
     use RenderLossCollectorTrait;
     use ConversionDiagnosticCollectorTrait;
+
+    private CarveWriterState $writerState;
+
+    private ?CanonicalAst $canonicalImplementation = null;
+
+    private ?CanonicalEscapeSearch $searchImplementation = null;
+
+    private ?StructuralEscapePlanner $plannerImplementation = null;
+
+    public function __clone(): void
+    {
+        $this->canonicalImplementation = null;
+        $this->searchImplementation = null;
+        $this->plannerImplementation = null;
+        if (isset($this->writerState)) {
+            $this->writerState = new CarveWriterState();
+            $this->bindLegacyWriterState();
+            if ($this->writerState->occurrenceLog !== null) {
+                $this->writerState->occurrenceLog = clone $this->writerState->occurrenceLog;
+            }
+        }
+    }
+
+    public function getRenderTarget(): string
+    {
+        return 'carve';
+    }
 
     /**
      * @var list<string>
@@ -154,7 +179,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * @var string
      */
-    private const ESCAPE_MODE_CONSERVATIVE = 'conservative';
+    private const ESCAPE_MODE_CONSERVATIVE = CarveWriterGrammar::ESCAPE_MODE_CONSERVATIVE;
 
     protected int $blockDepth = 0;
 
@@ -235,32 +260,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected string $escapeMode = self::ESCAPE_MODE_CONSERVATIVE;
 
     /**
-     * The units written in the conservative form, keyed by `spl_object_id`,
-     * when the writer is deciding unit by unit rather than document by
-     * document.
-     *
-     * Null means the whole pass follows $escapeMode, which is what the two
-     * exploratory renders in render() do. Non-null is PART 11 section 2b's
-     * pass: a unit in the set is escaped in full, every other unit is emitted
-     * by section 2's own test, and for a character nothing needs that means
-     * bare.
-     *
-     * @var array<int, true>|null
-     */
-    protected ?array $escalatedUnits = null;
-
-    /**
-     * Where the writer records the unit a character it is escaping belongs to.
-     *
-     * Non-null only for narrowEscalation()'s control render, which uses it to
-     * learn which units the escape arms actually ask about - see the comment
-     * there. Null everywhere else, so no other render pays for the bookkeeping.
-     *
-     * @var array<int, true>|null
-     */
-    protected ?array $askedUnits = null;
-
-    /**
      * The source canonicalTree() last parsed, and the tree it gave.
      *
      * @var string|null
@@ -273,37 +272,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected ?array $treeCache = null;
 
     /**
-     * Whether a narrowing candidate re-parsed to the conservative tree, keyed
-     * by a hash of its bytes. The halving and the sweep re-render states they
-     * already measured, and parsing is pure, so the verdict cannot change.
-     *
-     * @var array<string, bool>
-     */
-    protected array $candidateVerdicts = [];
-
-    /**
-     * @var array<string, array<string, \ReflectionProperty>>
-     */
-    protected array $canonicalProperties = [];
-
-    /**
-     * How many more narrowing renders the current document may pay for.
-     *
-     * THE SEARCH IS BOUNDED, because its cost is proportional to how many units
-     * FAIL. A group that holds no failing unit is relaxed in one render, so a
-     * document with a handful of them costs about log(n) renders - but one where
-     * nearly every unit fails drives the recursion to its leaves and pays a
-     * render and a parse per unit, which is quadratic in the document.
-     *
-     * Such a document gains almost nothing from narrowing: it IS the
-     * conservative form, arrived at because every block needed it. So the search
-     * stops when the budget runs out and returns the state it has reached, which
-     * is verified like every other - the escalation is wider than §2b's minimum
-     * there, never narrower, and no document's output can be wrong for it.
-     */
-    protected int $narrowingBudget = 0;
-
-    /**
      * How many documents' worth of source one narrowing search may re-parse
      * beyond its probe count. Windowed probes are cheap, so this lets a large
      * document with many independent failing units finish the search, while
@@ -311,15 +279,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @var int
      */
-    protected const ESCAPE_SEARCH_PARSE_FACTOR = 16;
-
-    /**
-     * Bytes of source the probes have rendered for re-parsing, cached or not,
-     * so the charge is a property of the search rather than of a cache.
-     */
-    protected int $probeCharge = 0;
-
-    protected int $searchChargeStart = 0;
+    protected const ESCAPE_SEARCH_PARSE_FACTOR = CarveWriterGrammar::ESCAPE_SEARCH_PARSE_FACTOR;
 
     /**
      * How many times its probe count a search may probe at most. A probe still
@@ -327,23 +287,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @var int
      */
-    protected const ESCAPE_SEARCH_PROBE_FACTOR = 4;
-
-    protected int $searchProbeFloor = 0;
-
-    /**
-     * The pruned views the narrowing probes render, built on the first local
-     * probe of a narrowing and dropped with it.
-     */
-    protected ?EscapeWindows $escapeWindows = null;
-
-    /**
-     * The trees of the windows parsed in the current narrowing, keyed like
-     * $candidateVerdicts: a window is often rendered to the same bytes again.
-     *
-     * @var array<string, array{tree: mixed}|null>
-     */
-    protected array $windowTrees = [];
+    protected const ESCAPE_SEARCH_PROBE_FACTOR = CarveWriterGrammar::ESCAPE_SEARCH_PROBE_FACTOR;
 
     /**
      * The node whose render arm is currently writing, and therefore the unit
@@ -354,23 +298,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * block.
      */
     protected ?Node $escapeUnit = null;
-
-    /**
-     * Byte offsets in a text node's content escaped in BOTH forms, keyed by
-     * `spl_object_id`: PART 11 §5's lone bracket and destination-opening `(`.
-     *
-     * @var array<int, array<int, true>>
-     */
-    protected array $structuralEscapes = [];
-
-    /**
-     * In bracketed content, each paired `]` (text node id, byte offset) mapped
-     * to its `[`. Escaping either alone re-pairs the construct's own brackets,
-     * so the closer is written with the decision its opener took.
-     *
-     * @var array<int, array<int, array{int, int}>>
-     */
-    protected array $pairedClosers = [];
 
     /**
      * Whether each paired `[` was last written escaped, for its closer.
@@ -386,8 +313,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function takeAskedUnits(): array
     {
-        $asked = $this->askedUnits ?? [];
-        $this->askedUnits = null;
+        $this->ensureWriterState();
+        $asked = $this->writerState->askedUnits ?? [];
+        $this->writerState->askedUnits = null;
 
         return $asked;
     }
@@ -417,82 +345,25 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected const VERBATIM_SEPARATOR = '{%  %}';
 
     /**
-     * Which units the occurrence search numbers, keyed by `spl_object_id`, so
-     * a key survives a re-render.
-     *
-     * Non-null only during that search. Everywhere else the whole unit follows
-     * escapeModeHere(), which is section 2b's per-unit knob.
-     *
-     * @var array<int, int>|null
-     */
-    protected ?array $unitNumbers = null;
-
-    /**
-     * The occurrences handed back their bare form by the search (PART 11
-     * section 2).
-     *
-     * @var array<string, true>|null
-     */
-    protected ?array $relaxedOccurrences = null;
-
-    /**
-     * Where a pass records the occurrences it visited, in emission order.
-     *
-     * AN ArrayObject AND NOT AN ARRAY, because the collector is not the reader:
-     * the log is filled from occurrenceIsRelaxed() several frames inside a
-     * render, and static analysis reading narrowOccurrences() on its own sees
-     * only the empty array it was opened with - which makes the "did this pass
-     * visit anything?" test look like a constant. A handle keeps the question
-     * honest at the one place it is asked.
-     *
-     * @var \ArrayObject<int, string>|null
-     */
-    protected ?ArrayObject $occurrenceLog = null;
-
-    /**
      * The decision the last candidate site took, so a RUN can inherit it.
      */
     protected bool $lastOccurrenceRelaxed = false;
-
-    /**
-     * How many escaped runs each unit has written in this pass, keyed by
-     * `spl_object_id`.
-     *
-     * THE OFFSET ALONE IS NOT A KEY. A unit is the node whose arm wrote the
-     * character, and a BLOCK's arm can write several runs - a table row's
-     * cells, a fence title beside its info string - each with its own offsets
-     * starting at zero. Two of them collide at offset 0 and the search would
-     * then relax both sites or neither, which is the per-unit knob this whole
-     * change removes, one level down.
-     *
-     * The count is stable across the search for the same reason the offsets
-     * are: relaxing an occurrence changes which characters are emitted and
-     * never which arms run, so a unit writes the same runs in the same order on
-     * every render.
-     *
-     * @var array<int, int>|null
-     */
-    protected ?array $escapeCallIndexes = null;
 
     /**
      * The index of the run now being escaped, within its unit.
      */
     protected function nextEscapeCallIndex(): int
     {
-        if ($this->escapeCallIndexes === null || $this->escapeUnit === null) {
+        $this->ensureWriterState();
+        if ($this->writerState->escapeCallIndexes === null || $this->escapeUnit === null) {
             return 0;
         }
         $id = spl_object_id($this->escapeUnit);
-        $index = $this->escapeCallIndexes[$id] ?? 0;
-        $this->escapeCallIndexes[$id] = $index + 1;
+        $index = $this->writerState->escapeCallIndexes[$id] ?? 0;
+        $this->writerState->escapeCallIndexes[$id] = $index + 1;
 
         return $index;
     }
-
-    /**
-     * How many more occurrence renders the current document may pay for.
-     */
-    protected int $occurrenceBudget = 0;
 
     /**
      * The occurrences the pass just rendered visited, in emission order.
@@ -505,7 +376,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function loggedOccurrences(): array
     {
-        return $this->occurrenceLog === null ? [] : array_values($this->occurrenceLog->getArrayCopy());
+        $this->ensureWriterState();
+
+        return $this->writerState->occurrenceLog === null ? [] : array_values($this->writerState->occurrenceLog->getArrayCopy());
     }
 
     /**
@@ -531,32 +404,34 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function occurrenceIsRelaxed(int $call, int $offset, bool $continuesRun): bool
     {
-        if ($this->unitNumbers === null || $this->escapeUnit === null) {
+        $this->ensureWriterState();
+        if ($this->writerState->unitNumbers === null || $this->escapeUnit === null) {
             return false;
         }
         if ($continuesRun) {
             return $this->lastOccurrenceRelaxed;
         }
-        $unit = $this->unitNumbers[spl_object_id($this->escapeUnit)] ?? null;
+        $unit = $this->writerState->unitNumbers[spl_object_id($this->escapeUnit)] ?? null;
         if ($unit === null) {
             return false;
         }
         $key = $unit . ':' . $call . ':' . $offset;
-        $this->occurrenceLog?->append($key);
-        $this->lastOccurrenceRelaxed = isset($this->relaxedOccurrences[$key]);
+        $this->writerState->occurrenceLog?->append($key);
+        $this->lastOccurrenceRelaxed = isset($this->writerState->relaxedOccurrences[$key]);
 
         return $this->lastOccurrenceRelaxed;
     }
 
     protected function escapeModeHere(): string
     {
-        if ($this->askedUnits !== null && $this->escapeUnit !== null) {
-            $this->askedUnits[spl_object_id($this->escapeUnit)] = true;
+        $this->ensureWriterState();
+        if ($this->writerState->askedUnits !== null && $this->escapeUnit !== null) {
+            $this->writerState->askedUnits[spl_object_id($this->escapeUnit)] = true;
         }
-        if ($this->escalatedUnits === null) {
+        if ($this->writerState->escalatedUnits === null) {
             return $this->escapeMode;
         }
-        if ($this->escapeUnit !== null && isset($this->escalatedUnits[spl_object_id($this->escapeUnit)])) {
+        if ($this->escapeUnit !== null && isset($this->writerState->escalatedUnits[spl_object_id($this->escapeUnit)])) {
             return self::ESCAPE_MODE_CONSERVATIVE;
         }
 
@@ -616,6 +491,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     public function render(Document $document): string
     {
+        $this->ensureWriterState();
         $document = $this->withTextAsOneRun($document);
         // Choose the sentinels before anything is rendered, so both escape passes
         // below agree on them.
@@ -625,8 +501,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->bracedForAttributes = [];
         $this->expandedBoldItalic = [];
         $this->treeCache = null;
-        $this->structuralEscapes = [];
-        $this->pairedClosers = [];
+        $this->writerState->structuralEscapes = [];
+        $this->writerState->pairedClosers = [];
         $this->escapedOpeners = [];
         $this->planStructuralEscapes($document);
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
@@ -652,92 +528,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function narrowEscalation(Document $document, string $conservative, ?string $minimal = null): string
     {
-        $conservativeTree = $this->canonicalTree($conservative);
-        // Null answers "cannot tell", exactly as it does for the minimal form:
-        // with no tree to hold the narrowing against, there is nothing to
-        // narrow toward.
-        if ($conservativeTree === null) {
-            return $conservative;
-        }
-
-        $all = $this->collectEscapeUnits($document);
-        if ($all === []) {
-            return $conservative;
-        }
-
-        $escalated = [];
-        foreach ($all as $unit) {
-            $escalated[spl_object_id($unit)] = true;
-        }
-        $this->escalatedUnits = $escalated;
-        $this->candidateVerdicts = [$this->candidateKey($conservative) => true];
-        if ($minimal !== null) {
-            // render() narrows only after the minimal form failed to hold.
-            $this->candidateVerdicts[$this->candidateKey($minimal)] = false;
-        }
-
-        try {
-            // THE CONTROL RENDER LOGS WHICH UNITS THE WRITER ACTUALLY ASKS
-            // ABOUT, so the search below can skip the ones it cannot move.
-            // collectEscapeUnits() is a generic walk over every node that COULD
-            // carry an escaped character; the units that DO are whatever the
-            // writer's own escape arms charge a character to, and only those
-            // read $escalatedUnits. A unit the writer never asks about renders
-            // the same bytes in or out of the set, so offering it its minimal
-            // form is a render and a parse spent to learn nothing.
-            //
-            // Deep nesting produces many units the writer never asks about.
-            // Probing each would re-render and re-parse the expanding output.
-            //
-            // Logging it rather than predicting it is the same choice
-            // collectEscapeUnits() makes and for the same reason: the set is
-            // whatever the arms visit, so an arm that grows a new escape cannot
-            // fall out of the search. And a unit wrongly left out cannot
-            // produce wrong output - every state the search returns is
-            // re-parsed against $conservativeTree, exactly as before.
-            $this->askedUnits = [];
-            try {
-                $best = $this->renderSelectively($document);
-            } finally {
-                $asked = $this->takeAskedUnits();
-            }
-            if ($best !== $conservative) {
-                return $conservative;
-            }
-            $units = [];
-            foreach ($all as $unit) {
-                if (isset($asked[spl_object_id($unit)])) {
-                    $units[] = $unit;
-                }
-            }
-            // No guard for an EMPTY $units: relaxUnits() returns on an empty
-            // group, and a check here would be one no corpus document can
-            // reach - the control render asks about a unit for every byte the
-            // two forms differ in, and they differ or this is not running.
-            //
-            // Probes render only a window around the relaxed units; the state
-            // the windowed search settles on is verified against the whole
-            // document, and the search is redone with whole-document probes
-            // when it does not hold.
-            $best = $this->searchUnits($document, $all, $units, $conservativeTree, strlen($conservative), true);
-            if (!$this->candidateHolds($best, $conservativeTree)) {
-                $best = $this->searchUnits($document, $all, $units, $conservativeTree, strlen($conservative), false);
-            }
-            // PART 11 section 2 TAKES THE DECISION PER OPENER OCCURRENCE, and
-            // a unit is still ONE KNOB: a unit that fails is written
-            // conservatively IN FULL, so every candidate character beside the
-            // one that needed it is escaped for nothing. Section 2b bounds how
-            // far the fallback reaches; this is what is left inside the bound
-            // (markup-carve/carve#1533).
-            $this->narrowOccurrences($document, $units, $conservativeTree, strlen($conservative), $best);
-
-            return $best;
-        } finally {
-            $this->escalatedUnits = null;
-            $this->candidateVerdicts = [];
-            $this->escapeWindows = null;
-            $this->windowTrees = [];
-        }
+        return $this->searchService()->narrowEscalation($document, $conservative, $minimal);
     }
 
     /**
@@ -759,18 +550,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         int $conservativeLength,
         bool $local,
     ): string {
-        $this->escalatedUnits = [];
-        foreach ($all as $unit) {
-            $this->escalatedUnits[spl_object_id($unit)] = true;
-        }
-        // Eight times the depth of the halving, which is what narrowing four
-        // independent failing units costs.
-        $this->narrowingBudget = 8 * (int)ceil(log(count($units) + 1, 2)) + 8;
-        $this->searchChargeStart = $this->probeCharge;
-        $this->searchProbeFloor = -(self::ESCAPE_SEARCH_PROBE_FACTOR - 1) * $this->narrowingBudget;
-        $this->relaxUnits($document, $units, $conservativeTree, $conservativeLength, $local);
-
-        return $this->renderSelectively($document);
+        return $this->searchService()->searchUnits($document, $all, $units, $conservativeTree, $conservativeLength, $local);
     }
 
     /**
@@ -797,36 +577,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         array $conservativeTree,
         int $conservativeLength,
     ): bool {
-        $window = null;
-        if ($local) {
-            $this->escapeWindows ??= new EscapeWindows($document);
-            $window = $this->escapeWindows->windowFor($units);
-        }
-        $before = $window === null ? null : $this->renderWindow($window);
-        // A window near the document's size saves nothing over the whole-document probe.
-        $beforeTree = $before === null || strlen($before) * 2 > $conservativeLength ? null : $this->windowTree($before);
-        $apply();
-        if ($window !== null && $beforeTree !== null) {
-            $after = $this->renderWindow($window);
-            if ($after !== null) {
-                $this->probeCharge += strlen((string)$before) + strlen($after);
-                // Loose, as in candidateHolds().
-                if ($this->windowTree($after) == $beforeTree) {
-                    return true;
-                }
-                $undo();
-
-                return false;
-            }
-        }
-        $candidate = $this->renderSelectively($document);
-        $this->probeCharge += strlen($candidate);
-        if ($this->candidateHolds($candidate, $conservativeTree)) {
-            return true;
-        }
-        $undo();
-
-        return false;
+        return $this->searchService()->probeKeeps($document, $local, $units, $apply, $undo, $conservativeTree, $conservativeLength);
     }
 
     /**
@@ -835,10 +586,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function searchIsSpent(int $budget, int $conservativeLength): bool
     {
-        return $budget <= 0 && (
-            $this->probeCharge - $this->searchChargeStart >= self::ESCAPE_SEARCH_PARSE_FACTOR * $conservativeLength
-            || $budget <= $this->searchProbeFloor
-        );
+        return $this->searchService()->searchIsSpent($budget, $conservativeLength);
     }
 
     /**
@@ -846,12 +594,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function windowTree(string $source): ?array
     {
-        $key = $this->candidateKey($source);
-        if (!array_key_exists($key, $this->windowTrees)) {
-            $this->windowTrees[$key] = $this->canonicalTree($source);
-        }
-
-        return $this->windowTrees[$key];
+        return $this->searchService()->windowTree($source);
     }
 
     /**
@@ -859,14 +602,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderWindow(array $window): ?string
     {
-        assert($this->escapeWindows !== null);
-        $rendered = $this->escapeWindows->renderPruned(
-            $window,
-            fn (): string => $this->renderOnePass($this->escapeWindows->document(), self::ESCAPE_MODE_CONSERVATIVE),
-        );
-
-        // A window that opens on a break would re-parse as frontmatter.
-        return $rendered === null || str_starts_with($rendered, '---') ? null : $rendered;
+        return $this->searchService()->renderWindow($window);
     }
 
     /**
@@ -878,21 +614,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function candidateHolds(string $candidate, array $conservativeTree): bool
     {
-        $key = $this->candidateKey($candidate);
-        if (!isset($this->candidateVerdicts[$key])) {
-            $candidateTree = $this->canonicalTree($candidate);
-            // Loose, because escapingIsRedundant() compares the same trees the
-            // same way: two spellings of one document differ in field ORDER,
-            // not in content.
-            $this->candidateVerdicts[$key] = $candidateTree !== null && $candidateTree == $conservativeTree;
-        }
-
-        return $this->candidateVerdicts[$key];
+        return $this->searchService()->candidateHolds($candidate, $conservativeTree);
     }
 
     protected function candidateKey(string $candidate): string
     {
-        return strlen($candidate) . ':' . hash('xxh128', $candidate);
+        return $this->searchService()->candidateKey($candidate);
     }
 
     /**
@@ -912,34 +639,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         int $conservativeLength,
         bool $local,
     ): void {
-        $count = count($units);
-        if ($count === 0 || $this->searchIsSpent($this->narrowingBudget, $conservativeLength)) {
-            return;
-        }
-        $this->narrowingBudget--;
-        $kept = $this->probeKeeps(
-            $document,
-            $local,
-            $units,
-            function () use ($units): void {
-                foreach ($units as $unit) {
-                    unset($this->escalatedUnits[spl_object_id($unit)]);
-                }
-            },
-            function () use ($units): void {
-                foreach ($units as $unit) {
-                    $this->escalatedUnits[spl_object_id($unit)] = true;
-                }
-            },
-            $conservativeTree,
-            $conservativeLength,
-        );
-        if ($kept || $count === 1) {
-            return;
-        }
-        $half = intdiv($count, 2);
-        $this->relaxUnits($document, array_slice($units, 0, $half), $conservativeTree, $conservativeLength, $local);
-        $this->relaxUnits($document, array_slice($units, $half), $conservativeTree, $conservativeLength, $local);
+        $this->searchService()->relaxUnits($document, $units, $conservativeTree, $conservativeLength, $local);
     }
 
     /**
@@ -988,45 +688,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         int $conservativeLength,
         string &$best,
     ): void {
-        $numbers = [];
-        foreach (array_values($units) as $index => $unit) {
-            $numbers[spl_object_id($unit)] = $index;
-        }
-        $unitScoped = $best;
-
-        $this->unitNumbers = $numbers;
-        $this->relaxedOccurrences = [];
-        $this->occurrenceLog = new ArrayObject();
-        try {
-            $control = $this->renderSelectively($document);
-            $occurrences = $this->loggedOccurrences();
-            $this->occurrenceLog = null;
-            if ($control !== $unitScoped || $occurrences === []) {
-                return;
-            }
-
-            // OFFERED FROM THE END OF THE DOCUMENT BACKWARDS, which is what
-            // makes the escape that survives the OPENER's. Section 2 asks
-            // whether omitting the escapes on an occurrence would let the
-            // construct FORM, and a construct forms at its opener - so with the
-            // opener still escaped every later candidate on the same line is
-            // free, while relaxing the opener first leaves the escape on a
-            // closer that was never load bearing (`{.note \}` where section 2
-            // wants `\{.note}`). Both spellings re-parse to the same tree, so
-            // only the order separates them.
-            $order = array_reverse($occurrences);
-            $units = array_values($units);
-            $candidate = $this->searchOccurrences($document, $units, $order, $conservativeTree, $conservativeLength, true);
-            if (!$this->candidateHolds($candidate, $conservativeTree)) {
-                $candidate = $this->searchOccurrences($document, $units, $order, $conservativeTree, $conservativeLength, false);
-            }
-            $best = $candidate;
-        } finally {
-            $this->unitNumbers = null;
-            $this->relaxedOccurrences = null;
-            $this->occurrenceLog = null;
-            $this->escapeCallIndexes = null;
-        }
+        $this->searchService()->narrowOccurrences($document, $units, $conservativeTree, $conservativeLength, $best);
     }
 
     /**
@@ -1048,33 +710,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         int $conservativeLength,
         bool $local,
     ): string {
-        $this->relaxedOccurrences = [];
-        $this->occurrenceBudget = 8 * (int)ceil(log(count($order) + 1, 2)) + 8;
-        $this->searchChargeStart = $this->probeCharge;
-        $this->searchProbeFloor = -(self::ESCAPE_SEARCH_PROBE_FACTOR - 1) * $this->occurrenceBudget;
-        $this->relaxOccurrences($document, $units, $order, $conservativeTree, $conservativeLength, $local);
-        // AND THEN ONE SWEEP OF WHAT IS LEFT, because the halving is not a
-        // FIXPOINT. Relaxing occurrences is not monotone: an occurrence
-        // rejected while a neighbour was still escaped can be free once
-        // that neighbour is relaxed, and the halving never revisits a group
-        // it has descended past. Corpus 160 is the case - the closing
-        // `:::` line cannot go bare while the OPENING one is escaped,
-        // because then it is the only fence marker on the page, and it can
-        // once the opener is bare. The sweep offers every still-escalated
-        // occurrence once more, on top of everything the halving accepted,
-        // and spends the same budget - so where the budget is already gone
-        // it costs nothing, which is the pathological document.
-        foreach ($order as $key) {
-            if ($this->searchIsSpent($this->occurrenceBudget, $conservativeLength)) {
-                break;
-            }
-            if (isset($this->relaxedOccurrences[$key])) {
-                continue;
-            }
-            $this->relaxOccurrences($document, $units, [$key], $conservativeTree, $conservativeLength, $local);
-        }
-
-        return $this->renderSelectively($document);
+        return $this->searchService()->searchOccurrences($document, $units, $order, $conservativeTree, $conservativeLength, $local);
     }
 
     /**
@@ -1096,44 +732,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         int $conservativeLength,
         bool $local,
     ): void {
-        $count = count($group);
-        if ($count === 0 || $this->searchIsSpent($this->occurrenceBudget, $conservativeLength)) {
-            return;
-        }
-        $this->occurrenceBudget--;
-        $owners = [];
-        foreach ($group as $key) {
-            $unit = $units[(int)strstr($key, ':', true)];
-            $owners[spl_object_id($unit)] = $unit;
-        }
-        $kept = $this->probeKeeps(
-            $document,
-            $local,
-            array_values($owners),
-            function () use ($group): void {
-                foreach ($group as $key) {
-                    $this->relaxedOccurrences[$key] = true;
-                }
-            },
-            function () use ($group): void {
-                foreach ($group as $key) {
-                    unset($this->relaxedOccurrences[$key]);
-                }
-            },
-            $conservativeTree,
-            $conservativeLength,
-        );
-        if ($kept || $count === 1) {
-            return;
-        }
-        $half = intdiv($count, 2);
-        $this->relaxOccurrences($document, $units, array_slice($group, 0, $half), $conservativeTree, $conservativeLength, $local);
-        $this->relaxOccurrences($document, $units, array_slice($group, $half), $conservativeTree, $conservativeLength, $local);
+        $this->searchService()->relaxOccurrences($document, $units, $group, $conservativeTree, $conservativeLength, $local);
     }
 
     protected function renderSelectively(Document $document): string
     {
-        return $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
+        return $this->searchService()->renderSelectively($document);
     }
 
     /**
@@ -1290,6 +894,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function renderOnePass(Document $document, string $escapeMode): string
     {
+        $this->ensureWriterState();
         $previousEscapeMode = $this->escapeMode;
         $previousColonFenceDepth = $this->colonFenceDepth;
         $this->escapeMode = $escapeMode;
@@ -1297,9 +902,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // The LOG and the call indexes are per PASS: renderWithEscapeMode() can
         // render twice for the frontmatter fallback, and keeping either would
         // count the second pass's runs on from the end of the first.
-        if ($this->unitNumbers !== null) {
-            $this->escapeCallIndexes = [];
-            $this->occurrenceLog?->exchangeArray([]);
+        if ($this->writerState->unitNumbers !== null) {
+            $this->writerState->escapeCallIndexes = [];
+            $this->writerState->occurrenceLog?->exchangeArray([]);
         }
         try {
             return $this->renderDocumentParts($document);
@@ -1432,36 +1037,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function canonicalizeAst(mixed $value): mixed
     {
-        if (is_array($value)) {
-            $out = [];
-            foreach ($value as $key => $child) {
-                $out[$key] = $this->canonicalizeAst($child);
-            }
-            if (array_is_list($out)) {
-                $out = $this->coalesceTextNodes($out);
-            } else {
-                ksort($out);
-            }
-
-            return $out;
-        }
-
-        if (is_object($value)) {
-            $name = $value::class;
-            // A stdClass carries only dynamic properties, which differ per object.
-            $properties = $value instanceof stdClass
-                ? $this->canonicalPropertiesOf($value)
-                : $this->canonicalProperties[$name] ??= $this->canonicalPropertiesOf($value);
-            $out = ['__class' => $value instanceof EscapedText ? Text::class : $name];
-            foreach ($properties as $propertyName => $property) {
-                $out[$propertyName] = $this->canonicalizeAst($property->getValue($value));
-            }
-            ksort($out);
-
-            return $out;
-        }
-
-        return $value;
+        return $this->canonicalService()->canonicalizeAst($value);
     }
 
     /**
@@ -1469,16 +1045,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function canonicalPropertiesOf(object $value): array
     {
-        $properties = [];
-        foreach ((new ReflectionObject($value))->getProperties() as $property) {
-            $name = $property->getName();
-            if ($name === 'parent' || $name === 'sourceLength' || $name === 'ingestPayloadLength') {
-                continue;
-            }
-            $properties[$name] = $property;
-        }
-
-        return $properties;
+        return $this->canonicalService()->canonicalPropertiesOf($value);
     }
 
     /**
@@ -1488,38 +1055,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function coalesceTextNodes(array $nodes): array
     {
-        $out = [];
-        foreach ($nodes as $node) {
-            $lastIndex = count($out) - 1;
-            $content = $this->canonicalTextContent($node);
-            if ($lastIndex >= 0 && $content !== null) {
-                $previousContent = $this->canonicalTextContent($out[$lastIndex]);
-                if ($previousContent !== null && is_array($out[$lastIndex])) {
-                    $out[$lastIndex]['content'] = $previousContent . $content;
-
-                    continue;
-                }
-            }
-            $out[] = $node;
-        }
-
-        return $out;
+        return $this->canonicalService()->coalesceTextNodes($nodes);
     }
 
     protected function canonicalTextContent(mixed $node): ?string
     {
-        if (
-            is_array($node)
-            && ($node['__class'] ?? null) === Text::class
-            && ($node['attributes'] ?? []) === []
-            && ($node['attributeOrder'] ?? []) === []
-            && ($node['children'] ?? []) === []
-            && is_string($node['content'] ?? null)
-        ) {
-            return $node['content'];
-        }
-
-        return null;
+        return $this->canonicalService()->canonicalTextContent($node);
     }
 
     /**
@@ -3851,6 +3392,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         bool $captionCanOpen = false,
         bool $nextOpensVerbatim = false,
     ): string {
+        $this->ensureWriterState();
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
         // An unresolved reference renders as the source the author
         // wrote, never as a link (PART 12 section 3a).
@@ -3865,7 +3407,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // Does a trailing `!` abut the next node's backtick run? Only
                 // there does PART 9 §27 bind it to an inline literal.
                 $nextOpensVerbatim,
-                $this->structuralEscapes[spl_object_id($node)] ?? [],
+                $this->writerState->structuralEscapes[spl_object_id($node)] ?? [],
                 spl_object_id($node),
             )),
             // The whole point: reproduce the author's source run verbatim.
@@ -5390,18 +4932,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function planStructuralEscapes(Node $node): void
     {
-        $run = [];
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof InlineNode) {
-                $run[] = $child;
-
-                continue;
-            }
-            $this->planInlineRun($run, false);
-            $run = [];
-            $this->planStructuralEscapes($child);
-        }
-        $this->planInlineRun($run, false);
+        $this->plannerService()->planStructuralEscapes($node);
     }
 
     /**
@@ -5415,82 +4946,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function planInlineRun(array $nodes, bool $bracketed): void
     {
-        if ($nodes === []) {
-            return;
-        }
-        $flat = '';
-        $marks = [];
-        if (!$this->collectBracketMarks($nodes, $flat, $marks) || $marks === []) {
-            return;
-        }
-        $open = [];
-        $paired = [];
-        $closers = [];
-        foreach ($marks as $i => [$at, , , $char]) {
-            if ($char === '[') {
-                if (!isset($this->structuralEscapes[$marks[$i][1]][$marks[$i][2]])) {
-                    $open[] = $i;
-                }
-            } elseif ($char === ']' && $open !== []) {
-                $opener = array_pop($open);
-                $paired[$opener] = true;
-                $paired[$i] = true;
-                $closers[$at] = $opener;
-                // Brackets across formatting boundaries must not isolate a delimiter.
-                if ($marks[$opener][4] !== $marks[$i][4]) {
-                    $this->structuralEscapes[$marks[$opener][1]][$marks[$opener][2]] = true;
-                }
-                if ($bracketed) {
-                    $this->pairedClosers[$marks[$i][1]][$marks[$i][2]] = [$marks[$opener][1], $marks[$opener][2]];
-                }
-            }
-        }
-        $scan = null;
-        foreach ($marks as $i => [$at, $id, $offset, $char]) {
-            if ($char === '(') {
-                if (
-                    !isset($closers[$at - 1])
-                    || isset($this->structuralEscapes[$marks[$closers[$at - 1]][1]][$marks[$closers[$at - 1]][2]])
-                ) {
-                    continue;
-                }
-                $scan ??= self::destinationScan($flat);
-                if (!self::opensADestination($scan, $flat, $at)) {
-                    continue;
-                }
-            } elseif (!$bracketed || isset($paired[$i])) {
-                continue;
-            }
-            $this->structuralEscapes[$id][$offset] = true;
-        }
-    }
-
-    /**
-     * Find a reference-shaped run in literal text before escaping its markup.
-     */
-    private static function literalReferenceOpener(string $text): ?int
-    {
-        $open = [];
-        $reference = null;
-        $length = strlen($text);
-        for ($offset = 0; $offset < $length; $offset++) {
-            $char = $text[$offset];
-            if ($char === ']' && $reference !== null) {
-                return $reference;
-            }
-            if ($char === "\n" || $char === "\r") {
-                $reference = null;
-            } elseif ($char === '[') {
-                $open[] = $offset;
-            } elseif ($char === ']' && $open !== []) {
-                $opener = array_pop($open);
-                if (($text[$offset + 1] ?? '') === '[') {
-                    $reference = $opener;
-                }
-            }
-        }
-
-        return null;
+        $this->plannerService()->planInlineRun($nodes, $bracketed);
     }
 
     /**
@@ -5512,177 +4968,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function collectBracketMarks(array $nodes, string &$flat, array &$marks): bool
     {
-        if ($nodes === []) {
-            return true;
-        }
-        $literalOpeners = [];
-        $literalHosts = [];
-
-        return $this->collectBracketMarksWithScope($nodes, $flat, $marks, $literalOpeners, $literalHosts);
-    }
-
-    /**
-     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
-     * @param string $flat
-     * @param array<int, array{int, int, int, string, int}> $marks
-     * @param list<int> $literalOpeners
-     * @param array<int, array<int, bool>> $literalHosts
-     *
-     * @return bool
-     */
-    private function collectBracketMarksWithScope(array $nodes, string &$flat, array &$marks, array &$literalOpeners, array &$literalHosts): bool
-    {
-        foreach ($nodes as $node) {
-            // An empty code span is written as a bare backtick run, which can
-            // swallow what follows it, so the scan ends there.
-            if ($node instanceof Code && $node->getContent() === '') {
-                return false;
-            }
-            if ($node instanceof Text) {
-                $content = str_replace("\r", '', $node->getContent());
-                if (strpbrk($content, '[](') !== false) {
-                    $id = spl_object_id($node);
-                    $host = spl_object_id($node->getParent() ?? $node);
-                    $reference = self::literalReferenceOpener($content);
-                    preg_match_all('/[\[\](]/', $content, $found, PREG_OFFSET_CAPTURE);
-                    foreach ($found[0] as [$char, $offset]) {
-                        if ($offset === $reference) {
-                            $sameHost = $literalHosts[$host] ?? [];
-                            unset($literalHosts[$host]);
-                            $crossing = $literalHosts !== [];
-                            foreach ($literalHosts as $openers) {
-                                foreach ($openers as $index => $_) {
-                                    [, $markId, $markOffset] = $marks[$index];
-                                    $this->structuralEscapes[$markId][$markOffset] = true;
-                                }
-                            }
-                            $literalHosts = $sameHost === [] ? [] : [$host => $sameHost];
-                            unset($sameHost);
-                            if ($crossing) {
-                                $this->structuralEscapes[$id][$offset] = true;
-                            }
-                        }
-                        $index = count($marks);
-                        $marks[] = [strlen($flat) + $offset, $id, $offset, $char, $host];
-                        if ($char === '[' && !isset($this->structuralEscapes[$id][$offset])) {
-                            $literalOpeners[] = $index;
-                            $literalHosts[$host][$index] = true;
-                        } elseif ($char === ']') {
-                            while ($literalOpeners !== []) {
-                                $opener = array_pop($literalOpeners);
-                                [, $markId, $markOffset, , $markHost] = $marks[$opener];
-                                if (isset($this->structuralEscapes[$markId][$markOffset])) {
-                                    continue;
-                                }
-                                unset($literalHosts[$markHost][$opener]);
-                                if (($literalHosts[$markHost] ?? []) === []) {
-                                    unset($literalHosts[$markHost]);
-                                }
-
-                                break;
-                            }
-                        }
-                    }
-                }
-                $flat .= $content;
-            } elseif (
-                $node instanceof Span
-                || ($node instanceof Link && !$node->isAutolink())
-                || $node instanceof InlineFootnote
-            ) {
-                $this->planInlineRun($node->getChildren(), true);
-                $flat .= ' ';
-            } elseif ($node instanceof InlineExtension) {
-                $this->planInlineRun($node->getChildren(), false);
-                $flat .= ' ';
-            } elseif (
-                $node instanceof Emphasis || $node instanceof Strong || $node instanceof Underline
-                || $node instanceof Strike || $node instanceof Superscript || $node instanceof Subscript
-                || $node instanceof Highlight || $node instanceof Insert || $node instanceof Delete
-            ) {
-                // Their delimiters are written, and none is a space or a paren.
-                $flat .= "\x01";
-                if (!$this->collectBracketMarksWithScope($node->getChildren(), $flat, $marks, $literalOpeners, $literalHosts)) {
-                    return false;
-                }
-                $flat .= "\x01";
-            } else {
-                $flat .= ' ';
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Each `(` of a run's matching `)`, and the offsets of its whitespace,
-     * found once so a run of `[a](` stays linear.
-     *
-     * The minimal form escapes every backslash and quote in text, so neither
-     * can escape a paren or open a title here.
-     *
-     * @param string $flat
-     *
-     * @return array{array<int, int>, array<int, int>}
-     */
-    private static function destinationScan(string $flat): array
-    {
-        $close = [];
-        $open = [];
-        preg_match_all('/[()]/', $flat, $parens, PREG_OFFSET_CAPTURE);
-        foreach ($parens[0] as [$paren, $offset]) {
-            if ($paren === '(') {
-                $open[] = $offset;
-            } elseif ($open !== []) {
-                $close[array_pop($open)] = $offset;
-            }
-        }
-        if (preg_match_all('/[\s\p{Z}\x{0085}]/u', $flat, $spaces, PREG_OFFSET_CAPTURE) === false) {
-            return [[], []];
-        }
-
-        return [$close, array_column($spaces[0], 1)];
-    }
-
-    /**
-     * Does the written text from the `(` at `$at` read as an inline link
-     * destination that closes?
-     *
-     * The GRAMMAR decides this, not this engine's reader. `destination_char`
-     * admits every character but `(`, `)` and Unicode whitespace, so `<foo>` is
-     * an ordinary destination and `[link](<foo>)` is a link - "there is NO
-     * angle-bracket-wrapped destination form" (PART 3 `link_destination`) says
-     * the brackets are not STRIPPED, not that the run is refused. This engine's
-     * reader does refuse it (carve-php#2634 follow-up), and matching the writer
-     * to that refusal is what let the importer write literal `[link](<foo>)`
-     * bare, which carve-js and carve-rs then read as a link.
-     *
-     * @param array{array<int, int>, array<int, int>} $scan
-     * @param string $flat
-     * @param int $at
-     */
-    private static function opensADestination(array $scan, string $flat, int $at): bool
-    {
-        [$close, $spaces] = $scan;
-        $end = $close[$at] ?? null;
-        if ($end === null || $end === $at + 1) {
-            return false;
-        }
-        $low = 0;
-        $high = count($spaces);
-        while ($low < $high) {
-            $mid = ($low + $high) >> 1;
-            if ($spaces[$mid] <= $at) {
-                $low = $mid + 1;
-            } else {
-                $high = $mid;
-            }
-        }
-        if ($low < count($spaces) && $spaces[$low] < $end) {
-            return false;
-        }
-
-        return true;
+        return $this->plannerService()->collectBracketMarks($nodes, $flat, $marks);
     }
 
     /**
@@ -5712,6 +4998,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // the line and re-parse the rest of the text node as a following block.
         // A parse never produces one - line endings are normalized first - but
         // PART 12 lets an ingested tree carry any string at all.
+        $this->ensureWriterState();
         $text = str_replace("\r", '', $text);
         if (preg_match('/^\[\^[^\]\n]+\]$/u', $text) === 1) {
             return $text;
@@ -5719,7 +5006,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $minimal = $this->escapeModeHere() === self::ESCAPE_MODE_MINIMAL;
         $call = $minimal ? 0 : $this->nextEscapeCallIndex();
-        $closers = $textId === null ? [] : $this->pairedClosers[$textId] ?? [];
+        $closers = $textId === null ? [] : $this->writerState->pairedClosers[$textId] ?? [];
         if ($textId !== null) {
             unset($this->escapedOpeners[$textId]);
         }
@@ -6364,5 +5651,65 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function escapeCrossrefTarget(string $text): string
     {
         return str_replace(['\\', '>'], ['\\\\', '\\>'], $text);
+    }
+
+    private function ensureWriterState(): void
+    {
+        if (!isset($this->writerState)) {
+            $this->writerState = new CarveWriterState();
+            $this->bindLegacyWriterState();
+        }
+    }
+
+    private function canonicalService(): CanonicalAst
+    {
+        $this->ensureWriterState();
+
+        return $this->canonicalImplementation ??= new CanonicalAst(
+            $this->writerState,
+            static::class !== self::class ? $this->canonicalPropertiesOf(...) : null,
+            static::class !== self::class ? $this->canonicalTextContent(...) : null,
+            static::class !== self::class ? $this->canonicalizeAst(...) : null,
+            static::class !== self::class ? $this->coalesceTextNodes(...) : null,
+        );
+    }
+
+    private function searchService(): CanonicalEscapeSearch
+    {
+        $this->ensureWriterState();
+
+        return $this->searchImplementation ??= new CanonicalEscapeSearch(
+            $this->writerState,
+            $this->canonicalTree(...),
+            $this->collectEscapeUnits(...),
+            $this->loggedOccurrences(...),
+            $this->renderOnePass(...),
+            $this->renderWithEscapeMode(...),
+            $this->takeAskedUnits(...),
+            static::class !== self::class ? $this->candidateHolds(...) : null,
+            static::class !== self::class ? $this->candidateKey(...) : null,
+            static::class !== self::class ? $this->narrowOccurrences(...) : null,
+            static::class !== self::class ? $this->probeKeeps(...) : null,
+            static::class !== self::class ? $this->relaxOccurrences(...) : null,
+            static::class !== self::class ? $this->relaxUnits(...) : null,
+            static::class !== self::class ? $this->renderSelectively(...) : null,
+            static::class !== self::class ? $this->renderWindow(...) : null,
+            static::class !== self::class ? $this->searchIsSpent(...) : null,
+            static::class !== self::class ? $this->searchOccurrences(...) : null,
+            static::class !== self::class ? $this->searchUnits(...) : null,
+            static::class !== self::class ? $this->windowTree(...) : null,
+        );
+    }
+
+    private function plannerService(): StructuralEscapePlanner
+    {
+        $this->ensureWriterState();
+
+        return $this->plannerImplementation ??= new StructuralEscapePlanner(
+            $this->writerState,
+            static::class !== self::class ? $this->collectBracketMarks(...) : null,
+            static::class !== self::class ? $this->planInlineRun(...) : null,
+            static::class !== self::class ? $this->planStructuralEscapes(...) : null,
+        );
     }
 }
