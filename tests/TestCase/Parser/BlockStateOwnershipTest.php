@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -97,6 +98,22 @@ class BlockStateOwnershipTest extends TestCase
         self::assertGreaterThan($before, $copy->items);
         self::assertSame('/original', $parser->getReference('ref')->url);
         self::assertSame('/copy', $copy->getReference('ref')->url);
+    }
+
+    public function testClonedParserOwnsItsSourceMappings(): void
+    {
+        $parser = new BlockParser(trackSourceLines: true, trackPositions: true);
+        $codec = new AstCodec();
+        $originalSource = "# Original\n\n- first\n  second\n";
+        $original = $codec->encode($parser->parse($originalSource));
+        $copy = clone $parser;
+        $copySource = "Intro é\n\n> - other\n>   continued\n\nAfter\n";
+        $expected = $codec->encode((new BlockParser(trackSourceLines: true, trackPositions: true))->parse($copySource));
+        $actual = $codec->encode($copy->parse($copySource));
+
+        self::assertSame($expected, $actual);
+        self::assertSame($original, $codec->encode($parser->parse($originalSource)));
+        self::assertSame($expected, $codec->encode($copy->parse($copySource)));
     }
 
     public function testClonedParserKeepsLegacyBlockPatterns(): void
