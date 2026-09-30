@@ -228,7 +228,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             $html = $this->mode === self::MODE_ARIA
                 ? $this->renderAriaCodeGroup($node, $codeBlocks, $renderer)
                 : $this->renderCodeGroup($node, $codeBlocks, $renderer);
-            $event->setHtml($html);
+            $event->setHtml($renderer->guardGeneratedWrapperInterior($html));
         });
     }
 
