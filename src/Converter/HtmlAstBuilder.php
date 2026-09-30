@@ -3730,7 +3730,15 @@ final class HtmlAstBuilder
                     }
                 }
             }
-            $children = $this->inlines($this->children($node));
+            $outerKinds = $this->session->inlineTypeStack;
+            if (!self::carriesNoDestination($node->getAttribute('href'))) {
+                $this->session->inlineTypeStack = [];
+            }
+            try {
+                $children = $this->inlines($this->children($node));
+            } finally {
+                $this->session->inlineTypeStack = $outerKinds;
+            }
             if (self::carriesNoDestination($node->getAttribute('href'))) {
                 $skip = ['href'];
                 foreach ($node->attributes as $attribute) {
