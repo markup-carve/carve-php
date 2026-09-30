@@ -1158,8 +1158,29 @@ class DjotToCarve
         $lines = explode("\n", $source);
         $heldFence = null;
         $previousBlock = true;
+        $ancestors = [];
         foreach ($lines as $i => $line) {
             [$depth, $content] = $this->quoted($line);
+            $nested = false;
+            $ancestors = array_slice($ancestors, 0, $depth + 1);
+            if (trim($content) !== '') {
+                $view = $line;
+                for ($level = 0; $level <= $depth; $level++) {
+                    $ancestors[$level] ??= [];
+                    $indent = strlen($view) - strlen(ltrim($view, " \t"));
+                    while ($ancestors[$level] !== [] && $ancestors[$level][array_key_last($ancestors[$level])]['indent'] >= $indent) {
+                        array_pop($ancestors[$level]);
+                    }
+                    if ($level === $depth) {
+                        $nested = $ancestors[$level] !== [] && $ancestors[$level][array_key_last($ancestors[$level])]['marker'];
+                    }
+                    $marker = preg_match('/^(?:([*-])[ \t]*){3,}$/', trim($view)) !== 1 && preg_match('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+\S/', $view) === 1;
+                    $ancestors[$level][] = ['indent' => $indent, 'marker' => $marker];
+                    if ($level < $depth && preg_match('/^[ \t]*>[ ]?/', $view, $prefix) === 1) {
+                        $view = substr($view, strlen($prefix[0]));
+                    }
+                }
+            }
             if ($heldFence !== null && trim($content) !== '' && $depth < $heldFence['depth']) {
                 $heldFence = null;
             }
@@ -1179,7 +1200,7 @@ class DjotToCarve
                 if (str_starts_with($open[2], ':') && !$previousBlock) {
                     continue;
                 }
-                $container = $open[2] !== '' ? strlen($open[1]) + strlen($open[2]) : ($open[1] !== '' && $this->isNestedBlock($lines, $i, substr($line, 0, strlen($line) - strlen($content)), strlen($open[1])) ? strlen($open[1]) : null);
+                $container = $open[2] !== '' ? strlen($open[1]) + strlen($open[2]) : ($open[1] !== '' && $nested ? strlen($open[1]) : null);
                 $heldFence = ['indent' => $open[2] !== '' ? $container : max(3, strlen($open[1])), 'container' => $container, 'char' => $open[3][0], 'length' => strlen($open[3]), 'depth' => $depth];
                 $start = strpos($line, $open[3]);
                 if ($start === false) {
