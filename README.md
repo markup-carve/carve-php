@@ -50,6 +50,17 @@ Source-aware tools can prepare stale-safe structured formatting changes through
 `CarveConverter::toCarvePatch()`; see the
 [source-preserving patch guide](https://github.com/markup-carve/carve-php/blob/main/docs/source-patches.md).
 
+Custom renderers implement `RendererInterface`. Add `RenderTargetInterface` and
+`RenderLossAwareRendererInterface` to support `convertWithReport()` and
+`renderWithReport()`. `getRenderTarget()` names the target in each loss report.
+Optional capabilities expose safe mode, typography, render mode, static renderers,
+render events, symbols, and heading IDs; the converter uses those interfaces
+when configuring a renderer. `StaticRenderExtensionsInterface` lets a renderer
+register static HTML extension hooks; their existing contract receives an
+`HtmlRenderer`, so a composed renderer can delegate to its HTML backend.
+Extensions that explicitly require `HtmlRenderer` still require that class.
+See the interfaces in [src/Renderer](src/Renderer).
+
 ## CLI
 
 ~~~ sh

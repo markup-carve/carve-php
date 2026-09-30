@@ -77,13 +77,18 @@ use MarkupCarve\Carve\Util\StringUtil;
  * - Plain text email fallbacks
  * - Word count / reading time estimation
  */
-class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector
+class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector, RenderTargetInterface, SmartTypographyRendererInterface, RenderEventsInterface
 {
     use ConversionDiagnosticCollectorTrait;
     use RenderLossCollectorTrait;
     use AbbreviationBudgetTrait;
     use DerivedLabelTrait;
     use EventDispatcherTrait;
+
+    public function getRenderTarget(): string
+    {
+        return 'plain';
+    }
 
     /**
      * Presentation renderers emit the resolved glyph; the Carve renderer emits

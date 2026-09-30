@@ -11,6 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Improvements
 
+- Add renderer capability interfaces so custom renderers can use converter configuration and loss reports without extending a built-in renderer.
+
 - Index balanced bracket pairs and failed openers to avoid repeated scans of malformed inline input (#2776).
 - Skip unnecessary marker checks and paragraph inline parsing during heading indexing (#2776).
 - Pad nested HTML in bulk while preserving preformatted text and multiline attributes (#2776).

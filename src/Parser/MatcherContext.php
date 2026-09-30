@@ -21,6 +21,22 @@ final class MatcherContext
     ) {
     }
 
+    /**
+     * @internal
+     */
+    public function getBlockParser(): BlockParser
+    {
+        return $this->blockParser;
+    }
+
+    /**
+     * @internal
+     */
+    public function getInlineParser(): InlineParser
+    {
+        return $this->inlineParser;
+    }
+
     public function getReference(string $label): ?ReferenceDefinition
     {
         return $this->blockParser->getReference($label);

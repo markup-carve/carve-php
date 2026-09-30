@@ -33,15 +33,23 @@ use MarkupCarve\Carve\Performance\BorrowedHtmlLayout;
 use MarkupCarve\Carve\Performance\HtmlOutput;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\HeadingIdRendererInterface;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\RendererInterface;
+use MarkupCarve\Carve\Renderer\RenderEventsInterface;
 use MarkupCarve\Carve\Renderer\RenderLossAwareRendererInterface;
 use MarkupCarve\Carve\Renderer\RenderMode;
+use MarkupCarve\Carve\Renderer\RenderModeRendererInterface;
+use MarkupCarve\Carve\Renderer\RenderTargetInterface;
+use MarkupCarve\Carve\Renderer\SafeModeRendererInterface;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
+use MarkupCarve\Carve\Renderer\SmartTypographyRendererInterface;
 use MarkupCarve\Carve\Renderer\SoftBreakMode;
+use MarkupCarve\Carve\Renderer\StaticRenderersInterface;
+use MarkupCarve\Carve\Renderer\StaticRenderExtensionsInterface;
 use MarkupCarve\Carve\Transform\RenderAwareTransformerInterface;
 use MarkupCarve\Carve\Transform\TransformerInterface;
 use RuntimeException;
@@ -269,7 +277,7 @@ class CarveConverter
             $typographyMode = $smartTypography instanceof SmartTypographyMode
                 ? $smartTypography
                 : ($smartTypography ? SmartTypographyMode::Glyph : SmartTypographyMode::Source);
-            if (method_exists($this->renderer, 'setSmartTypography')) {
+            if ($this->renderer instanceof SmartTypographyRendererInterface || method_exists($this->renderer, 'setSmartTypography')) {
                 $this->renderer->setSmartTypography($typographyMode);
             }
         }
@@ -347,14 +355,14 @@ class CarveConverter
     }
 
     /**
-     * Enable or disable safe mode (HtmlRenderer only)
+     * Enable or disable safe mode (when supported by the renderer)
      *
      * @param \MarkupCarve\Carve\SafeMode|bool|null $safeMode True for defaults, SafeMode for custom, null/false to disable
      */
     public function setSafeMode(SafeMode|bool|null $safeMode): self
     {
         $this->borrowedHtmlConfiguration = false;
-        if (!$this->renderer instanceof HtmlRenderer) {
+        if (!$this->renderer instanceof SafeModeRendererInterface) {
             return $this;
         }
 
@@ -370,7 +378,7 @@ class CarveConverter
     }
 
     /**
-     * Set the render mode (HtmlRenderer only).
+     * Set the render mode (when supported by the renderer).
      *
      * `RenderMode::INTERACTIVE` (default) renders the live extension forms;
      * `RenderMode::STATIC` renders through each extension's static path (and
@@ -384,7 +392,7 @@ class CarveConverter
     {
         $this->borrowedHtmlConfiguration = false;
         $validated = RenderMode::validate($mode);
-        if ($this->renderer instanceof HtmlRenderer) {
+        if ($this->renderer instanceof RenderModeRendererInterface) {
             $this->renderer->setRenderMode($validated);
         }
 
@@ -392,11 +400,11 @@ class CarveConverter
     }
 
     /**
-     * Get the current render mode (HtmlRenderer only; INTERACTIVE otherwise).
+     * Get the renderer's mode, or INTERACTIVE when no mode capability is available.
      */
     public function getRenderMode(): string
     {
-        if ($this->renderer instanceof HtmlRenderer) {
+        if ($this->renderer instanceof RenderModeRendererInterface) {
             return $this->renderer->getRenderMode();
         }
 
@@ -404,17 +412,14 @@ class CarveConverter
     }
 
     /**
-     * Set the build-time renderers for client-script extensions (HtmlRenderer
-     * only). Each maps a source string to a rendered string and is used only in
-     * static mode (math → MathML/HTML, mermaid/chart → SVG/PNG markup). When the
-     * needed renderer is absent the extension falls back to source, never blank.
+     * Configure source-to-output callbacks through StaticRenderersInterface.
      *
      * @param array<string, \Closure(string): string> $renderers Source-to-string callables keyed by extension name.
      */
     public function setRenderers(array $renderers): self
     {
         $this->borrowedHtmlConfiguration = false;
-        if ($this->renderer instanceof HtmlRenderer) {
+        if ($this->renderer instanceof StaticRenderersInterface) {
             $this->renderer->setStaticRenderers($renderers);
         }
 
@@ -718,14 +723,10 @@ class CarveConverter
 
             return $result;
         }
-        $target = match (true) {
-            $this->renderer instanceof HtmlRenderer => 'html',
-            $this->renderer instanceof MarkdownRenderer => 'markdown',
-            $this->renderer instanceof PlainTextRenderer => 'plain',
-            $this->renderer instanceof AnsiRenderer => 'ansi',
-            $this->renderer instanceof CarveRenderer => 'carve',
-            default => throw new LogicException('Checked rendering requires a renderer with a declared target.'),
-        };
+        if (!$this->renderer instanceof RenderTargetInterface) {
+            throw new LogicException('Checked rendering requires a renderer with a declared target.');
+        }
+        $target = $this->renderer->getRenderTarget();
         $this->renderer->beginRenderLossCollection($target, $maxRenderLosses);
         try {
             $value = $this->render($document);
@@ -761,7 +762,7 @@ class CarveConverter
     public function on(string $event, Closure $listener): self
     {
         $this->borrowedHtmlConfiguration = false;
-        if ($this->renderer instanceof HtmlRenderer) {
+        if ($this->renderer instanceof RenderEventsInterface) {
             $this->renderer->on($event, $listener);
         }
 
@@ -774,7 +775,7 @@ class CarveConverter
     public function off(?string $event = null): self
     {
         $this->borrowedHtmlConfiguration = false;
-        if ($this->renderer instanceof HtmlRenderer) {
+        if ($this->renderer instanceof RenderEventsInterface) {
             $this->renderer->off($event);
         }
 
@@ -807,15 +808,15 @@ class CarveConverter
     }
 
     /**
-     * Get the heading ID tracker (HtmlRenderer only)
+     * Get the renderer's heading ID tracker
      *
-     * @throws \LogicException If renderer is not HtmlRenderer
+     * @throws \LogicException If renderer does not implement HeadingIdRendererInterface
      */
     public function getHeadingIdTracker(): HeadingIdTracker
     {
         $this->borrowedHtmlConfiguration = false;
-        if (!$this->renderer instanceof HtmlRenderer) {
-            throw new LogicException('getHeadingIdTracker() is only supported with HtmlRenderer');
+        if (!$this->renderer instanceof HeadingIdRendererInterface) {
+            throw new LogicException('The renderer does not provide a heading ID tracker');
         }
 
         return $this->renderer->getHeadingIdTracker();
@@ -855,7 +856,7 @@ class CarveConverter
 
         // An extension offering a static-HTML render path is consulted first in
         // static mode, before its ordinary interactive listener fires.
-        if ($registeredExtension instanceof StaticRenderExtensionInterface && $this->renderer instanceof HtmlRenderer) {
+        if ($registeredExtension instanceof StaticRenderExtensionInterface && $this->renderer instanceof StaticRenderExtensionsInterface) {
             $this->renderer->addStaticRenderExtension($registeredExtension);
         }
 
