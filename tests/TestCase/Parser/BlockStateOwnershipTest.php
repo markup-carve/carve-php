@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 use RuntimeException;
 
 class BlockStateOwnershipTest extends TestCase
@@ -157,5 +158,40 @@ class BlockStateOwnershipTest extends TestCase
             self::assertSame($copy->getInlineParser(), $host);
         }
         self::assertSame("<p>matched</p>\n", $renderer->render($parser->parse('CUSTOM')));
+    }
+
+    public function testLegacyLineMapChangesReachBothResolversAndStayWithTheirClone(): void
+    {
+        $parser = new class extends BlockParser {
+            public function setLineMap(?array $lineMap): void
+            {
+                $this->currentLineMap = $lineMap;
+            }
+        };
+        $mapperMethod = new ReflectionMethod(BlockParser::class, 'sourceMapper');
+        $lookupMethod = new ReflectionMethod(BlockParser::class, 'sourceLineFor');
+        $mapper = $mapperMethod->invoke($parser);
+        $lookup = $lookupMethod->getClosure($parser);
+        self::assertSame(3, $lookup(3));
+        self::assertSame(3, $mapper->sourceLineFor(3));
+
+        $parser->setLineMap([0 => 21, 2 => 0]);
+        foreach ([0 => 21, 1 => -1, 2 => 0] as $index => $sourceLine) {
+            self::assertSame($sourceLine, $lookup($index));
+            self::assertSame($sourceLine, $mapper->sourceLineFor($index));
+        }
+
+        $copy = clone $parser;
+        $copyMapper = $mapperMethod->invoke($copy);
+        $copyLookup = $lookupMethod->getClosure($copy);
+        $copy->setLineMap([0 => 9]);
+        self::assertSame(9, $copyLookup(0));
+        self::assertSame(9, $copyMapper->sourceLineFor(0));
+        self::assertSame(21, $lookup(0));
+        self::assertSame(21, $mapper->sourceLineFor(0));
+
+        $copy->setLineMap([]);
+        self::assertSame(-1, $copyLookup(0));
+        self::assertSame(-1, $copyMapper->sourceLineFor(0));
     }
 }

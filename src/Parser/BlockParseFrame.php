@@ -53,4 +53,9 @@ final class BlockParseFrame
      * @var array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}|null
      */
     public ?array $fenceCloserIndexCache = null;
+
+    public function sourceLineFor(int $index): int
+    {
+        return $this->currentLineMap[$index] ?? ($this->currentLineMap === null ? $index : -1);
+    }
 }
