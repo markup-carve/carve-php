@@ -318,6 +318,29 @@ class MarkdownToCarve
             if (!$inCodeBlock) {
                 $lines[$i] = $this->normalizeListMarkerPadding($lines[$i], $listCols);
             }
+            if (!$inCodeBlock && preg_match('/^([ \t]*)(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i], $empty) === 1) {
+                $column = $this->indentWidth($lines[$i]);
+                $holder = 0;
+                foreach ($listCols as $col) {
+                    if ($col <= $column) {
+                        $holder = $col;
+                    }
+                }
+                $marker = rtrim($lines[$i], " \t");
+                $content = $this->columnWidth($marker) + 1;
+                $next = $lines[$i + 1] ?? '';
+                if (
+                    $column - $holder < 4
+                    && ($prevLineType !== 'text' || $listMarkers->hasListAt($column))
+                    && trim($next) !== ''
+                    && preg_match('/^(?:[-*+]|\d{1,9}[.)])$/', trim($next)) !== 1
+                    && preg_match(self::THEMATIC_BREAK, ltrim($marker, " \t") . ' ' . ltrim($next, " \t")) !== 1
+                    && preg_match('/^\[[^\]\n]+\]:/', ltrim($next, " \t")) !== 1
+                    && $this->indentWidth($next) >= $content
+                ) {
+                    $lines[++$i] = $marker . ' ' . str_repeat(' ', $this->indentWidth($next) - $content) . ltrim($next, " \t");
+                }
+            }
             $line = $lines[$i];
             $trimmed = trim($line);
             $wasPrevBlank = $prevBlank;
@@ -979,7 +1002,7 @@ class MarkdownToCarve
             if ($isBlockquote && $prevLineType !== 'blank' && $prevLineType !== 'blockquote') {
                 $result[] = '';
             }
-            if ($isList && !in_array($prevLineType, ['list', 'blank', 'code_fence'], true)) {
+            if ($isList && !in_array($prevLineType, ['list', 'blank', 'code_fence'], true) && !$listMarkers->hasListAt($this->indentWidth($line))) {
                 $result[] = '';
             }
 
