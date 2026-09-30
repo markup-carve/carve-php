@@ -5030,6 +5030,33 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // the memoized `strrpos` in InlineParser::closerExistsFrom().
         $lastCloser = strrpos($text, '^}');
         $lastSupCloser = $lastCloser === false ? -1 : $lastCloser;
+        $scopeStarts = [];
+        $openScopes = [];
+        for ($at = 0, $length = strlen($text); $at < $length; $at++) {
+            if ($text[$at] === '[' && !isset($structural[$at])) {
+                $openScopes[] = $at;
+            } elseif ($text[$at] === ']' && $openScopes !== []) {
+                $scopeStarts[array_pop($openScopes)] = $at;
+            }
+        }
+        $scopes = [];
+        $caretScopes = [];
+        $scopeClosers = [];
+        for ($at = 0, $length = strlen($text); $at < $length; $at++) {
+            if (isset($scopeStarts[$at])) {
+                $scopes[] = [$scopeStarts[$at], $at];
+            }
+            if ($scopes !== [] && $scopes[array_key_last($scopes)][0] === $at) {
+                array_pop($scopes);
+            }
+            if ($text[$at] === '^') {
+                $scope = $scopes !== [] ? $scopes[array_key_last($scopes)][1] : -1;
+                $caretScopes[$at] = $scope;
+                if (($text[$at + 1] ?? '') === '}') {
+                    $scopeClosers[$scope] = $at;
+                }
+            }
+        }
 
         $decide = function (
             string $char,
@@ -5041,6 +5068,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $minimal,
             $nextOpensVerbatim,
             $lastSupCloser,
+            $caretScopes,
+            $scopeClosers,
+            $textId,
             $call,
             $structural,
             $closers,
@@ -5092,7 +5122,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             if ($char === '$' && !self::sigilBindsToAVerbatimRun($text, $offset, $nextOpensVerbatim)) {
                 return '$';
             }
-            if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote, $lastSupCloser)) {
+            $scope = $caretScopes[$offset] ?? -1;
+            $scopedCloser = $scopeClosers[$scope] ?? -1;
+            if ($scope >= 0 && $textId !== null && ($this->escapedOpeners[$textId][$scope] ?? false)) {
+                $scopedCloser = $lastSupCloser;
+            }
+            if ($char === '^' && !self::caretOpensAConstruct($text, $offset, $insideNote, $scopedCloser)) {
                 return '^';
             }
             // A COLON only opens something at the start of a line - `::`

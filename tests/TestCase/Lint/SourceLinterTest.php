@@ -116,4 +116,15 @@ class SourceLinterTest extends TestCase
             $this->assertSame($expected, array_values(array_column($warnings, 'line')), $source);
         }
     }
+
+    public function testCanonicalEmptyBodiesAndQuotePrefixesDoNotWarn(): void
+    {
+        foreach (["See[^f]\n\n[^f]: {empty}\n", ":: t\n: {empty}\n\nflush\n", "- > ```\n  > x\n\n  > y\n  > ```\n"] as $source) {
+            self::assertSame([], (new SourceLinter())->lint($source), $source);
+        }
+        foreach ([">\t```\nx\n```\n", "1. >\t```\n   x\n", "> :  a\n>\n>    ```\n>    x\nflush\n", "> - a\n>\n>     ~~~\n>     x\nz\n>     b\n>     ~~~\n"] as $source) {
+            self::assertNotContains('fence-delimiter-indentation', array_column((new SourceLinter())->lint($source), 'rule'));
+        }
+        self::assertContains('unattached-block-attribute', array_column((new SourceLinter())->lint("{empty}\n"), 'rule'));
+    }
 }
