@@ -382,6 +382,10 @@ class FencedBlockParser
      */
     public function parseFencedCommentOpenerAnyColumn(string $line): ?array
     {
+        if (static::class === self::class && ($line[strspn($line, " \t")] ?? '') !== '%') {
+            return null;
+        }
+
         return $this->parseFencedCommentOpener(ltrim($line, " \t"));
     }
 

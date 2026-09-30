@@ -1394,7 +1394,104 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function indentBlock(string $html, int $spaces): string
     {
         $pad = str_repeat(' ', $spaces);
-        $lines = explode("\n", $html);
+        if ($pad === '') {
+            return $html;
+        }
+        // Nested containers re-indent their whole subtree once per level, so
+        // this runs over the same bytes depth times. Runs of lines that open
+        // no <pre> and end inside no tag are padded in one pass; the per-line
+        // walk only takes the lines from such an event until the state is
+        // clean again.
+        $length = strlen($html);
+        $out = '';
+        $at = 0;
+        $nextPre = -1;
+        $nextOpenTag = -1;
+        while ($at < $length) {
+            if ($nextPre !== false && $nextPre < $at) {
+                $nextPre = strpos($html, '<pre', $at);
+            }
+            if ($nextOpenTag !== false && $nextOpenTag < $at) {
+                $nextOpenTag = self::nextLineEndingInsideTag($html, $at);
+            }
+            $special = min($nextPre === false ? $length : $nextPre, $nextOpenTag === false ? $length : $nextOpenTag);
+            if ($special >= $length) {
+                return $out . self::padLines($at === 0 ? $html : substr($html, $at), $pad);
+            }
+            $lineBreak = $special > $at ? strrpos(substr($html, $at, $special - $at), "\n") : false;
+            $lineStart = $lineBreak === false ? $at : $at + $lineBreak + 1;
+            if ($lineStart > $at) {
+                $out .= self::padLines(substr($html, $at, $lineStart - $at), $pad);
+            }
+            $lineEnd = strpos($html, "\n", $lineStart);
+            if ($special === $nextPre && $nextOpenTag !== $lineStart && $lineEnd !== false) {
+                // The <pre> line itself ends outside a tag, so the walk would
+                // pad it and copy the lines through the </pre> line untouched.
+                $preLine = substr($html, $lineStart, $lineEnd - $lineStart);
+                if (!str_contains($preLine, '</pre>')) {
+                    $close = strpos($html, '</pre>', $lineEnd + 1);
+                    $closeEnd = $close === false ? false : strpos($html, "\n", $close);
+                    $at = $closeEnd === false ? $length : $closeEnd + 1;
+                    $out .= $pad . substr($html, $lineStart, $at - $lineStart);
+
+                    continue;
+                }
+            }
+            [$lines, $at] = $this->indentLinesUntilClean($html, $lineStart, $pad);
+            $out .= $lines;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Prefix every non-empty line with $pad.
+     */
+    private static function padLines(string $html, string $pad): string
+    {
+        if ($html !== '' && $html[0] !== "\n" && !str_contains($html, "\n\n")) {
+            $padded = $pad . str_replace("\n", "\n" . $pad, $html);
+
+            return str_ends_with($html, "\n") ? substr($padded, 0, -strlen($pad)) : $padded;
+        }
+
+        return preg_replace('/(*LF)^(?=[^\n])/m', $pad, $html)
+            ?? implode("\n", array_map(static fn (string $line): string => $line === '' ? '' : $pad . $line, explode("\n", $html)));
+    }
+
+    /**
+     * The start of the first line from $from on that, read from outside a
+     * tag, ends inside one.
+     *
+     * A line whose last byte is `>` cannot: the first `>` closes an open tag.
+     * So only the other non-empty lines are scanned.
+     */
+    private static function nextLineEndingInsideTag(string $html, int $from): int|false
+    {
+        while (true) {
+            $found = preg_match('/(?<![>\n])\n/', $html, $match, PREG_OFFSET_CAPTURE, $from);
+            if ($found !== 1) {
+                return $found === 0 ? false : $from;
+            }
+            $end = $match[0][1];
+            $lineBreak = $end > $from ? strrpos(substr($html, $from, $end - $from), "\n") : false;
+            $lineStart = $lineBreak === false ? $from : $from + $lineBreak + 1;
+            if (self::endsInsideTag(substr($html, $lineStart, $end - $lineStart), false)) {
+                return $lineStart;
+            }
+            $from = $end + 1;
+        }
+    }
+
+    /**
+     * The per-line indentBlock() walk, from a line start until a line ends
+     * outside both a <pre> region and a tag.
+     *
+     * @return array{string, int} The indented lines and the offset after them.
+     */
+    private function indentLinesUntilClean(string $html, int $at, string $pad): array
+    {
+        $out = '';
         $inPre = false;
         // AN UNFINISHED TAG IS NOT A LINE TO INDENT. A newline inside an
         // ATTRIBUTE VALUE is content, and padding the line after it wrote the
@@ -1407,10 +1504,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // unclosed `<`: every angle bracket outside a tag is escaped, so the
         // first `>` inside one really is its closer.
         $inTag = false;
-        foreach ($lines as $i => $line) {
+        $length = strlen($html);
+        while ($at < $length) {
+            $end = strpos($html, "\n", $at);
+            $line = $end === false ? substr($html, $at) : substr($html, $at, $end - $at);
             if (!$inPre) {
                 if ($line !== '' && !$inTag) {
-                    $lines[$i] = $pad . $line;
+                    $out .= $pad;
                 }
                 $inTag = self::endsInsideTag($line, $inTag);
                 if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
@@ -1419,9 +1519,17 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             } elseif (str_contains($line, '</pre>')) {
                 $inPre = false;
             }
+            if ($end === false) {
+                return [$out . $line, $length];
+            }
+            $out .= $line . "\n";
+            $at = $end + 1;
+            if (!$inPre && !$inTag) {
+                break;
+            }
         }
 
-        return implode("\n", $lines);
+        return [$out, $at];
     }
 
     /**
