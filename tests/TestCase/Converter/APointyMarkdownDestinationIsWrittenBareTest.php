@@ -30,7 +30,7 @@ class APointyMarkdownDestinationIsWrittenBareTest extends TestCase
             'a backslash' => ['[k](<a\\\\b>)', '[k](a%5Cb)'],
             'a tag-like destination' => ['[k](<u>)', '[k](u)'],
             'a reference definition' => ["[t][r]\n\n[r]: </u v>", "[t][r]\n\n[r]: /u%20v"],
-            'a definition label holding an escaped bracket' => ["[t][a\\]]\n\n[a\\]]: </u v>", "[t][a\\]]\n\n[a\\]]: /u%20v"],
+            'a definition label holding an escaped bracket' => ["[t][a\\]]\n\n[a\\]]: </u v>", '[t](/u%20v)'],
             'a code span' => ['`[k](<u v>)`', '`[k](<u v>)`'],
             'angle brackets not in a destination' => ['a <b>x</b> y', 'a *x* y'],
         ];

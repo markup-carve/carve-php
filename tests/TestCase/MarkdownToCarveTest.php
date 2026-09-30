@@ -18,6 +18,189 @@ class MarkdownToCarveTest extends TestCase
         $this->converter = new MarkdownToCarve(convertRawHtml: true);
     }
 
+    #[DataProvider('referenceReaderProvider')]
+    public function testReferenceReaderPreservesPublicCases(string $source, string $html): void
+    {
+        $this->assertSame($html, (new CarveConverter(safeMode: false))->convert((new MarkdownToCarve())->convert($source)));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function referenceReaderProvider(): array
+    {
+        return [
+            'review angle 1' => [
+                '[t][a\\]]
+
+[a\\]]: <a\\>b>', '<p><a href="a%3Eb">t</a></p>
+',
+            ],
+            'review angle 2' => [
+                '[foo]: <a> junk
+
+[foo]: /u', '<p><a href="/u">foo</a>: <a> junk</p>
+',
+            ],
+            'review 1' => [
+                '[foo](/u) and [bar]: x', '<p><a href="/u">foo</a> and [bar]: x</p>
+',
+            ],
+            'review 2' => [
+                '[foo][ref] note [x]: y
+
+[ref]: /u', '<p><a href="/u">foo</a> note [x]: y</p>
+',
+            ],
+            'review 3' => [
+                '[foo] said [x]: y
+
+[foo]: /u', '<p><a href="/u">foo</a> said [x]: y</p>
+',
+            ],
+            'review 4' => [
+                '[a](/b) c]: <d>', '<p><a href="/b">a</a> c]: <d></p>
+',
+            ],
+            'review 5' => [
+                '[bar][foo\\!]
+
+[foo\\!]: /url', '<p><a href="/url">bar</a></p>
+',
+            ],
+            'review 6' => [
+                '[bar][foo\\*]
+
+[foo\\*]: /url', '<p><a href="/url">bar</a></p>
+',
+            ],
+            'review 7' => [
+                '[a\\]]: /u "ti\\"tle"
+
+[a\\]]', '<p><a href="/u" title="ti&quot;tle">a]</a></p>
+',
+            ],
+            'review 8' => [
+                '[a\\]]: <foo bar> "title"
+
+[a\\]]', '<p><a href="foo%20bar" title="title">a]</a></p>
+',
+            ],
+            'review 9' => [
+                '[foo]: /u \'a\\\'
+b\'
+
+[foo]', '<p><a href="/u" title="a&apos;
+b">foo</a></p>
+',
+            ],
+            'review 10' => [
+                '[foo][bar][baz]
+
+[baz]: /u \'a
+b\'', '<p>[foo]<a href="/u" title="a
+b">bar</a></p>
+',
+            ],
+            'CommonMark 194' => [
+                '[Foo*bar\\]]:my_(url) \'title (with parens)\'
+
+[Foo*bar\\]]
+', '<p><a href="my_(url)" title="title (with parens)">Foo*bar]</a></p>
+',
+            ],
+            'CommonMark 196' => [
+                '[foo]: /url \'
+title
+line1
+line2
+\'
+
+[foo]
+', '<p><a href="/url" title="
+title
+line1
+line2
+">foo</a></p>
+',
+            ],
+            'CommonMark 201' => [
+                '[foo]: <bar>(baz)
+
+[foo]
+', '<p>[foo]: <bar>(baz)</p>
+<p>[foo]</p>
+',
+            ],
+            'CommonMark 208' => [
+                '[
+foo
+]: /url
+bar
+', '<p>bar</p>
+',
+            ],
+            'CommonMark 526' => [
+                '[foo<https://example.com/?search=](uri)>
+', '<p>[foo<a href="https://example.com/?search=%5D(uri)">https://example.com/?search=](uri)</a></p>
+',
+            ],
+            'CommonMark 538' => [
+                '[foo<https://example.com/?search=][ref]>
+
+[ref]: /uri
+', '<p>[foo<a href="https://example.com/?search=%5D%5Bref%5D">https://example.com/?search=][ref]</a></p>
+',
+            ],
+            'CommonMark 541' => [
+                '[Foo
+  bar]: /url
+
+[Baz][Foo bar]
+', '<p><a href="/url">Baz</a></p>
+',
+            ],
+            'CommonMark 545' => [
+                '[bar][foo\\!]
+
+[foo!]: /url
+', '<p>[bar][foo!]</p>
+',
+            ],
+            'CommonMark 546' => [
+                '[foo][ref[]
+
+[ref[]: /uri
+', '<p>[foo][ref[]</p>
+<p>[ref[]: /uri</p>
+',
+            ],
+            'CommonMark 569' => [
+                '[foo][bar][baz]
+
+[baz]: /url
+', '<p>[foo]<a href="/url">bar</a></p>
+',
+            ],
+            'CommonMark 570' => [
+                '[foo][bar][baz]
+
+[baz]: /url1
+[bar]: /url2
+', '<p><a href="/url2">foo</a><a href="/url1">baz</a></p>
+',
+            ],
+            'CommonMark 571' => [
+                '[foo][bar][baz]
+
+[baz]: /url1
+[foo]: /url2
+', '<p>[foo]<a href="/url1">bar</a></p>
+',
+            ],
+        ];
+    }
+
     #[DataProvider('bracketAutolinkProvider')]
     public function testAutolinkBracketsRemainDestinationData(string $markdown, string $html): void
     {

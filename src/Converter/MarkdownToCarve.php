@@ -121,6 +121,11 @@ class MarkdownToCarve
     protected array $referenceDefinitionLabels = [];
 
     /**
+     * @var array<string, string>
+     */
+    protected array $complexReferenceTargets = [];
+
+    /**
      * Source lines whose ordered task item Carve cannot spell, in order, for the
      * fidelity report. Reset by every `convert()`.
      *
@@ -4219,7 +4224,15 @@ class MarkdownToCarve
 
         $encodeDest = function (string $paren) use ($protected): ?string {
             $inner = trim(substr($paren, 1, -1), " \t");
-            if (preg_match('/^((?:\x00P\d+\x00|[^\x00-\x20\x7f])+)([\s\S]*)$/', $inner, $matches)) {
+            if (str_starts_with($inner, '<')) {
+                preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
+                $end = isset($pointy[0]) ? strlen($pointy[0]) - 1 : false;
+                if ($end === false) {
+                    return null;
+                }
+                $url = substr($inner, 1, $end - 1);
+                $rest = substr($inner, $end + 1);
+            } elseif (preg_match('/^((?:\x00P\d+\x00|[^\x00-\x20\x7f])+)([\s\S]*)$/', $inner, $matches)) {
                 $url = $matches[1];
                 $rest = $matches[2];
             } else {
@@ -4228,7 +4241,7 @@ class MarkdownToCarve
             }
 
             if (trim($rest) !== '') {
-                if (preg_match('/^[ \t\n]+("[^"\n]*(?:\n(?![ \t]*\n)[^"\n]*)*"|\'[^\'\n]*(?:\n(?![ \t]*\n)[^\'\n]*)*\'|\([^()]*\))[ \t\n]*$/', $rest, $title) !== 1) {
+                if (preg_match('/^[ \t\n]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))[ \t\n]*$/s', $rest, $title) !== 1) {
                     return null;
                 }
                 $quote = $title[1][0] === '(' ? '"' : $title[1][0];
@@ -4265,10 +4278,64 @@ class MarkdownToCarve
             fn (array $match): string => $protectDestination('', $match[1]),
             $line,
         ) ?? $line;
+        $chainSubject = $line;
+        $chainCursor = 0;
+        $line = preg_replace_callback(
+            '/(?<![!\\\\\]])\[([\w .-]+)\]\[([\w .-]+)\]\[([\w .-]+)\](?!\[)/u',
+            function (array $match) use ($chainSubject, &$chainCursor, $protect, $protected, $protectDestination): string {
+                $offset = $match[0][1];
+                while ($chainCursor < $offset) {
+                    if ($chainSubject[$chainCursor] === '<') {
+                        $tag = $this->htmlTagAt($chainSubject, $chainCursor);
+                        if ($tag !== null) {
+                            $chainCursor = $tag['end'];
+
+                            continue;
+                        }
+                        if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $chainSubject, $auto, 0, $chainCursor) === 1) {
+                            $chainCursor += strlen($auto[0]);
+
+                            continue;
+                        }
+                    }
+                    $chainCursor++;
+                }
+                if ($chainCursor > $offset) {
+                    return $match[0][0];
+                }
+                if (
+                    preg_match('/\G\x00P(\d+)\x00/', $chainSubject, $tail, 0, $offset + strlen($match[0][0])) === 1
+                    && str_starts_with($protected[(int)$tail[1]] ?? '', '(')
+                ) {
+                    return $match[0][0];
+                }
+                [$first, $second, $third] = [$match[1][0], $match[2][0], $match[3][0]];
+                $middleTarget = $this->complexReferenceTarget($second, $protected);
+                $lastTarget = $this->complexReferenceTarget($third, $protected);
+                $middle = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($second)] ?? null;
+                $last = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($third)] ?? null;
+                $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')') : ($middle !== null ? $protect('[' . $middle . ']') : null);
+                $lastTail = $lastTarget !== null ? $protectDestination('', '(' . $lastTarget . ')') : ($last !== null ? $protect('[' . $last . ']') : null);
+                if ($middleTail !== null) {
+                    return '[' . $first . ']' . $middleTail . '[' . $third . ']' . ($lastTail ?? '');
+                }
+                if ($lastTail !== null) {
+                    return $protect('\\[' . $first . ']') . '[' . $second . ']' . $lastTail;
+                }
+
+                return $match[0][0];
+            },
+            $line,
+            flags: PREG_OFFSET_CAPTURE,
+        ) ?? $line;
         $line = preg_replace_callback(
             '/!\[((?:[^\[\]]|\[[^\]]*\])*)\](?:\[([^\]\n]*)\])?/',
-            function (array $match) use ($protected, $protect, $imageLabel): string {
+            function (array $match) use ($protected, $protect, $protectDestination, $imageLabel): string {
                 $label = ($match[2] ?? '') !== '' ? $match[2] : $match[1];
+                $target = $this->complexReferenceTarget($label, $protected);
+                if ($target !== null) {
+                    return $protectDestination($imageLabel('![' . $match[1] . ']'), '(' . $target . ')');
+                }
                 $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
                 if ($canonical === null || strpbrk($canonical, '[]') !== false) {
                     return $match[0];
@@ -4304,7 +4371,7 @@ class MarkdownToCarve
         $subject = $line;
         $line = preg_replace_callback(
             '/(?<=\])\[([^\]]*)\]/',
-            function (array $match) use ($subject, $protected, $protect, $linkClosers, &$referenceClosers): string {
+            function (array $match) use ($subject, $protected, $protect, $protectDestination, $linkClosers, &$referenceClosers): string {
                 $reference = $match[1][0];
                 $offset = $match[0][1];
                 if (!isset($linkClosers[$offset - 1]) || isset($referenceClosers[$offset - 1])) {
@@ -4314,9 +4381,33 @@ class MarkdownToCarve
                 $labelStart = $reference === '' ? strrpos(substr($subject, 0, max(0, $offset - 1)), '[') : false;
                 $preceding = $labelStart === false ? '' : substr($subject, $labelStart + 1, $offset - $labelStart - 2);
                 $label = $reference !== '' ? $reference : (strpbrk($preceding, "]\n") === false ? $preceding : null);
+                $target = $label !== null ? $this->complexReferenceTarget($label, $protected) : null;
+                if ($target !== null) {
+                    return $protectDestination('', '(' . $target . ')');
+                }
                 $canonical = $label !== null && ($reference === '' || strpbrk($label, "\\&\0") === false)
                     ? ($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null)
                     : null;
+                $literal = $this->decodeLinkTitle($reference, $protected);
+                $raw = $reference;
+                $protectedCount = count($protected);
+                for ($pass = 0; $pass < $protectedCount; $pass++) {
+                    $restored = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]] ?? $part[0], $raw) ?? $raw;
+                    if ($restored === $raw) {
+                        break;
+                    }
+                    $raw = $restored;
+                }
+                if (
+                    $canonical === null && preg_match('/\\\\[!*]/', $raw) === 1 && $literal !== $reference
+                    && $this->normalizeReferenceLabel($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($literal)] ?? '') !== $this->normalizeReferenceLabel($raw)
+                ) {
+                    $firstStart = $linkClosers[$offset - 1];
+                    $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
+                    if (!isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($firstLabel, $protected))])) {
+                        return $protect('\\[' . $literal . ']');
+                    }
+                }
                 $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1;
 
                 return $protect($canonical === null || strpbrk($canonical, '[]') !== false || $collapsed ? $match[0][0] : '[' . $canonical . ']');
@@ -4375,12 +4466,12 @@ class MarkdownToCarve
         ) ?? $line;
         // Carve has no shortcut reference, so a defined `[r]` is written in the
         // full form, collapsed only where Carve's exact label match still holds.
-        if ($this->referenceDefinitionLabels !== []) {
+        if ($this->referenceDefinitionLabels !== [] || $this->complexReferenceTargets !== []) {
             $subject = $line;
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protected, $protect, $closers): string {
+                function (array $match) use ($subject, $protected, $protect, $protectDestination, $closers): string {
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
                     if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
@@ -4392,6 +4483,10 @@ class MarkdownToCarve
                     // A task checkbox, whose label the reader never resolves.
                     if ($this->cmarkReadsTaskCheckbox($subject, $match[0][1])) {
                         return $match[0][0];
+                    }
+                    $target = $this->complexReferenceTarget($label, $protected);
+                    if ($target !== null) {
+                        return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')');
                     }
                     $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
                     if ($definition === null) {
@@ -4674,6 +4769,10 @@ class MarkdownToCarve
     protected function extractReferenceDefinitions(array $lines): array
     {
         $this->emptyDestinationLabels = [];
+        $this->complexReferenceTargets = [];
+        $authoredDefinitions = [];
+        $invalidDefinitionPrefixes = [];
+        $referenceChunk = null;
         $this->movedDefinitions = [];
         $this->movedFootnotes = [];
         $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
@@ -4694,6 +4793,7 @@ class MarkdownToCarve
             // A definition that closed an item's fence closed the item too, so
             // what the item held below it stands at the top level now.
             if ($outdent > 0 && trim($lines[$i]) !== '') {
+                $referenceChunk = null;
                 if (strspn($lines[$i], ' ') < $outdent) {
                     $outdent = 0;
                 } else {
@@ -4786,6 +4886,53 @@ class MarkdownToCarve
 
                 continue;
             }
+            if ($canStart && !$opensItem && $lineDepth === 0 && $listIndent === 0 && preg_match('/^ {0,3}\[(?!\^)/', $content) === 1) {
+                if ($referenceChunk === null || $i > $referenceChunk['through']) {
+                    $chunk = [$content];
+                    $offsets = [$i => 0];
+                    $size = strlen($content) + 1;
+                    for ($next = $i + 1; $next < $count && trim($lines[$next]) !== ''; $next++) {
+                        $candidate = $lines[$next];
+                        if (
+                            preg_match('/^ {0,3}(?:>|#{1,6}(?:[ \t]|$)|(?:[-*+]|0{0,8}1[.)])[ \t]+\S|=+[ \t]*$|`{3,}|~{3,})/', $candidate) === 1
+                            || preg_match(self::THEMATIC_BREAK, $candidate) === 1
+                            || ($this->indentWidth($candidate) < 4 && $this->htmlBlockInterrupts(ltrim($candidate, " \t")))
+                        ) {
+                            break;
+                        }
+                        $offsets[$next] = $size;
+                        $size += strlen($candidate) + 1;
+                        $chunk[] = $candidate;
+                    }
+                    $referenceChunk = ['through' => $next - 1, 'text' => implode("\n", $chunk), 'offsets' => $offsets];
+                }
+                $parsed = MarkdownReferenceDefinition::read($referenceChunk['text'], $referenceChunk['offsets'][$i]);
+                if ($parsed !== null && $parsed['complex'] && !str_starts_with($parsed['target'], '<>')) {
+                    $rawKey = $this->normalizeReferenceLabel($parsed['label']);
+                    if (!isset($authoredDefinitions[$rawKey])) {
+                        $this->complexReferenceTargets[$rawKey] = $parsed['target'];
+                        $authoredDefinitions[$rawKey] = true;
+                        $defined[$rawKey] = true;
+                    }
+                    $i += $parsed['lines'] - 1;
+                    $depth = 0;
+                    $canStart = true;
+
+                    continue;
+                }
+                if (
+                    $parsed === null
+                    && (preg_match('/^ {0,3}\[(?:[^[\]\\\\\n]|\\\\.)+\]:[ \t]*</', $content) === 1
+                    || preg_match('/^ {0,3}\[(?:[^\]\\\\\n]|\\\\.)*\[(?:[^\]\\\\\n]|\\\\.)*\]:/', $content) === 1)
+                ) {
+                    preg_match('/^ {0,3}\[((?:[^\[\]\\\\]|\\\\.)+)\]:/', $content, $invalidLabel);
+                    $invalidDefinitionPrefixes[count($kept)] = isset($invalidLabel[1]) ? $this->normalizeReferenceLabel($invalidLabel[1]) : null;
+                    $kept[] = $line;
+                    $canStart = false;
+
+                    continue;
+                }
+            }
             // A deeper quote opens a block; a shallower line is lazy continuation.
             if (
                 ($canStart || $opensItem || $lineDepth > $depth)
@@ -4815,7 +4962,9 @@ class MarkdownToCarve
                         continue;
                     }
                     $canStart = true;
-                    $repeated = isset($labels[$key]);
+                    $rawKey = $this->normalizeReferenceLabel($definition[1]);
+                    $repeated = isset($labels[$key]) || isset($authoredDefinitions[$rawKey]);
+                    $authoredDefinitions[$rawKey] = true;
                     if (!$repeated) {
                         $labels[$key] = $definition[1];
                     }
@@ -4893,6 +5042,14 @@ class MarkdownToCarve
             }
             $canStart = trim($content) === ''
                 || preg_match('/^ {0,3}(?:#{1,6}(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$|=+[ \t]*$)/', $content) === 1;
+        }
+
+        foreach ($invalidDefinitionPrefixes as $index => $label) {
+            if ($label === null || !isset($defined[$label])) {
+                $kept[$index] = preg_replace('/^( *)\[/', '$1\\\\[', $kept[$index]) ?? $kept[$index];
+            } else {
+                $kept[$index] = preg_replace('/^( {0,3}\[(?:[^\[\]\\\\]|\\\\.)+\])(?=:)/', '$1[]', $kept[$index]) ?? $kept[$index];
+            }
         }
 
         $this->definedReferenceLabels = $defined;
@@ -5204,6 +5361,24 @@ class MarkdownToCarve
         $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
 
         return str_replace(['(', ')'], ['\\(', '\\)'], $encoded);
+    }
+
+    /**
+     * @param string $label
+     * @param array<string> $protected
+     */
+    protected function complexReferenceTarget(string $label, array $protected): ?string
+    {
+        $protectedCount = count($protected);
+        for ($pass = 0; $pass < $protectedCount; $pass++) {
+            $restored = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $match): string => $protected[(int)$match[1]] ?? $match[0], $label) ?? $label;
+            if ($restored === $label) {
+                break;
+            }
+            $label = $restored;
+        }
+
+        return $this->complexReferenceTargets[$this->normalizeReferenceLabel($label)] ?? null;
     }
 
     protected function normalizeReferenceLabel(string $label): string
