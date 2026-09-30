@@ -61,4 +61,23 @@ class DjotEmphasisPairingTest extends TestCase
             $this->assertStringContainsString("<pre><code>a_b\n</code></pre>", (new CarveConverter())->convert($carve));
         }
     }
+
+    public function testParagraphMarkerTextAndImageAlts(): void
+    {
+        $converter = new DjotToCarve();
+        foreach (["_a\n- b_", "_a\n1. b_", "_a\n| b_", "para _a\n  - b_", ": ```\n  _x\n  ```\n\n  _y_"] as $source) {
+            self::assertStringContainsString('<em>', (new CarveConverter())->convert($converter->convert($source)));
+        }
+        foreach (['![basic _image_](url)', "![basic _image_][a_b_]\n\n[a_b_]: url"] as $source) {
+            self::assertStringContainsString('alt="basic image"', (new CarveConverter())->convert($converter->convert($source)));
+        }
+    }
+
+    public function testImporterContextRegressions(): void
+    {
+        $cases = json_decode(file_get_contents(dirname(__DIR__, 2) . '/fixtures/djot-import-context.json'), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($cases as [$source, $fragment]) {
+            self::assertStringContainsString($fragment, (new CarveConverter())->convert((new DjotToCarve())->convert($source)), $source);
+        }
+    }
 }

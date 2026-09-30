@@ -21,8 +21,12 @@ final class DjotEmphasis
         $pairs = [];
         $structural = [];
         $brackets = [];
+        $braces = [];
         $bracketPairs = [];
         $lineStart = 0;
+        $previousBlank = true;
+        $container = false;
+        $listColumn = null;
         $clear = static function (int $from) use (&$openers): void {
             foreach ($openers as &$stack) {
                 while ($stack !== [] && $stack[array_key_last($stack)]['start'] >= $from) {
@@ -31,14 +35,36 @@ final class DjotEmphasis
             }
         };
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
-            if ($i === $lineStart && preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:`{3,}|~{3,}|:{3,}|#{1,6}[ \t]|[-*+][ \t]|[0-9]+[.)][ \t]|\|)/', substr($source, $i, (strpos($source, "\n", $i) ?: $length) - $i)) === 1) {
-                $clear(0);
+            if ($i === $lineStart) {
+                $end = strpos($source, "\n", $i);
+                $line = preg_replace('/^(?:[ \t]*>[ \t]*)*/', '', substr($source, $i, ($end === false ? $length : $end) - $i)) ?? '';
+                preg_match('/^[ \t]*/', $line, $indentMatch);
+                $indent = strlen($indentMatch[0] ?? '');
+                if (trim($line) !== '' && $listColumn !== null && $indent < $listColumn && preg_match('/^[ \t]*(?:[-*+] |[0-9]+[.)] )/', $line) !== 1) {
+                    $listColumn = null;
+                }
+                $marker = preg_match('/^[ \t]*(?:[-*+][ \t]|[0-9]+[.)][ \t]|\|)/', $line) === 1;
+                if ($marker && ($previousBlank || $container)) {
+                    $clear(0);
+                    $container = true;
+                } elseif ($previousBlank) {
+                    $container = $listColumn !== null && $indent >= $listColumn;
+                }
+                if ($marker && $container && preg_match('/^[ \t]*(?:[-*+]|[0-9]+[.)])[ \t]+/', $line, $item) === 1) {
+                    $listColumn = strlen($item[0]);
+                }
+                if (preg_match('/^[ \t]*(?:`{3,}|~{3,})/', $line) === 1 || ($previousBlank || $container) && preg_match('/^[ \t]*:{3,}/', $line) === 1 || preg_match('/^[ \t]*#{1,6}[ \t]/', $line) === 1) {
+                    $clear(0);
+                }
+                $previousBlank = trim($line) === '' || preg_match('/^[ \t]*(?:`{3,}|~{3,}|:{3,}|\{[.#A-Za-z])/', $line) === 1;
             }
             $ch = $source[$i];
             if ($ch === "\n") {
                 $line = preg_replace('/^(?:[ \t]*>[ \t]*)*/', '', substr($source, $lineStart, $i - $lineStart));
                 if (trim($line ?? '') === '') {
                     $clear(0);
+                    $brackets = [];
+                    $braces = [];
                 }
                 $lineStart = $i + 1;
 
@@ -50,6 +76,16 @@ final class DjotEmphasis
                 continue;
             }
             if ($mask[$i] !== $ch) {
+                continue;
+            }
+            if ($ch === '{' && str_contains('+-=^~', $source[$i + 1] ?? "\x00")) {
+                $braces[] = $i;
+
+                continue;
+            }
+            if ($ch === '}' && $braces !== [] && $source[$i - 1] === $source[$braces[array_key_last($braces)] + 1]) {
+                $clear(array_pop($braces));
+
                 continue;
             }
             if ($ch === '[') {
@@ -69,7 +105,7 @@ final class DjotEmphasis
             if ($ch !== '_' && $ch !== '*') {
                 continue;
             }
-            if ($ch === '*' && preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*$/', substr($source, $lineStart, $i - $lineStart)) === 1) {
+            if ($ch === '*' && preg_match('/^(?:[ \t]*>)*[ \t]*(?:(?:[-*+]|[0-9]+[.)])[ \t]+(?:\[[ xX-]\][ \t]+)?)*[ \t]*$/', substr($source, $lineStart, $i - $lineStart)) === 1) {
                 $end = strpos($source, "\n", $i);
                 $line = substr($source, $lineStart, ($end === false ? $length : $end) - $lineStart);
                 if (preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:\*[ \t]*){3,}$/', $line) === 1) {
@@ -95,7 +131,7 @@ final class DjotEmphasis
             $canClose = !$forcedOpen && ($forcedClose || ($i > 0 && !str_contains(" \t\r\n", $source[$i - 1])));
             $key = ($forcedClose ? '{' : '') . $ch;
             $opener = $openers[$key] === [] ? null : $openers[$key][array_key_last($openers[$key])];
-            if ($canClose && $opener !== null && $opener['end'] < $i) {
+            if ($canClose && $opener !== null && $opener['end'] < $i && $opener['start'] > ($braces !== [] ? $braces[array_key_last($braces)] : -1)) {
                 $clear($opener['start']);
                 $pairs[] = new DjotEmphasisSpan($opener['start'], $opener['end'], $i, $i + ($forcedClose ? 2 : 1), $ch, $opener['forced']);
                 if ($forcedClose) {

@@ -115,7 +115,7 @@ final class DjotEmphasisRenderer
 
     /**
      * @param \MarkupCarve\Carve\Converter\DjotEmphasisSpan $pair
-@param array<string, true> $outer
+     * @param array<string, true> $outer
      */
     private function render(DjotEmphasisSpan $pair, array $outer): string
     {
