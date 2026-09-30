@@ -4079,7 +4079,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function spellSameKind(Node $node, string $delimiter, string $written): string
     {
-        if (!str_starts_with($written, '{') && ($this->separatesAnOuterKind($node) || isset($this->bracedForAttributes[spl_object_id($node)]))) {
+        if (!str_starts_with($written, '{') && ($this->separatesAnOuterKind($node) || $this->holdsOuterKindAcrossLink($node) || isset($this->bracedForAttributes[spl_object_id($node)]))) {
             $written = '{' . $written . '}';
         }
 
@@ -4092,7 +4092,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     'a span inside a span of the same kind has no Carve source spelling',
                 );
             }
-            if (!isset($this->bracedSpans[spl_object_id($child)])) {
+            if (!$child instanceof Link && !isset($this->bracedSpans[spl_object_id($child)])) {
                 array_push($pending, ...$child->getChildren());
             }
         }
@@ -4101,6 +4101,23 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $written;
+    }
+
+    /**
+     * Whether a link label separates this span from an enclosing span of its kind.
+     */
+    protected function holdsOuterKindAcrossLink(Node $node): bool
+    {
+        $crossedLink = false;
+        for ($parent = $node->getParent(); $parent instanceof InlineNode; $parent = $parent->getParent()) {
+            if ($parent instanceof Link) {
+                $crossedLink = true;
+            } elseif ($crossedLink && $parent::class === $node::class) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
