@@ -2365,5 +2365,7 @@
       "ast": "1abf9a4e76fb35bdaa677811551e8f38dbf33143597f9c86ef30d97a075d3413",
       "html": "e658879fd2956c1ae35e147895fc4973f9e7384f1a3f71266b0c5cc034f2edd4"
     }
-  ]
+  ],
+  "proofsRepository": "https://github.com/markup-carve/carve-proofs",
+  "proofsCommit": "cedb212a716452ef96d984c48234d0d51437eab3"
 }
