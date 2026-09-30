@@ -156,6 +156,39 @@ class ListParser
     }
 
     /**
+     * Whether any marker token from {@see self::markerTokens()} can start at `$at`.
+     *
+     * A byte screen in front of the pattern cascade: every head opens with a
+     * bullet, `.`, a digit run or a letter run, and a digit or letter run must be
+     * followed by `.` or `)`. Most lines a container walk probes are not markers,
+     * and each would otherwise try every pattern. Keep it in step with the tokens.
+     */
+    protected function markerTokenCanStartAt(string $line, int $at): bool
+    {
+        if (static::class !== self::class) {
+            return true;
+        }
+        $first = $line[$at] ?? '';
+        if ($first === '') {
+            return false;
+        }
+        if ($first === '.' || str_contains($this->bulletMarkerClass, $first)) {
+            return true;
+        }
+
+        $run = strspn($line, '0123456789', $at);
+        if ($run === 0) {
+            $run = strspn($line, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', $at);
+        }
+        if ($run === 0) {
+            return false;
+        }
+        $delimiter = $line[$at + $run] ?? '';
+
+        return $delimiter === '.' || $delimiter === ')';
+    }
+
+    /**
      * Each head SPLIT at the point an abutting attribute block sits.
      *
      * `-{.k} x` is the marker, then the block, then the ordinary gap and
@@ -401,6 +434,10 @@ class ListParser
      */
     public function markerHeadAt(string $line, int $from = 0): ?array
     {
+        if (!$this->markerTokenCanStartAt($line, $from)) {
+            return null;
+        }
+
         foreach ($this->offsetPatterns() as $name => $pattern) {
             if (preg_match($pattern, $line, $m, 0, $from) !== 1) {
                 continue;
@@ -491,6 +528,10 @@ class ListParser
      */
     public function parseListItemMarker(string $line): ?array
     {
+        if (!$this->markerTokenCanStartAt($line, 0)) {
+            return null;
+        }
+
         // A `{...}` attribute block ABUTTING the marker (no space before `{`)
         // attaches its attributes to the <li> (Carve addition, grammar
         // `item_attributes`). Strip a valid block so the bare marker patterns
@@ -505,7 +546,8 @@ class ListParser
         $attributesWidth = 0;
         $bullet = '[' . $this->bulletMarkerClass . ']';
         if (
-            preg_match(
+            str_contains($line, '{')
+            && preg_match(
                 '/^(' . $bullet . '|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
                 $line,
                 $am,
@@ -561,7 +603,7 @@ class ListParser
         // reinterpret `- [!] urgent` - it DELETED the `[!]` and rendered a
         // checkbox nobody wrote (carve-php#657). Two characters were already
         // rejected; it was only the one-character case that was open.
-        if (preg_match($this->markerPattern('task'), $line, $matches)) {
+        if (str_contains($line, '[') && preg_match($this->markerPattern('task'), $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [

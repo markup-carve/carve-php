@@ -350,6 +350,16 @@ class BlockParser
     protected bool $sawUnresolvedCollapsedReference = false;
 
     /**
+     * Paragraph inlines deferred by the scratch pass of
+     * {@see self::indexHeadingsFromStructure()}, which keeps only headings. Set
+     * only during that pass; a deferred paragraph is parsed where block
+     * structure reads its inlines (a caption host).
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, array{string, int, list<array{int, int, int, string}>}>|null
+     */
+    private ?WeakMap $deferredScratchInlines = null;
+
+    /**
      * @see \MarkupCarve\Carve\Parser\BlockParseSession::$unresolvedReferenceLabels
      *
      * @var array<string, true>
@@ -732,6 +742,7 @@ class BlockParser
                     return null;
                 }
 
+                $self->materializeScratchParagraphs();
                 $consumed = $callback($lines, $start, $parent, $self);
 
                 return is_int($consumed) ? $consumed : null;
@@ -779,6 +790,14 @@ class BlockParser
      */
     protected function registerBlockMatcher(Closure $matcher, int $priority = 0, ?string $pattern = null): void
     {
+        if ($pattern === null) {
+            $callback = $matcher;
+            $matcher = function (array $lines, int $start, MatcherContext $ctx) use ($callback): mixed {
+                $this->materializeScratchParagraphs();
+
+                return $callback($lines, $start, $ctx);
+            };
+        }
         $this->blockMatchers[] = [
             'matcher' => $matcher,
             'priority' => $priority,
@@ -1771,7 +1790,13 @@ class BlockParser
     protected function indexHeadingsFromStructure(array $lines): void
     {
         $scratch = new Document();
-        $this->parseBlocks($scratch, $lines, 0, topLevel: true);
+        $previousDeferredInlines = $this->deferredScratchInlines;
+        $this->deferredScratchInlines = new WeakMap();
+        try {
+            $this->parseBlocks($scratch, $lines, 0, topLevel: true);
+        } finally {
+            $this->deferredScratchInlines = $previousDeferredInlines;
+        }
 
         $tracker = new HeadingIdTracker();
         $tracker->setIdTransformer($this->headingIdTransformer);
@@ -11502,6 +11527,13 @@ class BlockParser
         // whole lines: a folded paragraph knows exactly which lines it took and
         // where its content starts and ends within them.
         $paragraph->setPos($this->foldedLinesSpan($contentLines));
+        if ($this->deferredScratchInlines !== null) {
+            $this->deferredScratchInlines[$paragraph] = [$content, $start, $contentLines];
+            $this->applyPendingAttributes($paragraph);
+            $parent->appendChild($paragraph);
+
+            return $i - $start;
+        }
         $this->inlineParser->parse(
             $paragraph,
             $content,
@@ -13505,6 +13537,7 @@ class BlockParser
 
         // Handle Paragraph containing only an Image - wrap in figure
         if ($lastChild instanceof Paragraph) {
+            $this->parseDeferredScratchInlines($lastChild);
             $paragraphChildren = $lastChild->getChildren();
             if (
                 count($paragraphChildren) === 1
@@ -13619,8 +13652,30 @@ class BlockParser
         $lastChild = $children[count($children) - 1] ?? null;
 
         if ($lastChild instanceof Paragraph) {
+            $this->parseDeferredScratchInlines($lastChild);
             $this->inlineParser->parse($lastChild, ' ' . $content, $line);
         }
+    }
+
+    private function materializeScratchParagraphs(): void
+    {
+        if ($this->deferredScratchInlines === null) {
+            return;
+        }
+        foreach ($this->deferredScratchInlines as $paragraph => $deferred) {
+            $this->parseDeferredScratchInlines($paragraph);
+        }
+    }
+
+    protected function parseDeferredScratchInlines(Paragraph $paragraph): void
+    {
+        $deferred = $this->deferredScratchInlines[$paragraph] ?? null;
+        if ($deferred === null) {
+            return;
+        }
+        unset($this->deferredScratchInlines[$paragraph]);
+        [$content, $start, $contentLines] = $deferred;
+        $this->inlineParser->parse($paragraph, $content, $start, sourceMap: $this->foldedLinesMap($contentLines));
     }
 
     /**
