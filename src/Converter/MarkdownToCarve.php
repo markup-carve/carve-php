@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use RuntimeException;
 use Throwable;
 
@@ -4335,7 +4336,7 @@ class MarkdownToCarve
                 }
                 $quote = $title[1][0] === '(' ? '"' : $title[1][0];
                 $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
-                $escaped = str_replace(['\\', $quote], ['\\\\', '\\' . $quote], $decoded);
+                $escaped = QuotedSlotEscaper::escape($decoded, $quote);
                 $rest = ' ' . $quote . $escaped . $quote;
             }
 

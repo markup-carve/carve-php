@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -602,7 +603,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             return $value;
         }
 
-        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
+        return '"' . QuotedSlotEscaper::escape($value) . '"';
     }
 
     /**

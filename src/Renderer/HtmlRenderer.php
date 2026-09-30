@@ -76,6 +76,7 @@ use MarkupCarve\Carve\Parser\Utility\ContainerLabelParser;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -1366,7 +1367,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return $value;
         }
 
-        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
+        return '"' . QuotedSlotEscaper::escape($value) . '"';
     }
 
     protected function renderBlockQuote(BlockQuote $node): string

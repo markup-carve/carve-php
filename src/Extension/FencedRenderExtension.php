@@ -10,6 +10,7 @@ use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -554,6 +555,6 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
             return $value;
         }
 
-        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
+        return '"' . QuotedSlotEscaper::escape($value) . '"';
     }
 }

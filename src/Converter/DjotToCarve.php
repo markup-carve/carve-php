@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
 /**
  * Converts Djot markup to Carve markup.
@@ -438,7 +439,7 @@ class DjotToCarve
         $parts = [];
         $length = strlen($source);
         $i = $start + 1;
-        $quoteValue = static fn (string $value): string => '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
+        $quoteValue = static fn (string $value): string => '"' . QuotedSlotEscaper::escape($value) . '"';
         while ($i < $length) {
             while ($i < $length && str_contains(" \t\n\r", $source[$i])) {
                 if ($source[$i] === "\n" && preg_match('/\G[ \t]*\n/', $source, offset: $i + 1) === 1) {

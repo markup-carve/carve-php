@@ -20,6 +20,7 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -757,6 +758,6 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             return $value;
         }
 
-        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
+        return '"' . QuotedSlotEscaper::escape($value) . '"';
     }
 }
