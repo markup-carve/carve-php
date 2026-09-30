@@ -231,9 +231,10 @@ class SourceLinter
             $blockStarts = $run !== null
                 ? array_filter($blockRuns[$run[0]][$ln] ?? [], static fn (array $block): bool => $block[1] >= ($owner['content'] ?? 0)) : [];
             $blockRun = $blockStarts !== [] ? min(array_column($blockStarts, 0)) : null;
-            $continuingRun = $run !== null && $run === $previousRun
+            $continuingRun = $run !== null && $run[0] === '|'
+                && $column > ($owner['content'] ?? 0) && $run === $previousRun
                 || $blockRun !== null && $blockRun < $ln;
-            $previousRun = $run;
+            $previousRun = $run !== null && $run[0] === '|' && $column > ($owner['content'] ?? 0) ? $run : null;
             if ($openFence !== null) {
                 if ($containing !== null && $containing['first'] === $openFence[0]) {
                     $run = strspn($view, $openFence[1]);

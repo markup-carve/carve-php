@@ -102,6 +102,8 @@ class SourceLinterTest extends TestCase
                 ["- a\n  | x |\n   | y |\n", []],
                 ["- | x |\n   | y |\n", []],
                 ["- a\n  > q\n   > r\n", []],
+                ["- a\n  >\n   > r\n", []],
+                ["- a\n  > ```\n  > c\n   > ```\n", []],
                 ["> - a\n>    > q\n>    > r\n", [2]],
                 ["> - a\n>\n>    > q\n", [3]],
                 ["- > q\n   > r\n", []],
