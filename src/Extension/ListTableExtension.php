@@ -353,6 +353,10 @@ class ListTableExtension implements ExtensionInterface
             return '<tr>' . $html . '</tr>';
         };
 
+        $label = $node->getLabel() !== null
+            ? '<p class="div-label">' . $renderer->renderContainerLabel($node) . "</p>\n"
+            : '';
+
         $headGrid = array_slice($grid, 0, $headerRows);
         $footGrid = array_slice($grid, $footerStart);
         $crossesGroup = false;
@@ -374,7 +378,7 @@ class ListTableExtension implements ExtensionInterface
             $lines[] = "  <tbody>\n" . rtrim($tbody, "\n") . "\n  </tbody>";
             $attrs = $this->renderTableAttributes($node, $renderer);
 
-            return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
+            return $label . '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
         }
 
         // One row per line, as in every other section (PART 10 §7,
@@ -404,7 +408,7 @@ class ListTableExtension implements ExtensionInterface
 
         $attrs = $this->renderTableAttributes($node, $renderer);
 
-        return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
+        return $label . '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
     }
 
     /**

@@ -78,6 +78,7 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
@@ -5411,7 +5412,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $closers = [];
         foreach ($marks as $i => [$at, , , $char]) {
             if ($char === '[') {
-                $open[] = $i;
+                if (!isset($this->structuralEscapes[$marks[$i][1]][$marks[$i][2]])) {
+                    $open[] = $i;
+                }
             } elseif ($char === ']' && $open !== []) {
                 $opener = array_pop($open);
                 $paired[$opener] = true;
@@ -5475,6 +5478,23 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $content = str_replace("\r", '', $node->getContent());
                 if (strpbrk($content, '[](') !== false) {
                     $id = spl_object_id($node);
+                    $previous = $marks === [] ? null : $marks[array_key_last($marks)];
+                    if ($previous !== null && $previous[4] !== spl_object_id($node->getParent() ?? $node)) {
+                        $paragraph = new Paragraph();
+                        (new InlineParser(new BlockParser()))->parse($paragraph, $content);
+                        foreach ($paragraph->getChildren() as $child) {
+                            if (!$child instanceof Link || $child->getRawReferenceLabel() === null) {
+                                continue;
+                            }
+                            $offset = strpos($content, $child->getRawReferenceLabel());
+                            if ($offset !== false) {
+                                // Pair after the literal reference opener's required escape.
+                                $this->structuralEscapes[$id][$offset] = true;
+                            }
+
+                            break;
+                        }
+                    }
                     preg_match_all('/[\[\](]/', $content, $found, PREG_OFFSET_CAPTURE);
                     foreach ($found[0] as [$char, $offset]) {
                         $marks[] = [strlen($flat) + $offset, $id, $offset, $char, spl_object_id($node->getParent() ?? $node)];

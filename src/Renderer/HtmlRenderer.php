@@ -700,6 +700,19 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return $this->guardVerbatimNewlines($html);
     }
 
+    /**
+     * Preserve a generated wrapper's interior while its tags follow block indentation.
+     */
+    public function guardGeneratedWrapperInterior(string $html): string
+    {
+        $close = strrpos($html, "\n</div>\n");
+        if ($close === false) {
+            return $html;
+        }
+
+        return $this->guardGeneratedNewlines(substr($html, 0, $close)) . substr($html, $close);
+    }
+
     protected function restoreSoftBreakGuards(string $html): string
     {
         return str_replace(
