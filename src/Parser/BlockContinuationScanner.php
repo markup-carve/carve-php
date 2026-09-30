@@ -46,7 +46,7 @@ final class BlockContinuationScanner
      * @param \Closure(string, array{type: string, content: string, attributesWidth?: int}): int $listMarkerWidthCallback
      * @param \Closure(string): string $markerFreeContentCallback
      * @param \Closure(string): bool $paragraphHasUnclaimedColonFenceLineCallback
-     * @param \Closure(int): int $sourceLineForCallback
+     * @param \MarkupCarve\Carve\Parser\BlockSourceMapper $source
      * @param \Closure(string): string $spanningConstructCallback
      * @param \Closure(string, array<string>|null, int|null): bool $startsNewBlockCallback
      * @param (\Closure(string, string, array<string>, int, \MarkupCarve\Carve\Parser\TrailingBlockState): bool)|null $trailingBlockHasEndedCallback
@@ -83,7 +83,7 @@ final class BlockContinuationScanner
         private Closure $listMarkerWidthCallback,
         private Closure $markerFreeContentCallback,
         private Closure $paragraphHasUnclaimedColonFenceLineCallback,
-        private Closure $sourceLineForCallback,
+        private BlockSourceMapper $source,
         private Closure $spanningConstructCallback,
         private Closure $startsNewBlockCallback,
         private ?Closure $trailingBlockHasEndedCallback,
@@ -2447,7 +2447,7 @@ final class BlockContinuationScanner
 
     private function sourceLineFor(int $index): int
     {
-        return ($this->sourceLineForCallback)($index);
+        return $this->source->sourceLineFor($index);
     }
 
     /**

@@ -1886,8 +1886,8 @@ class BlockParser
             // Source-line tracking (opt-in): remember where this block starts and
             // how many children the parent had, so newly appended blocks can be
             // stamped with `data-source-line` after the dispatch below.
-            $sourceLine = $this->sourceLineFor($i);
             $tracking = $this->state->source->trackSourceLines || $this->state->source->trackPositions;
+            $sourceLine = $tracking ? $this->sourceLineFor($i) : -1;
             $childrenBefore = ($tracking && $sourceLine >= 0) ? count($parent->getChildren()) : -1;
 
             // A bare `---` at the very start of the document is ambiguous between
@@ -1906,7 +1906,8 @@ class BlockParser
                         $parent,
                         $childrenBefore,
                         $sourceLine,
-                        $this->blockEndSourceLine($i, $matchConsumed, $sourceLine),
+                        $i,
+                        $matchConsumed,
                     );
                     $i += $matchConsumed;
 
@@ -1945,7 +1946,8 @@ class BlockParser
                     $parent,
                     $childrenBefore,
                     $sourceLine,
-                    $this->blockEndSourceLine($i, $consumed, $sourceLine),
+                    $i,
+                    $consumed,
                 );
                 $i += $consumed;
 
@@ -1976,7 +1978,8 @@ class BlockParser
                     $parent,
                     $childrenBefore,
                     $sourceLine,
-                    $this->blockEndSourceLine($i, $consumed, $sourceLine),
+                    $i,
+                    $consumed,
                 );
                 $i += $consumed;
 
@@ -2002,7 +2005,8 @@ class BlockParser
                     $parent,
                     $childrenBefore,
                     $sourceLine,
-                    $this->blockEndSourceLine($i, $consumed, $sourceLine),
+                    $i,
+                    $consumed,
                 );
                 $i += $consumed;
 
@@ -2039,7 +2043,8 @@ class BlockParser
                         $parent,
                         $childrenBefore,
                         $sourceLine,
-                        $this->blockEndSourceLine($i, $matchConsumed, $sourceLine),
+                        $i,
+                        $matchConsumed,
                     );
                     $i += $matchConsumed;
 
@@ -2056,7 +2061,8 @@ class BlockParser
                 $parent,
                 $childrenBefore,
                 $sourceLine,
-                $this->blockEndSourceLine($i, $consumed, $sourceLine),
+                $i,
+                $consumed,
             );
             $i += $consumed;
         }
@@ -2087,11 +2093,6 @@ class BlockParser
         return $this->sourceMapper()->sourceLineFor($index);
     }
 
-    private function blockEndSourceLine(int $first, int $consumed, int $fallback): int
-    {
-        return $this->sourceMapper()->blockEndSourceLine($first, $consumed, $fallback);
-    }
-
     /**
      * @param array<string> $lines
      * @param array<int, int>|null $lineMap
@@ -2107,13 +2108,19 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param int $childrenBefore Child count before the block was parsed, or -1 when disabled.
      * @param int $sourceLine 0-indexed original source line; emitted as 1-based (+1).
-     * @param int $endLine
+     * @param int $first
+     * @param int $consumed
      *
      * @return void
      */
-    private function stampSourceLine(Node $parent, int $childrenBefore, int $sourceLine, int $endLine = -1): void
+    private function stampSourceLine(Node $parent, int $childrenBefore, int $sourceLine, int $first, int $consumed): void
     {
-        $this->sourceMapper()->stampSourceLine($parent, $childrenBefore, $sourceLine, $endLine);
+        if ($childrenBefore < 0 || $sourceLine < 0) {
+            return;
+        }
+
+        $source = $this->sourceMapper();
+        $source->stampSourceLine($parent, $childrenBefore, $sourceLine, $source->blockEndSourceLine($first, $consumed, $sourceLine));
     }
 
     private function stampBlockSpan(Node $node, int $startLine, int $endLine, ?int $endBytesOnEndLine = null): void
@@ -8073,7 +8080,7 @@ class BlockParser
             $this->listMarkerWidth(...),
             $this->markerFreeContent(...),
             $this->paragraphHasUnclaimedColonFenceLine(...),
-            $this->sourceLineFor(...),
+            $this->sourceMapper(),
             $this->spanningConstruct(...),
             $this->startsNewBlock(...),
             $this->usesLegacyTrailingHook('attachedBlockHasEnded') ? $this->trailingBlockHasEnded(...) : null,
