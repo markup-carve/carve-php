@@ -1,0 +1,419 @@
+{
+  "generatedAt": "2026-09-30T01:00:54.979921+00:00",
+  "baselineCommit": "c4227e19f3fd095df5e5fde4b572a11cb32a2b70",
+  "candidateCommit": "de7f0632cc44f6f1ab8b9dfd438b851f28e19767",
+  "method": "Three alternating fresh-process pairs per fixture and phase, separately without JIT and with verified tracing JIT. Each worker: >=100ms warmup, five batches >=50ms, GC before each batch. Median CPU and wall times within each process; median paired candidate/baseline ratios across three pairs. Startup, AST/HTML validation and hashing excluded. Shared host; phases are independent experiments and must not be added. PHP memory limit 1GiB. Raw worker samples remain separate.",
+  "loadStart": [
+    12.048828125,
+    10.43017578125,
+    9.10302734375
+  ],
+  "sourceHashes": {
+    "base": {
+      "src/Parser/InlineParser.php": "711366ec96da37c3c1ebe1524970719a36ff8b34e62019e9e1845bc0803526aa",
+      "src/Parser/Utility/BracketScanner.php": "5388a7bd6645f1a567c1aedd7bf64b0e51397398e5e86c59253ccb2bf01ad23c",
+      "src/Parser/BlockParser.php": "f79d027a8c8d399586631099ee26bda6173f61e07dc8868fec047b8e468e77a7",
+      "src/Parser/Block/ListParser.php": "8b711e0e5579444f12dac90aa9f62e084afcc8472ee91981331cdb3f47c07893",
+      "src/Parser/Block/FencedBlockParser.php": "8d5df79c234a1e15188ea6db8a31574f1af74188cc9adf6e5aba4093a732ec3f",
+      "src/Renderer/HtmlRenderer.php": "9d48b01253c8e43b5e1f521a3597f1c58122bdf3ae8096d2bb35d273319f1d86"
+    },
+    "candidate": {
+      "src/Parser/InlineParser.php": "09a029510661622fa6563d8d9933de7ca002068e8bb5f13e18f118ecbe7f7027",
+      "src/Parser/Utility/BracketScanner.php": "7cae84054e9d1064fe058f732a829f5eabc874ed7e6a49bcb56e488d2ccc6b59",
+      "src/Parser/BlockParser.php": "01df7e099c1c5f3fc6bd8a3f5f975ddfef66a42ce0643a08cd694021eb85222c",
+      "src/Parser/Block/ListParser.php": "b2b8e13e756563e8d401426f763271f2904cc40ee061b87ddd56532c5c17f62c",
+      "src/Parser/Block/FencedBlockParser.php": "a385e6762c3f2c33273be50b5e9e924a6c72a63dc2f221a4241b26e62b4dd5b6",
+      "src/Renderer/HtmlRenderer.php": "1f1ef1861416c15c1ec5849b44a79da02e01b5418d91374864a20f62bb090de9"
+    }
+  },
+  "workerSha256": "d0840c91e302cfb93c126d4223cfc011b28a535e27ff323cda62f1f3a6af2e60",
+  "corpusCommit": "9db91206d1a4a8a8cf795c48210bca49d66f14d6",
+  "loadEnd": [
+    5.7109375,
+    7.2607421875,
+    8.0888671875
+  ],
+  "rawSha256": "1ae9faacf192a284693a47693e7c9d42b674fd4a9e77cd78ea99bc55988631df",
+  "summary": [
+    {
+      "mode": "no-jit",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "htmlBytes": 1035,
+      "cpuRatio": 0.09786154000289432,
+      "cpuRatioRange": [
+        0.09765795856694104,
+        0.10075383405503399
+      ],
+      "wallRatio": 0.09785215303104602,
+      "wallRatioRange": [
+        0.09758312394056513,
+        0.10176229481519058
+      ],
+      "baselineCpuMs": 38.499,
+      "candidateCpuMs": 3.767571428571429
+    },
+    {
+      "mode": "no-jit",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "htmlBytes": 1036,
+      "cpuRatio": 0.0968043102662672,
+      "cpuRatioRange": [
+        0.09427871650514409,
+        0.11244909788459696
+      ],
+      "wallRatio": 0.09679614866294402,
+      "wallRatioRange": [
+        0.09429690016840396,
+        0.1124625425999671
+      ],
+      "baselineCpuMs": 41.361,
+      "candidateCpuMs": 4.003923076923077
+    },
+    {
+      "mode": "no-jit",
+      "fixture": "lists",
+      "phase": "parse",
+      "inputBytes": 388,
+      "htmlBytes": 297604,
+      "cpuRatio": 1.0424893381772231,
+      "cpuRatioRange": [
+        1.0310528284132174,
+        1.050475930114074
+      ],
+      "wallRatio": 1.04235398359521,
+      "wallRatioRange": [
+        1.031268289518477,
+        1.050345672052261
+      ],
+      "baselineCpuMs": 41.1515,
+      "candidateCpuMs": 42.7325
+    },
+    {
+      "mode": "no-jit",
+      "fixture": "lists",
+      "phase": "render",
+      "inputBytes": 388,
+      "htmlBytes": 297604,
+      "cpuRatio": 0.623413542660113,
+      "cpuRatioRange": [
+        0.5930684064156158,
+        0.626211186963224
+      ],
+      "wallRatio": 0.6237270150041732,
+      "wallRatioRange": [
+        0.5974253708681198,
+        0.6262203090880768
+      ],
+      "baselineCpuMs": 54.524,
+      "candidateCpuMs": 33.991
+    },
+    {
+      "mode": "no-jit",
+      "fixture": "quotes",
+      "phase": "html",
+      "inputBytes": 388,
+      "htmlBytes": 78155,
+      "cpuRatio": 0.6163123039386545,
+      "cpuRatioRange": [
+        0.5934780403692058,
+        0.6178753010436179
+      ],
+      "wallRatio": 0.6163630729063011,
+      "wallRatioRange": [
+        0.5935403339212513,
+        0.6177282430559978
+      ],
+      "baselineCpuMs": 19.12666666666667,
+      "candidateCpuMs": 11.702200000000001
+    },
+    {
+      "mode": "no-jit",
+      "fixture": "paragraphs",
+      "phase": "html",
+      "inputBytes": 12288,
+      "htmlBytes": 18432,
+      "cpuRatio": 0.8898332140694667,
+      "cpuRatioRange": [
+        0.7980169145523477,
+        0.9535092237547454
+      ],
+      "wallRatio": 0.8898698597553338,
+      "wallRatioRange": [
+        0.7976059133774787,
+        0.9540939480373433
+      ],
+      "baselineCpuMs": 13.62525,
+      "candidateCpuMs": 12.4955
+    },
+    {
+      "mode": "no-jit",
+      "fixture": "/tmp/bench-analysis/corpus/comparison/carve.crv",
+      "phase": "html",
+      "inputBytes": 49270,
+      "htmlBytes": 134716,
+      "cpuRatio": 0.8987354365175868,
+      "cpuRatioRange": [
+        0.8045077520092693,
+        0.969302350455919
+      ],
+      "wallRatio": 0.898820453645965,
+      "wallRatioRange": [
+        0.8043866234860677,
+        0.9702775828294635
+      ],
+      "baselineCpuMs": 108.746,
+      "candidateCpuMs": 87.487
+    },
+    {
+      "mode": "no-jit",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "htmlBytes": 143400,
+      "cpuRatio": 0.8484774040566954,
+      "cpuRatioRange": [
+        0.7474885517389706,
+        0.8538775145372655
+      ],
+      "wallRatio": 0.8488557972654073,
+      "wallRatioRange": [
+        0.7472933806739456,
+        0.850861426394558
+      ],
+      "baselineCpuMs": 201.379,
+      "candidateCpuMs": 166.82299999999998
+    },
+    {
+      "mode": "no-jit",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "html",
+      "inputBytes": 65105,
+      "htmlBytes": 143400,
+      "cpuRatio": 0.8725069124817838,
+      "cpuRatioRange": [
+        0.8347761635290836,
+        1.0474926812830396
+      ],
+      "wallRatio": 0.8726321338068869,
+      "wallRatioRange": [
+        0.834825905536835,
+        1.0478351909231052
+      ],
+      "baselineCpuMs": 237.405,
+      "candidateCpuMs": 204.164
+    },
+    {
+      "mode": "no-jit",
+      "fixture": "/tmp/bench-analysis/corpus/large.crv",
+      "phase": "html",
+      "inputBytes": 520855,
+      "htmlBytes": 1066969,
+      "cpuRatio": 0.8242585831654321,
+      "cpuRatioRange": [
+        0.691322273277069,
+        0.8316211964063682
+      ],
+      "wallRatio": 0.8242979943981048,
+      "wallRatioRange": [
+        0.6915774469232469,
+        0.8315382832237914
+      ],
+      "baselineCpuMs": 1980.33,
+      "candidateCpuMs": 1625.495
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "htmlBytes": 1035,
+      "cpuRatio": 0.1224719162424778,
+      "cpuRatioRange": [
+        0.122445180475304,
+        0.12524811823202248
+      ],
+      "wallRatio": 0.12240021260509762,
+      "wallRatioRange": [
+        0.12082042499330109,
+        0.12247408737635494
+      ],
+      "baselineCpuMs": 14.7725,
+      "candidateCpuMs": 1.820857142857143
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "htmlBytes": 1036,
+      "cpuRatio": 0.1349112973893491,
+      "cpuRatioRange": [
+        0.12972039009154193,
+        0.13720105236357463
+      ],
+      "wallRatio": 0.13485660602162983,
+      "wallRatioRange": [
+        0.12979404083878426,
+        0.13722472003990652
+      ],
+      "baselineCpuMs": 15.04775,
+      "candidateCpuMs": 2.0208
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "lists",
+      "phase": "parse",
+      "inputBytes": 388,
+      "htmlBytes": 297604,
+      "cpuRatio": 0.9493298997116484,
+      "cpuRatioRange": [
+        0.8851349164741138,
+        1.000667111407605
+      ],
+      "wallRatio": 0.9481742434884854,
+      "wallRatioRange": [
+        0.8850345204325224,
+        1.0006823333934047
+      ],
+      "baselineCpuMs": 25.7505,
+      "candidateCpuMs": 23.5
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "lists",
+      "phase": "render",
+      "inputBytes": 388,
+      "htmlBytes": 297604,
+      "cpuRatio": 0.9584305676610342,
+      "cpuRatioRange": [
+        0.9409274083755378,
+        0.9699023745577013
+      ],
+      "wallRatio": 0.9581182834778581,
+      "wallRatioRange": [
+        0.9414819243202296,
+        0.9702555285208316
+      ],
+      "baselineCpuMs": 35.567,
+      "candidateCpuMs": 34.1265
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "quotes",
+      "phase": "html",
+      "inputBytes": 388,
+      "htmlBytes": 78155,
+      "cpuRatio": 0.7811637894257842,
+      "cpuRatioRange": [
+        0.7706215843505796,
+        0.7895879067927919
+      ],
+      "wallRatio": 0.7813275548068878,
+      "wallRatioRange": [
+        0.7706363511164868,
+        0.78959045815671
+      ],
+      "baselineCpuMs": 9.7895,
+      "candidateCpuMs": 7.544
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "paragraphs",
+      "phase": "html",
+      "inputBytes": 12288,
+      "htmlBytes": 18432,
+      "cpuRatio": 1.0142079689018464,
+      "cpuRatioRange": [
+        0.9067111459968602,
+        1.1171267863176515
+      ],
+      "wallRatio": 1.0151882506971774,
+      "wallRatioRange": [
+        0.9073008206950132,
+        1.1165588785823357
+      ],
+      "baselineCpuMs": 8.493333333333334,
+      "candidateCpuMs": 8.696833333333332
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "/tmp/bench-analysis/corpus/comparison/carve.crv",
+      "phase": "html",
+      "inputBytes": 49270,
+      "htmlBytes": 134716,
+      "cpuRatio": 0.9412265494396632,
+      "cpuRatioRange": [
+        0.9161625282167042,
+        1.0814305705631233
+      ],
+      "wallRatio": 0.9404561116431917,
+      "wallRatioRange": [
+        0.9171350370244742,
+        1.080016289770941
+      ],
+      "baselineCpuMs": 64.604,
+      "candidateCpuMs": 60.879
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "htmlBytes": 143400,
+      "cpuRatio": 0.9247759704481978,
+      "cpuRatioRange": [
+        0.8495877898815762,
+        1.0522851757119556
+      ],
+      "wallRatio": 0.9239220792850413,
+      "wallRatioRange": [
+        0.8495450127951817,
+        1.0513857873766734
+      ],
+      "baselineCpuMs": 151.743,
+      "candidateCpuMs": 133.435
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "html",
+      "inputBytes": 65105,
+      "htmlBytes": 143400,
+      "cpuRatio": 0.9139384538877774,
+      "cpuRatioRange": [
+        0.8749073483529555,
+        0.9819107573764104
+      ],
+      "wallRatio": 0.9149301833471425,
+      "wallRatioRange": [
+        0.8748903203160829,
+        0.9818015293537463
+      ],
+      "baselineCpuMs": 169.49300000000005,
+      "candidateCpuMs": 154.377
+    },
+    {
+      "mode": "tracing-jit",
+      "fixture": "/tmp/bench-analysis/corpus/large.crv",
+      "phase": "html",
+      "inputBytes": 520855,
+      "htmlBytes": 1066969,
+      "cpuRatio": 0.9052453468697125,
+      "cpuRatioRange": [
+        0.8908865663889493,
+        0.9556607210169373
+      ],
+      "wallRatio": 0.9059663864069468,
+      "wallRatioRange": [
+        0.8933147783001502,
+        0.9569020203063928
+      ],
+      "baselineCpuMs": 1578.465,
+      "candidateCpuMs": 1508.4769999999999
+    }
+  ]
+}

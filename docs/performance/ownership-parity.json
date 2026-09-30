@@ -1,6 +1,6 @@
 {
   "baseline": "c4227e19f3fd095df5e5fde4b572a11cb32a2b70",
-  "candidate": "5421742c30896bfd63172fbfb57fd9b90220305d",
+  "candidate": "de7f0632cc44f6f1ab8b9dfd438b851f28e19767",
   "ownershipReportSha256": "5815cf1f7e47c785b00009940e5d9741ffe88b823c33241440bdad9c4b0ea45c",
   "cases": 472,
   "method": "Each source from the committed carve-proofs ownership matrix parsed and rendered in fresh converters. Exact AST and HTML fingerprints match baseline and candidate. Combined HTML also matches parse/render for every source. This is a concrete compatibility check, not an extension of the formal model.",

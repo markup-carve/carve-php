@@ -104,6 +104,7 @@ the author intended. The rules and options are in [docs/lint.md](https://github.
 - [Integrated definition layout](https://github.com/markup-carve/carve-php/blob/main/docs/integrated-definition-layout.md) - collecting and resolving reference, footnote and abbreviation definitions.
 - [HTML whitespace differences](https://github.com/markup-carve/carve-php/blob/main/docs/html-whitespace.md) - the line an empty raw block occupies.
 - [Configured conversion fast path](https://github.com/markup-carve/carve-php/blob/main/docs/configured-conversion-fast-path.md) - reusing a configured converter.
+- [Parser and renderer measurements](docs/performance/parser-renderer.md) - paired results with and without tracing JIT.
 - [Bracket scan measurements](docs/performance/brackets.md) - paired parser timings and reproduction.
 
 ## Development
