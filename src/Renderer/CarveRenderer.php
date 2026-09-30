@@ -80,6 +80,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -5496,7 +5497,18 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function escapeQuoted(string $text): string
     {
-        return str_replace(['\\', '"'], ['\\\\', '\\"'], $text);
+        return $this->escapeQuotedSlot($text, '"');
+    }
+
+    /**
+     * @param string $text
+     * @param string $extra Characters of the slot's own syntax to escape.
+     *
+     * @return string
+     */
+    protected function escapeQuotedSlot(string $text, string $extra): string
+    {
+        return QuotedSlotEscaper::escape($text, $extra);
     }
 
     /**
@@ -5670,7 +5682,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $value;
         }
 
-        return '"' . str_replace(['\\', '"', '|'], ['\\\\', '\\"', '\\|'], $value) . '"';
+        return '"' . $this->escapeQuotedSlot($value, '"|') . '"';
     }
 
     protected function escapeCriticText(string $text): string

@@ -15,6 +15,16 @@ use MarkupCarve\Carve\Util\StringUtil;
 class AttributeParser
 {
     /**
+     * The ASCII punctuation a backslash escapes inside a quoted attribute
+     * value or title. Before anything else the backslash stays literal, which
+     * is why the writer may not double one there
+     * (Renderer\\Utility\\QuotedSlotEscaper).
+     *
+     * @var string
+     */
+    public const ESCAPABLE_PUNCTUATION = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+
+    /**
      * Parse attribute string and return as array
      *
      * Supports:
@@ -427,9 +437,7 @@ class AttributeParser
         $length = strlen($value);
         $i = 0;
 
-        // ASCII punctuation that can be escaped
-        // Includes: !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
-        $punctuation = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+        $punctuation = self::ESCAPABLE_PUNCTUATION;
 
         while ($i < $length) {
             $char = $value[$i];

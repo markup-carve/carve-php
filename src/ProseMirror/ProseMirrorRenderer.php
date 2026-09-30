@@ -56,6 +56,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\TableSpanGrid;
+use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
 /**
  * Renders a Carve AST as a ProseMirror (Tiptap) document.
@@ -1198,12 +1199,12 @@ class ProseMirrorRenderer
                 foreach ($node->getClassList() as $class) {
                     $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
                         ? '.' . $class
-                        : 'class="' . str_replace(['\\', '"'], ['\\\\', '\"'], $class) . '"';
+                        : 'class="' . QuotedSlotEscaper::escape($class) . '"';
                 }
             } else {
                 $parts[] = preg_match('/^[A-Za-z0-9_-]+$/', (string)$value) === 1
                     ? $key . '=' . $value
-                    : $key . '="' . str_replace(['\\', '"'], ['\\\\', '\\"'], (string)$value) . '"';
+                    : $key . '="' . QuotedSlotEscaper::escape((string)$value) . '"';
             }
         }
 

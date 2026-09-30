@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
+
 trait EscapesCarveConstructs
 {
     protected function quoteAttributeValue(string $value): string
@@ -14,7 +16,7 @@ trait EscapesCarveConstructs
             return $value;
         }
 
-        return '"' . str_replace(['\\', '"', '|'], ['\\\\', '\\"', '\\|'], $value) . '"';
+        return '"' . QuotedSlotEscaper::escape($value, '"|') . '"';
     }
 
     /**

@@ -59,7 +59,9 @@ class AnUnquotedAttributeUsesTheGrammarExclusionsTest extends TestCase
         $converter = new CarveConverter();
         $source = '*x*{k="a\\\\b"}';
         $written = (new CarveRenderer())->render($converter->parse($source));
-        self::assertStringContainsString('k="a\\\\b"', $written);
+        // `\\b` is not an escape to the reader, so the bare backslash carries
+        // the same value and the doubled spelling would invent an escape.
+        self::assertStringContainsString('k="a\\b"', $written);
         self::assertSame($converter->convert($source), $converter->convert($written));
     }
 }

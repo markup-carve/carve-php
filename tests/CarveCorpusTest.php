@@ -1077,6 +1077,17 @@ class CarveCorpusTest extends TestCase
         // unmarked line after one leaves every quote. Seven documents, four
         // byte-exact before carve-php#2659 and all seven after.
         'a-fence-in-a-quote-stores-no-continuation-claim',
+        // ARRIVED WITH THE BUMP TO carve 9d6d06c. All 66 documents across
+        // these four categories render byte-identically to their pinned HTML
+        // on this engine, measured one document at a time, so each is
+        // declared rather than deferred and KNOWN_GAPS stays empty. The bump
+        // did find one reader-side defect, in the WRITER rather than the
+        // parser: the quoted-value category also failed the invented-escape
+        // ratchet, which the same commit fixes.
+        'a-container-label-preserves-closed-inline-constructs-before-cutting-a-comment',
+        'a-braced-span-cannot-close-beyond-its-bracket-run',
+        'quoted-values-and-titles-retain-a-non-punctuation-backslash',
+        'a-marker-line-opaque-quote-keeps-overindented-markers-literal',
     ];
 
     /**

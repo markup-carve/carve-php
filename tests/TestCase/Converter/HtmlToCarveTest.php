@@ -749,7 +749,11 @@ HTML;
     {
         $result = $this->converter->convert('<span data-note="C:\\path\\&quot;quoted&quot; value">x</span>');
 
-        $this->assertSame("[x]{data-note=\"C:\\\\path\\\\\\\"quoted\\\" value\"}\n", $result);
+        // The backslash before `p` needs no escape: the reader keeps a
+        // backslash before a non-punctuation character verbatim, so doubling
+        // it would re-parse as two (PART 11 §2). The one before `"` is
+        // doubled, because there it would pair with the quote.
+        $this->assertSame("[x]{data-note=\"C:\\path\\\\\\\"quoted\\\" value\"}\n", $result);
     }
 
     // ==================== Figures ====================
