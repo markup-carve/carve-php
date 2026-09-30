@@ -30,7 +30,7 @@ class DjotEscapedEmphasisTest extends TestCase
     public function testEscapedNewlinesCannotHideParagraphBoundaries(): void
     {
         foreach (["_a\\\n\nb_", "_a\\\n  \nb_", "a_b\\\n\nc_d"] as $source) {
-            $this->assertSame($source, (new DjotToCarve())->convert($source));
+            $this->assertSame(str_replace('_', '\\_', $source), (new DjotToCarve())->convert($source));
         }
     }
 }

@@ -24,7 +24,7 @@ class DjotWordAttributesTest extends TestCase
   ],
   [
     "x {.c}",
-    "<p>x&nbsp;{.c}</p>"
+    "<p>x&nbsp;</p>"
   ]
 ,
   [
