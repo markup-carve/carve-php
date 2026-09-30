@@ -87,7 +87,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
 
     public function getRenderTarget(): string
     {
-        return 'plain';
+        return RenderTarget::PLAIN;
     }
 
     /**

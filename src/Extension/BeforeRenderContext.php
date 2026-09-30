@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Renderer\RendererInterface;
 use MarkupCarve\Carve\Renderer\RenderMode;
 use MarkupCarve\Carve\Renderer\RenderModeRendererInterface;
+use MarkupCarve\Carve\Renderer\RenderTarget;
 use MarkupCarve\Carve\Renderer\RenderTargetInterface;
 use MarkupCarve\Carve\Renderer\SafeModeRendererInterface;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
@@ -55,7 +56,7 @@ final class BeforeRenderContext
      */
     public static function forRenderer(RendererInterface $renderer): self
     {
-        $targetIsHtml = $renderer instanceof RenderTargetInterface && $renderer->getRenderTarget() === 'html';
+        $targetIsHtml = $renderer instanceof RenderTargetInterface && $renderer->getRenderTarget() === RenderTarget::HTML;
 
         return new self(
             $targetIsHtml && $renderer instanceof SymbolRendererInterface ? $renderer->getSymbols() : [],

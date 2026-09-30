@@ -53,6 +53,8 @@ Source-aware tools can prepare stale-safe structured formatting changes through
 Custom renderers implement `RendererInterface`. Add `RenderTargetInterface` and
 `RenderLossAwareRendererInterface` to support `convertWithReport()` and
 `renderWithReport()`. `getRenderTarget()` names the target in each loss report.
+`RenderTarget` defines the built-in names, including `RenderTarget::HTML`;
+custom renderers can return their own target string.
 Optional capabilities expose safe mode, typography, render mode, static renderers,
 render events, symbols, and heading IDs; the converter uses those interfaces
 when configuring a renderer. `StaticRenderExtensionsInterface` lets a renderer

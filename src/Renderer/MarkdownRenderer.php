@@ -95,7 +95,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     public function getRenderTarget(): string
     {
-        return 'markdown';
+        return RenderTarget::MARKDOWN;
     }
 
     /**

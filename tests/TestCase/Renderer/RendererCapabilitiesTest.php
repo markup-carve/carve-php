@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Renderer\RenderLossAwareRendererInterface;
 use MarkupCarve\Carve\Renderer\RenderLossCollectorTrait;
 use MarkupCarve\Carve\Renderer\RenderMode;
 use MarkupCarve\Carve\Renderer\RenderModeRendererInterface;
+use MarkupCarve\Carve\Renderer\RenderTarget;
 use MarkupCarve\Carve\Renderer\RenderTargetInterface;
 use MarkupCarve\Carve\Renderer\SafeModeRendererInterface;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
@@ -75,7 +76,7 @@ class RendererCapabilitiesTest extends TestCase
 
             public function getRenderTarget(): string
             {
-                return 'html';
+                return RenderTarget::HTML;
             }
 
             public function render(Document $document): string

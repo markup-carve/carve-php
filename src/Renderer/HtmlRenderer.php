@@ -91,7 +91,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     public function getRenderTarget(): string
     {
-        return 'html';
+        return RenderTarget::HTML;
     }
 
     /**
