@@ -124,7 +124,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     public function getRenderTarget(): string
     {
-        return 'carve';
+        return RenderTarget::CARVE;
     }
 
     /**

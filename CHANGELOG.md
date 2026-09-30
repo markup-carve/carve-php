@@ -11,6 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Improvements
 
+- Use shared `RenderTarget` constants for built-in renderer identifiers.
+
 - Add renderer capability interfaces so custom renderers can use converter configuration and loss reports without extending a built-in renderer.
 
 - Index balanced bracket pairs and failed openers to avoid repeated scans of malformed inline input (#2776).

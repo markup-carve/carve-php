@@ -89,7 +89,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     public function getRenderTarget(): string
     {
-        return 'ansi';
+        return RenderTarget::ANSI;
     }
 
     /**
