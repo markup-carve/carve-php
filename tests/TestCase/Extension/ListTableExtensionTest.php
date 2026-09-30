@@ -12,6 +12,20 @@ use ReflectionMethod;
 
 class ListTableExtensionTest extends TestCase
 {
+    public function testGroupingLabelPrecedesTheTableAndItsCaption(): void
+    {
+        foreach (['plain', '*bold*', '', '<script>'] as $label) {
+            $source = "::: list-table \"Caption\" [$label]\n- - A\n  - B\n:::\n";
+            $html = $this->render($source);
+            $fallback = trim((new CarveConverter())->convert($source));
+            preg_match('/<p class="div-label">.*?<\/p>/s', $fallback, $match);
+            $this->assertStringStartsWith($match[0] . "\n<table>\n  <caption>Caption</caption>", $html);
+            $this->assertStringContainsString('<tr><td>A</td><td>B</td></tr>', $html);
+        }
+        $this->assertStringStartsWith('<table>', $this->render("::: list-table\n- - A\n:::\n"));
+        $this->assertStringContainsString('<p class="div-label">plain</p>', $this->render("::: list-table [plain]\n- not a row\n:::\n"));
+    }
+
     public function testCellAlignmentOverridesColumnDefaults(): void
     {
         $html = $this->render(implode("\n", [

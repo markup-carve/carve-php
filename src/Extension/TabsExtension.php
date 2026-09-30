@@ -117,7 +117,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
                 ? $this->renderAriaTabs($node, $tabs, $renderer)
                 : $this->renderCssTabs($node, $tabs, $renderer);
 
-            $event->setHtml($html);
+            $event->setHtml($renderer->guardGeneratedWrapperInterior($html));
         });
     }
 
