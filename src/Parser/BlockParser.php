@@ -2090,7 +2090,7 @@ class BlockParser
 
     private function sourceLineFor(int $index): int
     {
-        return $this->sourceMapper()->sourceLineFor($index);
+        return $this->state->frame->sourceLineFor($index);
     }
 
     /**

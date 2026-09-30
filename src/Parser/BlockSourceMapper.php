@@ -1130,7 +1130,7 @@ final class BlockSourceMapper
 
     public function sourceLineFor(int $index): int
     {
-        return $this->state->frame->currentLineMap[$index] ?? ($this->state->frame->currentLineMap === null ? $index : -1);
+        return $this->state->frame->sourceLineFor($index);
     }
 
     /**
