@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use Closure;
+use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -110,25 +111,22 @@ final class BlockContinuationScanner
             $comment = [];
             $colon = [];
             $code = [];
+            $fencedBlockParser = ($this->getFencedBlockParser)();
+            $builtInParser = $fencedBlockParser::class === FencedBlockParser::class;
             foreach ($lines as $i => $line) {
-                $info = ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($line);
-                if ($info !== null) {
-                    $comment[$info['length']] = $i;
+                $head = $line[strspn($line, " \t")] ?? '';
+                if ($head === '%' || !$builtInParser) {
+                    // A subclass can replace its helper while inspecting a line.
+                    $parser = $builtInParser ? $fencedBlockParser : ($this->getFencedBlockParser)();
+                    $info = $parser->parseFencedCommentOpenerAnyColumn($line);
+                    if ($info !== null) {
+                        $comment[$info['length']] = $i;
+                    }
                 }
-                // THE TRAILING RUN IS `\s`, matching `isDivFenceCloser()` and
-                // `isCodeFenceCloser()` exactly. A narrower `[ \t]*` here is a
-                // FALSE NEGATIVE rather than a stricter reading: those two
-                // accept a closer padded with a vertical tab or a form feed, so
-                // an index that does not see one refutes a fence that really
-                // does close, and the collector falls back to the boundary set
-                // and splits the body it was meant to keep. The invariant this
-                // index owes its callers is that it is a SUPERSET of what they
-                // can match - narrowing it is only safe once the closers
-                // themselves narrow.
-                if (preg_match('/^[ \t]*(:{3,})[ \t]*$/', $line, $m) === 1) {
+                if ($head === ':' && preg_match('/^[ \t]*(:{3,})[ \t]*$/', $line, $m) === 1) {
                     $colon[strlen($m[1])] = $i;
                 }
-                if (preg_match('/^[ \t]*([`~]{3,})[ \t]*$/', $line, $m) === 1) {
+                if (($head === '`' || $head === '~') && preg_match('/^[ \t]*([`~]{3,})[ \t]*$/', $line, $m) === 1) {
                     $code[$m[1][0]][strlen($m[1])] = $i;
                 }
             }
