@@ -34,6 +34,44 @@ class MarkdownEmptyMarkerPayloadTest extends TestCase
         $this->assertStringContainsString("<pre><code>  foo\n</code></pre>", (new CarveConverter())->convert($carve));
     }
 
+    public function testPayloadSlackKeepsTheOriginalContentColumn(): void
+    {
+        $carve = (new MarkdownToCarve())->convert("-\n    foo\n\n  bar");
+        $html = (new CarveConverter())->convert($carve);
+        $this->assertSame(1, substr_count($html, '<li>'));
+        $this->assertStringContainsString('<p>foo</p>', $html);
+        $this->assertStringContainsString('<p>bar</p>', $html);
+    }
+
+    public function testBlockPayloadsKeepTheirSourceColumns(): void
+    {
+        foreach ([3, 4, 5] as $column) {
+            $pad = str_repeat(' ', $column);
+            $carve = (new MarkdownToCarve())->convert("-\n{$pad}```\n{$pad}x\n{$pad}```");
+            $this->assertStringContainsString("<pre><code>x\n</code></pre>", (new CarveConverter())->convert($carve));
+        }
+        $carve = (new MarkdownToCarve())->convert("-\n    - a\n\n    b");
+        $html = (new CarveConverter())->convert($carve);
+        $this->assertStringContainsString("</ul>\n    <p>b</p>", $html);
+        $carve = (new MarkdownToCarve())->convert("-\n      ---\n- b");
+        $html = (new CarveConverter())->convert($carve);
+        $this->assertStringContainsString("<pre><code>---\n</code></pre>", $html);
+        $this->assertStringContainsString('<li>b</li>', $html);
+    }
+
+    public function testEmptyNestedMarkersAndSetextPayloads(): void
+    {
+        $carve = (new MarkdownToCarve())->convert("-\n  -\n- b");
+        $html = (new CarveConverter())->convert($carve);
+        $this->assertSame(2, substr_count($html, '<ul>'));
+        $this->assertStringContainsString('<li></li>', $html);
+        foreach ([['===', 'h1'], ['---', 'h2']] as [$underline, $heading]) {
+            $carve = (new MarkdownToCarve())->convert("-\n  foo\n  {$underline}");
+            $html = (new CarveConverter())->convert($carve);
+            $this->assertStringContainsString("<{$heading} id=\"foo\">foo</{$heading}>", $html);
+        }
+    }
+
     public function testALooseInnerListLeavesTheOuterListTight(): void
     {
         $carve = (new MarkdownToCarve())->convert("- a\n  - b\n\n    c\n- d\n");
@@ -42,5 +80,22 @@ class MarkdownEmptyMarkerPayloadTest extends TestCase
         $this->assertStringContainsString('<li>d</li>', $html);
         $this->assertStringContainsString('<li><p>b</p>', $html);
         $this->assertStringContainsString('<p>c</p>', $html);
+    }
+
+    public function testHeadingPayloadsKeepSiblingsTight(): void
+    {
+        foreach (['  # foo', "  foo\n  ===", "  foo\n  ---"] as $payload) {
+            $carve = (new MarkdownToCarve())->convert("-\n{$payload}\n- b");
+            $this->assertStringContainsString('<li>b</li>', (new CarveConverter())->convert($carve));
+        }
+    }
+
+    public function testOutdentedTextLeavesTheEmptyItem(): void
+    {
+        $carve = (new MarkdownToCarve())->convert("-\nfoo\n- b");
+        $html = (new CarveConverter())->convert($carve);
+        $this->assertStringContainsString('<li></li>', $html);
+        $this->assertStringContainsString('<p>foo</p>', $html);
+        $this->assertSame(2, substr_count($html, '<ul>'));
     }
 }

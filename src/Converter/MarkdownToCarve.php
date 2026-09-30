@@ -312,13 +312,24 @@ class MarkdownToCarve
         // block that then leaves every item is set apart from the list.
         $closedItem = false;
 
+        $emptyMarkerLines = [];
+        $emptyMarkerColumn = null;
         $lineCount = count($lines);
         for ($i = 0; $i < $lineCount; $i++) {
             $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
+            if (!$inCodeBlock && $emptyMarkerColumn !== null && trim($lines[$i]) !== '') {
+                if ($prevBlank && $this->indentWidth($lines[$i]) > $emptyMarkerColumn) {
+                    while ($listCols !== [] && end($listCols) > $emptyMarkerColumn) {
+                        array_pop($listCols);
+                    }
+                    $listMarkers->end($emptyMarkerColumn);
+                }
+                $emptyMarkerColumn = null;
+            }
             if (!$inCodeBlock) {
                 $lines[$i] = $this->normalizeListMarkerPadding($lines[$i], $listCols);
             }
-            if (!$inCodeBlock && preg_match('/^([ \t]*)(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i], $empty) === 1) {
+            if (!$inCodeBlock && preg_match('/^([ \t]*)(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i]) === 1) {
                 $column = $this->indentWidth($lines[$i]);
                 $holder = 0;
                 foreach ($listCols as $col) {
@@ -327,18 +338,16 @@ class MarkdownToCarve
                     }
                 }
                 $marker = rtrim($lines[$i], " \t");
-                $content = $this->columnWidth($marker) + 1;
                 $next = $lines[$i + 1] ?? '';
                 if (
                     $column - $holder < 4
                     && ($prevLineType !== 'text' || $listMarkers->hasListAt($column))
-                    && trim($next) !== ''
-                    && preg_match('/^(?:[-*+]|\d{1,9}[.)])$/', trim($next)) !== 1
-                    && preg_match(self::THEMATIC_BREAK, ltrim($marker, " \t") . ' ' . ltrim($next, " \t")) !== 1
-                    && preg_match('/^\[[^\]\n]+\]:/', ltrim($next, " \t")) !== 1
-                    && $this->indentWidth($next) >= $content
                 ) {
-                    $lines[++$i] = $marker . ' ' . str_repeat(' ', $this->indentWidth($next) - $content) . ltrim($next, " \t");
+                    $lines[$i] = $marker . ' +';
+                    $emptyMarkerLines[$i] = true;
+                    if (trim($next) === '') {
+                        $emptyMarkerColumn = $column;
+                    }
                 }
             }
             $line = $lines[$i];
@@ -792,11 +801,20 @@ class MarkdownToCarve
             // 0. `- outer` / `  - inner` / blank / `    <footer>x</footer>`
             // left the element fenced below the whole list.
             if (
-                in_array($prevLineType, ['blank', 'code_fence', 'heading'], true)
+                (isset($emptyMarkerLines[$i - 1]) || in_array($prevLineType, ['blank', 'code_fence', 'heading'], true))
                 && $this->indentWidth($line) >= $contentCol + 4
             ) {
                 $block = $this->collectIndentedCode($lines, $i, $contentCol);
-                if ($prevLineType !== 'blank' && $result !== []) {
+                $next = $lines[$block['end']] ?? '';
+                if (
+                    isset($emptyMarkerLines[$i - 1])
+                    && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?=[ \t]|$)/', $next) === 1
+                    && $listMarkers->hasListAt($this->indentWidth($next))
+                    && end($block['lines']) === ''
+                ) {
+                    array_pop($block['lines']);
+                }
+                if ($prevLineType !== 'blank' && $result !== [] && !isset($emptyMarkerLines[$i - 1])) {
                     $result[] = '';
                 }
                 foreach ($block['lines'] as $blockLine) {
@@ -893,7 +911,7 @@ class MarkdownToCarve
             // An indented line after a list line is that item's own text, EXCEPT
             // when it opens a nested item on a fence: that is code, and the
             // fence branch further down owns it.
-            if ($prevLineType === 'list' && $indent >= 1 && count($listCols) > ($isList ? 1 : 0) && $this->opensItemFence($line, $isList) === null) {
+            if ($prevLineType === 'list' && !isset($emptyMarkerLines[$i - 1]) && $indent >= 1 && count($listCols) > ($isList ? 1 : 0) && $this->opensItemFence($line, $isList) === null) {
                 if ($isList) {
                     // A list under a quote an item holds is set apart from it, or
                     // Carve reads the marker line as the quote's lazy continuation.
@@ -977,7 +995,7 @@ class MarkdownToCarve
                 ? $this->setextParagraphEnd($lines, $i, min($contentCol, $holderCol))
                 : null;
             if ($setext !== null) {
-                if ($prevLineType !== 'blank' && $prevLineType !== 'heading') {
+                if ($prevLineType !== 'blank' && $prevLineType !== 'heading' && !isset($emptyMarkerLines[$i - 1])) {
                     $result[] = '';
                 }
 
@@ -988,7 +1006,7 @@ class MarkdownToCarve
                 $marker = trim($lines[$setext])[0] === '=' ? '#' : '##';
                 $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($marker . ' ' . implode(' ', $texts));
                 $i = $setext;
-                if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
+                if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '' && !$listMarkers->hasListAt($this->indentWidth($lines[$i + 1]))) {
                     $result[] = '';
                 }
                 $prevLineType = 'heading';
@@ -996,7 +1014,7 @@ class MarkdownToCarve
                 continue;
             }
 
-            if ($isHeading && $prevLineType !== 'blank' && $prevLineType !== 'heading') {
+            if ($isHeading && $prevLineType !== 'blank' && $prevLineType !== 'heading' && !isset($emptyMarkerLines[$i - 1])) {
                 $result[] = '';
             }
             if ($isBlockquote && $prevLineType !== 'blank' && $prevLineType !== 'blockquote') {
@@ -1114,7 +1132,7 @@ class MarkdownToCarve
                     $result[] = '';
                 }
                 $shiftBy = 0;
-                $item = $this->writeItemContent($lines, $i, $body, $contentCol);
+                $item = isset($emptyMarkerLines[$i]) ? null : $this->writeItemContent($lines, $i, $body, $contentCol);
                 if ($item !== null) {
                     array_push($result, ...$item['lines']);
                     $i = $item['end'];
@@ -1129,7 +1147,9 @@ class MarkdownToCarve
 
                     continue;
                 }
-                $this->trackItemParagraph($body, true, $contentCol, $itemParagraph, $itemQuote);
+                if (!isset($emptyMarkerLines[$i])) {
+                    $this->trackItemParagraph($body, true, $contentCol, $itemParagraph, $itemQuote);
+                }
             }
 
             // A fence opening a list item's first line: the rest of the item is
@@ -1169,7 +1189,7 @@ class MarkdownToCarve
             if ($isList) {
                 $body = $this->normalizeHeldQuoteMarkers($this->escapeTaskItemOpener($body));
             }
-            $inlineRun = !$isHeading ? $this->collectInlineParagraph($lines, $i, $body, $listCols === [] ? 0 : $contentCol) : null;
+            $inlineRun = !$isHeading && !isset($emptyMarkerLines[$i]) ? $this->collectInlineParagraph($lines, $i, $body, $listCols === [] ? 0 : $contentCol) : null;
             if ($inlineRun !== null) {
                 $body = $inlineRun['body'];
                 $i = $inlineRun['end'];
@@ -1205,10 +1225,24 @@ class MarkdownToCarve
             }
 
             array_push($result, ...explode("\n", $converted));
+            if (
+                isset($emptyMarkerLines[$i])
+                && isset($lines[$i + 1])
+                && trim($lines[$i + 1]) !== ''
+                && $this->indentWidth($lines[$i + 1]) < $contentCol
+                && !preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)/', $lines[$i + 1])
+            ) {
+                $result[] = '';
+                $nextColumn = $this->indentWidth($lines[$i + 1]);
+                while ($listCols !== [] && end($listCols) > $nextColumn) {
+                    array_pop($listCols);
+                }
+                $listMarkers->end($nextColumn);
+            }
 
             if ($isHeading && $i + 1 < $lineCount) {
                 $nextTrimmed = trim($lines[$i + 1]);
-                if ($nextTrimmed !== '' && !preg_match('/^#{1,6}\s/', $nextTrimmed)) {
+                if ($nextTrimmed !== '' && !preg_match('/^#{1,6}\s/', $nextTrimmed) && !$listMarkers->hasListAt($this->indentWidth($lines[$i + 1]))) {
                     $result[] = '';
                 }
             }
