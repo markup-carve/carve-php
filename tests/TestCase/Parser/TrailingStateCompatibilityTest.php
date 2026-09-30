@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
 class TrailingStateCompatibilityTest extends TestCase
@@ -99,9 +100,30 @@ class TrailingStateCompatibilityTest extends TestCase
                 }
             },
         ];
-        foreach ($parsers as $parser) {
-            $parser->parse("- first\n  second\n\n> quoted\n+\nparagraph\ncontinued\n# next\n");
-            $this->assertGreaterThan(0, $parser->calls, $parser::class);
+        $sources = [
+            'list' => ["- first\n  second\n\n- third\n", [0, 1]],
+            'definition' => [":: term\n: first\n  second\nthird\n", [0, 1]],
+            'quote' => ["> - first\n>   second\ncontinued\n", [0, 1]],
+            'footnote' => ["[^note]: first\n  second\n\n[^note]\n", [0]],
+            'attached block' => ["- first\n  second\n\n> quoted\n+\nparagraph\ncontinued\n# next\n", [0, 1, 2]],
+        ];
+        $renderer = new HtmlRenderer();
+        foreach ($parsers as $hook => $parser) {
+            foreach ($sources as $name => [$source, $requiredHooks]) {
+                $expected = $renderer->render((new BlockParser())->parse($source));
+                $parser->calls = 0;
+                self::assertSame($expected, $renderer->render($parser->parse($source)), $name);
+                if (in_array($hook, $requiredHooks, true)) {
+                    self::assertGreaterThan(0, $parser->calls, $name);
+                }
+                $before = $parser->calls;
+                $copy = clone $parser;
+                self::assertSame($expected, $renderer->render($copy->parse($source)), $name);
+                self::assertSame($before, $parser->calls, $name);
+                if (in_array($hook, $requiredHooks, true)) {
+                    self::assertGreaterThan($before, $copy->calls, $name);
+                }
+            }
         }
     }
 }

@@ -31,7 +31,7 @@ final class DefinitionListBuilder
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\InlineParser $getInlineParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\ListParser $getListParser
-     * @param \Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState $advanceTrailingStateWithFenceLookaheadCallback
+     * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateWithFenceLookaheadCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node): (void) $applyPendingAttributesCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock|\MarkupCarve\Carve\Node\Block\DefinitionList): (void) $consumeLooseKeyCallback
      * @param \Closure(int): (bool) $continuationAttachesAtColumnZeroCallback
@@ -61,7 +61,7 @@ final class DefinitionListBuilder
         private Closure $getFencedBlockParser,
         private Closure $getInlineParser,
         private Closure $getListParser,
-        private Closure $advanceTrailingStateWithFenceLookaheadCallback,
+        private ?Closure $advanceTrailingStateWithFenceLookaheadCallback,
         private Closure $applyPendingAttributesCallback,
         private Closure $consumeLooseKeyCallback,
         private Closure $continuationAttachesAtColumnZeroCallback,
@@ -1038,7 +1038,11 @@ final class DefinitionListBuilder
         int $stripColumns = 0,
         bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        return ($this->advanceTrailingStateWithFenceLookaheadCallback)($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
+        if ($this->advanceTrailingStateWithFenceLookaheadCallback !== null) {
+            return ($this->advanceTrailingStateWithFenceLookaheadCallback)($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
+        }
+
+        return $this->continuations->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
     }
 
     private function applyPendingAttributes(Node $node): void

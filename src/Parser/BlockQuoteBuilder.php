@@ -25,7 +25,7 @@ final class BlockQuoteBuilder
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\ListParser $getListParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\TableParser $getTableParser
-     * @param \Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool): \MarkupCarve\Carve\Parser\TrailingBlockState $advanceTrailingStateCallback
+     * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateCallback
      * @param \Closure(): (void) $endContainerAttributeScopeCallback
      * @param \Closure(string, bool, array<string>|null, int|null): (bool) $endsBlockQuoteCallback
      * @param \Closure(array<string>, int, int): (bool) $hasClosingCommentFenceAheadInBlockQuoteCallback
@@ -49,7 +49,7 @@ final class BlockQuoteBuilder
         private Closure $getFencedBlockParser,
         private Closure $getListParser,
         private Closure $getTableParser,
-        private Closure $advanceTrailingStateCallback,
+        private ?Closure $advanceTrailingStateCallback,
         private Closure $endContainerAttributeScopeCallback,
         private Closure $endsBlockQuoteCallback,
         private Closure $hasClosingCommentFenceAheadInBlockQuoteCallback,
@@ -871,7 +871,11 @@ final class BlockQuoteBuilder
 
     private function advanceTrailingState(TrailingBlockState $state, string $line, bool $atContentColumn = false): TrailingBlockState
     {
-        return ($this->advanceTrailingStateCallback)($state, $line, $atContentColumn);
+        if ($this->advanceTrailingStateCallback !== null) {
+            return ($this->advanceTrailingStateCallback)($state, $line, $atContentColumn);
+        }
+
+        return $this->continuations->advanceTrailingStateCore($state, $line, $atContentColumn);
     }
 
     /**

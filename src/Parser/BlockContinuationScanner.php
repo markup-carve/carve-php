@@ -23,8 +23,8 @@ final class BlockContinuationScanner
      * @param \Closure(string, int, string, array<string>, int): string $advanceAttachedKindCallback
      * @param \Closure(int|null, string, array<string>, int): ?int $advanceItemCommentFenceCallback
      * @param \Closure(int|null, string): ?int $advanceItemDefinitionBodyCallback
-     * @param \Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool): \MarkupCarve\Carve\Parser\TrailingBlockState $advanceTrailingStateCallback
-     * @param \Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState $advanceTrailingStateWithFenceLookaheadCallback
+     * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateCallback
+     * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateWithFenceLookaheadCallback
      * @param \Closure(string, array<string>, int): ?int $commentFenceSpanEndCallback
      * @param \Closure(int): bool $continuationAttachesAtColumnZeroCallback
      * @param \Closure(int, int, array<string>): bool $continuationMarkerHasIndentedFollowerCallback
@@ -49,7 +49,7 @@ final class BlockContinuationScanner
      * @param \Closure(int): int $sourceLineForCallback
      * @param \Closure(string): string $spanningConstructCallback
      * @param \Closure(string, array<string>|null, int|null): bool $startsNewBlockCallback
-     * @param \Closure(string, string, array<string>, int, \MarkupCarve\Carve\Parser\TrailingBlockState): bool $trailingBlockHasEndedCallback
+     * @param (\Closure(string, string, array<string>, int, \MarkupCarve\Carve\Parser\TrailingBlockState): bool)|null $trailingBlockHasEndedCallback
      * @param \Closure(string, array<string>, int, int, int): ?int $wrappedItemAttributeLengthCallback
      */
     public function __construct(
@@ -60,8 +60,8 @@ final class BlockContinuationScanner
         private Closure $advanceAttachedKindCallback,
         private Closure $advanceItemCommentFenceCallback,
         private Closure $advanceItemDefinitionBodyCallback,
-        private Closure $advanceTrailingStateCallback,
-        private Closure $advanceTrailingStateWithFenceLookaheadCallback,
+        private ?Closure $advanceTrailingStateCallback,
+        private ?Closure $advanceTrailingStateWithFenceLookaheadCallback,
         private Closure $commentFenceSpanEndCallback,
         private Closure $continuationAttachesAtColumnZeroCallback,
         private Closure $continuationMarkerHasIndentedFollowerCallback,
@@ -86,7 +86,7 @@ final class BlockContinuationScanner
         private Closure $sourceLineForCallback,
         private Closure $spanningConstructCallback,
         private Closure $startsNewBlockCallback,
-        private Closure $trailingBlockHasEndedCallback,
+        private ?Closure $trailingBlockHasEndedCallback,
         private Closure $wrappedItemAttributeLengthCallback,
     ) {
     }
@@ -2221,7 +2221,11 @@ final class BlockContinuationScanner
 
     private function advanceTrailingState(TrailingBlockState $state, string $line, bool $atContentColumn = false): TrailingBlockState
     {
-        return ($this->advanceTrailingStateCallback)($state, $line, $atContentColumn);
+        if ($this->advanceTrailingStateCallback !== null) {
+            return ($this->advanceTrailingStateCallback)($state, $line, $atContentColumn);
+        }
+
+        return $this->advanceTrailingStateCore($state, $line, $atContentColumn);
     }
 
     /**
@@ -2242,7 +2246,11 @@ final class BlockContinuationScanner
         int $stripColumns = 0,
         bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        return ($this->advanceTrailingStateWithFenceLookaheadCallback)($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
+        if ($this->advanceTrailingStateWithFenceLookaheadCallback !== null) {
+            return ($this->advanceTrailingStateWithFenceLookaheadCallback)($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
+        }
+
+        return $this->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
     }
 
     /**
@@ -2469,7 +2477,11 @@ final class BlockContinuationScanner
      */
     private function trailingBlockHasEnded(string $kind, string $line, array $lines, int $index, TrailingBlockState $trailingState): bool
     {
-        return ($this->trailingBlockHasEndedCallback)($kind, $line, $lines, $index, $trailingState);
+        if ($this->trailingBlockHasEndedCallback !== null) {
+            return ($this->trailingBlockHasEndedCallback)($kind, $line, $lines, $index, $trailingState);
+        }
+
+        return $this->trailingBlockHasEndedCore($kind, $line, $lines, $index, $trailingState);
     }
 
     /**
