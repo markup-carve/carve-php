@@ -13,6 +13,13 @@ class MarkdownEmphasisFidelityTest extends TestCase
     public function testInlineMeaning(): void
     {
         $cases = [
+            ['x*a \\[b* c]', '<p>x<em>a [b</em> c]</p>'],
+            ['x*a [*b*](/u)*', '<p>x<em>a <a href="/u"><em>b</em></a></em></p>'],
+            ['x**a [**b**](/u)**', '<p>x<strong>a <a href="/u"><strong>b</strong></a></strong></p>'],
+            ['*foo [**x *bar* y**](/u)*', '<p><em>foo <a href="/u"><strong>x <em>bar</em> y</strong></a></em></p>'],
+            ['**foo [*x **bar** y*](/u)**', '<p><strong>foo <a href="/u"><em>x <strong>bar</strong> y</em></a></strong></p>'],
+            ['*foo [*bar*](/url)*', '<p><em>foo <a href="/url"><em>bar</em></a></em></p>'],
+            ['**foo [**bar**](/url)**', '<p><strong>foo <a href="/url"><strong>bar</strong></a></strong></p>'],
             ["[a\nb](/u \"t\nx\")", "<p><a href=\"/u\" title=\"t\nx\">a\nb</a></p>"],
             ["> [a\n> b](/u \"t\n> x\")", "<blockquote><p><a href=\"/u\" title=\"t\nx\">a\nb</a></p></blockquote>"],
 
@@ -49,6 +56,18 @@ class MarkdownEmphasisFidelityTest extends TestCase
         foreach ($cases as [$source, $expected]) {
             $written = (new MarkdownToCarve())->convert($source);
             $this->assertSame($expected, rtrim((new CarveConverter())->convert($written), "\n"), $source);
+        }
+    }
+
+    public function testForcedClosersRespectBracketAndDestinationBounds(): void
+    {
+        $cases = [
+            ['{/a [x /}](/u) b/}', '<p><em>a <a href="/u">x /}</a> b</em></p>'],
+            ['{/a [x](/u/}) b/}', '<p><em>a <a href="/u/}">x</a> b</em></p>'],
+            ['{/a \\[/} b]/}', '<p><em>a [</em> b]/}</p>'],
+        ];
+        foreach ($cases as [$source, $expected]) {
+            $this->assertSame($expected, rtrim((new CarveConverter())->convert($source), "\n"), $source);
         }
     }
 

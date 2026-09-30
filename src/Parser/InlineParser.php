@@ -3475,6 +3475,16 @@ class InlineParser
 
                 continue;
             }
+            // A bracket run bounds forced closers as it bounds bare closers.
+            if ($text[$searchPos] === '[' && !$this->isEscapedAt($text, $searchPos)) {
+                $runEnd = $this->bracketRunSkip($text, $searchPos);
+                if ($runEnd !== null) {
+                    $destination = $this->linkDestinationSkip($text, $searchPos);
+                    $searchPos = $destination === null ? $runEnd : $destination[1];
+
+                    continue;
+                }
+            }
             // A CLOSER INSIDE A CLOSED VERBATIM RUN IS CODE, not this span's
             // closer: the run is closed by an equal-length backtick run
             // anywhere later in the block (markup-carve/carve#2079).
