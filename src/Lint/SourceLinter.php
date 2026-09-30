@@ -59,6 +59,7 @@ class SourceLinter
         $ambiguousFenceEnds = [];
         $paragraphs = [];
         $headings = [];
+        $blockRuns = [];
         $starts = [];
         $items = [];
         $fences = [];
@@ -96,6 +97,15 @@ class SourceLinter
                     $first = $node->getChildren()[0] ?? null;
                     if ($first instanceof Text && $first->getPos() !== null) {
                         $starts[] = [$first->getPos(), $first->getContent()];
+                    }
+                }
+                if (in_array($type, ['block_quote', 'table'], true)) {
+                    $opening = $rows[$pos->startLine - 1][0] ?? '';
+                    $at = strlen(mb_substr($opening, 0, $pos->startColumn - 1, 'UTF-8'));
+                    $column = self::visual(substr($opening, 0, $at));
+                    $kind = $type === 'table' ? '|' : '>';
+                    for ($ln = $pos->startLine; $ln <= $pos->endLine; $ln++) {
+                        $blockRuns[$kind][$ln][] = [$pos->startLine, $column];
                     }
                 }
                 if ($type === 'heading') {
@@ -196,6 +206,7 @@ class SourceLinter
         $nextItem = 0;
         $ended = null;
         $openFence = null;
+        $previousRun = null;
         foreach ($rows as $index => [$text, $start]) {
             $ln = $index + 1;
             while (isset($items[$nextItem]) && $items[$nextItem]['first'] < $ln) {
@@ -215,6 +226,14 @@ class SourceLinter
             $owner = $containing ?? $ended;
             [$view, $at] = self::quotedView($text, $owner['quotes'] ?? 0);
             $column = self::visual(substr($text, 0, $at));
+            $run = isset($view[0]) && str_contains('|>', $view[0]) && preg_match(self::BLOCK, $view)
+                ? [$view[0], $owner['first'] ?? null] : null;
+            $blockStarts = $run !== null
+                ? array_filter($blockRuns[$run[0]][$ln] ?? [], static fn (array $block): bool => $block[1] >= ($owner['content'] ?? 0)) : [];
+            $blockRun = $blockStarts !== [] ? min(array_column($blockStarts, 0)) : null;
+            $continuingRun = $run !== null && $run === $previousRun
+                || $blockRun !== null && $blockRun < $ln;
+            $previousRun = $run;
             if ($openFence !== null) {
                 if ($containing !== null && $containing['first'] === $openFence[0]) {
                     $run = strspn($view, $openFence[1]);
@@ -234,7 +253,7 @@ class SourceLinter
                 continue;
             }
             $fenceChar = isset($view[0]) && str_contains('`~:', $view[0]) && strspn($view, $view[0]) >= 3 ? $view[0] : null;
-            if (isset($ignored[$ln]) && $fenceChar === null) {
+            if (isset($ignored[$ln]) && $fenceChar === null && !(str_starts_with($view, '>') && $blockRun === $ln)) {
                 $listLines[$ln] = true;
 
                 continue;
@@ -252,7 +271,7 @@ class SourceLinter
             $candidate = $containing ?? $adjacent;
             $rule = null;
             if ($candidate !== null) {
-                if ($column > $candidate['content']) {
+                if ($column > $candidate['content'] && !$continuingRun) {
                     $rule = 'list-item-block-overindented';
                 } elseif ($containing === null && $column > $candidate['base'] && $column < $candidate['content']) {
                     $rule = 'list-item-body-detached';

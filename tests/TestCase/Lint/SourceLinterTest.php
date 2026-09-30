@@ -81,4 +81,37 @@ class SourceLinterTest extends TestCase
         $this->assertCount(1, $warnings);
         $this->assertSame('{.', substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start));
     }
+
+    public function testOverindentedBlocksReportOnlyTheirOpeners(): void
+    {
+        foreach (
+            [
+                ["- a\n  > q\n   | c |\n   |---|\n   | 1 |\n", [3]],
+                ["- a\n   | c |\n   |---|\n   | 1 |\n", [2]],
+                ["- a\n   > q\n   > r\n", [2]],
+                ["- a\n   > q\n   lazy\n   > r\n", [2]],
+                ["- a\n    > q\n   > r\n", [2]],
+                ["> - a\n>    | x |\n>    | y |\n", [2]],
+                ["- a\n  - b\n     | x |\n     | y |\n", [3]],
+                ["- a\n   | x |\n   > q\n   | y |\n", [2, 3, 4]],
+                ["- a\n   > q\n   >\n   > r\n", [2]],
+                ["- a\n   > q\n\n   > r\n", [2, 4]],
+                ["- a\n   > ```\n   > code\n   > ```\n   > r\n", [2]],
+                ["- a\n   > q\nlazy\n   > > r\n", [2]],
+                ["- a\n   | x |\n    | y |\n", [2]],
+                ["- a\n  | x |\n   | y |\n", []],
+                ["- | x |\n   | y |\n", []],
+                ["- a\n  > q\n   > r\n", []],
+                ["> - a\n>    > q\n>    > r\n", [2]],
+                ["> - a\n>\n>    > q\n", [3]],
+                ["- > q\n   > r\n", []],
+                ["- a\n   # a\n   # b\n", [2, 3]],
+                ["- a\n   ---\n   ---\n", [2, 3]],
+                ["- a\n   | a |\n\n   | b |\n", [2, 4]],
+            ] as [$source, $expected]
+        ) {
+            $warnings = array_filter((new SourceLinter())->lint($source), static fn ($warning): bool => $warning->rule === 'list-item-block-overindented');
+            $this->assertSame($expected, array_values(array_column($warnings, 'line')), $source);
+        }
+    }
 }
