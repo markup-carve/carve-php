@@ -559,10 +559,14 @@ class MarkdownToCarve
                     $fenceLength = 0;
                     $fenceStrip = 0;
                     $result[] = $this->closeFence($result, $fenceOut, $fenceRun, $fenceInfo, $fenceItemCol);
-                    $fenceItemCol = 0;
-                    if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
+                    if (
+                        $i + 1 < $lineCount && trim($lines[$i + 1]) !== ''
+                        && !(preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)/', $lines[$i + 1]) === 1
+                            && $this->indentWidth($lines[$i + 1]) < $fenceItemCol)
+                    ) {
                         $result[] = '';
                     }
+                    $fenceItemCol = 0;
                     $prevLineType = 'code_fence';
                 } else {
                     $result[] = $dedented;
@@ -598,7 +602,7 @@ class MarkdownToCarve
             // it opens none, since indented code cannot interrupt a paragraph.
             // fmt writes it with the quote's marker.
             if ($prevLineType === 'blockquote' && $quoteLazy !== null && $trimmed !== '' && $listCols === [] && !str_starts_with($trimmed, '>')) {
-                $plain = preg_match('/^[ \t]*(?:[-*+]|\d+[.)]) +/', $line) !== 1 && $this->isParagraphLine($lines, $i);
+                $plain = preg_match('/^[ \t]*(?:[-*+]|\d+[.)]) +/', $line) !== 1 && $this->isParagraphLine([$line], 0);
                 if ($plain || $this->indentWidth($line) >= 4) {
                     $text = $plain ? $line : $this->escapeBlockOpener(ltrim($line, " \t"));
                     $text = $this->escapeDefinitionContinuation($quoteLazy . $text, $lines[$i - 1] ?? '', (string)end($result));
@@ -720,7 +724,7 @@ class MarkdownToCarve
                 && (
                     $isHeading
                     || ($isBlockquote && $prevLineType !== 'blank' && $prevLineType !== 'blockquote')
-                    || ($isList && $prevLineType !== 'list' && $prevLineType !== 'blank')
+                    || ($isList && !in_array($prevLineType, ['list', 'blank', 'code_fence'], true))
                 );
             $separator = $this->convertRawHtml
                 ? $this->rawHtmlBlockSeparator(
@@ -971,7 +975,7 @@ class MarkdownToCarve
             if ($isBlockquote && $prevLineType !== 'blank' && $prevLineType !== 'blockquote') {
                 $result[] = '';
             }
-            if ($isList && $prevLineType !== 'list' && $prevLineType !== 'blank') {
+            if ($isList && !in_array($prevLineType, ['list', 'blank', 'code_fence'], true)) {
                 $result[] = '';
             }
 
@@ -2802,8 +2806,9 @@ class MarkdownToCarve
         foreach ($lines as $at => $line) {
             $bare = (string)preg_replace('/^[ \t]*(?:>[ \t]?)*[ \t]*/', '', $line);
             if ($open === null) {
+                $bare = (string)preg_replace('/^(?:(?:[-*+]|\d{1,9}[.)])[ \t]+|>[ \t]?|[ \t])+/', '', $bare);
                 $verbatim[$at] = false;
-                if (preg_match('/^(`{3,}|~{3,})/', $bare, $fence) === 1) {
+                if (preg_match('/^(`{3,}(?!.*`)|~{3,})/', $bare, $fence) === 1) {
                     $open = $fence[1];
                 }
 
