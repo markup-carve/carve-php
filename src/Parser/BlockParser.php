@@ -13662,7 +13662,11 @@ class BlockParser
         if ($this->deferredScratchInlines === null) {
             return;
         }
+        $pending = [];
         foreach ($this->deferredScratchInlines as $paragraph => $deferred) {
+            $pending[] = $paragraph;
+        }
+        foreach ($pending as $paragraph) {
             $this->parseDeferredScratchInlines($paragraph);
         }
     }

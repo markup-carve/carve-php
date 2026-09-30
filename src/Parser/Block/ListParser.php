@@ -434,7 +434,8 @@ class ListParser
      */
     public function markerHeadAt(string $line, int $from = 0): ?array
     {
-        if (!$this->markerTokenCanStartAt($line, $from)) {
+        $first = $line[$from] ?? '';
+        if ($first !== '-' && $first !== '*' && $first !== '.' && !$this->markerTokenCanStartAt($line, $from)) {
             return null;
         }
 
@@ -528,7 +529,8 @@ class ListParser
      */
     public function parseListItemMarker(string $line): ?array
     {
-        if (!$this->markerTokenCanStartAt($line, 0)) {
+        $first = $line[0] ?? '';
+        if ($first !== '-' && $first !== '*' && $first !== '.' && !$this->markerTokenCanStartAt($line, 0)) {
             return null;
         }
 
@@ -546,8 +548,7 @@ class ListParser
         $attributesWidth = 0;
         $bullet = '[' . $this->bulletMarkerClass . ']';
         if (
-            str_contains($line, '{')
-            && preg_match(
+            preg_match(
                 '/^(' . $bullet . '|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
                 $line,
                 $am,
@@ -603,7 +604,7 @@ class ListParser
         // reinterpret `- [!] urgent` - it DELETED the `[!]` and rendered a
         // checkbox nobody wrote (carve-php#657). Two characters were already
         // rejected; it was only the one-character case that was open.
-        if (str_contains($line, '[') && preg_match($this->markerPattern('task'), $line, $matches)) {
+        if (preg_match($this->markerPattern('task'), $line, $matches)) {
             $taskMarker = $matches[2];
 
             return [

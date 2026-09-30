@@ -124,8 +124,8 @@ CRV;
 
             return 1;
         });
-        $html = $converter->convert("See [Target][].\n\nCUSTOM\n\n# Target\n");
-        $this->assertGreaterThanOrEqual(2, count($seen));
+        $html = $converter->convert("See [Target][].\n\nSecond paragraph.\n\nThird paragraph.\n\nCUSTOM\n\n# Target\n");
+        $this->assertGreaterThanOrEqual(6, count($seen));
         $this->assertNotContains(false, $seen);
         $this->assertStringContainsString('<a href="#Target">Target</a>', $html);
     }
