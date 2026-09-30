@@ -91,6 +91,7 @@ trait ScalingGuardTrait
      * @param int $smallRepeats Units in the smaller sample.
      * @param int $largeRepeats Units in the larger sample.
      * @param float|null $maxSeconds Maximum CPU time for either sample.
+     * @param float|null $maxPerByteRatio Maximum growth in CPU time per byte.
      *
      * @return void
      */
@@ -102,8 +103,10 @@ trait ScalingGuardTrait
         int $smallRepeats,
         int $largeRepeats,
         ?float $maxSeconds = null,
+        ?float $maxPerByteRatio = null,
     ): void {
         $maxSeconds ??= self::SCALE_MAX_SECONDS;
+        $maxPerByteRatio ??= self::SCALE_MAX_PER_BYTE_RATIO;
         $smallBytes = strlen($small);
         $largeBytes = strlen($large);
 
@@ -152,14 +155,14 @@ trait ScalingGuardTrait
                 "\nSCALING %-56s ratio %.3f / %.2f  small %.4fus/B large %.4fus/B\n",
                 $shape,
                 $ratio,
-                self::SCALE_MAX_PER_BYTE_RATIO,
+                $maxPerByteRatio,
                 $bestSmall * 1e6,
                 $bestLarge * 1e6,
             );
         }
 
         $this->assertLessThan(
-            self::SCALE_MAX_PER_BYTE_RATIO,
+            $maxPerByteRatio,
             $ratio,
             sprintf(
                 'Per-byte cost grew %.2fx for %s at %dx the input (bound %.2f, quadratic ~%dx): '
@@ -169,7 +172,7 @@ trait ScalingGuardTrait
                 $ratio,
                 $shape,
                 $multiple,
-                self::SCALE_MAX_PER_BYTE_RATIO,
+                $maxPerByteRatio,
                 $multiple,
                 $bestSmall * 1e6,
                 $bestLarge * 1e6,

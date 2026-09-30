@@ -15,6 +15,8 @@ use PHPUnit\Framework\TestCase;
  */
 class InlineBracketScanTest extends TestCase
 {
+    use ScalingGuardTrait;
+
     private CarveConverter $converter;
 
     protected function setUp(): void
@@ -56,6 +58,44 @@ class InlineBracketScanTest extends TestCase
 
         // Linear is ~30ms; the previous O(n^2) scan was far worse at this size.
         $this->assertLessThan(1.0, $elapsed, "4000 open brackets took {$elapsed}s (quadratic regression?)");
+    }
+
+    public function testEarlierCloserDoesNotCloseTrailingOpeners(): void
+    {
+        $source = '[a](https://example.com) ' . str_repeat('[', 1024) . 'end';
+        $expected = '<p><a href="https://example.com">a</a> ' . str_repeat('[', 1024) . "end</p>\n";
+
+        $this->assertSame($expected, $this->converter->render($this->converter->parse($source)));
+        $this->assertSame("<p>[[[end</p>\n", $this->converter->render($this->converter->parse('[[[end')));
+        $this->assertSame("<p><a href=\"/u\">t</a></p>\n", $this->converter->render($this->converter->parse('[t](/u)')));
+    }
+
+    #[Group('scaling')]
+    public function testAuthoritativeUnmatchedBracketsScaleLinearly(): void
+    {
+        $this->assertConversionScalesLinearly(
+            fn (string $source) => $this->converter->parse($source),
+            str_repeat('[', 256) . 'end',
+            str_repeat('[', 1024) . 'end',
+            'authoritative unmatched brackets',
+            256,
+            1024,
+            maxPerByteRatio: 2.5,
+        );
+    }
+
+    #[Group('scaling')]
+    public function testPartiallyClosedBracketRunScalesLinearly(): void
+    {
+        $this->assertConversionScalesLinearly(
+            fn (string $source) => $this->converter->parse($source),
+            str_repeat('[', 256) . 'end]',
+            str_repeat('[', 1024) . 'end]',
+            'authoritative partially closed brackets',
+            256,
+            1024,
+            maxPerByteRatio: 2.5,
+        );
     }
 
     public function testBalancedNestedBracketsStayLiteral(): void

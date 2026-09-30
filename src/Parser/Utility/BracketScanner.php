@@ -29,10 +29,8 @@ final class BracketScanner
      * Maximum `[`-nesting depth {@see self::balancedBracketEnd()} scans before
      * bailing out.
      *
-     * DoS guard: an unbalanced run of openers makes the caller start a scan at
-     * every `[`, and each scan walks the whole tail, which is quadratic. Beyond
-     * a nesting far deeper than any real document the scan gives up and the run
-     * renders literally.
+     * Deeper pairs remain literal. The parser indexes a bracket run once;
+     * independent scans stop when they exceed this depth.
      *
      * @var int
      */
@@ -61,29 +59,13 @@ final class BracketScanner
         $bracketDepth = 1;
         $pos = $openPos + 1;
         while ($pos < $length) {
-            if ($text[$pos] === '`') {
-                $codeEnd = self::codeSpanEnd($text, $pos);
-                if ($codeEnd === null) {
+            if ($text[$pos] === '`' || $text[$pos] === '{' || $text[$pos] === '\\') {
+                $opaqueEnd = self::opaqueEnd($text, $pos);
+                if ($opaqueEnd === null) {
                     return null;
                 }
-                $pos = $codeEnd;
-
-                continue;
-            }
-
-            if ($text[$pos] === '{' && ($text[$pos + 1] ?? '') === '#') {
-                $commentEnd = strpos($text, '#}', $pos + 2);
-                if ($commentEnd !== false) {
-                    $pos = $commentEnd + 2;
-
-                    continue;
-                }
-            }
-
-            if ($text[$pos] === '{' && ($text[$pos + 1] ?? '') === '%') {
-                $commentEnd = strpos($text, '%}', $pos + 2);
-                if ($commentEnd !== false) {
-                    $pos = $commentEnd + 2;
+                if ($opaqueEnd !== false) {
+                    $pos = $opaqueEnd;
 
                     continue;
                 }
@@ -96,10 +78,6 @@ final class BracketScanner
                 }
             } elseif ($text[$pos] === ']') {
                 $bracketDepth--;
-            } elseif ($text[$pos] === '\\' && $pos + 1 < $length) {
-                $pos += 2;
-
-                continue;
             }
 
             if ($bracketDepth === 0) {
@@ -110,6 +88,92 @@ final class BracketScanner
         }
 
         return null;
+    }
+
+    /**
+     * Index bracket pairs within the run starting at $openPos, including
+     * nested openers and failed scans. Each pair retains the nesting cap.
+     *
+     * @return array<int, int|null>
+     */
+    public static function balancedBracketEnds(string $text, int $openPos): array
+    {
+        $length = strlen($text);
+        if ($openPos < 0 || $openPos >= $length || $text[$openPos] !== '[') {
+            return [$openPos => null];
+        }
+        $pos = $openPos + 1;
+        $pos += strcspn($text, '[]`{\\', $pos);
+        if ($pos < $length && $text[$pos] === ']') {
+            return [$openPos => $pos];
+        }
+        $starts = [$openPos];
+        $heights = [1];
+        $ends = [];
+        while ($pos < $length) {
+            $char = $text[$pos];
+            if ($char !== '[' && $char !== ']' && $char !== '`' && $char !== '{' && $char !== '\\') {
+                $pos += strcspn($text, '[]`{\\', $pos);
+
+                continue;
+            }
+            if ($char === '`' || $char === '{' || $char === '\\') {
+                $opaqueEnd = self::opaqueEnd($text, $pos);
+                if ($opaqueEnd === null) {
+                    break;
+                }
+                if ($opaqueEnd !== false) {
+                    $pos = $opaqueEnd;
+
+                    continue;
+                }
+            }
+            if ($char === '[') {
+                $starts[] = $pos;
+                $heights[] = 1;
+            } elseif ($char === ']') {
+                $start = array_pop($starts);
+                $height = array_pop($heights);
+                $ends[$start] = $height <= self::MAX_BRACKET_NESTING ? $pos : null;
+                if ($starts === []) {
+                    return $ends;
+                }
+                $parent = count($heights) - 1;
+                $heights[$parent] = max($heights[$parent], $height + 1);
+            }
+            $pos++;
+        }
+        foreach ($starts as $start) {
+            $ends[$start] = null;
+        }
+
+        return $ends;
+    }
+
+    /**
+     * Skip the same opaque runs in both bracket scanners. Null marks an
+     * unclosed code span; false means this byte is not an opaque opener.
+     */
+    private static function opaqueEnd(string $text, int $pos): int|false|null
+    {
+        $char = $text[$pos];
+        if ($char === '`') {
+            return self::codeSpanEnd($text, $pos);
+        }
+        if ($char === '\\' && $pos + 1 < strlen($text)) {
+            return $pos + 2;
+        }
+        if ($char === '{') {
+            $next = $text[$pos + 1] ?? '';
+            if ($next === '#' || $next === '%') {
+                $close = strpos($text, $next . '}', $pos + 2);
+                if ($close !== false) {
+                    return $close + 2;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

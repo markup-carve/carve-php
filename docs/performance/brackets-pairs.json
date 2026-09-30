@@ -1,0 +1,1329 @@
+{
+  "baseline": "c4227e19f3fd095df5e5fde4b572a11cb32a2b70",
+  "method": "Six alternating fresh-process pairs per fixture; clean INI without opcache/JIT; 100ms warmup, five batches >=50ms; medians within each worker; CPU candidate/base ratios. Shared host; exact AST and HTML fingerprints checked. Medium corpus is a separate control, not the bracket workload.",
+  "loadEnd": [
+    18.404296875,
+    15.96875,
+    13.72900390625
+  ],
+  "sourceHashes": {
+    "base": {
+      "src/Parser/InlineParser.php": "711366ec96da37c3c1ebe1524970719a36ff8b34e62019e9e1845bc0803526aa",
+      "src/Parser/Utility/BracketScanner.php": "5388a7bd6645f1a567c1aedd7bf64b0e51397398e5e86c59253ccb2bf01ad23c"
+    },
+    "candidate": {
+      "src/Parser/InlineParser.php": "09a029510661622fa6563d8d9933de7ca002068e8bb5f13e18f118ecbe7f7027",
+      "src/Parser/Utility/BracketScanner.php": "7cae84054e9d1064fe058f732a829f5eabc874ed7e6a49bcb56e488d2ccc6b59"
+    }
+  },
+  "workerSha256": "d0840c91e302cfb93c126d4223cfc011b28a535e27ff323cda62f1f3a6af2e60",
+  "rows": [
+    {
+      "pair": 0,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        52.757844,
+        51.38823,
+        53.382802,
+        56.329414,
+        95.640505
+      ],
+      "samplesCpuMs": [
+        52.748,
+        51.376,
+        53.296,
+        53.082,
+        52.253
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 0,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        14.6176435,
+        18.617896333333334,
+        25.56950833333333,
+        28.172341,
+        17.565318666666666
+      ],
+      "samplesCpuMs": [
+        5.93875,
+        6.073666666666667,
+        5.879666666666666,
+        6.2485,
+        6.082666666666667
+      ],
+      "batchIterations": [
+        4,
+        3,
+        3,
+        2,
+        3
+      ]
+    },
+    {
+      "pair": 1,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        12.65959375,
+        9.204668166666666,
+        6.40672425,
+        6.202171666666667,
+        6.153198555555556
+      ],
+      "samplesCpuMs": [
+        6.21175,
+        5.920166666666667,
+        6.047375,
+        5.784888888888889,
+        5.875111111111111
+      ],
+      "batchIterations": [
+        4,
+        6,
+        8,
+        9,
+        9
+      ]
+    },
+    {
+      "pair": 1,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        53.906688,
+        57.025707,
+        52.205374,
+        59.100491,
+        58.282356
+      ],
+      "samplesCpuMs": [
+        53.63,
+        51.785,
+        49.626,
+        55.222,
+        57.591
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 2,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        57.810469,
+        58.09529,
+        58.719487,
+        58.080302,
+        59.570244
+      ],
+      "samplesCpuMs": [
+        57.763,
+        58.058,
+        58.697,
+        57.79,
+        55.575
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 2,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        6.26764125,
+        7.428059428571429,
+        6.202275111111111,
+        11.690631999999999,
+        6.688843125
+      ],
+      "samplesCpuMs": [
+        6.205625,
+        6.058428571428571,
+        5.755,
+        6.010199999999999,
+        6.1435
+      ],
+      "batchIterations": [
+        8,
+        7,
+        9,
+        5,
+        8
+      ]
+    },
+    {
+      "pair": 3,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        6.629752,
+        6.6289855,
+        7.01504825,
+        6.754310125,
+        6.738433625
+      ],
+      "samplesCpuMs": [
+        6.139125,
+        6.074625,
+        6.512,
+        6.379875,
+        6.2045
+      ],
+      "batchIterations": [
+        8,
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "pair": 3,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        127.518886,
+        106.216009,
+        54.376581,
+        51.80928,
+        157.868722
+      ],
+      "samplesCpuMs": [
+        52.71,
+        52.23,
+        52.064,
+        51.354,
+        52.73
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 4,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        61.111574,
+        53.473865,
+        58.946198,
+        58.444384,
+        55.89099
+      ],
+      "samplesCpuMs": [
+        49.924,
+        52.413,
+        52.769,
+        53.643,
+        54.043
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 4,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        10.306066,
+        6.428225125,
+        6.228568444444445,
+        8.310406857142857,
+        8.963797
+      ],
+      "samplesCpuMs": [
+        6.070600000000001,
+        6.051375,
+        5.986111111111111,
+        6.049285714285714,
+        6.033
+      ],
+      "batchIterations": [
+        5,
+        8,
+        9,
+        7,
+        6
+      ]
+    },
+    {
+      "pair": 5,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        6.104003888888888,
+        6.151141222222222,
+        6.266479,
+        6.300942,
+        6.988256125
+      ],
+      "samplesCpuMs": [
+        6.020555555555556,
+        6.089666666666667,
+        6.240375,
+        6.292,
+        6.208
+      ],
+      "batchIterations": [
+        9,
+        9,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "pair": 5,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "brackets",
+      "phase": "parse",
+      "inputBytes": 1028,
+      "inputSha256": "57994799a8d3b70f1d85320605a9c1c0fb82ded1d36495cc1529869d42655782",
+      "astSha256": "f52b96097f995d00b96d901a7bbd4f2a429e09af68d253dc13eb4dfcad61a913",
+      "htmlSha256": "e38074ecc5bb6f303db3889131663727c7d3f7d3ac1868c3e50c1b516e82d444",
+      "htmlBytes": 1035,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        58.882998,
+        55.527328,
+        57.051927,
+        56.214114,
+        58.306171
+      ],
+      "samplesCpuMs": [
+        57.026,
+        54.625,
+        56.706,
+        55.689,
+        57.388
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 0,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        55.432007,
+        55.245523,
+        60.543123,
+        74.350061,
+        114.119323
+      ],
+      "samplesCpuMs": [
+        54.739,
+        53.614,
+        51.853,
+        57.411,
+        56.129
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 0,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        7.504049714285714,
+        7.723867428571429,
+        11.757152399999999,
+        9.593459000000001,
+        9.698316833333333
+      ],
+      "samplesCpuMs": [
+        6.441142857142857,
+        6.534142857142856,
+        6.763,
+        6.596,
+        6.5696666666666665
+      ],
+      "batchIterations": [
+        7,
+        7,
+        5,
+        6,
+        6
+      ]
+    },
+    {
+      "pair": 1,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        6.213775888888889,
+        6.134937,
+        6.393079625,
+        6.4699645,
+        6.4994005
+      ],
+      "samplesCpuMs": [
+        6.1723333333333334,
+        6.087444444444444,
+        6.344875,
+        6.421125,
+        6.449875
+      ],
+      "batchIterations": [
+        9,
+        9,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "pair": 1,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        53.660009,
+        52.859557,
+        44.7628045,
+        46.513037,
+        50.766598
+      ],
+      "samplesCpuMs": [
+        53.306,
+        52.866,
+        44.494,
+        46.393,
+        50.772
+      ],
+      "batchIterations": [
+        1,
+        1,
+        2,
+        2,
+        1
+      ]
+    },
+    {
+      "pair": 2,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        45.74142,
+        45.2522805,
+        49.5016785,
+        47.498981,
+        45.179657
+      ],
+      "samplesCpuMs": [
+        45.4235,
+        44.975,
+        49.0515,
+        47.122,
+        44.867
+      ],
+      "batchIterations": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "pair": 2,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        4.776532090909091,
+        4.507994,
+        4.906117454545455,
+        4.54290025,
+        4.5485995
+      ],
+      "samplesCpuMs": [
+        4.738363636363636,
+        4.492916666666667,
+        4.834363636363636,
+        4.540666666666667,
+        4.549
+      ],
+      "batchIterations": [
+        11,
+        12,
+        11,
+        12,
+        12
+      ]
+    },
+    {
+      "pair": 3,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        5.0601705,
+        4.35955675,
+        4.801707181818181,
+        4.2992212499999996,
+        4.3694305
+      ],
+      "samplesCpuMs": [
+        5.0525,
+        4.360166666666667,
+        4.802090909090909,
+        4.297666666666667,
+        4.367999999999999
+      ],
+      "batchIterations": [
+        10,
+        12,
+        11,
+        12,
+        12
+      ]
+    },
+    {
+      "pair": 3,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        45.9646495,
+        45.7857945,
+        55.03913,
+        58.138051,
+        57.985852
+      ],
+      "samplesCpuMs": [
+        45.9695,
+        45.7795,
+        55.043,
+        58.142,
+        57.99
+      ],
+      "batchIterations": [
+        2,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 4,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        61.644587,
+        59.677307,
+        59.212494,
+        59.588378,
+        59.200862
+      ],
+      "samplesCpuMs": [
+        61.386,
+        59.683,
+        59.2,
+        59.422,
+        59.175
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 4,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        5.2930201,
+        4.825275636363636,
+        4.740046363636363,
+        4.891171818181818,
+        5.1426913
+      ],
+      "samplesCpuMs": [
+        5.2579,
+        4.826,
+        4.740636363636363,
+        4.705272727272727,
+        5.1381
+      ],
+      "batchIterations": [
+        10,
+        11,
+        11,
+        11,
+        10
+      ]
+    },
+    {
+      "pair": 5,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        5.9052415555555555,
+        5.1667892,
+        4.560434909090909,
+        4.511336916666667,
+        5.2716745000000005
+      ],
+      "samplesCpuMs": [
+        5.835111111111111,
+        5.0704,
+        4.561090909090908,
+        4.511833333333334,
+        5.2722
+      ],
+      "batchIterations": [
+        9,
+        10,
+        11,
+        12,
+        10
+      ]
+    },
+    {
+      "pair": 5,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "partial-brackets",
+      "phase": "parse",
+      "inputBytes": 1029,
+      "inputSha256": "78d1fa2119ebc71d97293b9ac4bfb1ad6a31701a66a6ddd4466f092151f845db",
+      "astSha256": "fc130d3708af4528eedfe5efab10114e0f42a45425f746ad662a4d2822095831",
+      "htmlSha256": "0295c217678095dc6bccc803e0ba3745a1c5c3b4b5890fd8d9e4cb9b089c6609",
+      "htmlBytes": 1036,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        54.214904,
+        50.010611,
+        46.120315,
+        44.5301975,
+        45.194255
+      ],
+      "samplesCpuMs": [
+        54.212,
+        50.017,
+        46.1215,
+        44.5315,
+        45.1915
+      ],
+      "batchIterations": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "pair": 0,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        239.32507,
+        244.077094,
+        244.936728,
+        272.467624,
+        232.408271
+      ],
+      "samplesCpuMs": [
+        239.317,
+        243.044,
+        244.624,
+        270.39200000000005,
+        232.37
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 0,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        239.501635,
+        254.962086,
+        249.24686,
+        237.430958,
+        249.052481
+      ],
+      "samplesCpuMs": [
+        239.505,
+        254.767,
+        249.255,
+        237.36599999999999,
+        248.853
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 1,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        254.118571,
+        265.557246,
+        239.674243,
+        243.663166,
+        233.751825
+      ],
+      "samplesCpuMs": [
+        253.559,
+        265.542,
+        239.605,
+        243.64099999999996,
+        233.605
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 1,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        222.428559,
+        238.680994,
+        240.120851,
+        239.255426,
+        236.600519
+      ],
+      "samplesCpuMs": [
+        222.416,
+        238.612,
+        239.89,
+        239.24199999999996,
+        236.605
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 2,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        241.754196,
+        272.308811,
+        218.510891,
+        231.161028,
+        302.167893
+      ],
+      "samplesCpuMs": [
+        241.25699999999995,
+        271.628,
+        218.434,
+        230.73299999999995,
+        301.212
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 2,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        231.284713,
+        236.917591,
+        226.260692,
+        268.164001,
+        245.717791
+      ],
+      "samplesCpuMs": [
+        231.203,
+        236.688,
+        226.246,
+        267.05100000000004,
+        244.963
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 3,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        236.718123,
+        238.029996,
+        248.823785,
+        231.445399,
+        240.593168
+      ],
+      "samplesCpuMs": [
+        236.725,
+        238.023,
+        248.825,
+        231.44799999999998,
+        240.595
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 3,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        246.498676,
+        222.290054,
+        219.618595,
+        235.836816,
+        233.327637
+      ],
+      "samplesCpuMs": [
+        246.484,
+        222.29,
+        219.572,
+        235.84000000000003,
+        233.33
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 4,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        231.473111,
+        234.181319,
+        226.795949,
+        230.934477,
+        226.473687
+      ],
+      "samplesCpuMs": [
+        231.47400000000005,
+        234.172,
+        226.798,
+        230.929,
+        226.476
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 4,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        219.639555,
+        227.620066,
+        269.534245,
+        257.663327,
+        241.69932
+      ],
+      "samplesCpuMs": [
+        219.641,
+        227.613,
+        269.534,
+        257.625,
+        241.705
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 5,
+      "engine": "candidate",
+      "sourceFile": "/tmp/carve-php-perf/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        223.244377,
+        221.297035,
+        239.823254,
+        243.734218,
+        226.947557
+      ],
+      "samplesCpuMs": [
+        223.24199999999996,
+        221.301,
+        239.828,
+        243.729,
+        226.923
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "pair": 5,
+      "engine": "base",
+      "sourceFile": "/tmp/carve-php-perf-base/src/CarveConverter.php",
+      "fixture": "/tmp/bench-analysis/corpus/medium.crv",
+      "phase": "parse",
+      "inputBytes": 65105,
+      "inputSha256": "f18f37182e583e7ae5e145518f129e708ec04f70028b3983980bc71d8972c9b0",
+      "astSha256": "a8e01d571cc5f63e2bb36d6aa6d44cfaa26c8bac0a16b138344bd79f66108819",
+      "htmlSha256": "e9a4d939395307cc65960f4108172fb112326ef175ee4a562d409de30c31c31c",
+      "htmlBytes": 143400,
+      "php": "8.5.11",
+      "opcacheEnabled": false,
+      "jit": null,
+      "samplesMs": [
+        235.246103,
+        215.706116,
+        214.05625,
+        224.340982,
+        223.186697
+      ],
+      "samplesCpuMs": [
+        234.76199999999994,
+        215.164,
+        213.808,
+        223.404,
+        222.69899999999996
+      ],
+      "batchIterations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  ],
+  "summary": {
+    "brackets": {
+      "medianCpuRatio": 0.11251309839257366
+    },
+    "partial-brackets": {
+      "medianCpuRatio": 0.10504105663512521
+    },
+    "/tmp/bench-analysis/corpus/medium.crv": {
+      "medianCpuRatio": 1.0205946005002031
+    }
+  }
+}

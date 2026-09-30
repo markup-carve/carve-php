@@ -265,6 +265,13 @@ class InlineParser
      */
     protected array $bracketRunEnds = [];
 
+    /**
+     * @var array<int, int|null>
+     */
+    private array $balancedBracketEnds = [];
+
+    private ?string $balancedBracketText = null;
+
     protected ?string $destinationSkipText = null;
 
     /**
@@ -652,6 +659,10 @@ class InlineParser
         $outerSkips = $this->destinationSkips;
         $outerScans = $this->destinationScans;
         $outerBracketRuns = $this->bracketRunEnds;
+        $outerBalancedEnds = $this->balancedBracketEnds;
+        $outerBalancedText = $this->balancedBracketText;
+        $outerCloserText = $this->closerLastText;
+        $outerCloserPositions = $this->closerLastPos;
         $outerLinkTriggerText = $this->linkTriggerText;
         $outerLinkTriggerPresent = $this->linkTriggerPresent;
         $this->inlineDepth++;
@@ -665,6 +676,10 @@ class InlineParser
             $this->destinationSkips = $outerSkips;
             $this->destinationScans = $outerScans;
             $this->bracketRunEnds = $outerBracketRuns;
+            $this->balancedBracketEnds = $outerBalancedEnds;
+            $this->balancedBracketText = $outerBalancedText;
+            $this->closerLastText = $outerCloserText;
+            $this->closerLastPos = $outerCloserPositions;
             $this->linkTriggerText = $outerLinkTriggerText;
             $this->linkTriggerPresent = $outerLinkTriggerPresent;
         }
@@ -2404,9 +2419,8 @@ class InlineParser
 
         // A link/image needs a closing `]`. Without this guard, every `[` runs
         // the char-by-char depth scan below to end-of-text, so an unbalanced run
-        // like `[[[[...` is O(n^2). strpos is a C-level memchr that short-circuits
-        // when no `]` follows.
-        if (strpos($text, ']', $pos + 1) === false) {
+        // like `[[[[...` is O(n^2). Cache the last closer once per text.
+        if (!$this->closerExistsFrom($text, ']', $pos + 1)) {
             return null;
         }
 
@@ -2663,7 +2677,22 @@ class InlineParser
      */
     protected function findBalancedBracketEnd(string $text, int $openPos): ?int
     {
-        return BracketScanner::balancedBracketEnd($text, $openPos);
+        // Bare bracket runs use this scan too, independently of parseLink().
+        if (!$this->closerExistsFrom($text, ']', $openPos + 1)) {
+            return null;
+        }
+
+        if ($text !== $this->balancedBracketText) {
+            $this->balancedBracketText = $text;
+            $this->balancedBracketEnds = [];
+        }
+        if (!array_key_exists($openPos, $this->balancedBracketEnds)) {
+            foreach (BracketScanner::balancedBracketEnds($text, $openPos) as $start => $end) {
+                $this->balancedBracketEnds[$start] = $end;
+            }
+        }
+
+        return $this->balancedBracketEnds[$openPos];
     }
 
     /**
