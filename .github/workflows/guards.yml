@@ -1,42 +1,10 @@
 name: Guards
 
-# THE TWO LONGEST JOBS IN THIS REPOSITORY, NEITHER OF WHICH A REVIEW READS.
-# Measured over the 30 days to 2026-09-22, 135 pull-request runs, per-step
-# timings from run 35684958449:
-#
-#   | job              | the step that costs |        |
-#   | ---------------- | ------------------- | ------ |
-#   | Code Coverage    | test-coverage-parallel | 5m54s |
-#   | Scaling Guards   | test-scaling           | 3m36s |
-#   | PHP 8.5          | test-parallel          | 1m33s |
-#   | PHP 8.2          | test-parallel          | 1m27s |
-#   | Coding Standards | stan + cs-check        |   36s |
-#
-# CI averaged 6m37s of wall clock and coverage set it on every run, so a review
-# waited about five extra minutes for two numbers it does not act on: a coverage
-# delta, and wall-clock ratios over a 50000-repeat input. Neither is a merge
-# decision, and the second is the least trustworthy thing to measure on a shared
-# runner beside five other jobs.
-#
-# `composer install` is NOT what to optimize here and was checked before this
-# change: it is 4 to 5 seconds in every job, so caching the vendor tree would
-# buy nothing. The cost is test EXECUTION.
-#
-# Where they run now: every push to main, nightly at 04:15 UTC, and on demand.
-# The push trigger is what keeps them guards - a merge that slows the parser or
-# drops coverage goes red within one run, and the run names that merge, which a
-# pull-request check could not do for a branch that never lands. Codecov keeps
-# receiving main, so the project trend is unbroken; what stops is the per-pull-
-# request patch status.
-#
-# To measure a branch before it merges:
+# Run coverage and scaling checks on main, nightly, and on demand.
+# Keep them outside the PR matrix to reduce runtime and runner contention.
+# These jobs must not be required PR checks: pull requests do not run them.
+# For changes affecting performance or coverage, run the branch checks with:
 #   gh workflow run guards.yml -R markup-carve/carve-php --ref <branch>
-# A performance or coverage pull request should do exactly that.
-#
-# `Code Coverage` and `Scaling Guards` were required status checks on `main`
-# until this file existed. Both were removed from that list in the same change:
-# a required check that no pull request can ever report is a branch nothing can
-# merge into.
 
 on:
   push:

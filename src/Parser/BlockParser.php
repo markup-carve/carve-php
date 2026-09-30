@@ -91,17 +91,9 @@ class BlockParser
     protected const ATTACHED_SPANNING = 'spanning';
 
     /**
-     * Initial trailing-block tracker state for list-item lazy continuation.
-     *
-     * `openParagraph` starts FALSE: a container that has collected no line yet
-     * holds no block, and PART 1 S4 asks whether an OPEN PARAGRAPH is on the
-     * stack - "nothing" is not one. It started true on the reading that an
-     * empty item can absorb a lazy line, which no shape reaches: every seeding
-     * site advances the tracker over the container's first line before the gate
-     * reads it, so the only line that could leave the initial value standing is
-     * one the tracker passes through unchanged - a COMMENT. `- %% c` / `tail`
-     * is exactly that shape, and the old default made the empty item swallow
-     * `tail` (corpus 326-5). See advanceTrailingBlockState().
+     * Initial state for list-item lazy continuation. No paragraph is open
+     * until a content line starts one; a comment alone must not admit a lazy
+     * continuation (corpus 326-5). See advanceTrailingBlockState().
      *
      * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
      */
@@ -123,39 +115,19 @@ class BlockParser
     protected const LAZY_FRAME = "\x00L\x00";
 
     /**
-     * `abbreviation_definition = "*[", term, "]:", space+, expansion, newline`.
-     *
-     * THE SEPARATOR IS A RUN OF ASCII SPACES, and the first character that is
-     * not one ENDS the separator and BEGINS the content
-     * (markup-carve/carve#892). Both halves are in the pattern:
-     *
-     * - `]: +` - a literal SPACE first, so `*[HTML]:<TAB>x` is still a
-     *   paragraph. Widening the run is not widening the terminal.
-     * - `([^ ]…)` - the run is MAXIMAL, so a no-break space or a tab after it is
-     *   the expansion's first character rather than more separator. The
-     *   expansion used to be `trim()`ed, which ate both.
-     * - `(?![ \t]*$)` - MARKER REQUIRES CONTENT still applies AFTER the run. A
-     *   line of `whitespace` is blank (PART 1), so `*[HTML]:` followed by spaces
-     *   and nothing else is a paragraph. Implemented as "eat spaces then take
-     *   the rest", a spaces-only line defines an empty abbreviation.
+     * Abbreviation separators are maximal runs of ASCII spaces. A tab or
+     * no-break space after the run belongs to the expansion. A tab cannot
+     * replace the required space after `]:`. Whitespace-only
+     * content does not open a definition (carve#892).
      *
      * @var string
      */
     private const ABBREVIATION_DEFINITION_PATTERN = '/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/';
 
     /**
-     * `footnote_definition = "[^", label, "]:", space+, inline_content, …`.
-     *
-     * The same three halves as {@see self::ABBREVIATION_DEFINITION_PATTERN},
-     * against the other marker. It was spelled `\]: +\S` in four places, and
-     * `\S` is a whitespace test rather than a space test: it refused a TAB after
-     * the run, which is content.
-     *
-     * The two markers answer differently one step downstream, and the reason is
-     * not in the separator: an `abbreviation_expansion` is a raw string, so a
-     * leading tab survives into the `title`, while a footnote's `inline_content`
-     * is parsed as blocks and a leading tab is that body's own indentation run
-     * (PART 9 §24 C1), so it does not appear in the body.
+     * Footnote separators follow ABBREVIATION_DEFINITION_PATTERN. A leading
+     * tab belongs to the body, where block parsing treats it as indentation
+     * (PART 9 §24 C1).
      *
      * @var string
      */
@@ -919,43 +891,13 @@ class BlockParser
         // Capture the original source byte length before any normalization so
         // renderers can size the abbreviation-expansion budget (DoS guard).
         $sourceLength = strlen($input);
-        // Decode the source as UTF-8 the way PART 1 says it is encoded, and
-        // substitute U+FFFD for anything that is not (carve-php#1082). Ahead
-        // of everything else in this method so the rest of the parser - and
-        // the ORIGINAL SOURCE the position table slices with mb_substr() -
-        // only ever sees well-formed UTF-8.
-        //
-        // Measured before the budget above deliberately: substitution only
-        // ever LENGTHENS the input (one byte becomes three), so charging the
-        // pre-substitution length keeps the abbreviation-expansion guard on
-        // the smaller of the two numbers.
+        // Normalize invalid UTF-8 before parsing and source mapping (PART 1).
+        // Keep the original byte length for the output-expansion budget.
         $input = StringUtil::toValidUtf8($input);
-        // Replace any NUL (U+0000) with the U+FFFD replacement character so a
-        // control byte never reaches output (decided cross-impl behavior;
-        // WHATWG-style). For carve-php this also prevents an input NUL from
-        // colliding with the internal SOFT_BREAK_GUARD sentinel (also \x00).
-        //
-        // AHEAD OF THE OFFSET TABLE, because PART 0 INPUT puts the substitution
-        // before the first line is read: the document §4 positions describe is
-        // the one that HAS the replacement, not the bytes that arrived. Done
-        // after the table was built instead, the two strings disagreed about
-        // one character and every published position went wrong twice over
-        // (markup-carve/carve-php#1563):
-        //
-        // - PositionIndex converts the parser's BYTE offsets to codepoints from
-        //   the string it is handed. Handed the pre-substitution text, it saw a
-        //   NUL - one ASCII byte - took its pure-ASCII identity path, and
-        //   published the parser's post-substitution byte offset unconverted.
-        //   `a` U+FFFD `b` ended at 5, its byte length, where §4 counts three
-        //   codepoints. One NUL anywhere moved every later offset in the
-        //   document, including blocks holding no NUL at all.
-        // - {@see SourceMap::spanFor()} verifies a node by slicing the same
-        //   string and comparing it to the node's text. The slice held the NUL
-        //   and the text held U+FFFD, so the check failed honestly and the text
-        //   node was published with NO position.
-        //
-        // One stale string, both symptoms. Left after `$sourceLength` above, so
-        // `srcByteLength` still reports the bytes that arrived.
+        // Replace NUL after capturing sourceLength and before building offsets
+        // so the byte budget describes received input, and source spans and node text
+        // use the same U+FFFD characters (carve-php#1563). This also prevents
+        // collisions with internal NUL sentinels.
         if (str_contains($input, "\0")) {
             $input = str_replace("\0", "\u{FFFD}", $input);
         }

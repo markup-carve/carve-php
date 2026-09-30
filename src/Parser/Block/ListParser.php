@@ -11,14 +11,8 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
- * Parser for list blocks (bullet, ordered, task lists).
- *
- * This class handles parsing of:
- * - Bullet lists (-, *, +)
- * - Ordered lists (1., 1), roman numerals, alphabetical)
- * - Task lists (- [ ], - [x])
- *
- * Definition lists are handled by DefinitionListParser.
+ * Parses bullet, ordered, and task-list markers.
+ * `+` requires PlusBulletExtension; definition lists are parsed by BlockParser.
  */
 class ListParser
 {
@@ -126,18 +120,9 @@ class ListParser
     }
 
     /**
-     * The marker grammar, spelled ONCE, as the regex up to the item's CONTENT.
-     *
-     * Appending a CAPTURE of the tail gives the patterns
-     * `parseListItemMarkerBase()` matches; appending the same tail as a
-     * LOOKAHEAD gives the ones `markerContentOffset()` matches. Two renderings
-     * of one spelling, because a second spelling of this grammar in a hot path
-     * is how a wrong content offset would silently change the way ordinary
-     * documents parse - and this repo already carries two spellings of the
-     * marker prefix that do not agree with each other.
-     *
-     * Ordered as PART 9 tries them, roman before alpha, because a roman
-     * numeral that fails `romanToInt()` falls THROUGH to the alpha branch.
+     * Shared marker prefixes for content capture and offset lookahead.
+     * Try roman numerals before alphabetical markers (PART 9); invalid roman
+     * numerals fall through to the alphabetical branch.
      *
      * @return array<string, string>
      */

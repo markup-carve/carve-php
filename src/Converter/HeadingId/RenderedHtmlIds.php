@@ -7,10 +7,8 @@ namespace MarkupCarve\Carve\Converter\HeadingId;
 /**
  * Heading ids scraped from the already-published HTML of the Djot document.
  *
- * The most robust source: the rendered page is the literal truth, whatever
- * produced the ids (stock slug, custom transformer, permalink extension, manual
- * ids, an older renderer version). Prefer this over re-rendering when you have
- * the published output.
+ * Preserves the published IDs, including custom or older renderer output.
+ * Prefer this source when the published HTML is available.
  *
  * Example:
  *   $carve = (new DjotToCarve())
