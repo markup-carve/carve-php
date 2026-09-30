@@ -244,7 +244,7 @@ class DjotToCarveTest extends TestCase
 
     public function testEscapedDelimiterLeftLiteral(): void
     {
-        $this->assertSame('\\_x_', $this->converter->convert('\\_x_'));
+        $this->assertSame('\\_x\\_', $this->converter->convert('\\_x_'));
     }
 
     /**

@@ -122,14 +122,11 @@ class DelimiterOwnershipIsPerOccurrenceTest extends TestCase
         $this->assertSame('<p>a {.cls} b</p>', $this->render("a {.cls} b\n"));
     }
 
-    /**
-     * DJOT IS THE OTHER SIDE OF THE SPLIT. `{#id}` in Djot source is an
-     * attribute block the author wrote, so its converter must carry it across
-     * bare - this fix must not reach it.
-     */
-    public function testDjotCarriesABracedIdAcrossBare(): void
+    // Djot consumes an attribute block that has no inline or block owner.
+
+    public function testDjotConsumesAnOrphanId(): void
     {
-        $this->assertSame("a {#id} b\n", (new DjotToCarve())->convert("a {#id} b\n"));
+        $this->assertSame("a  b\n", (new DjotToCarve())->convert("a {#id} b\n"));
     }
 
     /**

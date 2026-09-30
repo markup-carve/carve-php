@@ -26,10 +26,11 @@ class DjotHeadingContinuationTest extends TestCase
 
     public function testBlocksAndCodeStopFolding(): void
     {
-        foreach (['', '## B', '#', '- item', '1. item', '> quote', '```', '~~~', '{.class}', '[r]: /url', '::: div', '  - item', '***', '---', '* * *', '^ x', '%%%'] as $next) {
+        foreach (['', '## B', '#', '- item', '1. item', '> quote', '```', '~~~', '[r]: /url', '::: div', '  - item', '***', '---', '* * *', '^ x', '%%%'] as $next) {
             $source = "# A\n$next\n";
             $this->assertSame("# A\n" . (new DjotToCarve())->convert("$next\n"), (new DjotToCarve())->convert($source));
         }
+        $this->assertSame("# A\n", (new DjotToCarve())->convert("# A\n{.class}\n"));
         foreach (["```\n# A\n# B\n```\n", "`x\n# A\n# B\ny`\n", "para\n# A\nB\n", "# A\\\nB\n"] as $source) {
             $this->assertSame($source, (new DjotToCarve())->convert($source));
         }
