@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -100,15 +101,29 @@ class BlockStateOwnershipTest extends TestCase
         self::assertSame('/copy', $copy->getReference('ref')->url);
     }
 
-    public function testClonedParserOwnsItsSourceMappings(): void
+    /**
+     * @return array<string, array{bool, bool}>
+     */
+    public static function sourceTrackingModes(): array
     {
-        $parser = new BlockParser(trackSourceLines: true, trackPositions: true);
+        return [
+            'disabled' => [false, false],
+            'lines' => [true, false],
+            'positions' => [false, true],
+            'lines and positions' => [true, true],
+        ];
+    }
+
+    #[DataProvider('sourceTrackingModes')]
+    public function testClonedParserOwnsItsSourceMappings(bool $trackSourceLines, bool $trackPositions): void
+    {
+        $parser = new BlockParser(trackSourceLines: $trackSourceLines, trackPositions: $trackPositions);
         $codec = new AstCodec();
         $originalSource = "# Original\n\n- first\n  second\n";
         $original = $codec->encode($parser->parse($originalSource));
         $copy = clone $parser;
         $copySource = "Intro é\n\n> - other\n>   continued\n\nAfter\n";
-        $expected = $codec->encode((new BlockParser(trackSourceLines: true, trackPositions: true))->parse($copySource));
+        $expected = $codec->encode((new BlockParser(trackSourceLines: $trackSourceLines, trackPositions: $trackPositions))->parse($copySource));
         $actual = $codec->encode($copy->parse($copySource));
 
         self::assertSame($expected, $actual);
