@@ -1179,7 +1179,7 @@ class DjotToCarve
                 if (str_starts_with($open[2], ':') && !$previousBlock) {
                     continue;
                 }
-                $container = $open[2] !== '' ? strlen($open[1]) + strlen($open[2]) : ($open[1] !== '' ? strlen($open[1]) : null);
+                $container = $open[2] !== '' ? strlen($open[1]) + strlen($open[2]) : ($open[1] !== '' && $this->isNestedBlock($lines, $i, substr($line, 0, strlen($line) - strlen($content)), strlen($open[1])) ? strlen($open[1]) : null);
                 $heldFence = ['indent' => $open[2] !== '' ? $container : max(3, strlen($open[1])), 'container' => $container, 'char' => $open[3][0], 'length' => strlen($open[3]), 'depth' => $depth];
                 $start = strpos($line, $open[3]);
                 if ($start === false) {
