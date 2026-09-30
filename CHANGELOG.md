@@ -11,9 +11,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Improvements
 
-- Index balanced bracket pairs and failed openers to avoid repeated scans of malformed inline input.
-- Skip unnecessary marker checks and paragraph inline parsing during heading indexing.
-- Pad nested HTML in bulk while preserving preformatted text and multiline attributes.
+- Index balanced bracket pairs and failed openers to avoid repeated scans of malformed inline input (#2776).
+- Skip unnecessary marker checks and paragraph inline parsing during heading indexing (#2776).
+- Pad nested HTML in bulk while preserving preformatted text and multiline attributes (#2776).
 
 ## [0.1.10] - 2026-09-29
 
