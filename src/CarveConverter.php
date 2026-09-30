@@ -55,25 +55,16 @@ class CarveConverter
     private bool $borrowedHtmlConfiguration = false;
 
     /**
-     * Carve specification version implemented by this library.
-     *
-     * Written into a document by `carve fmt --stamp` and compared against an
-     * existing stamp when deciding whether a document needs review, so a stale
-     * value tells a reader their document is current when it is not. Checked
-     * against the vendored grammar's `Version:` field by ReleaseVersionTest.
+     * Implemented Carve specification version, used by `carve fmt --stamp`.
+     * ReleaseVersionTest checks it against the vendored grammar.
      *
      * @var string
      */
     public const SPEC_VERSION = '0.1';
 
     /**
-     * Library version - the release this build is.
-     *
-     * Printed by `carve --version`, written into the provenance stamp, and
-     * quoted by embedders in bug reports. It is not kept correct by hand on
-     * release: ReleaseVersionTest compares it against the newest cut CHANGELOG
-     * section on every run, and CliTest against the versions documented in the
-     * README.
+     * Library release version, used by `carve --version` and provenance stamps.
+     * ReleaseVersionTest checks the CHANGELOG; CliTest checks the README.
      *
      * @var string
      */
@@ -92,15 +83,9 @@ class CarveConverter
     protected ?ProfileFilter $profileFilter = null;
 
     /**
-     * Documents this converter has already filtered, so the render path does not
-     * filter one twice and reset its violations (carve-php#853).
-     *
-     * Keyed by object identity rather than by a flag on the Document, which
-     * would be transient state on a node type PART 12 pins the shape of.
-     *
-     * A weak-key map is essential here: a long-lived converter must not keep
-     * every document it has ever parsed alive merely to remember this
-     * transient fact.
+     * Documents already filtered by this converter (carve-php#853). Weak keys
+     * avoid retaining documents and prevent repeated filtering from resetting
+     * their violations.
      *
      * @var \WeakMap<\MarkupCarve\Carve\Node\Document, true>
      */
@@ -179,15 +164,8 @@ class CarveConverter
      */
     public static function carve(?BlockParser $parser = null): self
     {
-        // POSITIONS ON by default for this target. The writer emits collected
-        // definitions in the order the tree holds them (§7, PART 11 §6), and
-        // `orderCollectedDefinitions()` sorts by the spans §4 records - which
-        // are opt-in, so a parser without them left every definition reporting
-        // no span and the sort kept the collection order. Footnotes then came
-        // out before link definitions whatever the author wrote
-        // (carve-php#905).
-        //
-        // A caller that supplies its own parser keeps whatever it configured.
+        // Track positions so collected definitions retain source order (§7,
+        // PART 11 §6; carve-php#905). Preserve a supplied parser's settings.
         return self::create($parser ?? new BlockParser(false, false, false, true), new CarveRenderer());
     }
 
@@ -585,16 +563,9 @@ class CarveConverter
             }
         }
 
-        // A PROFILE FILTERS WHAT IS PUBLISHED, not only what is rendered.
-        // Filtering used to happen on the render path alone, so a host that
-        // denied a type and then serialized `parse()`'s result shipped the
-        // denied content in the tree - the HTML was right and the AST carried
-        // the code block the profile removed (carve-php#853). carve-js and
-        // carve-rs both filter before they serialize.
-        //
-        // Before the coalescer, not after: `to_text` degradation replaces nodes
-        // with Text, which can leave two runs adjacent, and §1a is about the
-        // tree that gets published.
+        // Filter before publishing the AST (carve-php#853). Must precede
+        // coalescing: to_text degradation can leave adjacent Text runs
+        // (PART 12 §1a).
         $document = $this->applyProfile($document);
         $this->filteredDocuments[$document] = true;
 

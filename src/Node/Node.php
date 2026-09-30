@@ -75,11 +75,8 @@ abstract class Node
     }
 
     /**
-     * Where this node came from, when the parser recorded it.
-     *
-     * Null is a real answer, not a placeholder: PART 12 §4 forbids emitting a
-     * span with invented values, so a node the parser could not place honestly
-     * carries none and the serializer omits `pos` for it.
+     * Source span when position tracking can establish one. PART 12 §4 forbids
+     * invented positions; the serializer omits `pos` when this is null.
      */
     protected ?SourceSpan $pos = null;
 
@@ -118,12 +115,8 @@ abstract class Node
     }
 
     /**
-     * Replaces the whole child list in one assignment.
-     *
-     * Exists because rebuilding a list by repeated `removeChildAt` is
-     * quadratic: each removal shifts every later element, so a node with a
-     * 50,000-element run costs 50,000 shifts of up to 50,000 entries. The
-     * PART 12 §1a coalescing pass hit exactly that shape.
+     * Replace children in bulk to avoid the quadratic shifting cost of repeated
+     * removeChildAt() calls during text-run coalescing (PART 12 §1a).
      *
      * @param array<\MarkupCarve\Carve\Node\Node> $children
      */

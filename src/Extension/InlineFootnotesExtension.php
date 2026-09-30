@@ -28,8 +28,7 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  * Text[A footnote with /emphasis/ and `code`]{.fn} here.
  * ```
  *
- * Inline footnotes integrate seamlessly with regular footnotes - they share
- * the same numbering sequence and appear together in the footnotes section.
+ * Inline and regular footnotes share numbering and the footnotes section.
  *
  * Note: Additional attributes on the span (other classes, IDs, etc.) are not
  * preserved on the generated footnote reference, consistent with regular
@@ -68,19 +67,15 @@ class InlineFootnotesExtension implements ExtensionInterface
                 return;
             }
 
-            // Check if this span has the footnote class
             if (!$node->hasClass($cssClass)) {
                 return;
             }
 
-            // Register with the renderer and get the footnote number.
-            // Content rendering is deferred to ensure this inline footnote's number
-            // is reserved before any nested footnotes in its content are rendered.
+            // Reserve this number before rendering nested footnotes.
             $number = $renderer->registerInlineFootnote(function () use ($event): string {
                 $content = $event->getChildrenHtml();
 
-                // Normalize content to a paragraph to ensure consistent rendering
-                // with regular footnotes and reliable backlink insertion.
+                // Backlink insertion expects paragraph content.
                 $trimmedContent = trim($content);
                 if (!(str_starts_with($trimmedContent, '<p>') && str_ends_with($trimmedContent, '</p>'))) {
                     return '<p>' . $trimmedContent . '</p>';
@@ -89,7 +84,6 @@ class InlineFootnotesExtension implements ExtensionInterface
                 return $trimmedContent;
             });
 
-            // Output the footnote reference in the same structure as regular footnotes
             $html = '<a id="fnref' . $number . '" href="#fn' . $number . '" role="doc-noteref"';
             if ($renderer->isRoundTripMode()) {
                 $contentHtml = $event->getChildrenHtml();

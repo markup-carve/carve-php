@@ -5,21 +5,15 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 /**
- * Hand-rolled SVG sanitizer (Tier-3, zero-dependency). Powers the `img` fence
- * (see {@see ImgFenceExtension}); usable standalone.
+ * Sanitizes SVG with a tokenizer for ImgFenceExtension or standalone use.
  *
- * A real tokenizer, NOT a regex scrub — regex "sanitizers" for SVG are
- * routinely bypassed. It walks the source tag by tag, drops any element not on
- * a presentational allowlist **together with its subtree**, drops any attribute
- * not on the allowlist (and every `on*` handler), scrubs URL/style values, and
- * re-serializes only the survivors. Text nodes pass through with `&<>`
- * re-escaped. Anything unrecognized is dropped, never echoed.
+ * Drops disallowed elements with their subtrees, filters attributes and
+ * URL/style values, and escapes retained text. The default options reject
+ * links, animation, external images, and style attributes; hosts may enable
+ * these through SvgSanitizeOptions. Script, foreignObject, style elements,
+ * event handlers, and dangerous URL schemes remain disallowed.
  *
- * The output is guaranteed to contain no `<script>`, no event handlers, no
- * `<foreignObject>`, no `javascript:`/external URLs, and no active CSS — so it
- * is safe to inline into the DOM or to encode into a `data:image/svg+xml` URI.
- *
- * Faithful port of carve-js `src/svg-sanitize.ts`.
+ * Port of carve-js `src/svg-sanitize.ts`.
  */
 final class SvgSanitizer
 {
