@@ -79,6 +79,51 @@ trait RenderLossCollectorTrait
         $this->renderLosses[] = $loss;
     }
 
+    /**
+     * Blank a destination whose scheme the PART 9 section 25 sink denylist
+     * denies, and owe the render-loss report one row for it.
+     *
+     * THE ONE PLACE A BLANKED DESTINATION IS REPORTED. Seven sink expressions
+     * across the HTML, Markdown and ANSI targets blank a destination, and a
+     * row emitted per site is how three copies of one rule drift apart
+     * (markup-carve/carve#2679). Each target routes its own wrapper here
+     * instead. The emitted value is unchanged: a denied scheme still blanks,
+     * in both safe modes, because the flag gates neither the hardening nor the
+     * reporting.
+     */
+    protected function blankDeniedDestination(string $url, ?Node $node = null): string
+    {
+        $blanked = HtmlRenderer::blankDangerousScheme($url);
+        if ($blanked === $url) {
+            return $url;
+        }
+        $this->recordDestinationDenied($node);
+
+        return $blanked;
+    }
+
+    protected function recordDestinationDenied(?Node $node): void
+    {
+        if ($this->renderLossTarget === null) {
+            return;
+        }
+        $this->renderLossTotal++;
+        $this->renderLossCounts['destination-denied'] = ($this->renderLossCounts['destination-denied'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'destination-denied',
+            'target' => $this->renderLossTarget,
+            'nodeType' => 'inline',
+            'message' => 'Blanked a destination with a denied URL scheme while rendering ' . $this->renderLossTarget,
+        ];
+        if ($node !== null && $node->getPos() !== null) {
+            $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
     protected function recordRubyFlattened(Node $node): void
     {
         if ($this->renderLossTarget === null || isset($this->seenRubyLosses[spl_object_id($node)])) {

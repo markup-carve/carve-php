@@ -2524,7 +2524,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // Always-on baseline: blank dangerous URL schemes (independent of safe
         // mode). Safe mode may then apply stricter (allowlist) URL policy.
         if ($href !== null) {
-            $href = $this->sanitizeUrlBaseline($href);
+            $href = $this->sanitizeUrlBaseline($href, $node);
             if ($this->safeMode !== null) {
                 $href = $this->safeMode->sanitizeUrl($href);
             }
@@ -2592,7 +2592,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $attrs = $this->renderAttributesExcluding($node, $title === null ? ['src'] : ['src', 'title']);
 
         // Always-on baseline; safe mode may add stricter URL policy.
-        $src = $this->sanitizeUrlBaseline($src);
+        $src = $this->sanitizeUrlBaseline($src, $node);
         if ($this->safeMode !== null) {
             $src = $this->safeMode->sanitizeUrl($src);
         }
@@ -2937,7 +2937,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         // Always-on baseline; safe mode may add stricter URL policy.
-        $href = $this->sanitizeUrlBaseline($href);
+        $href = $this->sanitizeUrlBaseline($href, $node);
         if ($this->safeMode !== null) {
             $href = $this->safeMode->sanitizeUrl($href);
         }
@@ -3452,9 +3452,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * whitespace / separator (NBSP, line/paragraph separators, etc.) to defeat
      * `java\tscript:` and `\u{00A0}javascript:` evasion.
      */
-    private function sanitizeUrlBaseline(string $url): string
+    private function sanitizeUrlBaseline(string $url, ?Node $node = null): string
     {
-        return self::blankDangerousScheme($url);
+        return $this->blankDeniedDestination($url, $node);
     }
 
     /**

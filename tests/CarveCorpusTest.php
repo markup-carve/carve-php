@@ -1088,6 +1088,12 @@ class CarveCorpusTest extends TestCase
         'a-braced-span-cannot-close-beyond-its-bracket-run',
         'quoted-values-and-titles-retain-a-non-punctuation-backslash',
         'a-marker-line-opaque-quote-keeps-overindented-markers-literal',
+        // ARRIVED WITH THE BUMP TO carve 28e64a5. 536 is
+        // markup-carve/carve#2679: a blanked destination owes one render-loss
+        // row per sink. One document, and the blanking itself does not move, so
+        // its HTML was already byte-identical to the pinned fixture before the
+        // reporting landed - measured before this entry was added, not after.
+        'a-denied-destination-takes-one-render-loss-row-per-sink',
     ];
 
     /**

@@ -3421,7 +3421,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // A fragment naming a heading this target writes goes to its GFM slug
         // (PART 11 §11); any other destination keeps the authored one (§11a).
         $slug = str_starts_with($destination, '#') ? ($this->gfmSlugs[substr($destination, 1)] ?? null) : null;
-        $url = $slug !== null ? '#' . $slug : $this->encodeMarkdownDestination($destination);
+        $url = $slug !== null ? '#' . $slug : $this->encodeMarkdownDestination($destination, $node);
         $title = $node->getTitle();
 
         if ($title !== null) {
@@ -3464,7 +3464,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         $alt = $this->escapeImageAlt($this->stripControls($node->getAlt()));
-        $src = $this->encodeMarkdownDestination((string)$node->getSource());
+        $src = $this->encodeMarkdownDestination((string)$node->getSource(), $node);
         $title = $node->getTitle();
 
         if ($title !== null) {
@@ -3489,7 +3489,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderImageTag(Image $node, string $attrs): string
     {
         $serializer = $this->attributeSerializer();
-        $src = $this->stripControls($this->sanitizeUrl((string)$node->getSource()));
+        $src = $this->stripControls($this->sanitizeUrl((string)$node->getSource(), $node));
         $html = '<img src="' . $serializer->escapeAttribute($src) . '"'
             . ' alt="' . $serializer->escapeAttribute($this->stripControls($node->getAlt())) . '"';
 
@@ -3906,9 +3906,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * this is the same sink one step removed (PART 9 section 25,
      * markup-carve/carve#385).
      */
-    protected function sanitizeUrl(string $url): string
+    protected function sanitizeUrl(string $url, ?Node $node = null): string
     {
-        return HtmlRenderer::blankDangerousScheme($url);
+        return $this->blankDeniedDestination($url, $node);
     }
 
     /**
@@ -3955,9 +3955,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * `java<DEL>script:` through and this engine did not); the character
      * references were not (carve-php#1062).
      */
-    protected function encodeMarkdownDestination(string $url): string
+    protected function encodeMarkdownDestination(string $url, ?Node $node = null): string
     {
-        $url = $this->sanitizeUrl($this->stripControls($url));
+        $url = $this->sanitizeUrl($this->stripControls($url), $node);
         $url = strtr($url, [
             ' ' => '%20',
             '(' => '%28',
