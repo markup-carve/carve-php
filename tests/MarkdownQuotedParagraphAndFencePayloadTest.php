@@ -11,6 +11,67 @@ use PHPUnit\Framework\TestCase;
 
 final class MarkdownQuotedParagraphAndFencePayloadTest extends TestCase
 {
+    public function testFewerQuoteMarkersContinueAnOpenNestedParagraph(): void
+    {
+        $written = (new MarkdownToCarve())->convert(">>> foo\n> bar\n>>baz\n");
+        self::assertSame("<blockquote>\n  <blockquote>\n    <blockquote><p>foo\nbar\nbaz</p></blockquote>\n  </blockquote>\n</blockquote>", rtrim($this->html($written)));
+    }
+
+    public function testNestedQuoteMarkersAcceptOneExtraSpace(): void
+    {
+        $written = (new MarkdownToCarve())->convert(">>- one\n>>\n  >  > two\n");
+        self::assertSame("<blockquote>\n  <blockquote>\n    <ul>\n      <li>one</li>\n    </ul>\n    <p>two</p>\n  </blockquote>\n</blockquote>", rtrim($this->html($written)));
+    }
+
+    public function testBlocksLeaveTheDeeperQuoteAndFourColumnsKeepCodeLiteral(): void
+    {
+        $cases = [
+            [">> foo\n> # bar\n", "<blockquote>\n  <blockquote><p>foo</p></blockquote>\n  <h1 id=\"bar\">bar</h1>\n</blockquote>"],
+            [">     > code\n", "<blockquote>\n  <pre><code>&gt; code\n</code></pre>\n</blockquote>"],
+            [">> ```\n>> foo\n>> ```\n> bar\n", "<blockquote>\n  <blockquote>\n    <pre><code>foo\n</code></pre>\n  </blockquote>\n  <p>bar</p>\n</blockquote>"],
+        ];
+        foreach ($cases as [$source, $expected]) {
+            $written = (new MarkdownToCarve())->convert($source);
+            self::assertSame($expected, rtrim($this->html($written)), $source);
+        }
+    }
+
+    public function testQuotePaddingStaysInsideItsListItem(): void
+    {
+        $cases = [
+            ["- a\n\n  > q\n", "<ul>\n  <li><p>a</p>\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>"],
+            ["> - > foo\n>   > bar\n", "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>foo\nbar</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"],
+        ];
+        foreach ($cases as [$source, $expected]) {
+            $written = (new MarkdownToCarve())->convert($source);
+            self::assertSame($expected, rtrim($this->html($written)), $source);
+        }
+    }
+
+    public function testUnownedNestedQuoteSlackAndTabsRemainMarkers(): void
+    {
+        foreach ([">   > x\n", ">\t> x\n"] as $source) {
+            $written = (new MarkdownToCarve())->convert($source);
+            self::assertSame("<blockquote>\n  <blockquote><p>x</p></blockquote>\n</blockquote>", rtrim($this->html($written)), $source);
+        }
+    }
+
+    public function testQuoteSlackUsesTheAuthoredItemContentColumn(): void
+    {
+        $written = (new MarkdownToCarve())->convert("> -    > foo\n>    > bar\n");
+        self::assertSame("<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>foo</p></blockquote>\n    </li>\n  </ul>\n  <blockquote><p>bar</p></blockquote>\n</blockquote>", rtrim($this->html($written)));
+    }
+
+    public function testAnOuterItemKeepsAQuoteBesideItsSublist(): void
+    {
+        foreach (["> - a\n>   - b\n>   > x\n", "> - a\n>   - b\n>    > x\n", "> - a\n>   - b\n>\n>   > x\n"] as $source) {
+            $written = (new MarkdownToCarve())->convert($source);
+            $html = $this->html($written);
+            self::assertStringContainsString('    <blockquote><p>x</p></blockquote>', $html, $source);
+            self::assertSame(2, substr_count($html, '<blockquote>'), $source);
+        }
+    }
+
     public function testLazyQuotedLinesDoNotStartASetextHeading(): void
     {
         $source = "> foo\nbar\n===\n";

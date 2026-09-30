@@ -1011,7 +1011,7 @@ class MarkdownToCarve
                 // The markers and the indentation behind them count real
                 // columns, so a tab among them puts no item's content column
                 // off (CommonMark 2.2).
-                $body = $this->normalizeBlockquoteMarkers($this->expandLeadingTabs($body));
+                $body = $this->normalizeBlockquoteMarkers($this->expandLeadingTabs($body), $quoteMarkers);
                 $quoteFence = $this->collectQuotedFence($lines, $i, $body);
                 if ($quoteFence !== null) {
                     $fencePrefix = $this->quotePrefixOf($body);
@@ -1962,6 +1962,16 @@ class MarkdownToCarve
     ): string {
         if (!$inRun) {
             $prev = null;
+        }
+        if (
+            $prev !== null && strlen($prev['prefix']) > strlen($prefix)
+            && str_starts_with($prev['prefix'], $prefix)
+            && $this->indentWidth($prev['text']) < 4
+            && $this->isParagraphLine([$prev['text']], 0)
+            && trim($text) !== ''
+            && ($this->indentWidth($text) >= 4 || $this->isParagraphLine([ltrim($text, " \t")], 0))
+        ) {
+            $prefix = $prev['prefix'];
         }
         $blank = trim($text) === '';
         if (
@@ -3456,12 +3466,21 @@ class MarkdownToCarve
         return $held[1] . $this->normalizeBlockquoteMarkers($held[2]);
     }
 
-    protected function normalizeBlockquoteMarkers(string $line): string
+    /**
+     * @param string $line
+     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers>|null $markers
+     */
+    protected function normalizeBlockquoteMarkers(string $line, ?array $markers = null): string
     {
         $rest = $line;
         $prefix = '';
-        while (str_starts_with($rest, '>')) {
-            $rest = substr($rest, 1);
+        while (true) {
+            $content = ($markers[$prefix] ?? null)?->contentAt($this->indentWidth($rest)) ?? 0;
+            $slack = $markers === null ? 1 : ($content === 0 ? 3 : min(3, max(0, $content - 1)));
+            if (preg_match($prefix === '' ? '/^>/' : '/^ {0,' . $slack . '}>/', $rest, $marker) !== 1) {
+                break;
+            }
+            $rest = substr($rest, strlen($marker[0]));
             if (str_starts_with($rest, ' ') || str_starts_with($rest, "\t")) {
                 $rest = substr($rest, 1);
             }
