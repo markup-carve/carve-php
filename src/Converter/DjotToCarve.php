@@ -153,7 +153,15 @@ class DjotToCarve
         $source = str_replace(["\r\n", "\r"], "\n", $djot);
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
         $source = $this->foldHeadingContinuations($source);
-        $source = preg_replace('/(!?\[([^\]\n]*)\])\[\]/', '$1[$2]', $source) ?? $source;
+        $collapsedMask = $this->maskCodeAndDestinations($source);
+        preg_match_all('/\[([^\]\n]*)\]:[ \t]/', $source, $definitionMatches, PREG_OFFSET_CAPTURE);
+        $definitions = [];
+        foreach ($definitionMatches[0] as $index => [$value, $at]) {
+            if ($collapsedMask[$at] === '[') {
+                $definitions[$definitionMatches[1][$index][0]] = true;
+            }
+        }
+        $source = preg_replace_callback('/(!?\[([^\]\n]*)\])\[\]/', static fn (array $match): string => $collapsedMask[$match[0][1]] !== ' ' && isset($definitions[$match[2][0]]) ? $match[1][0] . '[' . $match[2][0] . ']' : $match[0][0], $source, -1, $collapsedCount, PREG_OFFSET_CAPTURE) ?? $source;
         $source = $this->convertDjotBlockMarkers($source);
         $emptyTerm = "\x00DJOTEMPTYTERM\x00";
         while (str_contains($source, $emptyTerm)) {
@@ -195,6 +203,23 @@ class DjotToCarve
         $carve = $this->applyHeadingIdPreservation($carve, $djotBody);
 
         return $frontmatter === '' ? $carve : $frontmatter . $separator . $carve;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function previousSourceLines(string $source): array
+    {
+        $lines = [];
+        $offset = 0;
+        $previous = '';
+        foreach (explode("\n", $source) as $line) {
+            $lines[$offset] = $previous;
+            $offset += strlen($line) + 1;
+            $previous = $line;
+        }
+
+        return $lines;
     }
 
     private function isDjotEscaped(string $source, int $at): bool
@@ -275,17 +300,17 @@ class DjotToCarve
     private function djotEmphasisMask(string $source, bool $attributes = true): string
     {
         $masked = $this->maskCodeAndDestinations($source);
+        $previousLines = $this->previousSourceLines($source);
         $masked = preg_replace_callback('/<[^<>\s]+>/', static fn (array $match): string => preg_match('/[^:]@|[A-Za-z]:/', $match[0]) === 1 ? str_repeat(' ', strlen($match[0])) : $match[0], $masked) ?? $masked;
         $masked = preg_replace_callback('/\[\^[^\]\n]*\]|(?<=\])\[[^\]\n]*\]/m', static fn (array $match): string => str_repeat(' ', strlen($match[0])), $masked) ?? $masked;
-        $masked = preg_replace_callback('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9]+[.)])[ \t]+)?\[(?!\^)[^\]\n]*\]:[^\n]*/m', function (array $match) use ($source): string {
+        $masked = preg_replace_callback('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9]+[.)])[ \t]+)?\[(?!\^)[^\]\n]*\]:[^\n]*/m', function (array $match) use ($previousLines): string {
             [$value, $at] = $match[0];
-            $preceding = explode("\n", substr($source, 0, $at));
-            $previous = $preceding[count($preceding) - 2] ?? '';
+            $previous = $previousLines[$at] ?? '';
             $previous = trim(preg_replace('/^[ \t]*(?:>[ \t]*)*/', '', $previous) ?? '');
 
             return $previous === '' || preg_match('/^(?:#{1,6} |`{3,}|~{3,}|:{3,}|\{[.#A-Za-z]|\[(?!\^)[^\]]*\]:)/', $previous) === 1 ? $this->blanks($value) : $value;
         }, $masked, -1, $referenceCount, PREG_OFFSET_CAPTURE) ?? $masked;
-        $masked = preg_replace_callback('/!\[[^\]\n]*\]/', fn (array $match): string => $this->isDjotEscaped($source, $match[0][1]) || $this->isDjotEscaped($source, $match[0][1] + strlen($match[0][0]) - 1) ? $match[0][0] : $this->blanks($match[0][0]), $masked, -1, $imageCount, PREG_OFFSET_CAPTURE) ?? $masked;
+        $masked = preg_replace_callback('/!\[[^\]\n]*\](?=[([])/', fn (array $match): string => $this->isDjotEscaped($source, $match[0][1]) || $this->isDjotEscaped($source, $match[0][1] + strlen($match[0][0]) - 1) ? $match[0][0] : $this->blanks($match[0][0]), $masked, -1, $imageCount, PREG_OFFSET_CAPTURE) ?? $masked;
         for ($i = 0, $length = strlen($source); $attributes && $i < $length; $i++) {
             if ($masked[$i] !== '{' || preg_match('/[.#A-Za-z]/', $source[$i + 1] ?? '') !== 1) {
                 continue;
@@ -786,7 +811,7 @@ class DjotToCarve
                 if ($at > 0 && $at !== $cursor && (str_contains(']*_}^~', $line[$at - 1]) || ($masked[$index][$at - 1] === ' ' && $line[$at - 1] !== ' '))) {
                     continue;
                 }
-                if (preg_match('/^(?:(?:[ \t]*>)+[ \t]*)?[ \t]*(?:[-*+]|[0-9]+[.)]|#{1,6}|:{1,2})[ \t]+(?:\[[ xX-]\][ \t]+)?$/', preg_replace($pattern, '', substr($line, 0, $at)) ?? '') === 1 && trim(preg_replace($pattern, '', substr($line, $at)) ?? '') === '') {
+                if (preg_match('/^(?:(?:[ \t]*>)+[ \t]*)?[ \t]*(?:[-*+]|[0-9]+[.)]|#{1,6}|:{1,2}|\[\^[^\]]+\]:)[ \t]+(?:\[[ xX-]\][ \t]+)?$/', preg_replace($pattern, '', substr($line, 0, $at)) ?? '') === 1 && trim(preg_replace($pattern, '', substr($line, $at)) ?? '') === '') {
                     continue;
                 }
                 $alone = $at === $first && $at + strlen($attrs) === $last;
@@ -1148,6 +1173,9 @@ class DjotToCarve
 
         // Stage 2: inline code spans. A run of N backticks closes at the next run of exactly N.
         $length = strlen($masked);
+        preg_match_all('/\n[ \t]*\n/', $masked, $paragraphBreaks, PREG_OFFSET_CAPTURE);
+        $paragraphEnds = array_column($paragraphBreaks[0], 1);
+        $paragraphIndex = 0;
         $i = 0;
         while ($i < $length) {
             if ($masked[$i] !== '`') {
@@ -1156,9 +1184,13 @@ class DjotToCarve
                 continue;
             }
             $run = $this->backtickRun($masked, $i);
+            while (isset($paragraphEnds[$paragraphIndex]) && $paragraphEnds[$paragraphIndex] <= $i) {
+                $paragraphIndex++;
+            }
+            $paragraphEnd = $paragraphEnds[$paragraphIndex] ?? $length;
             $j = $i + $run;
             $closed = -1;
-            while ($j < $length) {
+            while ($j < $paragraphEnd) {
                 if ($masked[$j] === '`' && $this->backtickRun($masked, $j) === $run) {
                     $closed = $j;
 
@@ -1167,7 +1199,12 @@ class DjotToCarve
                 $j++;
             }
             if ($closed === -1) {
-                $i += $run;
+                for ($k = $i; $k < $paragraphEnd; $k++) {
+                    if ($masked[$k] !== "\n") {
+                        $masked[$k] = ' ';
+                    }
+                }
+                $i = $paragraphEnd;
 
                 continue;
             }
@@ -1185,6 +1222,14 @@ class DjotToCarve
             fn (array $group): string => $this->blanks($group[0]),
             $masked,
         );
+
+        $previousLines = $this->previousSourceLines($source);
+        $masked = preg_replace_callback('/^(?:[ \t]*>)*[ \t]*(?:(?:[-*+]|[0-9]+[.)])[ \t]+)?:{3,}[ \t]+([A-Za-z_][A-Za-z0-9_.-]*)/m', function (array $match) use ($previousLines): string {
+            [$value, $at] = $match[0];
+            $name = $match[1][0];
+
+            return trim($previousLines[$at] ?? '') === '' || preg_match('/(?:[-*+]|[0-9]+[.)])[ \t]+:{3,}/', $value) === 1 ? substr($value, 0, -strlen($name)) . $this->blanks($name) : $value;
+        }, $masked ?? $source, -1, $classCount, PREG_OFFSET_CAPTURE);
 
         return $masked ?? $source;
     }

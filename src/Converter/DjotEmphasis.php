@@ -15,6 +15,34 @@ final class DjotEmphasis
      */
     public static function convert(string $source, string $mask, callable $convert): string
     {
+        $validBraces = [];
+        $pendingBraces = [];
+        $braceLineStart = 0;
+        for ($i = 0, $length = strlen($source); $i < $length; $i++) {
+            if ($source[$i] === "\n") {
+                $line = preg_replace('/^(?:[ \t]*>)*[ \t]*/', '', substr($source, $braceLineStart, $i - $braceLineStart)) ?? '';
+                if (trim($line) === '') {
+                    $pendingBraces = [];
+                }
+                $braceLineStart = $i + 1;
+            }
+            if ($mask[$i] !== $source[$i]) {
+                continue;
+            }
+            if ($source[$i] === '\\') {
+                $i++;
+
+                continue;
+            }
+            if ($source[$i] === '{' && str_contains('+-=^~', $source[$i + 1] ?? "\x00")) {
+                $pendingBraces[$source[$i + 1]][] = $i;
+            } elseif ($source[$i] === '}' && isset($pendingBraces[$source[$i - 1]]) && $pendingBraces[$source[$i - 1]] !== []) {
+                $start = array_pop($pendingBraces[$source[$i - 1]]);
+                if ($i > $start + 2) {
+                    $validBraces[$start] = true;
+                }
+            }
+        }
         /** @var array<string, list<array{start: int, end: int, forced: bool}>> $openers */
         $openers = ['_' => [], '*' => [], '{_' => [], '{*' => []];
         /** @var list<\MarkupCarve\Carve\Converter\DjotEmphasisSpan> $pairs */
@@ -78,7 +106,7 @@ final class DjotEmphasis
             if ($mask[$i] !== $ch) {
                 continue;
             }
-            if ($ch === '{' && str_contains('+-=^~', $source[$i + 1] ?? "\x00")) {
+            if ($ch === '{' && isset($validBraces[$i])) {
                 $braces[] = $i;
 
                 continue;
