@@ -37,6 +37,29 @@ class AReferenceTailKeepsTheImportedMarkTest extends TestCase
                 }
             }
         }
+        foreach (
+            [
+                '<p>[[<em>[a][a]</em>x<sub>]</sub></p>',
+                '<p><sup>[</sup>_[a][a]_</p>',
+                '<p><sup>[</sup>*[a][a]*</p>',
+                '<p><sup>[</sup>~[a][a]~</p>',
+                '<p><sup>[</sup>=[a][a]=</p>',
+                '<p><sup>[</sup>`[a][a]`</p>',
+                '<p><sup>[</sup>![a][a]</p>',
+                '<p><sup>[</sup>[^a][a]</p>',
+                '<p><sup>[</sup>[[a][a]</p>',
+                '<p><sup>[</sup>[a][[b]</p>',
+                '<p><sup>[</sup>[a][b[c]</p>',
+                '<p><sup>[</sup>[a][[b]]</p>',
+                '<p><sup>[</sup>[a][[b][c]</p>',
+                '<p><sup>[</sup><sub>[</sub>[a][a]</p>',
+                '<p><sub>[</sub><sup>[</sup>[a][a]</p>',
+                '<p><ins>[</ins><del>[</del>[a][a]</p>',
+                '<p><sup>[</sup>\\[a][a]</p>',
+            ] as $html
+        ) {
+            $shapes[$html] = [$html];
+        }
         foreach (['<p>[<sup>a]</sup></p>', '<p>[[<sup>a]</sup>]</p>', '<p>[<sup>a]]</sup></p>', '<p>[<sup>[a]</sup>]</p>'] as $html) {
             $shapes[$html] = [$html];
         }

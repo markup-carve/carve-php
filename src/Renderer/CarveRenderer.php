@@ -78,7 +78,6 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
-use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
@@ -5450,6 +5449,34 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
+     * Find a reference-shaped run in literal text before escaping its markup.
+     */
+    private static function literalReferenceOpener(string $text): ?int
+    {
+        $open = [];
+        $reference = null;
+        $length = strlen($text);
+        for ($offset = 0; $offset < $length; $offset++) {
+            $char = $text[$offset];
+            if ($char === ']' && $reference !== null) {
+                return $reference;
+            }
+            if ($char === "\n" || $char === "\r") {
+                $reference = null;
+            } elseif ($char === '[') {
+                $open[] = $offset;
+            } elseif ($char === ']' && $open !== []) {
+                $opener = array_pop($open);
+                if (($text[$offset + 1] ?? '') === '[') {
+                    $reference = $opener;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The run as the minimal form writes it, closely enough to pair its
      * brackets and read a destination, and where its brackets and parens sit.
      *
@@ -5468,6 +5495,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function collectBracketMarks(array $nodes, string &$flat, array &$marks): bool
     {
+        if ($nodes === []) {
+            return true;
+        }
+        $literalOpeners = [];
+        $literalHosts = [];
+
+        return $this->collectBracketMarksWithScope($nodes, $flat, $marks, $literalOpeners, $literalHosts);
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     * @param string $flat
+     * @param array<int, array{int, int, int, string, int}> $marks
+     * @param list<int> $literalOpeners
+     * @param array<int, array<int, bool>> $literalHosts
+     *
+     * @return bool
+     */
+    private function collectBracketMarksWithScope(array $nodes, string &$flat, array &$marks, array &$literalOpeners, array &$literalHosts): bool
+    {
         foreach ($nodes as $node) {
             // An empty code span is written as a bare backtick run, which can
             // swallow what follows it, so the scan ends there.
@@ -5478,26 +5525,46 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $content = str_replace("\r", '', $node->getContent());
                 if (strpbrk($content, '[](') !== false) {
                     $id = spl_object_id($node);
-                    $previous = $marks === [] ? null : $marks[array_key_last($marks)];
-                    if ($previous !== null && $previous[4] !== spl_object_id($node->getParent() ?? $node)) {
-                        $paragraph = new Paragraph();
-                        (new InlineParser(new BlockParser()))->parse($paragraph, $content);
-                        foreach ($paragraph->getChildren() as $child) {
-                            if (!$child instanceof Link || $child->getRawReferenceLabel() === null) {
-                                continue;
-                            }
-                            $offset = strpos($content, $child->getRawReferenceLabel());
-                            if ($offset !== false) {
-                                // Pair after the literal reference opener's required escape.
-                                $this->structuralEscapes[$id][$offset] = true;
-                            }
-
-                            break;
-                        }
-                    }
+                    $host = spl_object_id($node->getParent() ?? $node);
+                    $reference = self::literalReferenceOpener($content);
                     preg_match_all('/[\[\](]/', $content, $found, PREG_OFFSET_CAPTURE);
                     foreach ($found[0] as [$char, $offset]) {
-                        $marks[] = [strlen($flat) + $offset, $id, $offset, $char, spl_object_id($node->getParent() ?? $node)];
+                        if ($offset === $reference) {
+                            $sameHost = $literalHosts[$host] ?? [];
+                            unset($literalHosts[$host]);
+                            $crossing = $literalHosts !== [];
+                            foreach ($literalHosts as $openers) {
+                                foreach ($openers as $index => $_) {
+                                    [, $markId, $markOffset] = $marks[$index];
+                                    $this->structuralEscapes[$markId][$markOffset] = true;
+                                }
+                            }
+                            $literalHosts = $sameHost === [] ? [] : [$host => $sameHost];
+                            unset($sameHost);
+                            if ($crossing) {
+                                $this->structuralEscapes[$id][$offset] = true;
+                            }
+                        }
+                        $index = count($marks);
+                        $marks[] = [strlen($flat) + $offset, $id, $offset, $char, $host];
+                        if ($char === '[' && !isset($this->structuralEscapes[$id][$offset])) {
+                            $literalOpeners[] = $index;
+                            $literalHosts[$host][$index] = true;
+                        } elseif ($char === ']') {
+                            while ($literalOpeners !== []) {
+                                $opener = array_pop($literalOpeners);
+                                [, $markId, $markOffset, , $markHost] = $marks[$opener];
+                                if (isset($this->structuralEscapes[$markId][$markOffset])) {
+                                    continue;
+                                }
+                                unset($literalHosts[$markHost][$opener]);
+                                if (($literalHosts[$markHost] ?? []) === []) {
+                                    unset($literalHosts[$markHost]);
+                                }
+
+                                break;
+                            }
+                        }
                     }
                 }
                 $flat .= $content;
@@ -5518,7 +5585,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             ) {
                 // Their delimiters are written, and none is a space or a paren.
                 $flat .= "\x01";
-                if (!$this->collectBracketMarks($node->getChildren(), $flat, $marks)) {
+                if (!$this->collectBracketMarksWithScope($node->getChildren(), $flat, $marks, $literalOpeners, $literalHosts)) {
                     return false;
                 }
                 $flat .= "\x01";
