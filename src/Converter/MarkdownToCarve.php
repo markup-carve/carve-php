@@ -418,7 +418,11 @@ class MarkdownToCarve
                     }
                 }
             }
-            if ($afterClosedItem && $trimmed !== '' && ($listCols === [] || $listCols[0] > $this->indentWidth($line)) && end($result) !== '') {
+            if (
+                $afterClosedItem && $trimmed !== '' && ($listCols === [] || $listCols[0] > $this->indentWidth($line)) && end($result) !== ''
+                && !(preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)/', $line) === 1
+                    && preg_match(self::THEMATIC_BREAK, $trimmed) !== 1)
+            ) {
                 $result[] = '';
             }
             $shiftCol = $inCodeBlock ? $fenceItemCol : ($listCols === [] ? 0 : (int)end($listCols));
@@ -2532,6 +2536,10 @@ class MarkdownToCarve
             }
 
             return ['lines' => $code['lines'], 'end' => $code['end'] - 1, 'table' => 0, 'closes' => true];
+        }
+
+        if (preg_match(self::THEMATIC_BREAK, $text) === 1) {
+            return ['lines' => [$lead . '---'], 'end' => $index, 'table' => 0, 'closes' => true];
         }
 
         $next = $lines[$index + 1] ?? null;

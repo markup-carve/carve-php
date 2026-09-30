@@ -54,6 +54,21 @@ final class MarkdownQuotedParagraphAndFencePayloadTest extends TestCase
         self::assertStringContainsString('<hr>', $this->html($written));
     }
 
+    public function testAThematicBreakOnTheItemLineKeepsItsOwnItem(): void
+    {
+        $written = (new MarkdownToCarve())->convert("- Foo\n- * * *\n- Bar\n");
+        self::assertSame("- Foo\n- ---\n- Bar\n", $written);
+        self::assertStringContainsString('<li>Foo</li>', $this->html($written));
+        self::assertStringContainsString('<li>Bar</li>', $this->html($written));
+        self::assertStringContainsString('<hr>', $this->html($written));
+    }
+
+    public function testATableShapedLazyLineRemainsInTheQuote(): void
+    {
+        $written = (new MarkdownToCarve())->convert("> foo\nbar | baz\n--- | ---\n");
+        self::assertSame("<blockquote><p>foo\nbar | baz\n--- | ---</p></blockquote>", rtrim($this->html($written)));
+    }
+
     private function html(string $source): string
     {
         return (new HtmlRenderer())->render(CarveConverter::create()->parse($source));
