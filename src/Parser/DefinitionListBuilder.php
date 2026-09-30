@@ -937,7 +937,9 @@ final class DefinitionListBuilder
                 );
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
-                $this->parseBlocks($dd, $body, 0, $bodyMap);
+                if (count($body) !== 1 || rtrim($body[0], " \t") !== '{empty}') {
+                    $this->parseBlocks($dd, $body, 0, $bodyMap);
+                }
                 // The description is a container too, and its boundary ends the
                 // pending run for the same reason a quote's does.
                 $this->endContainerAttributeScope();

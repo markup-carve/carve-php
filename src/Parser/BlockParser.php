@@ -1029,7 +1029,9 @@ class BlockParser
                 $this->state->session->pendingAttributeOrder = [];
                 $this->footnoteBodyDepth++;
                 try {
-                    $this->parseBlocks($this->state->session->footnotes[$label], $body['lines'], 0, $body['lineMap']);
+                    if (count($body['lines']) !== 1 || rtrim($body['lines'][0], " \t") !== '{empty}') {
+                        $this->parseBlocks($this->state->session->footnotes[$label], $body['lines'], 0, $body['lineMap']);
+                    }
                     $this->endContainerAttributeScope();
                 } finally {
                     $this->footnoteBodyDepth--;

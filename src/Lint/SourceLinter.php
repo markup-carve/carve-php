@@ -312,7 +312,7 @@ class SourceLinter
                         || $fenceParser->parseRawBlockOpener($view) !== null;
                     if (!$wellFormed) {
                         $emit($ln, $at, strlen($view), 'fence-opener-fallback', 'This fence has an invalid info string and parses as paragraph content. Use a language, optional quoted title, and optional label.');
-                    } elseif ($at > 0 && strspn($text, " \t") > 0 && !isset($listLines[$ln])) {
+                    } elseif ($at > 0 && strspn($text, " \t") > 0 && strspn(self::containerView($text), " \t") > 0 && !isset($listLines[$ln])) {
                         $emit($ln, $at, strlen($run), 'fence-delimiter-indentation', "This fence is indented past its container's content column and does not open a code block.");
                     }
                 }
