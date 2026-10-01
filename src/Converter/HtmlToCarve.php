@@ -4520,35 +4520,7 @@ class HtmlToCarve
      */
     protected function resolveMathTex(DOMElement $node): array
     {
-        foreach ($node->childNodes as $semantics) {
-            if (!$semantics instanceof DOMElement || strtolower(HtmlDomLoader::elementName($semantics)) !== 'semantics') {
-                continue;
-            }
-            foreach ($semantics->childNodes as $annotation) {
-                if (!$annotation instanceof DOMElement || strtolower(HtmlDomLoader::elementName($annotation)) !== 'annotation') {
-                    continue;
-                }
-                $encoding = strtolower(trim($annotation->getAttribute('encoding')));
-                if (!in_array($encoding, self::MATH_TEX_ENCODINGS, true)) {
-                    continue;
-                }
-                $content = trim($annotation->textContent);
-                if ($content !== '') {
-                    return ['tier' => 1, 'content' => $content];
-                }
-            }
-        }
-
-        $alttext = trim($node->getAttribute('alttext'));
-        if ($alttext !== '') {
-            return ['tier' => 2, 'content' => $alttext];
-        }
-        $alt = HtmlAstBuilder::hiddenFormulaImageAlt($node);
-        if ($alt !== '') {
-            return ['tier' => 3, 'content' => $alt];
-        }
-
-        return ['tier' => 4, 'content' => ''];
+        return HtmlMathTex::resolve($node, self::MATH_TEX_ENCODINGS);
     }
 
     /**
