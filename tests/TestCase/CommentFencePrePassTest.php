@@ -185,18 +185,14 @@ final class CommentFencePrePassTest extends TestCase
 
     public function testAPercentRunInsideAnIndentedLineBlockIsVerseNotACommentOpener(): void
     {
-        // A line block's body is verse, so the `%%%` here is TEXT. Widening the
-        // comment opener without asking that question first opened a comment on
-        // it, and the pair of `%%%` runs then spanned the real `:::` closer and
-        // the definition under it - so the definition registered nowhere while
-        // the block parser still consumed it (carve#664's "rendered nowhere AND
-        // defined nothing"). Both prepasses had it; the footnote one also had to
-        // learn that an INDENTED `::: |` opens a line block at all.
+        // A closed comment span keeps its colon line inside verse.
         $reference = $this->html("- item\n  ::: |\n  %%%\n  text\n  :::\n  [r]: /url\n  %%%\n\n[r][]\n");
         $footnote = $this->html("- item\n  ::: |\n  %%%\n  text\n  :::\n  [^f]: note\n  %%%\n\ntext[^f]\n");
 
-        $this->assertStringContainsString('href="/url"', $reference, 'the definition after the line block still registers');
-        $this->assertMatchesRegularExpression('/fnref|doc-noteref/', $footnote, 'and so does the footnote form');
+        $this->assertStringNotContainsString('href="/url"', $reference);
+        $this->assertStringContainsString('[r]: /url', $reference);
+        $this->assertDoesNotMatchRegularExpression('/fnref|doc-noteref/', $footnote);
+        $this->assertStringContainsString('[^f]: note', $footnote);
     }
 
     /**

@@ -1057,6 +1057,9 @@ final class HtmlAstBuilder
         $headings = [];
         $written = [];
         $this->collectHeadingIds($tree, $headings, $written);
+        if ($headings === []) {
+            return;
+        }
         $slugs = $this->renderedHeadingSlugs($tree);
         $kept = [];
         foreach ($headings as $index => $heading) {
@@ -2214,20 +2217,30 @@ final class HtmlAstBuilder
                         $rowHeadColumns = $rowHeadColumns === null ? $lead : min($rowHeadColumns, $lead);
                     }
                 }
-                $groups['bodies'][] = [
+                $group = [
                     'headRows' => $bodyHead,
                     'bodyRows' => $count - $bodyHead,
-                    ...($rowHeadColumns > 0 ? ['rowHeadColumns' => $rowHeadColumns] : []),
-                    ...($own !== [] ? ['attrs' => $own] : []),
                 ];
-            } else {
-                $prefix = $tag === 'thead' ? 'head' : 'foot';
-                $groups[$prefix . 'Rows'] += $count;
+                if ($rowHeadColumns > 0) {
+                    $group['rowHeadColumns'] = $rowHeadColumns;
+                }
                 if ($own !== []) {
-                    if (isset($groups[$prefix . 'Attrs'])) {
-                        $valid = false;
+                    $group['attrs'] = $own;
+                }
+                $groups['bodies'][] = $group;
+            } else {
+                if ($tag === 'thead') {
+                    $groups['headRows'] += $count;
+                    if ($own !== []) {
+                        $valid = $valid && !isset($groups['headAttrs']);
+                        $groups['headAttrs'] = $own;
                     }
-                    $groups[$prefix . 'Attrs'] = $own;
+                } else {
+                    $groups['footRows'] += $count;
+                    if ($own !== []) {
+                        $valid = $valid && !isset($groups['footAttrs']);
+                        $groups['footAttrs'] = $own;
+                    }
                 }
             }
         }

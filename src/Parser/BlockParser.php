@@ -3227,8 +3227,8 @@ class BlockParser
 
     /**
      * Collect a colon-fence body. Reparsed container bodies track nested colon
-     * fences as a stack and skip opaque verbatim/comment spans; line blocks use
-     * their own literal collector instead.
+     * fences as a stack. All bodies skip closed verbatim/comment spans before
+     * considering a colon closer.
      *
      * @param array<string> $lines
      * @param int $start
@@ -3247,13 +3247,11 @@ class BlockParser
         $closed = false;
 
         while ($i < $count) {
-            if ($nestingAware) {
-                $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap);
-                if ($skippedTo !== null) {
-                    $i = $skippedTo;
+            $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap);
+            if ($skippedTo !== null) {
+                $i = $skippedTo;
 
-                    continue;
-                }
+                continue;
             }
 
             $currentLine = $lines[$i];
@@ -3377,6 +3375,13 @@ class BlockParser
      */
     protected function hasCodeFenceCloserAhead(array $lines, int $openIndex, string $fenceChar, int $fenceLength): bool
     {
+        if (
+            $this->fencedBlockParser::class === FencedBlockParser::class
+            && !$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $fenceChar, $fenceLength, $openIndex)
+        ) {
+            return false;
+        }
+
         $count = count($lines);
         for ($j = $openIndex + 1; $j < $count; $j++) {
             if ($this->fencedBlockParser->isCodeFenceCloser($lines[$j], $fenceChar, $fenceLength)) {
@@ -3702,7 +3707,7 @@ class BlockParser
     }
 
     /**
-     * Does the marker lead's BOTTOM BLOCK open a code or raw fence?
+     * Does the marker lead's bottom block open a code, raw, or verse fence?
      *
      * Asked of the same text {@see self::leadBottomIsContinuationMarker()} asks
      * of - the lead with every nested marker peeled off - because that is the
@@ -3725,7 +3730,8 @@ class BlockParser
         }
 
         return $this->fencedBlockParser->parseCodeFenceOpener($rest) !== null
-            || $this->fencedBlockParser->parseRawBlockOpener($rest) !== null;
+            || $this->fencedBlockParser->parseRawBlockOpener($rest) !== null
+            || $this->parseLineBlockOpener($rest) !== null;
     }
 
     /**
@@ -8154,6 +8160,7 @@ class BlockParser
             getInlineParser: fn (): InlineParser => $this->inlineParser,
             applyPendingAttributesCallback: $this->applyPendingAttributes(...),
             positionSourceCallback: $this->positionSource(...),
+            collectColonFenceBodyCallback: $this->collectColonFenceBody(...),
             appendLineBlockStanzaCallback: static::class !== self::class ? $this->appendLineBlockStanza(...) : null,
             convertParagraphSoftBreaksToHardBreaksCallback: static::class !== self::class ? $this->convertParagraphSoftBreaksToHardBreaks(...) : null,
             expandLineBlockLineCallback: static::class !== self::class ? $this->expandLineBlockLine(...) : null,

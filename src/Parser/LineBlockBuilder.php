@@ -31,6 +31,7 @@ final class LineBlockBuilder
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\InlineParser $getInlineParser
      * @param \Closure(\MarkupCarve\Carve\Node\Node): (void) $applyPendingAttributesCallback
+     * @param \Closure(array<string>, int, int, bool): array{lines: list<string>, lineMap: list<int>, consumed: int, closed: bool} $collectColonFenceBodyCallback
      * @param \Closure(): (string) $positionSourceCallback
      * @param (\Closure(\MarkupCarve\Carve\Node\Block\LineBlock, list<array{0: string, 1: int}>): (void))|null $appendLineBlockStanzaCallback
      * @param (\Closure(\MarkupCarve\Carve\Node\Block\Paragraph, list<array{0: int, 1: int}>): (void))|null $convertParagraphSoftBreaksToHardBreaksCallback
@@ -44,6 +45,7 @@ final class LineBlockBuilder
         private Closure $getInlineParser,
         private Closure $applyPendingAttributesCallback,
         private Closure $positionSourceCallback,
+        private Closure $collectColonFenceBodyCallback,
         private ?Closure $appendLineBlockStanzaCallback = null,
         private ?Closure $convertParagraphSoftBreaksToHardBreaksCallback = null,
         private ?Closure $expandLineBlockLineCallback = null,
@@ -144,29 +146,8 @@ final class LineBlockBuilder
             return null;
         }
 
-        $i = $start;
-        $count = count($lines);
-        $contentLines = [];
-        $closed = false;
-
-        $i++;
-        while ($i < $count) {
-            $currentLine = $lines[$i];
-
-            if (($this->getFencedBlockParser)()->isDivFenceCloser($currentLine, $divInfo['length'])) {
-                $i++;
-                $closed = true;
-
-                break;
-            }
-
-            $contentLines[] = $currentLine;
-            $i++;
-        }
-
-        if (!$closed) {
-            $i = $count;
-        }
+        $body = ($this->collectColonFenceBodyCallback)($lines, $start, $divInfo['length'], false);
+        $contentLines = $body['lines'];
 
         $lineBlock = new LineBlock();
         $this->applyPendingAttributes($lineBlock);
@@ -177,6 +158,9 @@ final class LineBlockBuilder
         $stanza = [];
         $lineNumber = $start + 1;
         foreach ($contentLines as $contentLine) {
+            if (str_starts_with($contentLine, BlockGrammar::LAZY_FRAME)) {
+                $contentLine = substr($contentLine, strlen(BlockGrammar::LAZY_FRAME));
+            }
             if (IndentationHelper::isBlankLine($contentLine)) {
                 $this->callAppendLineBlockStanza($lineBlock, $stanza);
                 $stanza = [];
@@ -190,7 +174,7 @@ final class LineBlockBuilder
 
         $parent->appendChild($lineBlock);
 
-        return $i - $start;
+        return $body['consumed'];
     }
 
     /**
@@ -701,14 +685,12 @@ final class LineBlockBuilder
                     $runStartInSource = $offset;
                     $runStartInExpanded = strlen($expanded);
                 }
-                $expanded .= $char;
+                $runLength = strcspn($line, " \t", $offset);
+                $text = substr($line, $offset, $runLength);
+                $expanded .= $text;
                 $seenContent = true;
-                // A COLUMN COUNTS CODEPOINTS, not bytes (PART 12 §4, PART 9 §24
-                // C1), so a UTF-8 continuation byte advances none of it.
-                if ((ord($char) & 0xC0) !== 0x80) {
-                    $column++;
-                }
-                $offset++;
+                $column += $runLength - preg_match_all('/[\x80-\xBF]/', $text);
+                $offset += $runLength;
 
                 continue;
             }
