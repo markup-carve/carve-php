@@ -36,7 +36,7 @@ Two warmups and seven timed samples per case. The table shows median millisecond
 | paragraphs | 1024 | 5.411 | 5.574 | 1.030 | yes |
 | html_table | 1024 | 2386.480 | 2416.204 | 1.012 | yes |
 
-Wall-clock results are local medians from a shared host. They are not CI thresholds or release performance guarantees. Compare before and after within this engine. Output hashes distinguish equivalent-output workloads from corrected behavior. Conversion runs in process. The 512-row table median increased 7.2%, while the 1,024-row median increased 1.2%; stricter validation has a cost. These runs do not establish a uniform speedup.
+Wall-clock results are local medians from a shared host. They are not CI thresholds or release performance guarantees. Compare before and after within this engine. Output hashes distinguish equivalent-output workloads from corrected behavior. Conversion runs in process. These earlier figures used the default CLI configuration with coverage enabled; [the release-tag comparison](release-tag-benchmarks-2026-10-01.md) disables coverage. The 512-row table median increased 7.2%, while the 1,024-row median increased 1.2%; stricter validation has a cost. These runs do not establish a uniform speedup.
 
 ## Reproduce
 

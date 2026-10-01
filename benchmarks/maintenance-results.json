@@ -3,7 +3,8 @@
   "environment": {
     "date": "2026-10-01",
     "architecture": "x86_64",
-    "php": "8.5.11"
+    "php": "8.5.11",
+    "pcov.enabled": 1
   },
   "before": [
     {
