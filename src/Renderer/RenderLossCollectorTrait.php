@@ -9,6 +9,30 @@ use MarkupCarve\Carve\Node\Node;
 
 trait RenderLossCollectorTrait
 {
+    /**
+     * The sink a blanked destination came from.
+     *
+     * `target` already names the renderer and `nodeType` is `inline` for both,
+     * so the message is the only place the sink kind survives
+     * (markup-carve/carve#2686).
+     *
+     * @var string
+     */
+    protected const DESTINATION_SINK_LINK = 'link';
+
+    /**
+     * @var string
+     */
+    protected const DESTINATION_SINK_IMAGE = 'image';
+
+    /**
+     * @var array<string, string>
+     */
+    private const DESTINATION_DENIED_MESSAGES = [
+        self::DESTINATION_SINK_LINK => 'Blanked a denied destination scheme',
+        self::DESTINATION_SINK_IMAGE => 'Blanked a denied image source',
+    ];
+
     private ?string $renderLossTarget = null;
 
     private int $renderLossMaximum = 100;
@@ -91,13 +115,17 @@ trait RenderLossCollectorTrait
      * in both safe modes, because the flag gates neither the hardening nor the
      * reporting.
      */
-    protected function blankDeniedDestination(string $url, ?Node $node = null, ?int $at = null): string
-    {
+    protected function blankDeniedDestination(
+        string $url,
+        string $sink = self::DESTINATION_SINK_LINK,
+        ?Node $node = null,
+        ?int $at = null,
+    ): string {
         $blanked = HtmlRenderer::blankDangerousScheme($url);
         if ($blanked === $url) {
             return $url;
         }
-        $this->recordDestinationDenied($node, $at);
+        $this->recordDestinationDenied($sink, $node, $at);
 
         return $blanked;
     }
@@ -116,10 +144,11 @@ trait RenderLossCollectorTrait
     }
 
     /**
+     * @param string $sink One of the `DESTINATION_SINK_*` constants
      * @param \MarkupCarve\Carve\Node\Node|null $node
      * @param int|null $at Document position in the bounded array; null appends
      */
-    protected function recordDestinationDenied(?Node $node, ?int $at = null): void
+    protected function recordDestinationDenied(string $sink, ?Node $node, ?int $at = null): void
     {
         if ($this->renderLossTarget === null) {
             return;
@@ -134,7 +163,7 @@ trait RenderLossCollectorTrait
             'code' => 'destination-denied',
             'target' => $this->renderLossTarget,
             'nodeType' => 'inline',
-            'message' => 'Blanked a destination with a denied URL scheme while rendering ' . $this->renderLossTarget,
+            'message' => self::DESTINATION_DENIED_MESSAGES[$sink],
         ];
         if ($node !== null && $node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();

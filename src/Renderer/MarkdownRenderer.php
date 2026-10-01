@@ -3466,7 +3466,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         $alt = $this->escapeImageAlt($this->stripControls($node->getAlt()));
-        $src = $this->encodeMarkdownDestination((string)$node->getSource(), $node);
+        $src = $this->encodeMarkdownDestination((string)$node->getSource(), $node, self::DESTINATION_SINK_IMAGE);
         $title = $node->getTitle();
 
         if ($title !== null) {
@@ -3491,7 +3491,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderImageTag(Image $node, string $attrs): string
     {
         $serializer = $this->attributeSerializer();
-        $src = $this->stripControls($this->sanitizeUrl((string)$node->getSource(), $node));
+        $src = $this->stripControls(
+            $this->sanitizeUrl((string)$node->getSource(), self::DESTINATION_SINK_IMAGE, $node),
+        );
         $html = '<img src="' . $serializer->escapeAttribute($src) . '"'
             . ' alt="' . $serializer->escapeAttribute($this->stripControls($node->getAlt())) . '"';
 
@@ -3908,9 +3910,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * this is the same sink one step removed (PART 9 section 25,
      * markup-carve/carve#385).
      */
-    protected function sanitizeUrl(string $url, ?Node $node = null): string
-    {
-        return $this->blankDeniedDestination($url, $node);
+    protected function sanitizeUrl(
+        string $url,
+        string $sink = self::DESTINATION_SINK_LINK,
+        ?Node $node = null,
+    ): string {
+        return $this->blankDeniedDestination($url, $sink, $node);
     }
 
     /**
@@ -3957,9 +3962,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * `java<DEL>script:` through and this engine did not); the character
      * references were not (carve-php#1062).
      */
-    protected function encodeMarkdownDestination(string $url, ?Node $node = null): string
-    {
-        $url = $this->sanitizeUrl($this->stripControls($url), $node);
+    protected function encodeMarkdownDestination(
+        string $url,
+        ?Node $node = null,
+        string $sink = self::DESTINATION_SINK_LINK,
+    ): string {
+        $url = $this->sanitizeUrl($this->stripControls($url), $sink, $node);
         $url = strtr($url, [
             ' ' => '%20',
             '(' => '%28',
