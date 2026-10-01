@@ -47,6 +47,13 @@ class FenceProbeCompatibilityTest extends TestCase
         self::assertSame($expected, (new FencedBlockParser())->isCodeFenceCloser($line, $char, $length));
     }
 
+    #[DataProvider('codeClosers')]
+    public function testCodeFenceLookaheadCompatibility(string $line, string $char, int $length, bool $expected): void
+    {
+        $method = new ReflectionMethod(BlockParser::class, 'hasCodeFenceCloserAhead');
+        self::assertSame($expected, $method->invoke(new BlockParser(), ['opener', $line], 0, $char, $length));
+    }
+
     public function testFenceIndexKeepsWidthsAndLastCloserPositions(): void
     {
         $scanner = (new ReflectionMethod(BlockParser::class, 'continuationsMapper'))->invoke(new BlockParser());

@@ -3375,7 +3375,11 @@ class BlockParser
      */
     protected function hasCodeFenceCloserAhead(array $lines, int $openIndex, string $fenceChar, int $fenceLength): bool
     {
-        if ($this->fencedBlockParser::class === FencedBlockParser::class) {
+        if (
+            $this->fencedBlockParser::class === FencedBlockParser::class
+            && ($fenceChar === '`' || $fenceChar === '~')
+            && $fenceLength >= 3
+        ) {
             return $this->codeCloserPossible($this->fenceCloserIndex($lines, true)['code'], $fenceChar, $fenceLength, $openIndex);
         }
 
