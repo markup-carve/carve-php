@@ -9,25 +9,35 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-### Fixed
+## [0.1.11] - 2026-10-01
 
-- Canonical output preserves leading non-whitespace C0 controls in link and image
-  destinations. Presentation sinks still apply URL filtering
-  (markup-carve/carve#2685).
+### Breaking
 
-- Canonical Carve output preserves parentheses and backslashes in denied URL
-  schemes. Presentation targets retain destination filtering and loss reports
-  (markup-carve/carve#2685).
+- Every destination the sink denylist blanks owes a render-loss row under a new `code` value, `destination-denied`, so the `CARVE-P2-024` enum names three codes rather than two. The row carries the target, `nodeType: inline` and the spec's own message, which says whether a link destination or an image source was blanked. The emitted `href=""` and `src=""` do not move (#2802, #2806, #2804, markup-carve/carve#2681, markup-carve/carve#2686).
+
+### Fixes
+
+- A backslash inside a quoted attribute value or a quoted title is written only where the reader needs one, so `t\zu` comes back as `t\zu` rather than `t\\zu`, and one rule now serves every renderer, extension and importer (#2774).
+- Canonical Carve output preserves parentheses and backslashes under every URL scheme, and leading non-whitespace C0 controls in link and image destinations. Presentation targets keep their destination filtering and loss reports (#2808, #2809, markup-carve/carve#2685).
+- An empty footnote or definition body written `{empty}` no longer reports an unattached attribute, a fence's indentation check ignores container padding, and a caret stays literal when its braced closer lies past the bracket run (#2791, markup-carve/carve#2663).
+- Blanked-destination loss rows are ordered by document position, so a report bounded to one row keeps the link's rather than one from inside its label (#2803).
+- A list table's unconsumed label renders before the HTML table, captioned or not; nested code-group and tabs interiors stay at column zero while their wrapper tags follow the surrounding indentation; and an imported superscript or subscript bracket survives a round trip (#2778, #2771, #2772, #2773).
+- `list-item-block-overindented` is reported once at each block's opener instead of once per line, and a continuing table or quote shares one finding with the block it continues (#2779).
+- The Markdown importer keeps an autolink whose destination holds unbalanced brackets, reads escaped and multiline reference labels and titles, and leaves a malformed definition as paragraph text (#2770, #2775, markup-carve/carve#2593).
+- The Markdown importer preserves nested quote depth across a lazy line with fewer markers, and a padded or tabbed quote marker a list item holds stays inside that item (#2784).
+- The Markdown importer keeps a lazy line in an open quoted paragraph below a setext-shaped line, keeps every blank payload line of a fence opened on a marker line, and reads a thematic break on an item line as that item's own block (#2780).
+- The Markdown importer preserves the columns after an empty list marker, so immediate code, fences, headings and nested lists stay in the item while outdented text starts its own paragraph (#2786).
+- Emphasis inside a link label survives when the surrounding text uses the same kind, on Markdown and on HTML import alike (#2781, #2785).
+- The Djot importer pairs emphasis by Djot delimiter ownership and converts orphan attributes, empty definition fences, image alt text and reference links in their source context, while code, destinations and fenced metadata stay opaque (#2792).
+- The Djot importer keeps a code fence opaque when prose precedes an indented fence, reads numeric, single-letter and Roman list markers, and tracks each enclosing quote separately so a quote inside an item keeps that item's ownership (#2794).
 
 ### Improvements
 
-- Use shared `RenderTarget` constants for built-in renderer identifiers.
-
-- Add renderer capability interfaces so custom renderers can use converter configuration and loss reports without extending a built-in renderer.
-
-- Index balanced bracket pairs and failed openers to avoid repeated scans of malformed inline input (#2776).
-- Skip unnecessary marker checks and paragraph inline parsing during heading indexing (#2776).
-- Pad nested HTML in bulk while preserving preformatted text and multiline attributes (#2776).
+- Custom renderers can declare their report target and read converter configuration through renderer capability interfaces, without inheriting a built-in renderer (#2788).
+- Built-in renderer target names are available as `RenderTarget` constants. The values `html`, `markdown`, `plain`, `ansi` and `carve` are unchanged, and a custom renderer may still return its own (#2789).
+- Malformed inline input is indexed once instead of rescanned per failed bracket opener, heading indexing skips paragraph inline parsing, and clean nested HTML is padded in bulk (#2776).
+- Parsing repeats less work: built-in block continuation skips a callback hop, source mapping is skipped where nothing reads it, a fence probe runs only for the delimiter family the line starts with, and list-marker results are reused (#2795, #2796, #2797, #2799).
+- MathML-to-TeX selection is shared between the two HTML import paths (#2807).
 
 ## [0.1.10] - 2026-09-29
 
@@ -183,5 +193,6 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - **The ProseMirror bridge drops a mention or tag that carries no name and reports it** (#2176), so a node with neither an `id` nor a `label` is left out and named in `droppedAttributes()` under its node kind, no field having held a name. It used to reach the writer, which refused the whole document. `CarveRenderer` still throws for a tree an API caller builds that way.
 - **A caption's `#` placeholder is literal inside inline markup** (#2181, markup-carve/carve#2112). `^ a *# x* b` keeps its `#`, a later top-level `#` still numbers, and the Carve writer stops escaping the bare one, which is what the other engines write.
 
+[0.1.11]: https://github.com/markup-carve/carve-php/compare/0.1.10...0.1.11
 [0.1.10]: https://github.com/markup-carve/carve-php/compare/0.1.9...0.1.10
 [0.1.9]: https://github.com/markup-carve/carve-php/compare/0.1.8...0.1.9
