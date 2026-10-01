@@ -5438,11 +5438,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function escapeDestination(string $text): string
     {
         $text = (string)preg_replace('/^[\x00-\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]+/u', '', $text);
-        $scheme = null;
-        if (preg_match('/^[\x00-\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]*([a-zA-Z][a-zA-Z0-9+.-]*):/u', $text, $m) === 1) {
-            $scheme = strtolower($m[1]);
-        }
-        $sanitizeBlank = $scheme !== null && in_array($scheme, ['javascript', 'vbscript', 'data', 'file'], true);
         // Whitespace is percent-encoded (it would otherwise end the
         // destination). A parenthesis is escaped only when it is UNBALANCED: a
         // balanced pair re-parses as itself, so leaving it bare is both the
@@ -5450,12 +5445,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // URL readable. A backslash is escaped only in front of the three
         // characters the destination scan treats as escapes, so backslashes
         // elsewhere in a URL stay verbatim.
-        if (!$sanitizeBlank) {
-            $text = $this->escapeDestinationEscapes($text);
-        }
+        $text = $this->escapeDestinationEscapes($text);
         $text = (string)preg_replace_callback('/\s/u', static fn (array $m): string => rawurlencode($m[0]), $text);
 
-        return (string)preg_replace_callback('/[()]/', static fn (array $m): string => $sanitizeBlank ? ($m[0] === '(' ? '%28' : '%29') : $m[0], $text);
+        return $text;
     }
 
     /**
