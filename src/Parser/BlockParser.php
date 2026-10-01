@@ -3227,8 +3227,8 @@ class BlockParser
 
     /**
      * Collect a colon-fence body. Reparsed container bodies track nested colon
-     * fences as a stack and skip opaque verbatim/comment spans; line blocks use
-     * their own literal collector instead.
+     * fences as a stack. All bodies skip closed verbatim/comment spans before
+     * considering a colon closer.
      *
      * @param array<string> $lines
      * @param int $start
@@ -3247,13 +3247,11 @@ class BlockParser
         $closed = false;
 
         while ($i < $count) {
-            if ($nestingAware) {
-                $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap);
-                if ($skippedTo !== null) {
-                    $i = $skippedTo;
+            $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap);
+            if ($skippedTo !== null) {
+                $i = $skippedTo;
 
-                    continue;
-                }
+                continue;
             }
 
             $currentLine = $lines[$i];
@@ -3344,7 +3342,7 @@ class BlockParser
         for ($i = $start; $i < $count; $i++) {
             $innerLines[] = $lines[$i];
             $innerLineMap[] = $this->sourceLineFor($i);
-            if ($i > $start && $this->fencedBlockParser->isFencedCommentCloser($lines[$i], $commentInfo['length'])) {
+            if ($i > $start && $this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$i], $commentInfo['length'])) {
                 return $i + 1;
             }
         }
@@ -3377,6 +3375,14 @@ class BlockParser
      */
     protected function hasCodeFenceCloserAhead(array $lines, int $openIndex, string $fenceChar, int $fenceLength): bool
     {
+        if (
+            $this->fencedBlockParser::class === FencedBlockParser::class
+            && ($fenceChar === '`' || $fenceChar === '~')
+            && $fenceLength >= 3
+        ) {
+            return $this->codeCloserPossible($this->fenceCloserIndex($lines, true)['code'], $fenceChar, $fenceLength, $openIndex);
+        }
+
         $count = count($lines);
         for ($j = $openIndex + 1; $j < $count; $j++) {
             if ($this->fencedBlockParser->isCodeFenceCloser($lines[$j], $fenceChar, $fenceLength)) {
@@ -3702,7 +3708,7 @@ class BlockParser
     }
 
     /**
-     * Does the marker lead's BOTTOM BLOCK open a code or raw fence?
+     * Does the marker lead's bottom block open a code, raw, or verse fence?
      *
      * Asked of the same text {@see self::leadBottomIsContinuationMarker()} asks
      * of - the lead with every nested marker peeled off - because that is the
@@ -3725,7 +3731,8 @@ class BlockParser
         }
 
         return $this->fencedBlockParser->parseCodeFenceOpener($rest) !== null
-            || $this->fencedBlockParser->parseRawBlockOpener($rest) !== null;
+            || $this->fencedBlockParser->parseRawBlockOpener($rest) !== null
+            || $this->parseLineBlockOpener($rest) !== null;
     }
 
     /**
@@ -3733,9 +3740,7 @@ class BlockParser
      */
     protected static function stripLazyFrame(string $line): string
     {
-        return str_starts_with($line, self::LAZY_FRAME)
-            ? substr($line, strlen(self::LAZY_FRAME))
-            : $line;
+        return BlockGrammar::stripLazyFrame($line);
     }
 
     /**
@@ -3810,12 +3815,13 @@ class BlockParser
 
     /**
      * @param array<string> $lines
+     * @param bool $columnZeroCode
      *
      * @return array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}
      */
-    private function fenceCloserIndex(array $lines): array
+    private function fenceCloserIndex(array $lines, bool $columnZeroCode = false): array
     {
-        return $this->continuationsMapper()->fenceCloserIndex($lines);
+        return $this->continuationsMapper()->fenceCloserIndex($lines, $columnZeroCode);
     }
 
     /**
@@ -8154,6 +8160,7 @@ class BlockParser
             getInlineParser: fn (): InlineParser => $this->inlineParser,
             applyPendingAttributesCallback: $this->applyPendingAttributes(...),
             positionSourceCallback: $this->positionSource(...),
+            collectColonFenceBodyCallback: $this->collectColonFenceBody(...),
             appendLineBlockStanzaCallback: static::class !== self::class ? $this->appendLineBlockStanza(...) : null,
             convertParagraphSoftBreaksToHardBreaksCallback: static::class !== self::class ? $this->convertParagraphSoftBreaksToHardBreaks(...) : null,
             expandLineBlockLineCallback: static::class !== self::class ? $this->expandLineBlockLine(...) : null,

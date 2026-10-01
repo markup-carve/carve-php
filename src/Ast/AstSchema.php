@@ -305,7 +305,10 @@ final class AstSchema
         }
         $dispatch = [];
         foreach ($schema['allOf'] as $branch) {
-            $constant = is_array($branch) ? self::dispatchConstant($branch) : null;
+            if (!is_array($branch)) {
+                return [$schema, null];
+            }
+            $constant = self::dispatchConstant($branch);
             if ($constant === null || isset($dispatch[$constant])) {
                 return [$schema, null];
             }
