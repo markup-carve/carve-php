@@ -94,4 +94,35 @@ final class InvalidContainerMetadataTest extends TestCase
         self::assertNotEmpty($patch->edits);
         self::assertSame([], $patch->unresolved);
     }
+
+    public function testAuthoredMetadataAndNestedValidFencesDuringDjotMigration(): void
+    {
+        foreach (['"T" extra' => ' “T” extra', '“T”' => ' “T”', '{.x}' => ''] as $metadata => $visible) {
+            $source = "::: tip {$metadata}\nbody\n:::\n";
+            $migrated = (new DjotToCarve())->convert($source);
+            self::assertSame("<p>::: tip{$visible}\nbody\n:::</p>", trim((new CarveConverter())->convert($migrated)));
+        }
+        $source = "::: tip Bad X\n\n::: note\nx\n:::\n:::\n";
+        $migrated = (new DjotToCarve())->convert($source);
+        self::assertSame("<p>::: tip Bad X</p>\n<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>x</p>\n</aside>\n<p>:::</p>", trim((new CarveConverter())->convert($migrated)));
+    }
+
+    public function testLineAndHardBreakFencesKeepTheirOwnMigratedCloser(): void
+    {
+        foreach (['::: |', '::: \\'] as $opener) {
+            $source = "::: tip Bad X\n{$opener}\nl\n:::\nout\n:::\n";
+            $migrated = (new DjotToCarve())->convert($source);
+            self::assertSame("\\::: tip Bad X\n{$opener}\nl\n:::\nout\n\\:::\n", $migrated);
+        }
+    }
+
+    public function testFootnoteMarkerOpenerIsDiagnosedAndFormattingRequiresReview(): void
+    {
+        $source = "a[^1]\n\n[^1]: ::: tip Bad X\n    body\n    :::\n";
+        $warnings = array_values(array_filter((new SourceLinter())->lint($source), static fn ($w) => $w->rule === 'fence-title-syntax'));
+        self::assertCount(1, $warnings);
+        self::assertSame(3, $warnings[0]->line);
+        self::assertSame('::: tip Bad X', substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start));
+        self::assertSame('invalid-container-metadata', CarveConverter::toCarvePatch($source)->unresolved[0]->code);
+    }
 }

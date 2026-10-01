@@ -474,7 +474,7 @@ class SourceLinter
 
     private static function containerView(string $text): string
     {
-        while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:[-*] |(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)] |: ))/', $text, $match)) {
+        while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:[-*] |(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)] |: |\[\^[^\]\r\n]+\]: +))/', $text, $match)) {
             $text = substr($text, strlen($match[0]));
         }
 
