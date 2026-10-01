@@ -510,6 +510,7 @@ class HtmlToCarve
         }
 
         $this->listTableInspection = new SplObjectStorage();
+        $this->termlessImportDescriptions = new SplObjectStorage();
         $isDocument = HtmlDomLoader::isDocument($html);
         $doc = $this->builtImportDocument;
         if ($doc === null) {
@@ -539,6 +540,7 @@ class HtmlToCarve
             $this->survivingImportAttributes = null;
             $this->emittedImportValues = [];
             $this->listTableInspection = null;
+            $this->termlessImportDescriptions = null;
         }
 
         return $diagnostics;
@@ -737,7 +739,7 @@ class HtmlToCarve
             $this->entrylessImportDefinitionLists[$path] = true;
         }
         $list = $tag === 'dd' ? $this->enclosingDefinitionList($node) : null;
-        if ($list !== null && in_array($node, HtmlAstBuilder::leadingTermlessDescriptions($list), true)) {
+        if ($list !== null && isset($this->leadingImportDescriptions($list)[$node])) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'element-unwrapped',
@@ -4768,6 +4770,32 @@ class HtmlToCarve
         }
 
         return $parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'dl' ? $parent : null;
+    }
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, \SplObjectStorage<\DOMElement, null>>|null
+     */
+    private ?SplObjectStorage $termlessImportDescriptions = null;
+
+    /**
+     * @return \SplObjectStorage<\DOMElement, null>
+     */
+    private function leadingImportDescriptions(DOMElement $list): SplObjectStorage
+    {
+        if ($this->termlessImportDescriptions !== null && isset($this->termlessImportDescriptions[$list])) {
+            return $this->termlessImportDescriptions[$list];
+        }
+
+        /** @var \SplObjectStorage<\DOMElement, null> $leading */
+        $leading = new SplObjectStorage();
+        foreach (HtmlAstBuilder::leadingTermlessDescriptions($list) as $description) {
+            $leading[$description] = null;
+        }
+        if ($this->termlessImportDescriptions !== null) {
+            $this->termlessImportDescriptions[$list] = $leading;
+        }
+
+        return $leading;
     }
 
     /**
