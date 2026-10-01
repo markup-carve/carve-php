@@ -11,6 +11,8 @@ use SplObjectStorage;
  * Mutable state and DOM decisions owned by one HTML import.
  *
  * @internal
+ *
+ * @phpstan-import-type ImportedNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  */
 final class HtmlImportSession
 {
@@ -91,7 +93,7 @@ final class HtmlImportSession
     public array $footnoteTargets = [];
 
     /**
-     * @var list<array<string, mixed>>
+     * @var list<ImportedNode>
      */
     public array $footnoteDefinitions = [];
 

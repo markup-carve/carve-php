@@ -220,25 +220,12 @@ class InlineParser
     protected ?string $lastCloseParenText = null;
 
     /**
-     * Memo for the emphasis-opener forward scan in parseDelimited(). Each `_`,
-     * `*`, `~`, `=`, `/` opener scans toward end-of-text for a matching closer.
-     * When the tail holds no valid closer for a delimiter (e.g. every candidate
-     * is alnum-blocked, as in `_a](` repeated), that scan runs to end-of-text and
-     * fails -- and every LATER opener of the same delimiter scans a strict suffix
-     * of the same text, so it fails too. Without a memo, N such openers each do
-     * O(n) work -> O(n^2). We record, per delimiter, the smallest start position
-     * from which no closer exists; any opener at or after it bails in O(1).
+     * Failed delimiter scans, keyed by delimiter and braced-opener context.
+     * Only visited suffix starts are cached; skipped interiors remain eligible
+     * for a later opener. A scan inside such an interior can reuse the cached
+     * suffix when it reaches the end of that region.
      *
-     * The scan is monotonic: a later opener sees the same structural skips
-     * (code spans, braced inlines, comments, link destinations, autolinks,
-     * escapes) and
-     * the same position-only closer rejections (space-before, `}`-after,
-     * alnum-after). The only opener-dependent rejection is the empty-content
-     * check, which fires solely for a closer immediately after the opener -- a
-     * position no later opener's suffix range includes -- so the memo never turns
-     * a would-be match into a miss.
-     *
-     * @var array<string, int>
+     * @var array<string, array<int, true>>
      */
     protected array $emphNoCloseFrom = [];
 
@@ -3021,20 +3008,11 @@ class InlineParser
         // Look for the content and the closer right after the single opener.
         $searchStart = $pos + 1;
 
-        // Bail in O(1) if an earlier same-delimiter opener already proved the
-        // tail from here on holds no valid closer (see $emphNoCloseFrom).
-        if (
-            isset($this->emphNoCloseFrom[$delimiter])
-            && $searchStart >= $this->emphNoCloseFrom[$delimiter]
-        ) {
+        $memoKey = $delimiter . ($openerIsBraced ? '}' : '');
+        if (isset($this->emphNoCloseFrom[$memoKey][$searchStart])) {
             return null;
         }
-
-        // Whether this scan jumped over any region (braced inline, comment, code
-        // span, link destination, autolink, escape). The no-closer memo below is only sound for a pure
-        // left-to-right walk: a later opener inside a skipped region must not be
-        // short-circuited. See $emphNoCloseFrom.
-        $scanSkipped = false;
+        $failedStarts = [$searchStart];
 
         // Only the constructs E2a names are opaque (markup-carve/carve#2027).
         // Link destinations met so far, by `(` index.
@@ -3042,14 +3020,16 @@ class InlineParser
 
         $searchPos = $searchStart;
         while ($searchPos < $length) {
-            $char = $text[$searchPos];
-
             if (isset($destinationEnds[$searchPos])) {
                 $searchPos = $destinationEnds[$searchPos];
-                $scanSkipped = true;
+                $failedStarts[] = $searchPos;
 
                 continue;
             }
+            if (isset($this->emphNoCloseFrom[$memoKey][$searchPos])) {
+                break;
+            }
+            $char = $text[$searchPos];
 
             if ($char === '[') {
                 $skip = $this->linkDestinationSkip($text, $searchPos);
@@ -3064,7 +3044,10 @@ class InlineParser
                 $runEnd = $this->bracketRunSkip($text, $searchPos);
                 if ($runEnd !== null) {
                     $searchPos = $runEnd;
-                    $scanSkipped = true;
+                    // A queued destination makes this cursor context-dependent.
+                    if (!isset($destinationEnds[$searchPos])) {
+                        $failedStarts[] = $searchPos;
+                    }
 
                     continue;
                 }
@@ -3074,7 +3057,7 @@ class InlineParser
                 $autolinkEnd = $this->findAutolinkEnd($text, $searchPos);
                 if ($autolinkEnd !== null) {
                     $searchPos = $autolinkEnd;
-                    $scanSkipped = true;
+                    $failedStarts[] = $searchPos;
 
                     continue;
                 }
@@ -3086,7 +3069,7 @@ class InlineParser
                 $commentEnd = strpos($text, '%}', $searchPos + 2);
                 if ($commentEnd !== false) {
                     $searchPos = $commentEnd + 2;
-                    $scanSkipped = true;
+                    $failedStarts[] = $searchPos;
 
                     continue;
                 }
@@ -3100,7 +3083,7 @@ class InlineParser
                 $bracedEnd = $this->bracedInlineEnd($text, $searchPos);
                 if ($bracedEnd !== null) {
                     $searchPos = $bracedEnd;
-                    $scanSkipped = true;
+                    $failedStarts[] = $searchPos;
 
                     continue;
                 }
@@ -3114,25 +3097,13 @@ class InlineParser
                         $codeEnd += strlen($rawFormat[0]);
                     }
                     $searchPos = $codeEnd;
-                    $scanSkipped = true;
+                    $failedStarts[] = $searchPos;
 
                     continue;
                 }
 
-                // Unclosed backtick run: opaque to the end of the block, so no
-                // closer can follow it and this delimiter cannot form emphasis.
-                // The main loop consumes the unclosed run as a code span to
-                // end-of-text, so no later opener is examined past it -- caching
-                // this failure (when the walk so far was pure) stays
-                // output-preserving.
-                if (!$scanSkipped) {
-                    $this->emphNoCloseFrom[$delimiter] = min(
-                        $this->emphNoCloseFrom[$delimiter] ?? $searchStart,
-                        $searchStart,
-                    );
-                }
-
-                return null;
+                // An unclosed code run hides the remaining suffix.
+                break;
             }
 
             // A LINE COMMENT ENDS AT ITS OWN LINE BREAK, not at the end of the
@@ -3147,10 +3118,10 @@ class InlineParser
             if ($this->isLineCommentOpener($text, $searchPos)) {
                 $commentLineEnd = strpos($text, "\n", $searchPos + 2);
                 if ($commentLineEnd === false) {
-                    return null;
+                    break;
                 }
                 $searchPos = $commentLineEnd;
-                $scanSkipped = true;
+                $failedStarts[] = $searchPos;
 
                 continue;
             }
@@ -3158,7 +3129,7 @@ class InlineParser
             // Skip escape sequences
             if ($char === '\\' && $searchPos + 1 < $length) {
                 $searchPos += 2;
-                $scanSkipped = true;
+                $failedStarts[] = $searchPos;
 
                 continue;
             }
@@ -3170,6 +3141,7 @@ class InlineParser
                 if (!StringUtil::isWhitespaceChar($beforeClose)) {
                     $afterClose = $text[$searchPos + 1] ?? '';
                     if ($afterClose === '}' && $openerIsBraced) {
+                        $failedStarts[] = $searchPos + 1;
                         $searchPos++;
 
                         continue;
@@ -3186,6 +3158,7 @@ class InlineParser
                     // opener's left boundary, `_` does NOT block a closer.
                     $afterClose = $text[$actualClose + 1] ?? '';
                     if ($afterClose !== '' && ctype_alnum($afterClose)) {
+                        $failedStarts[] = $actualClose + 1;
                         $searchPos = $actualClose + 1;
 
                         continue;
@@ -3194,6 +3167,7 @@ class InlineParser
                     // Check content isn't empty
                     $content = substr($text, $pos + 1, $actualClose - $pos - 1);
                     if ($content === '') {
+                        $failedStarts[] = $actualClose + 1;
                         $searchPos = $actualClose + 1;
 
                         continue;
@@ -3216,19 +3190,14 @@ class InlineParser
                 }
             }
 
+            if ($char === $delimiter) {
+                $failedStarts[] = $searchPos + 1;
+            }
             $searchPos++;
         }
 
-        // Scanned to end-of-text with no valid closer. When the walk skipped no
-        // region, every position in [searchStart, end) was examined and rejected
-        // for a position-only reason, so every later same-delimiter opener (a
-        // strict suffix) fails too: remember the start so those openers bail in
-        // O(1). If the walk skipped a region, the memo is unsound (see above).
-        if (!$scanSkipped) {
-            $this->emphNoCloseFrom[$delimiter] = min(
-                $this->emphNoCloseFrom[$delimiter] ?? $searchStart,
-                $searchStart,
-            );
+        foreach ($failedStarts as $failedStart) {
+            $this->emphNoCloseFrom[$memoKey][$failedStart] = true;
         }
 
         return null;

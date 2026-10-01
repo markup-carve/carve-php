@@ -9,9 +9,11 @@ use MarkupCarve\Carve\Extension\WikilinksExtension;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -30,6 +32,8 @@ class ContainerAndBracketBoundariesTest extends TestCase
             'comment inside a bare run' => ['x [a %% c] d', '<p>x [a] d</p>'],
             'comment at the start of a bare run' => ['x [%% c] d', '<p>x [] d</p>'],
             'emphasis within the run' => ['[/a/]', '<p>[<em>a</em>]</p>'],
+            'destination after a failed scan' => ['*p </#a[> *q](u*) z', '<p>*p &lt;/#a[&gt; <strong>q](u</strong>) z</p>'],
+            'destination without a failed scan' => ['</#a[> *q](u*) z', '<p>&lt;/#a[&gt; <strong>q](u</strong>) z</p>'],
         ];
     }
 
@@ -56,6 +60,53 @@ class ContainerAndBracketBoundariesTest extends TestCase
         $source = str_repeat('[a[b]] ', 100);
         $parser->parse(new Paragraph(), $source);
         $this->assertLessThan(strlen($source) * 3, $parser->triggerBytes);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function failedDelimiterRuns(): array
+    {
+        return [
+            'blocked closers' => [str_repeat("[r]: /hidden\n", 1024)],
+            'bracket closer' => [str_repeat("[r]: /hidden\n", 1024) . '[x/]'],
+            'escaped closer' => [str_repeat("[r]: /hidden\n", 1024) . '\\/'],
+            'openers inside brackets' => [str_repeat('[/hidden] ', 1024) . '[x/]'],
+            'openers inside one bracket' => ['[' . str_repeat('/hidden ', 1024) . '] [x/]'],
+        ];
+    }
+
+    #[DataProvider('failedDelimiterRuns')]
+    public function testBlockedSlashClosersAroundBracketsKeepScanningLinear(string $source): void
+    {
+        $parser = new class (new BlockParser()) extends InlineParser {
+            public int $commentChecks = 0;
+
+            protected function isLineCommentOpener(string $text, int $pos): bool
+            {
+                $this->commentChecks++;
+
+                return parent::isLineCommentOpener($text, $pos);
+            }
+        };
+        $paragraph = new Paragraph();
+        $parser->parse($paragraph, $source, lineBlock: true);
+        $this->assertLessThan(strlen($source) * 3, $parser->commentChecks);
+        $document = new Document();
+        $document->appendChild($paragraph);
+        $this->assertStringNotContainsString('<em>', (new HtmlRenderer())->render($document));
+    }
+
+    public function testFailedOuterScanKeepsSkippedInteriorsAvailable(): void
+    {
+        $html = (new CarveConverter())->convert('/prefix [/inner/] suffix' . "\n");
+        $this->assertSame('<p>/prefix [<em>inner</em>] suffix</p>' . "\n", $html);
+    }
+
+    public function testFailedScanCacheKeepsNestedAndLaterSpans(): void
+    {
+        $html = (new CarveConverter())->convert("*outer /inner/* /later/ [r] /last/\n");
+        $this->assertSame('<p><strong>outer <em>inner</em></strong> <em>later</em> [r] <em>last</em></p>' . "\n", $html);
     }
 
     public function testAttachedBlankPayloadLines(): void
