@@ -238,9 +238,9 @@ same report with `--report-conversion-diagnostics FILE` alongside any of those
 four targets.
 
 It is separate from render losses, and it is the only one of the two reports that
-can name a field. The render-loss report's `code` enum is closed at
-`raw-format-dropped` and `ruby-flattened` (PART 11 §1d), each naming a whole node
-one renderer dropped; a field dropped off a node the writer still spells is
+can name a field. The render-loss report's `code` enum holds
+`raw-format-dropped`, `ruby-flattened` and `destination-denied` (PART 11 §1d),
+each naming something one renderer dropped or blanked; a field dropped off a node the writer still spells is
 `field-unspellable` here. Table section attributes are that case - none of the
 four targets can spell them, so each reports `rowGroups.headAttrs`,
 `rowGroups.footAttrs` and `rowGroups.bodies[N].attrs` as dropped fields, and
