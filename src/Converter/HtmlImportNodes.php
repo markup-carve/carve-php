@@ -14,13 +14,14 @@ namespace MarkupCarve\Carve\Converter;
  * @phpstan-import-type ParagraphNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  * @phpstan-import-type TableRowNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type ImportedNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  */
 final class HtmlImportNodes
 {
     /**
      * @phpstan-return ParagraphNode
      *
-     * @param list<array<string, mixed>> $children
+     * @param list<ImportedNode> $children
      */
     public static function paragraph(array $children): array
     {
@@ -30,7 +31,7 @@ final class HtmlImportNodes
     /**
      * @phpstan-return TableCellNode
      *
-     * @param list<array<string, mixed>> $children
+     * @param list<ImportedNode> $children
      * @param bool $header
      */
     public static function tableCell(array $children, bool $header): array
@@ -56,7 +57,7 @@ final class HtmlImportNodes
      * @phpstan-return FigureNode
      *
      * @param array $target
-     * @param list<array<string, mixed>> $caption
+     * @param list<ImportedNode> $caption
      */
     public static function figure(array $target, array $caption): array
     {
@@ -72,9 +73,9 @@ final class HtmlImportNodes
     }
 
     /**
-     * @param list<array<string, mixed>> $children
+     * @param list<ImportedNode> $children
      *
-     * @return array{type: 'list_item', children: list<array<string, mixed>>}
+     * @return array{type: 'list_item', children: list<ImportedNode>}
      */
     public static function listItem(array $children): array
     {

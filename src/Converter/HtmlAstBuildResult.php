@@ -12,13 +12,17 @@ use LogicException;
  *
  * @internal
  *
- * @phpstan-type DocumentTree array{type: 'document', srcByteLength: int, children: list<array<string, mixed>>}
+ * @phpstan-type ImportedNode array{type: string, ...<string, mixed>}
+ * @phpstan-type CodeBlockNode array{type: 'code_block', content: string, lang?: string, attrs?: Attrs}
+ * @phpstan-type ContainerNode array{type: 'div'|'admonition'|'directive', children: list<ImportedNode>, kind?: string, title?: list<ImportedNode>, attrs?: Attrs}
+ * @phpstan-type FigureGroupNode array{type: 'figure_group', children: list<ImportedNode>, caption?: list<ImportedNode>, attrs?: Attrs}
+ * @phpstan-type DocumentTree array{type: 'document', srcByteLength: int, children: list<ImportedNode>}
  * @phpstan-type Attrs array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}
  * @phpstan-type FigureTargetNode array{type: 'image'|'block_quote'|'code_block', ...<string, mixed>}
- * @phpstan-type FigureNode array{type: 'figure', target: FigureTargetNode, caption: list<array<string, mixed>>, attrs?: Attrs}
- * @phpstan-type ParagraphNode array{type: 'paragraph', children: list<array<string, mixed>>, attrs?: Attrs}
+ * @phpstan-type FigureNode array{type: 'figure', target: FigureTargetNode, caption: list<ImportedNode>, attrs?: Attrs}
+ * @phpstan-type ParagraphNode array{type: 'paragraph', children: list<ImportedNode>, attrs?: Attrs}
  * @phpstan-type MathNode array{type: 'math', display: bool, content: string, attrs?: Attrs}
- * @phpstan-type TableCellNode array{type: 'table_cell', header: bool, children: list<array<string, mixed>>, span?: 'rowspan'|'colspan', align?: string, valign?: string, attrs?: Attrs}
+ * @phpstan-type TableCellNode array{type: 'table_cell', header: bool, children: list<ImportedNode>, span?: 'rowspan'|'colspan', align?: string, valign?: string, attrs?: Attrs}
  * @phpstan-type TableRowNode array{type: 'table_row', cells: list<TableCellNode>, attrs?: Attrs}
  */
 // phpcs:enable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation

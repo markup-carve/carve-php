@@ -7566,26 +7566,7 @@ class BlockParser
         array $headingReferences,
         int $sourceLength,
     ): Document {
-        $this->state->session->unattachedBlockAttributes = [];
-        $this->state->session->references = [];
-        $this->state->session->headingReferencesByFoldedLabel = [];
-        $this->state->session->footnotes = [];
-        $this->state->session->footnoteDefinitionSpans = [];
-        $this->state->session->footnoteDefinitionPrefixed = [];
-        $this->state->session->abbreviations = [];
-        $this->state->session->abbreviationDefinitions = [];
-        $this->state->session->abbreviationsBeforeBody = false;
-        $this->state->session->pendingAttributes = [];
-        $this->state->session->pendingAttributeSpan = null;
-        $this->state->session->pendingAttributeOrder = [];
-        $this->state->session->warnings = [];
-        $this->state->session->usedReferences = [];
-        $this->state->session->anchorLinks = [];
-        $this->state->session->headingIds = [];
-        $this->state->session->lineOffset = 0;
-        $this->state->session->sawUnresolvedCollapsedReference = false;
-        $this->state->session->unresolvedReferenceLabels = [];
-        $this->state->session->unresolvedReferenceLabelUnknown = false;
+        $this->resetParseState();
 
         $document = new Document();
         $this->extractDefinitions($lines, $this->state->source->normalizedSource);

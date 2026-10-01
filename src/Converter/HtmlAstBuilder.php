@@ -29,6 +29,10 @@ use Throwable;
  *
  * @internal
  *
+ * @phpstan-import-type ImportedNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type CodeBlockNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type ContainerNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type FigureGroupNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  * @phpstan-import-type DocumentTree from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  * @phpstan-import-type Attrs from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
@@ -171,9 +175,27 @@ final class HtmlAstBuilder
     /**
      * @throws \LogicException
      *
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private static function nodeList(mixed $value): array
+    {
+        $nodes = self::recordList($value);
+        foreach ($nodes as $node) {
+            if (!isset($node['type']) || !is_string($node['type'])) {
+                throw new LogicException('An imported node must have a string type.');
+            }
+        }
+        /** @var list<ImportedNode> $nodes */
+
+        return $nodes;
+    }
+
+    /**
+     * @throws \LogicException
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function recordList(mixed $value): array
     {
         if ($value === null) {
             return [];
@@ -194,6 +216,14 @@ final class HtmlAstBuilder
         /** @var list<array<string, mixed>> $value */
 
         return $value;
+    }
+
+    /**
+     * @return ImportedNode
+     */
+    private static function importedNode(mixed $value): array
+    {
+        return self::nodeList([$value])[0];
     }
 
     /**
@@ -231,7 +261,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function collectedFootnotes(): array
     {
@@ -507,6 +537,7 @@ final class HtmlAstBuilder
             'srcByteLength' => $sourceByteLength ?? strlen($html),
             'children' => $children,
         ];
+        $tree['children'] = self::nodeList($tree['children']);
         $this->resolveSectionIds($tree);
         if ($this->sourceSafe) {
             foreach ($tree['children'] as &$child) {
@@ -514,6 +545,8 @@ final class HtmlAstBuilder
             }
             unset($child);
         }
+
+        $tree['children'] = self::nodeList($tree['children']);
 
         return new HtmlAstBuildResult($tree, $this->session, $this->sourceSafe);
     }
@@ -565,7 +598,7 @@ final class HtmlAstBuilder
                 continue;
             }
             if (array_is_list($value)) {
-                $children = self::nodeList($value);
+                $children = self::recordList($value);
                 foreach ($children as &$child) {
                     $this->markLiteralSymbolText($child);
                 }
@@ -585,7 +618,7 @@ final class HtmlAstBuilder
     /**
      * @param list<\DOMNode> $nodes
      *
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function blocks(array $nodes): array
     {
@@ -597,7 +630,7 @@ final class HtmlAstBuilder
             $children = $this->trimBlockEdges($children);
             $pending = [];
             if ($children !== []) {
-                if (count($children) === 1 && ($children[0]['type'] ?? null) === 'image') {
+                if (count($children) === 1 && $children[0]['type'] === 'image') {
                     $blocks[] = $children[0];
                 } else {
                     $blocks[] = HtmlImportNodes::paragraph($children);
@@ -612,7 +645,7 @@ final class HtmlAstBuilder
             if ($node instanceof DOMComment) {
                 $inlineRun = self::some(
                     $pending,
-                    static fn (array $part): bool => ($part['type'] ?? null) !== 'text'
+                    static fn (array $part): bool => $part['type'] !== 'text'
                         || trim(self::stringValue($part['value'] ?? null)) !== '',
                 );
                 if (!$inlineRun) {
@@ -683,7 +716,7 @@ final class HtmlAstBuilder
         }
         $flush();
 
-        return $blocks;
+        return self::nodeList($blocks);
     }
 
     private function isBlock(DOMNode $node): bool
@@ -762,7 +795,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function block(DOMNode $node): array
     {
@@ -845,7 +878,7 @@ final class HtmlAstBuilder
                 $this->addHint($quote, "\0carve-leading-blank");
             }
 
-            return [$quote];
+            return self::nodeList([$quote]);
         }
         if ($tag === 'pre') {
             if ($this->session->inInlineProjection && strtolower($node->getAttribute('role')) !== 'img') {
@@ -965,7 +998,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function section(DOMElement $node): array
     {
@@ -982,7 +1015,7 @@ final class HtmlAstBuilder
             return $blocks;
         }
         foreach ($blocks as &$block) {
-            if (($block['type'] ?? null) === 'heading') {
+            if ($block['type'] === 'heading') {
                 $headingAttrs = self::attrsValue($block['attrs'] ?? null);
                 $headingAttrs['id'] = $node->getAttribute('id');
                 $headingAttrs['order'] = ['#id', ...array_values(array_diff($headingAttrs['order'] ?? [], ['#id']))];
@@ -1017,7 +1050,7 @@ final class HtmlAstBuilder
      *
      * @phpstan-param DocumentTree $tree
      *
-     * @param array<string, mixed> $tree
+     * @param array $tree
      */
     private function resolveSectionIds(array &$tree): void
     {
@@ -1080,7 +1113,9 @@ final class HtmlAstBuilder
      * The slug the renderer derives for each heading, from its converted
      * content; null when the decoded headings do not line up with the tree.
      *
-     * @param array<string, mixed> $tree
+     * @phpstan-param DocumentTree $tree
+     *
+     * @param array $tree
      *
      * @return array<int, string>|null
      */
@@ -1229,7 +1264,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return array<string, mixed>
+     * @return ContainerNode
      */
     private function details(DOMElement $node): array
     {
@@ -1276,7 +1311,7 @@ final class HtmlAstBuilder
 
     /**
      * @param \DOMElement $summary
-     * @param list<array<string, mixed>> $inlines
+     * @param list<ImportedNode> $inlines
      */
     private function summaryCanBeTitle(DOMElement $summary, array $inlines): bool
     {
@@ -1517,7 +1552,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return array<string, mixed>
+     * @return CodeBlockNode
      */
     private function codeBlock(DOMElement $node): array
     {
@@ -1572,7 +1607,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return array<string, mixed>
+     * @return ImportedNode
      */
     private function list(DOMElement $node, bool $ordered): array
     {
@@ -1673,11 +1708,11 @@ final class HtmlAstBuilder
             $this->removeStructuralClass($list, 'task-list');
         }
 
-        return $list;
+        return self::importedNode($list);
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function listBlocks(DOMElement $node, bool $ordered): array
     {
@@ -1701,7 +1736,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function endnotes(DOMElement $section): array
     {
@@ -1751,7 +1786,7 @@ final class HtmlAstBuilder
             ];
             $this->addHint($definition, "\0carve-indent-blank-lines");
             $this->addHint($definition, "\0carve-compact-definition");
-            $this->session->footnoteDefinitions[] = $definition;
+            $this->session->footnoteDefinitions[] = self::importedNode($definition);
         }
         if (!$found) {
             return $this->blocks($this->children($section));
@@ -1838,7 +1873,7 @@ final class HtmlAstBuilder
      * ahead of the list, because `: text` with no term re-reads as a paragraph
      * (markup-carve/carve#2384). A list left with no entry is not written.
      *
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function definitionListBlocks(DOMElement $node): array
     {
@@ -1860,7 +1895,7 @@ final class HtmlAstBuilder
         // A leading <dd> can end in a definition list, which this one would
         // join on re-read; merge it the way a sibling <dl> is (carve#2369).
         $last = array_key_last($before);
-        if ($last !== null && ($before[$last]['type'] ?? null) === 'definition_list' && $this->attrs($node, []) === []) {
+        if ($last !== null && $before[$last]['type'] === 'definition_list' && $this->attrs($node, []) === []) {
             $before[$last]['items'] = array_merge(self::nodeList($before[$last]['items'] ?? null), $items);
             $this->session->mergedDefinitionLists[$node] = null;
 
@@ -1913,7 +1948,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param list<array<string, mixed>> $items
+     * @param list<ImportedNode> $items
      * @param \DOMElement $child
      */
     private function appendDefinitionItem(array &$items, DOMElement $child): void
@@ -1931,13 +1966,13 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return ImportedNode|null
      */
     private function table(DOMElement $node): ?array
     {
         $rows = [];
         $listForm = $this->listTableForBlockCells && $this->tableHasBlockCell($node);
-        /** @var list<list<list<array<string, mixed>>|null>> $cellBlockGrid */
+        /** @var list<list<list<ImportedNode>|null>> $cellBlockGrid */
         $cellBlockGrid = [];
         /** @var list<list<array{align: ?string, valign: ?string}|null>> $ownAlignmentGrid */
         $ownAlignmentGrid = [];
@@ -2244,7 +2279,7 @@ final class HtmlAstBuilder
             $this->addHint($table, "\0carve-delimiter-row");
         }
 
-        return $table;
+        return self::importedNode($table);
     }
 
     /**
@@ -2258,7 +2293,7 @@ final class HtmlAstBuilder
             return false;
         }
         foreach ($cell['children'] as $child) {
-            $type = $child['type'] ?? null;
+            $type = $child['type'];
             if ($type === 'hard_break' || $type === 'soft_break') {
                 continue;
             }
@@ -2293,11 +2328,11 @@ final class HtmlAstBuilder
      * blocks can be written as a list table").
      *
      * @param \DOMElement $node
-     * @param list<array{cells: list<array<string, mixed>>}> $rows
-     * @param list<list<list<array<string, mixed>>|null>> $cellBlockGrid
+     * @param list<array{cells: list<ImportedNode>}> $rows
+     * @param list<list<list<ImportedNode>|null>> $cellBlockGrid
      * @param list<list<array{align: ?string, valign: ?string}|null>> $ownAlignmentGrid
      *
-     * @return array<string, mixed>
+     * @return ImportedNode
      */
     private function listTableOf(DOMElement $node, array $rows, array $cellBlockGrid, array $ownAlignmentGrid): array
     {
@@ -2359,13 +2394,13 @@ final class HtmlAstBuilder
                 $children = $cellBlockGrid[$r][$c] ?? [];
                 if (
                     count($children) === 1
-                    && ($children[0]['type'] ?? null) === 'paragraph'
+                    && $children[0]['type'] === 'paragraph'
                     && !isset($children[0]['attrs'])
                     && count(self::nodeList($children[0]['children'] ?? null)) === 1
                 ) {
-                    $text = self::nodeList($children[0]['children'])[0];
+                    $text = self::nodeList($children[0]['children'] ?? null)[0];
                     $value = $text['value'] ?? null;
-                    if (($text['type'] ?? null) === 'text' && !isset($text['attrs']) && ($value === '^' || $value === '<')) {
+                    if ($text['type'] === 'text' && !isset($text['attrs']) && ($value === '^' || $value === '<')) {
                         $children[0]['children'] = [['type' => 'escaped_text', 'value' => $value]];
                     }
                 }
@@ -2526,7 +2561,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function figure(DOMElement $node): array
     {
@@ -2551,14 +2586,14 @@ final class HtmlAstBuilder
         $target = count($body) === 1 ? $body[0] : null;
         if (
             is_array($target)
-            && ($target['type'] ?? null) === 'paragraph'
+            && $target['type'] === 'paragraph'
             && !isset($target['attrs'])
             && count(self::nodeList($target['children'] ?? null)) === 1
-            && ((self::nodeList($target['children'] ?? null)[0]['type'] ?? null) === 'image')
+            && (self::nodeList($target['children'] ?? null)[0]['type'] === 'image')
         ) {
             $target = self::nodeList($target['children'] ?? null)[0];
         }
-        if (is_array($target) && ($target['type'] ?? null) === 'table') {
+        if (is_array($target) && $target['type'] === 'table') {
             $tableHasCaption = ($target['caption'] ?? []) !== [];
             if (!$captionDeclared) {
                 return [$target];
@@ -2590,10 +2625,10 @@ final class HtmlAstBuilder
         }
         if (
             is_array($target)
-            && ($target['type'] ?? null) === 'paragraph'
+            && $target['type'] === 'paragraph'
             && !isset($target['attrs'])
             && count(self::nodeList($target['children'] ?? null)) === 1
-            && ((self::nodeList($target['children'] ?? null)[0]['type'] ?? null) === 'image')
+            && (self::nodeList($target['children'] ?? null)[0]['type'] === 'image')
         ) {
             $target = self::nodeList($target['children'] ?? null)[0];
         }
@@ -2610,7 +2645,7 @@ final class HtmlAstBuilder
         if (
             is_array($target)
             && $caption !== []
-            && in_array($target['type'] ?? null, ['image', 'block_quote', 'code_block'], true)
+            && in_array($target['type'], ['image', 'block_quote', 'code_block'], true)
         ) {
             // Only an image has an attribute slot of its own under a caption
             // line; any other target shares the figure's line, merged the way
@@ -2633,7 +2668,7 @@ final class HtmlAstBuilder
                 $figure['attrs'] = $merged;
             }
 
-            return [$figure];
+            return self::nodeList([$figure]);
         }
 
         if ($keepsRaw && $caption !== [] && !self::aRowRefusesTheRegion($node)) {
@@ -2680,7 +2715,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return array<string, mixed>
+     * @return FigureGroupNode
      */
     private function figureGroup(DOMElement $node): array
     {
@@ -2700,6 +2735,8 @@ final class HtmlAstBuilder
         }
         $this->attachAttrs($group, $node);
         $this->removeStructuralClass($group, 'carve-figure-group');
+
+        /** @var FigureGroupNode $group */
 
         return $group;
     }
@@ -2741,8 +2778,8 @@ final class HtmlAstBuilder
      * @phpstan-param Attrs $inner
      * @phpstan-param Attrs $outer
      *
-     * @param array<string, mixed> $outer
-     * @param array<string, mixed> $inner
+     * @param array $outer
+     * @param array $inner
      *
      * @return Attrs
      */
@@ -2811,7 +2848,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function container(DOMElement $node): array
     {
@@ -2937,7 +2974,7 @@ final class HtmlAstBuilder
             // nowhere to go - the same loss the codec exit takes on
             // `::: toc "Contents"`, and the two exits have to agree.
             // markup-carve/carve#2247 asks where it should live.
-            if ($title !== [] && ($container['type'] ?? null) !== 'directive') {
+            if ($title !== [] && $container['type'] !== 'directive') {
                 $container['title'] = $title;
             }
             if ($label !== null) {
@@ -2969,9 +3006,9 @@ final class HtmlAstBuilder
      * A directive publishes `children` even when its body is empty.
      *
      * @param string $kind
-     * @param list<array<string, mixed>> $children
+     * @param list<ImportedNode> $children
      *
-     * @return array<string, mixed>
+     * @return ContainerNode
      */
     private function namedContainer(string $kind, array $children): array
     {
@@ -2983,12 +3020,12 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param list<array<string, mixed>> $nodes
+     * @param list<ImportedNode> $nodes
      */
     private function stripOpenerTitleQuotes(array &$nodes): void
     {
         foreach ($nodes as &$node) {
-            if (($node['type'] ?? null) === 'text') {
+            if ($node['type'] === 'text') {
                 $node['value'] = str_replace('"', '', self::stringValue($node['value'] ?? null));
             }
             if (is_array($node['children'] ?? null)) {
@@ -3080,7 +3117,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function blockInlines(DOMNode $node): array
     {
@@ -3091,7 +3128,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function captionInlines(DOMNode $node): array
     {
@@ -3107,7 +3144,7 @@ final class HtmlAstBuilder
                     $out !== []
                     && $current !== []
                     && ($previousWasBlock || $currentIsBlock)
-                    && !$this->captionBoundaryHasSpace($out[array_key_last($out)], false)
+                    && !$this->captionBoundaryHasSpace(self::importedNode($out[array_key_last($out)]), false)
                     && !$this->captionBoundaryHasSpace($current[0], true)
                 ) {
                     $out[] = HtmlImportNodes::text(' ');
@@ -3122,22 +3159,24 @@ final class HtmlAstBuilder
         } finally {
             $this->session->inCaption = $previousCaptionState;
         }
-        $out = $this->hoistedRun($out);
+        $out = $this->hoistedRun(self::nodeList($out));
         $this->normalizeInlineBoundaries($out);
 
         return $this->trimBlockEdges($out);
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @phpstan-param ImportedNode $node
+     *
+     * @param array $node
      * @param bool $atStart
      */
     private function captionBoundaryHasSpace(array $node, bool $atStart): bool
     {
-        if (($node['type'] ?? null) === 'hard_break') {
+        if ($node['type'] === 'hard_break') {
             return true;
         }
-        if (in_array($node['type'] ?? null, ['text', 'code'], true)) {
+        if (in_array($node['type'], ['text', 'code'], true)) {
             $pattern = $atStart ? '/^[ \t\n\r\f]/' : '/[ \t\n\r\f]$/';
 
             return preg_match($pattern, self::stringValue($node['value'] ?? null)) === 1;
@@ -3156,7 +3195,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param list<array<string, mixed>> $nodes
+     * @param list<ImportedNode> $nodes
      */
     private function normalizeInlineBoundaries(array &$nodes): void
     {
@@ -3205,7 +3244,9 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @phpstan-param ImportedNode $node
+     *
+     * @param array $node
      */
     private function normalizeHardBreakPadding(array &$node): void
     {
@@ -3232,14 +3273,16 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @phpstan-param ImportedNode $node
+     *
+     * @param array $node
      */
     private function inlineStartsWithSpace(array $node): bool
     {
-        if (($node['type'] ?? null) === 'text') {
+        if ($node['type'] === 'text') {
             return preg_match('/^[ \t]/', self::stringValue($node['value'] ?? null)) === 1;
         }
-        if (($node['type'] ?? null) === 'code') {
+        if ($node['type'] === 'code') {
             return preg_match('/^[ \t]/', self::stringValue($node['value'] ?? null)) === 1;
         }
         $children = self::nodeList($node['children'] ?? null);
@@ -3248,14 +3291,16 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @phpstan-param ImportedNode $node
+     *
+     * @param array $node
      */
     private function inlineEndsWithSpace(array $node): bool
     {
-        if (($node['type'] ?? null) === 'text') {
+        if ($node['type'] === 'text') {
             return preg_match('/[ \t]$/', self::stringValue($node['value'] ?? null)) === 1;
         }
-        if (($node['type'] ?? null) === 'code') {
+        if ($node['type'] === 'code') {
             return preg_match('/[ \t]$/', self::stringValue($node['value'] ?? null)) === 1;
         }
         $children = self::nodeList($node['children'] ?? null);
@@ -3265,16 +3310,18 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @phpstan-param ImportedNode $node
+     *
+     * @param array $node
      */
     private function trimInlineLeading(array &$node): void
     {
-        if (($node['type'] ?? null) === 'text') {
-            $node['value'] = preg_replace('/^[ \t]+/', '', self::stringValue($node['value'] ?? null)) ?? $node['value'];
+        if ($node['type'] === 'text') {
+            $node['value'] = preg_replace('/^[ \t]+/', '', self::stringValue($node['value'] ?? null)) ?? self::stringValue($node['value'] ?? null);
 
             return;
         }
-        if (($node['type'] ?? null) === 'span' && self::attrsValue($node['attrs'] ?? null) !== []) {
+        if ($node['type'] === 'span' && self::attrsValue($node['attrs'] ?? null) !== []) {
             return;
         }
         $plain = $this->plainInlineText([$node]);
@@ -3289,16 +3336,18 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @phpstan-param ImportedNode $node
+     *
+     * @param array $node
      */
     private function trimInlineTrailing(array &$node): void
     {
-        if (($node['type'] ?? null) === 'text') {
-            $node['value'] = preg_replace('/[ \t]+$/', '', self::stringValue($node['value'] ?? null)) ?? $node['value'];
+        if ($node['type'] === 'text') {
+            $node['value'] = preg_replace('/[ \t]+$/', '', self::stringValue($node['value'] ?? null)) ?? self::stringValue($node['value'] ?? null);
 
             return;
         }
-        if (($node['type'] ?? null) === 'span' && self::attrsValue($node['attrs'] ?? null) !== []) {
+        if ($node['type'] === 'span' && self::attrsValue($node['attrs'] ?? null) !== []) {
             return;
         }
         $plain = $this->plainInlineText([$node]);
@@ -3316,7 +3365,7 @@ final class HtmlAstBuilder
     /**
      * @param list<\DOMNode> $nodes
      *
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function inlines(array $nodes): array
     {
@@ -3344,12 +3393,12 @@ final class HtmlAstBuilder
         }
 
         foreach ($out as $index => $inline) {
-            if (($inline['type'] ?? null) !== 'code' || ($inline['value'] ?? null) !== '') {
+            if ($inline['type'] !== 'code' || ($inline['value'] ?? null) !== '') {
                 continue;
             }
             $tail = array_slice($out, $index + 1);
             if (
-                $tail !== [] && self::every($tail, static fn (array $part): bool => ($part['type'] ?? null) === 'text' && trim(self::stringValue($part['value'] ?? null)) === '')
+                $tail !== [] && self::every($tail, static fn (array $part): bool => $part['type'] === 'text' && trim(self::stringValue($part['value'] ?? null)) === '')
             ) {
                 $out = array_slice($out, 0, $index + 1);
 
@@ -3364,7 +3413,7 @@ final class HtmlAstBuilder
      * Whether the last (`$end`) or first inline of `$nodes` ends in something
      * other than whitespace. Containers are read through to their text.
      *
-     * @param list<array<string, mixed>> $nodes
+     * @param list<ImportedNode> $nodes
      * @param bool $end
      */
     private static function edgeIsContent(array $nodes, bool $end): bool
@@ -3398,9 +3447,9 @@ final class HtmlAstBuilder
      * Close an inline run: hoist the edge whitespace of every link and span in
      * it, then merge the neighboring text.
      *
-     * @param list<array<string, mixed>> $nodes
+     * @param list<ImportedNode> $nodes
      *
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function hoistedRun(array $nodes): array
     {
@@ -3415,10 +3464,10 @@ final class HtmlAstBuilder
      * merges with whitespace already there (markup-carve/carve#2361).
      * Whitespace-only content stays, and so does U+00A0, which is content.
      *
-     * @param list<array<string, mixed>> $nodes
+     * @param list<ImportedNode> $nodes
      * @param bool $withinLinkOrSpan
      *
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function hoistEdgeSpace(array $nodes, bool $withinLinkOrSpan = false): array
     {
@@ -3450,8 +3499,8 @@ final class HtmlAstBuilder
             $lead = false;
             $trail = false;
             $children = self::nodeList($node['children'] ?? null);
-            $linkOrSpan = !$withinLinkOrSpan && in_array($node['type'] ?? null, ['link', 'span'], true);
-            $formatting = $withinLinkOrSpan && in_array($node['type'] ?? null, [
+            $linkOrSpan = !$withinLinkOrSpan && in_array($node['type'], ['link', 'span'], true);
+            $formatting = $withinLinkOrSpan && in_array($node['type'], [
                 'emphasis', 'strong', 'underline', 'strike', 'highlight',
                 'insert', 'delete', 'superscript', 'subscript',
             ], true);
@@ -3459,12 +3508,12 @@ final class HtmlAstBuilder
                 $children = $this->coalesceText($this->hoistEdgeSpace($children, true));
                 $node['children'] = $children;
             }
-            $blankOnly = self::every($children, static fn (array $child): bool => ($child['type'] ?? null) === 'text'
+            $blankOnly = self::every($children, static fn (array $child): bool => $child['type'] === 'text'
                 && preg_match('/^[ \t]*$/D', self::stringValue($child['value'] ?? null)) === 1);
             if (($linkOrSpan || $formatting) && !$blankOnly) {
                 if ($startsBlank($children[0])) {
                     $lead = true;
-                    $children[0]['value'] = preg_replace('/^[ \t]+/', '', self::stringValue($children[0]['value'])) ?? '';
+                    $children[0]['value'] = preg_replace('/^[ \t]+/', '', self::stringValue($children[0]['value'] ?? null)) ?? '';
                     if ($children[0]['value'] === '') {
                         array_shift($children);
                     }
@@ -3472,7 +3521,7 @@ final class HtmlAstBuilder
                 $last = array_key_last($children);
                 if ($last !== null && $endsBlank($children[$last])) {
                     $trail = true;
-                    $children[$last]['value'] = preg_replace('/[ \t]+$/', '', self::stringValue($children[$last]['value'])) ?? '';
+                    $children[$last]['value'] = preg_replace('/[ \t]+$/', '', self::stringValue($children[$last]['value'] ?? null)) ?? '';
                     if ($children[$last]['value'] === '') {
                         array_pop($children);
                     }
@@ -3480,7 +3529,7 @@ final class HtmlAstBuilder
                 if ($lead || $trail) {
                     $node['children'] = $children;
                     if (isset($node['rawRef'], $node['ref'])) {
-                        $label = $this->plainInlineText($children);
+                        $label = $this->plainInlineText(self::nodeList($children));
                         $ref = self::stringValue($node['ref']);
                         $node['rawRef'] = '[' . $label . ']' . ($label === $ref ? '[]' : '[' . $ref . ']');
                     }
@@ -3501,7 +3550,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function inline(DOMNode $node): array
     {
@@ -3797,7 +3846,7 @@ final class HtmlAstBuilder
             }
             $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
             if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-ref')) {
-                $labelText = $this->plainInlineText($children);
+                $labelText = $this->plainInlineText(self::nodeList($children));
                 $ref = $node->getAttribute('data-djot-ref');
                 if ($ref === '') {
                     $ref = trim($labelText);
@@ -3977,7 +4026,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function ruby(DOMElement $element): array
     {
@@ -4070,7 +4119,7 @@ final class HtmlAstBuilder
         if ($output === []) {
             return [];
         }
-        if (count($output) === 1 && ($output[0]['type'] ?? null) === 'ruby') {
+        if (count($output) === 1 && $output[0]['type'] === 'ruby') {
             $this->attachAttrs($output[0], $element);
 
             return $output;
@@ -4086,8 +4135,8 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param list<array<string, mixed>> $run
-     * @param list<array<string, mixed>> $output
+     * @param list<array{base: list<ImportedNode>, annotation: list<ImportedNode>}> $run
+     * @param list<ImportedNode> $output
      */
     private static function flushRubyRun(array &$run, array &$output): void
     {
@@ -4123,7 +4172,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>|null
+     * @return list<ImportedNode>|null
      */
     private function roundTripBlocks(DOMElement $node): ?array
     {
@@ -4141,7 +4190,7 @@ final class HtmlAstBuilder
             'UTF-8',
         );
         $tree = (new AstCodec())->encode(CarveConverter::create()->parse($source));
-        $children = self::nodeList($tree['children'] ?? null);
+        $children = self::nodeList($tree['children']);
 
         if (
             isset($children[0])
@@ -4152,7 +4201,7 @@ final class HtmlAstBuilder
             }
             $this->setPrivateAttribute($children[0], "\0carve-stored-source", $source);
 
-            return [$children[0]];
+            return self::nodeList([$children[0]]);
         }
 
         return $children;
@@ -4339,7 +4388,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function inlineHtml(string $html): array
     {
@@ -4422,13 +4471,13 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param list<array<string, mixed>> $nodes
+     * @param list<ImportedNode> $nodes
      */
     private function plainInlineText(array $nodes): string
     {
         $text = '';
         foreach ($nodes as $node) {
-            if (($node['type'] ?? null) === 'text') {
+            if ($node['type'] === 'text') {
                 $text .= self::stringValue($node['value'] ?? null);
             } elseif (is_array($node['children'] ?? null)) {
                 $text .= $this->plainInlineText(self::nodeList($node['children']));
@@ -4474,9 +4523,9 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param list<array<string, mixed>> $blocks
+     * @param list<ImportedNode> $blocks
      *
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function flattenBlocks(array $blocks): array
     {
@@ -4491,13 +4540,15 @@ final class HtmlAstBuilder
             }
         }
 
-        return $this->coalesceText($out);
+        return $this->coalesceText(self::nodeList($out));
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @phpstan-param ImportedNode $node
      *
-     * @return list<array<string, mixed>>
+     * @param array $node
+     *
+     * @return list<ImportedNode>
      */
     private function projectToInlines(array $node): array
     {
@@ -4529,7 +4580,7 @@ final class HtmlAstBuilder
             'text' => true,
             'underline' => true,
         ];
-        $type = $node['type'] ?? null;
+        $type = $node['type'];
         // A block comment reaching an inline-only slot is spelled inline: a
         // line comment there would swallow the rest of the row.
         if ($type === 'comment' && ($node['block'] ?? false) === true) {
@@ -4540,7 +4591,7 @@ final class HtmlAstBuilder
 
             return [['type' => 'comment', 'content' => $content, 'delimited' => true, 'block' => false]];
         }
-        if (is_string($type) && isset($inlineTypes[$type])) {
+        if (isset($inlineTypes[$type])) {
             return [$node];
         }
         // A code block reaching an inline-only slot becomes a code SPAN, which is
@@ -4593,7 +4644,7 @@ final class HtmlAstBuilder
                 array_push($out, ...$projected);
             }
 
-            return $out;
+            return self::nodeList($out);
         }
         if ($type === 'table') {
             // The cell walk below does not reach a nested table's own caption,
@@ -4613,7 +4664,7 @@ final class HtmlAstBuilder
                 }
             }
 
-            return $out;
+            return self::nodeList($out);
         }
 
         $out = [];
@@ -4627,8 +4678,8 @@ final class HtmlAstBuilder
                 if (
                     $out !== []
                     && $projected !== []
-                    && !isset($inlineTypes[$child['type'] ?? ''])
-                    && !$this->inlineEndsWithSpace($out[count($out) - 1])
+                    && !isset($inlineTypes[$child['type']])
+                    && !$this->inlineEndsWithSpace(self::importedNode($out[count($out) - 1]))
                     && !$this->inlineStartsWithSpace($projected[0])
                 ) {
                     $out[] = HtmlImportNodes::text(' ');
@@ -4639,7 +4690,7 @@ final class HtmlAstBuilder
             }
         }
 
-        return $out;
+        return self::nodeList($out);
     }
 
     /**
@@ -4725,16 +4776,16 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param list<array<string, mixed>> $nodes
+     * @param list<ImportedNode> $nodes
      *
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function coalesceText(array $nodes): array
     {
         $out = [];
         foreach ($nodes as $node) {
             $last = array_key_last($out);
-            if ($last !== null && ($node['type'] ?? null) === 'text' && ($out[$last]['type'] ?? null) === 'text') {
+            if ($last !== null && $node['type'] === 'text' && $out[$last]['type'] === 'text') {
                 $out[$last]['value'] = self::stringValue($out[$last]['value'] ?? null)
                     . self::stringValue($node['value'] ?? null);
             } else {
@@ -4746,11 +4797,11 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @param list<array<string, mixed>> $nodes
+     * @param list<ImportedNode> $nodes
      * @param bool $leading
      * @param bool $trailing
      *
-     * @return list<array<string, mixed>>
+     * @return list<ImportedNode>
      */
     private function trimBlockEdges(array $nodes, bool $leading = true, bool $trailing = true): array
     {
@@ -4764,7 +4815,7 @@ final class HtmlAstBuilder
         }
         while ($trailing && $nodes !== []) {
             $last = array_key_last($nodes);
-            if (($nodes[$last]['type'] ?? null) !== 'text') {
+            if ($nodes[$last]['type'] !== 'text') {
                 break;
             }
             $value = self::stringValue($nodes[$last]['value'] ?? null);
@@ -4777,7 +4828,7 @@ final class HtmlAstBuilder
 
         foreach ($nodes as $index => &$node) {
             if (
-                !in_array($node['type'] ?? null, [
+                !in_array($node['type'], [
                     'emphasis', 'strong', 'underline', 'strike', 'highlight',
                     'insert', 'delete', 'superscript', 'subscript',
                 ], true)
@@ -4786,7 +4837,7 @@ final class HtmlAstBuilder
             }
             $children = self::nodeList($node['children'] ?? null);
             if (
-                self::every($children, static fn (array $child): bool => ($child['type'] ?? null) === 'text'
+                self::every($children, static fn (array $child): bool => $child['type'] === 'text'
                 && preg_match('/^[ \t]*$/D', self::stringValue($child['value'] ?? null)) === 1)
             ) {
                 continue;
@@ -4794,10 +4845,10 @@ final class HtmlAstBuilder
             $previous = $nodes[$index - 1] ?? null;
             $next = $nodes[$index + 1] ?? null;
             $before = $previous === null ? $leading
-                : (($previous['type'] ?? null) === 'hard_break' || $this->inlineEndsWithSpace($previous));
+                : ($previous['type'] === 'hard_break' || $this->inlineEndsWithSpace($previous));
             $after = $next === null ? $trailing
-                : (($next['type'] ?? null) === 'hard_break'
-                    || (($next['type'] ?? null) === 'text' && $this->inlineStartsWithSpace($next)));
+                : ($next['type'] === 'hard_break'
+                    || ($next['type'] === 'text' && $this->inlineStartsWithSpace($next)));
             $node['children'] = $this->trimBlockEdges($children, $before, $after);
         }
         unset($node);
