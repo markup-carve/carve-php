@@ -470,13 +470,14 @@ DJOT;
         }
     }
 
-    public function testInlineAttributeOnGenericTypedDivIsNotAFence(): void
+    public function testInlineAttributeOnGenericTypedDivIsDropped(): void
     {
         $converter = new CarveConverter();
 
         $html = $converter->convert("::: box {.x}\nbody\n:::");
 
-        $this->assertStringNotContainsString('<div', $html);
+        $this->assertStringContainsString('<div class="box">', $html);
+        $this->assertStringNotContainsString('class="x"', $html);
         $this->assertStringContainsString('<p>', $html);
     }
 

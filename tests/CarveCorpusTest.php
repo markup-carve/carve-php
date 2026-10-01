@@ -1094,6 +1094,7 @@ class CarveCorpusTest extends TestCase
         // its HTML was already byte-identical to the pinned fixture before the
         // reporting landed - measured before this entry was added, not after.
         'a-denied-destination-takes-one-render-loss-row-per-sink',
+        'invalid-named-container-metadata-keeps-the-subtree',
     ];
 
     /**

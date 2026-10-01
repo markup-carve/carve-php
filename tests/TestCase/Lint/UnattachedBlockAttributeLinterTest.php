@@ -55,11 +55,11 @@ class UnattachedBlockAttributeLinterTest extends TestCase
         $this->assertSame([], (new SourceLinter())->lint("`a\n```\n`\n"));
     }
 
-    public function testQuotedTitleWithInvalidSeparatorHasNoTitleWarning(): void
+    public function testQuotedTitleWithInvalidSeparatorReportsDroppedMetadata(): void
     {
         $rules = array_column((new SourceLinter())->lint("::: note \t\"Title\"\nx\n:::\n"), 'rule');
-        $this->assertContains('block-marker-as-text', $rules);
-        $this->assertNotContains('fence-title-syntax', $rules);
+        $this->assertNotContains('block-marker-as-text', $rules);
+        $this->assertContains('fence-title-syntax', $rules);
     }
 
     public function testDefinitionMarkersDoNotHideLaterListWarnings(): void

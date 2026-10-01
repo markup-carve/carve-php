@@ -143,9 +143,9 @@ class HtmlImportRecognitionTest extends TestCase
      * escaped form does not open a fence at all and takes the whole block down
      * with it.
      */
-    public function testTheEscapedTitleFormWouldNotHaveOpenedAFence(): void
+    public function testAnInvalidEscapedTitleKeepsTheDisclosure(): void
     {
-        $this->assertStringNotContainsString(
+        $this->assertStringContainsString(
             '<details',
             $this->disclosure->convert("::: details \"He said \\\"hi\\\"\"\nBody\n:::\n"),
         );

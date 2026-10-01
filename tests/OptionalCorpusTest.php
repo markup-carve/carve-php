@@ -10,7 +10,9 @@ use MarkupCarve\Carve\Extension\CitationsExtension;
 use MarkupCarve\Carve\Extension\CodeCalloutsExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
 use MarkupCarve\Carve\Extension\ExtensionInterface;
+use MarkupCarve\Carve\Extension\FencedRenderExtension;
 use MarkupCarve\Carve\Extension\ListTableExtension;
+use MarkupCarve\Carve\Extension\MathBlockExtension;
 use MarkupCarve\Carve\Extension\MentionsExtension;
 use MarkupCarve\Carve\Extension\SemanticSpanExtension;
 use MarkupCarve\Carve\Extension\SmartQuotesExtension;
@@ -135,6 +137,15 @@ class OptionalCorpusTest extends TestCase
     protected static function featureRunners(): array
     {
         return [
+            'fenced-render-mermaid' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, FencedRenderExtension::mermaid()),
+            'fenced-render-d2' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, FencedRenderExtension::d2()),
+            'fenced-render-graphviz' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, FencedRenderExtension::graphviz()),
+            'fenced-render-wavedrom' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, FencedRenderExtension::wavedrom()),
+            'fenced-render-abc' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, FencedRenderExtension::abc()),
+            'fenced-render-plantuml' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, FencedRenderExtension::plantuml()),
+            'fenced-render-vega-lite' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, FencedRenderExtension::vegaLite()),
+            'fenced-render-chart' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, FencedRenderExtension::chart()),
+            'math-block' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new MathBlockExtension()),
             'social-link-templates' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new MentionsExtension(mentionUrl: '/users/{name}', tagUrl: '/topics/{name}')),
             'social-link-resolvers' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new MentionsExtension(
                 mentionResolver: static fn (SocialLinkResolverInput $input): ?string => match ($input->name) {

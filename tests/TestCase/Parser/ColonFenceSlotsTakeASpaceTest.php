@@ -128,15 +128,20 @@ class ColonFenceSlotsTakeASpaceTest extends TestCase
     }
 
     #[DataProvider('tabbedOpenerProvider')]
-    public function testATabInTheRunLeavesTheLineAsProse(string $opener): void
+    public function testATabInTheRunDropsMetadataAndKeepsTheContainer(string $opener): void
     {
         // Asserted as "the opener line survives as text" rather than "there is
         // a paragraph": a div and a line block both WRAP a paragraph, so a
         // paragraph check passes for a container that should not have opened.
         $out = $this->html("{$opener}\nx\n:::\n");
 
-        $this->assertStringContainsString(':::', $out);
-        $this->assertStringNotContainsString('<aside', $out);
+        if (preg_match('/^:{3,} +note/', $opener) === 1) {
+            $this->assertStringNotContainsString(':::', $out);
+            $this->assertStringContainsString('<aside', $out);
+        } else {
+            $this->assertStringContainsString(':::', $out);
+            $this->assertStringNotContainsString('<aside', $out);
+        }
         $this->assertStringNotContainsString('admonition-title', $out);
     }
 
@@ -174,16 +179,16 @@ class ColonFenceSlotsTakeASpaceTest extends TestCase
         $this->assertStringNotContainsString('admonition-title', $this->html("::: note{$ws}\"Title\"\nx\n:::\n"));
     }
 
-    public function testATabAtBothSlotsIsProseButProvesNothingOnItsOwn(): void
+    public function testTabsAtBothSlotsDropAllMetadata(): void
     {
         // Kept for the shape, NOT as evidence: narrowing either slot alone
         // already rejects this line, so it would pass with the other slot
         // still wrong. The per-slot rows are what discriminate; the count
         // guard below is what keeps one from being deleted unnoticed.
-        $this->assertStringNotContainsString('<aside', $this->html("::: note\t\"T\"\t[lbl]\nx\n:::\n"));
+        $this->assertStringContainsString('<aside', $this->html("::: note\t\"T\"\t[lbl]\nx\n:::\n"));
     }
 
-    public function testEveryTabbedRowIsCheckedAndNoneOfThemOpensAnAdmonition(): void
+    public function testEveryTabbedRowIsCheckedAndNoneKeepsItsMetadata(): void
     {
         // A row silently dropped from a provider would take its slot's
         // coverage with it and nothing else would fail.
@@ -192,7 +197,7 @@ class ColonFenceSlotsTakeASpaceTest extends TestCase
 
         $stillOpening = [];
         foreach (self::tabbedOpenerProvider() as $name => [$opener]) {
-            if (str_contains($this->html("{$opener}\nx\n:::\n"), '<aside')) {
+            if (str_contains($this->html("{$opener}\nx\n:::\n"), 'admonition-title')) {
                 $stillOpening[] = $name;
             }
         }

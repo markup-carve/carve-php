@@ -24,9 +24,12 @@ class SourceLinter
     private const BLOCK = '/^(?:#{1,6} +\S|>(?: |$)|`{3,}|~{3,}|::(?: |$)|:{3,}(?: |$)|!\[|\[[^\]]+\]: +\S|(?:-{3,}|\*{3,}|_{3,})[ \t]*$|\{[^{}]+\}[ \t]*$|\|.*\|[ \t]*$)/';
 
     /**
+     * @param string $source
+     * @param callable(): void|null $onRecoveredContainerMetadata
+     *
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
-    public function lint(string $source): array
+    public function lint(string $source, ?callable $onRecoveredContainerMetadata = null): array
     {
         $converter = new CarveConverter();
         $converter->getParser()->enablePositionTracking();
@@ -114,7 +117,7 @@ class SourceLinter
                 if (in_array($type, ['div', 'admonition', 'figure_group', 'line_block', 'directive'], true) || ($node instanceof BlockQuote && $node->isFenced())) {
                     for ($ln = $pos->startLine; $ln <= min($pos->endLine, $rowCount); $ln++) {
                         $text = $rows[$ln - 1][0];
-                        $view = ltrim(self::containerView($text), " \t");
+                        $view = ltrim(self::containerView($ln === 1 ? preg_replace('/^\x{FEFF}/u', '', $text) ?? $text : $text), " \t");
                         if (preg_match('/^(:{3,})(?:[ \t]|$)/', $view, $match)) {
                             $fences[] = ['first' => $ln, 'last' => $pos->endLine, 'column' => strlen($text) - strlen($view), 'width' => strlen($match[1]), 'bare' => trim($view) === $match[1]];
                             if ($depth > 1 && preg_match('/^:{3,} +footnotes[ \t]*$/', $view)) {
@@ -379,6 +382,15 @@ class SourceLinter
             }
         }
         foreach ($fences as $index => $fence) {
+            $text = $rows[$fence['first'] - 1][0];
+            $view = ltrim(self::containerView($fence['first'] === 1 ? preg_replace('/^\x{FEFF}/u', '', $text) ?? $text : $text), " \t");
+            $opener = $fenceParser->parseDivFenceOpener($view);
+            if ($opener !== null && $opener['invalidMetadata']) {
+                if ($onRecoveredContainerMetadata !== null) {
+                    $onRecoveredContainerMetadata();
+                }
+                $emit($fence['first'], strlen($text) - strlen($view), strlen($view), 'fence-title-syntax', 'Invalid container metadata was dropped. Use a straight-double-quoted title or a bracketed label; the container and its children are preserved.');
+            }
             if ($fence['bare'] && !isset($closed[$index])) {
                 for ($i = $index - 1; $i >= 0; $i--) {
                     $parent = $fences[$i];
@@ -462,7 +474,11 @@ class SourceLinter
 
     private static function containerView(string $text): string
     {
-        while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:[-*] |(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)] |: ))/', $text, $match)) {
+        while (
+            preg_match('/^[ \t]*> ?/', $text, $match)
+            || preg_match(self::ITEM, $text, $match)
+            || preg_match('/^[ \t]*(?:: |\[\^[^\]\r\n]+\]: +)/', $text, $match)
+        ) {
             $text = substr($text, strlen($match[0]));
         }
 

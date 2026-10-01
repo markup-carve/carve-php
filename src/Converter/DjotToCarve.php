@@ -8,6 +8,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
@@ -633,10 +634,34 @@ class DjotToCarve
     {
         $lines = explode("\n", $source);
         $maskedLines = explode("\n", $this->maskCodeAndDestinations($source));
+        $containers = [];
+        $fenceParser = new FencedBlockParser();
         foreach ($lines as $i => $line) {
             $masked = $maskedLines[$i] ?? $line;
             if (trim($masked) === '') {
                 continue;
+            }
+            $view = $line;
+            while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]|\([0-9A-Za-z]+\)) +(?:\[[ xX]\] +)?|: |\[\^[^\]\r\n]+\]: +))/', $view, $host)) {
+                $view = substr($view, strlen($host[0]));
+            }
+            $view = ltrim($view, " \t");
+            $containerOffset = strlen($line) - strlen($view);
+            if (str_starts_with($view, ':::') && str_starts_with(substr($masked, $containerOffset), ':::')) {
+                $content = substr($line, $containerOffset);
+                $opener = $fenceParser->parseDivFenceOpener($content);
+                $top = $containers !== [] ? $containers[array_key_last($containers)] : null;
+                $close = $opener !== null && preg_match('/^:{3,}[ \t]*$/', $content) === 1
+                    && $top !== null && $top['width'] === $opener['length'];
+                $invalid = $close ? array_pop($containers)['invalid'] : ($opener['invalidMetadata'] ?? false);
+                if (!$close && $opener !== null) {
+                    $containers[] = ['width' => $opener['length'], 'invalid' => $invalid];
+                }
+                if ($invalid) {
+                    $at = $containerOffset;
+                    $lines[$i] = substr($line, 0, $at) . '\\' . substr($line, $at);
+                    $line = $lines[$i];
+                }
             }
             if (preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(([0-9A-Za-z]+)\)([ \t]+\S.*)$/', $masked, $match)) {
                 if (!preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(([0-9A-Za-z]+)\)([ \t]+\S.*)$/', $line, $authored)) {
