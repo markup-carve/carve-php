@@ -11,6 +11,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- Canonical output preserves leading non-whitespace C0 controls in link and image
+  destinations. Presentation sinks still apply URL filtering
+  (markup-carve/carve#2685).
+
 - Canonical Carve output preserves parentheses and backslashes in denied URL
   schemes. Presentation targets retain destination filtering and loss reports
   (markup-carve/carve#2685).
