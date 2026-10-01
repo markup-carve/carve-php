@@ -247,6 +247,9 @@ final class AstSchema
                 $failure = self::check($value, $branch, $root, $path, $exempt);
                 if ($failure === null) {
                     $matched++;
+                    if ($keyword === 'anyOf') {
+                        break;
+                    }
 
                     continue;
                 }

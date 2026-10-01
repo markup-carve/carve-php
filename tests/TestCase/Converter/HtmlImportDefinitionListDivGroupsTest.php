@@ -8,6 +8,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 /**
  * HTML5 lets a `dl` group its terms and definitions two ways: as direct
@@ -81,6 +82,29 @@ class HtmlImportDefinitionListDivGroupsTest extends TestCase
     public function testDivGroupedDefinitionListSurvivesImport(string $html, string $expected): void
     {
         $this->assertSame($expected, $this->carve->convert($this->converter->convert($html)));
+    }
+
+    public function testLeadingDescriptionsRemainScopedToEachListAndConversion(): void
+    {
+        $first = '<dl><dd>First</dd><div><dd>Second</dd><dt>Term</dt>'
+            . '<dd><dl><dd>Nested</dd><dt>Inner</dt><dd>Body</dd></dl></dd></div></dl>'
+            . '<p>Boundary</p><dl><dt>Other</dt><dd>Kept</dd></dl>';
+        $result = $this->converter->convertWithReport($first);
+        $leading = array_filter(
+            $result->report()['diagnostics'],
+            static fn (array $row): bool => str_starts_with($row['message'], 'A <dd> with no <dt> before it'),
+        );
+        $this->assertCount(3, $leading);
+        $this->assertSame((new HtmlToCarve())->convertWithReport($first)->report(), $result->report());
+
+        $cache = new ReflectionProperty(HtmlToCarve::class, 'termlessImportDescriptions');
+        $this->assertNull($cache->getValue($this->converter));
+
+        $next = '<dl><dt>Next</dt><dd>Body</dd></dl>';
+        $this->assertSame(
+            (new HtmlToCarve())->convertWithReport($next)->report(),
+            $this->converter->convertWithReport($next)->report(),
+        );
     }
 
     /**
