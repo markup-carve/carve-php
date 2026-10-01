@@ -5437,7 +5437,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function escapeDestination(string $text): string
     {
-        $text = (string)preg_replace('/^[\x00-\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]+/u', '', $text);
         // Whitespace is percent-encoded (it would otherwise end the
         // destination). A parenthesis is escaped only when it is UNBALANCED: a
         // balanced pair re-parses as itself, so leaving it bare is both the

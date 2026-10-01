@@ -71,6 +71,34 @@ class CanonicalDeniedDestinationsTest extends TestCase
         }
     }
 
+    public function testLeadingControlsRemainAuthoredDestinationCharacters(): void
+    {
+        foreach (["\x01", "\x1F"] as $prefix) {
+            foreach (['javascript', 'JaVaScRiPt', 'vbscript', 'data', 'file', 'ms-msdt', 'vscode', 'https'] as $scheme) {
+                $destination = $prefix . $scheme . ':alert(1)';
+                $source = '[x](' . $destination . ') ![i](' . $destination . ")\n";
+                $writer = CarveConverter::carve();
+                $before = $writer->parse($source)->getChildren()[0]->getChildren();
+                self::assertInstanceOf(Link::class, $before[0]);
+                self::assertSame($destination, $before[0]->getDestination());
+                $written = $writer->convertWithReport($source, strictLosses: true);
+                $after = $writer->parse($written->value)->getChildren()[0]->getChildren();
+                self::assertInstanceOf(Link::class, $after[0]);
+                self::assertInstanceOf(Image::class, $after[2]);
+                self::assertSame($destination, $after[0]->getDestination());
+                self::assertSame($destination, $after[2]->getSource());
+                self::assertSame($source, $written->value);
+                self::assertSame(0, $written->totalLosses);
+                self::assertSame($written->value, $writer->convert($written->value));
+                foreach ([CarveConverter::create(), CarveConverter::markdown()] as $renderer) {
+                    $result = $renderer->convertWithReport($written->value);
+                    self::assertSame($scheme === 'https' ? 0 : 2, $result->totalLosses);
+                    self::assertSame($renderer->convert($source), $result->value);
+                }
+            }
+        }
+    }
+
     public function testBalancedDeniedParenthesesStayReadable(): void
     {
         $source = "[x](javascript:alert(1))\n";
