@@ -102,12 +102,17 @@ final class BlockContinuationScanner
      * ever refutes; a positive answer sends the caller to the real scan.
      *
      * @param array<string> $lines
+     * @param bool $columnZeroCode
      *
      * @return array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}
      */
-    public function fenceCloserIndex(array $lines): array
+    public function fenceCloserIndex(array $lines, bool $columnZeroCode = false): array
     {
-        if ($this->state->frame->fenceCloserIndexCache === null) {
+        $cache =& $this->state->frame->fenceCloserIndexCache;
+        if ($columnZeroCode) {
+            $cache =& $this->state->frame->literalFenceCloserIndexCache;
+        }
+        if ($cache === null) {
             $comment = [];
             $colon = [];
             $code = [];
@@ -126,7 +131,11 @@ final class BlockContinuationScanner
                 if ($head === ':' && preg_match('/^[ \t]*(:{3,})[ \t]*$/', $line, $m) === 1) {
                     $colon[strlen($m[1])] = $i;
                 }
-                if (($head === '`' || $head === '~') && preg_match('/^[ \t]*([`~]{3,})[ \t]*$/', $line, $m) === 1) {
+                if (
+                    ($head === '`' || $head === '~')
+                    && (!$columnZeroCode || ($line[0] ?? '') === $head)
+                    && preg_match('/^[ \t]*(`{3,}|~{3,})[ \t]*$/', $line, $m) === 1
+                ) {
                     $code[$m[1][0]][strlen($m[1])] = $i;
                 }
             }
@@ -150,14 +159,14 @@ final class BlockContinuationScanner
                 ksort($lastAtLeast);
                 $codeRuns[$char] = ['runs' => $runs, 'lastAtLeast' => $lastAtLeast];
             }
-            $this->state->frame->fenceCloserIndexCache = [
+            $cache = [
                 'comment' => $comment,
                 'colon' => $colon,
                 'code' => $codeRuns,
             ];
         }
 
-        return $this->state->frame->fenceCloserIndexCache;
+        return $cache;
     }
 
     /**

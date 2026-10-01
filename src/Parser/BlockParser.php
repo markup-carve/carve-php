@@ -3375,11 +3375,8 @@ class BlockParser
      */
     protected function hasCodeFenceCloserAhead(array $lines, int $openIndex, string $fenceChar, int $fenceLength): bool
     {
-        if (
-            $this->fencedBlockParser::class === FencedBlockParser::class
-            && !$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $fenceChar, $fenceLength, $openIndex)
-        ) {
-            return false;
+        if ($this->fencedBlockParser::class === FencedBlockParser::class) {
+            return $this->codeCloserPossible($this->fenceCloserIndex($lines, true)['code'], $fenceChar, $fenceLength, $openIndex);
         }
 
         $count = count($lines);
@@ -3739,9 +3736,7 @@ class BlockParser
      */
     protected static function stripLazyFrame(string $line): string
     {
-        return str_starts_with($line, self::LAZY_FRAME)
-            ? substr($line, strlen(self::LAZY_FRAME))
-            : $line;
+        return BlockGrammar::stripLazyFrame($line);
     }
 
     /**
@@ -3819,9 +3814,9 @@ class BlockParser
      *
      * @return array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}
      */
-    private function fenceCloserIndex(array $lines): array
+    private function fenceCloserIndex(array $lines, bool $columnZeroCode = false): array
     {
-        return $this->continuationsMapper()->fenceCloserIndex($lines);
+        return $this->continuationsMapper()->fenceCloserIndex($lines, $columnZeroCode);
     }
 
     /**

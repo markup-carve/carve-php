@@ -97,6 +97,13 @@ final class BlockGrammar
      */
     public const LAZY_FRAME = "\x00L\x00";
 
+    public static function stripLazyFrame(string $line): string
+    {
+        return str_starts_with($line, self::LAZY_FRAME)
+            ? substr($line, strlen(self::LAZY_FRAME))
+            : $line;
+    }
+
     /**
      * Depth bound for the heading-index walk.
      *

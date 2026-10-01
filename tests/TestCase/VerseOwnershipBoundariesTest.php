@@ -143,4 +143,15 @@ lazy<br>
         $this->assertSame(5, $paragraph['pos']['endColumn']);
         $this->assertSame(strpos($source, 'lazy') + 4, $paragraph['pos']['endOffset']);
     }
+
+    public function testFalseCodeClosersDoNotHideTheVerseBoundary(): void
+    {
+        foreach (['```~', ' ```'] as $falseCloser) {
+            $source = "::: |\n" . str_repeat("```x\n", 128)
+                . $falseCloser . "\n:::\n\n[r]: /target\n\n[t][r]\n";
+            $html = (new CarveConverter())->convert($source);
+
+            $this->assertStringContainsString('href="/target"', $html);
+        }
+    }
 }

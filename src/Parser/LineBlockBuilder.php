@@ -158,9 +158,7 @@ final class LineBlockBuilder
         $stanza = [];
         $lineNumber = $start + 1;
         foreach ($contentLines as $contentLine) {
-            if (str_starts_with($contentLine, BlockGrammar::LAZY_FRAME)) {
-                $contentLine = substr($contentLine, strlen(BlockGrammar::LAZY_FRAME));
-            }
+            $contentLine = BlockGrammar::stripLazyFrame($contentLine);
             if (IndentationHelper::isBlankLine($contentLine)) {
                 $this->callAppendLineBlockStanza($lineBlock, $stanza);
                 $stanza = [];
@@ -689,6 +687,7 @@ final class LineBlockBuilder
                 $text = substr($line, $offset, $runLength);
                 $expanded .= $text;
                 $seenContent = true;
+                // UTF-8 continuation bytes advance no source column.
                 $column += $runLength - preg_match_all('/[\x80-\xBF]/', $text);
                 $offset += $runLength;
 
