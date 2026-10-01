@@ -641,8 +641,14 @@ class DjotToCarve
             if (trim($masked) === '') {
                 continue;
             }
-            if (preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?[ \t]*)(:{3,}.*)$/', $masked, $container)) {
-                $content = substr($line, strlen($container[1]));
+            $view = $line;
+            while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]|\([0-9A-Za-z]+\)) +(?:\[[ xX]\] +)?|: |\[\^[^\]\r\n]+\]: +))/', $view, $host)) {
+                $view = substr($view, strlen($host[0]));
+            }
+            $view = ltrim($view, " \t");
+            $containerOffset = strlen($line) - strlen($view);
+            if (str_starts_with($view, ':::') && str_starts_with(substr($masked, $containerOffset), ':::')) {
+                $content = substr($line, $containerOffset);
                 $opener = $fenceParser->parseDivFenceOpener($content);
                 $top = $containers !== [] ? $containers[array_key_last($containers)] : null;
                 $close = $opener !== null && preg_match('/^:{3,}[ \t]*$/', $content) === 1
@@ -652,10 +658,9 @@ class DjotToCarve
                     $containers[] = ['width' => $opener['length'], 'invalid' => $invalid];
                 }
                 if ($invalid) {
-                    $at = strlen($container[1]);
+                    $at = $containerOffset;
                     $lines[$i] = substr($line, 0, $at) . '\\' . substr($line, $at);
-
-                    continue;
+                    $line = $lines[$i];
                 }
             }
             if (preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(([0-9A-Za-z]+)\)([ \t]+\S.*)$/', $masked, $match)) {

@@ -125,4 +125,23 @@ final class InvalidContainerMetadataTest extends TestCase
         self::assertSame('::: tip Bad X', substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start));
         self::assertSame('invalid-container-metadata', CarveConverter::toCarvePatch($source)->unresolved[0]->code);
     }
+
+    public function testMigrationKeepsLiteralFencesAfterListAndFootnoteMarkers(): void
+    {
+        foreach ([['- ', '  ', '- '], ['1. ', '   ', '1. '], ['+ ', '  ', '- '], ['(1) ', '    ', '1. '], ['- [x] ', '  ', '- [x] '], ['[^1]: ', '    ', '[^1]: ']] as [$prefix, $indent, $migratedPrefix]) {
+            $before = $prefix === '[^1]: ' ? "a[^1]\n\n" : '';
+            $source = "{$before}{$prefix}::: tip Bad X\n{$indent}body\n{$indent}:::\n";
+            $expected = "{$before}{$migratedPrefix}\\::: tip Bad X\n{$indent}body\n{$indent}\\:::\n";
+            $migrated = (new DjotToCarve())->convert($source);
+            self::assertSame((new CarveConverter())->convert($expected), (new CarveConverter())->convert($migrated), $prefix);
+            self::assertStringNotContainsString('<aside', (new CarveConverter())->convert($migrated));
+        }
+    }
+
+    public function testTaskMarkerOpenerIsDiagnosedAndFormattingRequiresReview(): void
+    {
+        $source = "- [x] ::: tip Bad X\n  body\n  :::\n";
+        self::assertCount(1, array_filter((new SourceLinter())->lint($source), static fn ($w) => $w->rule === 'fence-title-syntax'));
+        self::assertSame('invalid-container-metadata', CarveConverter::toCarvePatch($source)->unresolved[0]->code);
+    }
 }
