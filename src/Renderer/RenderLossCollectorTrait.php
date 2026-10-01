@@ -91,25 +91,43 @@ trait RenderLossCollectorTrait
      * in both safe modes, because the flag gates neither the hardening nor the
      * reporting.
      */
-    protected function blankDeniedDestination(string $url, ?Node $node = null): string
+    protected function blankDeniedDestination(string $url, ?Node $node = null, ?int $at = null): string
     {
         $blanked = HtmlRenderer::blankDangerousScheme($url);
         if ($blanked === $url) {
             return $url;
         }
-        $this->recordDestinationDenied($node);
+        $this->recordDestinationDenied($node, $at);
 
         return $blanked;
     }
 
-    protected function recordDestinationDenied(?Node $node): void
+    /**
+     * How many rows the bounded report holds, which is where the NEXT row lands.
+     *
+     * A target that has to render a link's label before it can probe the link's
+     * own destination reads this first and passes it back as `$at`, so the row
+     * keeps its document position. The label is INSIDE the link, and
+     * `CARVE-P2-024` orders losses by position.
+     */
+    protected function renderLossIndex(): int
+    {
+        return count($this->renderLosses);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node|null $node
+     * @param int|null $at Document position in the bounded array; null appends
+     */
+    protected function recordDestinationDenied(?Node $node, ?int $at = null): void
     {
         if ($this->renderLossTarget === null) {
             return;
         }
         $this->renderLossTotal++;
         $this->renderLossCounts['destination-denied'] = ($this->renderLossCounts['destination-denied'] ?? 0) + 1;
-        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+        $position = $at ?? count($this->renderLosses);
+        if ($position >= $this->renderLossMaximum) {
             return;
         }
         $loss = [
@@ -121,7 +139,20 @@ trait RenderLossCollectorTrait
         if ($node !== null && $node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        if ($position >= count($this->renderLosses)) {
+            // The ordinary case, and an append rather than a splice at the end:
+            // `array_splice()` reindexes the array, so splicing every row makes
+            // collection quadratic in a large report. Raised by codex review.
+            $this->renderLosses[] = $loss;
+
+            return;
+        }
+        array_splice($this->renderLosses, $position, 0, [$loss]);
+        // The bound holds the FIRST rows in document order, so an insert past it
+        // drops the latest rather than refusing the one that belongs here.
+        if (count($this->renderLosses) > $this->renderLossMaximum) {
+            array_pop($this->renderLosses);
+        }
     }
 
     protected function recordRubyFlattened(Node $node): void

@@ -3411,17 +3411,19 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderLink(Link $node): string
     {
+        $destination = (string)$node->getDestination();
+        // A fragment naming a heading this target writes goes to its GFM slug
+        // (PART 11 §11); any other destination keeps the authored one (§11a).
+        $slug = str_starts_with($destination, '#') ? ($this->gfmSlugs[substr($destination, 1)] ?? null) : null;
+        // BEFORE the label, because the label is inside the link and
+        // `CARVE-P2-024` orders losses by document position.
+        $url = $slug !== null ? '#' . $slug : $this->encodeMarkdownDestination($destination, $node);
         $this->linkTextDepth++;
         try {
             $text = $this->renderChildren($node);
         } finally {
             $this->linkTextDepth--;
         }
-        $destination = (string)$node->getDestination();
-        // A fragment naming a heading this target writes goes to its GFM slug
-        // (PART 11 §11); any other destination keeps the authored one (§11a).
-        $slug = str_starts_with($destination, '#') ? ($this->gfmSlugs[substr($destination, 1)] ?? null) : null;
-        $url = $slug !== null ? '#' . $slug : $this->encodeMarkdownDestination($destination, $node);
         $title = $node->getTitle();
 
         if ($title !== null) {
