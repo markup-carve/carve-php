@@ -154,9 +154,31 @@ class FencedBlockParser
      *
      * @param string $line The line to check
      *
-     * @return array{fence: string, length: int, className: string, label: string|null}|null
+     * @return array{fence: string, length: int, className: string, label: string|null, invalidMetadata: bool}|null
      */
     public function parseDivFenceOpener(string $line): ?array
+    {
+        $valid = $this->parseValidDivFenceOpener($line);
+        if ($valid !== null) {
+            return $valid + ['invalidMetadata' => false];
+        }
+        if (preg_match('/^(:{3,}) +([a-zA-Z0-9_][a-zA-Z0-9_-]*)(?=$|[\s\x{FEFF}"{\[“”])[^\r\n]*$/uD', $line, $match) !== 1) {
+            return null;
+        }
+
+        return [
+            'fence' => $match[1],
+            'length' => strlen($match[1]),
+            'className' => $match[2],
+            'label' => null,
+            'invalidMetadata' => true,
+        ];
+    }
+
+    /**
+     * @return array{fence: string, length: int, className: string, label: string|null}|null
+     */
+    private function parseValidDivFenceOpener(string $line): ?array
     {
         // Fast early exit: divs start with :
         if (!isset($line[0]) || $line[0] !== ':') {

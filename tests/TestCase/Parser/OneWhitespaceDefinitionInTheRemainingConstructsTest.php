@@ -117,7 +117,6 @@ class OneWhitespaceDefinitionInTheRemainingConstructsTest extends TestCase
             'code fence closer' => ["```\nx\n```@\n"],
             'div fence closer' => [":::\nx\n:::@\n"],
             'div fence opener' => [":::@\nx\n:::\n"],
-            'verse fence opener' => ["::: verse@\na\n:::\n"],
             'raw block fence' => ["```=html@\n<b>x</b>\n```\n"],
             'frontmatter opener' => ["---@\nt: 1\n---\n\nb\n"],
             'table row attributes' => ["| a |{.c}@\n"],

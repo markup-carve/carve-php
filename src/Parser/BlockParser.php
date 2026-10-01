@@ -2964,6 +2964,7 @@ class BlockParser
         // generic container too.
         if (
             $className === 'figure'
+            && !$divInfo['invalidMetadata']
             && $title === null
             && $label === null
             && $this->figureGroupDepth === 0

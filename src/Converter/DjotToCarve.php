@@ -8,6 +8,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
@@ -637,6 +638,15 @@ class DjotToCarve
             $masked = $maskedLines[$i] ?? $line;
             if (trim($masked) === '') {
                 continue;
+            }
+            if (preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?[ \t]*)(:{3,}.*)$/', $masked, $container)) {
+                $opener = (new FencedBlockParser())->parseDivFenceOpener($container[2]);
+                if ($opener !== null && $opener['invalidMetadata']) {
+                    $at = strlen($container[1]);
+                    $lines[$i] = substr($line, 0, $at) . '\\' . substr($line, $at);
+
+                    continue;
+                }
             }
             if (preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(([0-9A-Za-z]+)\)([ \t]+\S.*)$/', $masked, $match)) {
                 if (!preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(([0-9A-Za-z]+)\)([ \t]+\S.*)$/', $line, $authored)) {

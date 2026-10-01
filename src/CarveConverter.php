@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Extension\ResettableExtensionInterface;
 use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
 use MarkupCarve\Carve\Extension\WikilinksExtension;
 use MarkupCarve\Carve\Filter\ProfileFilter;
+use MarkupCarve\Carve\Lint\SourceLinter;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Performance\BorrowedExtensionPlan;
@@ -192,7 +193,26 @@ class CarveConverter
      */
     public static function toCarvePatch(string $source): SourcePatch
     {
-        return SourcePatch::create($source, self::toCarve($source), 'formatting', 'canonical-format');
+        $formatted = self::toCarve($source);
+        $patch = SourcePatch::create($source, $formatted, 'formatting', 'canonical-format');
+        if ($patch->edits !== []) {
+            foreach ((new SourceLinter())->lint($source) as $warning) {
+                if ($warning->rule === 'fence-title-syntax') {
+                    return new SourcePatch($patch->sourceFingerprint, $patch->sourceBytes, [], [
+                        new SourceSuggestion(
+                            0,
+                            $patch->sourceBytes,
+                            $formatted,
+                            'formatting',
+                            'invalid-container-metadata',
+                            'Canonical formatting encounters invalid container metadata; review the proposed source.',
+                        ),
+                    ]);
+                }
+            }
+        }
+
+        return $patch;
     }
 
     /**

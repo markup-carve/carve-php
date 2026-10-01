@@ -191,12 +191,12 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
     }
 
     #[DataProvider('unclosedRunsInALabel')]
-    public function testAnUnclosedRunLeavesTheOpenerAsProse(string $label): void
+    public function testAnUnclosedRunDropsTheLabelAndKeepsTheContainer(string $label): void
     {
         $source = '::: note [' . $label . "]\nbody\n:::\n";
 
         $this->assertInstanceOf(
-            Paragraph::class,
+            Div::class,
             CarveConverter::create()->parse($source)->getChildren()[0] ?? null,
             $source,
         );

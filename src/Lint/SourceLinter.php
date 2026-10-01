@@ -114,7 +114,7 @@ class SourceLinter
                 if (in_array($type, ['div', 'admonition', 'figure_group', 'line_block', 'directive'], true) || ($node instanceof BlockQuote && $node->isFenced())) {
                     for ($ln = $pos->startLine; $ln <= min($pos->endLine, $rowCount); $ln++) {
                         $text = $rows[$ln - 1][0];
-                        $view = ltrim(self::containerView($text), " \t");
+                        $view = ltrim(self::containerView($ln === 1 ? preg_replace('/^\x{FEFF}/u', '', $text) ?? $text : $text), " \t");
                         if (preg_match('/^(:{3,})(?:[ \t]|$)/', $view, $match)) {
                             $fences[] = ['first' => $ln, 'last' => $pos->endLine, 'column' => strlen($text) - strlen($view), 'width' => strlen($match[1]), 'bare' => trim($view) === $match[1]];
                             if ($depth > 1 && preg_match('/^:{3,} +footnotes[ \t]*$/', $view)) {
@@ -379,6 +379,12 @@ class SourceLinter
             }
         }
         foreach ($fences as $index => $fence) {
+            $text = $rows[$fence['first'] - 1][0];
+            $view = ltrim(self::containerView($fence['first'] === 1 ? preg_replace('/^\x{FEFF}/u', '', $text) ?? $text : $text), " \t");
+            $opener = $fenceParser->parseDivFenceOpener($view);
+            if ($opener !== null && $opener['invalidMetadata']) {
+                $emit($fence['first'], strlen($text) - strlen($view), strlen($view), 'fence-title-syntax', 'Invalid container metadata was dropped. Use a straight-double-quoted title or a bracketed label; the container and its children are preserved.');
+            }
             if ($fence['bare'] && !isset($closed[$index])) {
                 for ($i = $index - 1; $i >= 0; $i--) {
                     $parent = $fences[$i];
