@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use DOMElement;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Extension\ListTableExtension;
@@ -34,6 +35,29 @@ class HtmlToCarveListTableTest extends TestCase
         $converter->addExtension(new ListTableExtension());
 
         return (string)preg_replace('/\s+/', ' ', $converter->convert($carve));
+    }
+
+    public function testReportBoundsTableScansAndResetsBetweenConversions(): void
+    {
+        $converter = new class (listTableForBlockCells: true) extends HtmlToCarve {
+            public int $rowCollections = 0;
+
+            protected function getDirectTableRows(DOMElement $table): array
+            {
+                $this->rowCollections++;
+
+                return parent::getDirectTableRows($table);
+            }
+        };
+        $html = '<table>' . str_repeat('<tr><td><blockquote cite="u"><p>q</p></blockquote></td></tr>', 128) . '</table>';
+        $first = $converter->convertWithReport($html);
+        $this->assertLessThanOrEqual(2, $converter->rowCollections);
+        $this->assertStringContainsString('list-table', $first->value);
+        $converter->rowCollections = 0;
+        $second = $converter->convertWithReport('<table><tr><td><p>plain</p></td></tr></table>');
+        $this->assertLessThanOrEqual(2, $converter->rowCollections);
+        $this->assertStringNotContainsString('list-table', $second->value);
+        $this->assertEquals($second, (new HtmlToCarve(listTableForBlockCells: true))->convertWithReport('<table><tr><td><p>plain</p></td></tr></table>'));
     }
 
     public function testTheToggleIsOffByDefault(): void

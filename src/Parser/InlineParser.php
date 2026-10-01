@@ -245,6 +245,11 @@ class InlineParser
     protected ?string $emphNoCloseText = null;
 
     /**
+     * @var array<string, int>
+     */
+    protected array $emphLastPossibleClose = [];
+
+    /**
      * Memo for linkDestinationSkip(), per label `[` position in the current text.
      *
      * @var array<int, array{int, int}|null>
@@ -665,6 +670,7 @@ class InlineParser
         // A nested parse must not wipe the enclosing text's scan memos.
         $outerNoCloseText = $this->emphNoCloseText;
         $outerNoCloseFrom = $this->emphNoCloseFrom;
+        $outerLastPossibleClose = $this->emphLastPossibleClose;
         $outerSkipText = $this->destinationSkipText;
         $outerSkips = $this->destinationSkips;
         $outerScans = $this->destinationScans;
@@ -682,6 +688,7 @@ class InlineParser
             $this->inlineDepth--;
             $this->emphNoCloseText = $outerNoCloseText;
             $this->emphNoCloseFrom = $outerNoCloseFrom;
+            $this->emphLastPossibleClose = $outerLastPossibleClose;
             $this->destinationSkipText = $outerSkipText;
             $this->destinationSkips = $outerSkips;
             $this->destinationScans = $outerScans;
@@ -2974,6 +2981,7 @@ class InlineParser
         if ($text !== $this->emphNoCloseText) {
             $this->emphNoCloseText = $text;
             $this->emphNoCloseFrom = [];
+            $this->emphLastPossibleClose = [];
         }
 
         // Check if this can be an opener (not preceded by whitespace for closer detection)
@@ -3027,6 +3035,24 @@ class InlineParser
             isset($this->emphNoCloseFrom[$delimiter])
             && $searchStart >= $this->emphNoCloseFrom[$delimiter]
         ) {
+            return null;
+        }
+
+        // Boundary checks alone can prove that no closer exists, even when
+        // opaque bracket runs prevent caching a failed structural scan.
+        if (!array_key_exists($delimiter, $this->emphLastPossibleClose)) {
+            $last = -1;
+            $at = -1;
+            while (($at = strpos($text, $delimiter, $at + 1)) !== false) {
+                $before = $at > 0 ? $text[$at - 1] : ' ';
+                $after = $text[$at + 1] ?? '';
+                if (!StringUtil::isWhitespaceChar($before) && ($after === '' || !ctype_alnum($after))) {
+                    $last = $at;
+                }
+            }
+            $this->emphLastPossibleClose[$delimiter] = $last;
+        }
+        if ($searchStart > $this->emphLastPossibleClose[$delimiter]) {
             return null;
         }
 

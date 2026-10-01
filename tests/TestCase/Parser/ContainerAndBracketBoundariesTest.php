@@ -9,9 +9,11 @@ use MarkupCarve\Carve\Extension\WikilinksExtension;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -56,6 +58,33 @@ class ContainerAndBracketBoundariesTest extends TestCase
         $source = str_repeat('[a[b]] ', 100);
         $parser->parse(new Paragraph(), $source);
         $this->assertLessThan(strlen($source) * 3, $parser->triggerBytes);
+    }
+
+    public function testBlockedSlashClosersAroundBracketsKeepScanningLinear(): void
+    {
+        $parser = new class (new BlockParser()) extends InlineParser {
+            public int $commentChecks = 0;
+
+            protected function isLineCommentOpener(string $text, int $pos): bool
+            {
+                $this->commentChecks++;
+
+                return parent::isLineCommentOpener($text, $pos);
+            }
+        };
+        $source = str_repeat("[r]: /hidden\n", 1024);
+        $paragraph = new Paragraph();
+        $parser->parse($paragraph, $source, lineBlock: true);
+        $this->assertLessThan(strlen($source) * 3, $parser->commentChecks);
+        $document = new Document();
+        $document->appendChild($paragraph);
+        $this->assertStringNotContainsString('<em>', (new HtmlRenderer())->render($document));
+    }
+
+    public function testPossibleCloserIndexKeepsNestedAndLaterSpans(): void
+    {
+        $html = (new CarveConverter())->convert("*outer /inner/* /later/ [r] /last/\n");
+        $this->assertSame('<p><strong>outer <em>inner</em></strong> <em>later</em> [r] <em>last</em></p>' . "\n", $html);
     }
 
     public function testAttachedBlankPayloadLines(): void

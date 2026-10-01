@@ -408,6 +408,7 @@ class HtmlToCarve
     private function releaseImportInspection(): void
     {
         $this->inspectedContentKey = null;
+        $this->listTableInspection = null;
         $this->inspectedCarve = null;
         $this->emittedHasRawHtml = null;
         $this->builtImportDocument = null;
@@ -508,6 +509,7 @@ class HtmlToCarve
             return [];
         }
 
+        $this->listTableInspection = new SplObjectStorage();
         $isDocument = HtmlDomLoader::isDocument($html);
         $doc = $this->builtImportDocument;
         if ($doc === null) {
@@ -536,6 +538,7 @@ class HtmlToCarve
             $this->inspectedContentKey = null;
             $this->survivingImportAttributes = null;
             $this->emittedImportValues = [];
+            $this->listTableInspection = null;
         }
 
         return $diagnostics;
@@ -4420,7 +4423,14 @@ class HtmlToCarve
         }
         for ($table = $cell->parentNode; $table instanceof DOMElement; $table = $table->parentNode) {
             if (strtolower(HtmlDomLoader::elementName($table)) === 'table') {
-                return $this->tableHasBlockContentCell($table);
+                if ($this->listTableInspection === null) {
+                    return $this->tableHasBlockContentCell($table);
+                }
+                if (!isset($this->listTableInspection[$table])) {
+                    $this->listTableInspection[$table] = $this->tableHasBlockContentCell($table);
+                }
+
+                return $this->listTableInspection[$table];
             }
         }
 
@@ -4685,6 +4695,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, string|null>|null
      */
     private ?SplObjectStorage $summaryImportTitles = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, bool>|null
+     */
+    private ?SplObjectStorage $listTableInspection = null;
 
     private bool $captureImportIdentity = false;
 
