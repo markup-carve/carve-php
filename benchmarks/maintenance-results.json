@@ -3,9 +3,7 @@
   "environment": {
     "date": "2026-10-01",
     "architecture": "x86_64",
-    "node": "22.22.2",
-    "php": "8.5.11",
-    "rustc": "1.97.1"
+    "php": "8.5.11"
   },
   "before": [
     {
@@ -154,5 +152,6 @@
       "min_ms": 2382.156362,
       "hash": "087af5b003a73513a6f69feb4c666e8eed8ffdcdf0e6151702640673c7d4728a"
     }
-  ]
+  ],
+  "engine": "PHP"
 }

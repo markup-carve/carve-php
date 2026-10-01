@@ -22,3 +22,5 @@
 2787: Comment-only. It shortens parser, extension and converter comments that had grown into review history. No non-comment line in src moves and no output changes.
 
 2798: No user-visible change, by the author's own call in the pull request. The source-line rule moves onto the frame that already owns the map it reads, so the two resolvers cannot drift apart. The isolated lookup is cheaper, whole-document conversion is not measurably different, and the four behaviors the old ternary left implicit are now pinned by a test.
+
+2812: Importer contracts require node discriminators, and heading reparse shares the existing fresh-session reset. Measured valid-document outputs are unchanged. Benchmark files and the measurement report are development artifacts.

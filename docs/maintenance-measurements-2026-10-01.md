@@ -1,6 +1,8 @@
 # Engine maintenance measurements, 2026-10-01
 
-Baseline: `76fbd0c00ccd175037852b983482b29137b9c7ca` on `main`. Candidate: `quality/measured-maintenance-20261001`.
+Historical main baseline: `76fbd0c00ccd175037852b983482b29137b9c7ca`. Candidate: `quality/measured-maintenance-20261001`.
+
+The PR was rebased onto main `145a251e087783cae30d79e4f5f5dc3b44ed4124`. Intervening commits changed release versions and notes; production parser and importer code did not change.
 
 ## Maintenance and verification
 
@@ -20,7 +22,7 @@ Validation: 38,692 tests, 681,093 assertions, and 95 skips; PHPStan reports zero
 
 ## Timing measurements
 
-Three warmups and seven samples per case for TypeScript and Rust; PHP uses two warmups and seven samples. The table shows median milliseconds. Both revisions run the same harness and inputs on this host. Results retain median, minimum, input bytes, and SHA-256 output hashes in [maintenance-results.json](../benchmarks/maintenance-results.json).
+Two warmups and seven timed samples per case. The table shows median milliseconds for this engine. Both revisions run the same harness and inputs on this host. [maintenance-results.json](../benchmarks/maintenance-results.json) retains medians, minima, input bytes, and SHA-256 output hashes.
 
 | Case | Size | Before ms | After ms | After / before | Same output hash |
 | --- | ---: | ---: | ---: | ---: | --- |
@@ -34,20 +36,18 @@ Three warmups and seven samples per case for TypeScript and Rust; PHP uses two w
 | paragraphs | 1024 | 5.411 | 5.574 | 1.030 | yes |
 | html_table | 1024 | 2386.480 | 2416.204 | 1.012 | yes |
 
-Wall-clock results are local medians, not CI thresholds or release performance guarantees. The host was shared; small changes can reflect scheduler noise. Output hashes permit comparison without discarding behavior changes. TypeScript and PHP use in-process conversion; Rust uses the CLI, including process startup and serialization. Compare before and after within one engine, not absolute times across engines.
+Wall-clock results are local medians from a shared host. They are not CI thresholds or release performance guarantees. Compare before and after within this engine. Output hashes distinguish equivalent-output workloads from corrected behavior. Conversion runs in process. The 512-row table median increased 7.2%, while the 1,024-row median increased 1.2%; stricter validation has a cost. These runs do not establish a uniform speedup.
 
 ## Reproduce
 
-Build both worktrees and install their locked dependencies. Pass each absolute worktree path to the candidate harness. For Rust, build both binaries with `CARGO_PROFILE_DEV_OPT_LEVEL=2` and copy each binary before building the other revision when using a shared target directory.
+Install locked dependencies in both worktrees and pass each absolute worktree path to the candidate harness.
 
 ```sh
 php benchmarks/maintenance.php /absolute/path/to/worktree
 ```
 
-## Final review and remaining maintenance
+## Remaining maintenance
 
-Local Claude CLI reviewed the completed diff. Review findings were checked against source, tests, and the current executable spec. Traversal order, list-opener context, source-line ownership, cached lookahead, and importer validation costs were corrected during review.
-
-The five cases in [verse-oracle-cases.json](../benchmarks/verse-oracle-cases.json) include source and rendered results from all engines and executable spec commit `e12ed741313c16185375e6f17b0cc6fe3e4366c2`. TypeScript and Rust match all five cases. PHP matches the definition-after-verse case and disagrees on four existing verse cases. The prose grammar describes fence openers inside verse as ordinary text, while the executable oracle protects colon closers inside closed opaque spans. The TypeScript and Rust changes follow the executable oracle; that grammar disagreement remains explicit.
+The five cases in [verse-oracle-cases.json](../benchmarks/verse-oracle-cases.json) include source and rendered results from all engines and executable spec commit `e12ed741313c16185375e6f17b0cc6fe3e4366c2`. TypeScript and Rust match all five cases after trimming outer whitespace. PHP matches the definition-after-verse case and disagrees on four existing verse cases. The prose grammar describes fence openers inside verse as ordinary text, while the executable oracle protects colon closers inside closed opaque spans. The TypeScript and Rust changes follow the executable oracle; that grammar disagreement remains explicit.
 
 The baseline already scales poorly on repeated verse definitions and large block-cell HTML tables. This PR preserves that scaling. The oracle comparison also exposes existing PHP disagreements on lazy-list verse and opaque spans inside verse; the fresh-session and importer changes do not alter those parser rules. Adjacent HTML definition lists still merge a growing accumulator and need a separate performance fix.

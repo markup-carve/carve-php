@@ -21,6 +21,7 @@ examples/ export-ignore
 fuzz/ export-ignore
 tools/ export-ignore
 docs/ export-ignore
+benchmarks/ export-ignore
 .gitmodules export-ignore
 phpcs.xml export-ignore
 phpstan.neon export-ignore
