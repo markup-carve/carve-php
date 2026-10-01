@@ -108,9 +108,9 @@ final class BlockContinuationScanner
      */
     public function fenceCloserIndex(array $lines, bool $columnZeroCode = false): array
     {
-        $cache =& $this->state->frame->fenceCloserIndexCache;
+        $cache =&$this->state->frame->fenceCloserIndexCache;
         if ($columnZeroCode) {
-            $cache =& $this->state->frame->literalFenceCloserIndexCache;
+            $cache =&$this->state->frame->literalFenceCloserIndexCache;
         }
         if ($cache === null) {
             $comment = [];
