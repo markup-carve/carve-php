@@ -24,9 +24,12 @@ class SourceLinter
     private const BLOCK = '/^(?:#{1,6} +\S|>(?: |$)|`{3,}|~{3,}|::(?: |$)|:{3,}(?: |$)|!\[|\[[^\]]+\]: +\S|(?:-{3,}|\*{3,}|_{3,})[ \t]*$|\{[^{}]+\}[ \t]*$|\|.*\|[ \t]*$)/';
 
     /**
+     * @param string $source
+     * @param callable(): void|null $onRecoveredContainerMetadata
+     *
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
-    public function lint(string $source): array
+    public function lint(string $source, ?callable $onRecoveredContainerMetadata = null): array
     {
         $converter = new CarveConverter();
         $converter->getParser()->enablePositionTracking();
@@ -383,6 +386,9 @@ class SourceLinter
             $view = ltrim(self::containerView($fence['first'] === 1 ? preg_replace('/^\x{FEFF}/u', '', $text) ?? $text : $text), " \t");
             $opener = $fenceParser->parseDivFenceOpener($view);
             if ($opener !== null && $opener['invalidMetadata']) {
+                if ($onRecoveredContainerMetadata !== null) {
+                    $onRecoveredContainerMetadata();
+                }
                 $emit($fence['first'], strlen($text) - strlen($view), strlen($view), 'fence-title-syntax', 'Invalid container metadata was dropped. Use a straight-double-quoted title or a bracketed label; the container and its children are preserved.');
             }
             if ($fence['bare'] && !isset($closed[$index])) {

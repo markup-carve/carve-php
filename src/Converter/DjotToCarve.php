@@ -634,14 +634,23 @@ class DjotToCarve
     {
         $lines = explode("\n", $source);
         $maskedLines = explode("\n", $this->maskCodeAndDestinations($source));
+        $containers = [];
+        $fenceParser = new FencedBlockParser();
         foreach ($lines as $i => $line) {
             $masked = $maskedLines[$i] ?? $line;
             if (trim($masked) === '') {
                 continue;
             }
             if (preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?[ \t]*)(:{3,}.*)$/', $masked, $container)) {
-                $opener = (new FencedBlockParser())->parseDivFenceOpener($container[2]);
-                if ($opener !== null && $opener['invalidMetadata']) {
+                $opener = $fenceParser->parseDivFenceOpener($container[2]);
+                $top = $containers !== [] ? $containers[array_key_last($containers)] : null;
+                $close = $opener !== null && preg_match('/^:{3,}[ \t]*$/', $container[2]) === 1
+                    && $top !== null && $top['width'] === $opener['length'];
+                $invalid = $close ? array_pop($containers)['invalid'] : ($opener['invalidMetadata'] ?? false);
+                if (!$close && $opener !== null) {
+                    $containers[] = ['width' => $opener['length'], 'invalid' => $invalid];
+                }
+                if ($invalid) {
                     $at = strlen($container[1]);
                     $lines[$i] = substr($line, 0, $at) . '\\' . substr($line, $at);
 

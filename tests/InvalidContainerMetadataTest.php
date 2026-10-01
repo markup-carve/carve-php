@@ -80,12 +80,18 @@ final class InvalidContainerMetadataTest extends TestCase
     {
         $source = (new DjotToCarve())->convert("::: tip Custom Title\nbody\n:::\n");
         $html = (new CarveConverter())->convert($source);
-        self::assertStringContainsString('Custom Title', $html);
-        self::assertStringNotContainsString('admonition tip', $html);
+        self::assertSame("<p>::: tip Custom Title\nbody\n:::</p>", trim($html));
     }
 
     public function testContainerKindRemainsAscii(): void
     {
         self::assertStringNotContainsString('<div', (new CarveConverter())->convert("::: noté Title\nbody\n:::\n"));
+    }
+
+    public function testProseOpenerDoesNotBlockFormatting(): void
+    {
+        $patch = CarveConverter::toCarvePatch("  ::: widget Bad\nx\n:::\n");
+        self::assertNotEmpty($patch->edits);
+        self::assertSame([], $patch->unresolved);
     }
 }

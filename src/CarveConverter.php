@@ -196,19 +196,21 @@ class CarveConverter
         $formatted = self::toCarve($source);
         $patch = SourcePatch::create($source, $formatted, 'formatting', 'canonical-format');
         if ($patch->edits !== []) {
-            foreach ((new SourceLinter())->lint($source) as $warning) {
-                if ($warning->rule === 'fence-title-syntax') {
-                    return new SourcePatch($patch->sourceFingerprint, $patch->sourceBytes, [], [
-                        new SourceSuggestion(
-                            0,
-                            $patch->sourceBytes,
-                            $formatted,
-                            'formatting',
-                            'invalid-container-metadata',
-                            'Canonical formatting encounters invalid container metadata; review the proposed source.',
-                        ),
-                    ]);
-                }
+            $recoveredMetadata = false;
+            (new SourceLinter())->lint($source, static function () use (&$recoveredMetadata): void {
+                $recoveredMetadata = true;
+            });
+            if ($recoveredMetadata) {
+                return new SourcePatch($patch->sourceFingerprint, $patch->sourceBytes, [], [
+                    new SourceSuggestion(
+                        0,
+                        $patch->sourceBytes,
+                        $formatted,
+                        'formatting',
+                        'invalid-container-metadata',
+                        'Canonical formatting drops invalid container metadata; review the proposed source.',
+                    ),
+                ]);
             }
         }
 
