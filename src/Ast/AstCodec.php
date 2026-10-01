@@ -227,6 +227,16 @@ class AstCodec
     private static ?array $classMap = null;
 
     /**
+     * @var array<class-string, array<\ReflectionProperty>>
+     */
+    private static array $statePropertyCache = [];
+
+    /**
+     * @var array<class-string<\MarkupCarve\Carve\Node\Node>, \ReflectionClass<\MarkupCarve\Carve\Node\Node>>
+     */
+    private static array $reflectionCache = [];
+
+    /**
      * The class map WITHOUT the application classes `register()` added.
      *
      * Kept apart because "is this node one of ours" is a different question
@@ -259,7 +269,7 @@ class AstCodec
      */
     public static function register(string $class): void
     {
-        $reflection = new ReflectionClass($class);
+        $reflection = self::reflectNode($class);
         /** @var \MarkupCarve\Carve\Node\Node $instance */
         $instance = $reflection->newInstanceWithoutConstructor();
 
@@ -1257,7 +1267,7 @@ class AstCodec
             return false;
         }
 
-        $reflection = new ReflectionClass($class);
+        $reflection = self::reflectNode($class);
         foreach (self::stateProperties($reflection) as $property) {
             if (ReferenceShape::fieldFor($type, $property->getName()) !== $field) {
                 continue;
@@ -1362,7 +1372,7 @@ class AstCodec
             if (isset(self::NOT_ON_THE_WIRE[$type])) {
                 continue;
             }
-            $reflection = new ReflectionClass($class);
+            $reflection = self::reflectNode($class);
             $fields = [];
             $required = [];
             foreach (self::stateProperties($reflection) as $property) {
@@ -1744,7 +1754,7 @@ class AstCodec
             $type = self::NOT_ON_THE_WIRE['raw_text'];
         }
         $encoded = ['type' => $type];
-        $reflection = new ReflectionClass($node);
+        $reflection = self::reflectNode($node::class);
         foreach (self::stateProperties($reflection) as $property) {
             $value = $property->isInitialized($node) ? $property->getValue($node) : null;
             $default = self::defaultFor($reflection, $property);
@@ -2450,7 +2460,7 @@ class AstCodec
 
     private static function writeProperty(Node $node, string $property, mixed $value): void
     {
-        $reflection = new ReflectionClass($node);
+        $reflection = self::reflectNode($node::class);
         if ($reflection->hasProperty($property)) {
             $reflection->getProperty($property)->setValue($node, $value);
         }
@@ -2735,7 +2745,7 @@ class AstCodec
             ));
         }
 
-        $reflection = new ReflectionClass($class);
+        $reflection = self::reflectNode($class);
         /** @var \MarkupCarve\Carve\Node\Node $node */
         $node = $reflection->newInstanceWithoutConstructor();
 
@@ -2892,7 +2902,7 @@ class AstCodec
      */
     private function initializeDefault(Node $node, ReflectionProperty $property, string $nodeType): void
     {
-        $default = self::defaultFor(new ReflectionClass($node), $property);
+        $default = self::defaultFor(self::reflectNode($node::class), $property);
 
         if (!$default['has']) {
             // A field this codec never PUBLISHES cannot be required on input.
@@ -2984,6 +2994,16 @@ class AstCodec
     }
 
     /**
+     * @param class-string<\MarkupCarve\Carve\Node\Node> $class
+     *
+     * @return \ReflectionClass<\MarkupCarve\Carve\Node\Node>
+     */
+    private static function reflectNode(string $class): ReflectionClass
+    {
+        return self::$reflectionCache[$class] ??= new ReflectionClass($class);
+    }
+
+    /**
      * Properties that carry the node's own state, parent-class bookkeeping aside.
      *
      * @param \ReflectionClass<\MarkupCarve\Carve\Node\Node> $reflection
@@ -2992,6 +3012,11 @@ class AstCodec
      */
     private static function stateProperties(ReflectionClass $reflection): array
     {
+        $class = $reflection->getName();
+        if (isset(self::$statePropertyCache[$class])) {
+            return self::$statePropertyCache[$class];
+        }
+
         $properties = [];
         foreach ($reflection->getProperties() as $property) {
             if ($property->isStatic() || in_array($property->getName(), self::BASE_PROPERTIES, true)) {
@@ -3000,7 +3025,7 @@ class AstCodec
             $properties[] = $property;
         }
 
-        return $properties;
+        return self::$statePropertyCache[$class] = $properties;
     }
 
     /**

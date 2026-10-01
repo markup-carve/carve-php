@@ -46,6 +46,23 @@ class ApplicationNodeStateIsNotRewrittenTest extends TestCase
         );
     }
 
+    public function testReplacingARegisteredTypeUsesTheNewClassState(): void
+    {
+        $codec = new AstCodec();
+        AstCodec::register(ApplicationNodeWithNodeShapedState::class);
+        $original = new Document();
+        $original->appendChild(new ApplicationNodeWithNodeShapedState());
+        $codec->encode($original);
+
+        AstCodec::register(ReplacementApplicationNode::class);
+        $replacement = new Document();
+        $replacement->appendChild(new ReplacementApplicationNode());
+        $encoded = $codec->encode($replacement);
+
+        $this->assertSame('replacement', $encoded['children'][0]['marker']);
+        $this->assertSame($encoded, $codec->encode($codec->decode($encoded)));
+    }
+
     public function testACanonicalWireNameIsNotAnApplicationType(): void
     {
         foreach (['document', 'paragraph', 'autolink', 'admonition', 'tag'] as $type) {
