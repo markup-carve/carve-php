@@ -102,7 +102,7 @@ final class BlockContinuationScanner
      * ever refutes; a positive answer sends the caller to the real scan.
      *
      * @param array<string> $lines
-     * @param bool $columnZeroCode
+     * @param bool $columnZeroCode Use exact column-zero code closers as final answers.
      *
      * @return array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}
      */
