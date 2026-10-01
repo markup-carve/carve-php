@@ -1271,7 +1271,12 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             && !$node->isAutolink()
             && !str_starts_with($url, '#');
         if ($showTarget) {
-            $shown = $this->blankDeniedDestination($this->stripControls($url), $node, $at);
+            $shown = $this->blankDeniedDestination(
+                $this->stripControls($url),
+                self::DESTINATION_SINK_LINK,
+                $node,
+                $at,
+            );
             $styled .= $this->style(' (' . $shown . ')', self::DIM);
         }
 
