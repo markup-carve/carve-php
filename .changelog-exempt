@@ -18,3 +18,7 @@
 2412: Comment-only. It shortens parser and importer comments that had grown into review history and benchmark snapshots. The tabs integration guidance it moves is a docs change.
 
 2471: Internal plumbing plus a resource refresh, with identical observable behavior. It takes resources/prosemirror-schema-map.json from markup-carve/carve-grammars#570 so tag holds its own carveTag entry rather than reaching it through the mention entry's local alias, and moves the carveTag lookup in ProseMirrorToCarve to match. The AST model is unchanged, a tag is still a Mention with class tag, emitted payloads are unchanged, and tags and mentions round-trip byte-identically in both directions.
+
+2787: Comment-only. It shortens parser, extension and converter comments that had grown into review history. No non-comment line in src moves and no output changes.
+
+2798: No user-visible change, by the author's own call in the pull request. The source-line rule moves onto the frame that already owns the map it reads, so the two resolvers cannot drift apart. The isolated lookup is cheaper, whole-document conversion is not measurably different, and the four behaviors the old ternary left implicit are now pinned by a test.
