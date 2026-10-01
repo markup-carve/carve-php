@@ -9,6 +9,12 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- Canonical Carve output preserves parentheses and backslashes in denied URL
+  schemes. Presentation targets retain destination filtering and loss reports
+  (markup-carve/carve#2685).
+
 ### Improvements
 
 - Use shared `RenderTarget` constants for built-in renderer identifiers.
