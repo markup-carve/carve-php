@@ -14,7 +14,9 @@ args = parser.parse_args()
 revisions = [entry.split('=', 1) for entry in args.revision]
 if len(revisions) != 3 or any(len(entry) != 2 for entry in revisions):
     parser.error('Provide three --revision label=path arguments')
-launcher = {'js': 'node', 'rs': 'python3', 'php': 'php'}[args.engine]
+launcher = [{'js': 'node', 'rs': 'python3', 'php': 'php'}[args.engine]]
+if args.engine == 'php':
+    launcher.extend(['-d', 'pcov.enabled=0'])
 env = os.environ.copy()
 env['CARVE_BENCH_RELEASE'] = '1'
 repository = Path(args.harness).resolve().parent.parent
@@ -31,7 +33,7 @@ for round_index in range(3):
     order = revisions[round_index:] + revisions[:round_index]
     for label, path in order:
         print(f'{args.engine} round {round_index + 1}: {label}', flush=True)
-        output = subprocess.check_output([launcher, args.harness, path], env=env, text=True)
+        output = subprocess.check_output([*launcher, args.harness, path], env=env, text=True)
         runs.append(dict(round=round_index + 1, revision=label, results=json.loads(output)))
 summary = {}
 for label, _ in revisions:
