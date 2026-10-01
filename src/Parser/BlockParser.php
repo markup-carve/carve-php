@@ -3342,7 +3342,7 @@ class BlockParser
         for ($i = $start; $i < $count; $i++) {
             $innerLines[] = $lines[$i];
             $innerLineMap[] = $this->sourceLineFor($i);
-            if ($i > $start && $this->fencedBlockParser->isFencedCommentCloser($lines[$i], $commentInfo['length'])) {
+            if ($i > $start && $this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$i], $commentInfo['length'])) {
                 return $i + 1;
             }
         }
@@ -3811,6 +3811,7 @@ class BlockParser
 
     /**
      * @param array<string> $lines
+     * @param bool $columnZeroCode
      *
      * @return array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}
      */

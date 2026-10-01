@@ -154,4 +154,51 @@ lazy<br>
             $this->assertStringContainsString('href="/target"', $html);
         }
     }
+
+    public function testIndentedCommentCloserInVerse(): void
+    {
+        $source = '::: |
+%%%
+:::
+  %%%
+kept
+:::
+
+[r]: /url
+
+[t][r]
+';
+        $expected = '<div class="line-block">
+  <p><br>
+:::<br>
+&nbsp;&nbsp;%%%<br>
+kept</p>
+</div>
+<p><a href="/url">t</a></p>
+';
+
+        $this->assertSame($expected, (new CarveConverter())->convert($source));
+    }
+
+    public function testIndentedCommentCloserInDiv(): void
+    {
+        $source = '::: container
+%%%
+:::
+  %%%
+kept
+:::
+
+[r]: /url
+
+[t][r]
+';
+        $expected = '<div class="container">
+  <p>kept</p>
+</div>
+<p><a href="/url">t</a></p>
+';
+
+        $this->assertSame($expected, (new CarveConverter())->convert($source));
+    }
 }
