@@ -32,6 +32,8 @@ class ContainerAndBracketBoundariesTest extends TestCase
             'comment inside a bare run' => ['x [a %% c] d', '<p>x [a] d</p>'],
             'comment at the start of a bare run' => ['x [%% c] d', '<p>x [] d</p>'],
             'emphasis within the run' => ['[/a/]', '<p>[<em>a</em>]</p>'],
+            'destination after a failed scan' => ['*p </#a[> *q](u*) z', '<p>*p &lt;/#a[&gt; <strong>q](u</strong>) z</p>'],
+            'destination without a failed scan' => ['</#a[> *q](u*) z', '<p>&lt;/#a[&gt; <strong>q](u</strong>) z</p>'],
         ];
     }
 

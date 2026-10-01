@@ -3020,17 +3020,16 @@ class InlineParser
 
         $searchPos = $searchStart;
         while ($searchPos < $length) {
-            if (isset($this->emphNoCloseFrom[$memoKey][$searchPos])) {
-                break;
-            }
-            $char = $text[$searchPos];
-
             if (isset($destinationEnds[$searchPos])) {
                 $searchPos = $destinationEnds[$searchPos];
                 $failedStarts[] = $searchPos;
 
                 continue;
             }
+            if (isset($this->emphNoCloseFrom[$memoKey][$searchPos])) {
+                break;
+            }
+            $char = $text[$searchPos];
 
             if ($char === '[') {
                 $skip = $this->linkDestinationSkip($text, $searchPos);
@@ -3045,7 +3044,10 @@ class InlineParser
                 $runEnd = $this->bracketRunSkip($text, $searchPos);
                 if ($runEnd !== null) {
                     $searchPos = $runEnd;
-                    $failedStarts[] = $searchPos;
+                    // A queued destination makes this cursor context-dependent.
+                    if (!isset($destinationEnds[$searchPos])) {
+                        $failedStarts[] = $searchPos;
+                    }
 
                     continue;
                 }
