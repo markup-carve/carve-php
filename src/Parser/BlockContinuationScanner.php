@@ -134,7 +134,7 @@ final class BlockContinuationScanner
                 if (
                     ($head === '`' || $head === '~')
                     && (!$columnZeroCode || ($line[0] ?? '') === $head)
-                    && preg_match($columnZeroCode ? '/^(`{3,}|~{3,})[ \t]*$/' : '/^[ \t]*([`~]{3,})[ \t]*$/', $line, $m) === 1
+                    && preg_match('/^[ \t]*(`{3,}|~{3,})[ \t]*$/', $line, $m) === 1
                 ) {
                     $code[$m[1][0]][strlen($m[1])] = $i;
                 }

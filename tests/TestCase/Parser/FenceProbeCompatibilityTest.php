@@ -55,7 +55,7 @@ class FenceProbeCompatibilityTest extends TestCase
             'colon' => [4 => 3],
             'code' => [
                 '~' => ['runs' => [3], 'lastAtLeast' => [2]],
-                '`' => ['runs' => [4, 5], 'lastAtLeast' => [9, 7]],
+                '`' => ['runs' => [4, 5], 'lastAtLeast' => [7, 7]],
             ],
         ], $scanner->fenceCloserIndex([
             '~~~',
