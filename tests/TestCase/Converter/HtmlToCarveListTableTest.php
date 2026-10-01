@@ -54,10 +54,11 @@ class HtmlToCarveListTableTest extends TestCase
         $this->assertLessThanOrEqual(2, $converter->rowCollections);
         $this->assertStringContainsString('list-table', $first->value);
         $converter->rowCollections = 0;
-        $second = $converter->convertWithReport('<table><tr><td><p>plain</p></td></tr></table>');
+        $plain = '<table>' . str_repeat('<tr><td><p>plain</p></td></tr>', 128) . '</table>';
+        $second = $converter->convertWithReport($plain);
         $this->assertLessThanOrEqual(2, $converter->rowCollections);
         $this->assertStringNotContainsString('list-table', $second->value);
-        $this->assertEquals($second, (new HtmlToCarve(listTableForBlockCells: true))->convertWithReport('<table><tr><td><p>plain</p></td></tr></table>'));
+        $this->assertEquals($second, (new HtmlToCarve(listTableForBlockCells: true))->convertWithReport($plain));
     }
 
     public function testTheToggleIsOffByDefault(): void
