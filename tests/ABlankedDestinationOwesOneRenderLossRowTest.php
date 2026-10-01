@@ -174,4 +174,65 @@ class ABlankedDestinationOwesOneRenderLossRowTest extends TestCase
         $this->expectException(RenderLossException::class);
         CarveConverter::create()->convertWithReport(self::TWO_SINKS, strictLosses: true);
     }
+
+    /**
+     * A label is INSIDE its link, so `CARVE-P2-024`'s document order puts the
+     * link's own row first. HTML blanks the href before it renders the label and
+     * was already right; Markdown probed the destination after the label, and
+     * ANSI has to render the label first because `$showTarget` compares the two.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function targetsThatReportBothSinks(): array
+    {
+        return ['html' => ['create'], 'markdown' => ['markdown']];
+    }
+
+    #[DataProvider('targetsThatReportBothSinks')]
+    public function testADeniedImageInsideADeniedLinkIsOrderedByPosition(string $factory): void
+    {
+        $source = "[![x](vbscript:two)](javascript:one)\n";
+        $converter = CarveConverter::$factory();
+        $result = $converter->convertWithReport($source);
+
+        self::assertSame($converter->convert($source), $result->value);
+        self::assertSame([1, 2], array_column(array_column($result->losses, 'pos'), 'startColumn'));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function targetsThatReportARawInlineInALabel(): array
+    {
+        return ['html' => ['create'], 'markdown' => ['markdown'], 'ansi' => ['ansi']];
+    }
+
+    #[DataProvider('targetsThatReportARawInlineInALabel')]
+    public function testTheLinkIsReportedBeforeARawInlineInItsLabel(string $factory): void
+    {
+        $source = "[a `x`{=latex} b](javascript:one)\n";
+        $converter = CarveConverter::$factory();
+        $result = $converter->convertWithReport($source);
+
+        self::assertSame($converter->convert($source), $result->value);
+        self::assertSame(
+            ['destination-denied', 'raw-format-dropped'],
+            array_column($result->losses, 'code'),
+        );
+    }
+
+    /**
+     * The bounded array holds the FIRST rows in document order, so the row a
+     * label produced must not push the enclosing link's row out of a report
+     * bounded to one entry.
+     */
+    public function testABoundedReportKeepsTheRowThatComesFirst(): void
+    {
+        $result = CarveConverter::markdown()
+            ->convertWithReport("[![x](vbscript:two)](javascript:one)\n", maxRenderLosses: 1);
+
+        self::assertSame(2, $result->totalLosses);
+        self::assertTrue($result->truncated);
+        self::assertSame(1, $result->losses[0]['pos']['startColumn']);
+    }
 }

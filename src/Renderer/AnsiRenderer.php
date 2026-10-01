@@ -1247,6 +1247,10 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderLink(Link $node): string
     {
+        // This target cannot probe the destination before the label: `$showTarget`
+        // below compares the two. So the row's document position is read first,
+        // because the label is inside the link (`CARVE-P2-024`).
+        $at = $this->renderLossIndex();
         $text = $this->renderChildren($node);
         $url = $node->getDestination();
 
@@ -1267,7 +1271,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             && !$node->isAutolink()
             && !str_starts_with($url, '#');
         if ($showTarget) {
-            $shown = $this->blankDeniedDestination($this->stripControls($url), $node);
+            $shown = $this->blankDeniedDestination($this->stripControls($url), $node, $at);
             $styled .= $this->style(' (' . $shown . ')', self::DIM);
         }
 
