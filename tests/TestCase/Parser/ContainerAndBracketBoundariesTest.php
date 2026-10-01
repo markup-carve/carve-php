@@ -60,7 +60,22 @@ class ContainerAndBracketBoundariesTest extends TestCase
         $this->assertLessThan(strlen($source) * 3, $parser->triggerBytes);
     }
 
-    public function testBlockedSlashClosersAroundBracketsKeepScanningLinear(): void
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function failedDelimiterRuns(): array
+    {
+        return [
+            'blocked closers' => [str_repeat("[r]: /hidden\n", 1024)],
+            'bracket closer' => [str_repeat("[r]: /hidden\n", 1024) . '[x/]'],
+            'escaped closer' => [str_repeat("[r]: /hidden\n", 1024) . '\\/'],
+            'openers inside brackets' => [str_repeat('[/hidden] ', 1024) . '[x/]'],
+            'openers inside one bracket' => ['[' . str_repeat('/hidden ', 1024) . '] [x/]'],
+        ];
+    }
+
+    #[DataProvider('failedDelimiterRuns')]
+    public function testBlockedSlashClosersAroundBracketsKeepScanningLinear(string $source): void
     {
         $parser = new class (new BlockParser()) extends InlineParser {
             public int $commentChecks = 0;
@@ -72,7 +87,6 @@ class ContainerAndBracketBoundariesTest extends TestCase
                 return parent::isLineCommentOpener($text, $pos);
             }
         };
-        $source = str_repeat("[r]: /hidden\n", 1024);
         $paragraph = new Paragraph();
         $parser->parse($paragraph, $source, lineBlock: true);
         $this->assertLessThan(strlen($source) * 3, $parser->commentChecks);
@@ -81,7 +95,13 @@ class ContainerAndBracketBoundariesTest extends TestCase
         $this->assertStringNotContainsString('<em>', (new HtmlRenderer())->render($document));
     }
 
-    public function testPossibleCloserIndexKeepsNestedAndLaterSpans(): void
+    public function testFailedOuterScanKeepsSkippedInteriorsAvailable(): void
+    {
+        $html = (new CarveConverter())->convert('/prefix [/inner/] suffix' . "\n");
+        $this->assertSame('<p>/prefix [<em>inner</em>] suffix</p>' . "\n", $html);
+    }
+
+    public function testFailedScanCacheKeepsNestedAndLaterSpans(): void
     {
         $html = (new CarveConverter())->convert("*outer /inner/* /later/ [r] /last/\n");
         $this->assertSame('<p><strong>outer <em>inner</em></strong> <em>later</em> [r] <em>last</em></p>' . "\n", $html);
