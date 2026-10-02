@@ -26,6 +26,8 @@ concurrency:
   group: guards-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
 
+# Each job declares timeout-minutes so a hung step fails fast
+# instead of inheriting the 360-minute GitHub default.
 jobs:
   scaling:
     runs-on: ubuntu-latest
@@ -96,6 +98,7 @@ jobs:
   verdict:
     name: The verdict reaches a person
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [scaling, coverage]
     if: ${{ !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.verdict_selftest) }}
     permissions:

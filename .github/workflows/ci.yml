@@ -6,11 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Each job declares timeout-minutes so a hung step fails fast
+# instead of inheriting the 360-minute GitHub default.
 jobs:
   # Reject spec pins that are not reachable from spec main (carve#1740).
   # Fleet pin currency is checked separately by the spec repository at tag time.
   spec-pin:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     name: spec pin is reachable from spec main
 
     steps:
@@ -29,6 +32,7 @@ jobs:
   # (carve-php#2326).
   schema-map:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     name: ProseMirror schema map matches carve-grammars
 
     steps:
@@ -57,6 +61,7 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
         php: ['8.2', '8.5']
@@ -84,6 +89,7 @@ jobs:
 
   tooling:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     name: Coding Standards
 
     steps:
