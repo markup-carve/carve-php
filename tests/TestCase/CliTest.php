@@ -118,13 +118,25 @@ class CliTest extends TestCase
      * naming the constant, which every past release leaves behind, so a constant
      * lagging the release passed it.
      */
-    public function testVersionPrintsTheLibraryVersion(): void
+    #[DataProvider('versionFlags')]
+    public function testVersionPrintsTheLibraryVersion(string $flag): void
     {
-        $result = $this->runCliInput(['--version'], '');
+        $result = $this->runCliInput([$flag], '');
 
         $this->assertSame(0, $result['exit']);
-        $this->assertSame('carve-php version ' . CarveConverter::LIB_VERSION . "\n", $result['out']);
+        $this->assertSame('carve-php ' . CarveConverter::LIB_VERSION . "\n", $result['out']);
         $this->assertSame('', $result['err']);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function versionFlags(): array
+    {
+        return [
+            'long' => ['--version'],
+            'short' => ['-V'],
+        ];
     }
 
     /**
