@@ -34,6 +34,58 @@ return 1;
 | alpha | 1 |
 CRV;
 
+    public function testLargeBufferedDocumentsKeepHtmlAndLateFallback(): void
+    {
+        foreach ([65535, 65536, 65537, 262144] as $size) {
+            $source = str_repeat('x', $size) . "\n";
+            $attempt = (new BorrowedHtmlLayout())->render($source);
+            $this->assertNotNull($attempt);
+            $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
+            $this->assertSame($attempt['html'], (new CarveConverter())->convert($source));
+        }
+        $prefix = str_repeat("plain paragraph\n\n", 8192);
+        foreach (["=marked=\n", "é\n", "- loose\n\n- list\n", "paragraph \n", "*bold*\n", "1. item\n", "# heading\n", "(c)\n", "...\n", "--\n"] as $tail) {
+            $source = $prefix . $tail;
+            $this->assertNull((new BorrowedHtmlLayout())->render($source));
+            $this->assertSame($this->authoritative()->convert($source), (new CarveConverter())->convert($source));
+        }
+    }
+
+    public function testLargeNestedLayoutsKeepTheBufferedSizeBudget(): void
+    {
+        $source = '';
+        for ($level = 0; $level < 300; $level++) {
+            $source .= str_repeat('  ', $level) . "- item\n";
+        }
+        $this->assertGreaterThan(65536, strlen($source));
+        $this->assertNull((new BorrowedHtmlLayout())->render($source));
+    }
+
+    public function testNestedListsRespectTheParserDepthBudgetBeforeStreaming(): void
+    {
+        foreach ([200, 201, 300] as $levels) {
+            $source = '';
+            for ($level = 0; $level < $levels; $level++) {
+                $source .= str_repeat('  ', $level) . "- item\n";
+            }
+            $attempt = (new BorrowedHtmlLayout())->render($source);
+            if ($levels === 200) {
+                $this->assertNotNull($attempt);
+                $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
+            } else {
+                $this->assertNull($attempt);
+                $called = false;
+                $this->assertSame('needs-ast', (new CarveConverter())->tryRenderHtmlStreaming(
+                    $source,
+                    static function () use (&$called): void {
+                        $called = true;
+                    },
+                ));
+                $this->assertFalse($called);
+            }
+        }
+    }
+
     public function testPcreListCheckErrorsRejectTheBorrowedPath(): void
     {
         $previous = ini_get('pcre.backtrack_limit');

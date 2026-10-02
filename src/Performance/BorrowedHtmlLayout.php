@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Performance;
 
+use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -133,7 +134,7 @@ final class BorrowedHtmlLayout
 
     private function eligibleSource(string $source, bool $streaming): bool
     {
-        return ($streaming || strlen($source) <= self::MAX_SOURCE_BYTES)
+        return ($streaming || strlen($source) <= self::MAX_SOURCE_BYTES || $this->largePlainSource($source))
             && preg_match('/[^\x00-\x7F]|[\x00\x09\x0B\x0C\x0D]/', $source) === 0
             && !str_starts_with($source, '---')
             && !str_contains($source, '[^')
@@ -144,6 +145,12 @@ final class BorrowedHtmlLayout
             && !str_contains($source, '%%')
             && !str_contains($source, ':::')
             && preg_match('/(?:^|\n)( *)- [^\n]*\n\n(?:\n)*\1- /', $source) === 0;
+    }
+
+    private function largePlainSource(string $source): bool
+    {
+        // Keep the size budget for recursive layouts; larger plain paragraphs need no marker parsing.
+        return preg_match('/[*\/`\[\]{}^\\\\<>_~!@$=#\'":%+|]|--|\.\.\.|\((?:c|r|tm)\)|(?:^|\n)(?:[ .-]|[A-Za-z0-9]+[.)] )/', $source) === 0;
     }
 
     /**
@@ -559,6 +566,9 @@ final class BorrowedHtmlLayout
      */
     private function renderList(array $lines, int $start, int $offset, int $depth, array $definitions, array &$stats): ?array
     {
+        if ($offset >= 2 * BlockGrammar::MAX_NESTING_DEPTH) {
+            return null;
+        }
         $this->output->push($this->indent($depth), '<ul>');
         $i = $start;
         $count = count($lines);
