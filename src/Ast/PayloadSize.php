@@ -57,12 +57,40 @@ final class PayloadSize
      */
     public static function bytes(array $payload, int $maxDepth): int
     {
+        return self::measure($payload, $maxDepth, false)[0];
+    }
+
+    /**
+     * @param array<mixed> $payload
+     * @param int $maxDepth
+     *
+     * @return int|null Bytes when the payload fits the exclusive JSON depth bound.
+     */
+    public static function bytesWithinDepth(array $payload, int $maxDepth): ?int
+    {
+        [$bytes, $within] = self::measure($payload, $maxDepth, true);
+
+        return $within ? $bytes : null;
+    }
+
+    /**
+     * @param array<mixed> $payload
+     * @param bool $exclusive
+     * @param int $maxDepth
+     *
+     * @return array{int, bool}
+     */
+    private static function measure(array $payload, int $maxDepth, bool $exclusive): array
+    {
         $total = 0;
         $level = [$payload];
         $depth = 0;
 
         while ($level !== [] && $depth < $maxDepth) {
             $depth++;
+            if ($exclusive && $depth >= $maxDepth) {
+                return [$total, false];
+            }
             $next = [];
             foreach ($level as $node) {
                 // The pair of brackets around it.
@@ -102,6 +130,6 @@ final class PayloadSize
             $level = $next;
         }
 
-        return $total;
+        return [$total, $level === []];
     }
 }
