@@ -83,14 +83,17 @@ final class HtmlAstBuilder
         return $this->session->retainedTablePartitions;
     }
 
-    private static function importPath(DOMElement $node): string
+    private function importPath(DOMElement $node): string
     {
         $parts = [];
         for ($current = $node; $current instanceof DOMElement && !in_array(strtolower(HtmlDomLoader::elementName($current)), ['carve-import-root', 'html', 'body'], true); $current = $current->parentNode) {
-            $index = 1;
-            for ($sibling = $current->previousSibling; $sibling !== null; $sibling = $sibling->previousSibling) {
-                $index++;
+            if (!isset($this->session->pathSiblingIndices[$current])) {
+                $index = 1;
+                foreach ($current->parentNode->childNodes ?? [] as $sibling) {
+                    $this->session->pathSiblingIndices[$sibling] = $index++;
+                }
             }
+            $index = $this->session->pathSiblingIndices[$current] ?? 1;
             array_unshift($parts, strtolower(HtmlDomLoader::elementName($current)) . '[' . $index . ']');
         }
 
@@ -2278,7 +2281,7 @@ final class HtmlAstBuilder
         $counted = $groups['headRows'] + $groups['footRows'] + array_sum(array_column($groups['bodies'], 'bodyRows')) + array_sum(array_column($groups['bodies'], 'headRows'));
         if ($valid && $counted === count($rows) && ($hasSectionAttrs || $groups['footRows'] > 0 || count($groups['bodies']) > 1)) {
             $table['rowGroups'] = $groups;
-            $tablePath = self::importPath($node);
+            $tablePath = $this->importPath($node);
             $this->session->retainedTablePartitions[$tablePath] = true;
             foreach ($node->childNodes as $sectionIndex => $section) {
                 if (!$section instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($section)), ['thead', 'tbody', 'tfoot'], true)) {
@@ -2598,7 +2601,7 @@ final class HtmlAstBuilder
                 $names[] = $name;
             }
         }
-        $this->session->displacedFigureAttributes[self::importPath($node)] = $names;
+        $this->session->displacedFigureAttributes[$this->importPath($node)] = $names;
     }
 
     /**
