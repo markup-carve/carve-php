@@ -66,11 +66,15 @@ class Table extends BlockNode
      * partition that does not account for every row exactly once is invalid
      * under the schema, and the decoder refuses it.
      *
-     * @return array{headRows: int, footRows: int, bodies: list<array{headRows: int, bodyRows: int}>}|null
+     * @return array{headRows: int, footRows: int, bodies: list<array{headRows: int, bodyRows: int, rowHeadColumns?: int}>}|null
      */
     public function statedRowGroups(): ?array
     {
-        if ($this->getAttribute('header-rows') === null && $this->getAttribute('footer-rows') === null) {
+        if (
+            $this->getAttribute('header-rows') === null && $this->getAttribute('footer-rows') === null
+            && $this->getAttribute('body-rows') === null && $this->getAttribute('body-header-rows') === null
+            && $this->getAttribute('body-header-cols') === null
+        ) {
             return null;
         }
 
@@ -86,7 +90,44 @@ class Table extends BlockNode
                 $rows++;
             }
         }
-        if ($head + $foot > $rows) {
+        if ($head > $rows || $foot > $rows - $head) {
+            return null;
+        }
+
+        $rawBodies = $this->getAttribute('body-rows');
+        $rawHeaders = $this->getAttribute('body-header-rows');
+        $rawColumns = $this->getAttribute('body-header-cols');
+        if ($rawBodies !== null) {
+            $counts = trim($rawBodies) === '' ? [] : explode(',', $rawBodies);
+            $headers = $rawHeaders === null ? null : explode(',', $rawHeaders);
+            $columns = $rawColumns === null ? null : explode(',', $rawColumns);
+            if (($headers !== null && count($headers) !== count($counts)) || ($columns !== null && count($columns) !== count($counts))) {
+                return null;
+            }
+            $remaining = $rows - $head - $foot;
+            $bodies = [];
+            foreach ($counts as $index => $rawCount) {
+                $bodyRows = self::bodyCount($rawCount);
+                $bodyHead = $headers === null ? 0 : self::bodyCount($headers[$index]);
+                $columnValue = trim($columns[$index] ?? '');
+                $rowHeadColumns = $columnValue === '' ? null : self::bodyCount($columnValue);
+                if (
+                    $bodyRows === null || $bodyHead === null || ($columnValue !== '' && $rowHeadColumns === null)
+                    || $bodyHead > $remaining || $bodyRows > $remaining - $bodyHead
+                ) {
+                    return null;
+                }
+                $remaining -= $bodyHead + $bodyRows;
+                $body = ['headRows' => $bodyHead, 'bodyRows' => $bodyRows];
+                if ($rowHeadColumns !== null) {
+                    $body['rowHeadColumns'] = $rowHeadColumns;
+                }
+                $bodies[] = $body;
+            }
+
+            return $remaining === 0 ? ['headRows' => $head, 'bodies' => $bodies, 'footRows' => $foot] : null;
+        }
+        if ($rawHeaders !== null || $rawColumns !== null) {
             return null;
         }
 
@@ -95,6 +136,21 @@ class Table extends BlockNode
             'bodies' => [['headRows' => 0, 'bodyRows' => $rows - $head - $foot]],
             'footRows' => $foot,
         ];
+    }
+
+    private static function bodyCount(string $value): ?int
+    {
+        $value = trim($value);
+        if (preg_match('/^\d+$/', $value) !== 1) {
+            return null;
+        }
+        $digits = ltrim($value, '0');
+        $maximum = '9007199254740991';
+        if (strlen($digits) > strlen($maximum) || (strlen($digits) === strlen($maximum) && strcmp($digits, $maximum) > 0)) {
+            return null;
+        }
+
+        return (int)$value;
     }
 
     /**
@@ -110,7 +166,7 @@ class Table extends BlockNode
             return 1;
         }
 
-        return preg_match('/^\d+$/', trim($value)) === 1 ? (int)trim($value) : null;
+        return self::bodyCount($value);
     }
 
     protected ?Caption $caption = null;

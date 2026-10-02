@@ -11,6 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixes
 
+- Preserve multiple table bodies, intermediate body headers, empty bodies, and per-body row-header counts with positional source attributes. Keep authored conflicts and report partition loss. Preserve decimal column widths through AST parsing, source export, and HTML rendering.
+
 - List marker attribute validation keeps subclass results on each parser instance. Subclasses can clear `instanceMarkerAttributeCache` after changing validation settings. Attribute payloads above 2,048 bytes are parsed without retaining them in the cache.
 
 ### Performance
