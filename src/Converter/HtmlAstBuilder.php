@@ -2004,7 +2004,9 @@ final class HtmlAstBuilder
         $sawBodyRow = false;
         /** @var array<int, int> $rowspans */
         $rowspans = [];
-        foreach (HtmlTableStructure::directTableRows($node) as $rowElement) {
+        $sourceRows = HtmlTableStructure::directTableRows($node);
+        foreach ($sourceRows as $rowElement) {
+            $sectionTag = $rowElement->parentNode instanceof DOMElement ? strtolower(HtmlDomLoader::elementName($rowElement->parentNode)) : '';
             $cells = [];
             $cellBlocks = [];
             $ownAlignment = [];
@@ -2065,7 +2067,10 @@ final class HtmlAstBuilder
                     }
                 }
                 $skipAttrs = ['colspan', 'rowspan'];
-                if (in_array(strtolower($cellElement->getAttribute('scope')), ['col', 'row'], true)) {
+                if (
+                    in_array(strtolower($cellElement->getAttribute('scope')), ['col', 'row'], true)
+                    && !($sectionTag === 'tfoot' && strtolower($cellElement->getAttribute('scope')) === 'col')
+                ) {
                     $skipAttrs[] = 'scope';
                 }
                 if ($horizontal !== null) {
@@ -2106,7 +2111,7 @@ final class HtmlAstBuilder
                     $cells,
                     static fn (array $cell): bool => self::cellWritesBlank($cell),
                 );
-                if ($blank) {
+                if ($blank && $this->sourceSafe) {
                     $this->session->droppedBlankTableRows[$rowElement] = null;
 
                     continue;
@@ -2137,16 +2142,12 @@ final class HtmlAstBuilder
                 $this->session->droppedBlankTableRows[$rowElement] = null;
             }
         }
-        if ($rows === []) {
-            $attributedSection = false;
-            foreach ($node->childNodes as $section) {
-                if ($section instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($section)), ['thead', 'tbody', 'tfoot'], true) && $this->attrs($section, []) !== []) {
-                    $attributedSection = true;
-                }
+        if ($rows === [] && $this->sourceSafe) {
+            if ($sourceRows === []) {
+                $this->session->droppedEmptyElements[$node] = null;
             }
-            if (!$attributedSection || $this->sourceSafe) {
-                return null;
-            }
+
+            return null;
         }
         $columnAlignments = [];
         if ($rows !== []) {
@@ -2225,10 +2226,12 @@ final class HtmlAstBuilder
             $section = $plan['section'];
             $tag = $section !== null ? strtolower(HtmlDomLoader::elementName($section)) : 'tbody';
             $rank = ['thead' => 0, 'tbody' => 1, 'tfoot' => 2][$tag];
-            $valid = $valid && $rank >= $phase;
-            $phase = $rank;
             $indices = $plan['indices'];
             $count = count($indices);
+            if ($count > 0) {
+                $valid = $valid && $rank >= $phase;
+                $phase = $rank;
+            }
             $own = $section !== null ? $this->attrs($section, []) : [];
             $hasSectionAttrs = $hasSectionAttrs || $own !== [];
             if ($tag === 'tbody') {
@@ -2273,15 +2276,19 @@ final class HtmlAstBuilder
                 }
             }
         }
-        if (!isset($groups['headAttrs']) && $groups['headRows'] === 0 && count($groups['bodies']) === 1 && $headerRows > 0) {
+        if (!isset($groups['headAttrs']) && $groups['headRows'] === 0 && count($groups['bodies']) === 1 && $headerRows > 0 && $groups['bodies'][0]['headRows'] > 0) {
             $absorbed = min($headerRows, $groups['bodies'][0]['headRows']);
             $groups['headRows'] = $absorbed;
             $groups['bodies'][0]['headRows'] -= $absorbed;
+            if ($groups['bodies'][0]['headRows'] === 0 && $groups['bodies'][0]['bodyRows'] === 0 && !isset($groups['bodies'][0]['attrs'])) {
+                $groups['bodies'] = [];
+            }
         }
         $counted = $groups['headRows'] + $groups['footRows'] + array_sum(array_column($groups['bodies'], 'bodyRows')) + array_sum(array_column($groups['bodies'], 'headRows'));
         if (
             $valid && $counted === count($rows) && ($hasSectionAttrs || $groups['footRows'] > 0 || count($groups['bodies']) > 1
-            || $groups['headRows'] !== $headerRows || array_sum(array_column($groups['bodies'], 'headRows')) > 0)
+            || $groups['headRows'] !== $headerRows || array_sum(array_column($groups['bodies'], 'headRows')) > 0
+            || in_array(0, array_column($groups['bodies'], 'bodyRows'), true))
         ) {
             $table['rowGroups'] = $groups;
             $tablePath = $this->importPath($node);

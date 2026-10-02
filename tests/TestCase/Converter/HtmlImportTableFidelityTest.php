@@ -165,6 +165,85 @@ class HtmlImportTableFidelityTest extends TestCase
         ];
     }
 
+    /**
+     * @return array<string, array{string, array{headRows: int, bodies: list<array{headRows: int, bodyRows: int}>, footRows: int}}>
+     */
+    public static function emptyBodyProvider(): array
+    {
+        return [
+            'leading' => ['<table><tbody></tbody><tbody><tr><th scope="col">g</th></tr><tr><td>a</td></tr></tbody></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 0], ['headRows' => 1, 'bodyRows' => 1]], 'footRows' => 0]],
+            'leading plain' => ['<table><tbody></tbody><tbody><tr><td>a</td></tr></tbody></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 1]], 'footRows' => 0]],
+            'middle' => ['<table><tbody><tr><td>a</td></tr></tbody><tbody></tbody><tbody><tr><td>b</td></tr></tbody></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 1], ['headRows' => 0, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 1]], 'footRows' => 0]],
+            'trailing' => ['<table><tbody><tr><td>a</td></tr></tbody><tbody></tbody></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 1], ['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 0]],
+            'consecutive' => ['<table><tbody></tbody><tbody></tbody><tbody><tr><td>a</td></tr></tbody><tbody></tbody><tbody></tbody></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 1], ['headRows' => 0, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 0]],
+            'after head' => ['<table><thead><tr><th scope="col">h</th></tr></thead><tbody></tbody></table>', ['headRows' => 1, 'bodies' => [['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 0]],
+            'before a header-cell foot' => ['<table><tbody></tbody><tfoot><tr><th scope="col">f</th></tr></tfoot></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 1]],
+            'before foot' => ['<table><tbody></tbody><tfoot><tr><td>f</td></tr></tfoot></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 1]],
+            'head and foot' => ['<table><thead><tr><th scope="col">h</th></tr></thead><tbody></tbody><tfoot><tr><td>f</td></tr></tfoot></table>', ['headRows' => 1, 'bodies' => [['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 1]],
+            'header-only body' => ['<table><tbody><tr><th scope="col">g</th></tr></tbody><tbody></tbody></table>', ['headRows' => 0, 'bodies' => [['headRows' => 1, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 0]],
+            'no bodies' => ['<table><thead><tr><th scope="col">h</th></tr></thead><tfoot><tr><td>f</td></tr></tfoot></table>', ['headRows' => 1, 'bodies' => [], 'footRows' => 1]],
+        ];
+    }
+
+    /**
+     * @param string $html
+     * @param array<string, mixed> $expected
+     */
+    #[DataProvider('emptyBodyProvider')]
+    public function testEmptyBodiesSurviveBothImportExits(string $html, array $expected): void
+    {
+        $ast = $this->converter->convertToAstWithReport($html);
+        $this->assertSame([], $ast->diagnostics);
+        $this->assertEquals($expected, $ast->value['children'][0]['rowGroups']);
+        $written = $this->converter->convertWithReport($html);
+        $this->assertSame([], $written->diagnostics);
+        $wire = (new AstCodec())->encode((new BlockParser())->parse($written->value));
+        $this->assertEquals($expected, $wire['children'][0]['rowGroups']);
+        $this->assertSame($html, trim((string)preg_replace('/>\s+</', '><', $this->carve->convert($written->value))));
+    }
+
+    public function testEmptyBodiesOutsideTheHeadAndFootRemainInThePartition(): void
+    {
+        foreach (
+            [
+                '<table><tbody></tbody><thead><tr><th>h</th></tr></thead><tbody><tr><td>a</td></tr></tbody></table>',
+                '<table><tbody><tr><td>a</td></tr></tbody><tfoot><tr><td>f</td></tr></tfoot><tbody></tbody></table>',
+            ] as $html
+        ) {
+            $ast = $this->converter->convertToAstWithReport($html);
+            $this->assertCount(2, $ast->value['children'][0]['rowGroups']['bodies']);
+            $written = $this->converter->convertWithReport($html);
+            $this->assertSame([], $written->diagnostics);
+            $this->assertSame(2, substr_count($this->carve->convert($written->value), '<tbody>'));
+        }
+    }
+
+    public function testTheAstExitKeepsBlankRowsAndTheirCaption(): void
+    {
+        $html = '<table><caption>c</caption><tr><td> </td></tr></table>';
+        $ast = $this->converter->convertToAstWithReport($html);
+        $this->assertSame([], $ast->diagnostics);
+        $this->assertCount(1, $ast->value['children'][0]['rows']);
+        $this->assertSame('c', $ast->value['children'][0]['caption'][0]['value']);
+        $written = $this->converter->convertWithReport($html);
+        $this->assertSame('', trim($written->value));
+        $this->assertContains('structure-unspellable', array_column($written->diagnostics, 'code'));
+    }
+
+    public function testRowlessTablesDoNotLeakOntoTheFollowingParagraph(): void
+    {
+        foreach (['<table><tbody></tbody></table>', '<table id="t"><tbody class="empty"></tbody></table>', '<table><caption>c</caption><tbody></tbody></table>'] as $table) {
+            $html = '<p>x</p>' . $table . '<p>y</p>';
+            $written = $this->converter->convertWithReport($html);
+            $this->assertSame("x\n\ny\n", $written->value);
+            $this->assertSame(['table-degraded'], array_column($written->diagnostics, 'code'));
+            $ast = $this->converter->convertToAstWithReport($html);
+            $this->assertSame('table', $ast->value['children'][1]['type']);
+            $this->assertSame(0, $ast->value['children'][1]['rowGroups']['bodies'][0]['bodyRows']);
+            $this->assertNotContains('table-degraded', array_column($ast->diagnostics, 'code'));
+        }
+    }
+
     public function testAuthoredMetadataConflictsRemainVisible(): void
     {
         foreach (
