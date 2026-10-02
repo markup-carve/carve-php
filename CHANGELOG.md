@@ -11,14 +11,14 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixes
 
-- PCRE errors in source eligibility checks reject the borrowed HTML path.
+- PCRE errors in source eligibility checks reject the borrowed HTML path (#2842).
 - Preserve multiple table bodies, intermediate body headers, empty bodies, and per-body row-header counts with positional source attributes. Keep authored conflicts and report partition loss. Preserve decimal column widths through AST parsing, source export, and HTML rendering.
 
 - List marker attribute validation keeps subclass results on each parser instance. Subclasses can clear `instanceMarkerAttributeCache` after changing validation settings. Attribute payloads above 2,048 bytes are parsed without retaining them in the cache.
 
 ### Performance
 
-- Borrowed HTML writes plain inline text directly and skips repeated paragraph checks. Native scanning handles longer runs between markers; single-byte gaps avoid scanner setup.
+- Borrowed HTML writes plain inline text directly and skips repeated paragraph checks. Native scanning handles longer runs between markers; single-byte gaps avoid scanner setup (#2842).
 - Buffered HTML appends handle the first fragment directly instead of packing it into a variadic array (#2837).
 - Repeated slash openers around bracket runs reuse failed suffix scans while keeping skipped interiors available. HTML import reports reuse each table's block-cell classification during inspection (#2812).
 
