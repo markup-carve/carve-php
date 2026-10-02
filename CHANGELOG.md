@@ -9,6 +9,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixes
+
+- List marker attribute validation keeps subclass results on each parser instance. Subclasses can clear `instanceMarkerAttributeCache` after changing validation settings. Attribute payloads above 2,048 bytes are parsed without retaining them in the cache.
+
 ### Performance
 
 - Repeated slash openers around bracket runs reuse failed suffix scans while keeping skipped interiors available. HTML import reports reuse each table's block-cell classification during inspection (#2812).
