@@ -52,6 +52,32 @@ class HtmlAstBuilderTest extends TestCase
         $this->assertBuilderScales('<dl><dt>t</dt><dd>d</dd></dl>', '', '', 1024);
     }
 
+    public function testIndexedPathsIncludeSiblingNodesAndResetBetweenImports(): void
+    {
+        $builder = new HtmlAstBuilder();
+        $table = '<table><tbody id="a"><tr><td>x</td></tr></tbody><tfoot><tr><td>y</td></tr></tfoot></table>';
+        $builder->build($table . ' <!-- gap -->' . $table);
+        self::assertSame([
+            '/table[1]/tbody[1]' => ['id'],
+            '/table[1]/tfoot[2]' => [],
+            '/table[4]/tbody[1]' => ['id'],
+            '/table[4]/tfoot[2]' => [],
+        ], $builder->retainedTableAttributes());
+        $builder->build($table);
+        self::assertSame(['/table[1]/tbody[1]' => ['id'], '/table[1]/tfoot[2]' => []], $builder->retainedTableAttributes());
+    }
+
+    #[Group('scaling')]
+    public function testSiblingPartitionedTablesScaleLinearly(): void
+    {
+        $this->assertBuilderScales(
+            '<table><tbody><tr><td>x</td></tr></tbody><tfoot><tr><td>y</td></tr></tfoot></table>',
+            '',
+            '',
+            1024,
+        );
+    }
+
     private function assertBuilderScales(string $fragment, string $prefix, string $suffix, int $n): void
     {
         $builder = new HtmlAstBuilder();
