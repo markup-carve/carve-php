@@ -542,7 +542,9 @@ class AstCodec
         // Ahead of the version envelope too, because a payload that cannot be
         // walked cannot be diagnosed: reporting which spelling it uses means
         // descending into it.
-        if (!PayloadDepth::within($data, self::MAX_JSON_DEPTH)) {
+        // Count the original payload bytes while checking depth, before rewrites.
+        $payloadBytes = PayloadSize::bytesWithinDepth($data, self::MAX_JSON_DEPTH);
+        if ($payloadBytes === null) {
             throw new AstDecodeException(sprintf(
                 'AST payload nests deeper than %d levels. The parser caps nesting at %d AST '
                     . 'levels, whose deepest wire form stays well inside this bound, so a '
@@ -553,14 +555,6 @@ class AstCodec
                 self::MAX_PARSER_NESTING_DEPTH,
             ));
         }
-
-        // What the sender actually had to send, measured HERE and not further
-        // down: everything below rewrites `$data` - `liftAbbreviationDefs`
-        // moves definitions out of the root - so a later measurement would be
-        // asking what this method's own bookkeeping costs rather than what
-        // arrived. Used at the end of this method to bound the expansion
-        // budgets; see there.
-        $payloadBytes = PayloadSize::bytes($data, self::MAX_JSON_DEPTH);
 
         $version = $data['ast'] ?? null;
         if ($version !== null && $version !== self::VERSION) {
@@ -729,12 +723,16 @@ class AstCodec
     }
 
     /**
+     * @param-out bool $changed
+     *
      * @param array<mixed> $data
+     * @param bool|null $changed
      *
      * @return array<mixed>
      */
-    private static function withoutImporterHints(array $data): array
+    private static function withoutImporterHints(array $data, ?bool &$changed = null): array
     {
+        $changed = false;
         foreach ($data as $key => $value) {
             if ($key === 'keyValues' && is_array($value)) {
                 $value = array_filter(
@@ -744,8 +742,10 @@ class AstCodec
                 );
                 if ($value === []) {
                     unset($data[$key]);
-                } else {
+                    $changed = true;
+                } elseif ($value !== $data[$key]) {
                     $data[$key] = $value;
+                    $changed = true;
                 }
 
                 continue;
@@ -757,20 +757,26 @@ class AstCodec
                 ));
                 if ($value === []) {
                     unset($data[$key]);
-                } else {
+                    $changed = true;
+                } elseif ($value !== $data[$key]) {
                     $data[$key] = $value;
+                    $changed = true;
                 }
 
                 continue;
             }
             if (is_array($value)) {
-                $value = self::withoutImporterHints($value);
+                $value = self::withoutImporterHints($value, $childChanged);
                 if ($key === 'attrs' && $value === []) {
                     unset($data[$key]);
+                    $changed = true;
 
                     continue;
                 }
-                $data[$key] = $value;
+                if ($childChanged) {
+                    $data[$key] = $value;
+                    $changed = true;
+                }
             }
         }
 
@@ -1041,9 +1047,12 @@ class AstCodec
      * two-pass design exists to prevent. The separator does not have to change
      * once the character cannot arrive.
      *
+     * @param-out bool $changed
+     *
      * @param array<mixed> $data
      * @param bool $preserveImporterHintKeys
      * @param bool $inAttributeOrder
+     * @param bool|null $changed
      *
      * @return array<mixed>
      */
@@ -1051,36 +1060,49 @@ class AstCodec
         array $data,
         bool $preserveImporterHintKeys = false,
         bool $inAttributeOrder = false,
+        ?bool &$changed = null,
     ): array {
-        $normalized = [];
+        $changed = false;
+        $normalized = null;
+
         foreach ($data as $key => $value) {
+            $originalKey = $key;
+            $originalValue = $value;
+            $valueChanged = false;
             if (is_string($key) && (!$preserveImporterHintKeys || !str_starts_with($key, "\0carve-"))) {
                 $key = str_replace("\0", "\u{FFFD}", $key);
             }
             if (is_string($value)) {
-                $normalized[$key] = $preserveImporterHintKeys
+                $value = $preserveImporterHintKeys
                     && $inAttributeOrder
                     && str_starts_with($value, "\0carve-")
                         ? $value
                         : str_replace("\0", "\u{FFFD}", $value);
-
-                continue;
-            }
-
-            if (is_array($value)) {
-                $normalized[$key] = self::replaceNulValues(
+                $valueChanged = $value !== $originalValue;
+            } elseif (is_array($value)) {
+                $value = self::replaceNulValues(
                     $value,
                     $preserveImporterHintKeys,
                     $key === 'order',
+                    $valueChanged,
                 );
-
-                continue;
             }
-
-            $normalized[$key] = $value;
+            if ($normalized === null && ($key !== $originalKey || $valueChanged)) {
+                $changed = true;
+                $normalized = [];
+                foreach ($data as $priorKey => $priorValue) {
+                    if ($priorKey === $originalKey) {
+                        break;
+                    }
+                    $normalized[$priorKey] = $priorValue;
+                }
+            }
+            if ($normalized !== null) {
+                $normalized[$key] = $value;
+            }
         }
 
-        return $normalized;
+        return $normalized ?? $data;
     }
 
     /**
