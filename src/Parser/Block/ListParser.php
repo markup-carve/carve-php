@@ -550,6 +550,11 @@ class ListParser
         if (static::class !== self::class || strlen($line) > self::PARSED_MARKER_CACHE_LINE_BYTES) {
             return $this->parseListItemMarkerUncached($line);
         }
+        $first = $line[0] ?? '';
+        if ($first !== '-' && $first !== '*' && $first !== '.' && !$this->markerTokenCanStartAt($line, 0)) {
+            return null;
+        }
+
         if (array_key_exists($line, $this->parsedMarkerCache)) {
             return $this->parsedMarkerCache[$line];
         }

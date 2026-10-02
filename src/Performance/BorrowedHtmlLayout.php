@@ -135,16 +135,42 @@ final class BorrowedHtmlLayout
     private function eligibleSource(string $source, bool $streaming): bool
     {
         return ($streaming || strlen($source) <= self::MAX_SOURCE_BYTES || $this->largePlainSource($source))
-            && preg_match('/[^\x00-\x7F]|[\x00\x09\x0B\x0C\x0D]/', $source) === 0
+            && $this->eligibleText($source)
             && !str_starts_with($source, '---')
             && !str_contains($source, '[^')
             && !str_contains($source, '^[')
             && !str_contains($source, '[@')
             && !str_contains($source, '</#')
-            && !str_contains($source, '![')
             && !str_contains($source, '%%')
             && !str_contains($source, ':::')
-            && preg_match('/(?:^|\n)( *)- [^\n]*\n\n(?:\n)*\1- /', $source) === 0;
+            && preg_match('/(?:^|\n)( *)([-*]) [^\n]*\n\n(?:\n)*\1\2 /', $source) === 0;
+    }
+
+    private function simpleImage(string $text): ?string
+    {
+        if (preg_match('/^!\[([A-Za-z0-9 ,.&-]*)\]\(([A-Za-z0-9:\/?#&=._%+-]+)\)$/D', $text, $match) !== 1) {
+            return null;
+        }
+        $label = $match[1];
+        $url = $match[2];
+        if (trim($label) !== $label || str_contains($label, '--') || str_contains($label, '...')) {
+            return null;
+        }
+        if (!$this->safeUrl($url) && preg_match('#^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$#D', $url) !== 1) {
+            return null;
+        }
+
+        return '<img src="' . $this->escapeAttribute($url) . '" alt="' . $this->escapeAttribute($label) . '">';
+    }
+
+    private function eligibleText(string $source): bool
+    {
+        if (preg_match('/[^\x00-\x7F]|[\x00\x09\x0B\x0C\x0D]/', $source) === 0) {
+            return true;
+        }
+
+        return strpbrk($source, "\x00\t\v\f\r*/_`[\"'") === false
+            && preg_match('/[^\x00-\x7F\p{L}\p{M}\p{N}]/u', $source) === 0;
     }
 
     private function largePlainSource(string $source): bool
@@ -160,7 +186,7 @@ final class BorrowedHtmlLayout
     {
         return array_fill_keys([
             'headings', 'paragraphs', 'blockQuotes', 'codeFences',
-            'thematicBreaks', 'unorderedListItems', 'orderedListItems',
+            'thematicBreaks', 'images', 'unorderedListItems', 'orderedListItems',
             'tableRows', 'linkDefinitions', 'consumedLines', 'activeDefinitions',
         ], 0);
     }
@@ -347,7 +373,7 @@ final class BorrowedHtmlLayout
 
                 continue;
             }
-            if (str_starts_with($line, '- ')) {
+            if (str_starts_with($line, '- ') || str_starts_with($line, '* ')) {
                 $rendered = $this->renderList($lines, $i, 0, $depth, $definitions, $stats);
                 if ($rendered === null) {
                     return null;
@@ -404,6 +430,18 @@ final class BorrowedHtmlLayout
                 }
                 $i = $rendered['next'];
                 $wrote = true;
+
+                continue;
+            }
+            if (str_starts_with($line, '![')) {
+                $image = $this->simpleImage($line);
+                if ($image === null || (isset($lines[$i + 1]) && trim($lines[$i + 1]) !== '')) {
+                    return null;
+                }
+                $this->output->push($this->indent($depth), $image);
+                $this->accept($stats, 'images', $i, $i + 1);
+                $wrote = true;
+                $i++;
 
                 continue;
             }
@@ -569,6 +607,8 @@ final class BorrowedHtmlLayout
         if ($offset >= 2 * BlockGrammar::MAX_NESTING_DEPTH) {
             return null;
         }
+        $bullet = $lines[$start][$offset];
+        $marker = $bullet . ' ';
         $this->output->push($this->indent($depth), '<ul>');
         $i = $start;
         $count = count($lines);
@@ -578,7 +618,7 @@ final class BorrowedHtmlLayout
             if ($leading < $offset) {
                 break;
             }
-            if ($leading !== $offset || !str_starts_with(substr($line, $leading), '- ')) {
+            if ($leading !== $offset || !str_starts_with(substr($line, $leading), $marker)) {
                 return null;
             }
             $text = substr($line, $leading + 2);
@@ -594,7 +634,7 @@ final class BorrowedHtmlLayout
             if (isset($lines[$i])) {
                 $nextIndent = strlen($lines[$i]) - strlen(ltrim($lines[$i]));
                 if ($nextIndent > $offset) {
-                    if ($nextIndent !== $offset + 2 || !str_starts_with(substr($lines[$i], $nextIndent), '- ')) {
+                    if ($bullet !== '-' || $nextIndent !== $offset + 2 || !str_starts_with(substr($lines[$i], $nextIndent), '- ')) {
                         return null;
                     }
                     $this->output->push("\n");
@@ -612,7 +652,7 @@ final class BorrowedHtmlLayout
                 }
                 if (isset($lines[$next])) {
                     $nextLeading = strlen($lines[$next]) - strlen(ltrim($lines[$next]));
-                    if ($nextLeading === $offset && str_starts_with(substr($lines[$next], $nextLeading), '- ')) {
+                    if ($nextLeading === $offset && str_starts_with(substr($lines[$next], $nextLeading), $marker)) {
                         return null;
                     }
                 }

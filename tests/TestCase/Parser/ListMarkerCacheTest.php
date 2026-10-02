@@ -96,6 +96,16 @@ class ListMarkerCacheTest extends TestCase
         self::assertSame('item', $parser->parseListItemMarker('- item')['content']);
     }
 
+    public function testOrdinaryProseDoesNotFillTheMarkerCache(): void
+    {
+        $parser = new ListParser();
+        $marker = $parser->parseListItemMarker('- item');
+        foreach (range(1, 256) as $number) {
+            self::assertNull($parser->parseListItemMarker('Ordinary paragraph ' . $number));
+        }
+        self::assertSame(['- item' => $marker], (new ReflectionProperty($parser, 'parsedMarkerCache'))->getValue($parser));
+    }
+
     public function testLongLinesAreNotRetained(): void
     {
         $parser = new ListParser();

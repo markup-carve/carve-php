@@ -91,7 +91,7 @@ final class HtmlOutput
         }
         $length = strlen($text);
         for ($offset = 0; $offset < $length;) {
-            $end = min($length, $offset + 512);
+            $end = min($length, $offset + 4096);
             while ($end < $length && (ord($text[$end]) & 0xC0) === 0x80) {
                 $end--;
             }

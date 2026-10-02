@@ -219,11 +219,8 @@ CRV;
             }
         }
 
-        // 52 apiece since the bump to carve 578d564d - the same three new corpus
-        // documents the unconfigured layout newly accepts (corpus 522 and 524,
-        // named in BorrowedHtmlLayoutTest), and each renders identically under
-        // both profiles.
-        self::assertSame(['tier2' => 52, 'events' => 52], $accepted, 'A configured fast-path routing change needs explicit review.');
+        // Configured routes accept the same seven additional corpus sources.
+        self::assertSame(['tier2' => 59, 'events' => 59], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]

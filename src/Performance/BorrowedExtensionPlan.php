@@ -89,8 +89,8 @@ final class BorrowedExtensionPlan
             'MarkupCarve\\Carve\\Extension\\CodeGroupExtension' => !str_contains($source, '::: code-group'),
             'MarkupCarve\\Carve\\Extension\\WikilinksExtension' => !str_contains($source, '[['),
             'MarkupCarve\\Carve\\Extension\\ColorSwatchExtension' => !str_contains($source, ':color['),
-            // BorrowedHtmlLayout already rejects non-ASCII source.
-            'MarkupCarve\\Carve\\Extension\\AsciiHeadingIdsExtension' => true,
+            'MarkupCarve\\Carve\\Extension\\AsciiHeadingIdsExtension' =>
+                preg_match('/[^\x00-\x7F]/', $source) === 0,
             default => false,
         };
     }
