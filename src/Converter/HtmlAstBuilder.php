@@ -2279,7 +2279,10 @@ final class HtmlAstBuilder
             $groups['bodies'][0]['headRows'] -= $absorbed;
         }
         $counted = $groups['headRows'] + $groups['footRows'] + array_sum(array_column($groups['bodies'], 'bodyRows')) + array_sum(array_column($groups['bodies'], 'headRows'));
-        if ($valid && $counted === count($rows) && ($hasSectionAttrs || $groups['footRows'] > 0 || count($groups['bodies']) > 1)) {
+        if (
+            $valid && $counted === count($rows) && ($hasSectionAttrs || $groups['footRows'] > 0 || count($groups['bodies']) > 1
+            || $groups['headRows'] !== $headerRows || array_sum(array_column($groups['bodies'], 'headRows')) > 0)
+        ) {
             $table['rowGroups'] = $groups;
             $tablePath = $this->importPath($node);
             $this->session->retainedTablePartitions[$tablePath] = true;

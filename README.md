@@ -63,3 +63,6 @@ They disable raw HTML passthrough and bound nesting depth.
 - [Carve documentation](https://markup-carve.github.io/carve/): syntax, examples, optional features and format conversion.
 - [PHP guides](https://github.com/markup-carve/carve-php/blob/main/docs/README.md): configuration, importers, output formats and editor integration.
 - [Developer documentation](https://github.com/markup-carve/carve-php/blob/main/docs/development.md): contributing, custom renderers, parser internals and benchmarks.
+
+Table body partitions and source attributes are documented in
+[Table source metadata](docs/table-source-metadata.md).

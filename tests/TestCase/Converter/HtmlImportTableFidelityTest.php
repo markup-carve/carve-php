@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -160,25 +162,36 @@ class HtmlImportTableFidelityTest extends TestCase
                 '<table><caption>One</caption><tbody><tr><td>1</td></tr></tbody><caption>Two</caption></table>',
                 'Kept the first of 2 <caption> elements',
             ],
-            'a table foot' => [
-                '<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody>'
-                    . '<tfoot><tr><td>F</td></tr></tfoot></table>',
-                'Moved 1 <tfoot> row(s) into the table body',
-            ],
-            'a second body group' => [
-                '<table><tbody><tr><td>1</td></tr></tbody><tbody><tr><td>2</td></tr></tbody></table>',
-                'Merged 2 <tbody> groups into one',
-            ],
-            'a body header row that joins the head' => [
-                '<table><thead><tr><th>A</th></tr></thead>'
-                    . '<tbody><tr><th>Mid</th></tr><tr><td>1</td></tr></tbody></table>',
-                'The table head changes from 1 to 2 row(s)',
-            ],
-            'a head row holding a data cell' => [
-                '<table><thead><tr><th>A</th><td>B</td></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>',
-                'The table head changes from 1 to 0 row(s)',
-            ],
         ];
+    }
+
+    public function testAuthoredMetadataConflictsRemainVisible(): void
+    {
+        foreach (
+            [
+                '<table header-rows="1"><tbody><tr><td>1</td></tr></tbody><tfoot><tr><td>2</td></tr></tfoot></table>',
+                '<table body-rows="9"><tbody><tr><td>1</td></tr></tbody><tbody><tr><td>2</td></tr></tbody></table>',
+            ] as $html
+        ) {
+            $this->assertContains('table-degraded', $this->diagnosticCodes($html));
+        }
+    }
+
+    public function testSourceKeepsExplicitTablePartitions(): void
+    {
+        foreach (
+            [
+                '<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody><tfoot><tr><td>F</td></tr></tfoot></table>',
+                '<table><tbody><tr><td>1</td></tr></tbody><tbody><tr><td>2</td></tr></tbody></table>',
+                '<table><thead><tr><th>A</th></tr></thead><tbody><tr><th>Mid</th></tr><tr><td>1</td></tr></tbody></table>',
+                '<table><thead><tr><th>A</th><td>B</td></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>',
+            ] as $html
+        ) {
+            $this->assertNotContains('table-degraded', $this->diagnosticCodes($html));
+            $converted = (new HtmlToCarve())->convertWithReport($html);
+            $wire = (new AstCodec())->encode((new BlockParser())->parse($converted->value));
+            $this->assertArrayHasKey('rowGroups', $wire['children'][0]);
+        }
     }
 
     #[DataProvider('degradedStructureProvider')]

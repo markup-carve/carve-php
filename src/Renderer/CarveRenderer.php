@@ -84,6 +84,7 @@ use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\Util\TableWidth;
 use MarkupCarve\Carve\VerbatimPayload;
 use Throwable;
 
@@ -1324,7 +1325,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($stored !== null) {
             return $stored;
         }
-        $attrs = $this->renderAttrs($node);
+        $attributeNode = $node;
+        if ($node instanceof Table) {
+            $attributeNode = clone $node;
+            $this->addTableSourceMetadata($attributeNode, $node);
+        }
+        $attrs = $this->renderAttrs($attributeNode);
         $withAttrs = static fn (string $body): string => $attrs === '' ? $body : $attrs . "\n" . $body;
         // PART 9 §17 L7: the writer spells looseness with `{loose}` ONLY where
         // the blank-line spelling cannot.
@@ -2465,6 +2471,62 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return implode("\n", $out);
+    }
+
+    private function addTableSourceMetadata(Table $table, Table $origin): void
+    {
+        $put = static function (string $key, string $value) use ($table): void {
+            if ($table->getAttribute($key) === null) {
+                $table->setAttribute($key, $value);
+            }
+        };
+        $columns = $table->getColumns();
+        foreach (['align' => 'aligns', 'valign' => 'valigns', 'width' => 'widths'] as $field => $key) {
+            if (array_filter($columns, static fn (array $column): bool => isset($column[$field])) === []) {
+                continue;
+            }
+            $put($key, implode(',', array_map(
+                static fn (array $column): string => match ($field) {
+                    'width' => isset($column['width']) ? TableWidth::percentage($column['width']) : '',
+                    'align' => $column['align'] ?? '',
+                    'valign' => $column['valign'] ?? '',
+                },
+                $columns,
+            )));
+        }
+        $groups = $table->getRowGroups();
+        if ($groups === null) {
+            return;
+        }
+        if ($groups['headRows'] > 0) {
+            $put('header-rows', (string)$groups['headRows']);
+        }
+        if ($groups['footRows'] > 0) {
+            $put('footer-rows', (string)$groups['footRows']);
+        }
+        $bodies = $groups['bodies'];
+        $simple = count($bodies) === 1 && $bodies[0]['headRows'] === 0 && !isset($bodies[0]['rowHeadColumns']);
+        if ($simple) {
+            if ($table->getAttribute('header-rows') === null && $table->getAttribute('footer-rows') === null) {
+                $put('header-rows', '0');
+            }
+        } else {
+            $put('body-rows', implode(',', array_column($bodies, 'bodyRows')));
+            if (array_filter($bodies, static fn (array $body): bool => $body['headRows'] !== 0) !== []) {
+                $put('body-header-rows', implode(',', array_column($bodies, 'headRows')));
+            }
+            if (array_filter($bodies, static fn (array $body): bool => isset($body['rowHeadColumns'])) !== []) {
+                $put('body-header-cols', implode(',', array_map(static fn (array $body): string => isset($body['rowHeadColumns']) ? (string)$body['rowHeadColumns'] : '', $bodies)));
+            }
+        }
+        $stated = $table->statedRowGroups();
+        $core = static fn (array $body): array => ['headRows' => $body['headRows'], 'bodyRows' => $body['bodyRows']] + (isset($body['rowHeadColumns']) ? ['rowHeadColumns' => $body['rowHeadColumns']] : []);
+        if (
+            $stated === null || $stated['headRows'] !== $groups['headRows'] || $stated['footRows'] !== $groups['footRows']
+            || array_map($core, $stated['bodies']) !== array_map($core, $bodies)
+        ) {
+            $this->recordUnspellableField($origin, 'rowGroups', 'The retained attributes cannot preserve this table partition');
+        }
     }
 
     /**

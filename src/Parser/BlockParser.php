@@ -47,6 +47,7 @@ use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\Util\TableWidth;
 use WeakMap;
 
 /**
@@ -2599,7 +2600,7 @@ class BlockParser
             foreach (explode(',', $rawWidths) as $index => $value) {
                 $width = is_numeric(trim($value)) ? (float)trim($value) : 0.0;
                 if ($index < $widest && $width > 0.0 && $width <= 100.0) {
-                    $columns[$index]['width'] = $width / 100.0;
+                    $columns[$index]['width'] = TableWidth::fraction($value);
                 }
             }
         }

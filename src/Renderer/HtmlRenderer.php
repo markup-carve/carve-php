@@ -80,6 +80,7 @@ use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\Util\TableWidth;
 
 /**
  * Renders AST to HTML
@@ -2155,7 +2156,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderTable(Table $node): string
     {
         $tableAttrs = $this->getRenderableAttributes($node);
-        unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths'], $tableAttrs['header-rows'], $tableAttrs['footer-rows']);
+        unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths']);
+        $hasBodyMetadata = isset($tableAttrs['body-rows']) || isset($tableAttrs['body-header-rows']) || isset($tableAttrs['body-header-cols']);
+        if (!$hasBodyMetadata || $node->statedRowGroups() !== null) {
+            unset($tableAttrs['header-rows'], $tableAttrs['footer-rows']);
+        }
+        if ($node->statedRowGroups() !== null) {
+            unset($tableAttrs['body-rows'], $tableAttrs['body-header-rows'], $tableAttrs['body-header-cols']);
+        }
         $attrs = $this->renderAttributeArray($tableAttrs);
 
         // Add round-trip separator widths attribute if available and in round-trip mode
@@ -2175,7 +2183,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if (array_filter($columns, static fn (array $column): bool => isset($column['width'])) !== []) {
             $cols = [];
             foreach ($columns as $column) {
-                $style = isset($column['width']) ? ' style="width: ' . ($column['width'] * 100) . '%;"' : '';
+                $style = isset($column['width']) ? ' style="width: ' . TableWidth::percentage($column['width']) . '%;"' : '';
                 $cols[] = '    <col' . $style . '>';
             }
             $lines[] = "  <colgroup>\n" . implode("\n", $cols) . "\n  </colgroup>";
@@ -2263,14 +2271,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return $this->renderAttributes($host);
         };
 
-        $renderRow = function (TableRow $row, array $gridRow, bool $inHeaderRun = false, bool $promoteToHeader = false) use ($columns): string {
+        $renderRow = function (TableRow $row, array $gridRow, bool $inHeaderRun = false, bool $promoteToHeader = false, int $rowHeadColumns = 0) use ($columns): string {
             $cells = '';
             foreach ($gridRow as $column => $entry) {
                 if ($entry['skip']) {
                     continue;
                 }
                 $cells .= rtrim(
-                    $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan'], $inHeaderRun, $columns[$column] ?? [], $promoteToHeader),
+                    $this->renderResolvedTableCell($entry['cell'], $entry['rowspan'], $entry['colspan'], $inHeaderRun, $columns[$column] ?? [], $promoteToHeader || $column < $rowHeadColumns),
                     "\n",
                 );
             }
@@ -2278,6 +2286,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return '<tr' . $this->renderAttributes($row) . '>' . $cells . '</tr>';
         };
 
+        $rowContexts = [];
+        $contextStart = $headerRowCount;
+        foreach ($groups['bodies'] ?? [] as $body) {
+            $end = $contextStart + $body['headRows'] + $body['bodyRows'];
+            for ($row = $contextStart; $row < $end; $row++) {
+                $rowContexts[$row] = ['header' => $row < $contextStart + $body['headRows'], 'columns' => $body['rowHeadColumns'] ?? 0];
+            }
+            $contextStart = $end;
+        }
         $tableRowCount = count($tableRows);
         $footerStart = $tableRowCount - $footerRowCount;
         $sectionEnds = [$headerRowCount, $footerStart];
@@ -2303,8 +2320,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($crossesSection) {
             $tbody = '';
             foreach ($tableRows as $rowIndex => $row) {
-                $inHeaderRun = $rowIndex < $headerRowCount;
-                $tbody .= '    ' . $renderRow($row, $grid[$rowIndex], $inHeaderRun, $inHeaderRun) . "\n";
+                $inHeaderRun = $rowContexts[$rowIndex]['header'] ?? ($rowIndex < $headerRowCount);
+                $tbody .= '    ' . $renderRow($row, $grid[$rowIndex], $inHeaderRun, $inHeaderRun, $rowContexts[$rowIndex]['columns'] ?? 0) . "\n";
             }
             $lines[] = "  <tbody>\n" . ($tbody === '' ? '' : rtrim($tbody, "\n") . "\n") . '  </tbody>';
 
@@ -2335,13 +2352,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             // rendered an empty `<tbody>` through this branch and none through
             // the fallback. An empty section that carries attributes still
             // renders: the attributes are the thing it is there to hold.
-            if ($bodyEnd === $bodyStart && !isset($body['attrs'])) {
+            if ($bodyEnd === $bodyStart && !isset($body['attrs']) && $node->getAttribute('body-rows') === null && $stated !== null) {
                 continue;
             }
             $tbody = '';
             for ($i = $bodyStart; $i < $bodyEnd; $i++) {
                 $header = $i < $bodyStart + $body['headRows'];
-                $tbody .= '    ' . $renderRow($tableRows[$i], $grid[$i], $header, $header) . "\n";
+                $tbody .= '    ' . $renderRow($tableRows[$i], $grid[$i], $header, $header, $body['rowHeadColumns'] ?? 0) . "\n";
             }
             $lines[] = '  <tbody' . $sectionAttrs($body['attrs'] ?? null) . ">\n" . ($tbody === '' ? '' : rtrim($tbody, "\n") . "\n") . '  </tbody>';
             $bodyStart = $bodyEnd;

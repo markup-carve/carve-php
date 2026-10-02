@@ -393,6 +393,9 @@ class HtmlToCarve
 
         try {
             $diagnostics = $this->inspectImportLoss($html);
+            foreach ($this->sourcePartitionDiagnostics as $diagnostic) {
+                $this->addImportDiagnostic($diagnostics, 'table-degraded', 'The retained table attributes cannot preserve its explicit row-group partition', 'warning', '/');
+            }
         } finally {
             $this->releaseImportInspection();
         }
@@ -407,6 +410,8 @@ class HtmlToCarve
 
     private function releaseImportInspection(): void
     {
+        $this->sourceTablePartitions = [];
+        $this->sourcePartitionDiagnostics = [];
         $this->inspectedContentKey = null;
         $this->listTableInspection = null;
         $this->tableCommentShapes = null;
@@ -427,6 +432,7 @@ class HtmlToCarve
 
     private function captureBuiltImport(HtmlImportSession $session): void
     {
+        $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
         $this->summaryImportTitles = $session->summaryTitles;
         $this->keptRawImportElements = $session->keptRawElements;
@@ -2784,17 +2790,8 @@ class HtmlToCarve
     /**
      * Report what a table's structure loses on the way into Carve source.
      *
-     * Carve 0.1 source has no spelling for the `rowGroups` partition the AST
-     * can hold (PART 12 §15): a pipe table is a flat row list whose head is the
-     * leading run of header rows. So a table foot, a second body group, or a
-     * head the leading-run rule will not reproduce all flatten on import, and
-     * until now they flattened in silence. They stay flattened - inventing a
-     * spelling is a language change, not an importer change - but the report
-     * now says which of them happened.
-     *
-     * Row-head columns are NOT in this list, and deliberately: `|= R | 1 |`
-     * spells a header cell beside data cells exactly, so that one is a mapping
-     * rather than a loss.
+     * Retained pipe-table partitions have positional source attributes.
+     * Tables lowered to ListTable still report boundaries lost by that path.
      *
      * @param \DOMElement $node
      * @param string $path
@@ -2837,7 +2834,7 @@ class HtmlToCarve
                 $path,
             );
         }
-        if ($footRows > 0 && !isset($this->astImportSession?->retainedTablePartitions[$path])) {
+        if ($footRows > 0 && !(isset($this->astImportSession?->retainedTablePartitions[$path]) || isset($this->sourceTablePartitions[$path]))) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'table-degraded',
@@ -2846,7 +2843,7 @@ class HtmlToCarve
                 $path,
             );
         }
-        if ($bodyGroups > 1 && !isset($this->astImportSession?->retainedTablePartitions[$path])) {
+        if ($bodyGroups > 1 && !(isset($this->astImportSession?->retainedTablePartitions[$path]) || isset($this->sourceTablePartitions[$path]))) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'table-degraded',
@@ -2894,7 +2891,7 @@ class HtmlToCarve
             $derived++;
         }
 
-        if ($declared === $derived || isset($this->astImportSession?->retainedTablePartitions[$path])) {
+        if ($declared === $derived || (isset($this->astImportSession?->retainedTablePartitions[$path]) || isset($this->sourceTablePartitions[$path]))) {
             return;
         }
 
@@ -3525,6 +3522,8 @@ class HtmlToCarve
      */
     public function convert(string $html): string
     {
+        $this->sourceTablePartitions = [];
+        $this->sourcePartitionDiagnostics = [];
         $this->displacedImportFigureAttributes = [];
         $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
@@ -3559,7 +3558,19 @@ class HtmlToCarve
         }
         $document = (new AstCodec())->decodeImporterTree($tree);
 
-        return (new CarveRenderer())->render($document);
+        $renderer = new CarveRenderer();
+        if ($this->captureImportIdentity) {
+            $renderer->beginConversionDiagnosticCollection();
+        }
+        $source = $renderer->render($document);
+        if ($this->captureImportIdentity) {
+            $this->sourcePartitionDiagnostics = array_values(array_filter(
+                $renderer->finishConversionDiagnosticCollection()['diagnostics'],
+                static fn (array $diagnostic): bool => ($diagnostic['field'] ?? null) === 'rowGroups',
+            ));
+        }
+
+        return $source;
     }
 
     private function singleStoredRoundTripSource(string $html): ?string
@@ -4672,6 +4683,16 @@ class HtmlToCarve
     protected ?string $inspectedCarve = null;
 
     private ?HtmlImportSession $astImportSession = null;
+
+    /**
+     * @var array<string, true>
+     */
+    private array $sourceTablePartitions = [];
+
+    /**
+     * @var list<array<string, mixed>>
+     */
+    private array $sourcePartitionDiagnostics = [];
 
     private ?HtmlAstBuildResult $inspectedAst = null;
 
