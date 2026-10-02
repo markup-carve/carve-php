@@ -2498,6 +2498,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($groups === null) {
             return;
         }
+        $core = static fn (array $body): array => ['headRows' => $body['headRows'], 'bodyRows' => $body['bodyRows']] + (isset($body['rowHeadColumns']) ? ['rowHeadColumns' => $body['rowHeadColumns']] : []);
+        $stated = $table->statedRowGroups();
+        if (
+            $stated !== null && $stated['headRows'] === $groups['headRows'] && $stated['footRows'] === $groups['footRows']
+            && array_map($core, $stated['bodies']) === array_map($core, $groups['bodies'])
+        ) {
+            return;
+        }
         if ($groups['headRows'] > 0) {
             $put('header-rows', (string)$groups['headRows']);
         }
@@ -2505,7 +2513,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $put('footer-rows', (string)$groups['footRows']);
         }
         $bodies = $groups['bodies'];
-        $simple = count($bodies) === 1 && $bodies[0]['headRows'] === 0 && !isset($bodies[0]['rowHeadColumns']);
+        $simple = count($bodies) === 1 && $bodies[0]['headRows'] === 0 && $bodies[0]['bodyRows'] > 0 && !isset($bodies[0]['rowHeadColumns']);
         if ($simple) {
             if ($table->getAttribute('header-rows') === null && $table->getAttribute('footer-rows') === null) {
                 $put('header-rows', '0');

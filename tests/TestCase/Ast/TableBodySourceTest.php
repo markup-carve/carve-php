@@ -70,4 +70,18 @@ class TableBodySourceTest extends TestCase
         $this->assertStringContainsString('<th scope="row" rowspan="3">a</th>', $html);
         $this->assertStringContainsString('<th scope="col">D</th>', $html);
     }
+
+    public function testHeaderOnlyImplicitAndExplicitEmptyBodiesStayDistinct(): void
+    {
+        $parser = new BlockParser();
+        $codec = new AstCodec();
+        foreach (['header-rows=2', 'header-rows=2 body-rows=0'] as $attrs) {
+            $wire = $codec->encode($parser->parse('{' . $attrs . "}\n| a | b |\n| c | d |\n"));
+            $this->assertCount(str_contains($attrs, 'body-rows') ? 1 : 0, $wire['children'][0]['rowGroups']['bodies']);
+            unset($wire['children'][0]['attrs']);
+            $doc = $codec->decode($wire);
+            $source = (new CarveRenderer())->render($doc);
+            $this->assertSame((new HtmlRenderer())->render($doc), (new HtmlRenderer())->render($parser->parse($source)));
+        }
+    }
 }

@@ -13,7 +13,20 @@ final class TableWidth
 
     public static function percentage(float $fraction): string
     {
-        $decimal = json_encode($fraction, JSON_THROW_ON_ERROR);
+        if (!is_finite($fraction)) {
+            return (string)($fraction * 100.0);
+        }
+        $precision = ini_get('serialize_precision');
+        if ($precision !== false && $precision !== '-1') {
+            ini_set('serialize_precision', '-1');
+        }
+        try {
+            $decimal = json_encode($fraction, JSON_THROW_ON_ERROR);
+        } finally {
+            if ($precision !== false && $precision !== '-1') {
+                ini_set('serialize_precision', $precision);
+            }
+        }
 
         return self::shiftDecimal($decimal, 2) ?? (string)($fraction * 100.0);
     }

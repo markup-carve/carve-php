@@ -76,10 +76,10 @@ class AnAuthoredRowPartitionReachesTheWireTest extends TestCase
                 "{header-rows=0 footer-rows=0}\n| a |\n| b |\n",
                 ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 2]], 'footRows' => 0],
             ],
-            // The head consumes every row, so the single body group holds none.
+            // The head consumes every row, so no body group remains.
             'a head as long as the table' => [
                 "{header-rows=2}\n| a |\n| b |\n",
-                ['headRows' => 2, 'bodies' => [['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 0],
+                ['headRows' => 2, 'bodies' => [], 'footRows' => 0],
             ],
             // The refusals. Each one is a partition that could not account for
             // every row, which the schema forbids and the decoder rejects - so
