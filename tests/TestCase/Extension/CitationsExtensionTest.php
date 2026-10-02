@@ -38,6 +38,24 @@ class CitationsExtensionTest extends TestCase
     }
 
     #[Group('scaling')]
+    public function testPublicCitationPositionSetterScalesLinearly(): void
+    {
+        $this->assertConversionScalesLinearly(
+            static function (string $raw): void {
+                $count = substr_count($raw, ';') + 1;
+                $group = new CitationGroup(array_fill(0, $count, ['key' => 'a', 'suppressAuthor' => false]), $raw);
+                $length = mb_strlen($raw, 'UTF-8');
+                $group->setPos(new SourceSpan(1, 1, 1, $length + 1, 0, $length));
+            },
+            '[' . implode('; ', array_fill(0, 4096, '@a')) . ']',
+            '[' . implode('; ', array_fill(0, 16384, '@a')) . ']',
+            'citation item position setter',
+            4096,
+            16384,
+        );
+    }
+
+    #[Group('scaling')]
     public function testPositionedCitationGroupsScaleLinearly(): void
     {
         $converter = $this->converter();
