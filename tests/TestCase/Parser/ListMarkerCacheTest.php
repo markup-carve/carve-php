@@ -74,7 +74,6 @@ class ListMarkerCacheTest extends TestCase
         $parser->setId('fourth');
         self::assertSame(['id' => 'fourth'], $parser->attributes($payload));
         self::assertSame(2, $parser->validations);
-
     }
 
     public function testRepeatedMarkersFollowBulletSettingsAndDoNotShareResults(): void
