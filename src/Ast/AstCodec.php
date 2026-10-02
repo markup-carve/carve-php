@@ -232,6 +232,11 @@ class AstCodec
     private static array $statePropertyCache = [];
 
     /**
+     * @var array<class-string, array<string, list<array{\ReflectionProperty, string, array{has: bool, value: mixed}, bool}>>>
+     */
+    private static array $encodingPropertyCache = [];
+
+    /**
      * @var array<class-string<\MarkupCarve\Carve\Node\Node>, \ReflectionClass<\MarkupCarve\Carve\Node\Node>>
      */
     private static array $reflectionCache = [];
@@ -1754,10 +1759,8 @@ class AstCodec
             $type = self::NOT_ON_THE_WIRE['raw_text'];
         }
         $encoded = ['type' => $type];
-        $reflection = self::reflectNode($node::class);
-        foreach (self::stateProperties($reflection) as $property) {
+        foreach (self::encodingProperties(self::reflectNode($node::class), $type) as [$property, $field, $default, $required]) {
             $value = $property->isInitialized($node) ? $property->getValue($node) : null;
-            $default = self::defaultFor($reflection, $property);
 
             // Omit a field only when it holds the node's own default. Omitting
             // every null/[]/false instead would lose information wherever the
@@ -1770,21 +1773,7 @@ class AstCodec
             // type, while `## H` did. A consumer would have to treat the field
             // as optional and guess 1, which is the implicit rule PART 12 §3
             // exists to remove.
-            // PART 12 §3: publish the reference field name, and never an
-            // internal the reference does not have. Resolved BEFORE the
-            // always-published test, because that list is keyed by the field
-            // name that goes on the wire, not by this engine's property name
-            // (`marker` is published as `bulletChar`).
-            $field = ReferenceShape::fieldFor($type, $property->getName());
-            if ($field === null) {
-                continue;
-            }
-
-            $alwaysPublished = in_array(
-                $type . '.' . $field,
-                self::ALWAYS_PUBLISHED,
-                true,
-            ) || self::publishesAnEmptyTitle($node, $type, $field);
+            $alwaysPublished = $required || self::publishesAnEmptyTitle($node, $type, $field);
             if (!$alwaysPublished && $default['has'] && $value === $default['value']) {
                 continue;
             }
@@ -3026,6 +3015,41 @@ class AstCodec
         }
 
         return self::$statePropertyCache[$class] = $properties;
+    }
+
+    /**
+     * Class defaults and wire field names stay fixed; values and empty titles
+     * still depend on the node being encoded. A class can publish several wire
+     * types, so the cache includes the type as well as the class.
+     *
+     * @param \ReflectionClass<\MarkupCarve\Carve\Node\Node> $reflection
+     * @param string $type
+     *
+     * @return list<array{\ReflectionProperty, string, array{has: bool, value: mixed}, bool}>
+     */
+    private static function encodingProperties(ReflectionClass $reflection, string $type): array
+    {
+        $class = $reflection->getName();
+        if (isset(self::$encodingPropertyCache[$class][$type])) {
+            return self::$encodingPropertyCache[$class][$type];
+        }
+
+        $properties = [];
+        foreach (self::stateProperties($reflection) as $property) {
+            // Required fields use wire names, including renames such as marker -> bulletChar.
+            $field = ReferenceShape::fieldFor($type, $property->getName());
+            if ($field === null) {
+                continue;
+            }
+            $properties[] = [
+                $property,
+                $field,
+                self::defaultFor($reflection, $property),
+                in_array($type . '.' . $field, self::ALWAYS_PUBLISHED, true),
+            ];
+        }
+
+        return self::$encodingPropertyCache[$class][$type] = $properties;
     }
 
     /**
