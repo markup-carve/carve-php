@@ -49,6 +49,14 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'multiple-table-bodies-have-positional-source-metadata',
+        'empty-table-bodies-keep-their-source-boundaries',
+        'a-table-with-no-bodies-keeps-its-head-and-foot',
+        'invalid-table-body-metadata-stays-ordinary',
+        'a-span-across-bodies-keeps-their-header-semantics',
+        'a-head-and-foot-consuming-all-rows-leave-no-implicit-body',
+        'explicit-body-counts-include-native-header-cells',
+
         // ARRIVED WITH THE PIN BUMP THIS CHANGE CARRIES (spec 9b938e8a ->
         // 578d564d, corpus 513 through 531). All nineteen are comment
         // ownership, container column, raw payload and inline pairing rulings
