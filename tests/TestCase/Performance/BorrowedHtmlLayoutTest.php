@@ -43,8 +43,12 @@ CRV;
             $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
             $this->assertSame($attempt['html'], (new CarveConverter())->convert($source));
         }
+        $unicodeSource = str_repeat("café paragraph\n\n", 8192);
+        $unicodeAttempt = (new BorrowedHtmlLayout())->render($unicodeSource);
+        $this->assertNotNull($unicodeAttempt);
+        $this->assertSame($this->authoritative()->convert($unicodeSource), $unicodeAttempt['html']);
         $prefix = str_repeat("plain paragraph\n\n", 8192);
-        foreach (["=marked=\n", "é\n", "- loose\n\n- list\n", "paragraph \n", "*bold*\n", "1. item\n", "# heading\n", "(c)\n", "...\n", "--\n"] as $tail) {
+        foreach (["=marked=\n", "😀\n", "- loose\n\n- list\n", "paragraph \n", "*bold*\n", "1. item\n", "# heading\n", "(c)\n", "...\n", "--\n"] as $tail) {
             $source = $prefix . $tail;
             $this->assertNull((new BorrowedHtmlLayout())->render($source));
             $this->assertSame($this->authoritative()->convert($source), (new CarveConverter())->convert($source));
