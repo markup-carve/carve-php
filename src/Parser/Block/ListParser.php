@@ -116,6 +116,8 @@ class ListParser
     protected const MARKER_ATTRIBUTE_CACHE_LIMIT = 4096;
 
     /**
+     * Subclass validation results; clear when validation settings change.
+     *
      * @var array<string, array<string, string|list<string>>|null>
      */
     protected array $instanceMarkerAttributeCache = [];
