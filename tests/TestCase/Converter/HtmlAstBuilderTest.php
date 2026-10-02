@@ -6,10 +6,67 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use LogicException;
 use MarkupCarve\Carve\Converter\HtmlAstBuilder;
+use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class HtmlAstBuilderTest extends TestCase
 {
+    use ScalingGuardTrait;
+
+    public function testTableSectionsKeepTheirOwnRetainedRows(): void
+    {
+        $tree = (new HtmlAstBuilder())->build(
+            '<table><tbody><tr><td>a</td></tr><tr><td></td></tr></tbody>'
+            . '<tbody></tbody><tbody><tr><th>b</th></tr><tr><td>c</td></tr></tbody></table>',
+        );
+        $table = $tree['children'][0];
+        self::assertCount(3, $table['rows']);
+        self::assertSame([
+            ['headRows' => 0, 'bodyRows' => 1],
+            ['headRows' => 0, 'bodyRows' => 0],
+            ['headRows' => 1, 'bodyRows' => 1],
+        ], $table['rowGroups']['bodies']);
+    }
+
+    public function testRetainedSectionPathsCountTextAndCommentSiblings(): void
+    {
+        $builder = new HtmlAstBuilder();
+        $builder->build('<table> <!-- gap --><tbody id="a"><tr><td>a</td></tr></tbody>'
+            . ' <tbody id="b"><tr><td>b</td></tr></tbody></table>');
+        self::assertSame([
+            '/table[1]/tbody[3]' => ['id'],
+            '/table[1]/tbody[5]' => ['id'],
+        ], $builder->retainedTableAttributes());
+    }
+
+    #[Group('scaling')]
+    public function testManyTableSectionsScaleLinearly(): void
+    {
+        $this->assertBuilderScales('<tbody><tr><td>x</td></tr></tbody>', '<table>', '</table>', 1024);
+    }
+
+    #[Group('scaling')]
+    public function testAdjacentDefinitionListsScaleLinearly(): void
+    {
+        $this->assertBuilderScales('<dl><dt>t</dt><dd>d</dd></dl>', '', '', 1024);
+    }
+
+    private function assertBuilderScales(string $fragment, string $prefix, string $suffix, int $n): void
+    {
+        $builder = new HtmlAstBuilder();
+        $this->assertConversionScalesLinearly(
+            static function (string $html) use ($builder): void {
+                $builder->build($html);
+            },
+            $prefix . str_repeat($fragment, $n) . $suffix,
+            $prefix . str_repeat($fragment, $n * 4) . $suffix,
+            $fragment,
+            $n,
+            $n * 4,
+        );
+    }
+
     public function testEachBuildOwnsItsDocumentAndDecisions(): void
     {
         $builder = new HtmlAstBuilder(importMode: 'roundtrip');
