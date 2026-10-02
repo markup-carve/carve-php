@@ -90,6 +90,11 @@ final class HtmlImportSession
      */
     public SplObjectStorage $flattenedSummaryBlocks;
 
+    /**
+     * @var \SplObjectStorage<\DOMElement, bool>
+     */
+    public SplObjectStorage $tableBlockCells;
+
     public ?bool $tableCellAllowsEmptyCode = null;
 
     /**
@@ -147,5 +152,6 @@ final class HtmlImportSession
         $this->droppedBlankTableRows = new SplObjectStorage();
         $this->mergedDefinitionLists = new SplObjectStorage();
         $this->flattenedSummaryBlocks = new SplObjectStorage();
+        $this->tableBlockCells = new SplObjectStorage();
     }
 }
