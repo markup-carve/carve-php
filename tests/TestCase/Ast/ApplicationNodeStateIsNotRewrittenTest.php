@@ -52,7 +52,8 @@ class ApplicationNodeStateIsNotRewrittenTest extends TestCase
         AstCodec::register(ApplicationNodeWithNodeShapedState::class);
         $original = new Document();
         $original->appendChild(new ApplicationNodeWithNodeShapedState());
-        $codec->encode($original);
+        $encodedOriginal = $codec->encode($original);
+        $this->assertSame($encodedOriginal, $codec->encode($codec->decode($encodedOriginal)));
 
         AstCodec::register(ReplacementApplicationNode::class);
         $replacement = new Document();

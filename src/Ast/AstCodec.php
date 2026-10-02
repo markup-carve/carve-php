@@ -237,6 +237,11 @@ class AstCodec
     private static array $encodingPropertyCache = [];
 
     /**
+     * @var array<class-string, array<string, list<array{\ReflectionProperty, string, bool}>>>
+     */
+    private static array $decodingPropertyCache = [];
+
+    /**
      * @var array<class-string<\MarkupCarve\Carve\Node\Node>, \ReflectionClass<\MarkupCarve\Carve\Node\Node>>
      */
     private static array $reflectionCache = [];
@@ -2760,8 +2765,7 @@ class AstCodec
         /** @var \MarkupCarve\Carve\Node\Node $node */
         $node = $reflection->newInstanceWithoutConstructor();
 
-        foreach (self::stateProperties($reflection) as $property) {
-            $name = ReferenceShape::fieldFor($type, $property->getName()) ?? $property->getName();
+        foreach (self::decodingProperties($reflection, $type) as [$property, $name, $expectsNode]) {
             if (!array_key_exists($name, $data)) {
                 // Omission means "the default". The constructor was bypassed, so
                 // a typed property without a declared default would otherwise stay
@@ -2771,7 +2775,7 @@ class AstCodec
 
                 continue;
             }
-            $property->setValue($node, $name === 'rowGroups' && $node instanceof Table ? $data[$name] : $this->decodeValue($data[$name], $property));
+            $property->setValue($node, $name === 'rowGroups' && $node instanceof Table ? $data[$name] : $this->decodeValue($data[$name], $expectsNode));
         }
         if ($node instanceof Ruby) {
             try {
@@ -2973,28 +2977,28 @@ class AstCodec
         return $default;
     }
 
-    private function decodeValue(mixed $value, ReflectionProperty $property): mixed
+    private function decodeValue(mixed $value, bool $expectsNode): mixed
     {
         if (!is_array($value)) {
             return $value;
         }
 
-        if (isset($value['type']) && is_string($value['type']) && $this->expectsNode($property)) {
+        if (isset($value['type']) && is_string($value['type']) && $expectsNode) {
             /** @var array<string, mixed> $value */
             return $this->decodeNode($value);
         }
 
-        return array_map(function (mixed $item) use ($property): mixed {
+        return array_map(function (mixed $item) use ($expectsNode): mixed {
             if (is_array($item) && isset($item['type']) && is_string($item['type'])) {
                 /** @var array<string, mixed> $item */
                 return $this->decodeNode($item);
             }
 
-            return $this->decodeValue($item, $property);
+            return $this->decodeValue($item, $expectsNode);
         }, $value);
     }
 
-    private function expectsNode(ReflectionProperty $property): bool
+    private static function expectsNode(ReflectionProperty $property): bool
     {
         $type = $property->getType();
         if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
@@ -3037,6 +3041,34 @@ class AstCodec
         }
 
         return self::$statePropertyCache[$class] = $properties;
+    }
+
+    /**
+     * Cache wire names and property types, retaining every internal state slot.
+     * Defaults and values are still evaluated while decoding each node.
+     *
+     * @param \ReflectionClass<\MarkupCarve\Carve\Node\Node> $reflection
+     * @param string $type
+     *
+     * @return list<array{\ReflectionProperty, string, bool}>
+     */
+    private static function decodingProperties(ReflectionClass $reflection, string $type): array
+    {
+        $class = $reflection->getName();
+        if (isset(self::$decodingPropertyCache[$class][$type])) {
+            return self::$decodingPropertyCache[$class][$type];
+        }
+
+        $properties = [];
+        foreach (self::stateProperties($reflection) as $property) {
+            $properties[] = [
+                $property,
+                ReferenceShape::fieldFor($type, $property->getName()) ?? $property->getName(),
+                self::expectsNode($property),
+            ];
+        }
+
+        return self::$decodingPropertyCache[$class][$type] = $properties;
     }
 
     /**
