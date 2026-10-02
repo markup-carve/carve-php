@@ -698,7 +698,12 @@ final class HtmlAstBuilder
                     && self::attrsValue($produced[0]['attrs'] ?? null) === []
                 ) {
                     $next = array_shift($produced);
-                    $blocks[$last]['items'] = array_merge(self::nodeList($blocks[$last]['items'] ?? null), self::nodeList($next['items'] ?? null));
+                    if (!is_array($blocks[$last]['items'] ?? null)) {
+                        $blocks[$last]['items'] = [];
+                    }
+                    foreach (self::nodeList($next['items'] ?? null) as $item) {
+                        $blocks[$last]['items'][] = $item;
+                    }
                     if (($next['loose'] ?? false) === true) {
                         $blocks[$last]['loose'] = true;
                     }
@@ -1979,7 +1984,12 @@ final class HtmlAstBuilder
         $cellBlockGrid = [];
         /** @var list<list<array{align: ?string, valign: ?string}|null>> $ownAlignmentGrid */
         $ownAlignmentGrid = [];
-        $keptRows = [];
+        /** @var \SplObjectStorage<\DOMElement, int> $rowIndices */
+        $rowIndices = new SplObjectStorage();
+        /** @var \SplObjectStorage<\DOMNode, int> $sectionKeys */
+        $sectionKeys = new SplObjectStorage();
+        /** @var array<int, list<int>> $sectionIndices */
+        $sectionIndices = [];
         $headerRows = 0;
         $sawBodyRow = false;
         /** @var array<int, int> $rowspans */
@@ -2096,7 +2106,15 @@ final class HtmlAstBuilder
                     $this->attachAttrs($row, $rowElement);
                 }
                 $rows[] = $row;
-                $keptRows[] = $rowElement;
+                $rowIndex = count($rows) - 1;
+                $rowIndices[$rowElement] = $rowIndex;
+                $parent = $rowElement->parentNode;
+                if ($parent !== null) {
+                    if (!$sectionKeys->offsetExists($parent)) {
+                        $sectionKeys[$parent] = count($sectionKeys);
+                    }
+                    $sectionIndices[$sectionKeys[$parent]][] = $rowIndex;
+                }
                 if ($rowIsAllHeader && !$sawBodyRow) {
                     ++$headerRows;
                 } else {
@@ -2178,10 +2196,10 @@ final class HtmlAstBuilder
             }
             $tag = strtolower(HtmlDomLoader::elementName($section));
             if ($tag === 'tr') {
-                $index = array_search($section, $keptRows, true);
-                if ($index === false) {
+                if (!$rowIndices->offsetExists($section)) {
                     continue;
                 }
+                $index = $rowIndices[$section];
                 $last = array_key_last($plans);
                 if ($last !== null && $plans[$last]['section'] === null) {
                     $plans[$last]['indices'][] = $index;
@@ -2189,7 +2207,8 @@ final class HtmlAstBuilder
                     $plans[] = ['section' => null, 'indices' => [$index]];
                 }
             } elseif (in_array($tag, ['thead', 'tbody', 'tfoot'], true)) {
-                $plans[] = ['section' => $section, 'indices' => array_keys(array_filter($keptRows, static fn (DOMElement $row): bool => $row->parentNode === $section))];
+                $indices = $sectionKeys->offsetExists($section) ? $sectionIndices[$sectionKeys[$section]] : [];
+                $plans[] = ['section' => $section, 'indices' => $indices];
             }
         }
         foreach ($plans as $plan) {
@@ -2252,8 +2271,9 @@ final class HtmlAstBuilder
         $counted = $groups['headRows'] + $groups['footRows'] + array_sum(array_column($groups['bodies'], 'bodyRows')) + array_sum(array_column($groups['bodies'], 'headRows'));
         if ($valid && $counted === count($rows) && ($hasSectionAttrs || $groups['footRows'] > 0 || count($groups['bodies']) > 1)) {
             $table['rowGroups'] = $groups;
-            $this->session->retainedTablePartitions[self::importPath($node)] = true;
-            foreach ($node->childNodes as $section) {
+            $tablePath = self::importPath($node);
+            $this->session->retainedTablePartitions[$tablePath] = true;
+            foreach ($node->childNodes as $sectionIndex => $section) {
                 if (!$section instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($section)), ['thead', 'tbody', 'tfoot'], true)) {
                     continue;
                 }
@@ -2265,7 +2285,8 @@ final class HtmlAstBuilder
                 if (isset($attrs['classes'])) {
                     $names[] = 'class';
                 }
-                $this->session->retainedTableAttributes[self::importPath($section)] = $names;
+                $sectionPath = $tablePath . '/' . strtolower(HtmlDomLoader::elementName($section)) . '[' . ($sectionIndex + 1) . ']';
+                $this->session->retainedTableAttributes[$sectionPath] = $names;
             }
         }
 
