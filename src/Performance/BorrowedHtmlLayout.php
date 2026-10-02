@@ -59,6 +59,11 @@ final class BorrowedHtmlLayout
     private const MAX_SOURCE_BYTES = 65536;
 
     /**
+     * @var string
+     */
+    private const INLINE_MARKERS = '*/`[';
+
+    /**
      * @param string $source
      * @param bool $observe
      * @param array{
@@ -129,7 +134,7 @@ final class BorrowedHtmlLayout
     private function eligibleSource(string $source, bool $streaming): bool
     {
         return ($streaming || strlen($source) <= self::MAX_SOURCE_BYTES)
-            && preg_match('/[^\x00-\x7F]|[\x00\x09\x0B\x0C\x0D]/', $source) !== 1
+            && preg_match('/[^\x00-\x7F]|[\x00\x09\x0B\x0C\x0D]/', $source) === 0
             && !str_starts_with($source, '---')
             && !str_contains($source, '[^')
             && !str_contains($source, '^[')
@@ -138,7 +143,7 @@ final class BorrowedHtmlLayout
             && !str_contains($source, '![')
             && !str_contains($source, '%%')
             && !str_contains($source, ':::')
-            && preg_match('/(?:^|\n)( *)- [^\n]*\n\n(?:\n)*\1- /', $source) !== 1;
+            && preg_match('/(?:^|\n)( *)- [^\n]*\n\n(?:\n)*\1- /', $source) === 0;
     }
 
     /**
@@ -395,9 +400,6 @@ final class BorrowedHtmlLayout
 
                 continue;
             }
-            if ($this->blockish($line)) {
-                return null;
-            }
             $start = $i;
             $this->output->push($this->indent($depth), '<p>');
             while (isset($lines[$i]) && trim($lines[$i]) !== '') {
@@ -437,12 +439,21 @@ final class BorrowedHtmlLayout
         if ($this->inlineComplex($text)) {
             return null;
         }
-        $plain = 0;
         $length = strlen($text);
-        for ($i = 0; $i < $length;) {
+        $i = strcspn($text, self::INLINE_MARKERS);
+        if ($i === $length) {
+            $this->output->text($text);
+
+            return true;
+        }
+        $plain = 0;
+        for (; $i < $length;) {
             $delimiter = $text[$i];
-            if (!str_contains('*/`[', $delimiter)) {
-                $i += strcspn($text, '*/`[', $i);
+            if (!str_contains(self::INLINE_MARKERS, $delimiter)) {
+                $i++;
+                if ($i < $length && !str_contains(self::INLINE_MARKERS, $text[$i])) {
+                    $i += strcspn($text, self::INLINE_MARKERS, $i);
+                }
 
                 continue;
             }

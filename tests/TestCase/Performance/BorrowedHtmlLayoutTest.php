@@ -34,6 +34,75 @@ return 1;
 | alpha | 1 |
 CRV;
 
+    public function testPcreListCheckErrorsRejectTheBorrowedPath(): void
+    {
+        $previous = ini_get('pcre.backtrack_limit');
+        $this->assertNotFalse($previous);
+        try {
+            $source = "- entry\n\nplain paragraph\n";
+            ini_set('pcre.backtrack_limit', '1000000');
+            $this->assertNotNull((new BorrowedHtmlLayout())->render($source));
+            ini_set('pcre.backtrack_limit', '0');
+            // These probes mirror eligibleSource() and check whether PCRE can expose its list-check error.
+            if (
+                preg_match('/[^\x00-\x7F]|[\x00\x09\x0B\x0C\x0D]/', $source) !== 0
+                || preg_match('/(?:^|\n)( *)- [^\n]*\n\n(?:\n)*\1- /', $source) !== false
+            ) {
+                $this->markTestSkipped('PCRE does not expose the expected list backtrack-limit failure.');
+            }
+            $attempt = (new BorrowedHtmlLayout())->render($source);
+            $this->assertNull($attempt);
+            $this->assertSame(PREG_BACKTRACK_LIMIT_ERROR, preg_last_error());
+        } finally {
+            ini_set('pcre.backtrack_limit', $previous);
+        }
+    }
+
+    public function testLongPlainPrefixesAndDenseSpansKeepExactHtml(): void
+    {
+        foreach (
+            [
+                str_repeat('plain & text ', 600) . '*bold* /em/ `code` [link](/url)',
+                str_repeat('*bold* ', 128),
+                str_repeat('plain text ', 80),
+                '*bold* ' . str_repeat('plain & text ', 600),
+                '*bold* ' . str_repeat('one ', 128) . '`code` ' . str_repeat('two ', 128),
+            ] as $source
+        ) {
+            $source = rtrim($source) . "\n";
+            $attempt = (new BorrowedHtmlLayout())->render($source);
+            $this->assertNotNull($attempt);
+            $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
+            $this->assertSame($attempt['html'], (new CarveConverter())->convert($source));
+            $chunks = [];
+            $this->assertSame('complete', (new CarveConverter())->tryRenderHtmlStreaming(
+                $source,
+                static function (string $chunk) use (&$chunks): void {
+                    $chunks[] = $chunk;
+                },
+            ));
+            $this->assertSame($attempt['html'], implode('', $chunks));
+            foreach ($chunks as $chunk) {
+                $this->assertLessThanOrEqual(4096, strlen($chunk));
+            }
+        }
+    }
+
+    public function testUnsupportedFirstParagraphLinesStillFallBackWithoutStreamingOutput(): void
+    {
+        foreach (["1) item\n", "+ item\n", ". item\n", "A. item\n"] as $source) {
+            $this->assertNull((new BorrowedHtmlLayout())->render($source));
+            $called = false;
+            $this->assertSame('needs-ast', (new CarveConverter())->tryRenderHtmlStreaming(
+                $source,
+                static function () use (&$called): void {
+                    $called = true;
+                },
+            ));
+            $this->assertFalse($called);
+        }
+    }
+
     public function testTheBenchmarkShapedCoreRouteHasTypedAcceptanceCountsAndExactHtml(): void
     {
         $attempt = (new BorrowedHtmlLayout())->render(self::ROUTING_SOURCE, true);
