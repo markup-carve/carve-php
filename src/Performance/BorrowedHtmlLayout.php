@@ -442,7 +442,7 @@ final class BorrowedHtmlLayout
         for ($i = 0; $i < $length;) {
             $delimiter = $text[$i];
             if (!str_contains('*/`[', $delimiter)) {
-                $i++;
+                $i += strcspn($text, '*/`[', $i);
 
                 continue;
             }
