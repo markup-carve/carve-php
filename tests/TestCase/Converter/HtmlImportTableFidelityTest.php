@@ -177,6 +177,7 @@ class HtmlImportTableFidelityTest extends TestCase
             'trailing' => ['<table><tbody><tr><td>a</td></tr></tbody><tbody></tbody></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 1], ['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 0]],
             'consecutive' => ['<table><tbody></tbody><tbody></tbody><tbody><tr><td>a</td></tr></tbody><tbody></tbody><tbody></tbody></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 1], ['headRows' => 0, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 0]],
             'after head' => ['<table><thead><tr><th scope="col">h</th></tr></thead><tbody></tbody></table>', ['headRows' => 1, 'bodies' => [['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 0]],
+            'before a header-cell foot' => ['<table><tbody></tbody><tfoot><tr><th scope="col">f</th></tr></tfoot></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 1]],
             'before foot' => ['<table><tbody></tbody><tfoot><tr><td>f</td></tr></tfoot></table>', ['headRows' => 0, 'bodies' => [['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 1]],
             'head and foot' => ['<table><thead><tr><th scope="col">h</th></tr></thead><tbody></tbody><tfoot><tr><td>f</td></tr></tfoot></table>', ['headRows' => 1, 'bodies' => [['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 1]],
             'header-only body' => ['<table><tbody><tr><th scope="col">g</th></tr></tbody><tbody></tbody></table>', ['headRows' => 0, 'bodies' => [['headRows' => 1, 'bodyRows' => 0], ['headRows' => 0, 'bodyRows' => 0]], 'footRows' => 0]],
@@ -217,13 +218,25 @@ class HtmlImportTableFidelityTest extends TestCase
         }
     }
 
+    public function testTheAstExitKeepsBlankRowsAndTheirCaption(): void
+    {
+        $html = '<table><caption>c</caption><tr><td> </td></tr></table>';
+        $ast = $this->converter->convertToAstWithReport($html);
+        $this->assertSame([], $ast->diagnostics);
+        $this->assertCount(1, $ast->value['children'][0]['rows']);
+        $this->assertSame('c', $ast->value['children'][0]['caption'][0]['value']);
+        $written = $this->converter->convertWithReport($html);
+        $this->assertSame('', trim($written->value));
+        $this->assertContains('structure-unspellable', array_column($written->diagnostics, 'code'));
+    }
+
     public function testRowlessTablesDoNotLeakOntoTheFollowingParagraph(): void
     {
         foreach (['<table><tbody></tbody></table>', '<table id="t"><tbody class="empty"></tbody></table>', '<table><caption>c</caption><tbody></tbody></table>'] as $table) {
             $html = '<p>x</p>' . $table . '<p>y</p>';
             $written = $this->converter->convertWithReport($html);
             $this->assertSame("x\n\ny\n", $written->value);
-            $this->assertContains('table-degraded', array_column($written->diagnostics, 'code'));
+            $this->assertSame(['table-degraded'], array_column($written->diagnostics, 'code'));
             $ast = $this->converter->convertToAstWithReport($html);
             $this->assertSame('table', $ast->value['children'][1]['type']);
             $this->assertSame(0, $ast->value['children'][1]['rowGroups']['bodies'][0]['bodyRows']);

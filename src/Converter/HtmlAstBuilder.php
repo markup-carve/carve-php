@@ -2006,6 +2006,7 @@ final class HtmlAstBuilder
         $rowspans = [];
         $sourceRows = HtmlTableStructure::directTableRows($node);
         foreach ($sourceRows as $rowElement) {
+            $sectionTag = $rowElement->parentNode instanceof DOMElement ? strtolower(HtmlDomLoader::elementName($rowElement->parentNode)) : '';
             $cells = [];
             $cellBlocks = [];
             $ownAlignment = [];
@@ -2066,7 +2067,10 @@ final class HtmlAstBuilder
                     }
                 }
                 $skipAttrs = ['colspan', 'rowspan'];
-                if (in_array(strtolower($cellElement->getAttribute('scope')), ['col', 'row'], true)) {
+                if (
+                    in_array(strtolower($cellElement->getAttribute('scope')), ['col', 'row'], true)
+                    && !($sectionTag === 'tfoot' && strtolower($cellElement->getAttribute('scope')) === 'col')
+                ) {
                     $skipAttrs[] = 'scope';
                 }
                 if ($horizontal !== null) {
@@ -2107,7 +2111,7 @@ final class HtmlAstBuilder
                     $cells,
                     static fn (array $cell): bool => self::cellWritesBlank($cell),
                 );
-                if ($blank) {
+                if ($blank && $this->sourceSafe) {
                     $this->session->droppedBlankTableRows[$rowElement] = null;
 
                     continue;
@@ -2272,7 +2276,7 @@ final class HtmlAstBuilder
                 }
             }
         }
-        if (!isset($groups['headAttrs']) && $groups['headRows'] === 0 && count($groups['bodies']) === 1 && $headerRows > 0) {
+        if (!isset($groups['headAttrs']) && $groups['headRows'] === 0 && count($groups['bodies']) === 1 && $headerRows > 0 && $groups['bodies'][0]['headRows'] > 0) {
             $absorbed = min($headerRows, $groups['bodies'][0]['headRows']);
             $groups['headRows'] = $absorbed;
             $groups['bodies'][0]['headRows'] -= $absorbed;
