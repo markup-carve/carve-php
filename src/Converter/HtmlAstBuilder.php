@@ -618,12 +618,15 @@ final class HtmlAstBuilder
     /**
      * @param list<\DOMNode> $nodes
      *
+     * @throws \LogicException
+     *
      * @return list<ImportedNode>
      */
     private function blocks(array $nodes): array
     {
         $blocks = [];
         $pending = [];
+        $validatedDefinitionList = null;
         $flush = function () use (&$blocks, &$pending): void {
             $children = $this->hoistedRun($pending);
             $this->normalizeInlineBoundaries($children);
@@ -698,8 +701,12 @@ final class HtmlAstBuilder
                     && self::attrsValue($produced[0]['attrs'] ?? null) === []
                 ) {
                     $next = array_shift($produced);
-                    if (!is_array($blocks[$last]['items'] ?? null)) {
-                        $blocks[$last]['items'] = [];
+                    if ($validatedDefinitionList !== $last) {
+                        $blocks[$last]['items'] = self::nodeList($blocks[$last]['items'] ?? null);
+                        $validatedDefinitionList = $last;
+                    }
+                    if (!is_array($blocks[$last]['items'])) {
+                        throw new LogicException('Definition list items must be a node list.');
                     }
                     foreach (self::nodeList($next['items'] ?? null) as $item) {
                         $blocks[$last]['items'][] = $item;
