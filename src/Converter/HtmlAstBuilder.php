@@ -642,7 +642,7 @@ final class HtmlAstBuilder
         };
 
         foreach ($nodes as $index => $node) {
-            if ($node instanceof DOMComment && self::commentBreaksACellRow($node, $this->listTableForBlockCells)) {
+            if ($node instanceof DOMComment && self::commentBreaksACellRow($node, $this->listTableForBlockCells, $this->session->tableBlockCells)) {
                 continue;
             }
             if ($node instanceof DOMComment) {
@@ -3606,7 +3606,7 @@ final class HtmlAstBuilder
             if (
                 str_contains($node->textContent, '%}')
                 || preg_match('/\R\s*\R/u', $node->textContent) === 1
-                || self::commentBreaksACellRow($node, $this->listTableForBlockCells)
+                || self::commentBreaksACellRow($node, $this->listTableForBlockCells, $this->session->tableBlockCells)
                 || self::commentBreaksAHeadingLine($node)
             ) {
                 return [];
@@ -4360,15 +4360,17 @@ final class HtmlAstBuilder
      * A pipe-table row is one line, so a comment holding a line break has no
      * spelling in a cell (markup-carve/carve#2372). A list-table cell is not a
      * row, so it is not held to that.
+     *
+     * @param \SplObjectStorage<\DOMElement, bool>|null $tableBlockCells Decisions for a stable import DOM.
      */
-    public static function commentBreaksACellRow(DOMComment $comment, bool $listTableForBlockCells): bool
+    public static function commentBreaksACellRow(DOMComment $comment, bool $listTableForBlockCells, ?SplObjectStorage $tableBlockCells = null): bool
     {
         if (preg_match('/[\r\n]/', $comment->textContent) !== 1) {
             return false;
         }
         $cell = self::enclosingCell($comment);
 
-        return $cell !== null && !($listTableForBlockCells && self::tableHoldsABlockCell($cell));
+        return $cell !== null && !($listTableForBlockCells && self::tableHoldsABlockCell($cell, $tableBlockCells));
     }
 
     /**
@@ -4403,20 +4405,30 @@ final class HtmlAstBuilder
     /**
      * Whether the table around this cell is written as a list table under
      * `listTableForBlockCells`, the same test `table()` applies.
+     *
+     * @param \SplObjectStorage<\DOMElement, bool>|null $tableBlockCells Decisions for a stable import DOM.
      */
-    public static function tableHoldsABlockCell(DOMElement $cell): bool
+    public static function tableHoldsABlockCell(DOMElement $cell, ?SplObjectStorage $tableBlockCells = null): bool
     {
         for ($table = $cell->parentNode; $table instanceof DOMElement; $table = $table->parentNode) {
             if (strtolower(HtmlDomLoader::elementName($table)) !== 'table') {
                 continue;
             }
+            if ($tableBlockCells !== null && isset($tableBlockCells[$table])) {
+                return $tableBlockCells[$table];
+            }
+            $holdsBlocks = false;
             foreach ($table->getElementsByTagName('*') as $candidate) {
                 if (in_array(strtolower(HtmlDomLoader::elementName($candidate)), ['td', 'th'], true) && self::cellHoldsBlocks($candidate)) {
-                    return true;
+                    $holdsBlocks = true;
+                    break;
                 }
             }
+            if ($tableBlockCells !== null) {
+                $tableBlockCells[$table] = $holdsBlocks;
+            }
 
-            return false;
+            return $holdsBlocks;
         }
 
         return false;

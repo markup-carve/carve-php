@@ -6,6 +6,9 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Converter\HtmlAstBuilder;
+use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +19,8 @@ use PHPUnit\Framework\TestCase;
  */
 class AMultiLineCommentInATableCellIsDroppedTest extends TestCase
 {
+    use ScalingGuardTrait;
+
     /**
      * @return array<string, array{string, string, string}>
      */
@@ -64,4 +69,34 @@ class AMultiLineCommentInATableCellIsDroppedTest extends TestCase
         );
         $this->assertSame("a {%  x\ny  %} b\n", (new HtmlToCarve())->convert("<p>a <!-- x\ny --> b</p>"));
     }
+
+    public function testRepeatedImportsKeepIndependentTableDecisions(): void
+    {
+        $importer = new HtmlToCarve(listTableForBlockCells: true, maxDiagnostics: 1);
+        $pipe = "<table><tr><td>a<!-- x\ny -->b</td></tr><tr><td>c<!-- u\nv -->d</td></tr></table>";
+        $first = $importer->convertWithReport($pipe);
+        $this->assertCount(1, $first->report()['diagnostics']);
+        $block = $importer->convertWithReport("<table><tr><td><p>a</p><!-- x\ny --><p>b</p></td></tr></table>");
+        $this->assertSame([], $block->report()['diagnostics']);
+        $this->assertSame($first->value, $importer->convertWithReport($pipe)->value);
+        $this->assertSame($first->report(), $importer->convertWithReport($pipe)->report());
+    }
+
+    #[Group('scaling')]
+    public function testMultilineCommentsDoNotRescanEveryOtherCell(): void
+    {
+        $builder = new HtmlAstBuilder(listTableForBlockCells: true);
+        $row = "<tr><td>a<!-- x\ny -->b</td></tr>";
+        $this->assertConversionScalesLinearly(
+            static function (string $html) use ($builder): void {
+                $builder->build($html);
+            },
+            '<table>' . str_repeat($row, 512) . '</table>',
+            '<table>' . str_repeat($row, 2048) . '</table>',
+            'table cells with multiline comments',
+            512,
+            2048,
+        );
+    }
+
 }

@@ -409,6 +409,7 @@ class HtmlToCarve
     {
         $this->inspectedContentKey = null;
         $this->listTableInspection = null;
+        $this->tableCommentShapes = null;
         $this->inspectedCarve = null;
         $this->emittedHasRawHtml = null;
         $this->builtImportDocument = null;
@@ -510,6 +511,7 @@ class HtmlToCarve
         }
 
         $this->listTableInspection = new SplObjectStorage();
+        $this->tableCommentShapes = new SplObjectStorage();
         $this->termlessImportDescriptions = new SplObjectStorage();
         $isDocument = HtmlDomLoader::isDocument($html);
         $doc = $this->builtImportDocument;
@@ -540,6 +542,7 @@ class HtmlToCarve
             $this->survivingImportAttributes = null;
             $this->emittedImportValues = [];
             $this->listTableInspection = null;
+            $this->tableCommentShapes = null;
             $this->termlessImportDescriptions = null;
         }
 
@@ -601,7 +604,7 @@ class HtmlToCarve
         $index = 0;
         foreach ($nodes as $child) {
             $index++;
-            if ($child instanceof DOMComment && HtmlAstBuilder::commentBreaksACellRow($child, $this->listTableForBlockCells)) {
+            if ($child instanceof DOMComment && HtmlAstBuilder::commentBreaksACellRow($child, $this->listTableForBlockCells, $this->tableCommentShapes)) {
                 $this->addImportDiagnostic(
                     $diagnostics,
                     'element-dropped',
@@ -4702,6 +4705,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, bool>|null
      */
     private ?SplObjectStorage $listTableInspection = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, bool>|null
+     */
+    private ?SplObjectStorage $tableCommentShapes = null;
 
     private bool $captureImportIdentity = false;
 
