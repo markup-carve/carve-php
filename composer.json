@@ -27,12 +27,13 @@
         "ext-dom": "Required for HTML import and HTML heading-ID conversion.",
         "ext-intl": "Recommended for heading-ID transliteration: enables ICU romanization of non-Latin scripts (e.g. CJK, Arabic). Without it, a baked map covers Latin/Cyrillic/punctuation identically and other scripts fall back to the generated `section` id."
     },
+    "_comment": "phpunit is held below 13.4 until paratest supports it. 13.4.0 made the constructor of PHPUnit's internal PhpHandler take a required argument, and paratest v7.25.0 calls it with none (paratestphp/paratest#1143). Temporary: widen the 13.x bound back to ^13.0 once a paratest release resolves against 13.4.",
     "require-dev": {
         "brianium/paratest": "^7.8",
         "nikic/php-fuzzer": "^0.0.11",
         "php-collective/code-sniffer": "^0.6.8",
         "phpstan/phpstan": "^2.1.32",
-        "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0"
+        "phpunit/phpunit": "^11.0 || ^12.0 || ~13.3.0"
     },
     "autoload": {
         "psr-4": {
