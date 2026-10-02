@@ -4364,6 +4364,8 @@ final class HtmlAstBuilder
      * spelling in a cell (markup-carve/carve#2372). A list-table cell is not a
      * row, so it is not held to that.
      *
+     * @param \DOMComment $comment
+     * @param bool $listTableForBlockCells
      * @param \SplObjectStorage<\DOMElement, bool>|null $tableBlockCells Decisions for a stable import DOM.
      */
     public static function commentBreaksACellRow(DOMComment $comment, bool $listTableForBlockCells, ?SplObjectStorage $tableBlockCells = null): bool
@@ -4409,6 +4411,7 @@ final class HtmlAstBuilder
      * Whether the table around this cell is written as a list table under
      * `listTableForBlockCells`, the same test `table()` applies.
      *
+     * @param \DOMElement $cell
      * @param \SplObjectStorage<\DOMElement, bool>|null $tableBlockCells Decisions for a stable import DOM.
      */
     public static function tableHoldsABlockCell(DOMElement $cell, ?SplObjectStorage $tableBlockCells = null): bool
@@ -4424,6 +4427,7 @@ final class HtmlAstBuilder
             foreach ($table->getElementsByTagName('*') as $candidate) {
                 if (in_array(strtolower(HtmlDomLoader::elementName($candidate)), ['td', 'th'], true) && self::cellHoldsBlocks($candidate)) {
                     $holdsBlocks = true;
+
                     break;
                 }
             }
