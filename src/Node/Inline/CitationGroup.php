@@ -106,17 +106,17 @@ class CitationGroup extends InlineNode
             return;
         }
         $inner = substr($this->raw, $innerStart, -1);
-        $cursor = 0;
+        $cursor = $innerStart;
         foreach (explode(';', $inner) as $index => $part) {
             if (!isset($this->items[$index])) {
                 break;
             }
             $leading = strlen($part) - strlen(ltrim($part));
             $trailing = strlen($part) - strlen(rtrim($part));
-            $startBytes = $innerStart + $cursor + $leading;
-            $endBytes = $innerStart + $cursor + strlen($part) - $trailing;
-            $start = mb_strlen(substr($this->raw, 0, $startBytes), 'UTF-8');
-            $end = mb_strlen(substr($this->raw, 0, $endBytes), 'UTF-8');
+            // ltrim/rtrim remove ASCII bytes; count each item's Unicode text once.
+            $length = mb_strlen($part, 'UTF-8');
+            $start = $cursor + $leading;
+            $end = $cursor + $length - $trailing;
             $this->items[$index]['pos'] = [
                 'startLine' => $pos->startLine,
                 'endLine' => $pos->startLine,
@@ -125,7 +125,7 @@ class CitationGroup extends InlineNode
                 'startOffset' => $pos->startOffset + $start,
                 'endOffset' => $pos->startOffset + $end,
             ];
-            $cursor += strlen($part) + 1;
+            $cursor += $length + 1;
         }
     }
 

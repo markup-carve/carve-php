@@ -4,16 +4,54 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
+use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\CitationsExtension;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
+use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class CitationsExtensionTest extends TestCase
 {
+    use ScalingGuardTrait;
+
+    public function testPublicGroupPositioningCountsUnicodeAndWhitespace(): void
+    {
+        foreach ([false, true] as $integral) {
+            $raw = '[' . ($integral ? '+' : '') . "voir α @a; \t voir β @bb ]";
+            $group = new CitationGroup([
+                ['key' => 'a', 'suppressAuthor' => false],
+                ['key' => 'bb', 'suppressAuthor' => false],
+            ], $raw, $integral);
+            $group->setPos(new SourceSpan(2, 2, 5, 5 + mb_strlen($raw, 'UTF-8'), 10, 10 + mb_strlen($raw, 'UTF-8')));
+            $shift = $integral ? 1 : 0;
+            $items = $group->getItems();
+            $this->assertSame(11 + $shift, $items[0]['pos']['startOffset']);
+            $this->assertSame(20 + $shift, $items[0]['pos']['endOffset']);
+            $this->assertSame(24 + $shift, $items[1]['pos']['startOffset']);
+            $this->assertSame(34 + $shift, $items[1]['pos']['endOffset']);
+            $this->assertSame(19 + $shift, $items[1]['pos']['startColumn']);
+        }
+    }
+
+    #[Group('scaling')]
+    public function testPositionedCitationGroupsScaleLinearly(): void
+    {
+        $converter = $this->converter();
+        $converter->getParser()->enablePositionTracking();
+        $this->assertConversionScalesLinearly(
+            static fn (string $source) => $converter->parse($source),
+            '[' . implode('; ', array_fill(0, 1024, '@a')) . ']',
+            '[' . implode('; ', array_fill(0, 4096, '@a')) . ']',
+            'positioned citation groups',
+            1024,
+            4096,
+        );
+    }
+
     public function testParsesCitationGroup(): void
     {
         $group = $this->firstCitationGroup('[@smith2020]');
