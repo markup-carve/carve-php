@@ -2004,7 +2004,8 @@ final class HtmlAstBuilder
         $sawBodyRow = false;
         /** @var array<int, int> $rowspans */
         $rowspans = [];
-        foreach (HtmlTableStructure::directTableRows($node) as $rowElement) {
+        $sourceRows = HtmlTableStructure::directTableRows($node);
+        foreach ($sourceRows as $rowElement) {
             $cells = [];
             $cellBlocks = [];
             $ownAlignment = [];
@@ -2137,16 +2138,12 @@ final class HtmlAstBuilder
                 $this->session->droppedBlankTableRows[$rowElement] = null;
             }
         }
-        if ($rows === []) {
-            $attributedSection = false;
-            foreach ($node->childNodes as $section) {
-                if ($section instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($section)), ['thead', 'tbody', 'tfoot'], true) && $this->attrs($section, []) !== []) {
-                    $attributedSection = true;
-                }
+        if ($rows === [] && $this->sourceSafe) {
+            if ($sourceRows === []) {
+                $this->session->droppedEmptyElements[$node] = null;
             }
-            if (!$attributedSection || $this->sourceSafe) {
-                return null;
-            }
+
+            return null;
         }
         $columnAlignments = [];
         if ($rows !== []) {
@@ -2225,10 +2222,12 @@ final class HtmlAstBuilder
             $section = $plan['section'];
             $tag = $section !== null ? strtolower(HtmlDomLoader::elementName($section)) : 'tbody';
             $rank = ['thead' => 0, 'tbody' => 1, 'tfoot' => 2][$tag];
-            $valid = $valid && $rank >= $phase;
-            $phase = $rank;
             $indices = $plan['indices'];
             $count = count($indices);
+            if ($count > 0) {
+                $valid = $valid && $rank >= $phase;
+                $phase = $rank;
+            }
             $own = $section !== null ? $this->attrs($section, []) : [];
             $hasSectionAttrs = $hasSectionAttrs || $own !== [];
             if ($tag === 'tbody') {
@@ -2277,11 +2276,15 @@ final class HtmlAstBuilder
             $absorbed = min($headerRows, $groups['bodies'][0]['headRows']);
             $groups['headRows'] = $absorbed;
             $groups['bodies'][0]['headRows'] -= $absorbed;
+            if ($groups['bodies'][0]['headRows'] === 0 && $groups['bodies'][0]['bodyRows'] === 0 && !isset($groups['bodies'][0]['attrs'])) {
+                $groups['bodies'] = [];
+            }
         }
         $counted = $groups['headRows'] + $groups['footRows'] + array_sum(array_column($groups['bodies'], 'bodyRows')) + array_sum(array_column($groups['bodies'], 'headRows'));
         if (
             $valid && $counted === count($rows) && ($hasSectionAttrs || $groups['footRows'] > 0 || count($groups['bodies']) > 1
-            || $groups['headRows'] !== $headerRows || array_sum(array_column($groups['bodies'], 'headRows')) > 0)
+            || $groups['headRows'] !== $headerRows || array_sum(array_column($groups['bodies'], 'headRows')) > 0
+            || in_array(0, array_column($groups['bodies'], 'bodyRows'), true))
         ) {
             $table['rowGroups'] = $groups;
             $tablePath = $this->importPath($node);

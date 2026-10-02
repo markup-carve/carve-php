@@ -692,6 +692,17 @@ class HtmlToCarve
             return;
         }
         $tag = strtolower(HtmlDomLoader::elementName($node));
+        if ($tag === 'table' && isset($this->droppedEmptyImportElements[$node])) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'table-degraded',
+                'Dropped a rowless table, including its attributes and caption: Carve source cannot spell a table without rows',
+                'warning',
+                $path,
+            );
+
+            return;
+        }
         $parent = $node->parentNode;
         if (
             $parent instanceof DOMElement
