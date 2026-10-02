@@ -42,6 +42,7 @@ class ProgrammaticIdsSurviveCarveExportTest extends TestCase
 
     /**
      * @param array<string, mixed> $node
+     * @param string $path
      */
     #[DataProvider('nodes')]
     public function testAnIdWithoutASourceSlotSurvives(array $node, string $path): void
