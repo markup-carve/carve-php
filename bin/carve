@@ -22,7 +22,7 @@ declare(strict_types=1);
  *   -w, --warnings Show parse warnings on stderr
  *   --strict Exit with error if warnings are generated
  *   -h, --help Show this help message
- *   -v, --version Show version information
+ *   -V, --version Show version information
  */
 
 // Find autoloader
@@ -428,7 +428,7 @@ function parseArgs(array $argv): array
 
         if ($arg === '-h' || $arg === '--help') {
             $options['help'] = true;
-        } elseif ($arg === '-v' || $arg === '--version') {
+        } elseif ($arg === '-V' || $arg === '--version') {
             $options['version'] = true;
         } elseif ($arg === '--html') {
             $options['format'] = 'html';
@@ -741,7 +741,7 @@ Options:
   -w, --warnings      Show parse warnings on stderr
   --strict            Exit with error code 1 if warnings are generated
   -h, --help          Show this help message
-  -v, --version       Show version information
+  -V, --version       Show version information
 
 Examples:
   carve document.crv                    Render file to stdout (HTML)
@@ -762,7 +762,7 @@ HELP;
 
 function showVersion(): void
 {
-    echo 'carve-php version ' . CarveConverter::LIB_VERSION . "\n";
+    echo 'carve-php ' . CarveConverter::LIB_VERSION . "\n";
 }
 
 // Main
