@@ -35,6 +35,56 @@ final class HtmlOutputTest extends TestCase
         }
     }
 
+    public function testEmptyPushPreservesEmptyBufferedAndStreamedOutput(): void
+    {
+        $chunks = [];
+        $buffered = new HtmlOutput();
+        $streamed = new HtmlOutput(static function (string $chunk) use (&$chunks): void {
+            $chunks[] = $chunk;
+        });
+        $buffered->push();
+        $streamed->push();
+        $streamed->push('');
+        $this->assertSame([], $chunks);
+
+        $this->assertSame('', $buffered->finish());
+        $this->assertSame('', $streamed->finish());
+        $this->assertSame([''], $chunks);
+    }
+
+    public function testStreamedEmptyFragmentsDoNotAddChunks(): void
+    {
+        $chunks = [];
+        $streamed = new HtmlOutput(static function (string $chunk) use (&$chunks): void {
+            $chunks[] = $chunk;
+        });
+        $streamed->push('a', '', 'b');
+
+        $this->assertSame('', $streamed->finish());
+        $this->assertSame(['ab'], $chunks);
+    }
+
+    public function testStreamedFragmentsPreserveByteBoundariesAcrossArguments(): void
+    {
+        $cases = [
+            [str_repeat('a', 4000), str_repeat('b', 200), [4096, 104]],
+            [str_repeat('a', 4095), 'é' . str_repeat('b', 100), [4095, 102]],
+        ];
+        foreach ($cases as [$first, $second, $sizes]) {
+            $chunks = [];
+            $streamed = new HtmlOutput(static function (string $chunk) use (&$chunks): void {
+                $chunks[] = $chunk;
+            });
+            $streamed->push($first, $second);
+            $this->assertSame('', $streamed->finish());
+            $this->assertSame($first . $second, implode('', $chunks));
+            $this->assertSame($sizes, array_map(strlen(...), $chunks));
+            foreach ($chunks as $chunk) {
+                $this->assertTrue(mb_check_encoding($chunk, 'UTF-8'));
+            }
+        }
+    }
+
     public function testDiscardedFragmentsProduceNoOutput(): void
     {
         $output = new HtmlOutput(discard: true);

@@ -15,6 +15,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Performance
 
+- Buffered HTML appends handle the first fragment directly instead of packing it into a variadic array.
 - Repeated slash openers around bracket runs reuse failed suffix scans while keeping skipped interiors available. HTML import reports reuse each table's block-cell classification during inspection (#2812).
 
 ## [0.1.11] - 2026-10-01

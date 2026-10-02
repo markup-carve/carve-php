@@ -23,40 +23,47 @@ final class HtmlOutput
         $this->sink = $sink === null ? null : Closure::fromCallable($sink);
     }
 
-    public function push(string ...$parts): void
+    public function push(string $first = '', string ...$parts): void
     {
         if ($this->discard) {
             return;
         }
         if ($this->sink === null) {
+            $this->pending .= $first;
             foreach ($parts as $part) {
                 $this->pending .= $part;
             }
 
             return;
         }
+        $this->pushPart($first);
         foreach ($parts as $part) {
-            $offset = 0;
-            $length = strlen($part);
-            while ($offset < $length) {
-                $end = min($length, $offset + 4096 - strlen($this->pending));
-                while ($end < $length && $end > $offset && (ord($part[$end]) & 0xC0) === 0x80) {
-                    $end--;
-                }
-                if ($end === $offset) {
-                    $this->flush();
+            $this->pushPart($part);
+        }
+    }
 
-                    continue;
-                }
-                $newline = strpos($part, "\n", $offset);
-                if ($newline !== false && $newline < $end) {
-                    $end = $newline + 1;
-                }
-                $this->pending .= substr($part, $offset, $end - $offset);
-                $offset = $end;
-                if (strlen($this->pending) === 4096 || str_ends_with($this->pending, "\n")) {
-                    $this->flush();
-                }
+    private function pushPart(string $part): void
+    {
+        $offset = 0;
+        $length = strlen($part);
+        while ($offset < $length) {
+            $end = min($length, $offset + 4096 - strlen($this->pending));
+            while ($end < $length && $end > $offset && (ord($part[$end]) & 0xC0) === 0x80) {
+                $end--;
+            }
+            if ($end === $offset) {
+                $this->flush();
+
+                continue;
+            }
+            $newline = strpos($part, "\n", $offset);
+            if ($newline !== false && $newline < $end) {
+                $end = $newline + 1;
+            }
+            $this->pending .= substr($part, $offset, $end - $offset);
+            $offset = $end;
+            if (strlen($this->pending) === 4096 || str_ends_with($this->pending, "\n")) {
+                $this->flush();
             }
         }
     }
