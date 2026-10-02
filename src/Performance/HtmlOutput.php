@@ -12,11 +12,6 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 final class HtmlOutput
 {
-    /**
-     * @var list<string>
-     */
-    private array $parts = [];
-
     private string $pending = '';
 
     private bool $wrote = false;
@@ -34,7 +29,9 @@ final class HtmlOutput
             return;
         }
         if ($this->sink === null) {
-            array_push($this->parts, ...$parts);
+            foreach ($parts as $part) {
+                $this->pending .= $part;
+            }
 
             return;
         }
@@ -80,8 +77,8 @@ final class HtmlOutput
             return;
         }
         if ($this->sink === null) {
-            $this->push($attribute ? StringUtil::escapeHtml($text)
-                : str_replace("\u{00A0}", '&nbsp;', htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8')));
+            $this->pending .= $attribute ? StringUtil::escapeHtml($text)
+                : str_replace("\u{00A0}", '&nbsp;', htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8'));
 
             return;
         }
@@ -118,6 +115,6 @@ final class HtmlOutput
             }
         }
 
-        return implode('', $this->parts);
+        return $sink === null ? $this->pending : '';
     }
 }
