@@ -116,6 +116,13 @@ class ListParser
     protected const MARKER_ATTRIBUTE_CACHE_LIMIT = 4096;
 
     /**
+     * Subclass validation results; clear when validation settings change.
+     *
+     * @var array<string, array<string, string|list<string>>|null>
+     */
+    protected array $instanceMarkerAttributeCache = [];
+
+    /**
      * Allow (or disallow) `+` as a bullet marker alongside `-` and `*`.
      *
      * A `+` is only ever a bullet when followed by a space and non-empty
@@ -503,14 +510,22 @@ class ListParser
      */
     protected function markerAttributes(string $body): ?array
     {
-        if (array_key_exists($body, self::$markerAttributeCache)) {
-            return self::$markerAttributeCache[$body];
+        if (strlen($body) > self::PARSED_MARKER_CACHE_LINE_BYTES) {
+            return $this->validateMarkerAttributes($body);
         }
-        if (count(self::$markerAttributeCache) >= self::MARKER_ATTRIBUTE_CACHE_LIMIT) {
-            self::$markerAttributeCache = [];
+        if (static::class === self::class) {
+            $cache = &self::$markerAttributeCache;
+        } else {
+            $cache = &$this->instanceMarkerAttributeCache;
+        }
+        if (array_key_exists($body, $cache)) {
+            return $cache[$body];
+        }
+        if (count($cache) >= self::MARKER_ATTRIBUTE_CACHE_LIMIT) {
+            $cache = [];
         }
 
-        return self::$markerAttributeCache[$body] = $this->validateMarkerAttributes($body);
+        return $cache[$body] = $this->validateMarkerAttributes($body);
     }
 
     /**

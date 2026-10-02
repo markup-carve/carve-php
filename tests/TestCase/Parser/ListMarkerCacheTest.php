@@ -10,6 +10,72 @@ use ReflectionProperty;
 
 class ListMarkerCacheTest extends TestCase
 {
+    public function testAttributePayloadCacheIncludesItsByteBoundary(): void
+    {
+        $parser = new ListParser();
+        $cache = new ReflectionProperty($parser, 'markerAttributeCache');
+        foreach ([2048 => true, 2049 => false] as $bytes => $retained) {
+            $payload = '#' . str_repeat('x', $bytes - 1);
+            self::assertNotNull($parser->parseListItemMarker('-{' . $payload . '} item'));
+            self::assertSame($retained, array_key_exists($payload, $cache->getValue()));
+        }
+    }
+
+    public function testLargeAttributePayloadsAreNotRetained(): void
+    {
+        $parser = new ListParser();
+        $cache = new ReflectionProperty($parser, 'markerAttributeCache');
+        $before = $cache->getValue();
+        $id = 'long-' . str_repeat('x', 4096);
+        self::assertSame($id, $parser->parseListItemMarker('-{#' . $id . '} item')['attributes']['id']);
+        self::assertSame($before, $cache->getValue());
+    }
+
+    public function testAttributeValidationOverridesOwnTheirCachedResults(): void
+    {
+        $payload = '#marker-cache-override';
+        (new ListParser())->parseListItemMarker('-{' . $payload . '} item');
+        $parser = new class ('first') extends ListParser {
+            public int $validations = 0;
+
+            public function __construct(private string $id)
+            {
+            }
+
+            public function setId(string $id): void
+            {
+                $this->id = $id;
+                $this->instanceMarkerAttributeCache = [];
+            }
+
+            public function attributes(string $body): ?array
+            {
+                return $this->markerAttributes($body);
+            }
+
+            protected function validateMarkerAttributes(string $body): ?array
+            {
+                $this->validations++;
+
+                return ['id' => $this->id];
+            }
+        };
+        $class = $parser::class;
+        $other = new $class('second');
+        self::assertSame(['id' => 'first'], $parser->attributes($payload));
+        self::assertSame(['id' => 'second'], $other->attributes($payload));
+        self::assertSame(['id' => 'first'], $parser->attributes($payload));
+        self::assertSame(1, $parser->validations);
+        self::assertSame(1, $other->validations);
+        $clone = clone $parser;
+        $clone->setId('third');
+        self::assertSame(['id' => 'third'], $clone->attributes($payload));
+        self::assertSame(['id' => 'first'], $parser->attributes($payload));
+        $parser->setId('fourth');
+        self::assertSame(['id' => 'fourth'], $parser->attributes($payload));
+        self::assertSame(2, $parser->validations);
+    }
+
     public function testRepeatedMarkersFollowBulletSettingsAndDoNotShareResults(): void
     {
         $parser = new ListParser();
