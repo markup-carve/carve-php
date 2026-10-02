@@ -1,0 +1,6657 @@
+{
+  "started_at": "2026-10-02T21:40:45.161100+00:00",
+  "engine": "carve",
+  "cpu": 13,
+  "php_flags": [
+    "php",
+    "-n",
+    "-d",
+    "extension=ctype",
+    "-d",
+    "extension=mbstring",
+    "-d",
+    "opcache.enable_cli=1",
+    "-d",
+    "opcache.jit_buffer_size=128M"
+  ],
+  "load_start": [
+    2.4482421875,
+    4.06787109375,
+    5.10498046875
+  ],
+  "runs": [
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4287208,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        2.6144,
+        2.6142,
+        2.5298,
+        2.855,
+        2.6076
+      ],
+      "wall_ms": [
+        2.6158723999999998,
+        2.6157538,
+        2.5304154,
+        2.8567792,
+        2.6082216
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4287424,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.8858000000000001,
+        1.8852,
+        1.903,
+        1.9254000000000002,
+        2.191
+      ],
+      "wall_ms": [
+        1.8866934,
+        1.8858758000000002,
+        1.9039042,
+        1.926962,
+        2.1920972
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4287424,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.968,
+        1.9524000000000001,
+        1.9533999999999998,
+        1.8824,
+        1.8114000000000001
+      ],
+      "wall_ms": [
+        1.9695353999999998,
+        1.9529256,
+        1.9539453999999998,
+        1.8836076,
+        1.8120052000000002
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4287208,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        2.5918,
+        2.6136,
+        2.6298,
+        2.4699999999999998,
+        2.8922
+      ],
+      "wall_ms": [
+        2.5931308,
+        2.6186054,
+        2.6310189999999998,
+        2.4712167999999997,
+        2.8935912
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4287208,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        3.8533999999999997,
+        3.8758000000000004,
+        3.9341999999999997,
+        4.044,
+        3.8822
+      ],
+      "wall_ms": [
+        3.8569438,
+        3.8784529999999995,
+        3.9375856,
+        4.0458558,
+        3.8832982
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4287424,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.9620000000000002,
+        1.9620000000000002,
+        1.9760000000000002,
+        2.0054,
+        1.9878
+      ],
+      "wall_ms": [
+        1.9633631999999999,
+        1.9631750000000001,
+        1.9770413999999998,
+        2.0068102,
+        1.9891725999999998
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4287424,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.9474,
+        1.9937999999999998,
+        2.0502,
+        2.0008,
+        1.9824000000000002
+      ],
+      "wall_ms": [
+        1.9486754000000002,
+        1.9963562,
+        2.0537336,
+        2.0022235999999998,
+        1.9834375999999998
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4287208,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        2.6498,
+        2.5596,
+        3.353,
+        2.6558,
+        2.577
+      ],
+      "wall_ms": [
+        2.6525862,
+        2.5602322,
+        3.3547054000000003,
+        2.6591386,
+        2.5778298
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5561064,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.9704,
+        7.0312,
+        7.2508,
+        7.022799999999999,
+        7.2512
+      ],
+      "wall_ms": [
+        6.9755516,
+        7.032943,
+        7.2528138,
+        7.0246132,
+        7.2533006
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5561280,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.0108,
+        6.0566,
+        6.581799999999999,
+        6.0476,
+        6.0118
+      ],
+      "wall_ms": [
+        6.013293,
+        6.0602064,
+        6.5843788000000005,
+        6.0495600000000005,
+        6.0135114000000005
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.4482421875,
+        4.06787109375,
+        5.10498046875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5561280,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        5.6857999999999995,
+        6.286,
+        5.965400000000001,
+        6.048,
+        6.141
+      ],
+      "wall_ms": [
+        5.687663,
+        6.287922,
+        5.9667364,
+        6.0495782,
+        6.1478454
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5561064,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        7.0244,
+        6.9704,
+        7.036199999999999,
+        7.2396,
+        7.098999999999999
+      ],
+      "wall_ms": [
+        7.026513,
+        6.9728708,
+        7.0383314,
+        7.2436824,
+        7.1010066
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5561064,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        7.0464,
+        7.0598,
+        7.103,
+        7.1128,
+        7.054399999999999
+      ],
+      "wall_ms": [
+        7.0503762,
+        7.0616338,
+        7.1058138,
+        7.114779,
+        7.0579206
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5561280,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.1356,
+        6.1608,
+        6.147,
+        6.119400000000001,
+        6.0732
+      ],
+      "wall_ms": [
+        6.1383392,
+        6.165535,
+        6.1489956,
+        6.1260858,
+        6.075010600000001
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5561280,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.0214,
+        6.0600000000000005,
+        6.3312,
+        6.1232,
+        6.1182
+      ],
+      "wall_ms": [
+        6.0236006,
+        6.0633083999999995,
+        6.3337032,
+        6.1255848,
+        6.1232124
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5561064,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.937600000000001,
+        7.0676000000000005,
+        7.0846,
+        6.9976,
+        7.1226
+      ],
+      "wall_ms": [
+        6.939691600000001,
+        7.0713904,
+        7.086380800000001,
+        7.000802,
+        7.1268738
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4758248,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        6.3856,
+        6.571,
+        6.5036000000000005,
+        6.4106,
+        6.566800000000001
+      ],
+      "wall_ms": [
+        6.387601999999999,
+        6.5741714,
+        6.5053464000000005,
+        6.412575599999999,
+        6.568370400000001
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4758464,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.8466000000000005,
+        5.947,
+        5.8846,
+        5.4576,
+        5.4002
+      ],
+      "wall_ms": [
+        5.8486896,
+        5.9487141999999995,
+        5.8854958,
+        5.458849,
+        5.4018706000000005
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4758464,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.3274,
+        5.6259999999999994,
+        5.7812,
+        5.7404,
+        5.3232
+      ],
+      "wall_ms": [
+        5.3315084,
+        5.62733,
+        5.7825196,
+        5.7419562,
+        5.3245132
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4758248,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        6.0552,
+        6.5226,
+        6.4024,
+        5.973,
+        6.3514
+      ],
+      "wall_ms": [
+        6.0602666,
+        6.5250076,
+        6.403909199999999,
+        5.9744852,
+        6.3542024
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4758248,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        6.4483999999999995,
+        6.4064,
+        6.354,
+        6.719799999999999,
+        6.5038
+      ],
+      "wall_ms": [
+        6.4505799999999995,
+        6.4103954000000005,
+        6.355597,
+        6.729699599999999,
+        6.505903399999999
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4758464,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.9078,
+        6.301,
+        6.023,
+        5.962,
+        5.8154
+      ],
+      "wall_ms": [
+        5.911914,
+        6.3029828000000006,
+        6.0249412,
+        5.9637408,
+        5.817458
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4758464,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.8006,
+        5.7572,
+        5.757,
+        5.743399999999999,
+        5.7684
+      ],
+      "wall_ms": [
+        5.8045976,
+        5.7599545999999995,
+        5.7587622000000005,
+        5.745256599999999,
+        5.7698014
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4758248,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.8056,
+        6.7094,
+        6.206,
+        5.9854,
+        6.5123999999999995
+      ],
+      "wall_ms": [
+        5.8071784,
+        6.711114,
+        6.2071584,
+        5.9872214,
+        6.5138244
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.33203125,
+        4.0166015625,
+        5.08251953125
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865312,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        2.9655,
+        2.749,
+        2.7005,
+        2.7515,
+        2.6695
+      ],
+      "wall_ms": [
+        2.9677575,
+        2.750739,
+        2.7019365,
+        2.7527835,
+        2.670927
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865528,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        0.814,
+        0.8495,
+        0.815,
+        0.812,
+        0.8235
+      ],
+      "wall_ms": [
+        0.8150125,
+        0.850625,
+        0.8160345,
+        0.8124975,
+        0.8241345
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865528,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        0.8165,
+        0.8215,
+        0.8305,
+        0.815,
+        0.826
+      ],
+      "wall_ms": [
+        0.818564,
+        0.8225065,
+        0.831599,
+        0.8157935,
+        0.826935
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865312,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        2.744,
+        2.4555,
+        2.543,
+        3.457,
+        2.73
+      ],
+      "wall_ms": [
+        2.745925,
+        2.456599,
+        2.5449575,
+        3.4587925,
+        2.731793
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865312,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        3.133,
+        2.584,
+        2.596,
+        2.615,
+        2.6165
+      ],
+      "wall_ms": [
+        3.1368195,
+        2.58566,
+        2.597342,
+        2.616268,
+        2.617771
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865528,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        0.784,
+        0.7845,
+        1.5535,
+        0.7905,
+        0.8295
+      ],
+      "wall_ms": [
+        0.7856915,
+        0.7856765,
+        1.5538545,
+        0.791097,
+        0.830126
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865528,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        0.814,
+        0.8215,
+        0.8115,
+        0.8345,
+        0.818
+      ],
+      "wall_ms": [
+        0.8157935,
+        0.822226,
+        0.812387,
+        0.839529,
+        0.818739
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865312,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        3.0815,
+        2.5895,
+        2.636,
+        2.6795,
+        2.6355
+      ],
+      "wall_ms": [
+        3.0853015,
+        2.5910445,
+        2.637699,
+        2.681267,
+        2.6365365
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4753776,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        1.646,
+        1.6325,
+        1.6255,
+        1.7585,
+        1.659
+      ],
+      "wall_ms": [
+        1.64843,
+        1.6337815,
+        1.6267335,
+        1.760007,
+        1.6599715
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865528,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        0.163,
+        0.162,
+        0.17,
+        0.163,
+        0.1615
+      ],
+      "wall_ms": [
+        0.164774,
+        0.162855,
+        0.1711915,
+        0.1634515,
+        0.163106
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865528,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        0.1605,
+        0.1635,
+        0.159,
+        0.161,
+        0.163
+      ],
+      "wall_ms": [
+        0.161638,
+        0.164373,
+        0.1599645,
+        0.161728,
+        0.1637665
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4753776,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        1.5555,
+        1.5325,
+        1.5355,
+        1.548,
+        1.574
+      ],
+      "wall_ms": [
+        1.557917,
+        1.533631,
+        1.5367515,
+        1.5489605,
+        1.574975
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4753776,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        1.61,
+        1.6155,
+        1.613,
+        1.6665,
+        1.6335
+      ],
+      "wall_ms": [
+        1.6114745,
+        1.6166645,
+        1.613518,
+        1.667571,
+        1.634739
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865528,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        0.167,
+        0.1695,
+        0.1665,
+        0.1665,
+        0.1695
+      ],
+      "wall_ms": [
+        0.1687615,
+        0.170299,
+        0.1671185,
+        0.1673835,
+        0.1705095
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3865528,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        0.1665,
+        0.1675,
+        0.177,
+        0.167,
+        0.1655
+      ],
+      "wall_ms": [
+        0.168566,
+        0.168005,
+        0.1777385,
+        0.16778,
+        0.1667175
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4753776,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        1.7205,
+        1.716,
+        1.642,
+        1.6695,
+        1.6845
+      ],
+      "wall_ms": [
+        1.7230765,
+        1.717807,
+        1.6426435,
+        1.670562,
+        1.6846785
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3861216,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        5.1785,
+        4.6055,
+        4.7,
+        4.965,
+        4.48
+      ],
+      "wall_ms": [
+        5.181599,
+        4.607345,
+        4.702847,
+        4.966905,
+        4.4815555
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3861432,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        0.2145,
+        0.2095,
+        0.2125,
+        0.208,
+        0.2085
+      ],
+      "wall_ms": [
+        0.2164625,
+        0.210175,
+        0.2134265,
+        0.2088675,
+        0.2094535
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3861432,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        0.2205,
+        0.2115,
+        0.215,
+        0.2115,
+        0.218
+      ],
+      "wall_ms": [
+        0.222093,
+        0.2124495,
+        0.215505,
+        0.2118335,
+        0.222098
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3861216,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        4.4475,
+        4.3655,
+        4.337,
+        4.809,
+        4.54
+      ],
+      "wall_ms": [
+        4.450932,
+        4.367198,
+        4.3417645,
+        4.810527,
+        4.5425015
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3861216,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        4.0245,
+        4.0825,
+        4.0895,
+        4.4815,
+        4.235
+      ],
+      "wall_ms": [
+        4.0268845,
+        4.0833975,
+        4.090581,
+        4.482242,
+        4.2371655
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3861432,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        0.2165,
+        0.2135,
+        0.218,
+        0.212,
+        0.2115
+      ],
+      "wall_ms": [
+        0.2182155,
+        0.213837,
+        0.2186465,
+        0.2128605,
+        0.2125195
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3861432,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        0.2065,
+        0.211,
+        0.207,
+        0.2105,
+        0.2045
+      ],
+      "wall_ms": [
+        0.2072195,
+        0.211999,
+        0.2078205,
+        0.211047,
+        0.2055365
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3861216,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        4.297,
+        3.8825,
+        4.146,
+        4.436,
+        4.1935
+      ],
+      "wall_ms": [
+        4.2993885,
+        3.883567,
+        4.1470335,
+        4.437422,
+        4.2017175
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3873512,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.495,
+        1.5250000000000001,
+        1.4153333333333336,
+        1.3386666666666667,
+        1.3873333333333333
+      ],
+      "wall_ms": [
+        1.4964666666666666,
+        1.5260300000000002,
+        1.415957,
+        1.3395650000000001,
+        1.388187
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3873728,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.479,
+        1.484,
+        1.47,
+        1.5483333333333331,
+        1.7013333333333334
+      ],
+      "wall_ms": [
+        1.4807136666666667,
+        1.4847613333333334,
+        1.4707176666666666,
+        1.5492073333333334,
+        1.7024626666666667
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3873728,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.5439999999999998,
+        1.5176666666666667,
+        1.4953333333333332,
+        1.3533333333333333,
+        1.3223333333333334
+      ],
+      "wall_ms": [
+        1.5462583333333333,
+        1.5186823333333335,
+        1.4958223333333331,
+        1.353782,
+        1.3228363333333333
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3873512,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.4806666666666668,
+        1.477,
+        1.547,
+        1.4960000000000002,
+        1.4893333333333334
+      ],
+      "wall_ms": [
+        1.4830313333333331,
+        1.477708,
+        1.547661,
+        1.4967810000000001,
+        1.490098
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3873512,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.4646666666666668,
+        1.4586666666666668,
+        1.461,
+        1.4783333333333333,
+        1.4773333333333334
+      ],
+      "wall_ms": [
+        1.4658516666666666,
+        1.4590923333333334,
+        1.461634,
+        1.478887,
+        1.477701
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3873728,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.4623333333333333,
+        1.493,
+        1.757,
+        1.4749999999999999,
+        1.468
+      ],
+      "wall_ms": [
+        1.4632536666666667,
+        1.4936983333333334,
+        1.7585126666666666,
+        1.4753933333333331,
+        1.4688143333333334
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3873728,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.4776666666666667,
+        1.6156666666666668,
+        1.4943333333333333,
+        1.5330000000000001,
+        1.4773333333333334
+      ],
+      "wall_ms": [
+        1.4793176666666668,
+        1.6177043333333332,
+        1.4990050000000001,
+        1.5340186666666666,
+        1.478032
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3873512,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.4676666666666665,
+        1.4786666666666666,
+        1.4720000000000002,
+        1.5016666666666667,
+        1.4803333333333333
+      ],
+      "wall_ms": [
+        1.4689713333333334,
+        1.479608,
+        1.4727350000000001,
+        1.5021243333333334,
+        1.4809936666666665
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3860192,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.144,
+        0.1436,
+        0.1456,
+        0.1482,
+        0.1504
+      ],
+      "wall_ms": [
+        0.14449320000000002,
+        0.1438158,
+        0.1458318,
+        0.1484086,
+        0.1505948
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3860408,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1462,
+        0.145,
+        0.1442,
+        0.1454,
+        0.1454
+      ],
+      "wall_ms": [
+        0.1468758,
+        0.145429,
+        0.144367,
+        0.1456976,
+        0.1457036
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3860408,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1286,
+        0.1308,
+        0.1308,
+        0.134,
+        0.1366
+      ],
+      "wall_ms": [
+        0.1293784,
+        0.1312238,
+        0.1309794,
+        0.1342698,
+        0.13695079999999998
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3860192,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.134,
+        0.13,
+        0.1332,
+        0.4346,
+        0.1506
+      ],
+      "wall_ms": [
+        0.1347446,
+        0.1305246,
+        0.133386,
+        0.4350706,
+        0.15087140000000002
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3860192,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1538,
+        0.1476,
+        0.14179999999999998,
+        0.1404,
+        0.1392
+      ],
+      "wall_ms": [
+        0.1548028,
+        0.1480942,
+        0.142219,
+        0.1408662,
+        0.139644
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3860408,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.146,
+        0.151,
+        0.1474,
+        0.1474,
+        0.1466
+      ],
+      "wall_ms": [
+        0.1467756,
+        0.1514404,
+        0.1476872,
+        0.1477914,
+        0.1468896
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3860408,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.145,
+        0.14179999999999998,
+        0.144,
+        0.1512,
+        0.1456
+      ],
+      "wall_ms": [
+        0.14591,
+        0.142205,
+        0.1442088,
+        0.151699,
+        0.14601619999999998
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 3860192,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1416,
+        0.1416,
+        0.1394,
+        0.142,
+        0.1412
+      ],
+      "wall_ms": [
+        0.1425254,
+        0.1419262,
+        0.1398384,
+        0.14242939999999998,
+        0.1414714
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4165224,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        12.193,
+        12.885,
+        12.3385,
+        12.2055,
+        12.626
+      ],
+      "wall_ms": [
+        12.1956835,
+        12.8941235,
+        12.3411155,
+        12.214249,
+        12.628538
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.22509765625,
+        3.96630859375,
+        5.060546875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4166432,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        12.38,
+        12.2895,
+        12.5275,
+        13.02,
+        12.2865
+      ],
+      "wall_ms": [
+        12.3884355,
+        12.291491,
+        12.5364125,
+        13.0230145,
+        12.2892165
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "off",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4166432,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        12.4335,
+        16.2185,
+        13.1465,
+        12.9065,
+        12.6695
+      ],
+      "wall_ms": [
+        12.438491,
+        16.2299925,
+        13.148844,
+        12.909468,
+        12.6729075
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4165224,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        12.9125,
+        12.693,
+        12.7505,
+        12.508,
+        12.266
+      ],
+      "wall_ms": [
+        12.9215965,
+        12.6957055,
+        12.75307,
+        12.5104025,
+        12.268572
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "off",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4165224,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        11.1265,
+        12.231,
+        13.7485,
+        12.9845,
+        12.144
+      ],
+      "wall_ms": [
+        11.1292325,
+        12.2333705,
+        13.7514165,
+        12.9872165,
+        12.157341
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4166432,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        14.3515,
+        14.426,
+        13.124,
+        12.391,
+        12.783
+      ],
+      "wall_ms": [
+        14.355412,
+        14.4284365,
+        13.1333695,
+        12.392974,
+        12.788192
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "off",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4166432,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        12.5465,
+        12.052,
+        13.4395,
+        12.597,
+        12.979
+      ],
+      "wall_ms": [
+        12.5506145,
+        12.054039,
+        13.4476585,
+        12.6010955,
+        12.9822265
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4165224,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        15.586,
+        15.199,
+        15.719,
+        14.211,
+        16.321
+      ],
+      "wall_ms": [
+        15.5903945,
+        15.2024555,
+        15.728853,
+        14.215105,
+        16.3313105
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": false,
+        "kind": 0,
+        "opt_level": 0,
+        "opt_flags": 0,
+        "buffer_size": 134217712,
+        "buffer_free": 134215371
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "off",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4483816,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.4642,
+        1.4714,
+        1.4558,
+        1.4769999999999999,
+        1.4672
+      ],
+      "wall_ms": [
+        1.4656596,
+        1.472649,
+        1.4566464,
+        1.4782556,
+        1.4679338
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134200925
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4484032,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.1747999999999998,
+        1.168,
+        1.1662000000000001,
+        1.181,
+        1.1662000000000001
+      ],
+      "wall_ms": [
+        1.1766752,
+        1.1697317999999999,
+        1.167666,
+        1.1823438,
+        1.1673916
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134205341
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4484032,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.2054,
+        1.3606,
+        1.7136,
+        1.6260000000000001,
+        1.2212
+      ],
+      "wall_ms": [
+        1.2069828,
+        1.3626794,
+        1.7158622000000001,
+        1.6279686000000002,
+        1.2223202
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134205341
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4483816,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.8015999999999999,
+        1.7096,
+        1.7064,
+        1.706,
+        1.8046
+      ],
+      "wall_ms": [
+        1.8035992,
+        1.7106342,
+        1.7071995999999998,
+        1.7067168,
+        1.8104964
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134200925
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4483816,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.4460000000000002,
+        1.4478,
+        1.4472,
+        1.4558,
+        1.4584
+      ],
+      "wall_ms": [
+        1.4476934,
+        1.4485972,
+        1.4483808,
+        1.4572214000000001,
+        1.4597644
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134200925
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4484032,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.1412,
+        1.1545999999999998,
+        1.152,
+        1.1876,
+        1.1502000000000001
+      ],
+      "wall_ms": [
+        1.1424258,
+        1.1560058,
+        1.1526776,
+        1.189694,
+        1.1513368
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134205341
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4484032,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.415,
+        1.4128,
+        1.3881999999999999,
+        1.3836,
+        1.4382
+      ],
+      "wall_ms": [
+        1.4167184000000002,
+        1.4141454,
+        1.3890236,
+        1.3843847999999999,
+        1.4409585999999999
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134205341
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4483816,
+      "engine": "carve",
+      "case": "marker_prose",
+      "size": 10000,
+      "bytes": 428893,
+      "cpu_ms": [
+        1.5218,
+        1.5566,
+        1.5392,
+        1.5386,
+        1.5218
+      ],
+      "wall_ms": [
+        1.523566,
+        1.5577130000000001,
+        1.5402536,
+        1.5397748,
+        1.5223356000000001
+      ],
+      "input_sha256": "fca09885e17ab93bc8446184c738119ba24bf694cb2449fdb79e43840973426f",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134200925
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5757672,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.4361999999999995,
+        6.526999999999999,
+        6.4616,
+        6.5268,
+        6.5556
+      ],
+      "wall_ms": [
+        6.4386774,
+        6.5307028,
+        6.4633544,
+        6.528805,
+        6.557596200000001
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134198525
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.126953125,
+        3.9169921875,
+        5.03857421875
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5757888,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.0538,
+        6.022,
+        5.9306,
+        5.9992,
+        6.042199999999999
+      ],
+      "wall_ms": [
+        6.0597878000000005,
+        6.0239436,
+        5.9341786,
+        6.0007434,
+        6.0452502
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134197069
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5757888,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.304,
+        6.051,
+        6.0241999999999996,
+        6.1648000000000005,
+        5.9216
+      ],
+      "wall_ms": [
+        6.3064996,
+        6.0560668,
+        6.0258612,
+        6.1690118,
+        5.9225024
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134197069
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5757672,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.436400000000001,
+        6.9959999999999996,
+        6.7048000000000005,
+        6.8469999999999995,
+        6.635
+      ],
+      "wall_ms": [
+        6.440483,
+        6.9980688,
+        6.7064416,
+        6.8488308,
+        6.640401799999999
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134198525
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5757672,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.7676,
+        6.5194,
+        6.615399999999999,
+        6.6044,
+        6.513599999999999
+      ],
+      "wall_ms": [
+        6.7716617999999995,
+        6.520922199999999,
+        6.6172775999999995,
+        6.6062206,
+        6.515373599999999
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134198525
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5757888,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.0236,
+        6.0378,
+        5.9878,
+        5.9506,
+        6.0332
+      ],
+      "wall_ms": [
+        6.0265164,
+        6.0409622,
+        5.9894478,
+        5.952161,
+        6.0349806
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134197069
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5757888,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.0204,
+        6.0204,
+        5.921200000000001,
+        6.018800000000001,
+        6.031000000000001
+      ],
+      "wall_ms": [
+        6.0242702,
+        6.0222422,
+        5.9231596,
+        6.0207836,
+        6.0351349999999995
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134197069
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5757672,
+      "engine": "carve",
+      "case": "stream_ascii",
+      "size": 100000,
+      "bytes": 1700000,
+      "cpu_ms": [
+        6.633799999999999,
+        6.4196,
+        6.423399999999999,
+        6.5642,
+        6.4704
+      ],
+      "wall_ms": [
+        6.6360014000000005,
+        6.4209336,
+        6.4249976,
+        6.570672999999999,
+        6.471926999999999
+      ],
+      "input_sha256": "ca2d9d049775a330ef5203853e7ede4db2606a23ccd93ee7eac79ad36f7c4ce9",
+      "output_sha256": "968c76afe1dfc4fd96b3b776954a15db276315fcbf595a7cf45e0a79862c8c8c",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134198525
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4954856,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        6.0214,
+        6.1128,
+        6.1659999999999995,
+        6.078799999999999,
+        5.692
+      ],
+      "wall_ms": [
+        6.0234226,
+        6.115003,
+        6.1691864,
+        6.0802368,
+        5.6932618
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134197981
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4955072,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.5716,
+        5.1899999999999995,
+        5.139,
+        5.787,
+        5.5138
+      ],
+      "wall_ms": [
+        5.5735458,
+        5.1933816,
+        5.1402304,
+        5.7894992,
+        5.519004000000001
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134196509
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4955072,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.556,
+        5.1522,
+        5.5292,
+        5.724600000000001,
+        5.7372
+      ],
+      "wall_ms": [
+        5.557952,
+        5.1533674,
+        5.5309988,
+        5.726443,
+        5.7389548
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134196509
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4954856,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        6.3988,
+        6.1846,
+        6.137,
+        6.2126,
+        6.231
+      ],
+      "wall_ms": [
+        6.4008313999999995,
+        6.1861286,
+        6.1383014000000005,
+        6.2150794,
+        6.2325608
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134197981
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4954856,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.8506,
+        5.433400000000001,
+        6.18,
+        6.0958,
+        6.0152
+      ],
+      "wall_ms": [
+        5.8527716,
+        5.4345550000000005,
+        6.1814434,
+        6.100122799999999,
+        6.0167138
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134197981
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4955072,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.5578,
+        5.09,
+        5.4988,
+        5.6446,
+        5.6302
+      ],
+      "wall_ms": [
+        5.5596994,
+        5.0941026,
+        5.5003763999999995,
+        5.6462202,
+        5.63143
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134196509
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4955072,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        5.6774000000000004,
+        5.5920000000000005,
+        5.5524000000000004,
+        5.51,
+        5.3986
+      ],
+      "wall_ms": [
+        5.679581799999999,
+        5.5953574,
+        5.5539344,
+        5.5112312,
+        5.4000634
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134196509
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4954856,
+      "engine": "carve",
+      "case": "stream_escaped",
+      "size": 100000,
+      "bytes": 900000,
+      "cpu_ms": [
+        6.0648,
+        5.7146,
+        6.4998000000000005,
+        6.2462,
+        6.2706
+      ],
+      "wall_ms": [
+        6.0689192,
+        5.7161854,
+        6.502966000000001,
+        6.2477038,
+        6.2742804
+      ],
+      "input_sha256": "ec1e830f06ecceedef0b4cf92eb4d4045f5272fdcd835c5bc4cbf0fa9215a1d4",
+      "output_sha256": "53a70b0f24cbb296b8c21ea6b049cfde2eb736b4c1a5ea4cff1ee8a3ff3f7776",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134197981
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.11669921875,
+        3.884765625,
+        5.02197265625
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5708752,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        2.089,
+        1.765,
+        1.9085,
+        1.751,
+        1.8775
+      ],
+      "wall_ms": [
+        2.0912785,
+        1.766595,
+        1.9107845,
+        1.7528185,
+        1.878683
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133917229
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4062136,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        0.8125,
+        0.5715,
+        0.5725,
+        0.5615,
+        0.564
+      ],
+      "wall_ms": [
+        0.8146515,
+        0.5720145,
+        0.5730115,
+        0.5625615,
+        0.5650665
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134134541
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4062136,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        0.729,
+        0.569,
+        0.5585,
+        0.5595,
+        0.557
+      ],
+      "wall_ms": [
+        0.731884,
+        0.569545,
+        0.559345,
+        0.5604125,
+        0.557507
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134134541
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5708752,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        2.0825,
+        1.787,
+        1.8325,
+        1.6815,
+        1.86
+      ],
+      "wall_ms": [
+        2.0851465,
+        1.788702,
+        1.8345995,
+        1.682685,
+        1.8618615
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133917229
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5708752,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        1.9935,
+        1.7685,
+        1.857,
+        1.7155,
+        1.9235
+      ],
+      "wall_ms": [
+        1.995541,
+        1.769931,
+        1.858725,
+        1.716524,
+        1.924741
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133917229
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4062136,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        0.6625,
+        0.507,
+        0.5045,
+        0.512,
+        0.522
+      ],
+      "wall_ms": [
+        0.6639845,
+        0.5079925,
+        0.505177,
+        0.5123005,
+        0.5227305
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134134541
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4062136,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        0.741,
+        0.5715,
+        0.569,
+        0.5675,
+        0.568
+      ],
+      "wall_ms": [
+        0.742955,
+        0.5724005,
+        0.5694745,
+        0.567957,
+        0.5683725
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134134541
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5708752,
+      "engine": "carve",
+      "case": "unicode",
+      "size": 100,
+      "bytes": 5400,
+      "cpu_ms": [
+        2.1465,
+        1.8045,
+        1.8225,
+        1.5945,
+        1.7615
+      ],
+      "wall_ms": [
+        2.150511,
+        1.8062155,
+        1.824104,
+        1.595569,
+        1.7629125
+      ],
+      "input_sha256": "37dd01f1ca2693fc8ebb6a980e25f13cc19c69df0ec569e22eec9c889f36cea6",
+      "output_sha256": "2a207051dc0dd75fbc9259d348ae2af137e9cc99e062cea2853a29ce714e7b8d",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133917229
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6829496,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        1.266,
+        1.023,
+        1.418,
+        1.225,
+        1.526
+      ],
+      "wall_ms": [
+        1.269693,
+        1.024286,
+        1.4194335,
+        1.2261905,
+        1.528101
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133915933
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4062136,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        0.1805,
+        0.1105,
+        0.106,
+        0.1955,
+        0.111
+      ],
+      "wall_ms": [
+        0.1824075,
+        0.1114375,
+        0.106558,
+        0.196529,
+        0.1117075
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134182445
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4062136,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        0.179,
+        0.103,
+        0.102,
+        0.19,
+        0.1085
+      ],
+      "wall_ms": [
+        0.1813105,
+        0.1037125,
+        0.102375,
+        0.191019,
+        0.1094085
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134182445
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6829496,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        1.0025,
+        0.953,
+        1.2565,
+        1.106,
+        1.13
+      ],
+      "wall_ms": [
+        1.004258,
+        0.9536015,
+        1.2577855,
+        1.107269,
+        1.1311995
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133915933
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6829496,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        1.0845,
+        1.052,
+        1.375,
+        1.241,
+        1.219
+      ],
+      "wall_ms": [
+        1.086394,
+        1.0533115,
+        1.376026,
+        1.242562,
+        1.228515
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133915933
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4062136,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        0.1795,
+        0.1095,
+        0.1015,
+        0.1965,
+        0.1075
+      ],
+      "wall_ms": [
+        0.1819765,
+        0.1098245,
+        0.102185,
+        0.1977215,
+        0.108351
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134182445
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4062136,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        0.183,
+        0.1075,
+        0.1195,
+        0.204,
+        0.1095
+      ],
+      "wall_ms": [
+        0.185974,
+        0.1079005,
+        0.120515,
+        0.2049155,
+        0.110205
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134182445
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6829496,
+      "engine": "carve",
+      "case": "images",
+      "size": 100,
+      "bytes": 4500,
+      "cpu_ms": [
+        1.0805,
+        1.041,
+        1.4555,
+        1.2225,
+        1.194
+      ],
+      "wall_ms": [
+        1.0828325,
+        1.042195,
+        1.4574155,
+        1.2238565,
+        1.195642
+      ],
+      "input_sha256": "e822ece1d6fcc04500b9ad4b65c653658003febcf802d29a128774a7532b8900",
+      "output_sha256": "16d202aca9ff570f44b6a87d41cfab98e68fc1642b2fed5a06790b5f0ac4b3a0",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133915933
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5964136,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        3.351,
+        3.6655,
+        2.876,
+        3.6735,
+        3.466
+      ],
+      "wall_ms": [
+        3.3535175,
+        3.6680115,
+        2.8820595,
+        3.676212,
+        3.4687415
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133820237
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4058040,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        0.685,
+        0.124,
+        0.125,
+        0.1205,
+        0.193
+      ],
+      "wall_ms": [
+        0.687289,
+        0.124958,
+        0.1253735,
+        0.12067,
+        0.19434
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134175021
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4058040,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        0.6875,
+        0.128,
+        0.1215,
+        0.121,
+        0.1985
+      ],
+      "wall_ms": [
+        0.6890225,
+        0.1288855,
+        0.122338,
+        0.121922,
+        0.1997505
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134175021
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5964136,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        3.41,
+        3.4175,
+        2.881,
+        3.5975,
+        3.28
+      ],
+      "wall_ms": [
+        3.412986,
+        3.4189415,
+        2.8835525,
+        3.599461,
+        3.282071
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133820237
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5964136,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        3.868,
+        3.9305,
+        2.951,
+        3.8645,
+        3.51
+      ],
+      "wall_ms": [
+        3.8717045,
+        3.933482,
+        2.9577435,
+        3.867757,
+        3.511954
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133820237
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4058040,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        0.6875,
+        0.124,
+        0.1205,
+        0.12,
+        0.1955
+      ],
+      "wall_ms": [
+        0.6901645,
+        0.1245375,
+        0.121276,
+        0.1206895,
+        0.1967245
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134175021
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4058040,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        0.68,
+        0.126,
+        0.1225,
+        0.1225,
+        0.2145
+      ],
+      "wall_ms": [
+        0.6821395,
+        0.126671,
+        0.123405,
+        0.1231345,
+        0.2156755
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134175021
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 5964136,
+      "engine": "carve",
+      "case": "lists",
+      "size": 100,
+      "bytes": 3283,
+      "cpu_ms": [
+        3.6515,
+        3.933,
+        3.069,
+        3.651,
+        3.336
+      ],
+      "wall_ms": [
+        3.654776,
+        3.9364325,
+        3.0716055,
+        3.6522965,
+        3.3384535
+      ],
+      "input_sha256": "b314acd684ad83c8fda4adba6481eb21efb49dd786d940dcf22d2aeb9f37c487",
+      "output_sha256": "c3a9cf7a06b986f495a33cde2773cfa4ed9b529f15e7212456fad5af7d1df649",
+      "peak_bytes": 8388608,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133820237
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4070120,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.0836666666666666,
+        0.9636666666666667,
+        1.0403333333333333,
+        0.96,
+        0.968
+      ],
+      "wall_ms": [
+        1.0856043333333334,
+        0.9643133333333332,
+        1.0410163333333333,
+        0.9606966666666666,
+        0.968722
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134094381
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4070336,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.0673333333333332,
+        1.0936666666666668,
+        0.9636666666666667,
+        0.9616666666666666,
+        1.0023333333333333
+      ],
+      "wall_ms": [
+        1.0693066666666666,
+        1.094685,
+        0.9644836666666667,
+        0.962293,
+        1.0033143333333332
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134091565
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4070336,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        0.987,
+        1.0803333333333334,
+        1.0006666666666666,
+        0.9936666666666666,
+        0.9676666666666667
+      ],
+      "wall_ms": [
+        0.9885526666666666,
+        1.081393,
+        1.0015643333333333,
+        0.9947916666666666,
+        0.9681673333333333
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134091565
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4070120,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.0946666666666667,
+        0.9896666666666666,
+        1.0376666666666667,
+        0.9646666666666667,
+        0.9496666666666668
+      ],
+      "wall_ms": [
+        1.0961976666666666,
+        0.9903663333333333,
+        1.038231,
+        0.9660033333333334,
+        0.950183
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134094381
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4070120,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.1016666666666668,
+        0.963,
+        1.0443333333333333,
+        0.949,
+        0.9460000000000001
+      ],
+      "wall_ms": [
+        1.103011,
+        0.963442,
+        1.0453810000000001,
+        0.9496723333333333,
+        0.9465596666666666
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134094381
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4070336,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.002,
+        1.2183333333333333,
+        0.9676666666666667,
+        0.9453333333333332,
+        0.9556666666666667
+      ],
+      "wall_ms": [
+        1.0043733333333333,
+        1.2205213333333333,
+        0.968428,
+        0.9456246666666667,
+        0.956385
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134091565
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4070336,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        0.9856666666666666,
+        1.0563333333333333,
+        0.9613333333333333,
+        0.9473333333333334,
+        0.956
+      ],
+      "wall_ms": [
+        0.9869496666666667,
+        1.0576076666666667,
+        0.961772,
+        0.9479386666666666,
+        0.9564083333333334
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134091565
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4070120,
+      "engine": "carve",
+      "case": "default_core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        1.18,
+        0.9676666666666667,
+        1.0966666666666667,
+        0.9696666666666666,
+        0.997
+      ],
+      "wall_ms": [
+        1.1821716666666666,
+        0.9682643333333334,
+        1.097507,
+        0.9706756666666667,
+        0.9979106666666667
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134094381
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4056800,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1196,
+        0.126,
+        0.0884,
+        0.09280000000000001,
+        0.088
+      ],
+      "wall_ms": [
+        0.1205778,
+        0.126521,
+        0.0885426,
+        0.0930932,
+        0.0883382
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134184173
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4057016,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1116,
+        0.11839999999999999,
+        0.0818,
+        0.08159999999999999,
+        0.0854
+      ],
+      "wall_ms": [
+        0.11243220000000001,
+        0.1188344,
+        0.08196200000000001,
+        0.0818458,
+        0.0858414
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134183405
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4057016,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1234,
+        0.129,
+        0.0944,
+        0.0918,
+        0.092
+      ],
+      "wall_ms": [
+        0.12452319999999999,
+        0.12960080000000002,
+        0.0946622,
+        0.0920894,
+        0.0922496
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134183405
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4056800,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1264,
+        0.1316,
+        0.0938,
+        0.09,
+        0.0938
+      ],
+      "wall_ms": [
+        0.12739879999999998,
+        0.13217980000000001,
+        0.09412519999999999,
+        0.0902498,
+        0.0942394
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134184173
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.427734375,
+        3.919921875,
+        5.02734375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4056800,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.11839999999999999,
+        0.13779999999999998,
+        0.0902,
+        0.088,
+        0.0898
+      ],
+      "wall_ms": [
+        0.1193232,
+        0.1384096,
+        0.0904624,
+        0.08821419999999999,
+        0.0901396
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134184173
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4057016,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1222,
+        0.1276,
+        0.09280000000000001,
+        0.0906,
+        0.09140000000000001
+      ],
+      "wall_ms": [
+        0.1229682,
+        0.1278796,
+        0.0930954,
+        0.090815,
+        0.0917506
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134183405
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4057016,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1232,
+        0.1306,
+        0.0906,
+        0.092,
+        0.09
+      ],
+      "wall_ms": [
+        0.123888,
+        0.1308452,
+        0.090767,
+        0.0922698,
+        0.0903262
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134183405
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 4056800,
+      "engine": "carve",
+      "case": "plain",
+      "size": 100,
+      "bytes": 2600,
+      "cpu_ms": [
+        0.1286,
+        0.11939999999999999,
+        0.08120000000000001,
+        0.0834,
+        0.0842
+      ],
+      "wall_ms": [
+        0.1304846,
+        0.1198984,
+        0.081447,
+        0.0836232,
+        0.084517
+      ],
+      "input_sha256": "49610595be954e689c15a5ae8906bb1e415514a339b6d5165ff6c787257cd08e",
+      "output_sha256": "92106832746c8aeb78f6971e5fbd956aa88968e1fa5f0242fd041a5cee2e3bd1",
+      "peak_bytes": 6291456,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 134184173
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6699560,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        7.0915,
+        7.9065,
+        7.9235,
+        8.4125,
+        7.9515
+      ],
+      "wall_ms": [
+        7.0943925,
+        7.908874,
+        7.9255155,
+        8.414938,
+        7.9574415
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 10485760,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133570941
+      },
+      "label": "baseline",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6700768,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        9.147,
+        8.61,
+        8.2405,
+        8.9315,
+        8.5885
+      ],
+      "wall_ms": [
+        9.1507145,
+        8.6126995,
+        8.2430355,
+        8.9355445,
+        8.590783
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 10485760,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133569517
+      },
+      "label": "candidate",
+      "round": 0,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6700768,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        7.8245,
+        7.417,
+        7.6045,
+        8.9475,
+        8.029
+      ],
+      "wall_ms": [
+        7.8277945,
+        7.418956,
+        7.606488,
+        8.9496365,
+        8.031052
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 10485760,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133569517
+      },
+      "label": "candidate",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6699560,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        8.482,
+        7.175,
+        9.1225,
+        9.617,
+        8.127
+      ],
+      "wall_ms": [
+        8.4850965,
+        7.1768695,
+        9.1313825,
+        9.6195875,
+        8.1291535
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 10485760,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133570941
+      },
+      "label": "baseline",
+      "round": 1,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6699560,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        10.203,
+        8.3275,
+        10.0745,
+        8.8475,
+        8.188
+      ],
+      "wall_ms": [
+        10.2065555,
+        8.3334025,
+        10.077059,
+        8.850728,
+        8.190355
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 10485760,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133570941
+      },
+      "label": "baseline",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6700768,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        9.0795,
+        8.924,
+        8.8885,
+        8.6775,
+        7.5255
+      ],
+      "wall_ms": [
+        9.083281,
+        8.9267425,
+        8.8902435,
+        8.682783,
+        7.527443
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 10485760,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133569517
+      },
+      "label": "candidate",
+      "round": 2,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "f86daa13ef08b2c94cd2e1696264c6db50d820b7c557c65f9c4d6be76c7f0ad6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6700768,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        7.79,
+        7.106,
+        7.1845,
+        9.644,
+        8.2325
+      ],
+      "wall_ms": [
+        7.792668,
+        7.1079335,
+        7.186353,
+        9.6469245,
+        8.234955
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 10485760,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133569517
+      },
+      "label": "candidate",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    },
+    {
+      "source_tree_sha256": "eb92f6027025706ac7df3cc796a36dd598ca7d7355f71782ef1e7a73407a51f6",
+      "php_version": "8.5.11",
+      "allocation_profile": null,
+      "peak_used_bytes": 6699560,
+      "engine": "carve",
+      "case": "core",
+      "size": 100,
+      "bytes": 12382,
+      "cpu_ms": [
+        10.937,
+        10.145,
+        12.798,
+        12.8845,
+        11.8915
+      ],
+      "wall_ms": [
+        10.9407285,
+        10.147167,
+        12.804779,
+        12.888158,
+        11.898363
+      ],
+      "input_sha256": "d242160f2f8681cbf07b81da3abbc71534bde9629aef00f8c249ba2fb0ef4330",
+      "output_sha256": "aaec46e6b4092126168017082f4402ce8b53b0f3ee9ab639263df96889f50338",
+      "peak_bytes": 10485760,
+      "jit": {
+        "enabled": true,
+        "on": true,
+        "kind": 5,
+        "opt_level": 4,
+        "opt_flags": 6,
+        "buffer_size": 134217712,
+        "buffer_free": 133570941
+      },
+      "label": "baseline",
+      "round": 3,
+      "mode": "tracing",
+      "load": [
+        2.5537109375,
+        3.92138671875,
+        5.021484375
+      ]
+    }
+  ],
+  "summaries": [
+    {
+      "case": "marker_prose",
+      "size": 10000,
+      "mode": "off",
+      "baseline": {
+        "cpu_ms": 2.6398,
+        "wall_ms": 2.6418026,
+        "peak_used_bytes": 4287208
+      },
+      "candidate": {
+        "cpu_ms": 1.9620000000000002,
+        "wall_ms": 1.9632691,
+        "peak_used_bytes": 4287424
+      },
+      "cpu_speedup": 1.3454638124362894
+    },
+    {
+      "case": "stream_ascii",
+      "size": 100000,
+      "mode": "off",
+      "baseline": {
+        "cpu_ms": 7.0571,
+        "wall_ms": 7.0597772,
+        "peak_used_bytes": 5561064
+      },
+      "candidate": {
+        "cpu_ms": 6.0957,
+        "wall_ms": 6.0991115,
+        "peak_used_bytes": 5561280
+      },
+      "cpu_speedup": 1.1577177354528603
+    },
+    {
+      "case": "stream_escaped",
+      "size": 100000,
+      "mode": "off",
+      "baseline": {
+        "cpu_ms": 6.4085,
+        "wall_ms": 6.4114854999999995,
+        "peak_used_bytes": 4758248
+      },
+      "candidate": {
+        "cpu_ms": 5.7748,
+        "wall_ms": 5.7761605,
+        "peak_used_bytes": 4758464
+      },
+      "cpu_speedup": 1.1097354020918473
+    },
+    {
+      "case": "unicode",
+      "size": 100,
+      "mode": "off",
+      "baseline": {
+        "cpu_ms": 2.6745,
+        "wall_ms": 2.676097,
+        "peak_used_bytes": 3865312
+      },
+      "candidate": {
+        "cpu_ms": 0.81725,
+        "wall_ms": 0.8186515,
+        "peak_used_bytes": 3865528
+      },
+      "cpu_speedup": 3.272560416029367
+    },
+    {
+      "case": "images",
+      "size": 100,
+      "mode": "off",
+      "baseline": {
+        "cpu_ms": 1.633,
+        "wall_ms": 1.63426025,
+        "peak_used_bytes": 4753776
+      },
+      "candidate": {
+        "cpu_ms": 0.166,
+        "wall_ms": 0.166918,
+        "peak_used_bytes": 3865528
+      },
+      "cpu_speedup": 9.83734939759036
+    },
+    {
+      "case": "lists",
+      "size": 100,
+      "mode": "off",
+      "baseline": {
+        "cpu_ms": 4.40075,
+        "wall_ms": 4.40231,
+        "peak_used_bytes": 3861216
+      },
+      "candidate": {
+        "cpu_ms": 0.2115,
+        "wall_ms": 0.21248450000000002,
+        "peak_used_bytes": 3861432
+      },
+      "cpu_speedup": 20.807328605200947
+    },
+    {
+      "case": "default_core",
+      "size": 100,
+      "mode": "off",
+      "baseline": {
+        "cpu_ms": 1.4778333333333333,
+        "wall_ms": 1.4782975,
+        "peak_used_bytes": 3873512
+      },
+      "candidate": {
+        "cpu_ms": 1.4885000000000002,
+        "wall_ms": 1.4892298333333334,
+        "peak_used_bytes": 3873728
+      },
+      "cpu_speedup": 0.9928339491658268
+    },
+    {
+      "case": "plain",
+      "size": 100,
+      "mode": "off",
+      "baseline": {
+        "cpu_ms": 0.14189999999999997,
+        "wall_ms": 0.14247739999999998,
+        "peak_used_bytes": 3860192
+      },
+      "candidate": {
+        "cpu_ms": 0.1452,
+        "wall_ms": 0.1457006,
+        "peak_used_bytes": 3860408
+      },
+      "cpu_speedup": 0.9772727272727271
+    },
+    {
+      "case": "core",
+      "size": 100,
+      "mode": "off",
+      "baseline": {
+        "cpu_ms": 12.72175,
+        "wall_ms": 12.72438775,
+        "peak_used_bytes": 4165224
+      },
+      "candidate": {
+        "cpu_ms": 12.72625,
+        "wall_ms": 12.730549750000002,
+        "peak_used_bytes": 4166432
+      },
+      "cpu_speedup": 0.9996464001571554
+    },
+    {
+      "case": "marker_prose",
+      "size": 10000,
+      "mode": "tracing",
+      "baseline": {
+        "cpu_ms": 1.4994,
+        "wall_ms": 1.5002956,
+        "peak_used_bytes": 4483816
+      },
+      "candidate": {
+        "cpu_ms": 1.1965,
+        "wall_ms": 1.1983384,
+        "peak_used_bytes": 4484032
+      },
+      "cpu_speedup": 1.2531550355202676
+    },
+    {
+      "case": "stream_ascii",
+      "size": 100000,
+      "mode": "tracing",
+      "baseline": {
+        "cpu_ms": 6.5413,
+        "wall_ms": 6.5441495000000005,
+        "peak_used_bytes": 5757672
+      },
+      "candidate": {
+        "cpu_ms": 6.0228,
+        "wall_ms": 6.0250657,
+        "peak_used_bytes": 5757888
+      },
+      "cpu_speedup": 1.0860895264660955
+    },
+    {
+      "case": "stream_escaped",
+      "size": 100000,
+      "mode": "tracing",
+      "baseline": {
+        "cpu_ms": 6.1249,
+        "wall_ms": 6.1266522000000005,
+        "peak_used_bytes": 4954856
+      },
+      "candidate": {
+        "cpu_ms": 5.5542,
+        "wall_ms": 5.5559432,
+        "peak_used_bytes": 4955072
+      },
+      "cpu_speedup": 1.102751071261388
+    },
+    {
+      "case": "unicode",
+      "size": 100,
+      "mode": "tracing",
+      "baseline": {
+        "cpu_ms": 1.8275000000000001,
+        "wall_ms": 1.8293517499999998,
+        "peak_used_bytes": 5708752
+      },
+      "candidate": {
+        "cpu_ms": 0.56775,
+        "wall_ms": 0.56816475,
+        "peak_used_bytes": 4062136
+      },
+      "cpu_speedup": 3.2188463232056366
+    },
+    {
+      "case": "images",
+      "size": 100,
+      "mode": "tracing",
+      "baseline": {
+        "cpu_ms": 1.2065000000000001,
+        "wall_ms": 1.20974925,
+        "peak_used_bytes": 6829496
+      },
+      "candidate": {
+        "cpu_ms": 0.11075,
+        "wall_ms": 0.11157249999999999,
+        "peak_used_bytes": 4062136
+      },
+      "cpu_speedup": 10.893905191873591
+    },
+    {
+      "case": "lists",
+      "size": 100,
+      "mode": "tracing",
+      "baseline": {
+        "cpu_ms": 3.488,
+        "wall_ms": 3.4903477499999997,
+        "peak_used_bytes": 5964136
+      },
+      "candidate": {
+        "cpu_ms": 0.1255,
+        "wall_ms": 0.12602225,
+        "peak_used_bytes": 4058040
+      },
+      "cpu_speedup": 27.792828685258964
+    },
+    {
+      "case": "default_core",
+      "size": 100,
+      "mode": "tracing",
+      "baseline": {
+        "cpu_ms": 0.9796666666666666,
+        "wall_ms": 0.980521,
+        "peak_used_bytes": 4070120
+      },
+      "candidate": {
+        "cpu_ms": 0.9863333333333333,
+        "wall_ms": 0.9877511666666667,
+        "peak_used_bytes": 4070336
+      },
+      "cpu_speedup": 0.9932409597837106
+    },
+    {
+      "case": "plain",
+      "size": 100,
+      "mode": "tracing",
+      "baseline": {
+        "cpu_ms": 0.0933,
+        "wall_ms": 0.0936092,
+        "peak_used_bytes": 4056800
+      },
+      "candidate": {
+        "cpu_ms": 0.09240000000000001,
+        "wall_ms": 0.0926826,
+        "peak_used_bytes": 4057016
+      },
+      "cpu_speedup": 1.0097402597402596
+    },
+    {
+      "case": "core",
+      "size": 100,
+      "mode": "tracing",
+      "baseline": {
+        "cpu_ms": 8.66475,
+        "wall_ms": 8.66791225,
+        "peak_used_bytes": 6699560
+      },
+      "candidate": {
+        "cpu_ms": 8.4145,
+        "wall_ms": 8.41690925,
+        "peak_used_bytes": 6700768
+      },
+      "cpu_speedup": 1.0297403291936538
+    }
+  ],
+  "completed_at": "2026-10-02T21:41:16.369270+00:00",
+  "load_end": [
+    2.5537109375,
+    3.92138671875,
+    5.021484375
+  ],
+  "baseline_revision": "2037b6e2cb3aac3d7966d4168a45de33a29da49b"
+}

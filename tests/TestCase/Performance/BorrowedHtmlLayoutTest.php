@@ -166,6 +166,7 @@ CRV;
             'blockQuotes' => 1,
             'codeFences' => 1,
             'thematicBreaks' => 0,
+            'images' => 0,
             'unorderedListItems' => 3,
             'orderedListItems' => 0,
             'tableRows' => 2,
@@ -194,14 +195,8 @@ CRV;
             $this->assertSame($converter->convert($source), $attempt['html'], basename($path));
         }
 
-        // 52 since the bump to carve 578d564d. Diffing the accepted set across
-        // the two pins names the three newly accepted documents and no dropped
-        // one: `522-an-emphasis-marker-does-not-pair-across-a-link-bracket-2`,
-        // `524-an-empty-code-payload-renders-no-characters` and its `-2`. Each
-        // one's parity assertion above passes, so the fast path renders it
-        // exactly as the authoritative renderer does; the count moved with the
-        // corpus, not the routing.
-        $this->assertSame(52, $accepted, 'A fast-path routing change needs explicit review.');
+        // Unicode letters, simple images, and flat star lists add seven sources.
+        $this->assertSame(59, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void
@@ -213,7 +208,7 @@ CRV;
                 "::: note\nx\n:::\n",
                 "[^n]: note\n\nref[^n]\n",
                 "- loose\n\n- list\n",
-                "non-ASCII café\n",
+                "Unicode punctuation 😀\n",
                 "| H | G |\n| --- | --- |\n| a | ^ |\n",
                 "| H | G |\n| --- | --- |\n| a | < |\n",
                 "| A | < |\n| --- | --- |\n| a | b |\n",
