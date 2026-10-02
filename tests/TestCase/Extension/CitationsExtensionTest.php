@@ -70,6 +70,39 @@ class CitationsExtensionTest extends TestCase
         );
     }
 
+    public function testEscapedSuppressAuthorMarkerStaysInThePrefix(): void
+    {
+        foreach ([['[\-@a]', false], ['[\\\\-@a]', true]] as [$source, $suppressed]) {
+            $group = $this->firstCitationGroup($source);
+            $this->assertSame($suppressed, $group?->getItems()[0]['suppressAuthor'], $source);
+        }
+    }
+
+    public function testLongCitationPrefixIsRecognized(): void
+    {
+        $group = $this->firstCitationGroup('[' . str_repeat('x ', 16384) . '@a]');
+        $this->assertSame('a', $group?->getItems()[0]['key']);
+    }
+
+    public function testCitationItemEscapesAndSoftWraps(): void
+    {
+        foreach (
+            [
+                ['[\@a]', null],
+                ['[\\\\@a]', 'a'],
+                ['[\\\\\@a]', null],
+                ['[escaped \@a, see @b]', 'b'],
+                ['[mail me @ home, see @a]', 'a'],
+                ["[see\n@a]", 'a'],
+                ['[@a , p. 4]', null],
+                ['[@a\\,b]', null],
+            ] as [$source, $key]
+        ) {
+            $group = $this->firstCitationGroup($source);
+            $this->assertSame($key, $group?->getItems()[0]['key'], $source);
+        }
+    }
+
     public function testParsesCitationGroup(): void
     {
         $group = $this->firstCitationGroup('[@smith2020]');

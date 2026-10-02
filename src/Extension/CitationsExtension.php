@@ -441,27 +441,48 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
         return $this->bracketPairs[$text] = $pairs;
     }
 
+    private function isEscapedAt(string $text, int $at): bool
+    {
+        $escapes = 0;
+        for ($i = $at - 1; $i >= 0 && $text[$i] === '\\'; $i--) {
+            $escapes++;
+        }
+
+        return $escapes % 2 === 1;
+    }
+
     /**
      * @return array{key: string, suppressAuthor: bool, prefix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locator?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>, locatorLabel?: string, locatorValue?: string, suffix?: list<\MarkupCarve\Carve\Node\Inline\InlineNode>}|null
      */
     protected function parseItem(string $raw, MatcherContext $ctx): ?array
     {
-        if (!preg_match('/^(.*?)(-?)@(' . self::KEY_PATTERN . ')(?:,\s*(.*))?$/', trim($raw), $matches)) {
+        $text = trim($raw);
+        $matches = [];
+        for ($at = strpos($text, '@'); $at !== false; $at = strpos($text, '@', $at + 1)) {
+            if ($this->isEscapedAt($text, $at)) {
+                continue;
+            }
+            if (preg_match('/\\G(' . self::KEY_PATTERN . ')(?:,\\s*(.*))?$/s', $text, $matches, offset: $at + 1)) {
+                break;
+            }
+        }
+        if (!isset($matches[1])) {
             return null;
         }
 
+        $suppressAuthor = $at > 0 && $text[$at - 1] === '-' && !$this->isEscapedAt($text, $at - 1);
         $item = [
             'type' => 'citation',
-            'key' => $matches[3],
-            'suppressAuthor' => $matches[2] === '-',
+            'key' => $matches[1],
+            'suppressAuthor' => $suppressAuthor,
         ];
 
-        $prefix = rtrim($matches[1]);
+        $prefix = rtrim(substr($text, 0, $at - ($suppressAuthor ? 1 : 0)));
         if ($prefix !== '') {
             $item['prefix'] = $this->onlyInlineNodes($ctx->parseInlines($prefix));
         }
 
-        $locRaw = trim($matches[4] ?? '');
+        $locRaw = trim($matches[2] ?? '');
         if ($locRaw !== '') {
             // Store the full locator as rendered inlines (for display).
             $item['locator'] = $this->onlyInlineNodes($ctx->parseInlines($locRaw));
