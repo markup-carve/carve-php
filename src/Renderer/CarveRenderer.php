@@ -2162,6 +2162,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 return;
             }
             if ($slot === '.class') {
+                if (isset($seen['class'])) {
+                    return;
+                }
+                $seen['class'] = true;
                 foreach ((array)($attrs['class'] ?? []) as $class) {
                     if (isset($structural[$class])) {
                         continue;
@@ -2202,33 +2206,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         };
 
         $order = $node->getAttributeOrder();
-        if ($order !== []) {
-            foreach ($order as $slot) {
-                $emit($slot);
-            }
-            foreach ($attrs as $key => $_value) {
-                // An id with no `#id` slot is a GENERATED one - since carve#750
-                // a heading's slugged id is on the wire, so a decoded node
-                // carries it - and a writer reproduces what the author wrote.
-                // A generated id was not written by the author.
-                if ((string)$key === 'id' && !in_array('#id', $order, true)) {
-                    continue;
-                }
-                $emit((string)$key);
-            }
-        } else {
-            // NO SLOTS AT ALL. An `id` here is a GENERATED one - since carve#750
-            // a heading's slugged id is published, and an AUTHORED id always
-            // carries its `#id` slot - so emitting it writes `{#Welcome}` above
-            // a heading whose source has no attribute block. A programmatic
-            // tree that wants the id in the source records the slot.
-            if (!array_key_exists('id', $attrs)) {
-                $emit('#id');
-            }
+        foreach ($order as $slot) {
+            $emit($slot);
+        }
+        if ($order === []) {
+            $emit('#id');
             $emit('.class');
-            foreach ($attrs as $key => $_value) {
-                $emit((string)$key);
-            }
+        }
+        foreach ($attrs as $key => $_value) {
+            $emit(match ((string)$key) {
+                'id' => '#id',
+                'class' => '.class',
+                default => (string)$key,
+            });
         }
 
         return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
@@ -4404,7 +4394,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $markers .= $marker;
             }
         }
-        $rendered = $this->renderAttrList($node->getAttributeEntries(), $node->getAttributeOrder(), $markers);
+        $attrs = $node->getAttributeEntries();
+        if ($node instanceof Heading && !in_array('#id', $node->getAttributeOrder(), true)) {
+            unset($attrs['id']);
+        }
+        $rendered = $this->renderAttrList($attrs, $node->getAttributeOrder(), $markers);
         $payload = '';
         foreach ($node->getAttributeEntries() as $key => $value) {
             $payload .= $key . (is_array($value) ? implode('', $value) : $value);
@@ -4450,6 +4444,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 return;
             }
             if ($slot === '.class') {
+                if (isset($seen['class'])) {
+                    return;
+                }
+                $seen['class'] = true;
                 foreach ((array)($attrs['class'] ?? []) as $class) {
                     $parts[] = $this->isExplicitIdOrClassIdentifier($class) && ($markers === '' || strpbrk($class, $markers) === false)
                         ? '.' . $this->escapeAttrNameValue($class)
@@ -4502,33 +4500,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             }
         };
 
-        if ($order !== []) {
-            foreach ($order as $slot) {
-                $emit($slot);
-            }
-            foreach ($attrs as $key => $_value) {
-                // An id with no `#id` slot is a GENERATED one - since carve#750
-                // a heading's slugged id is on the wire, so a decoded node
-                // carries it - and a writer reproduces what the author wrote.
-                // A generated id was not written by the author.
-                if ((string)$key === 'id' && !in_array('#id', $order, true)) {
-                    continue;
-                }
-                $emit((string)$key);
-            }
-        } else {
-            // NO SLOTS AT ALL. An `id` here is a GENERATED one - since carve#750
-            // a heading's slugged id is published, and an AUTHORED id always
-            // carries its `#id` slot - so emitting it writes `{#Welcome}` above
-            // a heading whose source has no attribute block. A programmatic
-            // tree that wants the id in the source records the slot.
-            if (!array_key_exists('id', $attrs)) {
-                $emit('#id');
-            }
+        foreach ($order as $slot) {
+            $emit($slot);
+        }
+        if ($order === []) {
+            $emit('#id');
             $emit('.class');
-            foreach ($attrs as $key => $_value) {
-                $emit((string)$key);
-            }
+        }
+        foreach ($attrs as $key => $_value) {
+            $emit(match ((string)$key) {
+                'id' => '#id',
+                'class' => '.class',
+                default => (string)$key,
+            });
         }
 
         return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
