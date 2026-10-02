@@ -6930,7 +6930,10 @@ class BlockParser
         $fenceLen = 0;
         for ($j = $openIdx + 1; $j < $n; $j++) {
             $line = $subLines[$j];
-            $column = IndentationHelper::getLeadingColumns($line);
+            // Capped for the same reason as the div gate in
+            // BlockContinuationScanner: only zero, `$base` and deeper are
+            // distinguished, so the walk stops one column past `$base`.
+            $column = IndentationHelper::getLeadingColumns($line, $base + 1);
             if ($column !== 0 && $column !== $base) {
                 continue;
             }

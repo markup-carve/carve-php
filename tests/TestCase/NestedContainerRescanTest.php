@@ -261,6 +261,34 @@ class NestedContainerRescanTest extends TestCase
     }
 
     /**
+     * A RECOVERED CONTAINER IS A CONTAINER, and pays a container's gate.
+     *
+     * markup-carve/carve#2693 made an invalid opener keep its container
+     * instead of collapsing to a paragraph, which put `::: not an opener` on
+     * the nesting path for the first time. The div gate and the colon-span
+     * looseness walk both read the whole indentation run there to answer a
+     * question about three columns, once per level: 666,600 characters on a
+     * depth-100 run against 29,502 now, growing 8.00x per depth doubling where
+     * the document's own bytes grow 3.41x.
+     *
+     * Kept out of the `scaling` group deliberately. The broad shape net runs
+     * on main only, and this defect reached main because nothing cheap enough
+     * for a pull request spelled a recovered container.
+     *
+     * @return void
+     */
+    public function testTheGateStaysLinearOverRecoveredContainers(): void
+    {
+        $large = $this->countWork(self::shape('colon-run', 100));
+        // The discriminating bound: 2.44x the document here, 55x before.
+        $this->assertLessThanOrEqual(4 * $large['bytes'], $large['gate']);
+
+        $small = $this->countWork(self::shape('colon-run', 50));
+        $this->assertGreaterThan(0, $small['gate']);
+        $this->assertLessThanOrEqual(4.4, $large['gate'] / $small['gate']);
+    }
+
+    /**
      * The ladder above is made of bullets, and a guard that only ever sees one
      * line shape cannot see a residual that a different shape still pays -
      * exactly the residual markup-carve/carve-rs#742 found in its own first
