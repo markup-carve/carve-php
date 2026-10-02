@@ -2345,16 +2345,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $bodyStart = $headerRowCount;
         foreach ($bodies as $body) {
             $bodyEnd = $bodyStart + $body['headRows'] + $body['bodyRows'];
-            // A BODY GROUP THAT CONSUMES NO ROWS AND CARRIES NO ATTRIBUTES
-            // RENDERS NOTHING. The derived fallback beside this loop already
-            // omitted the group in that case, so once `{header-rows=2}` over
-            // two rows began stating its partition here, the same structure
-            // rendered an empty `<tbody>` through this branch and none through
-            // the fallback. An empty section that carries attributes still
-            // renders: the attributes are the thing it is there to hold.
-            if ($bodyEnd === $bodyStart && !isset($body['attrs']) && $node->getAttribute('body-rows') === null && $stated !== null) {
-                continue;
-            }
             $tbody = '';
             for ($i = $bodyStart; $i < $bodyEnd; $i++) {
                 $header = $i < $bodyStart + $body['headRows'];

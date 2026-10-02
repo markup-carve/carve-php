@@ -133,7 +133,7 @@ class Table extends BlockNode
 
         return [
             'headRows' => $head,
-            'bodies' => [['headRows' => 0, 'bodyRows' => $rows - $head - $foot]],
+            'bodies' => $rows > $head + $foot ? [['headRows' => 0, 'bodyRows' => $rows - $head - $foot]] : [],
             'footRows' => $foot,
         ];
     }

@@ -29,4 +29,18 @@ class TableWidthPrecisionTest extends TestCase
             $this->assertSame($width, TableWidth::fraction(TableWidth::percentage($width)));
         }
     }
+
+    public function testPercentageIgnoresAndRestoresSerializePrecision(): void
+    {
+        $previous = ini_get('serialize_precision');
+        try {
+            ini_set('serialize_precision', '17');
+            $this->assertSame('33.3', TableWidth::percentage(0.333));
+            $this->assertSame('17', ini_get('serialize_precision'));
+        } finally {
+            if ($previous !== false) {
+                ini_set('serialize_precision', $previous);
+            }
+        }
+    }
 }
