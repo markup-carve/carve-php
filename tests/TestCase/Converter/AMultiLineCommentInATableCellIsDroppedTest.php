@@ -98,4 +98,21 @@ class AMultiLineCommentInATableCellIsDroppedTest extends TestCase
             2048,
         );
     }
+
+    #[Group('scaling')]
+    public function testReportInspectionDoesNotRescanEveryOtherCell(): void
+    {
+        $importer = new HtmlToCarve(listTableForBlockCells: true);
+        $row = "<tr><td>a<!-- x\ny -->b</td></tr>";
+        $this->assertConversionScalesLinearly(
+            static function (string $html) use ($importer): void {
+                $importer->convertWithReport($html);
+            },
+            '<table>' . str_repeat($row, 512) . '</table>',
+            '<table>' . str_repeat($row, 2048) . '</table>',
+            'multiline table comment reports',
+            512,
+            2048,
+        );
+    }
 }
