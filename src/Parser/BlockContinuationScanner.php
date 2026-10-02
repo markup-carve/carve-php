@@ -1713,7 +1713,10 @@ final class BlockContinuationScanner
             // the body and the closing fence. An UNTERMINATED div (closer never
             // seen) is handled at the gate via inDiv, which keeps it foldable
             // (it is paragraph text under the §10 closer-lookahead rule).
-            $column = IndentationHelper::getLeadingColumns($line);
+            // Capped: the test only tells column zero, the div's own column and
+            // anything deeper apart, so a walk past that answers nothing and
+            // costs the indentation run once per container level.
+            $column = IndentationHelper::getLeadingColumns($line, $state->divColumn + 1);
             if (
                 $column !== 0 && $column !== $state->divColumn
                 && ($this->getFencedBlockParser)()->parseDivFenceOpener(BlockGrammar::subjectFrom($line, $at, $end)) !== null
