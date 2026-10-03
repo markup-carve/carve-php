@@ -35,8 +35,12 @@ final class TableSpanGrid
         $rowCount = count($rows);
         /** @var array<int, int> $lastNonSkip */
         $lastNonSkip = [];
+        // Retain left origins only for merged cells, including later caret lookups.
+        /** @var array<int, array<int, int>> $colspanOrigins */
+        $colspanOrigins = [];
         for ($r = 0; $r < $rowCount; $r++) {
             $colCount = count($rows[$r]);
+            $lastVisible = -1;
             for ($c = 0; $c < $colCount; $c++) {
                 /** @var array{cell: \MarkupCarve\Carve\Node\Block\TableCell, rowspan: int, colspan: int, skip: bool} $entry */
                 $entry = $rows[$r][$c];
@@ -50,10 +54,7 @@ final class TableSpanGrid
                     $origin = $rows[$up][$c];
                     $coveredByVisibleSpan = false;
                     if ($origin['skip']) {
-                        $left = $c - 1;
-                        while ($left >= 0 && $rows[$up][$left]['skip']) {
-                            $left--;
-                        }
+                        $left = $colspanOrigins[$up][$c] ?? -1;
                         if ($left >= 0) {
                             $visible = $rows[$up][$left];
                             $coveredByVisibleSpan = $left + $visible['colspan'] > $c && $up + $visible['rowspan'] > $r;
@@ -65,19 +66,20 @@ final class TableSpanGrid
                         $entry['skip'] = true;
                     }
                 } elseif ($marker === '<' && $c > 0) {
-                    $left = $c - 1;
-                    while ($left >= 0 && $rows[$r][$left]['skip']) {
-                        $left--;
-                    }
+                    $left = $lastVisible;
                     if ($left >= 0) {
                         /** @var array{cell: \MarkupCarve\Carve\Node\Block\TableCell, rowspan: int, colspan: int, skip: bool} $target */
                         $target = $rows[$r][$left];
                         $target['colspan']++;
                         $rows[$r][$left] = $target;
                         $entry['skip'] = true;
+                        $colspanOrigins[$r][$c] = $left;
                     }
                 }
                 $rows[$r][$c] = $entry;
+                if (!$entry['skip']) {
+                    $lastVisible = $c;
+                }
                 if (!$entry['skip'] || $marker === '<') {
                     $lastNonSkip[$c] = $r;
                 }

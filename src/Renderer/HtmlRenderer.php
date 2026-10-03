@@ -2259,13 +2259,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $partition = $node->getRowGroups();
         if ($partition !== null && (isset($partition['headAttrs']) || isset($partition['footAttrs']) || array_filter($partition['bodies'], static fn (array $body): bool => isset($body['attrs'])) !== [])) {
             $end = $partition['headRows'];
-            $boundaries = [$end];
+            $boundaries = [$end => true];
             foreach ($partition['bodies'] as $body) {
                 $end += $body['headRows'] + $body['bodyRows'];
-                $boundaries[] = $end;
+                $boundaries[$end] = true;
             }
             foreach ($node->getChildren() as $index => $row) {
-                if (!$row instanceof TableRow || !in_array($index, $boundaries, true)) {
+                if (!$row instanceof TableRow || !isset($boundaries[$index])) {
                     continue;
                 }
                 foreach ($row->getChildren() as $cellIndex => $cell) {
@@ -2363,19 +2363,23 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
         $tableRowCount = count($tableRows);
         $footerStart = $tableRowCount - $footerRowCount;
-        $sectionEnds = [$headerRowCount, $footerStart];
+        $sectionEnds = [$headerRowCount => true, $footerStart => true];
         $sectionEnd = $headerRowCount;
         foreach ($groups['bodies'] ?? [] as $body) {
             $sectionEnd += $body['headRows'] + $body['bodyRows'];
-            $sectionEnds[] = $sectionEnd;
+            $sectionEnds[$sectionEnd] = true;
         }
         $crossesSection = false;
-        foreach ($grid as $rowIndex => $gridRow) {
-            foreach ($gridRow as $entry) {
+        $nextBoundary = PHP_INT_MAX;
+        for ($rowIndex = count($grid) - 1; $rowIndex >= 0; $rowIndex--) {
+            if (isset($sectionEnds[$rowIndex + 1])) {
+                $nextBoundary = $rowIndex + 1;
+            }
+            foreach ($grid[$rowIndex] as $entry) {
                 $end = $rowIndex + $entry['rowspan'];
                 if (
                     !$entry['skip'] && $entry['rowspan'] > 1
-                    && array_filter($sectionEnds, static fn (int $boundary): bool => $rowIndex < $boundary && $end > $boundary) !== []
+                    && $end > $nextBoundary
                 ) {
                     $crossesSection = true;
 
