@@ -1376,6 +1376,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $attrs = $this->renderAttributes($node);
         $children = $node->getChildren();
 
+        if (
+            $this::class === self::class
+            && !$this->hasListenersFor('render.block_quote')
+            && ($this->renderMode !== RenderMode::STATIC || $this->staticRenderExtensions === [])
+            && count($children) === 1
+            && $children[0]::class === BlockQuote::class
+        ) {
+            return $this->renderBlockQuoteChain($attrs, $children[0]);
+        }
+
         // Rendered ONCE, and the pieces serve both the framing decision below
         // and the output. Rendering a child again to test whether it is empty
         // doubles the work at every nesting level.
@@ -1402,6 +1412,57 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         return '<blockquote' . $attrs . ">\n"
             . $this->indentBlock($inner, 2) . "\n</blockquote>\n";
+    }
+
+    /**
+     * Apply cumulative indentation without copying the subtree at every quote.
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
+     */
+    private function renderBlockQuoteChain(string $attrs, BlockQuote $inner): string
+    {
+        $openers = [$attrs];
+        while (true) {
+            $next = $inner->getChildren();
+            if (count($next) !== 1 || $next[0]::class !== BlockQuote::class) {
+                break;
+            }
+            if ($this->renderDepth + count($openers) >= self::MAX_RENDER_DEPTH) {
+                throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
+            }
+            $openers[] = $this->renderAttributes($inner);
+            $inner = $next[0];
+        }
+        $savedDepth = $this->renderDepth;
+        $this->renderDepth += count($openers) - 1;
+        try {
+            $body = $this->renderNode($inner);
+        } finally {
+            $this->renderDepth = $savedDepth;
+        }
+        // A raw preformatted region can keep closing quotes at column zero.
+        // Preserve the recursive wrapping without rendering children again.
+        if (str_contains($body, '<pre')) {
+            for ($depth = count($openers) - 1; $depth >= 0; $depth--) {
+                $body = '<blockquote' . $openers[$depth] . ">\n"
+                    . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</blockquote>\n";
+            }
+
+            return $body;
+        }
+        $parts = [];
+        foreach ($openers as $depth => $opener) {
+            $opening = '<blockquote' . $opener . ">\n";
+            $parts[] = str_contains($opener, "\n")
+                ? $this->indentBlock($opening, $depth * 2)
+                : str_repeat(' ', $depth * 2) . $opening;
+        }
+        $parts[] = $this->indentBlock(rtrim($body, "\n"), count($openers) * 2) . "\n";
+        for ($depth = count($openers) - 1; $depth >= 0; $depth--) {
+            $parts[] = str_repeat(' ', $depth * 2) . "</blockquote>\n";
+        }
+
+        return implode('', $parts);
     }
 
     /**
