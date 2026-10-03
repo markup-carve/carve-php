@@ -28,6 +28,50 @@ class TableSpansTest extends TestCase
         $this->converter = new CarveConverter();
     }
 
+    public function testAttributedRowGroupsKeepTheirBoundaryAndTheOriginalAst(): void
+    {
+        $doc = $this->converter->parse("| A | B |\n| ^ | C |\n");
+        $table = $doc->getChildren()[0];
+        self::assertInstanceOf(Table::class, $table);
+        $table->setRowGroups([
+            'headRows' => 0,
+            'footRows' => 0,
+            'bodies' => [
+                ['headRows' => 0, 'bodyRows' => 1, 'attrs' => ['id' => 'first']],
+                ['headRows' => 0, 'bodyRows' => 1, 'attrs' => ['id' => 'second']],
+            ],
+        ]);
+        $before = (new AstCodec())->encode($doc);
+        $html = $this->converter->render($doc);
+        self::assertStringContainsString('<tbody id="first">', $html);
+        self::assertStringContainsString('<tbody id="second">', $html);
+        self::assertStringNotContainsString('rowspan=', $html);
+        self::assertStringContainsString('<tr><td></td><td>C</td></tr>', $html);
+        self::assertSame($before, (new AstCodec())->encode($doc));
+        self::assertSame($html, $this->converter->render($doc));
+    }
+
+    public function testAttributedHeadAndFootBoundariesStopSpans(): void
+    {
+        foreach (['head', 'foot'] as $section) {
+            $doc = $this->converter->parse("| A | < | B |\n| ^ | < | C |\n");
+            $table = $doc->getChildren()[0];
+            self::assertInstanceOf(Table::class, $table);
+            $table->setRowGroups([
+                'headRows' => $section === 'head' ? 1 : 0,
+                'footRows' => $section === 'foot' ? 1 : 0,
+                $section . 'Attrs' => ['id' => $section],
+                'bodies' => [['headRows' => 0, 'bodyRows' => 1]],
+            ]);
+            $before = (new AstCodec())->encode($doc);
+            $html = $this->converter->render($doc);
+            self::assertStringContainsString('<t' . $section . ' id="' . $section . '">', $html);
+            self::assertStringNotContainsString('rowspan=', $html);
+            self::assertStringContainsString('<td colspan="2"></td><td>C</td>', $html);
+            self::assertSame($before, (new AstCodec())->encode($doc));
+        }
+    }
+
     public function testBasicColspan(): void
     {
         $djot = <<<'DJOT'
