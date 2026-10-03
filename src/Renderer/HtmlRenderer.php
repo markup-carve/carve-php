@@ -1680,7 +1680,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             // A "plain" paragraph carries no attributes beyond an optional
             // data-source-line stamp (which must never change structure), so
             // its <p> wrapper may be dropped in a tight item.
-            $isPlain = $isParagraph
+            $renderBare = $tight && $isParagraph
                 && preg_match('/^<p( data-source-line="\d+")?>(.*)<\/p>$/s', $rendered, $pm) === 1;
 
             // The first child, when it is a paragraph, is the lead that sits
@@ -1692,13 +1692,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 // Tight lead drops the <p>; loose keeps it. A data-source-line
                 // wrapper is stripped in tight items too (the source-line
                 // option keeps its anchor on the <li>, not the paragraph).
-                $lead = $tight && $isPlain ? $pm[2] : $rendered;
+                $lead = $renderBare ? $pm[2] : $rendered;
                 $haveLead = true;
 
                 continue;
             }
 
-            if ($tight && $isPlain) {
+            if ($renderBare) {
                 // A tight paragraph after a closed block renders bare, with its
                 // inline soft breaks guarded so the list's block indentation
                 // leaves the continuation lines flush.
@@ -2197,21 +2197,26 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $spanTable = $node;
         $partition = $node->getRowGroups();
         if ($partition !== null && (isset($partition['headAttrs']) || isset($partition['footAttrs']) || array_filter($partition['bodies'], static fn (array $body): bool => isset($body['attrs'])) !== [])) {
-            $spanTable = clone $node;
             $end = $partition['headRows'];
             $boundaries = [$end];
             foreach ($partition['bodies'] as $body) {
                 $end += $body['headRows'] + $body['bodyRows'];
                 $boundaries[] = $end;
             }
-            foreach ($spanTable->getChildren() as $index => $row) {
+            foreach ($node->getChildren() as $index => $row) {
                 if (!$row instanceof TableRow || !in_array($index, $boundaries, true)) {
                     continue;
                 }
-                foreach ($row->getChildren() as $cell) {
-                    if ($cell instanceof TableCell && $cell->getSpanMarker() === 'rowspan') {
-                        $cell->setSpanMarker(null);
-                        $cell->setChildren([]);
+                foreach ($row->getChildren() as $cellIndex => $cell) {
+                    if ($cell instanceof TableCell && $cell->getSpanMarker() === '^') {
+                        if ($spanTable === $node) {
+                            $spanTable = clone $node;
+                        }
+                        $copy = $spanTable->getChildren()[$index]->getChildren()[$cellIndex];
+                        if ($copy instanceof TableCell) {
+                            $copy->setSpanMarker(null);
+                            $copy->setChildren([]);
+                        }
                     }
                 }
             }
