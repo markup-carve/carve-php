@@ -26,20 +26,30 @@ final class BlockParserState
 
     public function __clone(): void
     {
-        $session = $this->session;
-        $this->session = new BlockParseSession();
-        foreach (get_object_vars($session) as $property => $value) {
-            $this->session->{$property} = $value;
+        $this->session = self::copyWithoutReferences($this->session);
+        $this->frame = self::copyWithoutReferences($this->frame);
+        $this->source = self::copyWithoutReferences($this->source);
+    }
+
+    /**
+     * Legacy parser properties bind state fields by reference. Recreating each
+     * object detaches those bindings; native cloning would share their slots.
+     *
+     * @template T of \MarkupCarve\Carve\Parser\BlockParseSession|\MarkupCarve\Carve\Parser\BlockParseFrame|\MarkupCarve\Carve\Parser\BlockSourceState
+     *
+     * @param T $state
+     *
+     * @return T
+     */
+    private static function copyWithoutReferences(
+        BlockParseSession|BlockParseFrame|BlockSourceState $state,
+    ): BlockParseSession|BlockParseFrame|BlockSourceState {
+        $class = $state::class;
+        $copy = new $class();
+        foreach (get_object_vars($state) as $property => $value) {
+            $copy->{$property} = $value;
         }
-        $frame = $this->frame;
-        $this->frame = new BlockParseFrame();
-        foreach (get_object_vars($frame) as $property => $value) {
-            $this->frame->{$property} = $value;
-        }
-        $source = $this->source;
-        $this->source = new BlockSourceState();
-        foreach (get_object_vars($source) as $property => $value) {
-            $this->source->{$property} = $value;
-        }
+
+        return $copy;
     }
 }
