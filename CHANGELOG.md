@@ -11,6 +11,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Improvements
 
+- Extract the comment-fence closer scan from body rebasing while preserving closer matching at any column and unclosed-span handling (#2858).
 - Extract list, quote, and table extent scans from body rebasing while preserving blank and column checks (#2857).
 - Extract code-fence, colon-group, and definition-body extent scans from list-body rebasing while preserving column checks and scan order.
 - Extract the authored-base eligibility probe from list-body rebasing while preserving its early exits and scan order.
