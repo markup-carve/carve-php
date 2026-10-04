@@ -1295,6 +1295,101 @@ final class ListBlockBuilder
     }
 
     /**
+     * Check whether a chunk contains an authored block base to rebase.
+     *
+     * @param array<string> $lines
+     * @param array<int, true>|null $eligible
+     * @param int|null $leadNestedColumn
+     * @param bool $includeSublists
+     * @param bool $hasBlank
+     */
+    private function hasAuthoredBaseCandidate(
+        array $lines,
+        ?array $eligible,
+        ?int $leadNestedColumn,
+        bool $includeSublists,
+        bool $hasBlank,
+    ): bool {
+        // Most item chunks contain prose and/or sub-list markers only. Reject
+        // those with a byte-level opener probe before asking the visual-column
+        // gate about every line; the latter is deliberately instrumented by the
+        // scaling suite and must not be repeated at every nesting depth.
+        $probeNestedColumns = $leadNestedColumn === null ? [] : [$leadNestedColumn];
+        $probeAfterBlank = false;
+        $skipUntil = -1;
+        foreach ($lines as $index => $line) {
+            if ($index <= $skipUntil) {
+                continue;
+            }
+            if (IndentationHelper::isBlankLine($line)) {
+                $probeAfterBlank = true;
+
+                continue;
+            }
+            $base = IndentationHelper::getLeadingColumns($line);
+            if (
+                !$probeAfterBlank
+                && $probeNestedColumns !== []
+                && $base < end($probeNestedColumns)
+                && !$this->authoredBaseReachesEnclosingColumn($eligible, $index, $base, $line)
+            ) {
+                continue;
+            }
+            if (
+                $probeNestedColumns !== []
+                && $base < end($probeNestedColumns)
+                && $this->isCommentLineOrFence(ltrim($line, " \t"))
+                && ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($line) === null
+            ) {
+                continue;
+            }
+            while ($probeNestedColumns !== [] && $base < end($probeNestedColumns)) {
+                array_pop($probeNestedColumns);
+            }
+            $local = ltrim($line, " \t");
+            $marker = ($this->getListParser)()->parseListItemMarker($local);
+            if ($marker !== null) {
+                if ($includeSublists && $base > 0 && $probeNestedColumns === []) {
+                    return true;
+                }
+                if (!$hasBlank && $index > 0) {
+                    return false;
+                }
+                $probeNestedColumns[] = $base + $this->listMarkerWidth($local, $marker);
+                $probeAfterBlank = false;
+
+                continue;
+            }
+            if (!$hasBlank && $index > 0 && $base === 0 && $this->blockQuoteLineContent($local) !== null) {
+                if ($includeSublists) {
+                    return false;
+                }
+                $end = $this->blockQuoteExtentThroughDefinition($lines, $index);
+                if ($this->containerExtentBeforeADefinition($lines, $index, $end) < $end) {
+                    return true;
+                }
+                $skipUntil = $end;
+                $probeAfterBlank = false;
+
+                continue;
+            }
+            if ($probeNestedColumns !== [] && $base >= end($probeNestedColumns)) {
+                continue;
+            }
+            if (
+                ($eligible === null || isset($eligible[$index]))
+                && $base > 0
+                && $this->lineOpensBlockForLooseness($local, true)
+            ) {
+                return true;
+            }
+            $probeAfterBlank = false;
+        }
+
+        return false;
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -1351,89 +1446,7 @@ final class ListBlockBuilder
             }
         }
 
-        // Most item chunks contain prose and/or sub-list markers only. Reject
-        // those with a byte-level opener probe before asking the visual-column
-        // gate about every line; the latter is deliberately instrumented by the
-        // scaling suite and must not be repeated at every nesting depth.
-        $hasCandidate = false;
-        $probeNestedColumns = $leadNestedColumn === null ? [] : [$leadNestedColumn];
-        $probeAfterBlank = false;
-        $skipUntil = -1;
-        foreach ($lines as $index => $line) {
-            if ($index <= $skipUntil) {
-                continue;
-            }
-            if (IndentationHelper::isBlankLine($line)) {
-                $probeAfterBlank = true;
-
-                continue;
-            }
-            $base = IndentationHelper::getLeadingColumns($line);
-            if (
-                !$probeAfterBlank
-                && $probeNestedColumns !== []
-                && $base < end($probeNestedColumns)
-                && !$this->authoredBaseReachesEnclosingColumn($eligible, $index, $base, $line)
-            ) {
-                continue;
-            }
-            if (
-                $probeNestedColumns !== []
-                && $base < end($probeNestedColumns)
-                && $this->isCommentLineOrFence(ltrim($line, " \t"))
-                && ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($line) === null
-            ) {
-                continue;
-            }
-            while ($probeNestedColumns !== [] && $base < end($probeNestedColumns)) {
-                array_pop($probeNestedColumns);
-            }
-            $local = ltrim($line, " \t");
-            $marker = ($this->getListParser)()->parseListItemMarker($local);
-            if ($marker !== null) {
-                if ($includeSublists && $base > 0 && $probeNestedColumns === []) {
-                    $hasCandidate = true;
-
-                    break;
-                }
-                if (!$hasBlank && $index > 0) {
-                    return $lines;
-                }
-                $probeNestedColumns[] = $base + $this->listMarkerWidth($local, $marker);
-                $probeAfterBlank = false;
-
-                continue;
-            }
-            if (!$hasBlank && $index > 0 && $base === 0 && $this->blockQuoteLineContent($local) !== null) {
-                if ($includeSublists) {
-                    return $lines;
-                }
-                $end = $this->blockQuoteExtentThroughDefinition($lines, $index);
-                if ($this->containerExtentBeforeADefinition($lines, $index, $end) < $end) {
-                    $hasCandidate = true;
-
-                    break;
-                }
-                $skipUntil = $end;
-                $probeAfterBlank = false;
-
-                continue;
-            }
-            if ($probeNestedColumns !== [] && $base >= end($probeNestedColumns)) {
-                continue;
-            }
-            if (
-                ($eligible === null || isset($eligible[$index]))
-                && $base > 0
-                && $this->lineOpensBlockForLooseness($local, true)
-            ) {
-                $hasCandidate = true;
-
-                break;
-            }
-            $probeAfterBlank = false;
-        }
-        if (!$hasCandidate) {
+        if (!$this->hasAuthoredBaseCandidate($lines, $eligible, $leadNestedColumn, $includeSublists, $hasBlank)) {
             return $lines;
         }
 
