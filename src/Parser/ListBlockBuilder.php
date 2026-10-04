@@ -1572,6 +1572,41 @@ final class ListBlockBuilder
     }
 
     /**
+     * Matching comment-fence closer at any column, or null for an unclosed span.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     * @param int $width
+     */
+    private function rebasedCommentFenceCloser(array $lines, int $start, int $count, int $width): ?int
+    {
+        // A DEGRADED FENCE CLAIMS NO EXTENT. §28 gives an opener with
+        // no matching closer ahead no block at all, so the run below it
+        // is not its payload and the authored base is the opener's own
+        // line. Without this the run was rebased along with the opener
+        // and arrived at the item's column 0, where `# y` opened a
+        // heading and the `%% z` spelling of the same document folds it
+        // as text (carve-php#1877).
+        //
+        // A COLUMN ENDS NO SPAN. §28 pairs the delimiters on LENGTH
+        // ALONE and CARVE-P0-013 has the run close the span at any
+        // column, so a line below the base is payload and does not end
+        // the search - the same question `hasClosingCommentFenceAhead()`
+        // asks when the fence opens. Stopping there rolled a CLOSED
+        // span back to its opener, and the payload then reached the
+        // nested parse carrying the base the opener had lost
+        // (markup-carve/carve#2503).
+        for ($j = $start + 1; $j < $count; $j++) {
+            if (($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($lines[$j], $width)) {
+                return $j;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Last nonblank line at the list or quote opener's authored base.
      * Quote prefixes and lazy paragraph continuations share that base.
      *
@@ -1950,36 +1985,8 @@ final class ListBlockBuilder
             if ($code !== null) {
                 $end = $this->rebasedCodeFenceEnd($lines, $i, $count, $base, $code['fence']);
             } elseif ($comment !== null) {
-                $width = strlen($comment['fence']);
-                // A DEGRADED FENCE CLAIMS NO EXTENT. §28 gives an opener with
-                // no matching closer ahead no block at all, so the run below it
-                // is not its payload and the authored base is the opener's own
-                // line. Without this the run was rebased along with the opener
-                // and arrived at the item's column 0, where `# y` opened a
-                // heading and the `%% z` spelling of the same document folds it
-                // as text (carve-php#1877).
-                //
-                // A COLUMN ENDS NO SPAN. §28 pairs the delimiters on LENGTH
-                // ALONE and CARVE-P0-013 has the run close the span at any
-                // column, so a line below the base is payload and does not end
-                // the search - the same question `hasClosingCommentFenceAhead()`
-                // asks when the fence opens. Stopping there rolled a CLOSED
-                // span back to its opener, and the payload then reached the
-                // nested parse carrying the base the opener had lost
-                // (markup-carve/carve#2503).
-                $closed = false;
-                for ($j = $i + 1; $j < $count; $j++) {
-                    $end = $j;
-                    if (($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($lines[$j], $width)) {
-                        $closed = true;
-
-                        break;
-                    }
-                }
-                $commentClose = $closed ? $end : null;
-                if (!$closed) {
-                    $end = $i;
-                }
+                $commentClose = $this->rebasedCommentFenceCloser($lines, $i, $count, strlen($comment['fence']));
+                $end = $commentClose ?? $i;
             } elseif ($colon !== null) {
                 $end = $this->rebasedColonGroupEnd($lines, $i, $count, $base, $colon['length']);
             } elseif (($this->getListParser)()->parseListItemMarker($opener) !== null) {
