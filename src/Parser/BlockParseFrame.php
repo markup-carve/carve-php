@@ -18,6 +18,10 @@ final class BlockParseFrame
      */
     public ?array $currentLineMap = null;
 
+    public ?ColonFenceIndex $colonFenceIndex = null;
+
+    public int $colonFenceBase = 0;
+
     /**
      * Where THIS level's content begins on each source line, in bytes.
      *

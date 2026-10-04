@@ -1072,50 +1072,22 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         $this->renderDepth++;
         try {
-            // Static mode: offer each static-render extension the node first,
-            // before the ordinary interactive listeners. The first extension
-            // to claim it (setHtml) wins; otherwise we fall through to the
-            // normal listeners and the core renderer (which carries the
-            // caption floor for unconsumed labels). See RenderMode / §2.5.
-            if ($this->renderMode === RenderMode::STATIC && $this->staticRenderExtensions !== []) {
-                $event = new RenderEvent($node);
-                $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
-
-                foreach ($this->staticRenderExtensions as $extension) {
-                    if ($extension->renderStaticHtml($event, $this)) {
-                        return $event->getHtml() ?? '';
-                    }
-                }
-            }
-
-            // Only dispatch events if listeners are registered (avoid object allocation)
-            $eventName = 'render.' . $node->getType();
-            if ($this->hasListenersFor($eventName)) {
-                $event = new RenderEvent($node);
-
-                // Provide lazy children renderer for extensions that need to wrap children
-                $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
-
-                // Call specific listeners
-                $this->dispatchEvent($eventName, $event);
-
-                // Call wildcard listeners
-                $this->dispatchEvent('render.*', $event);
-
-                // If listener provided custom HTML, use it
-                if ($event->isDefaultPrevented()) {
-                    return $event->getHtml() ?? '';
-                }
+            $override = $this->renderOverride($node);
+            if ($override !== null) {
+                return $override;
             }
 
             if (
                 $this::class === self::class
-                && ($this->renderMode !== RenderMode::STATIC || $this->staticRenderExtensions === [])
                 && $this->canPlanContainer($node)
             ) {
                 if ($node instanceof BlockQuote) {
                     $children = $node->getChildren();
-                    if (count($children) === 1 && $children[0]::class === BlockQuote::class) {
+                    if (
+                        !$this->hasListenersFor('render.block_quote')
+                        && ($this->renderMode !== RenderMode::STATIC || $this->staticRenderExtensions === [])
+                        && count($children) === 1 && $children[0]::class === BlockQuote::class
+                    ) {
                         return $this->renderBlockQuote($node);
                     }
                 }
@@ -1123,19 +1095,83 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 return $this->renderContainerLayout($node);
             }
 
-            // Use dispatch table for O(1) lookup instead of instanceof chain
-            $class = $node::class;
-            if (isset($this->nodeRenderers[$class])) {
-                $method = $this->nodeRenderers[$class];
-                if ($method === '') {
-                    return ''; // Comment nodes
-                }
+            return $this->renderCoreNode($node);
+        } finally {
+            $this->renderDepth--;
+        }
+    }
 
-                /** @var string */
-                return $this->$method($node);
+    private function renderCoreNode(Node $node): string
+    {
+        // Use dispatch table for O(1) lookup instead of instanceof chain
+        $class = $node::class;
+        if (isset($this->nodeRenderers[$class])) {
+            $method = $this->nodeRenderers[$class];
+            if ($method === '') {
+                return ''; // Comment nodes
             }
 
-            return $this->renderChildren($node);
+            /** @var string */
+            return $this->$method($node);
+        }
+
+        return $this->renderChildren($node);
+    }
+
+    private function renderOverride(Node $node): ?string
+    {
+        // Static mode: offer each static-render extension the node first,
+        // before the ordinary interactive listeners. The first extension
+        // to claim it (setHtml) wins; otherwise we fall through to the
+        // normal listeners and the core renderer (which carries the
+        // caption floor for unconsumed labels). See RenderMode / §2.5.
+        if ($this->renderMode === RenderMode::STATIC && $this->staticRenderExtensions !== []) {
+            $event = new RenderEvent($node);
+            $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
+
+            foreach ($this->staticRenderExtensions as $extension) {
+                if ($extension->renderStaticHtml($event, $this)) {
+                    return $event->getHtml() ?? '';
+                }
+            }
+        }
+
+        // Only dispatch events if listeners are registered (avoid object allocation)
+        $eventName = 'render.' . $node->getType();
+        if ($this->hasListenersFor($eventName)) {
+            $event = new RenderEvent($node);
+
+            // Provide lazy children renderer for extensions that need to wrap children
+            $event->setChildrenRenderer(fn (): string => $this->renderChildren($node));
+
+            // Call specific listeners
+            $this->dispatchEvent($eventName, $event);
+
+            // Call wildcard listeners
+            $this->dispatchEvent('render.*', $event);
+
+            // If listener provided custom HTML, use it
+            if ($event->isDefaultPrevented()) {
+                return $event->getHtml() ?? '';
+            }
+        }
+
+        return null;
+    }
+
+    private function planObservedContainer(Node $node): ContainerLayout|string
+    {
+        if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
+            throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
+        }
+        $this->renderDepth++;
+        try {
+            $override = $this->renderOverride($node);
+            if ($override !== null) {
+                return $override;
+            }
+
+            return $this->canPlanContainer($node) ? $this->planContainer($node) : $this->renderCoreNode($node);
         } finally {
             $this->renderDepth--;
         }
@@ -1145,8 +1181,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         return in_array($node::class, [Div::class, Section::class, BlockQuote::class, ListBlock::class, Figure::class, FigureGroup::class], true)
             && !($node instanceof ListBlock && $this->canRenderListChain($node))
-            && !($node instanceof Div && $node->hasClass('footnotes'))
-            && !$this->hasListenersFor('render.' . $node->getType());
+            && !($node instanceof Div && $node->hasClass('footnotes'));
     }
 
     private function renderContainerLayout(Node $node): string
@@ -1159,8 +1194,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
-     *
      * @return \MarkupCarve\Carve\Renderer\ContainerLayout
      */
     private function planContainer(Node $node, ?string $leadingClass = null): ContainerLayout
@@ -1203,15 +1236,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             } elseif ($node instanceof ListBlock && $child instanceof ListItem) {
                 $rendered = $this->planListItem($child, $node->isTight());
             } elseif ($this->canPlanContainer($child)) {
-                if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
-                    throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
-                }
-                $this->renderDepth++;
-                try {
-                    $rendered = $this->planContainer($child);
-                } finally {
-                    $this->renderDepth--;
-                }
+                $rendered = $this->planObservedContainer($child);
             } else {
                 $rendered = $this->renderNode($child);
             }
@@ -1962,14 +1987,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         foreach ($node->getChildren() as $child) {
             if ($planChildren && $this->canPlanContainer($child)) {
-                if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
-                    throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
-                }
-                $this->renderDepth++;
-                try {
-                    $restParts[] = $this->planContainer($child);
-                } finally {
-                    $this->renderDepth--;
+                $rendered = $this->planObservedContainer($child);
+                if (is_string($rendered)) {
+                    $rendered = rtrim($rendered, "\n");
+                    if ($rendered !== '') {
+                        $restParts[] = $rendered . "\n";
+                    }
+                } else {
+                    $restParts[] = $rendered;
                 }
 
                 continue;
