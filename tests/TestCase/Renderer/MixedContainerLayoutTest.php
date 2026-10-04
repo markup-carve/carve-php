@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
@@ -18,6 +20,7 @@ use MarkupCarve\Carve\Node\Block\Section;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\RenderMode;
 use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -50,6 +53,129 @@ class MixedContainerLayoutTest extends TestCase
         };
         self::assertSame($reference->render($doc), $renderer->render($doc));
         self::assertGreaterThan(10, count($seen));
+    }
+
+    public function testFallingThroughObserversMatchRecursiveEventOrder(): void
+    {
+        foreach (['plain', 'pre', 'unfinished-pre', 'empty', 'attrs'] as $kind) {
+            $outputs = [];
+            $events = [];
+            foreach (
+                [
+                    new class extends HtmlRenderer {
+                    }, new HtmlRenderer(),
+                ] as $renderer
+            ) {
+                $seen = [];
+                $renderer->on('render.*', static function (RenderEvent $event) use (&$seen): void {
+                    $seen[] = $event->getNode()->getType();
+                });
+                $outputs[] = $renderer->render($this->document(60, $kind));
+                $events[] = $seen;
+            }
+            self::assertSame($outputs[0], $outputs[1], $kind);
+            self::assertSame($events[0], $events[1], $kind);
+        }
+    }
+
+    public function testStaticFallthroughMatchesRecursiveEventsAndOutput(): void
+    {
+        $outputs = [];
+        $events = [];
+        foreach (
+            [
+                new class extends HtmlRenderer {
+                }, new HtmlRenderer(),
+            ] as $renderer
+        ) {
+            $extension = new class implements StaticRenderExtensionInterface {
+                /**
+                 * @var list<string>
+                 */
+                public array $seen = [];
+
+                public function register(CarveConverter $converter): void
+                {
+                }
+
+                public function renderStaticHtml(RenderEvent $event, HtmlRenderer $renderer): bool
+                {
+                    $this->seen[] = $event->getNode()->getType();
+
+                    return false;
+                }
+            };
+            $renderer->setRenderMode(RenderMode::STATIC);
+            $renderer->addStaticRenderExtension($extension);
+            $outputs[] = $renderer->render($this->document(60, 'pre'));
+            $events[] = $extension->seen;
+        }
+        self::assertSame($outputs[0], $outputs[1]);
+        self::assertSame($events[0], $events[1]);
+    }
+
+    public function testAnObserverCanReplaceANestedContainer(): void
+    {
+        foreach (['', '<pre>one\n two', '<p>replacement</p>'] as $html) {
+            $outputs = [];
+            $events = [];
+            foreach (
+                [
+                    new class extends HtmlRenderer {
+                    }, new HtmlRenderer(),
+                ] as $renderer
+            ) {
+                $seen = [];
+                $renderer->on('render.*', static function (RenderEvent $event) use (&$seen, $html): void {
+                    $seen[] = $event->getNode()->getType();
+                    if (count($seen) === 8) {
+                        $event->setHtml($html);
+                    }
+                });
+                $outputs[] = $renderer->render($this->document(30, 'plain'));
+                $events[] = $seen;
+            }
+            self::assertSame($outputs[0], $outputs[1]);
+            self::assertSame($events[0], $events[1]);
+        }
+    }
+
+    public function testContainerOverridesInsideItemsKeepBlockSeparators(): void
+    {
+        foreach ([false, true] as $lead) {
+            foreach (['', '<p>replacement</p>', "<pre>one\n two"] as $replacement) {
+                $outputs = [];
+                foreach (
+                    [
+                        new class extends HtmlRenderer {
+                        }, new HtmlRenderer(),
+                    ] as $renderer
+                ) {
+                    $doc = new Document();
+                    $list = new ListBlock();
+                    $item = new ListItem();
+                    if ($lead) {
+                        $paragraph = new Paragraph();
+                        $paragraph->appendChild(new Text('lead'));
+                        $item->appendChild($paragraph);
+                    }
+                    $first = new Div();
+                    $item->appendChild($first);
+                    if ($lead) {
+                        $item->appendChild(new Div());
+                    }
+                    $list->appendChild($item);
+                    $doc->appendChild($list);
+                    $renderer->on('render.div', static function (RenderEvent $event) use ($first, $replacement): void {
+                        if ($event->getNode() === $first) {
+                            $event->setHtml($replacement);
+                        }
+                    });
+                    $outputs[] = $renderer->render($doc);
+                }
+                self::assertSame($outputs[0], $outputs[1]);
+            }
+        }
     }
 
     public function testFragmentsWithoutLineEndingsAndSplitRawTagsKeepTheirLayout(): void

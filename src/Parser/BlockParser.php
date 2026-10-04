@@ -76,6 +76,11 @@ class BlockParser
     private ?BlockContinuationScanner $continuationsService = null;
 
     /**
+     * @var array{index: \MarkupCarve\Carve\Parser\ColonFenceIndex, base: int}|null
+     */
+    private ?array $pendingColonView = null;
+
+    /**
      * Neutral starting point for incremental brace scanning.
      *
      * @var array{depth: int, inQuote: bool, quoteChar: string, pendingEscape: bool}
@@ -1758,6 +1763,11 @@ class BlockParser
         $this->nestingDepth++;
         $previousFrame = $this->state->frame;
         $frame = new BlockParseFrame();
+        if ($this->pendingColonView !== null) {
+            $frame->colonFenceIndex = $this->pendingColonView['index'];
+            $frame->colonFenceBase = $this->pendingColonView['base'];
+            $this->pendingColonView = null;
+        }
         $frame->currentLineMap = $lineMap;
         $frame->currentContentColumns = $this->contentColumnsFor($lines, $lineMap);
         $this->bindBlockFrame($frame);
@@ -3030,7 +3040,7 @@ class BlockParser
         // Parse inner content as blocks (track line offset for nested content)
         $previousOffset = $this->state->session->lineOffset;
         $this->state->session->lineOffset = $previousOffset + $start + 1;
-        $this->parseBlocks($div, $innerLines, 0, $innerLineMap);
+        $this->parseColonBlocks($div, $innerLines, $innerLineMap, $start);
         // A dangling attribute line belongs to this container and dies at its
         // boundary. Letting the pending state escape attached it to the next
         // outer block (carve#1028).
@@ -3104,7 +3114,7 @@ class BlockParser
         $this->state->session->lineOffset = $previousOffset + $start + 1;
         $this->figureGroupDepth++;
         try {
-            $this->parseBlocks($group, $innerLines, 0, $innerLineMap);
+            $this->parseColonBlocks($group, $innerLines, $innerLineMap, $start);
         } finally {
             $this->figureGroupDepth--;
         }
@@ -3151,7 +3161,7 @@ class BlockParser
 
         $previousOffset = $this->state->session->lineOffset;
         $this->state->session->lineOffset = $previousOffset + $start + 1;
-        $this->parseBlocks($quote, $innerLines, 0, $innerLineMap);
+        $this->parseColonBlocks($quote, $innerLines, $innerLineMap, $start);
         $this->endContainerAttributeScope();
         $this->state->session->lineOffset = $previousOffset;
 
@@ -3200,7 +3210,7 @@ class BlockParser
 
         $previousOffset = $this->state->session->lineOffset;
         $this->state->session->lineOffset = $previousOffset + $start + 1;
-        $this->parseBlocks($div, $innerLines, 0, $innerLineMap);
+        $this->parseColonBlocks($div, $innerLines, $innerLineMap, $start);
         $this->endContainerAttributeScope();
         $this->state->session->lineOffset = $previousOffset;
 
@@ -3241,6 +3251,24 @@ class BlockParser
      */
     protected function collectColonFenceBody(array $lines, int $start, int $fenceLength, bool $nestingAware): array
     {
+        $index = null;
+        $base = $this->state->frame->colonFenceBase;
+        if ($nestingAware && $this::class === self::class && $this->fencedBlockParser::class === FencedBlockParser::class) {
+            $index = $this->state->frame->colonFenceIndex ??= new ColonFenceIndex();
+            $end = $index->ends[$base + $start] ?? null;
+            if ($end !== null && $end - $base < count($lines)) {
+                $localEnd = $end - $base;
+                $body = array_values(array_slice($lines, $start + 1, $localEnd - $start - 1));
+
+                return [
+                    'lines' => $body,
+                    'lineMap' => $body === [] ? [] : array_map(fn (int $line): int => $this->sourceLineFor($line), range($start + 1, $localEnd - 1)),
+                    'consumed' => $localEnd - $start + 1,
+                    'closed' => true,
+                ];
+            }
+        }
+        $openings = [$start];
         $innerLines = [];
         $innerLineMap = [];
         $stack = [$fenceLength];
@@ -3259,6 +3287,10 @@ class BlockParser
             $currentLine = $lines[$i];
             if ($this->isBareColonFence($currentLine, $colonLength) && $colonLength === end($stack)) {
                 array_pop($stack);
+                $opening = array_pop($openings);
+                if ($index !== null && $opening !== null) {
+                    $index->ends[$base + $opening] = $base + $i;
+                }
                 if ($stack === []) {
                     $i++;
                     $closed = true;
@@ -3277,6 +3309,7 @@ class BlockParser
                 $opener = $this->fencedBlockParser->parseDivFenceOpener($currentLine);
                 if ($opener !== null) {
                     $stack[] = $opener['length'];
+                    $openings[] = $i;
                 }
             }
 
@@ -3291,6 +3324,27 @@ class BlockParser
             'consumed' => $i - $start,
             'closed' => $closed,
         ];
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param list<string> $lines
+     * @param list<int> $lineMap
+     * @param int $start
+     */
+    private function parseColonBlocks(Node $parent, array $lines, array $lineMap, int $start): void
+    {
+        $saved = $this->pendingColonView;
+        $index = $this->state->frame->colonFenceIndex;
+        $this->pendingColonView = $index === null ? null : [
+            'index' => $index,
+            'base' => $this->state->frame->colonFenceBase + $start + 1,
+        ];
+        try {
+            $this->parseBlocks($parent, $lines, 0, $lineMap);
+        } finally {
+            $this->pendingColonView = $saved;
+        }
     }
 
     /**

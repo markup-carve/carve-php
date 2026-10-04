@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\Parser\Block\ListParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 /**
  * `markerContentOffset()` answers exactly what `parseListItemMarker()` answers.
@@ -31,6 +32,44 @@ use PHPUnit\Framework\TestCase;
  */
 class MarkerContentOffsetAgreesWithTheParserTest extends TestCase
 {
+    public function testWalkCacheStaysBoundedAndBulletChangesInvalidateIt(): void
+    {
+        $parser = new ListParser();
+        $line = str_repeat('- ', 1000) . 'x';
+        self::assertSame(2000, $parser->markerWalkOffset($line));
+        $cache = new ReflectionProperty($parser, 'markerWalkCache');
+        self::assertLessThanOrEqual(256, count($cache->getValue($parser)));
+        $parser->allowPlusBullet();
+        self::assertSame(6, $parser->markerWalkOffset('- + - x'));
+        self::assertSame(4, $parser->markerWalkOffset('+ - x'));
+        $parser->allowPlusBullet(false);
+        self::assertSame(2, $parser->markerWalkOffset('- + - x'));
+        self::assertNull($parser->markerWalkOffset('+ - x'));
+    }
+
+    public function testOnlyOneLargeMarkerIsRetainedWithinTheByteLimit(): void
+    {
+        $parser = new ListParser();
+        $reference = new class extends ListParser {
+        };
+        foreach ([str_repeat('x', 80000), str_repeat('y', 120000), str_repeat('z', 140000)] as $payload) {
+            foreach (['- ', '+ ', '-{.x} '] as $marker) {
+                $line = $marker . $payload;
+                for ($repeat = 0; $repeat < 2; $repeat++) {
+                    self::assertSame($reference->parseListItemMarker($line), $parser->parseListItemMarker($line));
+                }
+                $retained = (new ReflectionProperty($parser, 'largeMarkerLine'))->getValue($parser);
+                self::assertLessThanOrEqual(131072, strlen($retained ?? ''));
+            }
+        }
+        $line = '+ ' . str_repeat('x', 80000);
+        self::assertNull($parser->parseListItemMarker($line));
+        $parser->allowPlusBullet();
+        self::assertNotNull($parser->parseListItemMarker($line));
+        $parser->allowPlusBullet(false);
+        self::assertNull($parser->parseListItemMarker($line));
+    }
+
     /**
      * Marker spellings: every accepted branch, plus the refusals that make the
      * branches separable - a roman numeral that fails `romanToInt()` falling

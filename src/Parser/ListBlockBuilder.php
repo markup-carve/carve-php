@@ -1085,7 +1085,7 @@ final class ListBlockBuilder
         // at THIS level and to no nested container, so a quote, a div or a
         // definition body inside the item asks the ordinary §10 I2 question.
         $this->parseBlocks($item, $lines, 0, $lineMap, false, true);
-        if ($lineMap !== null && $lineMap !== []) {
+        if ($this->state->source->trackPositions && $lineMap !== null && $lineMap !== []) {
             $this->repairNestedParagraphSuffixes($item, $lineMap[0]);
         }
     }

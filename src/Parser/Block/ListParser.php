@@ -34,6 +34,19 @@ class ListParser
     private array $parsedMarkerCache = [];
 
     /**
+     * @var array<string, int|null>
+     */
+    private array $markerWalkCache = [];
+
+    private ?string $largeMarkerLine = null;
+
+    /**
+     * @var array|null
+     * @phpstan-var ListMarker|null
+     */
+    private ?array $largeMarker = null;
+
+    /**
      * Roman numeral values for conversion
      *
      * @var array<string, int>
@@ -136,6 +149,9 @@ class ListParser
     public function allowPlusBullet(bool $enable = true): void
     {
         $this->parsedMarkerCache = [];
+        $this->markerWalkCache = [];
+        $this->largeMarkerLine = null;
+        $this->largeMarker = null;
         $this->bulletMarkerClass = $enable ? '-*+' : '-*';
         $this->markerHeads = null;
         $this->markerTokens = null;
@@ -274,13 +290,31 @@ class ListParser
      */
     public function markerWalkOffset(string $line, int $from = 0): ?int
     {
+        $cacheable = $this::class === self::class && strlen($line) <= self::PARSED_MARKER_CACHE_LINE_BYTES;
+        $key = $cacheable ? substr($line, $from) : '';
+        if ($cacheable && array_key_exists($key, $this->markerWalkCache)) {
+            $cached = $this->markerWalkCache[$key];
+
+            return $cached === null ? null : $from + $cached;
+        }
         $offset = $this->markerContentOffset($line, $from);
         if ($offset === null) {
             return null;
         }
-
+        $starts = [$from];
         while (($next = $this->markerContentOffset($line, $offset)) !== null) {
+            if ($cacheable) {
+                $starts[] = $offset;
+            }
             $offset = $next;
+        }
+        if ($cacheable && count($starts) <= 256) {
+            if (count($this->markerWalkCache) + count($starts) > 256) {
+                $this->markerWalkCache = [];
+            }
+            foreach ($starts as $start) {
+                $this->markerWalkCache[substr($line, $start)] = $offset - $start;
+            }
         }
 
         return $offset;
@@ -547,8 +581,19 @@ class ListParser
      */
     public function parseListItemMarker(string $line): ?array
     {
-        if (static::class !== self::class || strlen($line) > self::PARSED_MARKER_CACHE_LINE_BYTES) {
+        if (static::class !== self::class) {
             return $this->parseListItemMarkerUncached($line);
+        }
+        if (strlen($line) > self::PARSED_MARKER_CACHE_LINE_BYTES) {
+            if (strlen($line) > 131072) {
+                return $this->parseListItemMarkerUncached($line);
+            }
+            if ($this->largeMarkerLine === $line) {
+                return $this->largeMarker;
+            }
+            $this->largeMarkerLine = $line;
+
+            return $this->largeMarker = $this->parseListItemMarkerUncached($line);
         }
         $first = $line[0] ?? '';
         if ($first !== '-' && $first !== '*' && $first !== '.' && !$this->markerTokenCanStartAt($line, 0)) {
