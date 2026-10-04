@@ -1390,6 +1390,155 @@ final class ListBlockBuilder
     }
 
     /**
+     * Last line owned by a rebased code fence.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     * @param int $base
+     * @param string $fence
+     */
+    private function rebasedCodeFenceEnd(
+        array $lines,
+        int $start,
+        int $count,
+        int $base,
+        string $fence,
+    ): int {
+        $end = $start;
+        for ($j = $start + 1; $j < $count; $j++) {
+            $candidate = $lines[$j];
+            // A run at the container's own column closes the fence
+            // there; every other line below the base is payload, so it
+            // must not end the extent and be re-read as a base of its
+            // own (CARVE-P0-004).
+            if (($this->getFencedBlockParser)()->isCodeFenceCloser($candidate, $fence[0], strlen($fence))) {
+                break;
+            }
+            $end = $j;
+            $local = IndentationHelper::isBlankLine($candidate)
+                ? ''
+                : IndentationHelper::stripLeadingColumns($candidate, $base);
+            // A CLOSER SITS AT THE OPENER'S COLUMN, NOT PAST IT
+            // (carve-php#1906). A run indented further is verbatim body,
+            // so the fence stays open and owns it - the same rule the
+            // top level already applies. `$base` is the opener's column.
+            if (
+                IndentationHelper::getLeadingColumns($candidate) === $base
+                && ($this->getFencedBlockParser)()->isCodeFenceCloser($local, $fence[0], strlen($fence))
+            ) {
+                break;
+            }
+        }
+
+        return $end;
+    }
+
+    /**
+     * Last line owned by a rebased colon group.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     * @param int $base
+     * @param int $width
+     */
+    private function rebasedColonGroupEnd(
+        array $lines,
+        int $start,
+        int $count,
+        int $base,
+        int $width,
+    ): int {
+        $end = $start;
+        $stack = [$width];
+        for ($j = $start + 1; $j < $count; $j++) {
+            $candidate = $lines[$j];
+            if (
+                !IndentationHelper::isBlankLine($candidate)
+                && IndentationHelper::getLeadingColumns($candidate, $base) < $base
+            ) {
+                if (IndentationHelper::getLeadingColumns($candidate) > 0) {
+                    $end = $j;
+
+                    continue;
+                }
+
+                break;
+            }
+            $end = $j;
+            $local = IndentationHelper::isBlankLine($candidate)
+                ? ''
+                : IndentationHelper::stripLeadingColumns($candidate, $base);
+            if (preg_match('/^(:{3,})[ \t]*$/', $local, $match) === 1) {
+                $width = strlen($match[1]);
+                if (end($stack) === $width) {
+                    array_pop($stack);
+                    if ($stack === []) {
+                        break;
+                    }
+                } else {
+                    $stack[] = $width;
+                }
+            }
+        }
+
+        return $end;
+    }
+
+    /**
+     * Last line owned by a rebased definition body.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     * @param int $base
+     */
+    private function rebasedDefinitionBodyEnd(
+        array $lines,
+        int $start,
+        int $count,
+        int $base,
+    ): int {
+        $end = $start;
+        $contentColumn = $this->containerContentColumn($lines[$start], $base);
+        for ($j = $start + 1; $j < $count; $j++) {
+            $candidate = $lines[$j];
+            if (IndentationHelper::isBlankLine($candidate)) {
+                $ahead = $j + 1;
+                while ($ahead < $count && IndentationHelper::isBlankLine($lines[$ahead])) {
+                    $ahead++;
+                }
+                if (
+                    $ahead >= $count
+                    || IndentationHelper::getLeadingColumns($lines[$ahead], $base) < $base
+                ) {
+                    break;
+                }
+                $end = $j;
+
+                continue;
+            }
+            if (IndentationHelper::getLeadingColumns($candidate, $base) < $base) {
+                break;
+            }
+            // MEASURED UNCAPPED. The dedent test above passes `$base` as
+            // a CAP, so it can answer "below the base" and nothing else;
+            // the band needs the line's real column.
+            if ($contentColumn !== null) {
+                $indent = IndentationHelper::getLeadingColumns($candidate);
+                if ($indent > $base && $indent < $contentColumn) {
+                    break;
+                }
+            }
+            $contentColumn = $this->containerContentColumn($candidate, $base) ?? $contentColumn;
+            $end = $j;
+        }
+
+        return $end;
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -1708,31 +1857,7 @@ final class ListBlockBuilder
 
             $commentClose = null;
             if ($code !== null) {
-                $fence = $code['fence'];
-                for ($j = $i + 1; $j < $count; $j++) {
-                    $candidate = $lines[$j];
-                    // A run at the container's own column closes the fence
-                    // there; every other line below the base is payload, so it
-                    // must not end the extent and be re-read as a base of its
-                    // own (CARVE-P0-004).
-                    if (($this->getFencedBlockParser)()->isCodeFenceCloser($candidate, $fence[0], strlen($fence))) {
-                        break;
-                    }
-                    $end = $j;
-                    $local = IndentationHelper::isBlankLine($candidate)
-                        ? ''
-                        : IndentationHelper::stripLeadingColumns($candidate, $base);
-                    // A CLOSER SITS AT THE OPENER'S COLUMN, NOT PAST IT
-                    // (carve-php#1906). A run indented further is verbatim body,
-                    // so the fence stays open and owns it - the same rule the
-                    // top level already applies. `$base` is the opener's column.
-                    if (
-                        IndentationHelper::getLeadingColumns($candidate) === $base
-                        && ($this->getFencedBlockParser)()->isCodeFenceCloser($local, $fence[0], strlen($fence))
-                    ) {
-                        break;
-                    }
-                }
+                $end = $this->rebasedCodeFenceEnd($lines, $i, $count, $base, $code['fence']);
             } elseif ($comment !== null) {
                 $width = strlen($comment['fence']);
                 // A DEGRADED FENCE CLAIMS NO EXTENT. §28 gives an opener with
@@ -1765,37 +1890,7 @@ final class ListBlockBuilder
                     $end = $i;
                 }
             } elseif ($colon !== null) {
-                $stack = [$colon['length']];
-                for ($j = $i + 1; $j < $count; $j++) {
-                    $candidate = $lines[$j];
-                    if (
-                        !IndentationHelper::isBlankLine($candidate)
-                        && IndentationHelper::getLeadingColumns($candidate, $base) < $base
-                    ) {
-                        if (IndentationHelper::getLeadingColumns($candidate) > 0) {
-                            $end = $j;
-
-                            continue;
-                        }
-
-                        break;
-                    }
-                    $end = $j;
-                    $local = IndentationHelper::isBlankLine($candidate)
-                        ? ''
-                        : IndentationHelper::stripLeadingColumns($candidate, $base);
-                    if (preg_match('/^(:{3,})[ \t]*$/', $local, $match) === 1) {
-                        $width = strlen($match[1]);
-                        if (end($stack) === $width) {
-                            array_pop($stack);
-                            if ($stack === []) {
-                                break;
-                            }
-                        } else {
-                            $stack[] = $width;
-                        }
-                    }
-                }
+                $end = $this->rebasedColonGroupEnd($lines, $i, $count, $base, $colon['length']);
             } elseif (($this->getListParser)()->parseListItemMarker($opener) !== null) {
                 for ($j = $i + 1; $j < $count; $j++) {
                     $candidate = $lines[$j];
@@ -1843,39 +1938,7 @@ final class ListBlockBuilder
                 || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $opener) === 1
                 || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $opener) === 1
             ) {
-                $contentColumn = $this->containerContentColumn($lines[$i], $base);
-                for ($j = $i + 1; $j < $count; $j++) {
-                    $candidate = $lines[$j];
-                    if (IndentationHelper::isBlankLine($candidate)) {
-                        $ahead = $j + 1;
-                        while ($ahead < $count && IndentationHelper::isBlankLine($lines[$ahead])) {
-                            $ahead++;
-                        }
-                        if (
-                            $ahead >= $count
-                            || IndentationHelper::getLeadingColumns($lines[$ahead], $base) < $base
-                        ) {
-                            break;
-                        }
-                        $end = $j;
-
-                        continue;
-                    }
-                    if (IndentationHelper::getLeadingColumns($candidate, $base) < $base) {
-                        break;
-                    }
-                    // MEASURED UNCAPPED. The dedent test above passes `$base` as
-                    // a CAP, so it can answer "below the base" and nothing else;
-                    // the band needs the line's real column.
-                    if ($contentColumn !== null) {
-                        $indent = IndentationHelper::getLeadingColumns($candidate);
-                        if ($indent > $base && $indent < $contentColumn) {
-                            break;
-                        }
-                    }
-                    $contentColumn = $this->containerContentColumn($candidate, $base) ?? $contentColumn;
-                    $end = $j;
-                }
+                $end = $this->rebasedDefinitionBodyEnd($lines, $i, $count, $base);
             }
 
             // Captions are structural continuations of the block immediately
