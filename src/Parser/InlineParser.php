@@ -277,6 +277,13 @@ class InlineParser
 
     protected ?string $closerLastText = null;
 
+    private ?string $crossrefScanText = null;
+
+    /**
+     * @var array{int, int}|null
+     */
+    private ?array $crossrefInvalidRange = null;
+
     /**
      * @var array<int, int|null>
      */
@@ -660,6 +667,8 @@ class InlineParser
         $outerBalancedText = $this->balancedBracketText;
         $outerCloserText = $this->closerLastText;
         $outerCloserPositions = $this->closerLastPos;
+        $outerCrossrefText = $this->crossrefScanText;
+        $outerCrossrefRange = $this->crossrefInvalidRange;
         $outerLinkTriggerText = $this->linkTriggerText;
         $outerLinkTriggerPresent = $this->linkTriggerPresent;
         $this->inlineDepth++;
@@ -677,6 +686,8 @@ class InlineParser
             $this->balancedBracketText = $outerBalancedText;
             $this->closerLastText = $outerCloserText;
             $this->closerLastPos = $outerCloserPositions;
+            $this->crossrefScanText = $outerCrossrefText;
+            $this->crossrefInvalidRange = $outerCrossrefRange;
             $this->linkTriggerText = $outerLinkTriggerText;
             $this->linkTriggerPresent = $outerLinkTriggerPresent;
         }
@@ -900,7 +911,7 @@ class InlineParser
             // in the run and prose resumes after the first `%}`. An opener
             // without a closer is ordinary text. Code and raw spans remain
             // opaque because their backtick handler consumes them as a unit.
-            if ($char === '{' && $nextChar === '%') {
+            if ($char === '{' && $nextChar === '%' && $this->closerExistsFrom($text, '%}', $pos + 2)) {
                 $close = strpos($text, '%}', $pos + 2);
                 if ($close !== false) {
                     $this->flushText($parent, $textBuffer);
@@ -1101,7 +1112,10 @@ class InlineParser
 
             // Heading cross-reference: </#id> (before autolink)
             if ($char === '<' && ($text[$pos + 1] ?? '') === '/' && ($text[$pos + 2] ?? '') === '#') {
-                if (preg_match('/\G<\/#([^> \t\r\n]+)>/u', $text, $hm, 0, $pos)) {
+                if (
+                    $this->crossrefBodyCanEnd($text, $pos + 3)
+                    && preg_match('/\G<\/#([^> \t\r\n]+)>/u', $text, $hm, 0, $pos)
+                ) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
                     $headingRef = new HeadingRef($hm[1]);
@@ -2833,8 +2847,8 @@ class InlineParser
     protected function parseAutolink(string $text, int $pos): ?array
     {
         $length = strlen($text);
-        $end = strpos($text, '>', $pos);
-        if ($end === false) {
+        $end = $this->findAutolinkCloser($text, $pos);
+        if ($end === null) {
             return null;
         }
 
@@ -3065,7 +3079,10 @@ class InlineParser
 
             // A delimited comment is transparent to the surrounding span: a
             // delimiter in its body cannot close the span that contains it.
-            if ($char === '{' && ($text[$searchPos + 1] ?? '') === '%') {
+            if (
+                $char === '{' && ($text[$searchPos + 1] ?? '') === '%'
+                && $this->closerExistsFrom($text, '%}', $searchPos + 2)
+            ) {
                 $commentEnd = strpos($text, '%}', $searchPos + 2);
                 if ($commentEnd !== false) {
                     $searchPos = $commentEnd + 2;
@@ -3228,9 +3245,29 @@ class InlineParser
             return null;
         }
 
+        if ($text !== $this->emphNoCloseText) {
+            $this->emphNoCloseText = $text;
+            $this->emphNoCloseFrom = [];
+        }
+        if (isset($this->emphNoCloseFrom['*/'][$start])) {
+            return null;
+        }
+        $failedStarts = [$start];
         $searchPos = $start;
         while ($searchPos + 1 < $length) {
-            if ($text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') === '%') {
+            if (
+                isset($this->emphNoCloseFrom['*/'][$searchPos])
+                && !($text[$searchPos] === '*' && $text[$searchPos + 1] === '/')
+            ) {
+                break;
+            }
+            if ($text[$searchPos] === '/' && $text[$searchPos + 1] === '*') {
+                $failedStarts[] = $searchPos + 2;
+            }
+            if (
+                $text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') === '%'
+                && $this->closerExistsFrom($text, '%}', $searchPos + 2)
+            ) {
                 $commentEnd = strpos($text, '%}', $searchPos + 2);
                 if ($commentEnd !== false) {
                     $searchPos = $commentEnd + 2;
@@ -3249,7 +3286,7 @@ class InlineParser
 
                 // Unclosed backtick run: opaque to the end of the block, so no
                 // closer can follow it.
-                return null;
+                break;
             }
 
             // CARVE-P9-042: the combined token's `*/` is an explicit closer a
@@ -3263,7 +3300,7 @@ class InlineParser
                 $nl = strpos($text, "\n", $searchPos + 2);
                 $closer = strpos($text, '*/', $searchPos + 2);
                 if ($closer === false && $nl === false) {
-                    return null;
+                    break;
                 }
                 $searchPos = $nl === false ? $closer : ($closer === false ? $nl : min($nl, $closer));
 
@@ -3311,6 +3348,10 @@ class InlineParser
             }
 
             $searchPos++;
+        }
+
+        foreach ($failedStarts as $failedStart) {
+            $this->emphNoCloseFrom['*/'][$failedStart] = true;
         }
 
         return null;
@@ -4609,6 +4650,48 @@ class InlineParser
             && trim(substr($text, $pos + 1, $close - $pos - 1), StringUtil::WHITESPACE_CHARS) !== '';
     }
 
+    private function crossrefBodyCanEnd(string $text, int $from): bool
+    {
+        if (!$this->closerExistsFrom($text, '>', $from)) {
+            return false;
+        }
+        if ($this->crossrefScanText !== $text) {
+            $this->crossrefScanText = $text;
+            $this->crossrefInvalidRange = null;
+        }
+        if ($this->crossrefInvalidRange !== null) {
+            [$start, $end] = $this->crossrefInvalidRange;
+            if ($from >= $start && $from <= $end) {
+                return false;
+            }
+        }
+        $end = $from + strcspn($text, " \t\r\n>", $from);
+        if ($text[$end] === '>') {
+            return true;
+        }
+        $this->crossrefInvalidRange = [$from, $end];
+
+        return false;
+    }
+
+    private function findAutolinkCloser(string $text, int $pos): ?int
+    {
+        if (!$this->closerExistsFrom($text, '>', $pos + 1)) {
+            return null;
+        }
+
+        $end = $pos + 1 + strcspn($text, " \t\r\n<>", $pos + 1);
+        if ($text[$end] === '>') {
+            return $end;
+        }
+        // Preserve the final-newline match accepted by the validators' `$` anchor.
+        if ($text[$end] === "\n" && ($text[$end + 1] ?? '') === '>') {
+            return $end + 1;
+        }
+
+        return null;
+    }
+
     /**
      * Find the end of an autolink starting at $pos
      *
@@ -4616,8 +4699,8 @@ class InlineParser
      */
     protected function findAutolinkEnd(string $text, int $pos): ?int
     {
-        $end = strpos($text, '>', $pos);
-        if ($end === false) {
+        $end = $this->findAutolinkCloser($text, $pos);
+        if ($end === null) {
             return null;
         }
 
@@ -4821,19 +4904,8 @@ class InlineParser
     {
         $length = strlen($text);
 
-        // Check for display math $$
-        $display = false;
-        $dollarCount = 0;
-        while ($pos + $dollarCount < $length && $text[$pos + $dollarCount] === '$') {
-            $dollarCount++;
-        }
-
-        if ($dollarCount >= 2) {
-            $display = true;
-            $startPos = $pos + 2;
-        } else {
-            $startPos = $pos + 1;
-        }
+        $display = $pos + 1 < $length && $text[$pos + 1] === '$';
+        $startPos = $pos + ($display ? 2 : 1);
 
         // Must be followed by backtick
         if ($startPos >= $length || $text[$startPos] !== '`') {
