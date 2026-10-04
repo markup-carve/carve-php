@@ -31,7 +31,7 @@ final class LineBlockBuilder
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\InlineParser $getInlineParser
      * @param \Closure(\MarkupCarve\Carve\Node\Node): (void) $applyPendingAttributesCallback
-     * @param \Closure(array<string>, int, int, bool): array{lines: list<string>, lineMap: list<int>, consumed: int, closed: bool} $collectColonFenceBodyCallback
+     * @param \Closure(array<string>, int, int, bool): array{lines: list<string>, lineMap: array<int, int>, consumed: int, closed: bool, lineMapBase?: int} $collectColonFenceBodyCallback
      * @param \Closure(): (string) $positionSourceCallback
      * @param (\Closure(\MarkupCarve\Carve\Node\Block\LineBlock, list<array{0: string, 1: int}>): (void))|null $appendLineBlockStanzaCallback
      * @param (\Closure(\MarkupCarve\Carve\Node\Block\Paragraph, list<array{0: int, 1: int}>): (void))|null $convertParagraphSoftBreaksToHardBreaksCallback

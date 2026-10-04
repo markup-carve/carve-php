@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 /**
- * Closed colon boundaries shared by unchanged container bodies.
+ * Colon boundaries shared by unchanged container bodies.
  *
  * @internal
  */

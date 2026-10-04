@@ -76,7 +76,7 @@ class BlockParser
     private ?BlockContinuationScanner $continuationsService = null;
 
     /**
-     * @var array{index: \MarkupCarve\Carve\Parser\ColonFenceIndex, base: int}|null
+     * @var array{index: \MarkupCarve\Carve\Parser\ColonFenceIndex, base: int, lineMapBase: int}|null
      */
     private ?array $pendingColonView = null;
 
@@ -1763,13 +1763,17 @@ class BlockParser
         $this->nestingDepth++;
         $previousFrame = $this->state->frame;
         $frame = new BlockParseFrame();
-        if ($this->pendingColonView !== null) {
+        $unchangedColonBody = $this->pendingColonView !== null;
+        if ($unchangedColonBody) {
             $frame->colonFenceIndex = $this->pendingColonView['index'];
             $frame->colonFenceBase = $this->pendingColonView['base'];
+            $frame->currentLineMapBase = $this->pendingColonView['lineMapBase'];
             $this->pendingColonView = null;
         }
         $frame->currentLineMap = $lineMap;
-        $frame->currentContentColumns = $this->contentColumnsFor($lines, $lineMap);
+        $frame->currentContentColumns = $unchangedColonBody
+            ? $previousFrame->currentContentColumns
+            : $this->contentColumnsFor($lines, $lineMap);
         $this->bindBlockFrame($frame);
         try {
             $this->parseBlocksImpl($parent, $lines, $indent, $topLevel, $itemBody);
@@ -1825,18 +1829,24 @@ class BlockParser
         // span worse than an absent one - see placeDegradedTextRuns.
         if ($firstIndex !== null && $lastIndex !== null && $lastIndex >= $firstIndex) {
             $previousLineMap = $this->state->frame->currentLineMap;
+            $previousLineMapBase = $this->state->frame->currentLineMapBase;
             $this->state->frame->currentLineMap = $lineMap;
+            $this->state->frame->currentLineMapBase = 0;
             $this->stampBlockSpan(
                 $paragraph,
                 $this->sourceLineFor($firstIndex),
                 $this->sourceLineFor($lastIndex),
             );
             $this->state->frame->currentLineMap = $previousLineMap;
+            $this->state->frame->currentLineMapBase = $previousLineMapBase;
         }
         $this->inlineParser->parse($paragraph, $text);
         $this->placeDegradedSoftBreaks($paragraph, $group, $lineMap, $firstIndex);
         $this->placeDegradedTextRuns($paragraph, $group, $lineMap, $firstIndex);
         $parent->appendChild($paragraph);
+        if ($this->state->source->trackPositions) {
+            $this->listsBuilder()->repairParagraphSuffixPosition($paragraph);
+        }
     }
 
     /**
@@ -3040,7 +3050,7 @@ class BlockParser
         // Parse inner content as blocks (track line offset for nested content)
         $previousOffset = $this->state->session->lineOffset;
         $this->state->session->lineOffset = $previousOffset + $start + 1;
-        $this->parseColonBlocks($div, $innerLines, $innerLineMap, $start);
+        $this->parseColonBlocks($div, $innerLines, $innerLineMap, $start, $body['lineMapBase'] ?? 0);
         // A dangling attribute line belongs to this container and dies at its
         // boundary. Letting the pending state escape attached it to the next
         // outer block (carve#1028).
@@ -3114,7 +3124,7 @@ class BlockParser
         $this->state->session->lineOffset = $previousOffset + $start + 1;
         $this->figureGroupDepth++;
         try {
-            $this->parseColonBlocks($group, $innerLines, $innerLineMap, $start);
+            $this->parseColonBlocks($group, $innerLines, $innerLineMap, $start, $body['lineMapBase'] ?? 0);
         } finally {
             $this->figureGroupDepth--;
         }
@@ -3161,7 +3171,7 @@ class BlockParser
 
         $previousOffset = $this->state->session->lineOffset;
         $this->state->session->lineOffset = $previousOffset + $start + 1;
-        $this->parseColonBlocks($quote, $innerLines, $innerLineMap, $start);
+        $this->parseColonBlocks($quote, $innerLines, $innerLineMap, $start, $body['lineMapBase'] ?? 0);
         $this->endContainerAttributeScope();
         $this->state->session->lineOffset = $previousOffset;
 
@@ -3210,7 +3220,7 @@ class BlockParser
 
         $previousOffset = $this->state->session->lineOffset;
         $this->state->session->lineOffset = $previousOffset + $start + 1;
-        $this->parseColonBlocks($div, $innerLines, $innerLineMap, $start);
+        $this->parseColonBlocks($div, $innerLines, $innerLineMap, $start, $body['lineMapBase'] ?? 0);
         $this->endContainerAttributeScope();
         $this->state->session->lineOffset = $previousOffset;
 
@@ -3247,7 +3257,7 @@ class BlockParser
      * @param int $fenceLength
      * @param bool $nestingAware
      *
-     * @return array{lines: list<string>, lineMap: list<int>, consumed: int, closed: bool}
+     * @return array{lines: list<string>, lineMap: array<int, int>, consumed: int, closed: bool, lineMapBase?: int}
      */
     protected function collectColonFenceBody(array $lines, int $start, int $fenceLength, bool $nestingAware): array
     {
@@ -3256,15 +3266,17 @@ class BlockParser
         if ($nestingAware && $this::class === self::class && $this->fencedBlockParser::class === FencedBlockParser::class) {
             $index = $this->state->frame->colonFenceIndex ??= new ColonFenceIndex();
             $end = $index->ends[$base + $start] ?? null;
-            if ($end !== null && $end - $base < count($lines)) {
+            if ($end !== null && $end - $base <= count($lines) && $end - $base > $start) {
                 $localEnd = $end - $base;
+                $closed = $localEnd < count($lines);
                 $body = array_values(array_slice($lines, $start + 1, $localEnd - $start - 1));
 
                 return [
                     'lines' => $body,
-                    'lineMap' => $body === [] ? [] : array_map(fn (int $line): int => $this->sourceLineFor($line), range($start + 1, $localEnd - 1)),
-                    'consumed' => $localEnd - $start + 1,
-                    'closed' => true,
+                    'lineMap' => $this->state->frame->currentLineMap ?? [],
+                    'lineMapBase' => $this->state->frame->currentLineMapBase + $start + 1,
+                    'consumed' => $localEnd - $start + (int)$closed,
+                    'closed' => $closed,
                 ];
             }
         }
@@ -3318,6 +3330,12 @@ class BlockParser
             $i++;
         }
 
+        if ($index !== null && !$closed) {
+            foreach ($openings as $opening) {
+                $index->ends[$base + $opening] = $base + $i;
+            }
+        }
+
         return [
             'lines' => $innerLines,
             'lineMap' => $innerLineMap,
@@ -3329,16 +3347,22 @@ class BlockParser
     /**
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param list<string> $lines
-     * @param list<int> $lineMap
+     * @param array<int, int> $lineMap
      * @param int $start
+     * @param int $lineMapBase
      */
-    private function parseColonBlocks(Node $parent, array $lines, array $lineMap, int $start): void
+    private function parseColonBlocks(Node $parent, array $lines, array $lineMap, int $start, int $lineMapBase = 0): void
     {
+        if ($lineMapBase !== 0 && $this->nestingDepth >= self::MAX_NESTING_DEPTH) {
+            $lineMap = array_map(static fn (int $index): int => $lineMap[$lineMapBase + $index] ?? -1, array_keys($lines));
+            $lineMapBase = 0;
+        }
         $saved = $this->pendingColonView;
         $index = $this->state->frame->colonFenceIndex;
         $this->pendingColonView = $index === null ? null : [
             'index' => $index,
             'base' => $this->state->frame->colonFenceBase + $start + 1,
+            'lineMapBase' => $lineMapBase,
         ];
         try {
             $this->parseBlocks($parent, $lines, 0, $lineMap);
@@ -5221,6 +5245,9 @@ class BlockParser
             $this->deferredScratchInlines[$paragraph] = [$content, $start, $contentLines];
             $this->applyPendingAttributes($paragraph);
             $parent->appendChild($paragraph);
+            if ($this->state->source->trackPositions) {
+                $this->listsBuilder()->repairParagraphSuffixPosition($paragraph);
+            }
 
             return $i - $start;
         }
@@ -5262,6 +5289,9 @@ class BlockParser
         }
         $this->applyPendingAttributes($paragraph);
         $parent->appendChild($paragraph);
+        if ($this->state->source->trackPositions) {
+            $this->listsBuilder()->repairParagraphSuffixPosition($paragraph);
+        }
 
         return $i - $start;
     }
@@ -8173,6 +8203,7 @@ class BlockParser
             startsNewBlockCallback: $this->startsNewBlock(...),
             subContentHasLooseningBlankCallback: $this->subContentHasLooseningBlank(...),
             parseItemBlocksCallback: static::class !== self::class ? $this->parseItemBlocks(...) : null,
+            canRepairParagraphLocallyCallback: fn (): bool => $this->blockMatchers === [],
         );
     }
 
