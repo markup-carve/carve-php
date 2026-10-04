@@ -11,6 +11,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Improvements
 
+- Extract HTML import element, attribute, and content-loss checks while preserving diagnostic order and traversal (#2860).
 - Extract HTML image, link, and math handlers and node-specific ProseMirror attribute handlers while preserving traversal, attribute precedence, and decoding order (#2859).
 - Extract the comment-fence closer scan from body rebasing while preserving closer matching at any column and unclosed-span handling (#2858).
 - Extract list, quote, and table extent scans from body rebasing while preserving blank and column checks (#2857).
