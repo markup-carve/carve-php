@@ -12,11 +12,16 @@ namespace MarkupCarve\Carve\Parser;
 final class BlockParseFrame
 {
     /**
-     * Per-line map for the line array currently being parsed.
+     * Source-line map, shared with unchanged colon bodies.
      *
      * @var array<int, int>|null
      */
     public ?array $currentLineMap = null;
+
+    /**
+     * First entry for this body in the shared line map.
+     */
+    public int $currentLineMapBase = 0;
 
     public ?ColonFenceIndex $colonFenceIndex = null;
 
@@ -67,6 +72,11 @@ final class BlockParseFrame
 
     public function sourceLineFor(int $index): int
     {
+        if ($index < 0) {
+            return -1;
+        }
+        $index += $this->currentLineMapBase;
+
         return $this->currentLineMap[$index] ?? ($this->currentLineMap === null ? $index : -1);
     }
 }

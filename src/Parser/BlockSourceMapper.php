@@ -1390,11 +1390,14 @@ final class BlockSourceMapper
         }
 
         $previousLineMap = $this->state->frame->currentLineMap;
+        $previousLineMapBase = $this->state->frame->currentLineMapBase;
         $this->state->frame->currentLineMap = $lineMap;
+        $this->state->frame->currentLineMapBase = 0;
         foreach ($breaks as $offset => $break) {
             $break->setPos($this->endOfLineSpan($firstIndex + $offset));
         }
         $this->state->frame->currentLineMap = $previousLineMap;
+        $this->state->frame->currentLineMapBase = $previousLineMapBase;
     }
 
     /**
@@ -1427,12 +1430,15 @@ final class BlockSourceMapper
         }
 
         $previousLineMap = $this->state->frame->currentLineMap;
+        $previousLineMapBase = $this->state->frame->currentLineMapBase;
         $this->state->frame->currentLineMap = $lineMap;
+        $this->state->frame->currentLineMapBase = 0;
         $spans = [];
         foreach ($runs as $offset => $run) {
             $spans[$offset] = $this->degradedRunSpan($firstIndex + $offset, $run->getContent());
         }
         $this->state->frame->currentLineMap = $previousLineMap;
+        $this->state->frame->currentLineMapBase = $previousLineMapBase;
 
         if (in_array(null, $spans, true)) {
             return;

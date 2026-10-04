@@ -24,6 +24,16 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 final class ListBlockBuilder
 {
     /**
+     * @var list<int>
+     */
+    private array $suffixRepairLines = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $suffixRepairLineCounts = [];
+
+    /**
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
      * @param \MarkupCarve\Carve\Parser\BlockSourceMapper $source
      * @param \MarkupCarve\Carve\Parser\BlockContinuationScanner $continuations
@@ -60,6 +70,7 @@ final class ListBlockBuilder
      * @param \Closure(string, array<string>|null, int|null): (bool) $startsNewBlockCallback
      * @param \Closure(array<string>, bool): (bool) $subContentHasLooseningBlankCallback
      * @param (\Closure(\MarkupCarve\Carve\Node\Node, array<string>, array<int, int>|null, array<int, true>|null, int|null): (void))|null $parseItemBlocksCallback
+     * @param (\Closure(): bool)|null $canRepairParagraphLocallyCallback
      */
     public function __construct(
         private BlockParserState $state,
@@ -98,6 +109,7 @@ final class ListBlockBuilder
         private Closure $startsNewBlockCallback,
         private Closure $subContentHasLooseningBlankCallback,
         private ?Closure $parseItemBlocksCallback = null,
+        private ?Closure $canRepairParagraphLocallyCallback = null,
     ) {
     }
 
@@ -1084,9 +1096,30 @@ final class ListBlockBuilder
         // for the same reason: `parseBlocksImpl` hands it to the paragraph loop
         // at THIS level and to no nested container, so a quote, a div or a
         // definition body inside the item asks the ordinary §10 I2 question.
-        $this->parseBlocks($item, $lines, 0, $lineMap, false, true);
-        if ($this->state->source->trackPositions && $lineMap !== null && $lineMap !== []) {
-            $this->repairNestedParagraphSuffixes($item, $lineMap[0]);
+        $sourceLine = $this->state->source->trackPositions && $lineMap !== null && $lineMap !== [] ? $lineMap[0] : null;
+        if (
+            $sourceLine === null || $this->parseItemBlocksCallback !== null
+            || !$this->canRepairParagraphLocally()
+        ) {
+            $this->parseBlocks($item, $lines, 0, $lineMap, false, true);
+            if ($sourceLine !== null) {
+                $this->repairNestedParagraphSuffixes($item, $sourceLine);
+            }
+
+            return;
+        }
+        $this->suffixRepairLines[] = $sourceLine;
+        $this->suffixRepairLineCounts[$sourceLine] = ($this->suffixRepairLineCounts[$sourceLine] ?? 0) + 1;
+        try {
+            $this->parseBlocks($item, $lines, 0, $lineMap, false, true);
+            if (!$this->canRepairParagraphLocally()) {
+                $this->repairNestedParagraphSuffixes($item, $sourceLine);
+            }
+        } finally {
+            array_pop($this->suffixRepairLines);
+            if (--$this->suffixRepairLineCounts[$sourceLine] === 0) {
+                unset($this->suffixRepairLineCounts[$sourceLine]);
+            }
         }
     }
 
@@ -2009,40 +2042,79 @@ final class ListBlockBuilder
         $this->state->session->pendingAttributeOrder = [];
     }
 
+    /**
+     * @phpstan-impure
+     */
+    private function canRepairParagraphLocally(): bool
+    {
+        return $this->canRepairParagraphLocallyCallback !== null && ($this->canRepairParagraphLocallyCallback)();
+    }
+
+    public function repairParagraphSuffixPosition(Paragraph $paragraph): void
+    {
+        if ($this->suffixRepairLines === []) {
+            return;
+        }
+        $inlines = $paragraph->getChildren();
+        if (count($inlines) !== 1 || !$inlines[0] instanceof Text) {
+            return;
+        }
+        $existing = $inlines[0]->getPos();
+        if ($existing !== null) {
+            $sourceLine = $existing->startLine - 1;
+            if (isset($this->suffixRepairLineCounts[$sourceLine])) {
+                $this->repairParagraphSuffix($paragraph, $inlines[0], $sourceLine);
+            }
+
+            return;
+        }
+        for ($index = count($this->suffixRepairLines) - 1; $index >= 0; $index--) {
+            if ($this->repairParagraphSuffix($paragraph, $inlines[0], $this->suffixRepairLines[$index])) {
+                break;
+            }
+        }
+    }
+
     private function repairNestedParagraphSuffixes(Node $node, int $sourceLine): void
     {
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Paragraph) {
                 $inlines = $child->getChildren();
                 if (count($inlines) === 1 && $inlines[0] instanceof Text) {
-                    $value = $inlines[0]->getContent();
                     $existing = $inlines[0]->getPos();
-                    if ($existing !== null && $existing->startLine !== $sourceLine + 1) {
-                        $this->repairNestedParagraphSuffixes($child, $sourceLine);
-
-                        continue;
-                    }
-                    $source = rtrim($this->state->source->sourceLines[$sourceLine] ?? '', " \t");
-                    if ($value !== '' && str_ends_with($source, $value)) {
-                        $lineStart = $this->state->source->lineStartOffsets[$sourceLine] ?? null;
-                        if ($lineStart !== null) {
-                            $byte = $lineStart + strlen($source) - strlen($value);
-                            $span = $this->state->source->positionIndex?->span(
-                                $byte,
-                                $byte + strlen($value),
-                                $sourceLine + 1,
-                                $sourceLine + 1,
-                                $lineStart,
-                                $lineStart,
-                            );
-                            $inlines[0]->setPos($span);
-                            $child->setPos($span);
-                        }
+                    if ($existing === null || $existing->startLine === $sourceLine + 1) {
+                        $this->repairParagraphSuffix($child, $inlines[0], $sourceLine);
                     }
                 }
             }
             $this->repairNestedParagraphSuffixes($child, $sourceLine);
         }
+    }
+
+    private function repairParagraphSuffix(Paragraph $paragraph, Text $text, int $sourceLine): bool
+    {
+        $value = $text->getContent();
+        $source = rtrim($this->state->source->sourceLines[$sourceLine] ?? '', " \t");
+        if ($value === '' || !str_ends_with($source, $value)) {
+            return false;
+        }
+        $lineStart = $this->state->source->lineStartOffsets[$sourceLine] ?? null;
+        if ($lineStart === null) {
+            return false;
+        }
+        $byte = $lineStart + strlen($source) - strlen($value);
+        $span = $this->state->source->positionIndex?->span(
+            $byte,
+            $byte + strlen($value),
+            $sourceLine + 1,
+            $sourceLine + 1,
+            $lineStart,
+            $lineStart,
+        );
+        $text->setPos($span);
+        $paragraph->setPos($span);
+
+        return $span !== null;
     }
 
     /**
