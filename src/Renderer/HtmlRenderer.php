@@ -1144,6 +1144,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     private function canPlanContainer(Node $node): bool
     {
         return in_array($node::class, [Div::class, Section::class, BlockQuote::class, ListBlock::class, Figure::class, FigureGroup::class], true)
+            && !($node instanceof ListBlock && $this->canRenderListChain($node))
             && !($node instanceof Div && $node->hasClass('footnotes'))
             && !$this->hasListenersFor('render.' . $node->getType());
     }
@@ -1812,6 +1813,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderList(ListBlock $node): string
     {
+        if ($this->canRenderListChain($node)) {
+            return $this->renderListChain($node);
+        }
+
         [$open, , $close] = $this->listLayoutFrame($node);
         $tight = $node->isTight();
 
@@ -1825,6 +1830,88 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         return $open . "\n" . $items . $close . "\n";
+    }
+
+    private function canRenderListChain(ListBlock $node): bool
+    {
+        return $this::class === self::class
+            && !$this->hasListenersFor('render.list')
+            && !$this->hasListenersFor('render.list_item')
+            && ($this->renderMode !== RenderMode::STATIC || $this->staticRenderExtensions === [])
+            && $this->listChainChild($node) !== null;
+    }
+
+    private function listChainChild(ListBlock $node): ?ListBlock
+    {
+        $items = $node->getChildren();
+        if (count($items) !== 1 || $items[0]::class !== ListItem::class) {
+            return null;
+        }
+        $item = $items[0];
+        if ($item->isTask() || $item->getAuthoredTaskState() !== null) {
+            return null;
+        }
+        $blocks = $item->getChildren();
+
+        return count($blocks) === 1 && $blocks[0]::class === ListBlock::class ? $blocks[0] : null;
+    }
+
+    /**
+     * Apply cumulative indentation to a chain of block-first, single-item lists.
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
+     */
+    private function renderListChain(ListBlock $node): string
+    {
+        $frames = [];
+        while (($child = $this->listChainChild($node)) !== null) {
+            if ($this->renderDepth + count($frames) >= self::MAX_RENDER_DEPTH) {
+                throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
+            }
+            $item = $node->getChildren()[0];
+            $frames[] = [
+                $this->listLayoutFrame($node)[0] . "\n",
+                $this->renderAttributes($item),
+                $node->getListType() === ListBlock::TYPE_ORDERED ? 'ol' : 'ul',
+            ];
+            $node = $child;
+        }
+        $savedDepth = $this->renderDepth;
+        $this->renderDepth += count($frames) - 1;
+        try {
+            $body = $this->renderNode($node);
+        } finally {
+            $this->renderDepth = $savedDepth;
+        }
+        if (str_contains($body, '<pre')) {
+            $writer = new HtmlLayoutWriter();
+            foreach ($frames as [$opening, $attrs]) {
+                $writer->write($opening);
+                $writer->pushIndent(2);
+                $writer->write('<li' . $attrs . ">\n");
+                $writer->pushIndent(2);
+            }
+            $writer->write(rtrim($body, "\n"));
+            for ($depth = count($frames) - 1; $depth >= 0; $depth--) {
+                $writer->popIndent();
+                $writer->write("\n</li>");
+                $writer->popIndent();
+                $writer->write("\n</" . $frames[$depth][2] . '>' . ($depth === 0 ? "\n" : ''));
+            }
+
+            return $writer->finish();
+        }
+        $parts = [];
+        foreach ($frames as $depth => [$opening, $attrs]) {
+            $parts[] = $this->indentBlock($opening . '  <li' . $attrs . ">\n", $depth * 4);
+        }
+        $parts[] = $this->indentBlock(rtrim($body, "\n"), count($frames) * 4) . "\n";
+        for ($depth = count($frames) - 1; $depth >= 0; $depth--) {
+            $pad = str_repeat(' ', $depth * 4);
+            $parts[] = $pad . "  </li>\n" . $pad . '</' . $frames[$depth][2] . ">\n";
+        }
+
+        return implode('', $parts);
     }
 
     /**
