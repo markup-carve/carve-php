@@ -1572,6 +1572,64 @@ final class ListBlockBuilder
     }
 
     /**
+     * Last nonblank line at the list or quote opener's authored base.
+     * Quote prefixes and lazy paragraph continuations share that base.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     * @param int $base
+     */
+    private function rebasedListOrQuoteEnd(array $lines, int $start, int $count, int $base): int
+    {
+        $end = $start;
+        for ($j = $start + 1; $j < $count; $j++) {
+            $candidate = $lines[$j];
+            if (
+                IndentationHelper::isBlankLine($candidate)
+                || IndentationHelper::getLeadingColumns($candidate, $base) < $base
+            ) {
+                break;
+            }
+            $end = $j;
+        }
+
+        return $end;
+    }
+
+    /**
+     * Last table row or continuation at the opener's authored base.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     * @param int $base
+     */
+    private function rebasedTableEnd(array $lines, int $start, int $count, int $base): int
+    {
+        $end = $start;
+        for ($j = $start + 1; $j < $count; $j++) {
+            $candidate = $lines[$j];
+            if (
+                IndentationHelper::isBlankLine($candidate)
+                || IndentationHelper::getLeadingColumns($candidate, $base) < $base
+            ) {
+                break;
+            }
+            $local = IndentationHelper::stripLeadingColumns($candidate, $base);
+            if (
+                !($this->getTableParser)()->isTableRow($local)
+                && !($this->getTableParser)()->isContinuationRow($local)
+            ) {
+                break;
+            }
+            $end = $j;
+        }
+
+        return $end;
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -1925,47 +1983,11 @@ final class ListBlockBuilder
             } elseif ($colon !== null) {
                 $end = $this->rebasedColonGroupEnd($lines, $i, $count, $base, $colon['length']);
             } elseif (($this->getListParser)()->parseListItemMarker($opener) !== null) {
-                for ($j = $i + 1; $j < $count; $j++) {
-                    $candidate = $lines[$j];
-                    if (
-                        IndentationHelper::isBlankLine($candidate)
-                        || IndentationHelper::getLeadingColumns($candidate, $base) < $base
-                    ) {
-                        break;
-                    }
-                    $end = $j;
-                }
+                $end = $this->rebasedListOrQuoteEnd($lines, $i, $count, $base);
             } elseif ($this->blockQuoteLineContent($opener) !== null) {
-                // Repeated quote prefixes and lazy paragraph continuations use
-                // the quote opener's authored base until a blank or dedent.
-                for ($j = $i + 1; $j < $count; $j++) {
-                    $candidate = $lines[$j];
-                    if (
-                        IndentationHelper::isBlankLine($candidate)
-                        || IndentationHelper::getLeadingColumns($candidate, $base) < $base
-                    ) {
-                        break;
-                    }
-                    $end = $j;
-                }
+                $end = $this->rebasedListOrQuoteEnd($lines, $i, $count, $base);
             } elseif (($this->getTableParser)()->isTableRow($opener)) {
-                for ($j = $i + 1; $j < $count; $j++) {
-                    $candidate = $lines[$j];
-                    if (
-                        IndentationHelper::isBlankLine($candidate)
-                        || IndentationHelper::getLeadingColumns($candidate, $base) < $base
-                    ) {
-                        break;
-                    }
-                    $local = IndentationHelper::stripLeadingColumns($candidate, $base);
-                    if (
-                        !($this->getTableParser)()->isTableRow($local)
-                        && !($this->getTableParser)()->isContinuationRow($local)
-                    ) {
-                        break;
-                    }
-                    $end = $j;
-                }
+                $end = $this->rebasedTableEnd($lines, $i, $count, $base);
             } elseif (
                 preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $opener) === 1
                 || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $opener) === 1
