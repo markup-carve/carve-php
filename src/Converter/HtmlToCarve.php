@@ -783,6 +783,63 @@ class HtmlToCarve
             return;
         }
 
+        $this->inspectImportElementAttributes($node, $tag, $path, $diagnostics);
+
+        if ($tag === 'math') {
+            // Check attributes first, then consume math descendants as one unit.
+            $this->inspectMath($node, $path, $diagnostics);
+
+            return;
+        }
+
+        if ($this->inspectImportContentLosses($node, $tag, $path, $diagnostics)) {
+            return;
+        }
+
+        // Before the children, as the other engines order it.
+        if ($this->directAstInlineFlattens($node)) {
+            $keepsContent = $this->directAstHasSurvivingContent($node);
+            $this->addImportDiagnostic(
+                $diagnostics,
+                $keepsContent ? 'element-unwrapped' : 'element-dropped',
+                $keepsContent ? $this->flattenedBlockMessage($node, $tag) : 'Dropped empty <' . $tag . '> element',
+                $keepsContent ? 'info' : 'warning',
+                $path,
+            );
+        }
+
+        if ($this->directAstCellFlattens($node)) {
+            $keepsContent = $this->directAstHasSurvivingContent($node);
+            $this->addImportDiagnostic(
+                $diagnostics,
+                $keepsContent ? 'element-unwrapped' : 'element-dropped',
+                $keepsContent ? $this->flattenedBlockMessage($node, $tag) : 'Dropped empty <' . $tag . '> element',
+                $keepsContent ? 'info' : 'warning',
+                $path,
+            );
+        }
+
+        $this->inspectImportChildren($node, $tag, $path, $diagnostics);
+
+        if ($this->directAstCaptionFlattens($node) && $this->hasImportContentToUnwrap($node)) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'element-unwrapped',
+                $this->flattenedBlockMessage($node, $tag),
+                'info',
+                $path,
+            );
+        }
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param string $tag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    private function inspectImportElementAttributes(DOMElement $node, string $tag, string $path, array &$diagnostics): void
+    {
         $outerConsumedCheckbox = $this->inspectedConsumedCheckbox;
         $outerOrderedTaskCheckbox = $this->inspectedOrderedTaskCheckbox;
         $this->inspectedConsumedCheckbox = $tag === 'input' && isset($this->consumedCheckboxInputs[$path])
@@ -862,14 +919,16 @@ class HtmlToCarve
             $this->inspectedConsumedCheckbox = $outerConsumedCheckbox;
             $this->inspectedOrderedTaskCheckbox = $outerOrderedTaskCheckbox;
         }
+    }
 
-        if ($tag === 'math') {
-            // Check attributes first, then consume math descendants as one unit.
-            $this->inspectMath($node, $path, $diagnostics);
-
-            return;
-        }
-
+    /**
+     * @param \DOMElement $node
+     * @param string $tag
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    private function inspectImportContentLosses(DOMElement $node, string $tag, string $path, array &$diagnostics): bool
+    {
         if ($tag === 'figcaption' && HtmlAstBuilder::isOrphanFigcaption($node) && $this->importContentSurvived($node)) {
             $this->addImportDiagnostic($diagnostics, 'element-unwrapped', 'Unwrapped unsupported <figcaption> element', 'info', $path);
         }
@@ -883,7 +942,7 @@ class HtmlToCarve
                 $path,
             );
 
-            return;
+            return true;
         }
 
         if ($tag === 'table') {
@@ -1002,40 +1061,7 @@ class HtmlToCarve
             );
         }
 
-        // Before the children, as the other engines order it.
-        if ($this->directAstInlineFlattens($node)) {
-            $keepsContent = $this->directAstHasSurvivingContent($node);
-            $this->addImportDiagnostic(
-                $diagnostics,
-                $keepsContent ? 'element-unwrapped' : 'element-dropped',
-                $keepsContent ? $this->flattenedBlockMessage($node, $tag) : 'Dropped empty <' . $tag . '> element',
-                $keepsContent ? 'info' : 'warning',
-                $path,
-            );
-        }
-
-        if ($this->directAstCellFlattens($node)) {
-            $keepsContent = $this->directAstHasSurvivingContent($node);
-            $this->addImportDiagnostic(
-                $diagnostics,
-                $keepsContent ? 'element-unwrapped' : 'element-dropped',
-                $keepsContent ? $this->flattenedBlockMessage($node, $tag) : 'Dropped empty <' . $tag . '> element',
-                $keepsContent ? 'info' : 'warning',
-                $path,
-            );
-        }
-
-        $this->inspectImportChildren($node, $tag, $path, $diagnostics);
-
-        if ($this->directAstCaptionFlattens($node) && $this->hasImportContentToUnwrap($node)) {
-            $this->addImportDiagnostic(
-                $diagnostics,
-                'element-unwrapped',
-                $this->flattenedBlockMessage($node, $tag),
-                'info',
-                $path,
-            );
-        }
+        return false;
     }
 
     /**
