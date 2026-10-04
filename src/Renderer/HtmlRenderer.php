@@ -1668,6 +1668,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderList(ListBlock $node): string
     {
+        if (
+            $this::class === self::class
+            && !$this->hasListenersFor('render.list')
+            && !$this->hasListenersFor('render.list_item')
+            && ($this->renderMode !== RenderMode::STATIC || $this->staticRenderExtensions === [])
+            && $this->listChainChild($node) !== null
+        ) {
+            return $this->renderListChain($node);
+        }
+
         $attrs = $this->getRenderableAttributes($node);
         $tight = $node->isTight();
 
@@ -1680,6 +1690,17 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
         }
 
+        $tag = $node->getListType() === ListBlock::TYPE_ORDERED ? 'ol' : 'ul';
+
+        return $this->listOpening($node, $attrs) . $items . '</' . $tag . ">\n";
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\ListBlock $node
+     * @param array<string, string> $attrs Authored attributes captured before rendering children.
+     */
+    private function listOpening(ListBlock $node, array $attrs): string
+    {
         if ($node->getListType() === ListBlock::TYPE_ORDERED) {
             $olAttrs = '';
             $start = $node->getStart();
@@ -1697,7 +1718,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $olAttrs .= ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
             }
 
-            return '<ol' . $olAttrs . $this->renderAttributeArray($attrs) . ">\n" . $items . "</ol>\n";
+            return '<ol' . $olAttrs . $this->renderAttributeArray($attrs) . ">\n";
         }
 
         $marker = $node->getMarker();
@@ -1706,7 +1727,71 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $markerAttr = ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
 
-        return '<ul' . $markerAttr . $this->renderAttributeArray($attrs) . ">\n" . $items . "</ul>\n";
+        return '<ul' . $markerAttr . $this->renderAttributeArray($attrs) . ">\n";
+    }
+
+    private function listChainChild(ListBlock $node): ?ListBlock
+    {
+        $items = $node->getChildren();
+        if (count($items) !== 1 || $items[0]::class !== ListItem::class) {
+            return null;
+        }
+        $item = $items[0];
+        if ($item->isTask() || $item->getAuthoredTaskState() !== null) {
+            return null;
+        }
+        $blocks = $item->getChildren();
+
+        return count($blocks) === 1 && $blocks[0]::class === ListBlock::class ? $blocks[0] : null;
+    }
+
+    /**
+     * Apply cumulative indentation to a chain of block-first, single-item lists.
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
+     */
+    private function renderListChain(ListBlock $node): string
+    {
+        $frames = [];
+        while (($child = $this->listChainChild($node)) !== null) {
+            if ($this->renderDepth + count($frames) >= self::MAX_RENDER_DEPTH) {
+                throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
+            }
+            $item = $node->getChildren()[0];
+            $frames[] = [
+                $this->listOpening($node, $this->getRenderableAttributes($node)),
+                $this->renderAttributes($item),
+                $node->getListType() === ListBlock::TYPE_ORDERED ? 'ol' : 'ul',
+            ];
+            $node = $child;
+        }
+        $savedDepth = $this->renderDepth;
+        $this->renderDepth += count($frames) - 1;
+        try {
+            $body = $this->renderNode($node);
+        } finally {
+            $this->renderDepth = $savedDepth;
+        }
+        // Preserve recursive wrapping when a preformatted payload carries guards.
+        if (str_contains($body, '<pre')) {
+            foreach (array_reverse($frames) as [$opening, $attrs, $tag]) {
+                $item = '<li' . $attrs . ">\n" . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</li>";
+                $body = $opening . $this->indentBlock($item, 2) . "\n</" . $tag . ">\n";
+            }
+
+            return $body;
+        }
+        $parts = [];
+        foreach ($frames as $depth => [$opening, $attrs]) {
+            $parts[] = $this->indentBlock($opening . '  <li' . $attrs . ">\n", $depth * 4);
+        }
+        $parts[] = $this->indentBlock(rtrim($body, "\n"), count($frames) * 4) . "\n";
+        for ($depth = count($frames) - 1; $depth >= 0; $depth--) {
+            $pad = str_repeat(' ', $depth * 4);
+            $parts[] = $pad . "  </li>\n" . $pad . '</' . $frames[$depth][2] . ">\n";
+        }
+
+        return implode('', $parts);
     }
 
     protected function renderListItem(ListItem $node, bool $tight = true): string
