@@ -9,6 +9,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Improvements
+
+- Extract the authored-base eligibility probe from list-body rebasing while preserving its early exits and scan order.
+
 ### Fixes
 
 - PCRE errors in source eligibility checks reject the borrowed HTML path (#2842).
