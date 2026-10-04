@@ -3678,34 +3678,7 @@ final class HtmlAstBuilder
             return [['type' => 'hard_break']];
         }
         if ($tag === 'math') {
-            $content = $this->mathTex($node);
-            if ($content === null) {
-                if ($this->importMode !== 'roundtrip') {
-                    $text = self::linearMathText($node);
-
-                    return $text === null ? [] : [HtmlImportNodes::text($text)];
-                }
-                $html = HtmlDomLoader::serialize($node);
-                $this->keepRaw($node);
-
-                return [
-                    [
-                        'type' => 'raw_inline',
-                        'content' => rtrim($html, "\n"),
-                        'format' => 'html',
-                    ],
-                ];
-            }
-
-            $math = [
-                'type' => 'math',
-                'display' => strtolower($node->getAttribute('display')) === 'block',
-                'content' => $content,
-            ];
-            // `display` and `alttext` are read as the node; `xmlns` is the element's namespace.
-            $this->attachAttrs($math, $node, ['xmlns', 'display', 'alttext']);
-
-            return [$math];
+            return $this->inlineMath($node);
         }
         if ($tag === 'span') {
             $token = trim($node->textContent);
@@ -3757,175 +3730,10 @@ final class HtmlAstBuilder
             ];
         }
         if ($tag === 'img') {
-            if (self::carriesNoDestination($node->getAttribute('src'))) {
-                $alt = $node->getAttribute('alt');
-                if ($alt !== '' && $node->hasAttribute('title')) {
-                    return [
-                        [
-                            'type' => 'span',
-                            'children' => [HtmlImportNodes::text($alt)],
-                            'attrs' => [
-                                'keyValues' => ['title' => $node->getAttribute('title')],
-                                'order' => ['title'],
-                            ],
-                        ],
-                    ];
-                }
-
-                return $alt === '' ? [] : [HtmlImportNodes::text($alt)];
-            }
-            if (
-                $this->importMode === 'roundtrip'
-                && (str_contains($node->getAttribute('alt'), '[') || str_contains($node->getAttribute('alt'), '\\'))
-            ) {
-                $html = $this->sanitizedElementHtml($node);
-                $serialized = HtmlDomLoader::serialize($node);
-                if ($html === rtrim($serialized, "\n")) {
-                    $this->keepRaw($node);
-                }
-
-                return [
-                    [
-                        'type' => 'raw_inline',
-                        'content' => $html,
-                        'format' => 'html',
-                    ],
-                ];
-            }
-            $image = [
-                'type' => 'image',
-                'src' => $node->getAttribute('src'),
-                'alt' => $node->getAttribute('alt'),
-            ];
-            if ($node->hasAttribute('title')) {
-                $image['title'] = $node->getAttribute('title');
-            }
-            if ($this->importMode === 'roundtrip' && $this->sourceSafe && $node->hasAttribute('data-djot-ref')) {
-                $ref = $node->getAttribute('data-djot-ref');
-                $image['ref'] = $ref;
-                $image['rawRef'] = '![' . $node->getAttribute('alt') . ']'
-                    . ($ref === $node->getAttribute('alt') ? '[]' : '[' . $ref . ']');
-                $this->session->referenceDefinitions[$ref] = $node->getAttribute('src');
-            }
-            $skip = ['src', 'alt', 'title'];
-            if ($this->importMode === 'roundtrip') {
-                $skip[] = 'data-djot-ref';
-            }
-            $this->attachAttrs($image, $node, $skip);
-
-            return [$image];
+            return $this->inlineImage($node);
         }
         if ($tag === 'a') {
-            // Raw HTML would write a denied destination the report says was dropped.
-            if ($this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
-                foreach ($node->getElementsByTagName('img') as $image) {
-                    if (preg_match('/[\\[\\]\\\\]/', $image->getAttribute('alt')) === 1) {
-                        $html = HtmlDomLoader::serialize($node);
-                        $this->keepRaw($node);
-
-                        return [
-                            [
-                                'type' => 'raw_inline',
-                                'content' => rtrim($html, "\n"),
-                                'format' => 'html',
-                            ],
-                        ];
-                    }
-                }
-            }
-            $outerKinds = $this->session->inlineTypeStack;
-            if (!self::carriesNoDestination($node->getAttribute('href'))) {
-                $this->session->inlineTypeStack = [];
-            }
-            try {
-                $children = $this->inlines($this->children($node));
-            } finally {
-                $this->session->inlineTypeStack = $outerKinds;
-            }
-            if (self::carriesNoDestination($node->getAttribute('href'))) {
-                $skip = ['href'];
-                foreach ($node->attributes as $attribute) {
-                    if (str_starts_with(strtolower(HtmlDomLoader::attributeName($attribute)), 'data-djot-')) {
-                        $skip[] = strtolower(HtmlDomLoader::attributeName($attribute));
-                    }
-                }
-                $attrs = $this->attrs($node, $skip);
-                if ($attrs !== []) {
-                    return [['type' => 'span', 'children' => $children, 'attrs' => $attrs]];
-                }
-
-                return $children;
-            }
-            if ($node->hasAttribute('data-djot-inline-footnote-html')) {
-                $content = $this->inlineHtml($node->getAttribute('data-djot-inline-footnote-html'));
-                $class = $node->getAttribute('data-djot-inline-footnote-class');
-
-                return [
-                    [
-                        'type' => 'span',
-                        'children' => $content,
-                        'attrs' => [
-                            'classes' => [$class === '' ? 'fn' : $class],
-                            'order' => ['.class'],
-                        ],
-                    ],
-                ];
-            }
-            if ($node->hasAttribute('data-djot-footnote-label')) {
-                return [
-                    [
-                        'type' => 'footnote_ref',
-                        'label' => $node->getAttribute('data-djot-footnote-label'),
-                    ],
-                ];
-            }
-            if (strtolower($node->getAttribute('role')) === 'doc-noteref') {
-                $href = $node->getAttribute('href');
-                $fragment = str_starts_with($href, '#') ? substr($href, 1) : trim($node->textContent);
-
-                return [['type' => 'footnote_ref', 'label' => $this->footnoteLabel($fragment)]];
-            }
-            if ($this->session->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
-                return [];
-            }
-            if ($node->hasAttribute('data-djot-autolink')) {
-                $autolink = [
-                    'type' => 'autolink',
-                    'href' => $node->getAttribute('href'),
-                    'text' => trim($node->textContent),
-                ];
-                $this->attachAttrs($autolink, $node, ['href', 'data-djot-autolink']);
-
-                return [$autolink];
-            }
-            $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
-            if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-ref')) {
-                $labelText = $this->plainInlineText(self::nodeList($children));
-                $ref = $node->getAttribute('data-djot-ref');
-                if ($ref === '') {
-                    $ref = trim($labelText);
-                }
-                if ($ref !== '' && !str_contains($labelText, ']') && !str_contains($ref, ']')) {
-                    $link['ref'] = $ref;
-                    $collapsed = $labelText === $ref;
-                    $link['rawRef'] = '[' . $labelText . ']'
-                        . ($collapsed ? '[]' : '[' . $ref . ']');
-                    $this->session->referenceDefinitions[$ref] = $node->getAttribute('href');
-                }
-            }
-            if ($node->hasAttribute('title')) {
-                $link['title'] = $node->getAttribute('title');
-            }
-            $skip = ['href', 'title', 'data-djot-autolink', 'data-djot-footnote-label'];
-            if ($this->importMode === 'roundtrip') {
-                $skip[] = 'data-djot-ref';
-            }
-            if ($this->hasClass($node, 'index-backref')) {
-                $skip[] = 'aria-label';
-            }
-            $this->attachAttrs($link, $node, $skip);
-
-            return [$link];
+            return $this->inlineLink($node);
         }
         if ($tag === 'code') {
             if ($node->textContent === '') {
@@ -4077,6 +3885,222 @@ final class HtmlAstBuilder
         }
 
         return $this->inlines($this->children($node));
+    }
+
+    /**
+     * @return list<ImportedNode>
+     */
+    private function inlineMath(DOMElement $node): array
+    {
+        $content = $this->mathTex($node);
+        if ($content === null) {
+            if ($this->importMode !== 'roundtrip') {
+                $text = self::linearMathText($node);
+
+                return $text === null ? [] : [HtmlImportNodes::text($text)];
+            }
+            $html = HtmlDomLoader::serialize($node);
+            $this->keepRaw($node);
+
+            return [
+                [
+                    'type' => 'raw_inline',
+                    'content' => rtrim($html, "\n"),
+                    'format' => 'html',
+                ],
+            ];
+        }
+
+        $math = [
+            'type' => 'math',
+            'display' => strtolower($node->getAttribute('display')) === 'block',
+            'content' => $content,
+        ];
+        // `display` and `alttext` are read as the node; `xmlns` is the element's namespace.
+        $this->attachAttrs($math, $node, ['xmlns', 'display', 'alttext']);
+
+        return [$math];
+    }
+
+    /**
+     * @return list<ImportedNode>
+     */
+    private function inlineImage(DOMElement $node): array
+    {
+        if (self::carriesNoDestination($node->getAttribute('src'))) {
+            $alt = $node->getAttribute('alt');
+            if ($alt !== '' && $node->hasAttribute('title')) {
+                return [
+                    [
+                        'type' => 'span',
+                        'children' => [HtmlImportNodes::text($alt)],
+                        'attrs' => [
+                            'keyValues' => ['title' => $node->getAttribute('title')],
+                            'order' => ['title'],
+                        ],
+                    ],
+                ];
+            }
+
+            return $alt === '' ? [] : [HtmlImportNodes::text($alt)];
+        }
+        if (
+            $this->importMode === 'roundtrip'
+            && (str_contains($node->getAttribute('alt'), '[') || str_contains($node->getAttribute('alt'), '\\'))
+        ) {
+            $html = $this->sanitizedElementHtml($node);
+            $serialized = HtmlDomLoader::serialize($node);
+            if ($html === rtrim($serialized, "\n")) {
+                $this->keepRaw($node);
+            }
+
+            return [
+                [
+                    'type' => 'raw_inline',
+                    'content' => $html,
+                    'format' => 'html',
+                ],
+            ];
+        }
+        $image = [
+            'type' => 'image',
+            'src' => $node->getAttribute('src'),
+            'alt' => $node->getAttribute('alt'),
+        ];
+        if ($node->hasAttribute('title')) {
+            $image['title'] = $node->getAttribute('title');
+        }
+        if ($this->importMode === 'roundtrip' && $this->sourceSafe && $node->hasAttribute('data-djot-ref')) {
+            $ref = $node->getAttribute('data-djot-ref');
+            $image['ref'] = $ref;
+            $image['rawRef'] = '![' . $node->getAttribute('alt') . ']'
+                . ($ref === $node->getAttribute('alt') ? '[]' : '[' . $ref . ']');
+            $this->session->referenceDefinitions[$ref] = $node->getAttribute('src');
+        }
+        $skip = ['src', 'alt', 'title'];
+        if ($this->importMode === 'roundtrip') {
+            $skip[] = 'data-djot-ref';
+        }
+        $this->attachAttrs($image, $node, $skip);
+
+        return [$image];
+    }
+
+    /**
+     * @return list<ImportedNode>
+     */
+    private function inlineLink(DOMElement $node): array
+    {
+        // Raw HTML would write a denied destination the report says was dropped.
+        if ($this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
+            foreach ($node->getElementsByTagName('img') as $image) {
+                if (preg_match('/[\\[\\]\\\\]/', $image->getAttribute('alt')) === 1) {
+                    $html = HtmlDomLoader::serialize($node);
+                    $this->keepRaw($node);
+
+                    return [
+                        [
+                            'type' => 'raw_inline',
+                            'content' => rtrim($html, "\n"),
+                            'format' => 'html',
+                        ],
+                    ];
+                }
+            }
+        }
+        $outerKinds = $this->session->inlineTypeStack;
+        if (!self::carriesNoDestination($node->getAttribute('href'))) {
+            $this->session->inlineTypeStack = [];
+        }
+        try {
+            $children = $this->inlines($this->children($node));
+        } finally {
+            $this->session->inlineTypeStack = $outerKinds;
+        }
+        if (self::carriesNoDestination($node->getAttribute('href'))) {
+            $skip = ['href'];
+            foreach ($node->attributes as $attribute) {
+                if (str_starts_with(strtolower(HtmlDomLoader::attributeName($attribute)), 'data-djot-')) {
+                    $skip[] = strtolower(HtmlDomLoader::attributeName($attribute));
+                }
+            }
+            $attrs = $this->attrs($node, $skip);
+            if ($attrs !== []) {
+                return [['type' => 'span', 'children' => $children, 'attrs' => $attrs]];
+            }
+
+            return $children;
+        }
+        if ($node->hasAttribute('data-djot-inline-footnote-html')) {
+            $content = $this->inlineHtml($node->getAttribute('data-djot-inline-footnote-html'));
+            $class = $node->getAttribute('data-djot-inline-footnote-class');
+
+            return [
+                [
+                    'type' => 'span',
+                    'children' => $content,
+                    'attrs' => [
+                        'classes' => [$class === '' ? 'fn' : $class],
+                        'order' => ['.class'],
+                    ],
+                ],
+            ];
+        }
+        if ($node->hasAttribute('data-djot-footnote-label')) {
+            return [
+                [
+                    'type' => 'footnote_ref',
+                    'label' => $node->getAttribute('data-djot-footnote-label'),
+                ],
+            ];
+        }
+        if (strtolower($node->getAttribute('role')) === 'doc-noteref') {
+            $href = $node->getAttribute('href');
+            $fragment = str_starts_with($href, '#') ? substr($href, 1) : trim($node->textContent);
+
+            return [['type' => 'footnote_ref', 'label' => $this->footnoteLabel($fragment)]];
+        }
+        if ($this->session->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
+            return [];
+        }
+        if ($node->hasAttribute('data-djot-autolink')) {
+            $autolink = [
+                'type' => 'autolink',
+                'href' => $node->getAttribute('href'),
+                'text' => trim($node->textContent),
+            ];
+            $this->attachAttrs($autolink, $node, ['href', 'data-djot-autolink']);
+
+            return [$autolink];
+        }
+        $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
+        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-ref')) {
+            $labelText = $this->plainInlineText(self::nodeList($children));
+            $ref = $node->getAttribute('data-djot-ref');
+            if ($ref === '') {
+                $ref = trim($labelText);
+            }
+            if ($ref !== '' && !str_contains($labelText, ']') && !str_contains($ref, ']')) {
+                $link['ref'] = $ref;
+                $collapsed = $labelText === $ref;
+                $link['rawRef'] = '[' . $labelText . ']'
+                    . ($collapsed ? '[]' : '[' . $ref . ']');
+                $this->session->referenceDefinitions[$ref] = $node->getAttribute('href');
+            }
+        }
+        if ($node->hasAttribute('title')) {
+            $link['title'] = $node->getAttribute('title');
+        }
+        $skip = ['href', 'title', 'data-djot-autolink', 'data-djot-footnote-label'];
+        if ($this->importMode === 'roundtrip') {
+            $skip[] = 'data-djot-ref';
+        }
+        if ($this->hasClass($node, 'index-backref')) {
+            $skip[] = 'aria-label';
+        }
+        $this->attachAttrs($link, $node, $skip);
+
+        return [$link];
     }
 
     /**

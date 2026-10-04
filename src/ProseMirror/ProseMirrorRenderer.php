@@ -754,48 +754,9 @@ class ProseMirrorRenderer
         } elseif ($node instanceof ThematicBreak) {
             $attrs['carveMarker'] = $node->char;
         } elseif ($node instanceof CodeBlock) {
-            // An empty info string is not a language: emitting it would render
-            // class="language-".
-            $language = (string)$node->getLanguage();
-            if ($language !== '') {
-                $attrs['language'] = $language;
-            }
-            $header = $node->getHeader();
-            if ($header !== null) {
-                $attrs['carveHeader'] = $header;
-            }
-            $fenceLabel = $node->getLabel();
-            if ($fenceLabel !== null && $fenceLabel !== '') {
-                $attrs['carveLabel'] = $fenceLabel;
-            }
+            $this->appendCodeBlockAttributes($node, $attrs);
         } elseif ($node instanceof ListBlock) {
-            // The writer reads exactly three things off a list to decide how to
-            // spell its markers - the marker character, the numbering style and
-            // the bare-dot flag - and the editor model holds none of them. All
-            // three used to be lost, two of them silently, because `1)` and
-            // `a.` render the same `<ol>` as `1.` (carve-php#519). Each is only
-            // set when it changes what the writer emits, so an ordinary list
-            // gains no key that means nothing to it.
-            if ($node->getListType() === 'ordered') {
-                $attrs['start'] = $node->getStart();
-                $attrs['carveBareMarker'] = $node->hasBareMarker();
-                // Alphabetic and roman numbering are not a re-spelling: without
-                // this, `a. apple` comes back `1. apple` and the visible label
-                // changes.
-                if ($node->getStyle() !== null) {
-                    $attrs['carveOlType'] = $node->getStyle();
-                }
-            }
-            // Section 11: a different marker character starts a NEW list, so
-            // normalizing it can merge two sibling lists into one on re-parse
-            // (carve#286). That makes the marker structural, not decoration.
-            $marker = $node->getMarker();
-            if ($marker !== null && in_array($marker, [')', '*'], true)) {
-                $attrs['carveDelim'] = $marker;
-            }
-            // Looseness decides whether items render their paragraphs, so it is
-            // content, not styling: without it a loose list comes back tight.
-            $attrs['carveTight'] = $node->isTight();
+            $this->appendListAttributes($node, $attrs);
         } elseif ($node instanceof DefinitionList) {
             // PART 9 §17 L7's consumed `loose` boolean, for the same reason as
             // `carveTight` above and with one difference: it is UNDERIVABLE
@@ -860,34 +821,7 @@ class ProseMirrorRenderer
             $attrs['href'] = $node->getDestination();
             $attrs['cssClass'] = $node->getCssClass();
         } elseif ($node instanceof Link) {
-            $attrs['href'] = $node->getDestination();
-            if ($node->getTitle() !== null) {
-                $attrs['title'] = $node->getTitle();
-            }
-            // `<https://example.com>` and `[https://example.com](https://...)`
-            // are the same mark with the same destination, so the writer had
-            // nothing to choose by and always emitted the explicit spelling.
-            // The flag is the node's own identity in Carve, not decoration -
-            // an autolink is its own type (carve-php#519).
-            if ($node->isAutolink()) {
-                $attrs['carveAutolink'] = true;
-            }
-            if ($node->isFromHeadingReference()) {
-                $attrs['carveHeadingRef'] = true;
-            }
-            if ($node->isFromHeadingReference() || $node->getReferenceLabel() !== null) {
-                $referenceLabel = $node->getReferenceLabel();
-                if ($referenceLabel !== null) {
-                    $attrs['carveRef'] = $referenceLabel;
-                }
-                $rawReferenceLabel = $node->getRawReferenceLabel();
-                if ($rawReferenceLabel !== null) {
-                    $attrs['carveRawRef'] = $rawReferenceLabel;
-                }
-                if ($referenceLabel !== null && isset($this->referenceDefinitionLines[$referenceLabel])) {
-                    $attrs['carveReferenceDefinition'] = $this->referenceDefinitionLines[$referenceLabel];
-                }
-            }
+            $this->appendLinkAttributes($node, $attrs);
         } elseif ($node instanceof Math) {
             $attrs['src'] = $node->getContent();
             $attrs['display'] = $node->isDisplay();
@@ -947,84 +881,9 @@ class ProseMirrorRenderer
             // authored identity, so only it is carried.
             $attrs['target'] = $node->getTargetId();
         } elseif ($node instanceof CitationGroup) {
-            $attrs['raw'] = $node->getRaw();
-            $attrs['integral'] = $node->isIntegral();
-            // An item's prefix, locator and suffix are inline ARRAYS living
-            // outside `children`, so a child walk cannot reach them - the same
-            // shape the PART 12 codec handles for the wire. Each rides as a
-            // ProseMirror inline array the converter rebuilds with its normal
-            // inline path.
-            $items = [];
-            foreach ($node->getItems() as $item) {
-                $encoded = [
-                    'key' => $item['key'],
-                    'suppressAuthor' => $item['suppressAuthor'],
-                ];
-                foreach (['prefix', 'locator', 'suffix'] as $inlineField) {
-                    if (isset($item[$inlineField])) {
-                        $encoded[$inlineField] = $this->renderInlines($item[$inlineField], []);
-                    }
-                }
-                foreach (['locatorLabel', 'locatorValue'] as $stringField) {
-                    if (isset($item[$stringField])) {
-                        $encoded[$stringField] = $item[$stringField];
-                    }
-                }
-                foreach (['number', 'useIndex'] as $integerField) {
-                    if (isset($item[$integerField])) {
-                        $encoded[$integerField] = $item[$integerField];
-                    }
-                }
-                if (isset($item['pos'])) {
-                    $encoded['pos'] = $item['pos'];
-                }
-                $items[] = $encoded;
-            }
-            $attrs['items'] = $items;
-            // CarveKit's citation atom has one whole-group `integral` and no
-            // per-item mode, so a group whose items disagree (PART 12 §31) has
-            // nothing to ride in. The flag above is its summary and would claim
-            // every item is integral, so it says false and the marking on the
-            // items that carry it is reported rather than dropped in silence.
-            if (!$node->isIntegral()) {
-                foreach ($node->getItems() as $item) {
-                    if (($item['mode'] ?? null) === 'integral') {
-                        $this->degraded['citation_group'] = 'the editor carries one integral flag for the '
-                            . 'whole group, so a group whose items disagree loses the per-item mode';
-
-                        break;
-                    }
-                }
-            }
+            $this->appendCitationGroupAttributes($node, $attrs);
         } elseif ($node instanceof Div) {
-            $directiveKind = $node->directiveKind();
-            if ($directiveKind !== null) {
-                $attrs['kind'] = $directiveKind;
-            }
-            // An empty label is a spelled slot, like the empty title below: the
-            // writer puts `::: note []` on a label whose whole content was a
-            // comment, so dropping it on `=== ''` brought the document back as
-            // `::: note` (corpus 518-…-10).
-            $label = $node->getLabel();
-            if ($label !== null) {
-                $attrs['label'] = $label;
-            }
-            // An empty title is meaningful - `::: note ""` suppresses the
-            // default heading - so only a missing one is left unset. Dropping
-            // it lost the container's heading outright, which is content, not
-            // spelling.
-            $header = $node->getHeader();
-            if ($header !== null) {
-                $attrs['title'] = $header;
-            }
-            // Which SPELLING the author used: the kind word on the opener, or
-            // an attribute run above a bare `:::`. One ProseMirror node serves
-            // both `div` and `admonition`, so without this the two cannot be
-            // told apart and an attributed div comes back as a typed one
-            // (markup-carve/carve-grammars#239).
-            if ($directiveKind === null) {
-                $attrs['carveTyped'] = $node->isTyped();
-            }
+            $this->appendDivAttributes($node, $attrs);
         } elseif ($node instanceof BlockExtension) {
             $attrs['name'] = $node->getName();
             if ($node->getVersion() !== null) {
@@ -1075,6 +934,192 @@ class ProseMirrorRenderer
         }
 
         return $attrs + $authored;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $node
+     * @param array<string, mixed> $attrs
+     */
+    private function appendCodeBlockAttributes(CodeBlock $node, array &$attrs): void
+    {
+        // An empty info string is not a language: emitting it would render
+        // class="language-".
+        $language = (string)$node->getLanguage();
+        if ($language !== '') {
+            $attrs['language'] = $language;
+        }
+        $header = $node->getHeader();
+        if ($header !== null) {
+            $attrs['carveHeader'] = $header;
+        }
+        $fenceLabel = $node->getLabel();
+        if ($fenceLabel !== null && $fenceLabel !== '') {
+            $attrs['carveLabel'] = $fenceLabel;
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\ListBlock $node
+     * @param array<string, mixed> $attrs
+     */
+    private function appendListAttributes(ListBlock $node, array &$attrs): void
+    {
+        // The writer reads exactly three things off a list to decide how to
+        // spell its markers - the marker character, the numbering style and
+        // the bare-dot flag - and the editor model holds none of them. All
+        // three used to be lost, two of them silently, because `1)` and
+        // `a.` render the same `<ol>` as `1.` (carve-php#519). Each is only
+        // set when it changes what the writer emits, so an ordinary list
+        // gains no key that means nothing to it.
+        if ($node->getListType() === 'ordered') {
+            $attrs['start'] = $node->getStart();
+            $attrs['carveBareMarker'] = $node->hasBareMarker();
+            // Alphabetic and roman numbering are not a re-spelling: without
+            // this, `a. apple` comes back `1. apple` and the visible label
+            // changes.
+            if ($node->getStyle() !== null) {
+                $attrs['carveOlType'] = $node->getStyle();
+            }
+        }
+        // Section 11: a different marker character starts a NEW list, so
+        // normalizing it can merge two sibling lists into one on re-parse
+        // (carve#286). That makes the marker structural, not decoration.
+        $marker = $node->getMarker();
+        if ($marker !== null && in_array($marker, [')', '*'], true)) {
+            $attrs['carveDelim'] = $marker;
+        }
+        // Looseness decides whether items render their paragraphs, so it is
+        // content, not styling: without it a loose list comes back tight.
+        $attrs['carveTight'] = $node->isTight();
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Inline\Link $node
+     * @param array<string, mixed> $attrs
+     */
+    private function appendLinkAttributes(Link $node, array &$attrs): void
+    {
+        $attrs['href'] = $node->getDestination();
+        if ($node->getTitle() !== null) {
+            $attrs['title'] = $node->getTitle();
+        }
+        // `<https://example.com>` and `[https://example.com](https://...)`
+        // are the same mark with the same destination, so the writer had
+        // nothing to choose by and always emitted the explicit spelling.
+        // The flag is the node's own identity in Carve, not decoration -
+        // an autolink is its own type (carve-php#519).
+        if ($node->isAutolink()) {
+            $attrs['carveAutolink'] = true;
+        }
+        if ($node->isFromHeadingReference()) {
+            $attrs['carveHeadingRef'] = true;
+        }
+        if ($node->isFromHeadingReference() || $node->getReferenceLabel() !== null) {
+            $referenceLabel = $node->getReferenceLabel();
+            if ($referenceLabel !== null) {
+                $attrs['carveRef'] = $referenceLabel;
+            }
+            $rawReferenceLabel = $node->getRawReferenceLabel();
+            if ($rawReferenceLabel !== null) {
+                $attrs['carveRawRef'] = $rawReferenceLabel;
+            }
+            if ($referenceLabel !== null && isset($this->referenceDefinitionLines[$referenceLabel])) {
+                $attrs['carveReferenceDefinition'] = $this->referenceDefinitionLines[$referenceLabel];
+            }
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Inline\CitationGroup $node
+     * @param array<string, mixed> $attrs
+     */
+    private function appendCitationGroupAttributes(CitationGroup $node, array &$attrs): void
+    {
+        $attrs['raw'] = $node->getRaw();
+        $attrs['integral'] = $node->isIntegral();
+        // An item's prefix, locator and suffix are inline ARRAYS living
+        // outside `children`, so a child walk cannot reach them - the same
+        // shape the PART 12 codec handles for the wire. Each rides as a
+        // ProseMirror inline array the converter rebuilds with its normal
+        // inline path.
+        $items = [];
+        foreach ($node->getItems() as $item) {
+            $encoded = [
+                'key' => $item['key'],
+                'suppressAuthor' => $item['suppressAuthor'],
+            ];
+            foreach (['prefix', 'locator', 'suffix'] as $inlineField) {
+                if (isset($item[$inlineField])) {
+                    $encoded[$inlineField] = $this->renderInlines($item[$inlineField], []);
+                }
+            }
+            foreach (['locatorLabel', 'locatorValue'] as $stringField) {
+                if (isset($item[$stringField])) {
+                    $encoded[$stringField] = $item[$stringField];
+                }
+            }
+            foreach (['number', 'useIndex'] as $integerField) {
+                if (isset($item[$integerField])) {
+                    $encoded[$integerField] = $item[$integerField];
+                }
+            }
+            if (isset($item['pos'])) {
+                $encoded['pos'] = $item['pos'];
+            }
+            $items[] = $encoded;
+        }
+        $attrs['items'] = $items;
+        // CarveKit's citation atom has one whole-group `integral` and no
+        // per-item mode, so a group whose items disagree (PART 12 §31) has
+        // nothing to ride in. The flag above is its summary and would claim
+        // every item is integral, so it says false and the marking on the
+        // items that carry it is reported rather than dropped in silence.
+        if (!$node->isIntegral()) {
+            foreach ($node->getItems() as $item) {
+                if (($item['mode'] ?? null) === 'integral') {
+                    $this->degraded['citation_group'] = 'the editor carries one integral flag for the '
+                        . 'whole group, so a group whose items disagree loses the per-item mode';
+
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Div $node
+     * @param array<string, mixed> $attrs
+     */
+    private function appendDivAttributes(Div $node, array &$attrs): void
+    {
+        $directiveKind = $node->directiveKind();
+        if ($directiveKind !== null) {
+            $attrs['kind'] = $directiveKind;
+        }
+        // An empty label is a spelled slot, like the empty title below: the
+        // writer puts `::: note []` on a label whose whole content was a
+        // comment, so dropping it on `=== ''` brought the document back as
+        // `::: note` (corpus 518-…-10).
+        $label = $node->getLabel();
+        if ($label !== null) {
+            $attrs['label'] = $label;
+        }
+        // An empty title is meaningful - `::: note ""` suppresses the
+        // default heading - so only a missing one is left unset. Dropping
+        // it lost the container's heading outright, which is content, not
+        // spelling.
+        $header = $node->getHeader();
+        if ($header !== null) {
+            $attrs['title'] = $header;
+        }
+        // Which SPELLING the author used: the kind word on the opener, or
+        // an attribute run above a bare `:::`. One ProseMirror node serves
+        // both `div` and `admonition`, so without this the two cannot be
+        // told apart and an attributed div comes back as a typed one
+        // (markup-carve/carve-grammars#239).
+        if ($directiveKind === null) {
+            $attrs['carveTyped'] = $node->isTyped();
+        }
     }
 
     /**

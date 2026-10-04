@@ -1571,31 +1571,8 @@ class ProseMirrorToCarve
             }
             $consumed[$key] = match (true) {
                 $node instanceof Heading && $key === 'level' => $this->setState($node, 'level', self::asInt($value)),
-                $node instanceof CodeBlock && $key === 'language' => $this->setState($node, 'language', self::asString($value)),
-                // The fence's own metadata, consumed here so it is restored to
-                // the construct instead of being left in the author attribute
-                // map (carve-php#519). A code block's structural title used to
-                // arrive as a plain `title` attribute, which came back as BOTH
-                // the fence's quoted title and an added `{title=...}` line
-                // above it; its `[label]` had nothing carrying it at all.
-                $node instanceof CodeBlock && in_array($key, ['carveHeader', 'carveFenceTitle'], true)
-                    => $this->setState($node, 'header', self::asString($value)),
-                $node instanceof CodeBlock && in_array($key, ['carveLabel', 'carveFenceLabel'], true)
-                    => $this->setState($node, 'label', self::asString($value)),
-                // Only when carveFenceTitle is ABSENT. A payload predating it
-                // put the fence's title in `title`, so that is the best guess
-                // available; but when both are present the `title` is the
-                // AUTHOR's, from an attribute line, and it must stay an
-                // attribute rather than overwrite the fence header - which is
-                // its own document, not a spelling:
-                //
-                //   {title="from the attribute line"}
-                //   ``` php "from the header"
-                //
-                // has two titles on purpose.
-                $node instanceof CodeBlock && $key === 'title'
-                    && !array_key_exists('carveHeader', $attrs)
-                    && !array_key_exists('carveFenceTitle', $attrs) => $this->setState($node, 'header', self::asString($value)),
+                $node instanceof CodeBlock
+                    && ($applied = $this->applyCodeBlockAttribute($node, $key, $value, $attrs)) !== null => $applied,
                 $node instanceof ListBlock && $key === 'start' => $this->setState($node, 'start', self::asInt($value)),
                 $node instanceof ListBlock && in_array($key, ['carveTight', 'tight'], true) => $this->setState($node, 'tight', self::asBool($value)),
                 // PART 9 §17 L7's consumed `loose` boolean. `loose` is accepted
@@ -1613,31 +1590,8 @@ class ProseMirrorToCarve
                     'fenced',
                     self::asBool($value),
                 ),
-                $node instanceof TableCell && $key === 'textAlign' && in_array(
-                    self::asString($value),
-                    [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT],
-                    true,
-                ) => $this->setState($node, 'alignment', self::asString($value))
-                    && $this->setState($node, 'hasExplicitAlignment', true),
-                $node instanceof TableCell && in_array($key, ['verticalAlign', 'verticalAlignment'], true)
-                    && in_array(self::asString($value), [TableCell::VALIGN_TOP, TableCell::VALIGN_MIDDLE, TableCell::VALIGN_BOTTOM], true)
-                    => $this->setState($node, 'verticalAlignment', self::asString($value))
-                    && $this->setState($node, 'hasExplicitVerticalAlignment', true),
-                $node instanceof TableCell && $key === 'colspan' => $this->setState($node, 'colspan', self::asInt($value)),
-                $node instanceof TableCell && $key === 'rowspan' => $this->setState($node, 'rowspan', self::asInt($value)),
-                $node instanceof TableCell && $key === 'carveSpanMarker' => $this->setState(
-                    $node,
-                    'spanMarker',
-                    is_scalar($value) ? (string)$value : null,
-                ),
-                $node instanceof TableCell && $key === 'carveInheritedTextAlign' => true,
-                // An `alignment` on the wire IS the cell's own marker: the
-                // renderer publishes it only where the cell carries one, which
-                // is also how carve-rs reads it back. Recording that keeps the
-                // marker in the written form even where the column already
-                // aligns the same way.
-                $node instanceof TableCell && $key === 'alignment' => $this->setState($node, 'alignment', self::asString($value))
-                    && $this->setState($node, 'hasExplicitAlignment', true),
+                $node instanceof TableCell
+                    && ($applied = $this->applyTableCellAttribute($node, $key, $value)) !== null => $applied,
                 $node instanceof Image && $key === 'src' => $this->setState($node, 'source', self::asString($value)),
                 $node instanceof Image && $key === 'alt' => $this->setState($node, 'alt', self::asString($value)),
                 $node instanceof Link && $key === 'href' => $this->setState($node, 'destination', self::asString($value)),
@@ -1657,11 +1611,8 @@ class ProseMirrorToCarve
                 ($node instanceof Link || $node instanceof Image) && $key === 'carveRawRef' => $this->setState($node, 'rawReferenceLabel', self::asString($value)),
                 $node instanceof Math && $key === 'src' => $this->setState($node, 'content', self::asString($value)),
                 $node instanceof Math && $key === 'display' => $this->setState($node, 'display', self::asBool($value)),
-                $node instanceof Div && $key === 'label' => $this->setState($node, 'label', self::asString($value)),
-                $node instanceof Div && $key === 'title' => $this->setState($node, 'header', self::asString($value)),
-                $node instanceof Div && ($data['type'] ?? null) === 'carveDirective' && $key === 'kind' => true,
-                $node instanceof Div && $key === 'carveTyped' => $this->setState($node, 'typed', self::asBool($value)),
-                $node instanceof Div && $key === 'carveAttrs' => $this->applyCarveAttrs($node, $value),
+                $node instanceof Div
+                    && ($applied = $this->applyDivAttribute($node, $key, $value, $data)) !== null => $applied,
                 $node instanceof BlockExtension && in_array($key, ['name', 'version', 'payload'], true) => true,
                 $node instanceof Caption && $key === 'short' => true,
                 $node instanceof Ruby && $key === 'pairs' => true,
@@ -1694,14 +1645,8 @@ class ProseMirrorToCarve
                 $node instanceof AbbreviationDefinition && $key === 'expansion' => $this->setState($node, 'expansion', self::asString($value)),
                 $node instanceof CitationDefinition && $key === 'key' => $this->setState($node, 'key', self::asString($value)),
                 $node instanceof Symbol && $key === 'name' => $this->setState($node, 'name', self::asString($value)),
-                // The editor keeps both halves as plain-text attrs; the node
-                // holds them as inline content (markup-carve/carve-php#2104).
-                $node instanceof Substitution && $key === 'oldText' => !array_key_exists('old', $attrs)
-                    ? $this->fillSubstitutionHalf($node->getOld(), self::asString($value)) : true,
-                $node instanceof Substitution && $key === 'newText' => !array_key_exists('new', $attrs)
-                    ? $this->fillSubstitutionHalf($node->getNew(), self::asString($value)) : true,
-                $node instanceof Substitution && $key === 'old' => $this->fillSubstitutionHalfFromWire($node->getOld(), $value),
-                $node instanceof Substitution && $key === 'new' => $this->fillSubstitutionHalfFromWire($node->getNew(), $value),
+                $node instanceof Substitution
+                    && ($applied = $this->applySubstitutionAttribute($node, $key, $value, $attrs)) !== null => $applied,
                 $node instanceof BlockNode && $key === 'carvePos' => $this->setBlockPos($node, $value),
                 $node instanceof HeadingRef && $key === 'target' => $this->setState($node, 'targetId', self::asString($value)),
                 $node instanceof CitationGroup && $key === 'raw' => $this->setState($node, 'raw', self::asString($value)),
@@ -1806,6 +1751,128 @@ class ProseMirrorToCarve
         if ($node instanceof Div && !array_key_exists('carveTyped', $attrs) && count($node->getClassList()) >= 1) {
             $this->setState($node, 'typed', true);
         }
+    }
+
+    /**
+     * Apply a structural attribute, or return null when this node's handler does not recognize it.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $node
+     * @param string|int $key
+     * @param mixed $value
+     * @param array<array-key, mixed> $attrs
+     */
+    private function applyCodeBlockAttribute(CodeBlock $node, string|int $key, mixed $value, array $attrs): ?bool
+    {
+        return match (true) {
+            $key === 'language' => $this->setState($node, 'language', self::asString($value)),
+            // The fence's own metadata, consumed here so it is restored to
+            // the construct instead of being left in the author attribute
+            // map (carve-php#519). A code block's structural title used to
+            // arrive as a plain `title` attribute, which came back as BOTH
+            // the fence's quoted title and an added `{title=...}` line
+            // above it; its `[label]` had nothing carrying it at all.
+            in_array($key, ['carveHeader', 'carveFenceTitle'], true)
+                => $this->setState($node, 'header', self::asString($value)),
+            in_array($key, ['carveLabel', 'carveFenceLabel'], true)
+                => $this->setState($node, 'label', self::asString($value)),
+            // Only when carveFenceTitle is ABSENT. A payload predating it
+            // put the fence's title in `title`, so that is the best guess
+            // available; but when both are present the `title` is the
+            // AUTHOR's, from an attribute line, and it must stay an
+            // attribute rather than overwrite the fence header - which is
+            // its own document, not a spelling:
+            //
+            //   {title="from the attribute line"}
+            //   ``` php "from the header"
+            //
+            // has two titles on purpose.
+            $key === 'title'
+                && !array_key_exists('carveHeader', $attrs)
+                && !array_key_exists('carveFenceTitle', $attrs) => $this->setState($node, 'header', self::asString($value)),
+            default => null,
+        };
+    }
+
+    /**
+     * Apply a structural attribute, or return null when this node's handler does not recognize it.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $node
+     * @param string|int $key
+     * @param mixed $value
+     */
+    private function applyTableCellAttribute(TableCell $node, string|int $key, mixed $value): ?bool
+    {
+        return match (true) {
+            $key === 'textAlign' && in_array(
+                self::asString($value),
+                [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT],
+                true,
+            ) => $this->setState($node, 'alignment', self::asString($value))
+                && $this->setState($node, 'hasExplicitAlignment', true),
+            in_array($key, ['verticalAlign', 'verticalAlignment'], true)
+                && in_array(self::asString($value), [TableCell::VALIGN_TOP, TableCell::VALIGN_MIDDLE, TableCell::VALIGN_BOTTOM], true)
+                => $this->setState($node, 'verticalAlignment', self::asString($value))
+                && $this->setState($node, 'hasExplicitVerticalAlignment', true),
+            $key === 'colspan' => $this->setState($node, 'colspan', self::asInt($value)),
+            $key === 'rowspan' => $this->setState($node, 'rowspan', self::asInt($value)),
+            $key === 'carveSpanMarker' => $this->setState(
+                $node,
+                'spanMarker',
+                is_scalar($value) ? (string)$value : null,
+            ),
+            $key === 'carveInheritedTextAlign' => true,
+            // An `alignment` on the wire IS the cell's own marker: the
+            // renderer publishes it only where the cell carries one, which
+            // is also how carve-rs reads it back. Recording that keeps the
+            // marker in the written form even where the column already
+            // aligns the same way.
+            $key === 'alignment' => $this->setState($node, 'alignment', self::asString($value))
+                && $this->setState($node, 'hasExplicitAlignment', true),
+            default => null,
+        };
+    }
+
+    /**
+     * Apply a structural attribute, or return null when this node's handler does not recognize it.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\Div $node
+     * @param string|int $key
+     * @param mixed $value
+     * @param array<array-key, mixed> $data
+     */
+    private function applyDivAttribute(Div $node, string|int $key, mixed $value, array $data): ?bool
+    {
+        return match (true) {
+            $key === 'label' => $this->setState($node, 'label', self::asString($value)),
+            $key === 'title' => $this->setState($node, 'header', self::asString($value)),
+            ($data['type'] ?? null) === 'carveDirective' && $key === 'kind' => true,
+            $key === 'carveTyped' => $this->setState($node, 'typed', self::asBool($value)),
+            $key === 'carveAttrs' => $this->applyCarveAttrs($node, $value),
+            default => null,
+        };
+    }
+
+    /**
+     * Apply a structural attribute, or return null when this node's handler does not recognize it.
+     *
+     * @param \MarkupCarve\Carve\Node\Inline\Substitution $node
+     * @param string|int $key
+     * @param mixed $value
+     * @param array<array-key, mixed> $attrs
+     */
+    private function applySubstitutionAttribute(Substitution $node, string|int $key, mixed $value, array $attrs): ?bool
+    {
+        return match (true) {
+            // The editor keeps both halves as plain-text attrs; the node
+            // holds them as inline content (markup-carve/carve-php#2104).
+            $key === 'oldText' => !array_key_exists('old', $attrs)
+                ? $this->fillSubstitutionHalf($node->getOld(), self::asString($value)) : true,
+            $key === 'newText' => !array_key_exists('new', $attrs)
+                ? $this->fillSubstitutionHalf($node->getNew(), self::asString($value)) : true,
+            $key === 'old' => $this->fillSubstitutionHalfFromWire($node->getOld(), $value),
+            $key === 'new' => $this->fillSubstitutionHalfFromWire($node->getNew(), $value),
+            default => null,
+        };
     }
 
     /**
