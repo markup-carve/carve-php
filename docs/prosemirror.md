@@ -100,6 +100,10 @@ continuously, so a gate on distance would be red from any open pull request over
 there. The distance is printed as a number, along with the entries whose prose
 differs from the pin without their decision differing.
 
+CI runs this check daily rather than on pull requests, because carve-grammars
+`main` moves independently of this repository. A red run opens or updates one
+tracking issue, and the next green run closes it.
+
 A new editor node still belongs in carve-grammars first. A declaration is how a
 type this engine already produces gets a decision in the meantime.
 
