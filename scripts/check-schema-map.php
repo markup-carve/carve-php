@@ -31,7 +31,7 @@ use MarkupCarve\Carve\Test\TestCase\ProseMirror\SchemaMapProvenance;
  * carve-grammars merges continuously, so a distance gate would reject an
  * unrelated commit. The distance is reported instead.
  *
- * Exit 0 every assertion holds, 1 an assertion failed, 2 usage error.
+ * Exit 0 every assertion holds, 1 an assertion failed, 2 usage or setup error.
  */
 
 $root = dirname(__DIR__);
@@ -164,15 +164,15 @@ if ($failures === [] && $commit !== null && $path !== null) {
             'message' => sprintf('carve-grammars has no commit %s', $commit),
         ];
     } elseif ($reference === null) {
-        $failures[] = [
-            'check' => 'pin_is_current',
-            'message' => sprintf(
-                'neither origin/%s nor %s exists in %s; check it out with fetch-depth: 0',
-                $branch,
-                $branch,
-                $grammars,
-            ),
-        ];
+        // A setup fault, not a verdict: the scheduled run keeps exit 1 for drift alone.
+        fwrite(STDERR, sprintf(
+            "check-schema-map: neither origin/%s nor %s exists in %s; check it out with fetch-depth: 0\n",
+            $branch,
+            $branch,
+            $grammars,
+        ));
+
+        exit(2);
     } elseif (!git($grammars, 'merge-base', '--is-ancestor', $commit, $reference)['ok']) {
         $failures[] = [
             'check' => 'commit_on_branch',
