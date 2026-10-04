@@ -2,7 +2,7 @@
 
 A singleton list chain repeatedly indented the complete child HTML at each level. The renderer now accumulates indentation for eligible wrappers and indents the body once. Parsing and ownership are unchanged.
 
-The fast path excludes task wrappers, renderer subclasses, list callbacks and static extensions. Preformatted bodies retain recursive wrapping. Mixed markers, list tightness and multiline attributes preserve the recursive output. Depth accounting includes skipped wrappers and restores state after a body exception.
+The fast path excludes task wrappers, renderer subclasses, list callbacks and static extensions. Preformatted bodies use the shared HTML layout writer with separate list and item indentation scopes. Mixed markers, list tightness and multiline attributes preserve the recursive output. Depth accounting includes skipped wrappers and restores state after a body exception.
 
 ## Paired observations
 
@@ -12,19 +12,19 @@ Each cell below shows CPU medians in round 0 / round 1. Host noise affects the a
 
 | List depth | Phase | Baseline CPU ms | Candidate CPU ms |
 | ---: | --- | ---: | ---: |
-| 48 | parse | 3.101 / 3.113 | 3.152 / 3.099 |
-| 48 | render | 0.614 / 0.607 | 0.241 / 0.236 |
-| 48 | html | 3.847 / 3.905 | 3.395 / 3.402 |
-| 96 | parse | 10.147 / 10.652 | 10.334 / 10.454 |
-| 96 | render | 4.511 / 4.173 | 0.483 / 0.474 |
-| 96 | html | 15.273 / 14.840 | 11.188 / 11.276 |
-| 192 | parse | 37.295 / 38.743 | 38.486 / 38.941 |
-| 192 | render | 29.884 / 27.345 | 0.945 / 0.936 |
-| 192 | html | 70.540 / 66.763 | 39.636 / 38.893 |
+| 48 | parse | 3.000 / 3.124 | 2.937 / 2.987 |
+| 48 | render | 0.443 / 0.423 | 0.236 / 0.238 |
+| 48 | html | 3.460 / 3.491 | 3.312 / 3.334 |
+| 96 | parse | 10.682 / 10.377 | 10.195 / 10.208 |
+| 96 | render | 0.900 / 0.849 | 0.461 / 0.512 |
+| 96 | html | 11.537 / 10.771 | 10.549 / 10.834 |
+| 192 | parse | 35.970 / 37.671 | 36.240 / 36.210 |
+| 192 | render | 1.823 / 1.735 | 0.937 / 0.970 |
+| 192 | html | 38.329 / 37.952 | 36.850 / 37.490 |
 
-At depth 192, render CPU falls from 29.884 / 27.345 ms to 0.945 / 0.936 ms. All six fixture HTML fingerprints match across both versions, phases and rounds. The large render gain persists in both orders; combined HTML remains dominated by parsing. These fixtures do not establish a general complexity bound or a speedup for ordinary documents.
+At depth 192, render CPU falls from 1.823 / 1.735 ms to 0.937 / 0.970 ms against main after #2849. All six fixture HTML fingerprints match across both versions, phases and rounds. Combined HTML remains dominated by parsing. Deep-list parsing still grows faster than linearly in these fixtures. These measurements do not establish a general complexity bound or an ordinary-document speedup.
 
-The baseline is `fba5f377a72771b164b638ef9997b7caf4850ede`. The candidate is the working source identified by `sourceSha256` and `trackedDiffSha256` in the JSON. Benchmark files and tests are excluded from that source fingerprint.
+The baseline is `2a90c1603009943d77869df361c2bfc0d12be860`. The candidate working source is identified by `sourceSha256` and `trackedDiffSha256` in the JSON. Benchmark files and tests are excluded from that source fingerprint.
 
 ## Reproduce
 

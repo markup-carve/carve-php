@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -83,6 +84,35 @@ class ListChainTest extends TestCase
                 $renderer->setRenderMode($mode === 'static' ? RenderMode::STATIC : RenderMode::INTERACTIVE);
             }
             self::assertSame($reference->render(clone $doc), $candidate->render(clone $doc), $mode);
+        }
+    }
+
+    public function testChainInsidePlannedContainersMatchesRecursiveOutput(): void
+    {
+        foreach (["text\n", "```=html\n<pre>\n raw\n</pre>\n```\n", "```=html\n<pre>\n raw\n```\n"] as $body) {
+            $doc = (new CarveConverter())->parse($body);
+            $nodes = $doc->getChildren();
+            for ($depth = 0; $depth < 32; $depth++) {
+                $item = new ListItem();
+                $item->setChildren($nodes);
+                $list = new ListBlock();
+                $list->appendChild($item);
+                $nodes = [$list];
+            }
+            foreach ([new Div(), new BlockQuote(), new ListItem()] as $wrapper) {
+                $wrapper->setChildren($nodes);
+                if ($wrapper instanceof ListItem) {
+                    $wrapper->setChildren(array_merge((new CarveConverter())->parse("lead\n")->getChildren(), $nodes));
+                    $outer = new ListBlock();
+                    $outer->appendChild($wrapper);
+                    $doc->setChildren([$outer]);
+                } else {
+                    $doc->setChildren([$wrapper]);
+                }
+                $reference = new class extends HtmlRenderer {
+                };
+                self::assertSame($reference->render(clone $doc), (new HtmlRenderer())->render(clone $doc));
+            }
         }
     }
 

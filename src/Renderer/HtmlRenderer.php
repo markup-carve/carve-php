@@ -1108,6 +1108,21 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 }
             }
 
+            if (
+                $this::class === self::class
+                && ($this->renderMode !== RenderMode::STATIC || $this->staticRenderExtensions === [])
+                && $this->canPlanContainer($node)
+            ) {
+                if ($node instanceof BlockQuote) {
+                    $children = $node->getChildren();
+                    if (count($children) === 1 && $children[0]::class === BlockQuote::class) {
+                        return $this->renderBlockQuote($node);
+                    }
+                }
+
+                return $this->renderContainerLayout($node);
+            }
+
             // Use dispatch table for O(1) lookup instead of instanceof chain
             $class = $node::class;
             if (isset($this->nodeRenderers[$class])) {
@@ -1124,6 +1139,147 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         } finally {
             $this->renderDepth--;
         }
+    }
+
+    private function canPlanContainer(Node $node): bool
+    {
+        return in_array($node::class, [Div::class, Section::class, BlockQuote::class, ListBlock::class, Figure::class, FigureGroup::class], true)
+            && !($node instanceof ListBlock && $this->canRenderListChain($node))
+            && !($node instanceof Div && $node->hasClass('footnotes'))
+            && !$this->hasListenersFor('render.' . $node->getType());
+    }
+
+    private function renderContainerLayout(Node $node): string
+    {
+        $plan = $this->planContainer($node);
+        $writer = new HtmlLayoutWriter();
+        $this->writeContainerLayout($plan, false, $writer);
+
+        return $writer->finish();
+    }
+
+    /**
+     * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
+     *
+     * @return \MarkupCarve\Carve\Renderer\ContainerLayout
+     */
+    private function planContainer(Node $node, ?string $leadingClass = null): ContainerLayout
+    {
+        if ($node instanceof Div) {
+            [$open, $prefix, $close] = $this->divLayoutFrame($node);
+        } elseif ($node instanceof Figure) {
+            $open = $this->figureLayoutOpen($node, $leadingClass);
+            $prefix = '';
+            $close = '</figure>';
+        } elseif ($node instanceof FigureGroup) {
+            $open = '<figure' . $this->renderAttributeArray(
+                self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group', $node->getClassList()),
+            ) . '>';
+            $prefix = '';
+            $close = '</figure>';
+        } elseif ($node instanceof ListBlock) {
+            [$open, $prefix, $close] = $this->listLayoutFrame($node);
+        } elseif ($node instanceof Section) {
+            $open = '<section' . $this->renderAttributeArray($this->getRenderableAttributes($node), 'section') . '>';
+            $prefix = '';
+            $close = '</section>';
+        } else {
+            $open = '<blockquote' . $this->renderAttributes($node) . '>';
+            $prefix = '';
+            $close = '</blockquote>';
+        }
+        $children = [];
+        $visible = [];
+        $sourceChildren = $node instanceof Figure ? $node->getTargets() : $node->getChildren();
+        foreach ($sourceChildren as $child) {
+            if ($node instanceof FigureGroup && $child instanceof Figure) {
+                $rendered = $child::class === Figure::class
+                    ? $this->planContainer($child, 'carve-figure-panel')
+                    : $this->renderFigure($child, 'carve-figure-panel');
+            } elseif ($node instanceof FigureGroup && $child instanceof Table) {
+                $rendered = new ContainerLayout('<figure class="carve-figure-panel">', '', '</figure>', false, [rtrim($this->renderTable($child), "\n")]);
+            } elseif ($node instanceof Figure && $child instanceof Image) {
+                $rendered = $this->renderImage($child) . "\n";
+            } elseif ($node instanceof ListBlock && $child instanceof ListItem) {
+                $rendered = $this->planListItem($child, $node->isTight());
+            } elseif ($this->canPlanContainer($child)) {
+                if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
+                    throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
+                }
+                $this->renderDepth++;
+                try {
+                    $rendered = $this->planContainer($child);
+                } finally {
+                    $this->renderDepth--;
+                }
+            } else {
+                $rendered = $this->renderNode($child);
+            }
+            if (($node instanceof ListBlock || $node instanceof Figure || $node instanceof FigureGroup) && is_string($rendered)) {
+                $rendered = rtrim($rendered, "\n") . "\n";
+            }
+            if ($rendered !== '') {
+                $children[] = $rendered;
+                $visible[] = $child;
+            }
+        }
+        $captions = $node instanceof Figure ? $node->getCaptions()
+            : ($node instanceof FigureGroup && $node->getCaption() !== null ? [$node->getCaption()] : []);
+        foreach ($captions as $caption) {
+            $children[] = '<figcaption>' . $this->renderChildren($caption) . "</figcaption>\n";
+        }
+        $compact = $node instanceof BlockQuote && count($visible) === 1
+            && $visible[0] instanceof Paragraph && !$this->isBlockImageParagraph($visible[0]);
+
+        return new ContainerLayout($open, $prefix, $close, $compact, $children, !$node instanceof ListBlock);
+    }
+
+    private function renderLayoutFallback(ContainerLayout $plan): string
+    {
+        $body = '';
+        foreach ($plan->children as $child) {
+            $body .= is_string($child) ? $child : $this->renderLayoutFallback($child);
+        }
+        $body = rtrim($body, "\n");
+        if ($plan->compact) {
+            return $plan->open . $body . $plan->close . "\n";
+        }
+        $body = rtrim($plan->prefix . $this->indentBlock($body, 2), "\n");
+
+        return !$plan->trimBody && $body === ''
+            ? $plan->open . "\n" . $plan->close . "\n"
+            : $this->frameBlockContainer($plan->open, $body, $plan->close);
+    }
+
+    private function writeContainerLayout(ContainerLayout $plan, bool $trim, HtmlLayoutWriter $writer): void
+    {
+        $writer->write($plan->open);
+        if (!$plan->compact) {
+            $writer->write("\n");
+            $writer->write($plan->children === [] ? rtrim($plan->prefix, "\n") : $plan->prefix);
+            if ($plan->trimBody) {
+                $writer->pushIndent(2);
+            }
+        }
+        $last = count($plan->children) - 1;
+        foreach ($plan->children as $index => $child) {
+            if (!$plan->trimBody) {
+                $writer->pushIndent(2);
+            }
+            if ($child instanceof ContainerLayout) {
+                $this->writeContainerLayout($child, $plan->trimBody && $index === $last, $writer);
+            } else {
+                $writer->write($plan->trimBody && $index === $last ? rtrim($child, "\n") : $child);
+            }
+            if (!$plan->trimBody) {
+                $writer->popIndent();
+            }
+        }
+        if (!$plan->compact && $plan->trimBody) {
+            $writer->popIndent();
+            $writer->write("\n");
+        }
+        $writer->write($plan->close . ($trim ? '' : "\n"));
     }
 
     protected function renderChildren(Node $node): string
@@ -1443,12 +1599,18 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // A raw preformatted region can keep closing quotes at column zero.
         // Preserve the recursive wrapping without rendering children again.
         if (str_contains($body, '<pre')) {
+            $writer = new HtmlLayoutWriter();
+            foreach ($openers as $opener) {
+                $writer->write('<blockquote' . $opener . ">\n");
+                $writer->pushIndent(2);
+            }
+            $writer->write(rtrim($body, "\n"));
             for ($depth = count($openers) - 1; $depth >= 0; $depth--) {
-                $body = '<blockquote' . $openers[$depth] . ">\n"
-                    . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</blockquote>\n";
+                $writer->popIndent();
+                $writer->write("\n</blockquote>" . ($depth === 0 ? "\n" : ''));
             }
 
-            return $body;
+            return $writer->finish();
         }
         $parts = [];
         foreach ($openers as $depth => $opener) {
@@ -1629,24 +1791,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     private static function endsInsideTag(string $line, bool $inTag): bool
     {
-        $offset = 0;
-        while (true) {
-            if ($inTag) {
-                $close = strpos($line, '>', $offset);
-                if ($close === false) {
-                    return true;
-                }
-                $inTag = false;
-                $offset = $close + 1;
-            }
-            $open = strpos($line, '<', $offset);
-            if ($open === false) {
-                return false;
-            }
-            $next = $line[$open + 1] ?? '';
-            $inTag = $next === '/' || ($next >= 'A' && $next <= 'Z') || ($next >= 'a' && $next <= 'z');
-            $offset = $open + 1;
-        }
+        return HtmlLineState::endsInsideTag($line, $inTag);
     }
 
     /**
@@ -1668,17 +1813,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderList(ListBlock $node): string
     {
-        if (
-            $this::class === self::class
-            && !$this->hasListenersFor('render.list')
-            && !$this->hasListenersFor('render.list_item')
-            && ($this->renderMode !== RenderMode::STATIC || $this->staticRenderExtensions === [])
-            && $this->listChainChild($node) !== null
-        ) {
+        if ($this->canRenderListChain($node)) {
             return $this->renderListChain($node);
         }
 
-        $attrs = $this->getRenderableAttributes($node);
+        [$open, , $close] = $this->listLayoutFrame($node);
         $tight = $node->isTight();
 
         $items = '';
@@ -1690,44 +1829,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
         }
 
-        $tag = $node->getListType() === ListBlock::TYPE_ORDERED ? 'ol' : 'ul';
-
-        return $this->listOpening($node, $attrs) . $items . '</' . $tag . ">\n";
+        return $open . "\n" . $items . $close . "\n";
     }
 
-    /**
-     * @param \MarkupCarve\Carve\Node\Block\ListBlock $node
-     * @param array<string, string> $attrs Authored attributes captured before rendering children.
-     */
-    private function listOpening(ListBlock $node, array $attrs): string
+    private function canRenderListChain(ListBlock $node): bool
     {
-        if ($node->getListType() === ListBlock::TYPE_ORDERED) {
-            $olAttrs = '';
-            $start = $node->getStart();
-            $style = $node->getStyle();
-            $marker = $node->getMarker();
-
-            // Corpus order: type before start (matches carve-js).
-            if ($style !== null) {
-                $olAttrs .= ' type="' . $style . '"';
-            }
-            if ($start !== 1) {
-                $olAttrs .= ' start="' . $start . '"';
-            }
-            if ($this->roundTripMode && $marker !== null && $marker !== '.') {
-                $olAttrs .= ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
-            }
-
-            return '<ol' . $olAttrs . $this->renderAttributeArray($attrs) . ">\n";
-        }
-
-        $marker = $node->getMarker();
-        $markerAttr = '';
-        if ($this->roundTripMode && $marker !== null && $marker !== '-') {
-            $markerAttr = ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
-        }
-
-        return '<ul' . $markerAttr . $this->renderAttributeArray($attrs) . ">\n";
+        return $this::class === self::class
+            && !$this->hasListenersFor('render.list')
+            && !$this->hasListenersFor('render.list_item')
+            && ($this->renderMode !== RenderMode::STATIC || $this->staticRenderExtensions === [])
+            && $this->listChainChild($node) !== null;
     }
 
     private function listChainChild(ListBlock $node): ?ListBlock
@@ -1759,7 +1870,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
             $item = $node->getChildren()[0];
             $frames[] = [
-                $this->listOpening($node, $this->getRenderableAttributes($node)),
+                $this->listLayoutFrame($node)[0] . "\n",
                 $this->renderAttributes($item),
                 $node->getListType() === ListBlock::TYPE_ORDERED ? 'ol' : 'ul',
             ];
@@ -1772,14 +1883,23 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         } finally {
             $this->renderDepth = $savedDepth;
         }
-        // Preserve recursive wrapping when a preformatted payload carries guards.
         if (str_contains($body, '<pre')) {
-            foreach (array_reverse($frames) as [$opening, $attrs, $tag]) {
-                $item = '<li' . $attrs . ">\n" . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</li>";
-                $body = $opening . $this->indentBlock($item, 2) . "\n</" . $tag . ">\n";
+            $writer = new HtmlLayoutWriter();
+            foreach ($frames as [$opening, $attrs]) {
+                $writer->write($opening);
+                $writer->pushIndent(2);
+                $writer->write('<li' . $attrs . ">\n");
+                $writer->pushIndent(2);
+            }
+            $writer->write(rtrim($body, "\n"));
+            for ($depth = count($frames) - 1; $depth >= 0; $depth--) {
+                $writer->popIndent();
+                $writer->write("\n</li>");
+                $writer->popIndent();
+                $writer->write("\n</" . $frames[$depth][2] . '>' . ($depth === 0 ? "\n" : ''));
             }
 
-            return $body;
+            return $writer->finish();
         }
         $parts = [];
         foreach ($frames as $depth => [$opening, $attrs]) {
@@ -1794,50 +1914,77 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return implode('', $parts);
     }
 
-    protected function renderListItem(ListItem $node, bool $tight = true): string
+    /**
+     * @return array{string, string, string}
+     */
+    private function listLayoutFrame(ListBlock $node): array
+    {
+        $attrs = $this->getRenderableAttributes($node);
+        if ($node->getListType() === ListBlock::TYPE_ORDERED) {
+            $olAttrs = '';
+            $start = $node->getStart();
+            $style = $node->getStyle();
+            $marker = $node->getMarker();
+
+            // Corpus order: type before start (matches carve-js).
+            if ($style !== null) {
+                $olAttrs .= ' type="' . $style . '"';
+            }
+            if ($start !== 1) {
+                $olAttrs .= ' start="' . $start . '"';
+            }
+            if ($this->roundTripMode && $marker !== null && $marker !== '.') {
+                $olAttrs .= ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
+            }
+
+            return ['<ol' . $olAttrs . $this->renderAttributeArray($attrs) . '>', '', '</ol>'];
+        }
+
+        $marker = $node->getMarker();
+        $markerAttr = '';
+        if ($this->roundTripMode && $marker !== null && $marker !== '-') {
+            $markerAttr = ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
+        }
+
+        return ['<ul' . $markerAttr . $this->renderAttributeArray($attrs) . '>', '', '</ul>'];
+    }
+
+    private function planListItem(ListItem $node, bool $tight, bool $planChildren = true): ContainerLayout
     {
         $attrs = $this->renderAttributes($node);
-        // PART 10 section 11. Structural, so it leads the authored attributes.
         $state = $node->getAuthoredTaskState();
         if ($state !== null) {
             $attrs = ' data-task-state="' . $this->escapeAttribute($state) . '"' . $attrs;
         }
-
-        // Render the item's direct children individually so paragraph
-        // tightness can be applied per child. In a TIGHT item every top-level
-        // plain paragraph renders bare (no <p> wrapper) -- not only the lead,
-        // but also any paragraph that follows a closed block (a fenced code
-        // block, a `:::` div, or an admonition). carve-js and the executable
-        // spec oracle render that trailing text as part of the item's inline
-        // content, matching the item's tightness (corpus 162). A LOOSE item
-        // keeps every <p>; an attributed paragraph or a bare block image keeps
-        // its own rendering in either mode.
         $lead = '';
         $haveLead = false;
         $restParts = [];
 
         foreach ($node->getChildren() as $child) {
+            if ($planChildren && $this->canPlanContainer($child)) {
+                if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
+                    throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'HTML');
+                }
+                $this->renderDepth++;
+                try {
+                    $restParts[] = $this->planContainer($child);
+                } finally {
+                    $this->renderDepth--;
+                }
+
+                continue;
+            }
             $rendered = rtrim($this->renderNode($child), "\n");
             if ($rendered === '') {
                 continue;
             }
 
             $isParagraph = $child instanceof Paragraph && !$this->isBlockImageParagraph($child);
-            // A "plain" paragraph carries no attributes beyond an optional
-            // data-source-line stamp (which must never change structure), so
-            // its <p> wrapper may be dropped in a tight item.
             $renderBare = $tight && $isParagraph
                 && preg_match('/^<p( data-source-line="\d+")?>(.*)<\/p>$/s', $rendered, $pm) === 1;
-
-            // The first child, when it is a paragraph, is the lead that sits
-            // inline on the `<li>` line. A block-first item leaves the lead
-            // empty and places the block on its own indented line.
             $isLead = !$haveLead && $restParts === [] && $isParagraph;
 
             if ($isLead) {
-                // Tight lead drops the <p>; loose keeps it. A data-source-line
-                // wrapper is stripped in tight items too (the source-line
-                // option keeps its anchor on the <li>, not the paragraph).
                 $lead = $renderBare ? $pm[2] : $rendered;
                 $haveLead = true;
 
@@ -1845,24 +1992,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
 
             if ($renderBare) {
-                // A tight paragraph after a closed block renders bare, with its
-                // inline soft breaks guarded so the list's block indentation
-                // leaves the continuation lines flush.
-                $restParts[] = str_replace("\n", $this->inlineBreakGuard(), $pm[2]);
+                $restParts[] = str_replace("\n", $this->inlineBreakGuard(), $pm[2]) . "\n";
 
                 continue;
             }
 
-            $restParts[] = $rendered;
+            $restParts[] = $rendered . "\n";
         }
-
-        $rest = implode("\n", $restParts);
-
-        // The lead sits inline on the `<li>` line; its inline soft breaks must
-        // stay flush (not picked up by the list's block indentation), matching
-        // carve-js/carve-rs/djot. Guard them so indentBlock() leaves them alone;
-        // render() restores the newlines. Nested blocks ($rest) keep real
-        // newlines and are indented normally.
         $lead = str_replace("\n", $this->inlineBreakGuard(), $lead);
 
         if ($node->isTask()) {
@@ -1876,13 +2012,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $lead = '<input type="checkbox"' . $checked . ' disabled' . $name . $close . ' ' . $lead;
         }
 
-        if ($rest === '') {
-            return '<li' . $attrs . '>' . $lead . '</li>';
-        }
+        $open = '<li' . $attrs . '>' . $lead;
 
-        return '<li' . $attrs . '>' . $lead . "\n"
-            . $this->indentBlock($rest, 2) . "\n"
-            . '</li>';
+        return new ContainerLayout($open, '', '</li>', $restParts === [], $restParts);
+    }
+
+    protected function renderListItem(ListItem $node, bool $tight = true): string
+    {
+        $plan = $this->planListItem($node, $tight, false);
+
+        return rtrim($this->renderLayoutFallback($plan), "\n");
     }
 
     protected function renderThematicBreak(ThematicBreak $node): string
@@ -2025,18 +2164,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderDiv(Div $node): string
     {
-        $classes = array_values(array_filter(
-            $node->getClassList(),
-            static fn (string $class): bool => self::sanitizeAttributeValue('class', $class) !== '',
-        ));
-        // The canonical admonition kinds live on Div::ADMONITION_TYPES (grammar
-        // PART 9 §12, Tier 1) so this render decision and
-        // Profile::canonicalTypeOf() read the same list instead of two copies
-        // kept in sync by hand. Full class-list intersection (not
-        // Div::admonitionKind(), which reports only the first match) is kept
-        // here because more than one Tier-1 class can be present at once (e.g.
-        // an attribute line adding `.warning` above a `::: note` opener), and
-        // all of them are rendered onto the `class` attribute below.
         // `::: footnotes` placement directive: emit a sentinel that render()
         // replaces with the endnotes section, relocating it from the document
         // end. A document without this block is byte-identical to before. Not
@@ -2062,6 +2189,29 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 return ($body !== '' ? $body . "\n" : '') . $this->footnotesPlacementSentinel();
             }
         }
+        $frame = $this->divLayoutFrame($node);
+        $body = rtrim($frame[1] . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
+
+        return $this->frameBlockContainer($frame[0], $body, $frame[2]);
+    }
+
+    /**
+     * @return array{string, string, string}
+     */
+    private function divLayoutFrame(Div $node): array
+    {
+        $classes = array_values(array_filter(
+            $node->getClassList(),
+            static fn (string $class): bool => self::sanitizeAttributeValue('class', $class) !== '',
+        ));
+        // The canonical admonition kinds live on Div::ADMONITION_TYPES (grammar
+        // PART 9 §12, Tier 1) so this render decision and
+        // Profile::canonicalTypeOf() read the same list instead of two copies
+        // kept in sync by hand. Full class-list intersection (not
+        // Div::admonitionKind(), which reports only the first match) is kept
+        // here because more than one Tier-1 class can be present at once (e.g.
+        // an attribute line adding `.warning` above a `::: note` opener), and
+        // all of them are rendered onto the `class` attribute below.
         $types = array_values(array_intersect($classes, Div::ADMONITION_TYPES));
 
         // A quoted opener header (PART 9 §12) renders as
@@ -2134,13 +2284,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                     $titleLine .= '  <p class="div-label">' . $this->renderContainerLabel($node) . "</p>\n";
                 }
             }
-            $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
-            return $this->frameBlockContainer(
-                '<aside' . $this->renderAttributeArray($attrs) . '>',
-                $body,
-                '</aside>',
-            );
+            return ['<aside' . $this->renderAttributeArray($attrs) . '>', $titleLine, '</aside>'];
         }
 
         // Tier 2: a custom type renders as a generic <div class="{type}">,
@@ -2151,9 +2296,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $attributes['class'] = implode(' ', [$baseClass, ...array_unique($classes)]);
         }
         $attrs = $this->renderAttributeArray($attributes, 'div');
-        $body = rtrim($titleLine . $this->indentBlock(rtrim($this->renderChildren($node), "\n"), 2), "\n");
 
-        return $this->frameBlockContainer('<div' . $attrs . '>', $body, '</div>');
+        return ['<div' . $attrs . '>', $titleLine, '</div>'];
     }
 
     protected function renderExplicitSection(Section $node): string
@@ -2193,11 +2337,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderFigure(Figure $node, ?string $leadingClass = null): string
     {
-        $attrArray = $this->getRenderableAttributes($node);
-        if ($leadingClass !== null) {
-            $attrArray = self::withLeadingClass($attrArray, $leadingClass, $node->getClassList());
-        }
-        $attrs = $this->renderAttributeArray($attrArray);
+        $open = $this->figureLayoutOpen($node, $leadingClass);
         $body = '';
         foreach ($node->getTargets() as $target) {
             $body .= $target instanceof Image
@@ -2208,7 +2348,18 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $body .= '<figcaption>' . $this->renderChildren($caption) . "</figcaption>\n";
         }
 
-        return '<figure' . $attrs . ">\n" . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</figure>\n";
+        return $open . "\n" . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</figure>\n";
+    }
+
+    private function figureLayoutOpen(Figure $node, ?string $leadingClass): string
+    {
+        $attrArray = $this->getRenderableAttributes($node);
+        if ($leadingClass !== null) {
+            $attrArray = self::withLeadingClass($attrArray, $leadingClass, $node->getClassList());
+        }
+        $attrs = $this->renderAttributeArray($attrArray);
+
+        return '<figure' . $attrs . '>';
     }
 
     protected function renderCaption(Caption $node): string

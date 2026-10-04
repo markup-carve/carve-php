@@ -18,7 +18,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Performance
 
-- Nested singleton lists accumulate HTML indentation instead of repeatedly copying each child subtree. Task wrappers, callbacks, renderer subclasses, static extensions and preformatted payloads retain their existing rendering paths (#2850).
+- Nested singleton lists accumulate HTML indentation instead of repeatedly copying each child subtree. Task wrappers, callbacks, renderer subclasses, static extensions retain their existing rendering paths. Preformatted bodies preserve their output through the shared layout writer (#2850).
 - Borrowed HTML writes plain inline text directly and skips repeated paragraph checks. Native scanning handles longer runs between markers; single-byte gaps avoid scanner setup (#2842).
 - Buffered HTML appends handle the first fragment directly instead of packing it into a variadic array (#2837).
 - Repeated slash openers around bracket runs reuse failed suffix scans while keeping skipped interiors available. HTML import reports reuse each table's block-cell classification during inspection (#2812).
