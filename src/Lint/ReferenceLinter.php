@@ -322,7 +322,12 @@ class ReferenceLinter
                 $found['s' . $definition] ??= [$definition, 'definition'];
             }
         }
-        if ($collapsed) {
+        // AN IMAGE HAS NO HEADING CANDIDATES. The implicit heading fallback is
+        // a collapsed reference LINK rule (PART 11 R1), so offering a heading
+        // here rewrote `![plan][]` to `![Plan][]` on the strength of a
+        // resolution an image never gets (markup-carve/carve-php#2900). That
+        // half is the damaging one: it edits the author's file.
+        if ($collapsed && !$link instanceof Image) {
             $written = $this->labelKey($label);
             foreach ($targets['headings'][$this->foldId($written)] ?? [] as $key => $heading) {
                 if ((string)$key !== $written) {

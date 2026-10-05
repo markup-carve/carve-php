@@ -2497,6 +2497,16 @@ class InlineParser
     }
 
     /**
+     * Source offsets of the reference links that are really IMAGES, as
+     * `[offset => true]`. Set by {@see self::parseImage()} for the duration of
+     * one `parseLink()` call, so the lookup inside it can refuse the implicit
+     * heading fallback (markup-carve/carve-php#2900).
+     *
+     * @var array<int, true>
+     */
+    private array $imageReferenceAt = [];
+
+    /**
      * The `link_text` slot carries the run between the brackets exactly as
      * `findBalancedBracketEnd` closed it. `parseImage` reads its alt text from
      * that slot rather than rescanning, so an image's alt closes where a link's
@@ -2614,7 +2624,21 @@ class InlineParser
                 $refDef = $originalRefBracket === ''
                     ? $this->blockParser->getCollapsedReference($ref)
                     : $this->blockParser->getReference($ref);
-                if ($refDef === null && $originalRefBracket === '') {
+                // getCollapsedReference() answers from the definitions AND the
+                // heading index, so the heading can win on the first lookup
+                // without the retry below ever running.
+                if (isset($this->imageReferenceAt[$pos]) && $refDef !== null && $refDef->fromHeading) {
+                    $refDef = null;
+                }
+                // THE IMPLICIT HEADING FALLBACK IS A LINK RULE. PART 11 R1
+                // makes a heading a candidate for a collapsed reference LINK;
+                // an image resolves against link definitions only, so
+                // `![Plan][]` under `# Plan` stays literal where `[Plan][]`
+                // resolves (markup-carve/carve-php#2900). Refused HERE rather
+                // than on the image the caller builds from this link: a link
+                // discarded afterwards leaves the `!` behind as text and the
+                // reference still resolved.
+                if ($refDef === null && $originalRefBracket === '' && !isset($this->imageReferenceAt[$pos])) {
                     $plain = $this->blockParser->headingIndexKey($label);
                     if ($plain !== $ref && $plain !== '') {
                         $headingDef = $this->blockParser->getCollapsedReference($plain);
@@ -2790,8 +2814,17 @@ class InlineParser
      */
     protected function parseImage(string $text, int $pos): ?array
     {
-        // Skip the !
-        $result = $this->parseLink($text, $pos + 1);
+        // THE BRACKET OFFSET CARRIES IT, not a parameter. `parseLink()` is
+        // protected extension surface - a test and any subclass override it -
+        // so widening its signature breaks those declarations. Keyed on this
+        // link's own start offset so a reference nested in the alt text, which
+        // is parsed before the lookup runs, cannot consume the mark.
+        $this->imageReferenceAt[$pos + 1] = true;
+        try {
+            $result = $this->parseLink($text, $pos + 1);
+        } finally {
+            unset($this->imageReferenceAt[$pos + 1]);
+        }
         if ($result === null) {
             return null;
         }
