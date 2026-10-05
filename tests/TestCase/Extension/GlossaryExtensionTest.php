@@ -46,6 +46,31 @@ class GlossaryExtensionTest extends TestCase
         $this->assertStringNotContainsString('href="#gloss-ftp"', $out);
     }
 
+    public function testCaseOnlyMissStaysUnresolvedLikeAnUndefinedTerm(): void
+    {
+        $out = $this->html("Use :term[http] and :term[FTP].\n\n" . self::GLOSS);
+        $this->assertStringContainsString('<span class="term">http</span>', $out);
+        $this->assertStringContainsString('<span class="term">FTP</span>', $out);
+        $this->assertStringNotContainsString('<a href="#gloss-http"', $out);
+    }
+
+    public function testEntriesDifferingOnlyInCaseAreEachReachedByTheirExactSpelling(): void
+    {
+        $out = $this->html("Use :term[HTTP], :term[http] and :term[Http].\n\n::: glossary\n:: HTTP\n:  Upper.\n\n:: http\n:  Lower.\n:::");
+        $this->assertStringContainsString('<a href="#gloss-http" class="term">HTTP</a>', $out);
+        $this->assertStringContainsString('<a href="#gloss-http" class="term">http</a>', $out);
+        $this->assertStringContainsString('<span class="term">Http</span>', $out);
+        $this->assertStringContainsString('<dt id="gloss-http">HTTP</dt>', $out);
+        $this->assertStringContainsString('<dt>http</dt>', $out);
+    }
+
+    public function testWhitespaceRunsAndNfcStillMatch(): void
+    {
+        $out = $this->html("Use :term[Hyper  Text] and :term[Cafe\u{301}].\n\n::: glossary\n:: Hyper Text\n:  One.\n\n:: Caf\u{e9}\n:  Two.\n:::");
+        $this->assertStringContainsString('<a href="#gloss-hyper-text" class="term">Hyper  Text</a>', $out);
+        $this->assertStringContainsString("class=\"term\">Cafe\u{301}</a>", $out);
+    }
+
     public function testRendersEntriesInSourceOrder(): void
     {
         $out = $this->html("::: glossary\n:: HTTP\n:  One.\n\n:: HTML\n:  Two.\n:::");

@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Glossary (#91, Tier-3). A `::: glossary` definition list declares terms;
@@ -46,7 +47,7 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
     public const KIND = 'glossary';
 
     /**
-     * Defined term slugs (across every `::: glossary` block), used to resolve
+     * Defined term keys (across every `::: glossary` block), used to resolve
      * `:term[word]` links.
      *
      * @var array<string, true>
@@ -106,7 +107,7 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
                         continue;
                     }
                     $slug = $this->slug($term);
-                    $this->defined[$slug] = true;
+                    $this->defined[$this->termKey($term)] = true;
                     if (!isset($seen[$slug])) {
                         $term->setAttribute('id', 'gloss-' . $slug);
                         $seen[$slug] = true;
@@ -118,8 +119,8 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
 
     protected function renderTerm(InlineExtension $node, string $word, HtmlRenderer $renderer): string
     {
-        $slug = $this->slug($node);
-        if (isset($this->defined[$slug])) {
+        if (isset($this->defined[$this->termKey($node)])) {
+            $slug = $this->slug($node);
             // The structural glossary target wins; drop any author `href`
             // (case-insensitive) so the <a> never has two.
             $attrs = $this->openAttributes($node, $renderer, ['href']);
@@ -232,6 +233,17 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
     protected function slug(Node $node): string
     {
         return $this->slugger->normalizeId($this->slugger->getPlainText($node));
+    }
+
+    /**
+     * A reference reaches an entry by its exact text after whitespace collapse
+     * and NFC (CARVE-P9R-010); only the emitted id keeps the lowercased slug.
+     */
+    protected function termKey(Node $node): string
+    {
+        $text = trim((string)preg_replace('/[ \t\n\f\r]+/', ' ', $this->slugger->getPlainText($node)), ' ');
+
+        return StringUtil::normalizeNfc($text);
     }
 
     /**

@@ -1598,8 +1598,9 @@ book-style documents. Both reuse existing syntax - the definition list and the
 
 A `::: glossary` definition list declares terms; `:term[word]` links a use to
 its `<dt id="gloss-{slug}">`. The slug is the lowercased heading-id slug of the
-term text, so `:term[HTTP]` and a `:: HTTP` entry meet at `gloss-http` with no
-explicit key. The block renders `<dl class="glossary">` (each list in source
+term text (`:: HTTP` gets `gloss-http`). A reference reaches an entry only when
+its bracket text matches the term exactly after whitespace collapsing and NFC,
+so `:term[HTTP]` links and `:term[http]` degrades like an undefined term. The block renders `<dl class="glossary">` (each list in source
 order, any intro/interstitial prose preserved in place); an undefined term
 degrades to `<span class="term">word</span>`, and with the extension off
 `:term[word]` is the generic `<span class="ext-term">word</span>`.
