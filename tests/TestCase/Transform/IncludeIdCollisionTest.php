@@ -168,6 +168,20 @@ class IncludeIdCollisionTest extends TestCase
             ["c.crv: Duplicate id 'tip' renamed to 'tip-3'"],
         ];
 
+        yield 'each colliding copy in one child gets its own suffix, links follow the first' => [
+            "{#d}\np\n\n{{ c.crv }}\n",
+            ['c.crv' => "{#d}\na [l](#d)\n\n{#d}\nb\n"],
+            "<p id=\"d\">p</p>\n<p id=\"d-2\">a <a href=\"#d-2\">l</a></p>\n<p id=\"d-3\">b</p>\n",
+            ["c.crv: Duplicate id 'd' renamed to 'd-2'", "c.crv: Duplicate id 'd' renamed to 'd-3'"],
+        ];
+
+        yield 'the suffix skips an id the parent declares later' => [
+            "{#d}\np\n\n{{ c.crv }}\n\n{#d-2}\nlater\n",
+            ['c.crv' => "{#d}\nchild\n"],
+            "<p id=\"d\">p</p>\n<p id=\"d-3\">child</p>\n<p id=\"d-2\">later</p>\n",
+            ["c.crv: Duplicate id 'd' renamed to 'd-3'"],
+        ];
+
         yield 'parent before child, child before grandchild' => [
             "{#tip}\np\n\n{{ a.crv }}\n",
             ['a.crv' => "{#tip}\na\n\n{{ b.crv }}\n", 'b.crv' => "{#tip}\nb [l](#tip)\n"],

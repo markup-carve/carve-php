@@ -1159,7 +1159,7 @@ class IncludeExpander implements TransformerInterface
         $heading = $this->firstSelectable(
             $document,
             fn (Node $node): bool => $node instanceof Heading
-                && $this->sameName($headingIds[spl_object_id($node)] ?? '', $section),
+                && ($headingIds[spl_object_id($node)] ?? null) === $section,
         );
         if ($heading instanceof Heading) {
             $siblings = array_values($heading->getParent()?->getChildren() ?? [$heading]);
@@ -1181,7 +1181,7 @@ class IncludeExpander implements TransformerInterface
             $document,
             fn (Node $node): bool => !$node instanceof Heading
                 && !$this->isDefinitionBlock($node)
-                && $this->sameName($node->getAttribute('id') ?? '', $section),
+                && $node->getAttribute('id') === $section,
         );
 
         return $block === null ? null : $this->documentOf([$block]);
@@ -1266,9 +1266,8 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
-     * A `#name` matches the way a `</#id>` cross-reference does (spec I1a, R4):
-     * case-insensitively, folding each code point on its own as
-     * HeadingIdTracker does, so no contextual mapping (final sigma) applies.
+     * Whether a `</#id>` reaches $id by the renderer's case fold, each code
+     * point folded on its own as HeadingIdTracker does.
      */
     protected function sameName(string $id, string $name): bool
     {
