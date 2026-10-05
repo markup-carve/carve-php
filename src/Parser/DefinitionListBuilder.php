@@ -450,6 +450,7 @@ final class DefinitionListBuilder
                 $bodyNestedCursor = 0;
                 $bodyAttributeThrough = -1;
                 $bodyEndsWithAttribute = false;
+                $bodyEndsWithADefinition = false;
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     // Form B: `+` pull-left continuation.
@@ -805,13 +806,45 @@ final class DefinitionListBuilder
                             continue;
                         }
                         $bodyEndsWithAttribute = $this->isBlockAttributeLine($bodyLine);
+                        // A DEFINITION ENDS THE BODY even with a nested
+                        // container still open, which the definition-band
+                        // rulings pin at every column. Carried on the same
+                        // cursor as the attribute flag beside it, so a blank
+                        // line preserves it the same way.
+                        $bodyEndsWithADefinition = isset($bodyDefinition[$bodyStateCursor]);
                     }
                     // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER, and
                     // the tracker above cannot say so: it reads one line, and
                     // `{.k` is a block-attribute line only once a later line
                     // closes it. The single-line form is already answered there;
                     // this is the same rule for the form that spans lines.
-                    if (!$bodyState->openParagraph || $bodyEndsWithAttribute) {
+                    // A DESCRIPTION BODY DRAWS THE LINE AT "IS A CONTAINER
+                    // STILL OPEN", not at what that container's last block was
+                    // (markup-carve/carve-php#2904). §24 C3 asks the innermost
+                    // container the line reaches, and a nested list whose item
+                    // is still open IS that container, so the body keeps the
+                    // line whether the item ended on a fence, a table, a heading
+                    // or a comment. This host deliberately does NOT follow
+                    // carve#2734's list-item arms, which split on the block kind;
+                    // the spec renders the two hosts differently and both are
+                    // reproduced as measured.
+                    //
+                    // `afterInvisible` is what keeps the body's OWN finished
+                    // block out of it: a `%%%` fence written at the body's
+                    // content column is tracked HERE rather than inside the
+                    // nested item, and the spec ends the body on it.
+                    // A NESTED LIST ONLY. The spec ends the body on an open
+                    // nested QUOTE in the same position, for a table and for a
+                    // heading alike, which `ContainerBoundaryRulingsTest`
+                    // already pins; a quote's own open paragraph is answered by
+                    // §10 before this. So the container's KIND is read, not
+                    // just that one is open.
+                    $bodyHoldsAnOpenContainer = $bodyState->nestedColumn > 0
+                        && !$bodyState->nestedIsQuote
+                        && !$bodyEndsWithADefinition
+                        && !$bodyState->afterInvisible
+                        && IndentationHelper::getLeadingColumns($contLine, 1) === 0;
+                    if ((!$bodyState->openParagraph && !$bodyHoldsAnOpenContainer) || $bodyEndsWithAttribute) {
                         // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
                         // the list-item collector synthesizes it: the closer
                         // that armed this fence stands past the line ending the
