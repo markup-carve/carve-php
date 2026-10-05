@@ -573,14 +573,21 @@ class ListTableExtension implements ExtensionInterface
      */
     protected function placeColumns(array $grid): array
     {
-        $capacity = 0;
+        $heldWidth = 0;
+        $rowWidth = 0;
         foreach ($grid as $row) {
+            $width = 0;
             foreach ($row as $cell) {
                 if (!$cell['skip']) {
-                    $capacity += $cell['colspan'];
+                    $width += $cell['colspan'];
+                    if ($cell['rowspan'] > 1) {
+                        $heldWidth += $cell['colspan'];
+                    }
                 }
             }
+            $rowWidth = max($rowWidth, $width);
         }
+        $capacity = $heldWidth + $rowWidth;
         $occupied = new ColumnReservations($capacity);
         $cols = [];
         $rowReach = [];
