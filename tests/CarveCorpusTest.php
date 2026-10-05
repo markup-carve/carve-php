@@ -1107,6 +1107,14 @@ class CarveCorpusTest extends TestCase
         // every name lookup compares case exactly.
         'an-unreferenced-footnote-definition-takes-its-links-out-of-the-render',
         'every-name-lookup-compares-case-exactly',
+        // ARRIVED WITH THE BUMP TO carve 14c9be7. 547 is markup-carve/carve#2741:
+        // an info string decides nothing below a closed nested fence. All three
+        // documents render byte-identically to their pinned HTML on this engine,
+        // measured one document at a time before this entry was added, so the
+        // category is declared rather than deferred and KNOWN_GAPS stays empty.
+        // carve-php#2906 already folds the flush-left line for every lead kind,
+        // which is why the info string had nothing left to change.
+        'an-info-string-does-not-change-how-a-flush-left-fence-folds-into-a-description-body',
     ];
 
     /**
