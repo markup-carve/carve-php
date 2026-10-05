@@ -9,6 +9,12 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixes
+
+- Index failed inline destination scans and preserve their caches across nested labels and emphasis.
+- Use indexed AST merge matching and priority queues for merge ordering.
+- Walk wide Carve writer trees without shifting child arrays, and mask lint destinations in one pass.
+
 ## [0.1.11] - 2026-10-05
 
 ### Breaking

@@ -283,6 +283,11 @@ class InlineParser
     protected array $destinationScans = [];
 
     /**
+     * @var array<int, int>|null
+     */
+    private ?array $destinationStops = null;
+
+    /**
      * Memo for bracketRunSkip(), per `[` position in the same text.
      *
      * @var array<int, int|null>
@@ -714,6 +719,7 @@ class InlineParser
         $outerSkipText = $this->destinationSkipText;
         $outerSkips = $this->destinationSkips;
         $outerScans = $this->destinationScans;
+        $outerStops = $this->destinationStops;
         $outerBracketRuns = $this->bracketRunEnds;
         $outerBalancedEnds = $this->balancedBracketEnds;
         $outerBalancedText = $this->balancedBracketText;
@@ -741,6 +747,7 @@ class InlineParser
             $this->destinationSkipText = $outerSkipText;
             $this->destinationSkips = $outerSkips;
             $this->destinationScans = $outerScans;
+            $this->destinationStops = $outerStops;
             $this->bracketRunEnds = $outerBracketRuns;
             $this->balancedBracketEnds = $outerBalancedEnds;
             $this->balancedBracketText = $outerBalancedText;
@@ -4742,42 +4749,33 @@ class InlineParser
         // CommonMark both balance the same way. An escaped character never
         // opens or closes a level.
         $length = strlen($text);
-        $urlEnd = $urlStart;
-        $depth = 0;
-        // A quoted title is opaque to the scan. `link_title` admits any
-        // character but its own quote, so a `)` inside one does not close the
-        // tail; reading it as the closer left `[t](/u "T)")` literal text
-        // (markup-carve/carve-php#2191). The destination admits no whitespace,
-        // so a quote opening the slot is one that follows a space.
-        while ($urlEnd < $length) {
-            $char = $text[$urlEnd];
-            if ($char === '\\' && $urlEnd + 1 < $length) {
-                $urlEnd += 2;
-
-                continue;
-            }
-            if (
-                ($char === '"' || $char === "'")
-                && $urlEnd > $urlStart
-                && $text[$urlEnd - 1] === ' '
-            ) {
-                $close = $this->closingTitleQuote($text, $urlEnd);
-                if ($close !== null) {
-                    $urlEnd = $close + 1;
-
-                    continue;
+        if ($this->destinationStops === null) {
+            $stops = array_fill(0, $length + 1, $length);
+            for ($i = $length - 1; $i >= 0; --$i) {
+                $char = $text[$i];
+                $close = null;
+                if (($char === '"' || $char === "'") && $i > 0 && $text[$i - 1] === ' ') {
+                    $close = $this->closingTitleQuote($text, $i);
+                }
+                if ($char === '\\' && $i + 1 < $length) {
+                    $stops[$i] = $stops[min($length, $i + 2)];
+                } elseif (
+                    ($char === '"' || $char === "'") && $i > 0 && $text[$i - 1] === ' '
+                    && $close !== null
+                ) {
+                    $stops[$i] = $stops[$close + 1];
+                } elseif ($char === '(') {
+                    $close = $stops[$i + 1];
+                    $stops[$i] = $close < $length ? $stops[$close + 1] : $length;
+                } elseif ($char === ')') {
+                    $stops[$i] = $i;
+                } else {
+                    $stops[$i] = $stops[$i + 1];
                 }
             }
-            if ($char === '(') {
-                $depth++;
-            } elseif ($char === ')') {
-                if ($depth === 0) {
-                    break;
-                }
-                $depth--;
-            }
-            $urlEnd++;
+            $this->destinationStops = $stops;
         }
+        $urlEnd = $this->destinationStops[$urlStart];
 
         if ($urlEnd >= $length || $text[$urlEnd] !== ')') {
             return $this->destinationScans[$urlStart] = null;
@@ -4898,6 +4896,7 @@ class InlineParser
         $this->destinationSkipText = $text;
         $this->destinationSkips = [];
         $this->destinationScans = [];
+        $this->destinationStops = null;
         $this->bracketRunEnds = [];
     }
 

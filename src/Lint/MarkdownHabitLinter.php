@@ -471,38 +471,39 @@ class MarkdownHabitLinter
         $length = strlen($line);
         $mask = array_fill(0, $length, false);
 
-        for ($i = 0; $i < $length - 1; $i++) {
-            if ($line[$i] !== ']' || $line[$i + 1] !== '(' || $this->isEscaped($line, $i)) {
+        $closes = [];
+        $stack = [];
+        $firstBracket = -1;
+        for ($i = 0; $i < $length; ++$i) {
+            if ($line[$i] === '\\') {
+                ++$i;
+
                 continue;
             }
-            if (!$this->hasUnescapedOpeningBracket($line, $i)) {
+            if ($line[$i] === '[' && $firstBracket === -1) {
+                $firstBracket = $i;
+            }
+            if ($line[$i] === '(') {
+                $stack[] = $i;
+            } elseif ($line[$i] === ')' && $stack !== []) {
+                $closes[array_pop($stack)] = $i;
+            }
+        }
+        for ($i = 0; $i < $length - 1; ++$i) {
+            if (
+                $line[$i] !== ']' || $line[$i + 1] !== '(' || $this->isEscaped($line, $i)
+                || $firstBracket === -1 || $firstBracket >= $i
+            ) {
                 continue;
             }
-
-            $depth = 1;
-            for ($j = $i + 2; $j < $length; $j++) {
-                if ($line[$j] === '\\') {
-                    $j++;
-
-                    continue;
-                }
-                if ($line[$j] === '(') {
-                    $depth++;
-
-                    continue;
-                }
-                if ($line[$j] !== ')') {
-                    continue;
-                }
-                $depth--;
-                if ($depth === 0) {
-                    for ($k = $i + 2; $k < $j; $k++) {
-                        $mask[$k] = true;
-                    }
-
-                    break;
-                }
+            $end = $closes[$i + 1] ?? null;
+            if ($end === null) {
+                continue;
             }
+            for ($k = $i + 2; $k < $end; ++$k) {
+                $mask[$k] = true;
+            }
+            $i = $end;
         }
 
         $out = '';
@@ -511,17 +512,6 @@ class MarkdownHabitLinter
         }
 
         return $out;
-    }
-
-    private function hasUnescapedOpeningBracket(string $line, int $before): bool
-    {
-        for ($i = $before - 1; $i >= 0; $i--) {
-            if ($line[$i] === '[' && !$this->isEscaped($line, $i)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function isEscaped(string $line, int $offset): bool

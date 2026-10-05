@@ -3687,8 +3687,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $pending = $node->getChildren();
-        while ($pending !== []) {
-            $child = array_shift($pending);
+        for ($cursor = 0; isset($pending[$cursor]); ++$cursor) {
+            $child = $pending[$cursor];
             if ($child::class === $node::class) {
                 throw new SourceUnspellableException(
                     $node->getType(),
@@ -3739,8 +3739,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $pending = $node->getChildren();
-        while ($pending !== []) {
-            $child = array_shift($pending);
+        for ($cursor = 0; isset($pending[$cursor]); ++$cursor) {
+            $child = $pending[$cursor];
             if (isset($outer[$child::class])) {
                 return true;
             }
@@ -4093,8 +4093,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected static function holdsLineComment(InlineNode $node): bool
     {
         $pending = $node->getChildren();
-        while ($pending !== []) {
-            $child = array_shift($pending);
+        for ($cursor = 0; isset($pending[$cursor]); ++$cursor) {
+            $child = $pending[$cursor];
             // A DELIMITED `{% … %}` comment carries its own closer and stops
             // there, so only the line form takes the span's closer with it.
             if ($child instanceof Comment && !$child->isDelimited()) {
