@@ -328,7 +328,7 @@ class HeadingIdTrackerTest extends TestCase
     // belongs on the one that runs alone. phpunit.xml.dist says why the group
     // exists: the measurement "is only meaningful on an unloaded runner".
     #[Group('scaling')]
-    public function testManyLowercaseReferencesResolveFast(): void
+    public function testManyCaseOnlyLookupsStayFast(): void
     {
         for ($i = 0; $i < 3000; $i++) {
             $this->tracker->getIdForText('Heading ' . $i);
@@ -336,7 +336,8 @@ class HeadingIdTrackerTest extends TestCase
 
         $startedAt = microtime(true);
         for ($i = 0; $i < 3000; $i++) {
-            $this->assertSame('Heading-' . $i, $this->tracker->findIdCaseInsensitive('heading-' . $i));
+            $this->assertNull($this->tracker->findId('heading-' . $i));
+            $this->assertSame(['Heading-' . $i], $this->tracker->idsDifferingOnlyInCase('heading-' . $i));
         }
         $elapsed = microtime(true) - $startedAt;
 

@@ -350,7 +350,7 @@ DJOT;
         // unknown, denied type and silently drop the cross-reference.
         $converter = new CarveConverter(profile: Profile::full());
 
-        $html = $converter->convert("# Setup\n\nJump to </#setup>.");
+        $html = $converter->convert("# Setup\n\nJump to </#Setup>.");
 
         $this->assertStringContainsString('<a href="#Setup">', $html);
         $this->assertFalse($converter->hasProfileViolations());

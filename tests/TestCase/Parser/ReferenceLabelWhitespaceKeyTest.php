@@ -58,12 +58,11 @@ class ReferenceLabelWhitespaceKeyTest extends TestCase
         $this->assertFalse($this->resolves("see [t][BAR]\n\n[bar]: /u\n"));
     }
 
-    public function testAnImplicitHeadingReferenceStillFoldsWhitespaceAndCase(): void
+    public function testAnImplicitHeadingReferenceCollapsesWhitespaceButNotCase(): void
     {
-        // The fuzzy path, deliberately unchanged: all four implementations match
-        // `[my heading][]` against `# My  Heading`.
-        $html = $this->html("# My  Heading\n\nsee [my heading][]\n");
+        $html = $this->html("# My  Heading\n\nsee [My heading][] and [My   Heading][]\n");
 
-        $this->assertStringContainsString('href="#My-Heading"', $html);
+        $this->assertStringContainsString('[My heading][]', $html);
+        $this->assertStringContainsString('<a href="#My-Heading">My   Heading</a>', $html);
     }
 }

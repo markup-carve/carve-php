@@ -25,7 +25,7 @@ class NonHtmlCrossRefTest extends TestCase
     #[DataProvider('simpleHeadingRefProvider')]
     public function testHeadingRefResolves(string $format, string $expected, string $emptyOutput): void
     {
-        $output = $this->convert($format, "# Title\n\nSee </#title>.");
+        $output = $this->convert($format, "# Title\n\nSee </#Title>.");
 
         $this->assertStringContainsString($expected, $output);
         $this->assertStringNotContainsString($emptyOutput, $output);
@@ -46,7 +46,7 @@ class NonHtmlCrossRefTest extends TestCase
     #[DataProvider('forwardHeadingRefProvider')]
     public function testForwardHeadingRefResolves(string $format, string $expected, string $emptyOutput): void
     {
-        $output = $this->convert($format, "See </#title>.\n\n# Title");
+        $output = $this->convert($format, "See </#Title>.\n\n# Title");
 
         $this->assertStringContainsString($expected, $output);
         $this->assertStringNotContainsString($emptyOutput, $output);
@@ -106,7 +106,7 @@ DJOT;
 
 Use[^n].
 
-[^n]: [x][r] and </#h>.
+[^n]: [x][r] and </#H>.
 
 [r]: https://e.example
 DJOT);
@@ -114,7 +114,7 @@ DJOT);
         $this->assertStringContainsString('<a href="https://e.example">x</a>', $html);
         $this->assertStringContainsString('<a href="#H">H</a>', $html);
         $this->assertStringNotContainsString('[x][r]', $html);
-        $this->assertStringNotContainsString('&lt;/#h&gt;', $html);
+        $this->assertStringNotContainsString('&lt;/#H&gt;', $html);
     }
 
     protected function convert(string $format, string $djot): string

@@ -95,12 +95,12 @@ class HeadingIdTracker
     protected array $nodesById = [];
 
     /**
-     * Folded id => first registered id, for case-insensitive cross-reference
-     * lookup without refolding every known id for each reference.
+     * Folded id => every registered id with that fold, in registration order.
+     * Diagnostics only: resolution is exact (PART 9R R1, CARVE-P9R-010).
      *
-     * @var array<string, string>
+     * @var array<string, array<string>>
      */
-    protected array $idByFoldedId = [];
+    protected array $idsByFoldedId = [];
 
     /**
      * Optional transform applied to the base slug (e.g. ASCII
@@ -277,9 +277,8 @@ class HeadingIdTracker
      *    identifier may not start with a digit).
      * 5. If the result is empty, the identifier is 's'.
      *
-     * Cross-reference resolution is case-insensitive (see
-     * findIdCaseInsensitive()), so `</#getting-started>` still resolves
-     * to a case-preserved `Getting-Started` id.
+     * Cross-reference resolution is exact (see findId()), so
+     * `</#getting-started>` does not reach a `Getting-Started` id.
      *
      * Deduplication against the document namespace (shared by explicit
      * {#id} and generated ids) is applied by the caller.
@@ -307,8 +306,8 @@ class HeadingIdTracker
 
     /**
      * Per-code-point lowercase fold (no whole-string context mappings such
-     * as Greek final-sigma), so opt-in lowercasing and case-insensitive
-     * cross-reference matching stay portable across implementations.
+     * as Greek final-sigma), so opt-in lowercasing stays portable across
+     * implementations.
      */
     protected function foldCase(string $text): string
     {
@@ -320,23 +319,30 @@ class HeadingIdTracker
     }
 
     /**
-     * Resolve a `</#id>` cross-reference target case-insensitively: return
-     * the actual (verbatim) heading id whose case-folded form matches
-     * $target, with the exact match preferred and first-occurrence winning
-     * otherwise. Returns null when no heading id matches.
+     * Resolve a `</#id>` cross-reference target. The comparison is exact
+     * (PART 9R R1, CARVE-P9R-010): null when no id is spelled $target.
      */
-    public function findIdCaseInsensitive(string $target): ?string
+    public function findId(string $target): ?string
     {
-        if (isset($this->textById[$target])) {
-            return $target;
-        }
+        return isset($this->textById[$target]) ? $target : null;
+    }
 
-        return $this->idByFoldedId[$this->foldCase($target)] ?? null;
+    /**
+     * The registered ids that differ from $target only in letter case, for a
+     * diagnostic or a migration naming the exact spelling. Never a resolution.
+     *
+     * @return array<string>
+     */
+    public function idsDifferingOnlyInCase(string $target): array
+    {
+        $ids = $this->idsByFoldedId[$this->foldCase($target)] ?? [];
+
+        return array_values(array_filter($ids, static fn (string $id): bool => $id !== $target));
     }
 
     protected function registerFoldedId(string $id): void
     {
-        $this->idByFoldedId[$this->foldCase($id)] ??= $id;
+        $this->idsByFoldedId[$this->foldCase($id)][] = $id;
     }
 
     /**
@@ -748,7 +754,7 @@ class HeadingIdTracker
         $this->resolvedTexts = [];
         $this->textById = [];
         $this->nodesById = [];
-        $this->idByFoldedId = [];
+        $this->idsByFoldedId = [];
     }
 
     /**

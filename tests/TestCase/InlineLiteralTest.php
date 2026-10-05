@@ -183,17 +183,16 @@ class InlineLiteralTest extends TestCase
     public function testContributesToHeadingIdSoCrossrefResolves(): void
     {
         // It renders as visible prose, so it must slug like a code span does.
-        // Ids are case-preserving; the crossref folds case-insensitively.
         $this->assertSame(
             "<section id=\"Cat\">\n  <h1>Cat</h1>\n  <p>See <a href=\"#Cat\">Cat</a></p>\n</section>",
-            $this->html("# !`Cat`\n\nSee </#cat>"),
+            $this->html("# !`Cat`\n\nSee </#Cat>"),
         );
     }
 
     public function testSlugsExactlyLikeTheEquivalentCodeSpan(): void
     {
-        $literal = $this->html("# !`Cat`\n\nSee </#cat>");
-        $code = $this->html("# `Cat`\n\nSee </#cat>");
+        $literal = $this->html("# !`Cat`\n\nSee </#Cat>");
+        $code = $this->html("# `Cat`\n\nSee </#Cat>");
         $strip = static fn (string $html): string => (string)preg_replace('#</?code>#', '', $html);
         $this->assertSame($strip($code), $strip($literal));
     }

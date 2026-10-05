@@ -1612,10 +1612,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderHeadingRef(HeadingRef $node): string
     {
         $target = $node->getTargetId();
-        // Exact match first, then a case-insensitive fallback so a lowercase
-        // `</#getting-started>` resolves to a case-preserved id and the emitted
-        // href uses the ACTUAL id (matches HtmlRenderer).
-        $id = $this->headingIdTracker->findIdCaseInsensitive($target);
+        $id = $this->headingIdTracker->findId($target);
         if ($id !== null && !$this->labelExpansionStillAffordable($id)) {
             // Ask the budget before doing the work it would reject
             // (carve-php#2647).
@@ -2385,17 +2382,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($node instanceof Heading) {
             $this->headingIds[$this->headingIdTracker->getIdForHeading($node)] = true;
         } elseif ($node instanceof HeadingRef) {
-            // Record the ACTUAL (case-preserved) heading id a `</#id>` resolves
-            // to, so a heading that is a case-insensitive crossref target still
-            // emits its `{#id}` anchor.
-            $resolvedId = $this->headingIdTracker->findIdCaseInsensitive($node->getTargetId());
+            // Record the heading id a `</#id>` resolves to, so a heading that is
+            // a crossref target still emits its `{#id}` anchor.
+            $resolvedId = $this->headingIdTracker->findId($node->getTargetId());
             if ($resolvedId !== null) {
                 $referencedIds[$resolvedId] = true;
             }
         } elseif ($node instanceof Link) {
             $destination = $node->getDestination();
             if ($destination !== null && str_starts_with($destination, '#')) {
-                $resolvedId = $this->headingIdTracker->findIdCaseInsensitive(substr($destination, 1));
+                $resolvedId = $this->headingIdTracker->findId(substr($destination, 1));
                 if ($resolvedId !== null) {
                     $referencedIds[$resolvedId] = true;
                 }

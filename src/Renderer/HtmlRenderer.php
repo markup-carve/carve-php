@@ -3199,10 +3199,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $target = $node->getTargetId();
         $tracker = $this->getRenderContext()->headingIdTracker;
 
-        // Exact match first, then a case-insensitive (case-folded) fallback so
-        // a lowercase `</#getting-started>` resolves to a case-preserved
-        // `Getting-Started` id. The emitted href uses the ACTUAL id.
-        $id = $tracker->findIdCaseInsensitive($target);
+        // Exact match only (CARVE-P9R-010): `</#getting-started>` does not
+        // reach a `Getting-Started` id.
+        $id = $tracker->findId($target);
         if ($id === null) {
             // An unresolved </#id> renders as its literal source text,
             // not a dangling self-link (matches the spec and carve-js).

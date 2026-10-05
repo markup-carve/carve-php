@@ -134,7 +134,7 @@ class CrossReferenceLabelBudgetTest extends TestCase
      */
     public function testAnOrdinaryDocumentRendersEveryLabelInFull(): void
     {
-        $source = "# The Long Heading Here\n\nsee </#the-long-heading-here> and </#the-long-heading-here>\n";
+        $source = "# The Long Heading Here\n\nsee </#The-Long-Heading-Here> and </#The-Long-Heading-Here>\n";
 
         foreach (['create', 'markdown', 'plainText', 'ansi'] as $factory) {
             $output = CarveConverter::$factory()->convert($source);

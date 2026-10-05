@@ -198,7 +198,7 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
     {
         foreach ($node->getChildren() as $child) {
             if ($child instanceof HeadingRef) {
-                $id = $tracker->findIdCaseInsensitive($child->getTargetId());
+                $id = $tracker->findId($child->getTargetId());
                 if ($id === null || !isset($byId[$id])) {
                     continue; // unresolved or unnumbered: leave the HeadingRef
                 }

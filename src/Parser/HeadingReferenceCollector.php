@@ -40,11 +40,10 @@ class HeadingReferenceCollector
     }
 
     /**
-     * Collect from `$root`, returning folded label => [label, reference].
+     * Collect from `$root`, returning label key => [label, reference].
      *
-     * Both spellings are needed: the folded key serves the case-insensitive
-     * collapsed `[text][]` lookup, and the label as authored serves the exact
-     * `[text][Label]` one, which resolves against headings too.
+     * The key is the NFC-normalized label (labelKey()); the label as authored
+     * serves diagnostics that name the exact spelling.
      *
      * @return array<string, array{0: string, 1: \MarkupCarve\Carve\Parser\ReferenceDefinition}>
      */
@@ -88,36 +87,27 @@ class HeadingReferenceCollector
             return;
         }
 
-        $folded = $this->foldLabel($label);
-        if (isset($this->references[$folded])) {
+        $key = $this->labelKey($label);
+        if (isset($this->references[$key])) {
             // FIRST occurrence wins, matching the id-dedup order.
             return;
         }
 
-        $this->references[$folded] = [$label, new ReferenceDefinition('#' . $id, [], 0, null, true)];
+        $this->references[$key] = [$label, new ReferenceDefinition('#' . $id, [], 0, null, true)];
     }
 
     /**
-     * R1 matches the heading index NFC-normalized and case-insensitively, which
-     * is looser than the exact, case-sensitive link-definition match in the same
-     * rule: a definition label is an identifier the author wrote twice, while a
-     * heading reference is prose quoted from elsewhere in the document.
+     * R1 matches the heading index NFC-normalized and case exactly, the same
+     * comparison a link-definition label gets (CARVE-P9R-010).
      *
-     * NFC is in the list because heading IDS are already normalized (section 25),
-     * so without it a document published an NFC id and then declined a reference
-     * spelling that exact string - the same alphabet on one side of the
-     * resolution and not the other, and invisible on screen (carve#725). It is
-     * also a WEAKER fold than the case fold beside it: case folding relates
-     * codepoints Unicode calls distinct, NFC relates sequences Unicode DEFINES
-     * as the same. NFKC stays out - it would fold a ligature into its ASCII
-     * spelling and change which text is being quoted.
+     * NFC is in the key because heading IDS are already normalized (section
+     * 25), so without it a document published an NFC id and then declined a
+     * reference spelling that exact string (carve#725). NFKC stays out - it
+     * would fold a ligature into its ASCII spelling and change which text is
+     * being quoted.
      */
-    protected function foldLabel(string $label): string
+    protected function labelKey(string $label): string
     {
-        return (string)preg_replace_callback(
-            '/./us',
-            static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'),
-            StringUtil::normalizeNfc($label),
-        );
+        return StringUtil::normalizeNfc($label);
     }
 }

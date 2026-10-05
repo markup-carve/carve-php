@@ -62,9 +62,9 @@ class PlainTextRendererTest extends TestCase
 
     public function testCollapsedReferenceLinkToHeadingRendersText(): void
     {
-        $document = $this->converter->parse("See [name][]\n\n# Name");
+        $document = $this->converter->parse("See [Name][]\n\n# Name");
 
-        $this->assertSame("See name\n\nName\n", $this->renderer->render($document));
+        $this->assertSame("See Name\n\nName\n", $this->renderer->render($document));
     }
 
     public function testHeaderRowspanTableOmitsTrailingPlaceholderCell(): void

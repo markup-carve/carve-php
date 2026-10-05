@@ -7,7 +7,7 @@ declare(strict_types=1);
  * Carve CLI - Convert carve files to HTML
  *
  * Usage:
- *   carve fmt [--write|--check] [--stamp|--stamp-block] [files...]
+ *   carve fmt [--write|--check] [--migrate] [--stamp|--stamp-block] [files...]
  *   carve lint [--platform <name>] [files...]
  *   carve merge [--json] base ours theirs
  *   carve migrate --from <html|markdown|djot|bbcode> [options] [input-file]
@@ -620,6 +620,7 @@ function parseFmtArgs(array $argv): array
         'check' => false,
         'stamp' => false,
         'stampForm' => 'line',
+        'migrate' => false,
         'help' => false,
         'files' => [],
     ];
@@ -632,6 +633,8 @@ function parseFmtArgs(array $argv): array
             $options['write'] = true;
         } elseif ($arg === '--check') {
             $options['check'] = true;
+        } elseif ($arg === '--migrate') {
+            $options['migrate'] = true;
         } elseif ($arg === '--stamp') {
             $options['stamp'] = true;
             $options['stampForm'] = 'line';
@@ -704,6 +707,8 @@ Formatter:
   fmt                 Format Carve source to stdout
   fmt -w, --write     Format files in place
   fmt --check         Exit non-zero if any file is not formatted
+  fmt --migrate       Also respell a reference that misses its target only by
+                      letter case, when exactly one target matches
   fmt --stamp         Append/replace a one-line provenance marker
   fmt --stamp-block   Append/replace a block provenance marker
   flatten             Write the document as ONE self-contained file, every
@@ -868,7 +873,9 @@ if (($options['command'] ?? null) === 'fmt') {
             fwrite(STDERR, "Error: Failed to read from stdin\n");
             exit(1);
         }
-        $formatted = CarveConverter::toCarve($input);
+        $formatted = CarveConverter::toCarve(
+            $options['migrate'] ? (new ReferenceLinter())->rewriteCaseOnlyReferences($input) : $input,
+        );
         if ($options['stamp']) {
             $formatted = CarveConverter::stampCarve($formatted, $generatedBy, $options['stampForm']);
         }
@@ -889,7 +896,9 @@ if (($options['command'] ?? null) === 'fmt') {
 
             continue;
         }
-        $formatted = CarveConverter::toCarve($input);
+        $formatted = CarveConverter::toCarve(
+            $options['migrate'] ? (new ReferenceLinter())->rewriteCaseOnlyReferences($input) : $input,
+        );
         if ($options['stamp']) {
             $formatted = CarveConverter::stampCarve($formatted, $generatedBy, $options['stampForm']);
         }

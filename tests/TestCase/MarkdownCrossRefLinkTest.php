@@ -22,7 +22,7 @@ class MarkdownCrossRefLinkTest extends TestCase
 
     public function testReferencedHeadingEmitsIdAndLink(): void
     {
-        $out = $this->md("# Installation\n\nSee </#installation> for setup.\n");
+        $out = $this->md("# Installation\n\nSee </#Installation> for setup.\n");
 
         // No `{#id}` suffix: the link takes the heading's GFM slug (PART 11 §11).
         $this->assertStringContainsString("# Installation\n", $out);
@@ -39,7 +39,7 @@ class MarkdownCrossRefLinkTest extends TestCase
 
     public function testForwardReferenceEmitsIdAndLink(): void
     {
-        $out = $this->md("See </#setup>.\n\n# Setup\n");
+        $out = $this->md("See </#Setup>.\n\n# Setup\n");
 
         $this->assertStringContainsString('[Setup](#setup)', $out);
         $this->assertStringContainsString("# Setup\n", $out);
@@ -47,9 +47,9 @@ class MarkdownCrossRefLinkTest extends TestCase
 
     public function testCollapsedReferenceToHeadingEmitsTargetHeadingId(): void
     {
-        $out = $this->md("See [name][]\n\n# Name");
+        $out = $this->md("See [Name][]\n\n# Name");
 
-        $this->assertSame("See [name](#name)\n\n# Name\n", $out);
+        $this->assertSame("See [Name](#name)\n\n# Name\n", $out);
     }
 
     public function testExplicitHeadingIdIsUsedForTheAnchor(): void
@@ -94,7 +94,7 @@ class MarkdownCrossRefLinkTest extends TestCase
         // A carve heading is single-line now, so the prose beneath it is a
         // paragraph in both languages; the `{#id}` stays on the heading line so
         // the link anchors, and the id derives from the heading line alone.
-        $out = $this->md("# Foo\nbar\n\nSee </#foo>.\n");
+        $out = $this->md("# Foo\nbar\n\nSee </#Foo>.\n");
 
         $this->assertStringContainsString("# Foo\n", $out);
         $this->assertStringContainsString('[Foo](#foo)', $out);

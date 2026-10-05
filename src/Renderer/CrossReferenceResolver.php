@@ -98,7 +98,7 @@ class CrossReferenceResolver
 
         foreach ($node->getChildren() as $child) {
             if ($child instanceof HeadingRef) {
-                $id = $tracker->findIdCaseInsensitive($child->getTargetId());
+                $id = $tracker->findId($child->getTargetId());
                 $child->setHref($id === null ? null : '#' . $id);
 
                 continue;
@@ -240,7 +240,7 @@ class CrossReferenceResolver
     protected function headingRefToLabel(HeadingRef $node, HeadingIdTracker $tracker): array
     {
         $target = $node->getTargetId();
-        $id = $tracker->findIdCaseInsensitive($target);
+        $id = $tracker->findId($target);
         if ($id === null) {
             return [new Text('</#' . $target . '>')];
         }
