@@ -293,7 +293,72 @@ class ReferenceLinterTest extends TestCase
                 'unresolved-reference-link',
                 'Reference has no matching definition or heading.',
             ],
+            'an explicit image label' => [
+                "![b][Logo]\n\n[logo]: logo.png",
+                'unresolved-reference-link',
+                'Reference image ![b][Logo] matches no link definition; the label "logo" differs only in case, and reference labels are case-sensitive, so it renders as literal text.',
+            ],
+            'a collapsed image label' => [
+                "![Logo][]\n\n[logo]: logo.png",
+                'unresolved-reference-link',
+                'Reference image ![Logo][] matches no link definition; the label "logo" differs only in case, and reference labels are case-sensitive, so it renders as literal text.',
+            ],
+            'a collapsed image naming only a heading' => [
+                "![plan][]\n\n# Plan",
+                'unresolved-reference-link',
+                'Reference image ![plan][] has no matching link definition; it renders as literal text.',
+            ],
         ];
+    }
+
+    /**
+     * @return array<string, array{string, list<int>}>
+     */
+    public static function unresolvedReferenceImages(): array
+    {
+        return [
+            'a missing explicit label' => ["![a][missing]\n", [0]],
+            'a collapsed label with no definition' => ["![Nope][]\n", [0]],
+            'a collapsed label matching a heading exactly' => ["# Plan\n\n![Plan][]\n", [8]],
+            'one finding per image' => ["![a][missing] and ![b][gone]\n", [0, 18]],
+            'an unresolved image inside a resolved link' => ["[![a][missing]](u)\n", [1]],
+            'inside a footnote definition' => ["x[^n]\n\n[^n]: ![a][missing]\n", [13]],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param list<int> $starts
+     */
+    #[DataProvider('unresolvedReferenceImages')]
+    public function testUnresolvedReferenceImageIsReported(string $source, array $starts): void
+    {
+        $warnings = (new ReferenceLinter())->lint($source);
+        $this->assertSame(array_fill(0, count($starts), 'unresolved-reference-link'), array_column($warnings, 'rule'));
+        $this->assertSame($starts, array_map(static fn ($warning): int => $warning->start, $warnings));
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function imagesThatAreNotReported(): array
+    {
+        return [
+            'an inline image' => ["![a](a.png)\n"],
+            'a resolved explicit label' => ["![a][logo]\n\n[logo]: logo.png\n"],
+            'a resolved collapsed label' => ["![Logo][]\n\n[Logo]: logo.png\n"],
+            'a resolved label differing in whitespace' => ["![a][the  logo]\n\n[the logo]: logo.png\n"],
+            'a code span' => ["`![a][missing]`\n"],
+            'a code block' => ["```\n![a][missing]\n```\n"],
+            'a comment' => ["%% ![a][missing]\n"],
+            'a raw block' => ["``` =html\n![a][missing]\n```\n"],
+        ];
+    }
+
+    #[DataProvider('imagesThatAreNotReported')]
+    public function testImageThatResolvesOrDoesNotRenderIsNotReported(string $source): void
+    {
+        $this->assertSame([], (new ReferenceLinter())->lint($source));
     }
 
     #[DataProvider('caseOnlyMisses')]

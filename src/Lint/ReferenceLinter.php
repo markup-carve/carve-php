@@ -118,6 +118,15 @@ class ReferenceLinter
                         . $this->differOnlyInCase('the label', 'the labels', array_column($caseOnly, 0))
                         . ', and reference labels are case-sensitive, so it renders as literal text.';
                 $warnings[] = $this->warning($node, 'unresolved-reference-link', $message, $map, $length);
+            } elseif ($node instanceof Image && $node->getReferenceLabel() !== null && $node->getSource() === '') {
+                // No heading half: an image never falls back to a heading (PART 11 R1).
+                $caseOnly = $this->labelsDifferingOnlyInCase($node, $targets, false);
+                $message = $caseOnly === []
+                    ? 'Reference image ' . $node->getRawReferenceLabel() . ' has no matching link definition; it renders as literal text.'
+                    : 'Reference image ' . $node->getRawReferenceLabel() . ' matches no link definition; '
+                        . $this->differOnlyInCase('the label', 'the labels', array_column($caseOnly, 0))
+                        . ', and reference labels are case-sensitive, so it renders as literal text.';
+                $warnings[] = $this->warning($node, 'unresolved-reference-link', $message, $map, $length);
             } elseif ($node instanceof FootnoteRef) {
                 $key = LabelKey::normalize($node->getLabel());
                 if (isset($definitions[$key])) {

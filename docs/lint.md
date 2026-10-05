@@ -67,7 +67,10 @@ the id does exist on an element a cross-reference cannot reach (a paragraph, a
 span, an uncaptioned table), the message names that element and suggests
 `[text](#id)` instead. `unresolved-reference-link` is a `[text][label]` or
 `[text][]` reference with no matching definition, or for `[text][]` no matching
-heading. Cross-references and reference labels compare case exactly, so
+heading. The rule also covers reference images: `![alt][label]` and `![alt][]`
+with no matching definition are reported under the same id, and an image never
+falls back to a heading, so `![Plan][]` is reported even beside `# Plan`.
+Cross-references and reference labels compare case exactly, so
 `</#getting-started>` misses a `Getting-Started` id and `[plan][]` misses a
 `# Plan` heading; both rules name the exact spelling of a case-only near miss.
 `carve fmt --migrate` respells such a reference when exactly one target matches
