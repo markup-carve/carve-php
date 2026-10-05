@@ -12,6 +12,29 @@ use ReflectionMethod;
 
 class ListTableExtensionTest extends TestCase
 {
+    public function testWideActiveSpansReleaseTheirColumnsForNarrowRows(): void
+    {
+        $wide = "- - A\n" . str_repeat("  - <\n", 127);
+        $active = $this->render("::: list-table\n" . $wide . str_repeat("- - ^\n", 512) . ":::\n");
+        self::assertStringContainsString('rowspan="513"', $active);
+        self::assertStringContainsString('colspan="128"', $active);
+        self::assertSame(1, substr_count($active, '<td'));
+        $expired = $this->render("::: list-table\n" . $wide . "- - ^\n" . str_repeat("- - Z\n", 512) . ":::\n");
+        self::assertStringContainsString('rowspan="2"', $expired);
+        self::assertSame(65537, substr_count($expired, '<td'));
+    }
+
+    public function testWideColspanKeepsItsOriginAcrossTheFollowingCaretRow(): void
+    {
+        $width = 2048;
+        $source = "::: list-table\n- - A\n" . str_repeat("  - <\n", $width - 1)
+            . "- - ^\n" . str_repeat("  - ^\n", $width - 1) . ":::\n";
+        $html = $this->render($source);
+        self::assertStringContainsString('colspan="2048"', $html);
+        self::assertStringContainsString('rowspan="2"', $html);
+        self::assertSame(1, substr_count($html, '<td'));
+    }
+
     public function testGroupingLabelPrecedesTheTableAndItsCaption(): void
     {
         foreach (['plain', '*bold*', '', '<script>'] as $label) {

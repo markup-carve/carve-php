@@ -492,9 +492,11 @@ class ListTableExtension implements ExtensionInterface
         // Per source column, the last row index (above the current one) whose
         // cell is not skipped - the nearest source a `^` can extend.
         $lastNonSkip = [];
+        $colspanOrigins = [];
         $rowCount = count($grid);
         for ($r = 0; $r < $rowCount; $r++) {
             $colCount = count($grid[$r]);
+            $lastVisible = null;
             for ($c = 0; $c < $colCount; $c++) {
                 $entry = $grid[$r][$c];
                 if ($entry['skip']) {
@@ -506,12 +508,9 @@ class ListTableExtension implements ExtensionInterface
                     $consumedSource = $up !== null && ($grid[$up][$c]['skip'] ?? false);
                     $coveredByVisibleSpan = false;
                     if ($consumedSource) {
-                        $left = $c - 1;
-                        while ($left >= 0 && $grid[$up][$left]['skip']) {
-                            $left--;
-                        }
-                        $origin = $left >= 0 ? $grid[$up][$left] : null;
-                        $coveredByVisibleSpan = $origin !== null
+                        $left = $colspanOrigins[$up][$c] ?? null;
+                        $origin = $left !== null ? $grid[$up][$left] : null;
+                        $coveredByVisibleSpan = $left !== null && $origin !== null
                             && $left + $origin['colspan'] > $c
                             && $up + $origin['rowspan'] > $r;
                     }
@@ -520,14 +519,15 @@ class ListTableExtension implements ExtensionInterface
                         $grid[$r][$c]['skip'] = true;
                     }
                 } elseif ($entry['marker'] === '<' && $c > 0) {
-                    $left = $c - 1;
-                    while ($left >= 0 && $grid[$r][$left]['skip']) {
-                        $left--;
-                    }
-                    if ($left >= 0) {
+                    $left = $lastVisible;
+                    if ($left !== null) {
                         $grid[$r][$left]['colspan'] = $grid[$r][$left]['colspan'] + 1;
                         $grid[$r][$c]['skip'] = true;
+                        $colspanOrigins[$r][$c] = $left;
                     }
+                }
+                if (!$grid[$r][$c]['skip']) {
+                    $lastVisible = $c;
                 }
 
                 // A consumed colspan position still covers this source column.
@@ -573,8 +573,15 @@ class ListTableExtension implements ExtensionInterface
      */
     protected function placeColumns(array $grid): array
     {
-        // occupiedUntil[col] = exclusive row index through which a rowspan holds.
-        $occupiedUntil = [];
+        $capacity = 0;
+        foreach ($grid as $row) {
+            foreach ($row as $cell) {
+                if (!$cell['skip']) {
+                    $capacity += $cell['colspan'];
+                }
+            }
+        }
+        $occupied = new ColumnReservations($capacity);
         $cols = [];
         $rowReach = [];
         $columnCount = 0;
@@ -583,14 +590,7 @@ class ListTableExtension implements ExtensionInterface
         for ($r = 0; $r < $rowCount; $r++) {
             $rowCols = [];
             $col = 0;
-            $reach = 0;
-            // A rowspan descending from above into this row reaches at least its
-            // column, so the row stays as wide as that coverage.
-            foreach ($occupiedUntil as $heldCol => $end) {
-                if ($end > $r) {
-                    $reach = max($reach, $heldCol + 1);
-                }
-            }
+            $reach = $occupied->reach($r);
 
             foreach ($grid[$r] as $entry) {
                 if ($entry['skip']) {
@@ -599,13 +599,11 @@ class ListTableExtension implements ExtensionInterface
                     continue;
                 }
                 // Flow past columns a rowspan from above still holds in this row.
-                while (($occupiedUntil[$col] ?? 0) > $r) {
-                    $col++;
-                }
+                $col = $occupied->nextFree($col, $r);
                 $rowCols[] = $col;
                 if ($entry['rowspan'] > 1) {
                     for ($c = $col; $c < $col + $entry['colspan']; $c++) {
-                        $occupiedUntil[$c] = max($occupiedUntil[$c] ?? 0, $r + $entry['rowspan']);
+                        $occupied->hold($c, $r + $entry['rowspan']);
                     }
                 }
                 $col += $entry['colspan'];

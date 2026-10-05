@@ -624,6 +624,7 @@ final class TableBlockBuilder
         $spanMarkers = array_fill(0, $count, null);
         $consumedRowspanColumns = [];
         $consumedColspanColumns = [];
+        $lastAvailable = null;
 
         foreach ($mergedCellsWithAttrs as $col => $cellData) {
             $isColspanMarker = $cellData['attributes'] === ''
@@ -640,12 +641,8 @@ final class TableBlockBuilder
                 $spanMarkers[$col] = '<';
 
                 if ($col > 0) {
-                    // Scan left, skipping columns already consumed by a span.
-                    $left = $col - 1;
-                    while ($left >= 0 && ($skip[$left] ?? false)) {
-                        $left--;
-                    }
-                    if ($left >= 0) {
+                    $left = $lastAvailable;
+                    if ($left !== null) {
                         // Merge into the available cell to the left: its
                         // reported width grows by one column, and this column
                         // is consumed (its own reported width stays 1).
@@ -655,6 +652,10 @@ final class TableBlockBuilder
                     }
                     // Ran off the left edge: stays an unconsumed empty cell (a
                     // later `<` can still grow it).
+                }
+
+                if (!($skip[$col] ?? false)) {
+                    $lastAvailable = $col;
                 }
 
                 continue;
@@ -671,6 +672,9 @@ final class TableBlockBuilder
                     $skip[$col] = true;
                     $consumedRowspanColumns[] = $col;
                 }
+            }
+            if (!($skip[$col] ?? false)) {
+                $lastAvailable = $col;
             }
         }
 
