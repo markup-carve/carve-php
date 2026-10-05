@@ -46,6 +46,7 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
+use MarkupCarve\Carve\Util\CycleCollection;
 use MarkupCarve\Carve\Util\StringUtil;
 use MarkupCarve\Carve\Util\TableWidth;
 use WeakMap;
@@ -724,6 +725,7 @@ class BlockParser
             );
             if ($headingReferences !== []) {
                 $document = $this->reparseWithHeadingReferences($lines, $headingReferences, $sourceLength);
+                CycleCollection::collect();
             }
         }
 
@@ -1317,6 +1319,8 @@ class BlockParser
         // walk CrossReferenceResolver does at render time, so the ids this
         // registers are the ids the output will carry.
         $this->collectHeadingReferences($scratch, $tracker, false, $index, $ids);
+        unset($scratch);
+        CycleCollection::collect();
 
         $this->resetParseState();
         $this->extractDefinitions($lines, $this->state->source->normalizedSource);
@@ -2086,6 +2090,7 @@ class BlockParser
                 $consumed,
             );
             $i += $consumed;
+            CycleCollection::checkpoint();
         }
         if ($topLevel) {
             $this->endContainerAttributeScope();

@@ -53,6 +53,7 @@ use MarkupCarve\Carve\Renderer\StaticRenderersInterface;
 use MarkupCarve\Carve\Renderer\StaticRenderExtensionsInterface;
 use MarkupCarve\Carve\Transform\RenderAwareTransformerInterface;
 use MarkupCarve\Carve\Transform\TransformerInterface;
+use MarkupCarve\Carve\Util\CycleCollection;
 use RuntimeException;
 use WeakMap;
 
@@ -578,6 +579,11 @@ class CarveConverter
      */
     public function parse(string $djot): Document
     {
+        return CycleCollection::paused(fn (): Document => $this->parseDocument($djot));
+    }
+
+    private function parseDocument(string $djot): Document
+    {
         $this->enforceProfileMaxLength($djot);
         $this->ensureDefaultFrontmatter();
         $this->ensureDefaultMentions();
@@ -694,6 +700,11 @@ class CarveConverter
      * Render an AST document to HTML
      */
     public function render(Document $document): string
+    {
+        return CycleCollection::paused(fn (): string => $this->renderDocument($document));
+    }
+
+    private function renderDocument(Document $document): string
     {
         $document = $this->prepareDocumentForRender($document);
 
