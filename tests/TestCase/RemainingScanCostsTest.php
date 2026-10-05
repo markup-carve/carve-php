@@ -46,6 +46,12 @@ class RemainingScanCostsTest extends TestCase
     }
 
     #[Group('scaling')]
+    public function testNestedEmphasisKeepsTheDestinationIndex(): void
+    {
+        $this->assertScanScalesLinearly(new CarveConverter(), '*[x](', ')', 'nested emphasis destinations', 1000);
+    }
+
+    #[Group('scaling')]
     public function testWideCommentWalkScalesLinearly(): void
     {
         $method = new ReflectionMethod(CarveRenderer::class, 'holdsLineComment');
