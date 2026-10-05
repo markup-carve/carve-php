@@ -200,7 +200,8 @@ class IncludeDirectiveSyntax
         if ($rest !== '') {
             preg_match_all(self::OPTION_TOKENS, $rest, $tokens);
             foreach ($tokens[0] as $part) {
-                if (preg_match('/^#([A-Za-z_][A-Za-z0-9_-]*)$/', $part, $sectionMatch)) {
+                // `explicit_identifier`, so a digit-leading id is nameable (I1a).
+                if (preg_match('/^#([A-Za-z0-9_][A-Za-z0-9_-]*)$/', $part, $sectionMatch)) {
                     $section = $sectionMatch[1];
 
                     continue;
