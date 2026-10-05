@@ -232,6 +232,33 @@ class InlineParser
     protected ?string $emphNoCloseText = null;
 
     /**
+     * @var array<string, array<int, int>>
+     */
+    private array $bracedEndFrom = [];
+
+    /**
+     * @var array<int, array{int, int}|null>
+     */
+    private array $substitutionFrom = [];
+
+    /**
+     * @var array<int, int|null>
+     */
+    private array $substitutionCloseFrom = [];
+
+    /**
+     * @var array<string, array<int>>
+     */
+    private array $rawCloserPositions = [];
+
+    private ?string $codeEndText = null;
+
+    /**
+     * @var array<int, int|null>
+     */
+    private array $codeEnds = [];
+
+    /**
      * Memo for linkDestinationSkip(), per label `[` position in the current text.
      *
      * @var array<int, array{int, int}|null>
@@ -666,6 +693,12 @@ class InlineParser
         // A nested parse must not wipe the enclosing text's scan memos.
         $outerNoCloseText = $this->emphNoCloseText;
         $outerNoCloseFrom = $this->emphNoCloseFrom;
+        $outerBracedEnds = $this->bracedEndFrom;
+        $outerSubstitutions = $this->substitutionFrom;
+        $outerSubstitutionClosers = $this->substitutionCloseFrom;
+        $outerRawClosers = $this->rawCloserPositions;
+        $outerCodeText = $this->codeEndText;
+        $outerCodeEnds = $this->codeEnds;
         $outerSkipText = $this->destinationSkipText;
         $outerSkips = $this->destinationSkips;
         $outerScans = $this->destinationScans;
@@ -685,6 +718,12 @@ class InlineParser
             $this->inlineDepth--;
             $this->emphNoCloseText = $outerNoCloseText;
             $this->emphNoCloseFrom = $outerNoCloseFrom;
+            $this->bracedEndFrom = $outerBracedEnds;
+            $this->substitutionFrom = $outerSubstitutions;
+            $this->substitutionCloseFrom = $outerSubstitutionClosers;
+            $this->rawCloserPositions = $outerRawClosers;
+            $this->codeEndText = $outerCodeText;
+            $this->codeEnds = $outerCodeEnds;
             $this->destinationSkipText = $outerSkipText;
             $this->destinationSkips = $outerSkips;
             $this->destinationScans = $outerScans;
@@ -2999,10 +3038,7 @@ class InlineParser
         $length = strlen($text);
 
         // Reset the per-text no-closer memo when the scanned string changes.
-        if ($text !== $this->emphNoCloseText) {
-            $this->emphNoCloseText = $text;
-            $this->emphNoCloseFrom = [];
-        }
+        $this->resetScanMemos($text);
 
         // Check if this can be an opener (not preceded by whitespace for closer detection)
         $prevChar = $pos > 0 ? $text[$pos - 1] : ' ';
@@ -3272,10 +3308,7 @@ class InlineParser
             return null;
         }
 
-        if ($text !== $this->emphNoCloseText) {
-            $this->emphNoCloseText = $text;
-            $this->emphNoCloseFrom = [];
-        }
+        $this->resetScanMemos($text);
         if (isset($this->emphNoCloseFrom['*/'][$start])) {
             return null;
         }
@@ -3424,6 +3457,10 @@ class InlineParser
      */
     protected function parseBracedInline(string $text, int $pos): ?array
     {
+        $cache = $this::class === self::class;
+        if ($cache) {
+            $this->resetScanMemos($text);
+        }
         $length = strlen($text);
         if ($pos + 2 >= $length) {
             return null;
@@ -3516,7 +3553,15 @@ class InlineParser
         // Find closing: marker}
         // For braced syntax, we allow spaces inside (unlike bare delimiters)
         $searchPos = $pos + 2;
+        $memoKey = 'forced:' . $marker;
+        $visited = [];
         while ($searchPos < $length - 1) {
+            if ($cache) {
+                if (isset($this->emphNoCloseFrom[$memoKey][$searchPos])) {
+                    break;
+                }
+                $visited[] = $searchPos;
+            }
             if ($this->skipsEscapedBacktick($text, $searchPos)) {
                 $searchPos += 2;
 
@@ -3576,6 +3621,10 @@ class InlineParser
                 ];
             }
             $searchPos++;
+        }
+
+        foreach ($visited as $at) {
+            $this->emphNoCloseFrom[$memoKey][$at] = true;
         }
 
         return null;
@@ -4271,7 +4320,30 @@ class InlineParser
      */
     protected function findCodeSpanEnd(string $text, int $pos): ?int
     {
-        return BracketScanner::codeSpanEnd($text, $pos);
+        if ($this::class !== self::class) {
+            return BracketScanner::codeSpanEnd($text, $pos);
+        }
+        if ($text !== $this->codeEndText) {
+            $this->codeEndText = $text;
+            $this->codeEnds = [];
+            $runs = [];
+            $at = 0;
+            while (($at = strpos($text, '`', $at)) !== false) {
+                $width = strspn($text, '`', $at);
+                $runs[] = [$at, $width];
+                $at += $width;
+            }
+            $next = [];
+            for ($run = count($runs) - 1; $run >= 0; $run--) {
+                [$start, $width] = $runs[$run];
+                for ($offset = 0; $offset < $width; $offset++) {
+                    $this->codeEnds[$start + $offset] = $next[$width - $offset] ?? null;
+                }
+                $next[$width] = $start + $width;
+            }
+        }
+
+        return $this->codeEnds[$pos] ?? null;
     }
 
     /**
@@ -4290,9 +4362,33 @@ class InlineParser
         if (!$this->closerExistsFrom($text, '~}', $pos + 2)) {
             return null;
         }
+        $cache = $this::class === self::class;
+        if ($cache) {
+            $this->resetScanMemos($text);
+        }
         $length = strlen($text);
         $arrow = null;
+        $visited = [];
+        $afterArrow = [];
+        $result = null;
         for ($at = $pos + 2; $at < $length; $at++) {
+            if ($cache && $arrow === null) {
+                if (array_key_exists($at, $this->substitutionFrom)) {
+                    $result = $this->substitutionFrom[$at];
+
+                    break;
+                }
+                $visited[] = $at;
+            }
+            if ($cache && $arrow !== null) {
+                if (array_key_exists($at, $this->substitutionCloseFrom)) {
+                    $end = $this->substitutionCloseFrom[$at];
+                    $result = $end === null ? null : [$arrow, $end];
+
+                    break;
+                }
+                $afterArrow[] = $at;
+            }
             $char = $text[$at];
             if ($char === '\\') {
                 $at++;
@@ -4302,12 +4398,10 @@ class InlineParser
             if ($char === '`') {
                 $end = $this->findCodeSpanEnd($text, $at);
                 if ($end === null) {
-                    $end = strpos($text, '~}', $at);
-                    if ($end === false || $arrow === null) {
-                        return null;
-                    }
+                    $end = $this->nextRawCloser($text, '~}', $at);
+                    $result = $end === null || $arrow === null ? null : [$arrow, $end];
 
-                    return [$arrow, $end];
+                    break;
                 }
                 $at = $end - 1;
 
@@ -4315,24 +4409,75 @@ class InlineParser
             }
             $next = $text[$at + 1] ?? '';
             if ($char === '{' && ($next === '%' || $next === '#')) {
-                $end = strpos($text, $next . '}', $at + 2);
+                $end = $this->nextRawCloser($text, $next . '}', $at + 2);
                 // An editorial comment needs content; `{##}` is not one.
-                if ($end !== false && ($next === '%' || $end > $at + 2)) {
+                if ($end !== null && ($next === '%' || $end > $at + 2)) {
                     $at = $end + 1;
 
                     continue;
                 }
             }
             if ($char === '~' && $next === '}') {
-                return $arrow === null ? null : [$arrow, $at];
+                $result = $arrow === null ? null : [$arrow, $at];
+
+                break;
             }
             if ($char === '~' && $next === '>' && $arrow === null) {
                 $arrow = $at;
                 $at++;
             }
         }
+        foreach ($visited as $at) {
+            $this->substitutionFrom[$at] = $result;
+        }
 
-        return null;
+        foreach ($afterArrow as $at) {
+            $this->substitutionCloseFrom[$at] = $result[1] ?? null;
+        }
+
+        return $result;
+    }
+
+    private function resetScanMemos(string $text): void
+    {
+        if ($text === $this->emphNoCloseText) {
+            return;
+        }
+        $this->emphNoCloseText = $text;
+        $this->emphNoCloseFrom = [];
+        $this->bracedEndFrom = [];
+        $this->substitutionFrom = [];
+        $this->substitutionCloseFrom = [];
+        $this->rawCloserPositions = [];
+    }
+
+    private function nextRawCloser(string $text, string $needle, int $from): ?int
+    {
+        if ($this::class !== self::class) {
+            $close = strpos($text, $needle, $from);
+
+            return $close === false ? null : $close;
+        }
+        if (!isset($this->rawCloserPositions[$needle])) {
+            $positions = [];
+            for ($at = strpos($text, $needle); $at !== false; $at = strpos($text, $needle, $at + 2)) {
+                $positions[] = $at;
+            }
+            $this->rawCloserPositions[$needle] = $positions;
+        }
+        $positions = $this->rawCloserPositions[$needle];
+        $low = 0;
+        $high = count($positions);
+        while ($low < $high) {
+            $mid = ($low + $high) >> 1;
+            if ($positions[$mid] < $from) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $positions[$low] ?? null;
     }
 
     /**
@@ -4363,14 +4508,18 @@ class InlineParser
 
     protected function bracedInlineEnd(string $text, int $pos): ?int
     {
+        $cache = $this::class === self::class;
+        if ($cache) {
+            $this->resetScanMemos($text);
+        }
         $marker = $text[$pos + 1] ?? '';
         if ($marker === '#') {
             if (!$this->closerExistsFrom($text, '#}', $pos + 2)) {
                 return null;
             }
-            $close = strpos($text, '#}', $pos + 2);
+            $close = $this->nextRawCloser($text, '#}', $pos + 2);
 
-            return $close === false || $close === $pos + 2 ? null : $close + 2;
+            return $close === null || $close === $pos + 2 ? null : $close + 2;
         }
 
         if ($marker === '' || !str_contains('+-/~^_*,=', $marker)) {
@@ -4386,7 +4535,23 @@ class InlineParser
         // A closer inside a closed verbatim run is code, as in parseBracedInline().
         $searchPos = $pos + 2;
         $length = strlen($text);
+        $memoKey = 'braced-end:' . $marker;
+        $visited = [];
         while ($searchPos < $length - 1) {
+            if ($cache) {
+                if (isset($this->emphNoCloseFrom[$memoKey][$searchPos])) {
+                    break;
+                }
+                if (isset($this->bracedEndFrom[$marker][$searchPos])) {
+                    $end = $this->bracedEndFrom[$marker][$searchPos];
+                    foreach ($visited as $at) {
+                        $this->bracedEndFrom[$marker][$at] = $end;
+                    }
+
+                    return $end;
+                }
+                $visited[] = $searchPos;
+            }
             if ($this->skipsEscapedBacktick($text, $searchPos)) {
                 $searchPos += 2;
 
@@ -4409,9 +4574,18 @@ class InlineParser
                 }
             }
             if ($text[$searchPos] === $marker && $text[$searchPos + 1] === '}') {
-                return $searchPos + 2;
+                $end = $searchPos + 2;
+                foreach ($visited as $at) {
+                    $this->bracedEndFrom[$marker][$at] = $end;
+                }
+
+                return $end;
             }
             $searchPos++;
+        }
+
+        foreach ($visited as $at) {
+            $this->emphNoCloseFrom[$memoKey][$at] = true;
         }
 
         return null;
