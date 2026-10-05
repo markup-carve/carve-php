@@ -39,6 +39,7 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Block\ListParser;
+use MarkupCarve\Carve\Parser\Block\TableCellAccumulator;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\ContainerLabelParser;
@@ -2386,6 +2387,10 @@ class BlockParser
         $savedSpan = $this->state->session->pendingAttributeSpan;
         $savedAttributes = $this->state->session->pendingAttributes;
         $savedOrder = $this->state->session->pendingAttributeOrder;
+        if ($this::class === self::class) {
+            $this->state->session->pendingAttributes = [];
+            $this->state->session->pendingAttributeOrder = [];
+        }
         try {
             return $this->tryParseBlockAttributes($lines, $start);
         } finally {
@@ -2532,11 +2537,21 @@ class BlockParser
     protected function parseAttributeString(string $attrStr): void
     {
         $parsed = AttributeParser::parseOrderedWithSlots($attrStr);
-        if (isset($parsed['attributes']['class'], $this->state->session->pendingAttributes['class'])) {
-            $parsed['attributes']['class'] = [...(array)$this->state->session->pendingAttributes['class'], ...(array)$parsed['attributes']['class']];
+        foreach ($parsed['attributes'] as $key => $value) {
+            if ($key === 'class' && isset($this->state->session->pendingAttributes['class'])) {
+                if (!is_array($this->state->session->pendingAttributes['class'])) {
+                    $this->state->session->pendingAttributes['class'] = [$this->state->session->pendingAttributes['class']];
+                }
+                foreach ((array)$value as $class) {
+                    $this->state->session->pendingAttributes['class'][] = $class;
+                }
+            } else {
+                $this->state->session->pendingAttributes[$key] = $value;
+            }
         }
-        $this->state->session->pendingAttributes = array_merge($this->state->session->pendingAttributes, $parsed['attributes']);
-        $this->state->session->pendingAttributeOrder = array_merge($this->state->session->pendingAttributeOrder, $parsed['order']);
+        foreach ($parsed['order'] as $slot) {
+            $this->state->session->pendingAttributeOrder[] = $slot;
+        }
     }
 
     /**
@@ -3085,6 +3100,9 @@ class BlockParser
     {
         foreach ($this->state->session->pendingAttributes as $name => $value) {
             if ($name === 'class') {
+                if (!is_array($this->state->session->pendingAttributes['class'])) {
+                    $this->state->session->pendingAttributes['class'] = [$this->state->session->pendingAttributes['class']];
+                }
                 foreach ((array)$value as $class) {
                     $node->appendClass($class);
                 }
@@ -4175,6 +4193,10 @@ class BlockParser
         $savedSpan = $this->state->session->pendingAttributeSpan;
         $savedAttributes = $this->state->session->pendingAttributes;
         $savedOrder = $this->state->session->pendingAttributeOrder;
+        if ($this::class === self::class) {
+            $this->state->session->pendingAttributes = [];
+            $this->state->session->pendingAttributeOrder = [];
+        }
         try {
             return $this->tryBlockMatchers(new Document(), $lines, $start) !== null;
         } finally {
@@ -4762,27 +4784,12 @@ class BlockParser
             return false;
         }
 
-        $mergedCells = $baseCells;
+        $cells = new TableCellAccumulator($this->tableParser, $baseCells);
         $i = $start + 1;
 
         // Look for continuation rows
         while ($i < $count && $this->tableParser->isContinuationRow($lines[$i])) {
-            // THE LOOKAHEAD SPLITS THE SAME WAY THE COLLECTOR DOES. Measured,
-            // this argument changes no output today: the validity check below
-            // asks whether the MERGED content is balanced, and
-            // `mergeCellContents()` joins the cells with a space, so the total
-            // text is the same however the row was divided. Removing it fails
-            // nothing - a diagnosis rather than a gap, recorded here because
-            // the next reader will notice.
-            //
-            // It stays because the alternative is the failure this file keeps
-            // recording: one rule with two spellings, where the second is only
-            // wrong once something starts depending on it.
-            $continuationCells = $this->tableParser->parseContinuationCells(
-                $lines[$i],
-                $this->openVerbatimRunsByCell($mergedCells),
-            );
-            $mergedCells = $this->tableParser->mergeCellContents($mergedCells, $continuationCells);
+            $cells->append($this->tableParser->parseContinuationCells($lines[$i], $cells->openDelimiters()));
             $i++;
         }
 
@@ -4792,7 +4799,7 @@ class BlockParser
             return false;
         }
 
-        return $this->tableParser->mergedCellsAreValid($mergedCells);
+        return $this->tableParser->mergedCellsAreValid($cells->contents());
     }
 
     /**
@@ -5407,16 +5414,6 @@ class BlockParser
     private function wholeLinesSpan(int $firstIndex, int $lastIndex, int $openingColumn = 0): ?SourceSpan
     {
         return $this->sourceMapper()->wholeLinesSpan($firstIndex, $lastIndex, $openingColumn);
-    }
-
-    /**
-     * @param array<int, string> $cells Merged content of the row so far.
-     *
-     * @return array<int, int> Cell index => open delimiter width.
-     */
-    private function openVerbatimRunsByCell(array $cells): array
-    {
-        return $this->sourceMapper()->openVerbatimRunsByCell($cells);
     }
 
     /**

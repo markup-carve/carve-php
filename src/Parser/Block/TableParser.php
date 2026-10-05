@@ -758,14 +758,27 @@ class TableParser
      */
     public function openCodeSpanDelimiter(string $line): int
     {
+        return $this->advanceCodeSpanDelimiter($line, 0);
+    }
+
+    /**
+     * Resume a cell's code-span state after a joining space.
+     *
+     * @param string $line
+     * @param int $openWidth
+     *
+     * @return int
+     */
+    public function advanceCodeSpanDelimiter(string $line, int $openWidth): int
+    {
         // Fast path: no backticks means no code spans at all
         if (!str_contains($line, '`')) {
-            return 0;
+            return $openWidth;
         }
 
         $length = strlen($line);
-        $inCode = false;
-        $codeDelimLength = 0;
+        $inCode = $openWidth > 0;
+        $codeDelimLength = $openWidth;
 
         for ($i = 0; $i < $length; $i++) {
             $char = $line[$i];
