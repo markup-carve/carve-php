@@ -3560,7 +3560,12 @@ class InlineParser
                 if (isset($this->emphNoCloseFrom[$memoKey][$searchPos])) {
                     break;
                 }
-                $visited[] = $searchPos;
+                if (
+                    $searchPos === $pos + 2
+                    || ($searchPos >= 2 && $text[$searchPos - 2] === '{' && $text[$searchPos - 1] === $marker)
+                ) {
+                    $visited[] = $searchPos;
+                }
             }
             if ($this->skipsEscapedBacktick($text, $searchPos)) {
                 $searchPos += 2;
@@ -4550,7 +4555,12 @@ class InlineParser
 
                     return $end;
                 }
-                $visited[] = $searchPos;
+                if (
+                    $searchPos === $pos + 2
+                    || ($searchPos >= 2 && $text[$searchPos - 2] === '{' && $text[$searchPos - 1] === $marker)
+                ) {
+                    $visited[] = $searchPos;
+                }
             }
             if ($this->skipsEscapedBacktick($text, $searchPos)) {
                 $searchPos += 2;
