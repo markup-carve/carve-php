@@ -824,7 +824,7 @@ if (($options['command'] ?? null) === 'lint') {
         $warnings = array_merge(
             $linter->lint($source, ['platforms' => $options['platforms']]),
             $semanticLinter->lint($source),
-            $referenceLinter->lint($source),
+            $referenceLinter->lint($source, ['extensions' => $options['extensions']]),
             $sourceLinter->lint($source),
             $retiredLinter->lint($source),
             $tableColumnLinter->lint($source),

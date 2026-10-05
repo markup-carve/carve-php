@@ -4,7 +4,15 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use Dom\HTMLDocument;
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\AsciiHeadingIdsExtension;
+use MarkupCarve\Carve\Extension\CitationsExtension;
+use MarkupCarve\Carve\Extension\LowercaseHeadingIdsExtension;
+use MarkupCarve\Carve\Extension\SemanticSpanExtension;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Footnote;
@@ -22,9 +30,12 @@ use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 class ReferenceLinter
 {
     /**
+     * @param string $source
+     * @param array{extensions?: list<string|\MarkupCarve\Carve\Extension\ExtensionInterface>} $options
+     *
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
-    public function lint(string $source): array
+    public function lint(string $source, array $options = []): array
     {
         $converter = new CarveConverter();
         $converter->getParser()->enablePositionTracking();
@@ -46,6 +57,8 @@ class ReferenceLinter
         $definitions = [];
         $referenced = [];
         $usedIds = [];
+        $idKinds = [];
+        $fragmentLinks = [];
         $ignoredLines = [];
         $inlineSpans = [];
         foreach ($nodes as $node) {
@@ -57,6 +70,13 @@ class ReferenceLinter
             }
             if ($pos !== null && $node instanceof InlineNode) {
                 $inlineSpans[] = [SourceOffsets::toByte($pos->startOffset, $map, $length), SourceOffsets::toByte($pos->endOffset, $map, $length)];
+            }
+            $id = $node->getAttribute('id');
+            if ($id !== null) {
+                $idKinds[$this->foldId($id)] ??= [$id, str_replace('_', ' ', $node->getType())];
+            }
+            if ($node instanceof Link && str_starts_with($node->getDestination() ?? '', '#')) {
+                $fragmentLinks[] = $node;
             }
             if ($node instanceof Footnote) {
                 $definitions[LabelKey::normalize($node->getLabel())] = $node;
@@ -78,7 +98,14 @@ class ReferenceLinter
         }
         foreach ($nodes as $node) {
             if ($node instanceof HeadingRef && $node->getHref() === null) {
-                $warnings[] = $this->warning($node, 'broken-crossref', 'Cross-reference </#' . $node->getTargetId() . '> has no matching heading id.', $map, $length);
+                $target = $node->getTargetId();
+                $elsewhere = $idKinds[$this->foldId($target)] ?? null;
+                $message = $elsewhere === null
+                    ? 'Cross-reference </#' . $target . '> has no matching heading id.'
+                    : 'Cross-reference </#' . $target . '> names the id "' . $elsewhere[0] . '", which is on a ' . $elsewhere[1]
+                        . '; a cross-reference reaches only headings and numbered captions, so it renders as the literal text "</#' . $target
+                        . '>". Link to it with [text](#' . $elsewhere[0] . ').';
+                $warnings[] = $this->warning($node, 'broken-crossref', $message, $map, $length);
             } elseif ($node instanceof Link && $node->getReferenceLabel() !== null && ($node->getDestination() ?? '') === '') {
                 $warnings[] = $this->warning($node, 'unresolved-reference-link', 'Reference has no matching definition or heading.', $map, $length);
             } elseif ($node instanceof FootnoteRef) {
@@ -138,9 +165,135 @@ class ReferenceLinter
                 }
             }
         }
+        foreach ($this->brokenFragmentLinks($source, $fragmentLinks, $options['extensions'] ?? []) as [$node, $message]) {
+            $warnings[] = $this->warning($node, 'broken-fragment-link', $message, $map, $length);
+        }
         usort($warnings, static fn (LintWarning $a, LintWarning $b): int => $a->start <=> $b->start);
 
         return $warnings;
+    }
+
+    /**
+     * @param string $source
+     * @param list<\MarkupCarve\Carve\Node\Inline\Link> $links
+     * @param list<string|\MarkupCarve\Carve\Extension\ExtensionInterface> $extensions
+     *
+     * @return list<array{0: \MarkupCarve\Carve\Node\Inline\Link, 1: string}>
+     */
+    private function brokenFragmentLinks(string $source, array $links, array $extensions): array
+    {
+        if ($links === [] || (!class_exists(HTMLDocument::class) && !class_exists(DOMDocument::class))) {
+            return [];
+        }
+        $citations = false;
+        $headingIds = [];
+        foreach ($extensions as $extension) {
+            if ($extension === 'citations' || $extension instanceof CitationsExtension) {
+                $citations = true;
+            } elseif ($extension instanceof LowercaseHeadingIdsExtension || $extension instanceof AsciiHeadingIdsExtension) {
+                $headingIds[] = $extension;
+            } elseif ($extension !== 'semantic-span' && !$extension instanceof SemanticSpanExtension) {
+                // Lint cannot know which ids another extension generates.
+                return [];
+            }
+        }
+        if ($headingIds !== []) {
+            // An implicit heading link resolves to the id these extensions shape.
+            $parser = (new CarveConverter())->addExtensions($headingIds);
+            $parser->getParser()->enablePositionTracking();
+            $links = [];
+            $pending = [$parser->parse($source)];
+            while ($pending !== []) {
+                $node = array_pop($pending);
+                if ($node instanceof Link && str_starts_with($node->getDestination() ?? '', '#')) {
+                    $links[] = $node;
+                }
+                array_push($pending, ...$node->getChildren());
+            }
+        }
+        $ids = $this->renderedIds((new CarveConverter())->addExtensions($headingIds)->convert($source));
+        $idsByFold = [];
+        foreach ($ids as $id => $_) {
+            $idsByFold[$this->foldId((string)$id)] ??= (string)$id;
+        }
+        $found = [];
+        foreach ($links as $link) {
+            $href = (string)$link->getDestination();
+            // A browser strips a `:~:` text directive before it looks the id up.
+            $fragment = explode(':~:', substr($href, 1), 2)[0];
+            if ($fragment === '') {
+                continue;
+            }
+            $decoded = rawurldecode($fragment);
+            if (!mb_check_encoding($decoded, 'UTF-8')) {
+                $decoded = $fragment;
+            }
+            if (isset($ids[$fragment]) || isset($ids[$decoded])) {
+                continue;
+            }
+            // HTML scrolls `#top` to the start of the page without any element.
+            if (strtolower($decoded) === 'top' || ($citations && preg_match('/^(?:ref|cite)-/', $decoded))) {
+                continue;
+            }
+            $caseOnly = $idsByFold[$this->foldId($decoded)] ?? null;
+            $found[] = [
+                $link, $caseOnly === null
+                ? 'Link to "' . $href . '" matches no id in this document, so the link goes nowhere.'
+                : 'Link to "' . $href . '" matches no id; the id "' . $caseOnly . '" differs only in case, and fragment links are case-sensitive, so the link goes nowhere.',
+            ];
+        }
+
+        return $found;
+    }
+
+    /**
+     * The ids the rendered HTML carries, read the way a browser parses them so
+     * an id quoted in a comment or another attribute's value does not count.
+     *
+     * @return array<string, true>
+     */
+    private function renderedIds(string $html): array
+    {
+        $values = [];
+        if (class_exists(HTMLDocument::class)) {
+            $document = HTMLDocument::createFromString('<body>' . $html, LIBXML_NOERROR, 'UTF-8');
+            foreach ($document->querySelectorAll('[id], a[name]') as $element) {
+                $values[] = $element->getAttribute('id');
+                $values[] = strtolower($element->localName) === 'a' ? $element->getAttribute('name') : null;
+            }
+        } else {
+            $document = new DOMDocument();
+            $previous = libxml_use_internal_errors(true);
+            try {
+                $document->loadHTML('<?xml encoding="UTF-8"><body>' . $html, LIBXML_PARSEHUGE | LIBXML_NONET);
+            } finally {
+                libxml_clear_errors();
+                libxml_use_internal_errors($previous);
+            }
+            $nodes = (new DOMXPath($document))->query('//*[@id][not(ancestor::template)] | //a[@name][not(ancestor::template)]');
+            foreach ($nodes ?: [] as $element) {
+                if ($element instanceof DOMElement) {
+                    $values[] = $element->hasAttribute('id') ? $element->getAttribute('id') : null;
+                    $values[] = $element->localName === 'a' && $element->hasAttribute('name') ? $element->getAttribute('name') : null;
+                }
+            }
+        }
+        $ids = [];
+        foreach ($values as $value) {
+            if ($value !== null) {
+                $ids[$value] = true;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Same per-character fold as the cross-reference resolver.
+     */
+    private function foldId(string $id): string
+    {
+        return (string)preg_replace_callback('/./us', static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'), $id);
     }
 
     /**

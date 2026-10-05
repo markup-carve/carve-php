@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Lint\DefinitionTermFoldLinter;
 use MarkupCarve\Carve\Lint\FigureGroupLinter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
 use MarkupCarve\Carve\Lint\QuoteFenceLinter;
+use MarkupCarve\Carve\Lint\ReferenceLinter;
 use MarkupCarve\Carve\Lint\ReferencesPlacementLinter;
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
 use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
@@ -29,6 +30,7 @@ $warnings = array_merge(
     (new TemplateSourceLinter())->lint($source),
     (new FigureGroupLinter())->lint($source),
     (new QuoteFenceLinter())->lint($source),
+    (new ReferenceLinter())->lint($source),
     (new DefinitionTermFoldLinter())->lint($source),
     (new ReferencesPlacementLinter())->lint($source, ['extensions' => ['citations']]),
 );
@@ -58,6 +60,26 @@ content column to open the block.
 container when citations are enabled. The marker renders as an ordinary div
 there; the generated list stays at document level. A top-level marker places
 the list and draws no warning.
+
+`ReferenceLinter` reports references that go nowhere. `broken-crossref` is a
+`</#id>` cross-reference with no matching heading or numbered caption id; when
+the id does exist on an element a cross-reference cannot reach (a paragraph, a
+span, an uncaptioned table), the message names that element and suggests
+`[text](#id)` instead. `broken-fragment-link` is a `[text](#id)` link, inline or
+through a reference definition, whose fragment matches no id in the rendered
+HTML. Ids are read off the rendered output, so heading slugs, footnote ids and
+ids in raw HTML count, while an id quoted in a code block, an HTML comment or
+another attribute's value does not. Fragments match case-sensitively, and a
+case-only near miss names the real id. `#`, `#top`, a `:~:` text directive and
+links into other files are not reported. Pass the extensions the document is
+rendered with: `citations` skips `#ref-…` and `#cite-…`,
+`LowercaseHeadingIdsExtension` and `AsciiHeadingIdsExtension` instances shape the
+heading ids, and any other extension except `semantic-span` silences the rule,
+since lint cannot know which ids it generates.
+
+```php
+(new ReferenceLinter())->lint($source, ['extensions' => ['citations']]);
+```
 
 ## Markdown habits
 
