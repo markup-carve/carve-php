@@ -11,6 +11,7 @@ use DOMXPath;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\AsciiHeadingIdsExtension;
 use MarkupCarve\Carve\Extension\CitationsExtension;
+use MarkupCarve\Carve\Extension\ExtensionInterface;
 use MarkupCarve\Carve\Extension\LowercaseHeadingIdsExtension;
 use MarkupCarve\Carve\Extension\SemanticSpanExtension;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -43,7 +44,7 @@ class ReferenceLinter
      */
     public function lint(string $source, array $options = []): array
     {
-        [$document, $tracker, $nodes] = $this->resolve($source);
+        [$document, $tracker, $nodes] = $this->resolve($source, $options['extensions'] ?? []);
         $targets = $this->labelTargets($document, $nodes);
         $map = SourceOffsets::map($source);
         $length = strlen($source);
@@ -231,14 +232,25 @@ class ReferenceLinter
     }
 
     /**
+     * Resolves with the caller's heading-id extensions, so references are
+     * checked against the ids the render produces.
+     *
+     * @param string $source
+     * @param list<string|\MarkupCarve\Carve\Extension\ExtensionInterface> $extensions
+     *
      * @return array{0: \MarkupCarve\Carve\Node\Document, 1: \MarkupCarve\Carve\Renderer\HeadingIdTracker, 2: list<\MarkupCarve\Carve\Node\Node>}
      */
-    private function resolve(string $source): array
+    private function resolve(string $source, array $extensions = []): array
     {
-        $converter = new CarveConverter();
+        $headingIds = array_values(array_filter(
+            $extensions,
+            static fn (string|ExtensionInterface $extension): bool => $extension instanceof LowercaseHeadingIdsExtension
+                || $extension instanceof AsciiHeadingIdsExtension,
+        ));
+        $converter = (new CarveConverter())->addExtensions($headingIds);
         $converter->getParser()->enablePositionTracking();
         $document = $converter->parse($source);
-        $tracker = new HeadingIdTracker();
+        $tracker = $converter->getHeadingIdTracker();
         (new CrossReferenceResolver())->resolveCrossReferenceTargets($document, $tracker);
         $nodes = [];
         $pending = [$document];
