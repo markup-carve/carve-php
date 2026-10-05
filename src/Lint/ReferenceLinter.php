@@ -187,11 +187,16 @@ class ReferenceLinter
      * Rewrite each `</#id>` cross-reference and reference label that resolves
      * nothing, but matches exactly one target when letter case is ignored, to
      * that target's exact spelling (`carve fmt --migrate`, CARVE-P9R-010). A
-     * reference with several such targets is left for lint to report.
+     * reference with several such targets is left for lint to report. Pass the
+     * extensions the document renders with, so a reference is judged against the
+     * ids that render produces.
+     *
+     * @param string $source
+     * @param array{extensions?: list<string|\MarkupCarve\Carve\Extension\ExtensionInterface>} $options
      */
-    public function rewriteCaseOnlyReferences(string $source): string
+    public function rewriteCaseOnlyReferences(string $source, array $options = []): string
     {
-        [$document, $tracker, $nodes] = $this->resolve($source);
+        [$document, $tracker, $nodes] = $this->resolve($source, $options['extensions'] ?? []);
         $targets = $this->labelTargets($document, $nodes);
         $map = SourceOffsets::map($source);
         $length = strlen($source);

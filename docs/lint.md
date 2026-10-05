@@ -72,6 +72,9 @@ heading. Cross-references and reference labels compare case exactly, so
 `# Plan` heading; both rules name the exact spelling of a case-only near miss.
 `carve fmt --migrate` respells such a reference when exactly one target matches
 it, which `ReferenceLinter::rewriteCaseOnlyReferences()` does programmatically.
+Both `lint()` and `rewriteCaseOnlyReferences()` take an `extensions` option; pass
+the `LowercaseHeadingIdsExtension` or `AsciiHeadingIdsExtension` the document
+renders with so references are judged against the ids that render produces.
 `broken-fragment-link` is a `[text](#id)` link, inline or
 through a reference definition, whose fragment matches no id in the rendered
 HTML. Ids are read off the rendered output, so heading slugs, footnote ids and

@@ -140,6 +140,17 @@ class ReferenceLinterTest extends TestCase
         $this->assertSame(['broken-crossref'], array_column((new ReferenceLinter())->lint("# Café\n\nSee </#Café>.\n", $options), 'rule'));
     }
 
+    public function testRewriteJudgesCrossrefsAgainstTheIdsTheHeadingIdExtensionsProduce(): void
+    {
+        $lower = ['extensions' => [new LowercaseHeadingIdsExtension()]];
+        $this->assertSame("# Plan\n\nSee </#plan>.\n", (new ReferenceLinter())->rewriteCaseOnlyReferences("# Plan\n\nSee </#plan>.\n", $lower));
+        $this->assertSame("# Plan\n\nSee </#plan>.\n", (new ReferenceLinter())->rewriteCaseOnlyReferences("# Plan\n\nSee </#Plan>.\n", $lower));
+        $this->assertSame("# Plan\n\nSee </#Plan>.\n", (new ReferenceLinter())->rewriteCaseOnlyReferences("# Plan\n\nSee </#plan>.\n"));
+
+        $ascii = ['extensions' => [new AsciiHeadingIdsExtension()]];
+        $this->assertSame("# Café\n\nSee </#Cafe>.\n", (new ReferenceLinter())->rewriteCaseOnlyReferences("# Café\n\nSee </#cafe>.\n", $ascii));
+    }
+
     public function testCrossrefKeepsTheGenericMessageWhenNoElementCarriesTheId(): void
     {
         $this->assertStringContainsString('has no matching heading id', (new ReferenceLinter())->lint('See </#nope>.')[0]->message);
