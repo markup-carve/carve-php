@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Lint;
 
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\AsciiHeadingIdsExtension;
 use MarkupCarve\Carve\Extension\LowercaseHeadingIdsExtension;
 use MarkupCarve\Carve\Lint\ReferenceLinter;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -117,6 +119,25 @@ class ReferenceLinterTest extends TestCase
         $this->assertSame(['broken-crossref'], array_column($warnings, 'rule'));
         $this->assertStringContainsString('which is on a ' . $kind, $warnings[0]->message);
         $this->assertStringContainsString('[text](#' . $id . ')', $warnings[0]->message);
+    }
+
+    public function testCrossrefIsCheckedAgainstTheIdsLowercasedHeadingIdsProduce(): void
+    {
+        $options = ['extensions' => [new LowercaseHeadingIdsExtension()]];
+        $converter = (new CarveConverter())->addExtension(new LowercaseHeadingIdsExtension());
+        $this->assertStringContainsString('<a href="#plan">Plan</a>', $converter->convert("# Plan\n\nSee </#plan>.\n"));
+
+        $this->assertSame([], (new ReferenceLinter())->lint("# Plan\n\nSee </#plan>.\n", $options));
+        $warnings = (new ReferenceLinter())->lint("# Plan\n\nSee </#Plan>.\n", $options);
+        $this->assertSame(['broken-crossref'], array_column($warnings, 'rule'));
+        $this->assertStringContainsString('"plan"', $warnings[0]->message);
+    }
+
+    public function testCrossrefIsCheckedAgainstAsciiHeadingIds(): void
+    {
+        $options = ['extensions' => [new AsciiHeadingIdsExtension()]];
+        $this->assertSame([], (new ReferenceLinter())->lint("# Café\n\nSee </#Cafe>.\n", $options));
+        $this->assertSame(['broken-crossref'], array_column((new ReferenceLinter())->lint("# Café\n\nSee </#Café>.\n", $options), 'rule'));
     }
 
     public function testCrossrefKeepsTheGenericMessageWhenNoElementCarriesTheId(): void
