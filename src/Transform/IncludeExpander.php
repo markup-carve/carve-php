@@ -4,19 +4,39 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Transform;
 
+use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Ast\TextRunCoalescer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Exception\UnresolvedIncludeException;
 use MarkupCarve\Carve\Extension\Frontmatter;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use MarkupCarve\Carve\Node\Block\BlockNode;
+use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\CitationDefinition;
+use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
+use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
+use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\ContentNodeInterface;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
+use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -202,6 +222,14 @@ class IncludeExpander implements TransformerInterface
     protected int $scopeSeq = 0;
 
     /**
+     * Scope id to its place in inclusion order: parent before child, earlier
+     * include before later. The top-level document ('') ranks first.
+     *
+     * @var array<string, int>
+     */
+    protected array $scopeRank = [];
+
+    /**
      * Lazily built in parseChild(); see there for why it is not the host's.
      *
      * @var \MarkupCarve\Carve\CarveConverter|null
@@ -274,6 +302,7 @@ class IncludeExpander implements TransformerInterface
         $this->scopeByObjectId = [];
         $this->dependencies = [];
         $this->scopeSeq = 0;
+        $this->scopeRank = [];
         $this->fileByScope = [];
         $this->warningFile = $this->currentPath;
 
@@ -752,6 +781,7 @@ class IncludeExpander implements TransformerInterface
 
         $scope = $directive['path'] . '#' . (++$this->scopeSeq);
         $this->markScope($document, $scope);
+        $this->scopeRank[$scope] = $this->scopeSeq;
         $this->fileByScope[$scope] = $id;
         // Everything from here to the restore below operates on the child's own
         // content, so a warning it raises (a heading clamp, a nested cycle)
@@ -1109,45 +1139,128 @@ class IncludeExpander implements TransformerInterface
         return mb_strlen(substr($source, 0, $prefixBytes), 'UTF-8');
     }
 
+    /**
+     * The fragment `#name` selects from a child (spec I1a), or null. A heading
+     * whose id (explicit or auto slug) is the name selects its section, bounded
+     * by the block sequence it stands in; otherwise the first block carrying the
+     * explicit id selects itself. Within each step the first match in document
+     * order wins, a container before its contents.
+     */
     protected function selectSection(Document $document, string $section): ?Document
     {
-        $children = array_values($document->getChildren());
+        // Slugs are deduplicated over every heading in document order, the
+        // ones a selection cannot reach (inside a footnote) included.
         $tracker = new HeadingIdTracker();
-        $start = null;
-        $level = null;
+        $headingIds = [];
+        foreach ($this->collect($document, Heading::class) as $heading) {
+            $headingIds[spl_object_id($heading)] = $tracker->getIdForHeading($heading);
+        }
 
-        foreach ($children as $index => $child) {
-            $headings = $child instanceof Heading ? [$child] : [];
-            $headings = [...$headings, ...$this->collect($child, Heading::class)];
-            foreach ($headings as $heading) {
-                $id = $tracker->getIdForHeading($heading);
-                if ($child === $heading && $this->sameName($id, $section)) {
-                    $start = (int)$index;
-                    $level = $heading->getLevel();
+        $heading = $this->firstSelectable(
+            $document,
+            fn (Node $node): bool => $node instanceof Heading
+                && $this->sameName($headingIds[spl_object_id($node)] ?? '', $section),
+        );
+        if ($heading instanceof Heading) {
+            $siblings = array_values($heading->getParent()?->getChildren() ?? [$heading]);
+            $start = (int)array_search($heading, $siblings, true);
+            $end = count($siblings);
+            for ($i = $start + 1; $i < $end; $i++) {
+                $sibling = $siblings[$i];
+                if ($sibling instanceof Heading && $sibling->getLevel() <= $heading->getLevel()) {
+                    $end = $i;
 
-                    break 2;
+                    break;
                 }
             }
+
+            return $this->documentOf(array_slice($siblings, $start, $end - $start));
         }
 
-        if ($start === null || $level === null) {
-            return null;
-        }
+        $block = $this->firstSelectable(
+            $document,
+            fn (Node $node): bool => !$node instanceof Heading
+                && !$this->isDefinitionBlock($node)
+                && $this->sameName($node->getAttribute('id') ?? '', $section),
+        );
 
-        $selected = new Document();
+        return $block === null ? null : $this->documentOf([$block]);
+    }
 
-        $end = count($children);
-        $count = count($children);
-        for ($i = $start + 1; $i < $count; $i++) {
-            $child = $children[$i];
-            if ($child instanceof Heading && $child->getLevel() <= $level) {
-                $end = $i;
-
-                break;
+    /**
+     * The first node standing in a block sequence of $node, at any depth and in
+     * document order, that passes $test. A list item, a table row or cell, a
+     * definition term or description and a caption are never candidates
+     * themselves; a footnote definition is never entered.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \Closure(\MarkupCarve\Carve\Node\Node): bool $test
+     *
+     * @return \MarkupCarve\Carve\Node\Node|null
+     */
+    protected function firstSelectable(Node $node, Closure $test): ?Node
+    {
+        foreach ($node->getChildren() as $child) {
+            $isPart = $child instanceof ListItem
+                || $child instanceof TableRow
+                || $child instanceof TableCell
+                || $child instanceof DefinitionTerm
+                || $child instanceof DefinitionDescription
+                || $child instanceof Caption;
+            // A block image stands in a block sequence as an Image node.
+            $isBlock = $child instanceof BlockNode || $child instanceof Image;
+            if (!$isPart && $isBlock && $test($child)) {
+                return $child;
+            }
+            if (!$this->holdsBlocks($child)) {
+                continue;
+            }
+            $hit = $this->firstSelectable($child, $test);
+            if ($hit !== null) {
+                return $hit;
             }
         }
 
-        $selected->setChildren(array_slice($children, $start, $end - $start));
+        return null;
+    }
+
+    protected function holdsBlocks(Node $node): bool
+    {
+        if (!$node instanceof BlockNode || $node instanceof Footnote) {
+            return false;
+        }
+        if ($node instanceof TableCell) {
+            return $node->hasBlockContent();
+        }
+
+        return !$node instanceof Paragraph
+            && !$node instanceof Heading
+            && !$node instanceof LineBlock
+            && !$node instanceof Caption
+            && !$node instanceof DefinitionTerm
+            && !$node instanceof ContentNodeInterface;
+    }
+
+    /**
+     * Definitions, comments and frontmatter carry no selectable content.
+     */
+    protected function isDefinitionBlock(Node $node): bool
+    {
+        return $node instanceof Footnote
+            || $node instanceof LinkReferenceDefinition
+            || $node instanceof AbbreviationDefinition
+            || $node instanceof CitationDefinition
+            || $node instanceof Comment
+            || $node instanceof Frontmatter;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    protected function documentOf(array $nodes): Document
+    {
+        $selected = new Document();
+        $selected->setChildren(array_values($nodes));
 
         return $selected;
     }
@@ -1257,7 +1370,7 @@ class IncludeExpander implements TransformerInterface
     protected function resolveCollisions(Document $document): void
     {
         $this->resolveFootnoteCollisions($document);
-        $this->resolveExplicitHeadingCollisions($document);
+        $this->resolveExplicitIdCollisions($document);
         $this->rebindFootnoteRefs($document);
         $this->collectIncludedFootnoteDefinitions($document);
     }
@@ -1391,47 +1504,233 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
-     * Spec I5 scopes the include-time rename to explicit ids only: auto-slug
-     * collisions stay with the render-time heading-id tracker (spec section 13),
-     * which suffixes duplicates once the files are merged.
+     * Spec I5: explicit ids on every element share one namespace, compared
+     * exactly. Inclusions are visited parent before child and earlier include
+     * before later; an id is renamed when an earlier inclusion already holds
+     * it. Auto-slug collisions stay with the render-time heading-id tracker
+     * (spec section 13).
      */
-    protected function resolveExplicitHeadingCollisions(Document $document): void
+    protected function resolveExplicitIdCollisions(Document $document): void
     {
+        /** @var list<array{node: \MarkupCarve\Carve\Node\Node, scope: string}> $occurrences */
+        $occurrences = [];
         $used = [];
-        $headings = $this->collect($document, Heading::class);
-        foreach ($headings as $heading) {
-            $id = $heading->getAttribute('id');
-            if ($id !== null && $id !== '' && $this->scopeOf($heading) === null) {
-                $used[$id] = true;
-            }
-        }
-        foreach ($headings as $heading) {
-            $id = $heading->getAttribute('id');
-            if ($id === null || $id === '' || $this->scopeOf($heading) === null) {
+        foreach ($this->collectWithSelf($document) as $node) {
+            $id = $node->getAttribute('id');
+            if ($id === null || $id === '') {
                 continue;
             }
+            $used[$id] = true;
+            $occurrences[] = ['node' => $node, 'scope' => $this->scopeOf($node) ?? ''];
+        }
+        // Stable sort: document order is kept within one inclusion.
+        usort(
+            $occurrences,
+            fn (array $a, array $b): int => ($this->scopeRank[$a['scope']] ?? 0) <=> ($this->scopeRank[$b['scope']] ?? 0),
+        );
 
-            if (!array_key_exists($id, $used)) {
-                $used[$id] = true;
+        /** @var array<string, array<string, true>> $holders */
+        $holders = [];
+        /** @var array<string, list<array{node: \MarkupCarve\Carve\Node\Node, old: string, new: string}>> $byScope */
+        $byScope = [];
+        $renamedScopes = [];
+        foreach ($occurrences as ['node' => $node, 'scope' => $scope]) {
+            $id = (string)$node->getAttribute('id');
+            $earlier = $holders[$id] ?? [];
+            unset($earlier[$scope]);
+            if ($earlier === []) {
+                $holders[$id][$scope] = true;
+                $byScope[$scope][] = ['node' => $node, 'old' => $id, 'new' => $id];
 
                 continue;
             }
 
             $newId = $this->leastFree($id, $used);
-            $heading->setAttribute('id', $newId);
-            $this->renameHeadingRefs($document, $id, $newId, $this->scopeOf($heading));
+            $node->setAttribute('id', $newId);
+            $byScope[$scope][] = ['node' => $node, 'old' => $id, 'new' => $newId];
+            $renamedScopes[$scope] = true;
+            $what = $node instanceof Heading ? 'heading id' : 'id';
             $this->warn(
-                "Duplicate heading id '{$id}' renamed to '{$newId}'",
+                "Duplicate {$what} '{$id}' renamed to '{$newId}'",
                 self::RULE_HEADING_ID_RENAME,
-                $this->fileOf($heading),
+                $this->fileOf($node),
             );
         }
+
+        if ($renamedScopes === []) {
+            return;
+        }
+
+        $nodes = $this->collectWithSelf($document);
+        // Cross-reference targets per inclusion, in document order: explicit
+        // ids on headings and captioned blocks, and auto heading slugs, which
+        // see the file's explicit ids reserved first as the renderer does.
+        $entryByNode = [];
+        $trackers = [];
+        foreach ($byScope as $scope => $entries) {
+            if (!isset($renamedScopes[$scope])) {
+                continue;
+            }
+            $trackers[$scope] = new HeadingIdTracker();
+            foreach ($entries as $entry) {
+                $entryByNode[spl_object_id($entry['node'])] = $entry;
+                $trackers[$scope]->trackId($entry['old']);
+            }
+        }
+        $targets = [];
+        $captioned = [];
+        foreach ($nodes as $node) {
+            $scope = $this->scopeOf($node) ?? '';
+            if (!isset($renamedScopes[$scope])) {
+                continue;
+            }
+            $entry = $entryByNode[spl_object_id($node)] ?? null;
+            if ($entry === null && $node instanceof Heading) {
+                $slug = $trackers[$scope]->getIdForHeading($node);
+                $targets[$scope][] = ['old' => $slug, 'new' => $slug];
+
+                continue;
+            }
+            if ($entry !== null && $node instanceof Heading) {
+                $targets[$scope][] = ['old' => $entry['old'], 'new' => $entry['new']];
+            } elseif ($entry !== null && $this->hasNumberedCaption($node)) {
+                $captioned[$scope][] = ['old' => $entry['old'], 'new' => $entry['new']];
+            }
+        }
+        // The renderer registers heading ids before numbered captions.
+        foreach ($captioned as $scope => $entries) {
+            $targets[$scope] = [...$targets[$scope] ?? [], ...$entries];
+        }
+        foreach ($nodes as $node) {
+            $scope = $this->scopeOf($node) ?? '';
+            if (!isset($renamedScopes[$scope])) {
+                continue;
+            }
+            $this->followRename($node, $byScope[$scope], $targets[$scope] ?? []);
+        }
+    }
+
+    /**
+     * Whether a `</#id>` can reach $node through its numbered caption.
+     */
+    protected function hasNumberedCaption(Node $node): bool
+    {
+        $caption = $node instanceof Table || $node instanceof FigureGroup ? $node->getCaption() : null;
+        if ($node instanceof Figure) {
+            foreach ($node->getChildren() as $child) {
+                if ($child instanceof Caption) {
+                    $caption = $child;
+                }
+            }
+        }
+
+        return $caption !== null && $this->collect($caption, CaptionNumber::class) !== [];
+    }
+
+    /**
+     * Point a reference at its target's new id, when the target is the one the
+     * reference reaches in its own file (spec I5, references follow the rename).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param list<array{node: \MarkupCarve\Carve\Node\Node, old: string, new: string}> $ids
+     * @param list<array{old: string, new: string}> $targets Cross-reference targets in the same inclusion.
+     */
+    protected function followRename(Node $node, array $ids, array $targets): void
+    {
+        if ($node instanceof HeadingRef) {
+            $target = $node->getTargetId();
+            // The renderer prefers an exact match, then the first folded one.
+            $hit = null;
+            foreach ($targets as $entry) {
+                if ($entry['old'] === $target) {
+                    $hit = $entry;
+
+                    break;
+                }
+            }
+            foreach ($hit === null ? $targets : [] as $entry) {
+                if ($this->sameName($entry['old'], $target)) {
+                    $hit = $entry;
+
+                    break;
+                }
+            }
+            if ($hit !== null && $hit['new'] !== $hit['old']) {
+                $node->setTargetId($hit['new']);
+            }
+
+            return;
+        }
+
+        $destination = match (true) {
+            $node instanceof Link => $node->getDestination(),
+            $node instanceof Image => $node->getSource(),
+            default => null,
+        };
+        if ($destination === null || !str_starts_with($destination, '#')) {
+            return;
+        }
+        $fragment = substr($destination, 1);
+        foreach ($ids as $entry) {
+            if ($entry['old'] !== $fragment) {
+                continue;
+            }
+            if ($entry['new'] === $entry['old']) {
+                return;
+            }
+            if ($node instanceof Link) {
+                $node->setDestination('#' . $entry['new']);
+            } elseif ($node instanceof Image) {
+                $node->resolveReference('#' . $entry['new'], $node->getTitle());
+            }
+
+            return;
+        }
+    }
+
+    /**
+     * A table's and a figure group's caption is kept beside the children, not
+     * among them.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     *
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function childrenWithCaption(Node $node): array
+    {
+        $children = $node->getChildren();
+        $caption = $node instanceof Table || $node instanceof FigureGroup ? $node->getCaption() : null;
+        if ($caption !== null && !in_array($caption, $children, true)) {
+            $children[] = $caption;
+        }
+
+        return $children;
+    }
+
+    /**
+     * Every descendant of $node in document order (pre-order).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function collectWithSelf(Node $node): array
+    {
+        $out = [];
+        foreach ($this->childrenWithCaption($node) as $child) {
+            $out[] = $child;
+            foreach ($this->collectWithSelf($child) as $descendant) {
+                $out[] = $descendant;
+            }
+        }
+
+        return $out;
     }
 
     protected function markScope(Node $node, string $scope): void
     {
         $this->scopeByObjectId[spl_object_id($node)] = $scope;
-        foreach ($node->getChildren() as $child) {
+        foreach ($this->childrenWithCaption($node) as $child) {
             $this->markScope($child, $scope);
         }
     }
@@ -1486,16 +1785,6 @@ class IncludeExpander implements TransformerInterface
                 $child->setLabel($new);
             }
             $this->renameFootnoteRefs($child, $old, $new, $scope);
-        }
-    }
-
-    protected function renameHeadingRefs(Node $node, string $old, string $new, ?string $scope): void
-    {
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof HeadingRef && $child->getTargetId() === $old && $this->scopeOf($child) === $scope) {
-                $child->setTargetId($new);
-            }
-            $this->renameHeadingRefs($child, $old, $new, $scope);
         }
     }
 
