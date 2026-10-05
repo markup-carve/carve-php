@@ -187,12 +187,17 @@ class ReferenceLinter
         }
         $citations = false;
         $headingIds = [];
+        $rendered = [];
         foreach ($extensions as $extension) {
             if ($extension === 'citations' || $extension instanceof CitationsExtension) {
                 $citations = true;
+                $rendered[] = $extension instanceof CitationsExtension ? $extension : new CitationsExtension();
             } elseif ($extension instanceof LowercaseHeadingIdsExtension || $extension instanceof AsciiHeadingIdsExtension) {
                 $headingIds[] = $extension;
-            } elseif ($extension !== 'semantic-span' && !$extension instanceof SemanticSpanExtension) {
+                $rendered[] = $extension;
+            } elseif ($extension === 'semantic-span' || $extension instanceof SemanticSpanExtension) {
+                $rendered[] = $extension instanceof SemanticSpanExtension ? $extension : new SemanticSpanExtension();
+            } else {
                 // Lint cannot know which ids another extension generates.
                 return [];
             }
@@ -211,7 +216,9 @@ class ReferenceLinter
                 array_push($pending, ...$node->getChildren());
             }
         }
-        $ids = $this->renderedIds((new CarveConverter())->addExtensions($headingIds)->convert($source));
+        // The document the caller renders, not a core one: an extension drops an
+        // unused definition and every id and link inside it.
+        [$ids, $linked] = $this->renderedIds((new CarveConverter())->addExtensions($rendered)->convert($source));
         $idsByFold = [];
         foreach ($ids as $id => $_) {
             $idsByFold[$this->foldId((string)$id)] ??= (string)$id;
@@ -227,6 +234,11 @@ class ReferenceLinter
             $decoded = rawurldecode($fragment);
             if (!mb_check_encoding($decoded, 'UTF-8')) {
                 $decoded = $fragment;
+            }
+            // A link the render leaves out reaches no reader, so it goes nowhere
+            // for a reason this rule does not own.
+            if (!isset($linked[$fragment]) && !isset($linked[$decoded])) {
+                continue;
             }
             if (isset($ids[$fragment]) || isset($ids[$decoded])) {
                 continue;
@@ -248,18 +260,24 @@ class ReferenceLinter
 
     /**
      * The ids the rendered HTML carries, read the way a browser parses them so
-     * an id quoted in a comment or another attribute's value does not count.
+     * an id quoted in a comment or another attribute's value does not count,
+     * and the fragments of the links that render.
      *
-     * @return array<string, true>
+     * @return array{0: array<string, true>, 1: array<string, true>}
      */
     private function renderedIds(string $html): array
     {
         $values = [];
+        /** @var list<string|null> $hrefs */
+        $hrefs = [];
         if (class_exists(HTMLDocument::class)) {
             $document = HTMLDocument::createFromString('<body>' . $html, LIBXML_NOERROR, 'UTF-8');
             foreach ($document->querySelectorAll('[id], a[name]') as $element) {
                 $values[] = $element->getAttribute('id');
                 $values[] = strtolower($element->localName) === 'a' ? $element->getAttribute('name') : null;
+            }
+            foreach ($document->querySelectorAll('a[href]') as $element) {
+                $hrefs[] = $element->getAttribute('href');
             }
         } else {
             $document = new DOMDocument();
@@ -277,6 +295,12 @@ class ReferenceLinter
                     $values[] = $element->localName === 'a' && $element->hasAttribute('name') ? $element->getAttribute('name') : null;
                 }
             }
+            $anchors = (new DOMXPath($document))->query('//a[@href][not(ancestor::template)]');
+            foreach ($anchors ?: [] as $element) {
+                if ($element instanceof DOMElement) {
+                    $hrefs[] = $element->getAttribute('href');
+                }
+            }
         }
         $ids = [];
         foreach ($values as $value) {
@@ -284,8 +308,18 @@ class ReferenceLinter
                 $ids[$value] = true;
             }
         }
+        $linked = [];
+        foreach ($hrefs as $href) {
+            if ($href === null || !str_starts_with($href, '#')) {
+                continue;
+            }
+            $fragment = explode(':~:', substr($href, 1), 2)[0];
+            $linked[$fragment] = true;
+            $decoded = rawurldecode($fragment);
+            $linked[mb_check_encoding($decoded, 'UTF-8') ? $decoded : $fragment] = true;
+        }
 
-        return $ids;
+        return [$ids, $linked];
     }
 
     /**

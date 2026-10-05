@@ -209,4 +209,19 @@ class ReferenceLinterTest extends TestCase
         $warnings = (new ReferenceLinter())->lint('[x](#ref-smith) [y](#nope)', ['extensions' => ['citations']]);
         $this->assertSame(['broken-fragment-link'], array_column($warnings, 'rule'));
     }
+
+    public function testIdRenderCarriesTheCallersExtensions(): void
+    {
+        $source = "[@a]: [Entry]{#entry}\n\n[x](#entry)";
+        $options = ['extensions' => ['citations', 'semantic-span']];
+        $warnings = (new ReferenceLinter())->lint($source, $options);
+        $this->assertSame(['broken-fragment-link'], array_column($warnings, 'rule'));
+        $this->assertSame([3, 1], [$warnings[0]->line, $warnings[0]->column]);
+    }
+
+    public function testLinkInAnUnreferencedFootnoteDefinitionIsNotChecked(): void
+    {
+        $rules = array_column((new ReferenceLinter())->lint("[^u]: see [x](#nope)\n\nBody."), 'rule');
+        $this->assertSame(['unused-footnote-definition'], $rules);
+    }
 }
