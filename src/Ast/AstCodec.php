@@ -248,7 +248,7 @@ class AstCodec
     private static array $reflectionCache = [];
 
     /**
-     * @var array<int, list<string>>
+     * @var array<int, array<int, string>>
      */
     private array $tableHeaderAlignments = [];
 
