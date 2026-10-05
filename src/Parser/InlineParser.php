@@ -232,9 +232,19 @@ class InlineParser
     protected ?string $emphNoCloseText = null;
 
     /**
-     * @var array<string, array<int, int>>
+     * @var array<string, \MarkupCarve\Carve\Parser\BracedEndMemo>
      */
     private array $bracedEndFrom = [];
+
+    /**
+     * @var array<string, string>
+     */
+    private array $bracedNoCloseBits = [];
+
+    /**
+     * @var array<string, true>
+     */
+    private array $bracedScanSeen = [];
 
     /**
      * @var array<int, array{int, int}|null>
@@ -694,6 +704,8 @@ class InlineParser
         $outerNoCloseText = $this->emphNoCloseText;
         $outerNoCloseFrom = $this->emphNoCloseFrom;
         $outerBracedEnds = $this->bracedEndFrom;
+        $outerBracedFailures = $this->bracedNoCloseBits;
+        $outerBracedSeen = $this->bracedScanSeen;
         $outerSubstitutions = $this->substitutionFrom;
         $outerSubstitutionClosers = $this->substitutionCloseFrom;
         $outerRawClosers = $this->rawCloserPositions;
@@ -719,6 +731,8 @@ class InlineParser
             $this->emphNoCloseText = $outerNoCloseText;
             $this->emphNoCloseFrom = $outerNoCloseFrom;
             $this->bracedEndFrom = $outerBracedEnds;
+            $this->bracedNoCloseBits = $outerBracedFailures;
+            $this->bracedScanSeen = $outerBracedSeen;
             $this->substitutionFrom = $outerSubstitutions;
             $this->substitutionCloseFrom = $outerSubstitutionClosers;
             $this->rawCloserPositions = $outerRawClosers;
@@ -3554,10 +3568,15 @@ class InlineParser
         // For braced syntax, we allow spaces inside (unlike bare delimiters)
         $searchPos = $pos + 2;
         $memoKey = 'forced:' . $marker;
+        $nativeCache = $cache;
+        $cache = $cache && isset($this->bracedScanSeen[$memoKey]);
+        if ($nativeCache) {
+            $this->bracedScanSeen[$memoKey] = true;
+        }
         $visited = [];
         while ($searchPos < $length - 1) {
             if ($cache) {
-                if (isset($this->emphNoCloseFrom[$memoKey][$searchPos])) {
+                if ((($this->bracedNoCloseBits[$memoKey][$searchPos] ?? "\0") === "\1")) {
                     break;
                 }
                 if (
@@ -3629,9 +3648,10 @@ class InlineParser
             $searchPos++;
         }
 
-        foreach ($visited as $at) {
-            $this->emphNoCloseFrom[$memoKey][$at] = true;
+        if ($nativeCache && !$cache) {
+            $visited[] = $pos + 2;
         }
+        $this->rememberBracedFailure($memoKey, $visited, $length);
 
         return null;
     }
@@ -4372,6 +4392,11 @@ class InlineParser
         if ($cache) {
             $this->resetScanMemos($text);
         }
+        if ($cache && $this->nextRawCloser($text, '~>', $pos + 2) === null) {
+            return null;
+        }
+        $nativeCache = $cache;
+        $cache = $cache && $this->substitutionFrom !== [];
         $length = strlen($text);
         $arrow = null;
         $visited = [];
@@ -4441,7 +4466,27 @@ class InlineParser
             $this->substitutionCloseFrom[$at] = $result[1] ?? null;
         }
 
+        if ($nativeCache) {
+            $this->substitutionFrom[$pos + 2] = $result;
+        }
+
         return $result;
+    }
+
+    /**
+     * @param string $key
+     * @param array<int> $visited
+     * @param int $length
+     */
+    private function rememberBracedFailure(string $key, array $visited, int $length): void
+    {
+        if ($visited === []) {
+            return;
+        }
+        $this->bracedNoCloseBits[$key] ??= str_repeat("\0", $length);
+        foreach ($visited as $at) {
+            $this->bracedNoCloseBits[$key][$at] = "\1";
+        }
     }
 
     private function resetScanMemos(string $text): void
@@ -4452,6 +4497,8 @@ class InlineParser
         $this->emphNoCloseText = $text;
         $this->emphNoCloseFrom = [];
         $this->bracedEndFrom = [];
+        $this->bracedNoCloseBits = [];
+        $this->bracedScanSeen = [];
         $this->substitutionFrom = [];
         $this->substitutionCloseFrom = [];
         $this->rawCloserPositions = [];
@@ -4542,17 +4589,21 @@ class InlineParser
         $searchPos = $pos + 2;
         $length = strlen($text);
         $memoKey = 'braced-end:' . $marker;
+        $nativeCache = $cache;
+        $cache = $cache && isset($this->bracedScanSeen[$memoKey]);
+        $positiveCache = $cache;
+        if ($nativeCache) {
+            $this->bracedScanSeen[$memoKey] = true;
+        }
         $visited = [];
         while ($searchPos < $length - 1) {
             if ($cache) {
-                if (isset($this->emphNoCloseFrom[$memoKey][$searchPos])) {
+                if ((($this->bracedNoCloseBits[$memoKey][$searchPos] ?? "\0") === "\1")) {
                     break;
                 }
-                if (isset($this->bracedEndFrom[$marker][$searchPos])) {
-                    $end = $this->bracedEndFrom[$marker][$searchPos];
-                    foreach ($visited as $at) {
-                        $this->bracedEndFrom[$marker][$at] = $end;
-                    }
+                $end = $positiveCache ? ($this->bracedEndFrom[$marker] ?? null)?->get($searchPos) : null;
+                if ($end !== null) {
+                    $this->bracedEndFrom[$marker]->record($visited, $end);
 
                     return $end;
                 }
@@ -4587,8 +4638,8 @@ class InlineParser
             }
             if ($text[$searchPos] === $marker && $text[$searchPos + 1] === '}') {
                 $end = $searchPos + 2;
-                foreach ($visited as $at) {
-                    $this->bracedEndFrom[$marker][$at] = $end;
+                if ($positiveCache) {
+                    ($this->bracedEndFrom[$marker] ??= new BracedEndMemo($length))->record($visited, $end);
                 }
 
                 return $end;
@@ -4596,9 +4647,10 @@ class InlineParser
             $searchPos++;
         }
 
-        foreach ($visited as $at) {
-            $this->emphNoCloseFrom[$memoKey][$at] = true;
+        if ($nativeCache && !$cache) {
+            $visited[] = $pos + 2;
         }
+        $this->rememberBracedFailure($memoKey, $visited, $length);
 
         return null;
     }

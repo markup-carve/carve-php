@@ -39,6 +39,19 @@ class BracedOpaqueCloserScalingTest extends TestCase
         );
     }
 
+    public function testForcedScansShareTheirBracketLandings(): void
+    {
+        $converter = CarveConverter::create();
+        $this->assertConversionScalesLinearly(
+            static fn (string $source): string => $converter->convert($source),
+            str_repeat('[{*]', 128) . str_repeat('x ', 128) . '`*}`',
+            str_repeat('[{*]', 512) . str_repeat('x ', 512) . '`*}`',
+            'forced failed scans joining after a bracket',
+            128,
+            512,
+        );
+    }
+
     public function testAttributeOpenersBeforeAnOpaqueCloserScaleLinearly(): void
     {
         $converter = CarveConverter::create();
