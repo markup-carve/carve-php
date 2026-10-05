@@ -118,7 +118,7 @@ class BlockParser
      *
      * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
      */
-    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'fenceColumn' => 0, 'fenceHostColumn' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'divColumn' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'afterComment' => false, 'inFootnoteBody' => false, 'quotedTable' => false, 'quoteParagraph' => false, 'nestedColumn' => 0];
+    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'fenceColumn' => 0, 'fenceHostColumn' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'divColumn' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'afterComment' => false, 'inFootnoteBody' => false, 'quotedTable' => false, 'quoteParagraph' => false, 'nestedColumn' => 0, 'afterClosedFence' => false];
 
     /**
      * Marks a line an enclosing container folded in BELOW its content column
@@ -3843,6 +3843,64 @@ class BlockParser
     }
 
     /**
+     * Does a marker-lead item's lead end in a code fence or raw block that has
+     * SEEN ITS CLOSER at the nested item's own content column?
+     *
+     * The fold arm of markup-carve/carve#2734. A lead with no nested marker
+     * answers no: the block is then the item's own, and the spec gives a
+     * flush-left line below it to the document.
+     *
+     * @param array<string> $itemLines The item's collected lines, lead first.
+     */
+    protected function nestedLeadEndsInAClosedFence(array $itemLines): bool
+    {
+        $rest = (string)($itemLines[0] ?? '');
+        $column = 0;
+        while (($offset = $this->listParser->markerContentOffset($rest)) !== null) {
+            $rest = substr($rest, $offset);
+            $column += $offset;
+        }
+
+        if ($column === 0 || $rest !== ltrim($rest, " \t")) {
+            return false;
+        }
+
+        $opener = $this->fencedBlockParser->parseRawBlockOpener($rest)
+            ?? $this->fencedBlockParser->parseCodeFenceOpener($rest);
+        if ($opener === null) {
+            return false;
+        }
+
+        /** @var string $char */
+        $char = $opener['char'] ?? $opener['fence'][0];
+        /** @var int $length */
+        $length = $opener['length'];
+
+        $closed = false;
+        for ($k = 1, $n = count($itemLines); $k < $n; $k++) {
+            $line = $itemLines[$k];
+            if (!$closed) {
+                if (
+                    IndentationHelper::getLeadingColumns($line) === $column
+                    && $this->fencedBlockParser->isCodeFenceCloser(ltrim($line, " \t"), $char, $length)
+                ) {
+                    $closed = true;
+                }
+
+                continue;
+            }
+            // A BLOCK BELOW THE CLOSER ANSWERS FOR ITSELF. The closed fence is
+            // only the lead's LAST block while nothing but blank lines follow
+            // it, and the tracker already reports an open paragraph there.
+            if (!IndentationHelper::isBlankLine($line)) {
+                return false;
+            }
+        }
+
+        return $closed;
+    }
+
+    /**
      * The line with a {@see self::LAZY_FRAME} removed, if it carries one.
      */
     protected static function stripLazyFrame(string $line): string
@@ -4480,8 +4538,33 @@ class BlockParser
                 // A sibling marker or a block opener at the base column belongs
                 // to the caller's loop, and a stream ending in a closed block
                 // has nothing to continue: both end the item.
+                // A CLOSED FENCE OR RAW BLOCK AT THE NESTED LEAD'S BOTTOM IS
+                // THE ONE FINISHED BLOCK THAT STILL FOLDS A DEDENTED LINE INTO
+                // THE OUTER ITEM, ruled on markup-carve/carve#2734. A heading, a
+                // table or a comment in the same position does not, so the flag
+                // is read instead of "is any block finished": a uniform fold
+                // matches every fence row and then disagrees with the spec on
+                // the other three, which is why the ruling has two arms.
+                // A CLOSED FENCE OR RAW BLOCK AT THE NESTED LEAD'S BOTTOM IS
+                // THE ONE FINISHED BLOCK THAT STILL FOLDS A FLUSH-LEFT LINE
+                // INTO THE OUTER ITEM, ruled on markup-carve/carve#2734. A
+                // heading, a comment or the item's OWN closed fence in the same
+                // position does not, so the question is asked of the nested
+                // lead's block kind rather than of "is any block finished": a
+                // uniform column-0 fold matches every fence row of the family
+                // and then disagrees with the spec on the other kinds, which is
+                // why the ruling has two arms.
+                //
+                // Asked of the collected lines rather than of the trailing-block
+                // tracker, which reads this stream one container out and so sees
+                // the nested lead's opener as prose and its closer as a second
+                // opener. Teaching the tracker the nested fence instead moved
+                // the UNFINISHED-fence family (carve-php#1900, #1958) with it.
+                $foldsOnClosedNestedFence = $nextIndent === 0
+                    && $this->nestedLeadEndsInAClosedFence($itemLines);
                 if (
                     (!$trailingState->openParagraph
+                        && !$foldsOnClosedNestedFence
                         && !($trailingState->afterComment && $trailingState->nestedColumn > 0 && $nextIndent > $baseIndent))
                     || $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
                     || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
@@ -4541,9 +4624,13 @@ class BlockParser
                 // 1, where the closer still closed and the body came back as a
                 // paragraph of the item ABOVE. Framed ONCE however many
                 // containers fold it, so the single strip in the body suffices.
+                // THE FRAME IS AN OPEN FENCE'S CLAIM ON THE LINE. Once the
+                // lead's fence has seen its closer the line is nobody's
+                // verbatim content, so it takes the ordinary one-column clamp
+                // and the nested parse reads it as the outer item's text.
                 $folded = str_starts_with($nextTrimmed, self::LAZY_FRAME)
                     ? $nextTrimmed
-                    : ($this->leadBottomOpensFence((string)($itemLines[0] ?? ''))
+                    : ($this->leadBottomOpensFence((string)($itemLines[0] ?? '')) && !$foldsOnClosedNestedFence
                         ? self::LAZY_FRAME . $nextTrimmed
                         : ' ' . $nextTrimmed);
                 $itemLines[] = $folded;
