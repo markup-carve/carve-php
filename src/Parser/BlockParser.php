@@ -633,6 +633,11 @@ class BlockParser
 
     public function parse(string $input): Document
     {
+        return CycleCollection::paused(fn () => $this->parseDocument($input));
+    }
+
+    private function parseDocument(string $input): Document
+    {
         // Capture the original source byte length before any normalization so
         // renderers can size the abbreviation-expansion budget (DoS guard).
         $sourceLength = strlen($input);
