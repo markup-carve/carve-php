@@ -9,34 +9,12 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-### Improvements
-
-- Extract HTML import element, attribute, and content-loss checks while preserving diagnostic order and traversal (#2860).
-- Extract HTML image, link, and math handlers and node-specific ProseMirror attribute handlers while preserving traversal, attribute precedence, and decoding order (#2859).
-- Extract the comment-fence closer scan from body rebasing while preserving closer matching at any column and unclosed-span handling (#2858).
-- Extract list, quote, and table extent scans from body rebasing while preserving blank and column checks (#2857).
-- Extract code-fence, colon-group, and definition-body extent scans from list-body rebasing while preserving column checks and scan order.
-- Extract the authored-base eligibility probe from list-body rebasing while preserving its early exits and scan order.
-
-### Fixes
-
-- PCRE errors in source eligibility checks reject the borrowed HTML path (#2842).
-- Preserve multiple table bodies, intermediate body headers, empty bodies, and per-body row-header counts with positional source attributes. Keep authored conflicts and report partition loss. Preserve decimal column widths through AST parsing, source export, and HTML rendering.
-
-- List marker attribute validation keeps subclass results on each parser instance. Subclasses can clear `instanceMarkerAttributeCache` after changing validation settings. Attribute payloads above 2,048 bytes are parsed without retaining them in the cache.
-
-### Performance
-
-- Nested singleton lists accumulate HTML indentation instead of repeatedly copying each child subtree. Task wrappers, callbacks, renderer subclasses, static extensions retain their existing rendering paths. Preformatted bodies preserve their output through the shared layout writer (#2850).
-- Borrowed HTML writes plain inline text directly and skips repeated paragraph checks. Native scanning handles longer runs between markers; single-byte gaps avoid scanner setup (#2842).
-- Buffered HTML appends handle the first fragment directly instead of packing it into a variadic array (#2837).
-- Repeated slash openers around bracket runs reuse failed suffix scans while keeping skipped interiors available. HTML import reports reuse each table's block-cell classification during inspection (#2812).
-
-## [0.1.11] - 2026-10-01
+## [0.1.11] - 2026-10-05
 
 ### Breaking
 
 - Every destination the sink denylist blanks owes a render-loss row under a new `code` value, `destination-denied`, so the `CARVE-P2-024` enum names three codes rather than two. The row carries the target, `nodeType: inline` and the spec's own message, which says whether a link destination or an image source was blanked. The emitted `href=""` and `src=""` do not move (#2802, #2806, #2804, markup-carve/carve#2681, markup-carve/carve#2686).
+- A name lookup compares with exact case everywhere it is made, so an include's `#name`, a collapsed reference and a heading's text all resolve only to a name spelled the same way. A document that relied on a case-insensitive match resolves to nothing and reports it (#2874, #2879, #2888, markup-carve/carve#2732). The match was widened to ignore case first and made exact before the release, so only the exact rule ships. The colliding-id rename that goes with it is in markup-carve/carve#2729.
 
 ### Fixes
 
@@ -53,6 +31,18 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Emphasis inside a link label survives when the surrounding text uses the same kind, on Markdown and on HTML import alike (#2781, #2785).
 - The Djot importer pairs emphasis by Djot delimiter ownership and converts orphan attributes, empty definition fences, image alt text and reference links in their source context, while code, destinations and fenced metadata stay opaque (#2792).
 - The Djot importer keeps a code fence opaque when prose precedes an indented fence, reads numeric, single-letter and Roman list markers, and tracks each enclosing quote separately so a quote inside an item keeps that item's ownership (#2794).
+- PCRE errors in source eligibility checks reject the borrowed HTML path (#2842).
+- Preserve multiple table bodies, intermediate body headers, empty bodies, and per-body row-header counts with positional source attributes. Keep authored conflicts and report partition loss. Preserve decimal column widths through AST parsing, source export, and HTML rendering.
+
+- List marker attribute validation keeps subclass results on each parser instance. Subclasses can clear `instanceMarkerAttributeCache` after changing validation settings. Attribute payloads above 2,048 bytes are parsed without retaining them in the cache (#2827).
+- A container whose opener metadata is invalid is recovered rather than abandoned, and the gate over recovered containers is capped (#2817, #2819).
+- A verse body keeps its ownership boundaries (#2813).
+- An escaped citation marker stays literal, and a soft-wrapped citation prefix is read as one (#2826).
+- A non-heading AST id survives an ingest that does not preserve attribute order (#2833).
+- A table keeps its body metadata, its empty bodies and its decimal column-width precision through AST parsing, HTML import, source export and rendering (#2839, #2840, #2843, #2848).
+- A flush-left fence line stays inside a description body's nested fence, and a closed nested lead fence releases the line again (#2875, #2883).
+- An attributed table group keeps its attributes through the quote renderer's reduced copying (#2847).
+- A failed parse leaves PHP's cycle collector enabled again, and a direct parser call is paced like one made through the converter (#2886).
 
 ### Improvements
 
@@ -61,6 +51,30 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Malformed inline input is indexed once instead of rescanned per failed bracket opener, heading indexing skips paragraph inline parsing, and clean nested HTML is padded in bulk (#2776).
 - Parsing repeats less work: built-in block continuation skips a callback hop, source mapping is skipped where nothing reads it, a fence probe runs only for the delimiter family the line starts with, and list-marker results are reused (#2795, #2796, #2797, #2799).
 - MathML-to-TeX selection is shared between the two HTML import paths (#2807).
+
+- Extract HTML import element, attribute, and content-loss checks while preserving diagnostic order and traversal (#2860).
+- Extract HTML image, link, and math handlers and node-specific ProseMirror attribute handlers while preserving traversal, attribute precedence, and decoding order (#2859).
+- Extract the comment-fence closer scan from body rebasing while preserving closer matching at any column and unclosed-span handling (#2858).
+- Extract list, quote, and table extent scans from body rebasing while preserving blank and column checks (#2857).
+- Extract code-fence, colon-group, and definition-body extent scans from list-body rebasing while preserving column checks and scan order (#2854).
+- Extract the authored-base eligibility probe from list-body rebasing while preserving its early exits and scan order (#2853).
+- A block can be selected by id on include, and a colliding explicit id is renamed (#2876, markup-carve/carve#2729).
+- `lint` reports a fragment link that matches no id, reading the ids from the caller's own render rather than a default one (#2866, #2880).
+- Imported AST contracts are tightened and a parser session is reset between documents (#2812).
+- HTML and ProseMirror conversion handlers, and the HTML import diagnostic checks, are extracted into their own units with traversal, attribute precedence and diagnostic order preserved (#2859, #2860).
+### Performance
+
+- Nested singleton lists accumulate HTML indentation instead of repeatedly copying each child subtree. Task wrappers, callbacks, renderer subclasses, static extensions retain their existing rendering paths. Preformatted bodies preserve their output through the shared layout writer (#2850).
+- Borrowed HTML writes plain inline text directly and skips repeated paragraph checks. Native scanning handles longer runs between markers; single-byte gaps avoid scanner setup (#2842).
+- Buffered HTML appends handle the first fragment directly instead of packing it into a variadic array (#2837).
+- Repeated slash openers around bracket runs reuse failed suffix scans while keeping skipped interiors available. HTML import reports reuse each table's block-cell classification during inspection (#2812).
+- Memory is bounded where a document can grow it without limit: footnotes, attribute slots, abbreviations, Markdown escapes, list attribute cache keys and the braced and substitution scan caches (#2864, #2827, #2884).
+- Repeated scans are bounded or indexed instead of repeated: failed inline scans, table spans and section boundaries, list spans and colon position maps, citation item positions, definition-list import inspection, imported table rows and sibling positions (#2861, #2848, #2856, #2821, #2815, #2825, #2828).
+- Reflection and metadata lookups are cached by class and wire type for AST encoding and decoding and for HTML import (#2814, #2820, #2832, #2830).
+- The HTML writer allocates less and routes more work through the borrowed path: bulk scanning of ordinary inline text, large plain paragraphs, marker probes and streaming (#2834, #2838, #2844, #2845).
+- Nested container layouts are written without reindenting the subtree, block attributes and table continuations accumulate linearly, and nested parsing and render-hook fallthrough cost less (#2849, #2887, #2851).
+- Parser state is copied once where it was copied per detachment, and AST payload walks skip unchanged arrays (#2846, #2829).
+- A colon that cannot open an inline extension is rejected before PCRE runs, and PHP's cycle collector is paced during parse and render (#2870, #2871).
 
 ## [0.1.10] - 2026-09-29
 
