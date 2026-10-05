@@ -6446,6 +6446,19 @@ class BlockParser
             return false;
         }
 
+        // AN UNTERMINATED FENCE ENDS A TERM (carve-php#2868). §10 I4 withholds
+        // interruption from a fence with no closer ahead so an OPEN PARAGRAPH
+        // keeps it as text, and a term is not a paragraph: the oracle ends the
+        // term and gives the document the fence, as it already does under a
+        // heading. `endsHeadingOrQuote()` cannot carry the arm, because the
+        // paragraph hosts sharing it need I4's answer unchanged.
+        if (
+            $this->fencedBlockParser->parseCodeFenceOpener($line) !== null
+            || $this->fencedBlockParser->parseRawBlockOpener($line) !== null
+        ) {
+            return true;
+        }
+
         return $this->endsHeadingOrQuote($line, $lines, $index);
     }
 

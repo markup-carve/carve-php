@@ -826,6 +826,21 @@ final class DefinitionListBuilder
 
                         break;
                     }
+                    // A FLUSH-LEFT FENCE LINE IS THE OPEN NESTED FENCE'S OWN
+                    // CONTENT (markup-carve/carve#1958, corpus 455). The
+                    // interruption veto below reads the line as an opener and
+                    // ends the body on it, so the document took it for a fresh
+                    // fence, the nested one came out empty, and the entry after
+                    // it was swallowed. Column 0 is outside the body and cannot
+                    // close the fence the body's nested lead left open, so §24
+                    // C3 folds the line in as verbatim text instead; the frame
+                    // below is what keeps it text (carve-php#2868). No tracker
+                    // can answer this: a fence on an item's bottom is invisible
+                    // to both the body and the nested state, which is why
+                    // carve-php#1913 reads the lead structurally too.
+                    $nestedFenceOwnsLine = $indent === 0
+                        && $paragraphFence !== null
+                        && $this->descriptionBodyLeadFenceStaysOpen($body);
                     if (
                         (
                             $indent === 0
@@ -837,8 +852,8 @@ final class DefinitionListBuilder
                         && !IndentationHelper::isBlankLine($contLine)
                         && !$this->isBlockAttributeLine($trimmedCont)
                         && $this->wrappedBlockAttributeLength($lines, $i) === null
-                        && !$this->isCommentLineOrFence($trimmedCont)
-                        && !$this->startsInterruptingBlock($trimmedCont, $lines, $i)
+                        && (!$this->isCommentLineOrFence($trimmedCont) || $nestedFenceOwnsLine)
+                        && (!$this->startsInterruptingBlock($trimmedCont, $lines, $i) || $nestedFenceOwnsLine)
                     ) {
                         // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
                         // block: the tracker must read it as the lazy line it
@@ -1127,6 +1142,37 @@ final class DefinitionListBuilder
         ?int &$openerBase = null,
     ): string {
         return $this->continuations->descriptionBodyEntryAsRead($state, $body, $index, $openerBase);
+    }
+
+    /**
+     * Whether the body's own nested lead opens a fence no collected entry has
+     * closed yet.
+     *
+     * @param array<string> $body Entries the description body has collected.
+     */
+    private function descriptionBodyLeadFenceStaysOpen(array $body): bool
+    {
+        $lead = (string)($body[0] ?? '');
+        if (
+            ($this->getListParser)()->markerContentOffset($lead) === null
+            || !$this->leadBottomOpensFence($lead)
+        ) {
+            return false;
+        }
+
+        $rest = $lead;
+        while (($offset = ($this->getListParser)()->markerContentOffset($rest)) !== null) {
+            $rest = substr($rest, $offset);
+        }
+        $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($rest)
+            ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($rest);
+        // A LINE BLOCK ALSO ANSWERS `leadBottomOpensFence()` and has no fence
+        // closer to look for, so it is not this clause's shape.
+        if ($opener === null) {
+            return false;
+        }
+
+        return !$this->hasFenceCloserInView($body, 0, $opener, 0);
     }
 
     /**
