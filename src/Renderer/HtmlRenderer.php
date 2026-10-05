@@ -553,6 +553,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // Carve footnote labels cannot contain ']', so including it here ensures uniqueness.
         $label = '_inline_]' . $number;
         $context->footnoteNumbers[$label] = $number;
+        $context->pendingFootnoteLabels[] = $label;
         $context->footnoteRefCounts[$label] = 1;
 
         // Store deferred content renderer
@@ -4282,10 +4283,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $context = $this->getRenderContext();
 
         // Pre-render all footnote contents to discover any nested footnote references
-        // Keep iterating until no new footnotes are discovered
+        // References appended while rendering a body join the same queue.
         $renderedContents = [];
         $endsInParagraph = [];
-        $processedNumbers = [];
 
         // Suppress `::: footnotes` placement while rendering footnote bodies, so
         // a nested marker never emits a sentinel into the endnotes section. Use
@@ -4296,34 +4296,39 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $this->renderingFootnoteSection = true;
 
         try {
-            do {
-                $newFootnotes = false;
-                foreach ($context->footnoteNumbers as $label => $number) {
-                    if (isset($processedNumbers[$number])) {
-                        continue;
-                    }
-                    $processedNumbers[$number] = true;
+            $context->pendingFootnoteLabels = array_keys($context->footnoteNumbers);
+            $processedNumbers = [];
+            for ($cursor = 0; isset($context->pendingFootnoteLabels[$cursor]); $cursor++) {
+                $label = $context->pendingFootnoteLabels[$cursor];
+                $number = $context->footnoteNumbers[$label];
+                if (isset($processedNumbers[$number])) {
+                    continue;
+                }
+                $processedNumbers[$number] = true;
 
-                    if (isset($context->inlineFootnoteRenderers[$number])) {
-                        // Inline footnote - invoke deferred renderer
-                        $renderedContents[$number] = trim(($context->inlineFootnoteRenderers[$number])());
-                        $endsInParagraph[$number] = true;
-                    } elseif (isset($context->collectedFootnotes[$label])) {
-                        // Regular footnote - rendering may discover new footnote references
-                        $body = $this->renderFootnoteBody($context->collectedFootnotes[$label]);
-                        $renderedContents[$number] = $body['content'];
-                        $endsInParagraph[$number] = $body['endsInParagraph'];
-                    } else {
-                        $renderedContents[$number] = '';
-                        $endsInParagraph[$number] = false;
-                    }
+                if (isset($context->inlineFootnoteRenderers[$number])) {
+                    // Inline footnote - invoke deferred renderer
+                    $renderedContents[$number] = trim(($context->inlineFootnoteRenderers[$number])());
+                    $endsInParagraph[$number] = true;
+                } elseif (isset($context->collectedFootnotes[$label])) {
+                    // Regular footnote - rendering may discover new footnote references
+                    $body = $this->renderFootnoteBody($context->collectedFootnotes[$label]);
+                    $renderedContents[$number] = $body['content'];
+                    $endsInParagraph[$number] = $body['endsInParagraph'];
+                } else {
+                    $renderedContents[$number] = '';
+                    $endsInParagraph[$number] = false;
+                }
 
-                    // Check if new footnotes were discovered during rendering
-                    if (count($context->footnoteNumbers) > count($processedNumbers)) {
-                        $newFootnotes = true;
+                if (count($context->footnoteNumbers) !== count($context->pendingFootnoteLabels)) {
+                    $queued = array_fill_keys($context->pendingFootnoteLabels, true);
+                    foreach ($context->footnoteNumbers as $newLabel => $_number) {
+                        if (!isset($queued[$newLabel])) {
+                            $context->pendingFootnoteLabels[] = $newLabel;
+                        }
                     }
                 }
-            } while ($newFootnotes);
+            }
         } finally {
             $this->renderingFootnoteSection = $wasRenderingFootnoteSection;
         }
@@ -4484,6 +4489,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if (!isset($context->footnoteNumbers[$label])) {
             $context->footnoteCounter++;
             $context->footnoteNumbers[$label] = $context->footnoteCounter;
+            $context->pendingFootnoteLabels[] = $label;
         }
         $number = $context->footnoteNumbers[$label];
 

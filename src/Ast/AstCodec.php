@@ -208,6 +208,7 @@ class AstCodec
         'children',
         'attributes',
         'attributeOrder',
+        'attributeSlots',
         'classEntries',
         // Handled explicitly rather than by the reflection walk: PART 12 §4
         // gives `pos` a defined shape, so it converts to and from the value
@@ -890,8 +891,8 @@ class AstCodec
         // The queue GROWS while it is drained: a body may cite a footnote
         // referenced nowhere else, which then takes the next number and has its
         // own body walked in turn.
-        while ($pending !== []) {
-            $body = array_shift($pending);
+        for ($cursor = 0; isset($pending[$cursor]); $cursor++) {
+            $body = $pending[$cursor];
             foreach ($body->getChildren() as $child) {
                 $walk($child);
             }

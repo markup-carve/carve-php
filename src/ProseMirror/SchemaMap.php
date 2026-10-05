@@ -95,6 +95,7 @@ final class SchemaMap
     private static function identityOf(Node $node): array
     {
         $state = (array)$node;
+        unset($state["\0" . Node::class . "\0attributeSlots"]);
         foreach (['parent', 'children', 'attributes', 'attributeOrder', 'pos'] as $structural) {
             unset($state["\0*\0" . $structural]);
         }
