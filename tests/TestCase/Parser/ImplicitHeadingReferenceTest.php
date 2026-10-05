@@ -118,16 +118,16 @@ class ImplicitHeadingReferenceTest extends TestCase
      * fails properly: the folded index takes the heading and the linkDefs table
      * does not, which is the whole of markup-carve/carve#742 at that producer.
      */
-    public function testTheSeedProducerFeedsOnlyTheFoldedIndex(): void
+    public function testTheSeedProducerFeedsOnlyTheHeadingIndex(): void
     {
         $parser = new BlockParser();
         $parser->seedHeadingReferences([
-            'getting started' => ['Getting Started', new ReferenceDefinition('#Getting-Started', [], 0, null, true)],
+            'Getting Started' => ['Getting Started', new ReferenceDefinition('#Getting-Started', [], 0, null, true)],
         ]);
 
-        // The collapsed form's lookup finds it, folded.
+        // The collapsed form's lookup finds it, case exactly.
         $this->assertNotNull($parser->getCollapsedReference('Getting Started'));
-        $this->assertNotNull($parser->getCollapsedReference('getting started'));
+        $this->assertNull($parser->getCollapsedReference('getting started'));
         // The explicit form's lookup does not, at either spelling.
         $this->assertNull($parser->getReference('Getting Started'));
         $this->assertNull($parser->getReference('getting started'));
@@ -163,10 +163,11 @@ class ImplicitHeadingReferenceTest extends TestCase
         );
     }
 
-    public function testMatchingFoldsCaseAndCollapsesWhitespace(): void
+    public function testMatchingCollapsesWhitespaceButComparesCaseExactly(): void
     {
-        $html = $this->html("# Getting Started\n\nSee [getting started][].\n");
-        $this->assertStringContainsString('href="#Getting-Started"', $html);
+        $html = $this->html("# Getting Started\n\nSee [Getting  Started][] and [getting started][].\n");
+        $this->assertStringContainsString('<a href="#Getting-Started">Getting  Started</a>', $html);
+        $this->assertStringContainsString('[getting started][]', $html);
     }
 
     public function testALinkDefinitionStillWins(): void

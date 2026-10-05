@@ -567,6 +567,30 @@ class CliTest extends TestCase
         $this->assertSame("::: list-table\n- - a\n\n    b\n:::\n", $result['out']);
     }
 
+    /**
+     * @return array<string, array{list<string>, string}>
+     */
+    public static function fmtCaseMigration(): array
+    {
+        return [
+            'without --migrate the spelling stays' => [['fmt'], "# Plan\n\nSee </#plan> and [plan][].\n"],
+            'with --migrate it takes the target spelling' => [['fmt', '--migrate'], "# Plan\n\nSee </#Plan> and [Plan][].\n"],
+        ];
+    }
+
+    /**
+     * @param list<string> $args
+     * @param string $expected
+     */
+    #[DataProvider('fmtCaseMigration')]
+    public function testFmtMigrateRespellsACaseOnlyReference(array $args, string $expected): void
+    {
+        $result = $this->runCliInput($args, "# Plan\n\nSee </#plan> and [plan][].\n");
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame($expected, $result['out']);
+    }
+
     public function testMigrateRejectsAnUnknownSourceFormat(): void
     {
         $result = $this->runCliInput(['migrate', '--from', 'rst'], "hi\n");

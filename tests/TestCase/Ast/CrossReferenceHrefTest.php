@@ -14,8 +14,8 @@ use PHPUnit\Framework\TestCase;
  * where it RESOLVES the destination is published beside it in `href`.
  *
  * This engine published the authored half only, so a consumer decoding the
- * tree had to rebuild the heading-id table - including the case-insensitive
- * fallback and the not-found case - to render a crossref, which is the
+ * tree had to rebuild the heading-id table - including the not-found case -
+ * to render a crossref, which is the
  * recomputation §5 exists to prevent (carve-php#735).
  */
 class CrossReferenceHrefTest extends TestCase
@@ -46,9 +46,9 @@ class CrossReferenceHrefTest extends TestCase
 
     public function testAResolvedCrossrefPublishesTheDestination(): void
     {
-        $node = $this->firstHeadingRef("# Intro\n\nSee </#intro>.");
+        $node = $this->firstHeadingRef("# Intro\n\nSee </#Intro>.");
 
-        $this->assertSame('intro', $node['target'], 'the authored id survives');
+        $this->assertSame('Intro', $node['target'], 'the authored id survives');
         $this->assertSame('#Intro', $node['href'], 'the ACTUAL id, case-preserved');
     }
 
@@ -61,12 +61,12 @@ class CrossReferenceHrefTest extends TestCase
         $this->assertArrayNotHasKey('href', $node);
     }
 
-    public function testTheCaseInsensitiveFallbackIsReflectedInTheHref(): void
+    public function testACaseOnlyMismatchPublishesNoDestination(): void
     {
         $node = $this->firstHeadingRef("# Getting Started\n\nSee </#getting-started>.");
 
         $this->assertSame('getting-started', $node['target']);
-        $this->assertSame('#Getting-Started', $node['href']);
+        $this->assertArrayNotHasKey('href', $node);
     }
 
     /**
@@ -95,7 +95,7 @@ class CrossReferenceHrefTest extends TestCase
 
     public function testTheRenderedOutputIsUnchanged(): void
     {
-        $html = (new CarveConverter())->convert("# Intro\n\nSee </#intro>.");
+        $html = (new CarveConverter())->convert("# Intro\n\nSee </#Intro>.");
 
         $this->assertStringContainsString('<a href="#Intro">Intro</a>', $html);
     }
@@ -103,7 +103,7 @@ class CrossReferenceHrefTest extends TestCase
     public function testTheHrefSurvivesADecodeAndReEncode(): void
     {
         $codec = new AstCodec();
-        $json = $codec->encodeJson((new CarveConverter())->parse("# Intro\n\nSee </#intro>."));
+        $json = $codec->encodeJson((new CarveConverter())->parse("# Intro\n\nSee </#Intro>."));
         $document = $codec->decodeJson($json);
 
         $encoded = $codec->encode($document);

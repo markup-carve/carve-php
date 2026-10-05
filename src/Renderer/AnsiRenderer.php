@@ -719,8 +719,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderHeadingRef(HeadingRef $node): string
     {
         $target = $node->getTargetId();
-        // Exact match first, then a case-insensitive fallback (matches HtmlRenderer).
-        $id = $this->headingIdTracker->findIdCaseInsensitive($target);
+        $id = $this->headingIdTracker->findId($target);
         if ($id === null) {
             return '</#' . $this->stripControls($target) . '>';
         }

@@ -105,7 +105,7 @@ class SectionWrappingTest extends TestCase
         $this->assertSame(
             "<h1 id=\"Target\">Target</h1>\n"
                 . '<p>See <a href="#Target">Target</a> and <a href="#Target">Target</a>.</p>',
-            $this->flat("# Target\n\nSee </#target> and [Target][].\n"),
+            $this->flat("# Target\n\nSee </#Target> and [Target][].\n"),
         );
     }
 

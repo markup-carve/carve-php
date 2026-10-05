@@ -11,16 +11,11 @@ use PHPUnit\Framework\TestCase;
 /**
  * Guards the linear cost of `</#id>` cross-reference resolution.
  *
- * Cross-reference targets are matched through HeadingIdTracker. An exact-case
- * target hits the textById fast path; a different-case target is resolved via
- * the idByFoldedId map. Both are O(1) per reference, so a document with many
- * references stays linear in the number of references and in the number of
- * heading targets.
- *
- * The previous implementation case-folded and scanned every known heading id
- * for each case-insensitive reference (O(headings * references)); scaling both
- * together was quadratic. These tests bound the wall-clock time so that
- * regression cannot return unnoticed, and assert the links still resolve.
+ * Cross-reference targets are matched exactly through HeadingIdTracker's
+ * textById map, O(1) per reference, so a document with many references stays
+ * linear in the number of references and in the number of heading targets.
+ * These tests bound the wall-clock time so a per-reference scan cannot return
+ * unnoticed, and assert the links still resolve.
  */
 class CrossReferenceScaleTest extends TestCase
 {
@@ -40,13 +35,13 @@ class CrossReferenceScaleTest extends TestCase
         $this->assertSame(5, substr_count($html, '<a href="#t">Heading</a>'));
     }
 
-    public function testCaseInsensitiveReferencesResolveCorrectly(): void
+    public function testCaseOnlyMismatchedReferencesStayLiteral(): void
     {
         $source = "{#MyTarget}\n# Heading\n\n" . str_repeat('</#mytarget> ', 5);
         $html = $this->converter->convert($source);
 
-        // A lower-case reference resolves to the case-preserved id.
-        $this->assertSame(5, substr_count($html, '<a href="#MyTarget">Heading</a>'));
+        $this->assertSame(5, substr_count($html, '&lt;/#mytarget&gt;'));
+        $this->assertStringNotContainsString('<a href=', $html);
     }
 
     /**
@@ -81,11 +76,10 @@ class CrossReferenceScaleTest extends TestCase
      * running, which is the condition the measurement needs.
      */
     #[Group('scaling')]
-    public function testManyHeadingsAndCaseInsensitiveReferencesStayLinear(): void
+    public function testManyHeadingsAndReferencesStayLinear(): void
     {
-        // Scaling distinct heading targets AND case-insensitive references
-        // together is the input that exposed the O(headings * references)
-        // fold-and-scan. With the folded-id lookup map it is linear.
+        // Scaling distinct heading targets AND references together is the
+        // input that exposed an O(headings * references) scan.
         $headings = 2000;
         $references = 2000;
 
@@ -94,14 +88,13 @@ class CrossReferenceScaleTest extends TestCase
             $source .= "{#Target{$i}}\n# Heading{$i}\n\n";
         }
         for ($i = 0; $i < $references; $i++) {
-            $source .= '</#target' . ($i % $headings) . '> ';
+            $source .= '</#Target' . ($i % $headings) . '> ';
         }
 
         $start = hrtime(true);
         $html = $this->converter->convert($source);
         $elapsed = (hrtime(true) - $start) / 1e9;
 
-        // Each reference resolves to its (case-preserved) target heading.
         $this->assertStringContainsString('<a href="#Target0">Heading0</a>', $html);
         $this->assertStringContainsString('<a href="#Target1">Heading1</a>', $html);
         $this->assertLessThan(5.0, $elapsed, "{$headings} headings x {$references} refs took {$elapsed}s (quadratic regression?)");

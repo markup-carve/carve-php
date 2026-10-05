@@ -1103,6 +1103,10 @@ class CarveCorpusTest extends TestCase
         // reporting landed - measured before this entry was added, not after.
         'a-denied-destination-takes-one-render-loss-row-per-sink',
         'invalid-named-container-metadata-keeps-the-subtree',
+        // ARRIVED WITH THE BUMP TO carve 9db4723. 546 is markup-carve/carve#2732:
+        // every name lookup compares case exactly.
+        'an-unreferenced-footnote-definition-takes-its-links-out-of-the-render',
+        'every-name-lookup-compares-case-exactly',
     ];
 
     /**

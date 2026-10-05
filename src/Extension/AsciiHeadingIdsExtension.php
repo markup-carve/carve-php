@@ -13,8 +13,7 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
  *
  * By default Carve heading ids are CASE-PRESERVING and keep non-ASCII
  * characters verbatim (`# Über uns` -> `Über-uns`), per carve spec #73.
- * Cross-references (`</#id>`, `[Heading][]`) resolve case-insensitively,
- * so a lowercase reference still finds a case-preserved id.
+ * Cross-references (`</#id>`, `[Heading][]`) compare case exactly.
  *
  * Add this extension when you need share-safe ASCII fragment ids - e.g.
  * URLs passed through auto-linkers that truncate or mis-encode non-ASCII.

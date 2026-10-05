@@ -708,11 +708,10 @@ class BlockParser
             // nothing, since those headings resolved in pass 1 anyway.
             // An explicit definition beats the implicit heading, so a heading
             // whose label is also DEFINED is not worth seeding a reparse for.
-            // Folded the way the collector folds: a heading-reference key is
-            // `mb_strtolower`ed, a definition key only collapses whitespace.
-            $definedFolded = [];
+            // Keyed the way the collector keys a heading: NFC, case exact.
+            $defined = [];
             foreach (array_keys($this->state->session->references) as $label) {
-                $definedFolded[mb_strtolower((string)$label, 'UTF-8')] = true;
+                $defined[$this->headingLabelKey((string)$label)] = true;
             }
             // AND ONLY FOR HEADINGS THAT COULD RESCUE A FAILED REFERENCE
             // (carve-php#2245). The flag above fires for any reference that
@@ -722,10 +721,10 @@ class BlockParser
             // - any heading, related to the failed label or not.
             $headingReferences = array_filter(
                 $headingReferences,
-                fn (string $folded): bool => !isset($this->state->session->headingReferencesByFoldedLabel[$folded])
-                    && !isset($definedFolded[$folded])
+                fn (string $key): bool => !isset($this->state->session->headingReferencesByFoldedLabel[$key])
+                    && !isset($defined[$key])
                     && ($this->state->session->unresolvedReferenceLabelUnknown
-                        || isset($this->state->session->unresolvedReferenceLabels[$folded])),
+                        || isset($this->state->session->unresolvedReferenceLabels[$key])),
                 ARRAY_FILTER_USE_KEY,
             );
             if ($headingReferences !== []) {
@@ -7734,7 +7733,7 @@ class BlockParser
             return null;
         }
 
-        return $this->state->session->references[LabelKey::normalize($label)] ?? $this->state->session->headingReferencesByFoldedLabel[$this->foldReferenceLabel($label)] ?? null;
+        return $this->state->session->references[LabelKey::normalize($label)] ?? $this->state->session->headingReferencesByFoldedLabel[$this->headingLabelKey($label)] ?? null;
     }
 
     /**
@@ -7742,21 +7741,17 @@ class BlockParser
      */
     protected function registerHeadingReference(string $label, ReferenceDefinition $reference): void
     {
-        $this->state->session->headingReferencesByFoldedLabel[$this->foldReferenceLabel($label)] ??= $reference;
+        $this->state->session->headingReferencesByFoldedLabel[$this->headingLabelKey($label)] ??= $reference;
     }
 
     /**
-     * The heading-index key: NFC-normalized, then case-folded (PART 9R R1).
-     * The second copy of HeadingReferenceCollector::foldLabel() - both fold, so
-     * both normalize, or a reference resolves on one path and not the other.
+     * The heading-index key: NFC-normalized, case exact (PART 9R R1,
+     * CARVE-P9R-010). The second copy of HeadingReferenceCollector::labelKey()
+     * - both must agree, or a reference resolves on one path and not the other.
      */
-    protected function foldReferenceLabel(string $label): string
+    protected function headingLabelKey(string $label): string
     {
-        return (string)preg_replace_callback(
-            '/./us',
-            static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'),
-            StringUtil::normalizeNfc($label),
-        );
+        return StringUtil::normalizeNfc($label);
     }
 
     /**
@@ -7810,7 +7805,7 @@ class BlockParser
             return;
         }
 
-        $this->state->session->unresolvedReferenceLabels[$this->foldReferenceLabel(
+        $this->state->session->unresolvedReferenceLabels[$this->headingLabelKey(
             trim((string)preg_replace('/\s+/', ' ', $label)),
         )] = true;
     }
@@ -7886,8 +7881,6 @@ class BlockParser
         // a plain `[link](#fragment)` href is emitted verbatim and HTML fragment
         // navigation is case-sensitive, so a `#my-heading` link to a
         // case-preserved `My-Heading` id is genuinely broken and must warn.
-        // (Contrast `</#id>` crossrefs, which rewrite the href to the resolved
-        // id and so resolve case-insensitively.)
         foreach ($this->state->session->anchorLinks as $anchor) {
             if (!isset($knownIds[$anchor['fragment']])) {
                 $this->addWarning(

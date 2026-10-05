@@ -189,7 +189,7 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
             . "  <h1>Getting Started</h1>\n"
             . "  <p>See <a href=\"#Getting-Started\">Getting Started</a>.</p>\n"
             . "</section>\n",
-            $this->html("# Getting Started\n\nSee </#getting-started>.\n"),
+            $this->html("# Getting Started\n\nSee </#Getting-Started>.\n"),
         );
     }
 
@@ -321,7 +321,7 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         $this->assertSame(
             "<section id=\"A\">\n  <h1>A <a href=\"#B\">B </a></h1>\n</section>\n"
             . "<section id=\"B\">\n  <h1>B <a href=\"#A\">A </a></h1>\n</section>\n",
-            $this->html("# A </#b>\n\n# B </#a>\n"),
+            $this->html("# A </#B>\n\n# B </#A>\n"),
         );
     }
 

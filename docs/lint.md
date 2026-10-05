@@ -65,7 +65,14 @@ the list and draws no warning.
 `</#id>` cross-reference with no matching heading or numbered caption id; when
 the id does exist on an element a cross-reference cannot reach (a paragraph, a
 span, an uncaptioned table), the message names that element and suggests
-`[text](#id)` instead. `broken-fragment-link` is a `[text](#id)` link, inline or
+`[text](#id)` instead. `unresolved-reference-link` is a `[text][label]` or
+`[text][]` reference with no matching definition, or for `[text][]` no matching
+heading. Cross-references and reference labels compare case exactly, so
+`</#getting-started>` misses a `Getting-Started` id and `[plan][]` misses a
+`# Plan` heading; both rules name the exact spelling of a case-only near miss.
+`carve fmt --migrate` respells such a reference when exactly one target matches
+it, which `ReferenceLinter::rewriteCaseOnlyReferences()` does programmatically.
+`broken-fragment-link` is a `[text](#id)` link, inline or
 through a reference definition, whose fragment matches no id in the rendered
 HTML. Ids are read off the rendered output, so heading slugs, footnote ids and
 ids in raw HTML count, while an id quoted in a code block, an HTML comment or

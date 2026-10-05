@@ -97,11 +97,11 @@ class IncludeIdCollisionTest extends TestCase
             ["c.crv: Duplicate id 'tip' renamed to 'tip-2'"],
         ];
 
-        yield 'a cross-reference follows, folding case' => [
+        yield 'a cross-reference differing only in case does not follow' => [
             "{#tip}\n# Parent\n\n{{ c.crv }}\n",
             ['c.crv' => "{#tip}\n# Child\n\nSee </#TIP>.\n"],
             "<section id=\"tip\">\n  <h1>Parent</h1>\n</section>\n<section id=\"tip-2\">\n  <h1>Child</h1>\n"
-                . "  <p>See <a href=\"#tip-2\">Child</a>.</p>\n</section>\n",
+                . "  <p>See &lt;/#TIP&gt;.</p>\n</section>\n",
             ["c.crv: Duplicate heading id 'tip' renamed to 'tip-2'"],
         ];
 
@@ -121,9 +121,9 @@ class IncludeIdCollisionTest extends TestCase
             ["c.crv: Duplicate heading id 'tip' renamed to 'tip-2'"],
         ];
 
-        yield 'a folded match on an auto slug wins over a later renamed table' => [
+        yield 'an exact match on an auto slug ignores a renamed id of another case' => [
             "{#TIP}\np\n\n{{ c.crv }}\n",
-            ['c.crv' => "# tip\n\n{#TIP}\n| a |\n\nSee </#TiP>.\n"],
+            ['c.crv' => "# tip\n\n{#TIP}\n| a |\n\nSee </#tip>.\n"],
             "<p id=\"TIP\">p</p>\n<section id=\"tip\">\n  <h1>tip</h1>\n  <table id=\"TIP-2\">\n"
                 . "    <tbody>\n      <tr><td>a</td></tr>\n    </tbody>\n  </table>\n"
                 . "  <p>See <a href=\"#tip\">tip</a>.</p>\n</section>\n",
@@ -132,7 +132,7 @@ class IncludeIdCollisionTest extends TestCase
 
         yield 'an uncaptioned table is no cross-reference target' => [
             "{#TIP}\np\n\n{{ c.crv }}\n",
-            ['c.crv' => "{#TIP}\n| a |\n\n# tip\n\nSee </#TiP>.\n"],
+            ['c.crv' => "{#TIP}\n| a |\n\n# tip\n\nSee </#tip>.\n"],
             "<p id=\"TIP\">p</p>\n<table id=\"TIP-2\">\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n"
                 . "<section id=\"tip\">\n  <h1>tip</h1>\n  <p>See <a href=\"#tip\">tip</a>.</p>\n</section>\n",
             ["c.crv: Duplicate id 'TIP' renamed to 'TIP-2'"],

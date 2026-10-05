@@ -72,18 +72,18 @@ class CrossImplementationDivergenceTest extends TestCase
         );
     }
 
-    public function testCollapsedReferenceFallsBackToHeadingCaseInsensitively(): void
+    public function testCollapsedReferenceComparesTheHeadingCaseExactly(): void
     {
         $this->assertSame(
-            "<p>See <a href=\"#Name\">name</a></p>\n"
+            "<p>See <a href=\"#Name\">Name</a> and [name][]</p>\n"
             . "<section id=\"Name\">\n"
             . "  <h1>Name</h1>\n"
             . "</section>\n",
-            (new CarveConverter())->convert("See [name][]\n\n# Name"),
+            (new CarveConverter())->convert("See [Name][] and [name][]\n\n# Name"),
         );
 
         $this->assertStringContainsString(
-            '<a href="#name">NAME</a>',
+            '<p>See [NAME][]</p>',
             (new CarveConverter())->convert("See [NAME][]\n\n# name"),
         );
     }
@@ -181,15 +181,15 @@ class CrossImplementationDivergenceTest extends TestCase
 
     public function testCollapsedHeadingReferenceRendersAsResolvedLinkInNonHtmlFormats(): void
     {
-        $source = "See [name][]\n\n# Name";
+        $source = "See [Name][]\n\n# Name";
 
-        $this->assertSame("See [name](#name)\n\n# Name\n", CarveConverter::markdown()->convert($source));
-        $this->assertSame("See name\n\nName\n", CarveConverter::plainText()->convert($source));
+        $this->assertSame("See [Name](#name)\n\n# Name\n", CarveConverter::markdown()->convert($source));
+        $this->assertSame("See Name\n\nName\n", CarveConverter::plainText()->convert($source));
 
         $ansi = CarveConverter::ansi()->convert($source);
-        $this->assertStringContainsString('name', $this->stripSgr($ansi));
+        $this->assertStringContainsString('See Name', $this->stripSgr($ansi));
         $this->assertStringNotContainsString(' (#Name)', $this->stripSgr($ansi));
-        $this->assertStringNotContainsString('[name][]', $ansi);
+        $this->assertStringNotContainsString('[Name][]', $ansi);
     }
 
     public function testAnsiHeadingUnderlineUsesVisibleDisplayWidth(): void

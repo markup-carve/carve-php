@@ -2699,11 +2699,10 @@ class InlineParser
                 $link->setReferenceLabel($originalRefBracket === '' ? $ref : $originalRefBracket);
                 $link->setChildren($label->getChildren());
 
-                // Either form may still land on a heading - collapsed
-                // `[text][]` case-insensitively, explicit `[text][Label]`
-                // exactly - and the heading index is built from the parsed
-                // tree, so it does not exist yet (R1; carve-php#572). Flag it
-                // so the parser knows a second pass is worth running.
+                // Either form may still land on a heading, and the heading
+                // index is built from the parsed tree, so it does not exist
+                // yet (R1; carve-php#572). Flag it so the parser knows a
+                // second pass is worth running.
                 $this->blockParser->markCollapsedReferenceUnresolved($ref);
                 [$warnLine, $warnColumn] = $this->lineAndColumnAt($pos);
                 $this->blockParser->addUndefinedReferenceWarning($ref, $warnLine, $warnColumn);

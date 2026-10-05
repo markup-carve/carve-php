@@ -224,4 +224,118 @@ class ReferenceLinterTest extends TestCase
         $rules = array_column((new ReferenceLinter())->lint("[^u]: see [x](#nope)\n\nBody."), 'rule');
         $this->assertSame(['unused-footnote-definition'], $rules);
     }
+
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function caseOnlyMisses(): array
+    {
+        return [
+            'a heading crossref' => [
+                "# Getting Started\n\nSee </#getting-started>.",
+                'broken-crossref',
+                'Cross-reference </#getting-started> matches no id; the id "Getting-Started" differs only in case, and cross-references are case-sensitive, so it renders as the literal text "</#getting-started>".',
+            ],
+            'a caption crossref' => [
+                "{#Fig-A}\n![x](a.jpg)\n^ Figure #: A\n\nSee </#fig-a>.",
+                'broken-crossref',
+                'Cross-reference </#fig-a> matches no id; the id "Fig-A" differs only in case, and cross-references are case-sensitive, so it renders as the literal text "</#fig-a>".',
+            ],
+            'a crossref matching two ids' => [
+                "{#Tip}\n# A\n\n{#tip}\n# B\n\n</#TIP>",
+                'broken-crossref',
+                'Cross-reference </#TIP> matches no id; the ids "Tip" and "tip" differ only in case, and cross-references are case-sensitive, so it renders as the literal text "</#TIP>".',
+            ],
+            'a collapsed heading reference' => [
+                "See [getting started][].\n\n# Getting Started",
+                'unresolved-reference-link',
+                'Reference [getting started][] matches no definition or heading; the label "Getting Started" differs only in case, and reference labels are case-sensitive, so it renders as literal text.',
+            ],
+            'an explicit definition label' => [
+                "[y][Label]\n\n[label]: /u",
+                'unresolved-reference-link',
+                'Reference [y][Label] matches no definition or heading; the label "label" differs only in case, and reference labels are case-sensitive, so it renders as literal text.',
+            ],
+            'an explicit label naming only a heading' => [
+                "[y][plan]\n\n# Plan",
+                'unresolved-reference-link',
+                'Reference has no matching definition or heading.',
+            ],
+        ];
+    }
+
+    #[DataProvider('caseOnlyMisses')]
+    public function testACaseOnlyMissNamesTheExactSpelling(string $source, string $rule, string $message): void
+    {
+        $warnings = (new ReferenceLinter())->lint($source);
+        $this->assertSame([$rule], array_column($warnings, 'rule'));
+        $this->assertSame($message, $warnings[0]->message);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function caseOnlyRewrites(): array
+    {
+        return [
+            'a heading crossref' => ["# Getting Started\n\nSee </#getting-started>.\n", "# Getting Started\n\nSee </#Getting-Started>.\n"],
+            'a caption crossref' => [
+                "{#Fig-A}\n![x](a.jpg)\n^ Figure #: A\n\nSee </#fig-a>.\n",
+                "{#Fig-A}\n![x](a.jpg)\n^ Figure #: A\n\nSee </#Fig-A>.\n",
+            ],
+            'a crossref after a multibyte character' => ["# Über uns\n\nÄ </#über-uns>\n", "# Über uns\n\nÄ </#Über-uns>\n"],
+            'a collapsed heading reference' => ["See [plan][].\n\n# Plan\n", "See [Plan][].\n\n# Plan\n"],
+            'an explicit definition label' => ["[y][Label]\n\n[label]: /u\n", "[y][label]\n\n[label]: /u\n"],
+            'several candidates leave the reference alone' => [
+                "{#Tip}\n# A\n\n{#tip}\n# B\n\n</#TIP>\n",
+                "{#Tip}\n# A\n\n{#tip}\n# B\n\n</#TIP>\n",
+            ],
+            'markup in a collapsed reference text is left alone' => ["See [_plan_][].\n\n# plan\n", "See [_plan_][].\n\n# plan\n"],
+            'a resolving reference is left alone' => ["# Plan\n\n</#Plan> [Plan][]\n", "# Plan\n\n</#Plan> [Plan][]\n"],
+            'no candidate leaves the reference alone' => ["See </#nope> and [x][nope].\n", "See </#nope> and [x][nope].\n"],
+            'a definition label keeps its own Unicode form' => [
+                "[x][CAFE\u{0301}]\n\n[Cafe\u{0301}]: /u\n",
+                "[x][Cafe\u{0301}]\n\n[Cafe\u{0301}]: /u\n",
+            ],
+            'a numeric label that is not case-only is left alone' => ["[123\n][]\n\n[123]: /u\n", "[123\n][]\n\n[123]: /u\n"],
+            'a multiline label misses for another reason' => ["See [plan\n][].\n\n# Plan\n", "See [plan\n][].\n\n# Plan\n"],
+            'a collapsed reference whose attribute holds a full one' => [
+                "[plan][]{title=\"[x][plan]\"}\n\n[Plan]: /u\n",
+                "[Plan][]{title=\"[x][plan]\"}\n\n[Plan]: /u\n",
+            ],
+            'a collapsed reference whose text is markup is left alone' => [
+                "See [*plan*][].\n\n# \\*Plan\\*\n",
+                "See [*plan*][].\n\n# \\*Plan\\*\n",
+            ],
+            'a code span in the text holding a bracket pair' => [
+                "[`a][b`][plan]\n\n[Plan]: /u\n",
+                "[`a][b`][Plan]\n\n[Plan]: /u\n",
+            ],
+            'a code span in the text holding the bracket and a brace' => [
+                "[`a][plan]{b`][plan]\n\n[Plan]: /u\n",
+                "[`a][plan]{b`][Plan]\n\n[Plan]: /u\n",
+            ],
+            'a label differing only in Unicode form is not case-only' => [
+                "[x][Caf\u{00E9}]\n\n[Cafe\u{0301}]: /u\n",
+                "[x][Caf\u{00E9}]\n\n[Cafe\u{0301}]: /u\n",
+            ],
+            'a reference image label' => ["![alt][pic]{.c}\n\n[Pic]: i.png\n", "![alt][Pic]{.c}\n\n[Pic]: i.png\n"],
+            'an image whose alt is markup is left alone' => ["![`a][pic]{b`][pic]\n\n[Pic]: i.png\n", "![`a][pic]{b`][pic]\n\n[Pic]: i.png\n"],
+            'a collapsed reference image' => ["x ![pic][]\n\n[Pic]: i.png\n", "x ![Pic][]\n\n[Pic]: i.png\n"],
+            'an attribute value repeating the label is left alone' => [
+                "[x][PLAN]{title=\"[y][PLAN]\"}\n\n[Plan]: /u\n",
+                "[x][Plan]{title=\"[y][PLAN]\"}\n\n[Plan]: /u\n",
+            ],
+            'a definition and a heading of one spelling are one candidate' => [
+                "See [plan][].\n\n# Plan\n\n[Plan]: /u\n",
+                "See [Plan][].\n\n# Plan\n\n[Plan]: /u\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('caseOnlyRewrites')]
+    public function testRewritesAReferenceWhoseOnlyMatchDiffersInCase(string $source, string $expected): void
+    {
+        $this->assertSame($expected, (new ReferenceLinter())->rewriteCaseOnlyReferences($source));
+    }
 }

@@ -1265,24 +1265,6 @@ class IncludeExpander implements TransformerInterface
         return $selected;
     }
 
-    /**
-     * Whether a `</#id>` reaches $id by the renderer's case fold, each code
-     * point folded on its own as HeadingIdTracker does.
-     */
-    protected function sameName(string $id, string $name): bool
-    {
-        return $this->foldName($id) === $this->foldName($name);
-    }
-
-    protected function foldName(string $name): string
-    {
-        return (string)preg_replace_callback(
-            '/./us',
-            static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'),
-            $name,
-        );
-    }
-
     protected function shiftHeadings(Node $node, int $shift): void
     {
         if ($shift === 0) {
@@ -1638,17 +1620,10 @@ class IncludeExpander implements TransformerInterface
     {
         if ($node instanceof HeadingRef) {
             $target = $node->getTargetId();
-            // The renderer prefers an exact match, then the first folded one.
+            // Exact, as the renderer resolves it (CARVE-P9R-010).
             $hit = null;
             foreach ($targets as $entry) {
                 if ($entry['old'] === $target) {
-                    $hit = $entry;
-
-                    break;
-                }
-            }
-            foreach ($hit === null ? $targets : [] as $entry) {
-                if ($this->sameName($entry['old'], $target)) {
                     $hit = $entry;
 
                     break;

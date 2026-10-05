@@ -19,24 +19,19 @@ use PHPUnit\Framework\TestCase;
  * render identically, so the miss had no visible cause; that is what made it
  * survive.
  *
- * NFC is also a WEAKER fold than the case fold R1 already admits: case folding
- * relates codepoints Unicode calls distinct, NFC relates sequences Unicode
- * DEFINES as the same.
+ * NFC relates sequences Unicode DEFINES as the same, which is why it stays
+ * while the case fold is gone (CARVE-P9R-010).
  *
  * The NFKC cases are the other half of the claim, not decoration: a fix reaching
  * for FORM_KC - or for the ASCII transliteration this engine uses for ids -
  * would resolve them and change WHICH text the author is quoting.
  *
- * This engine folds in TWO places - BlockParser::foldReferenceLabel and
- * HeadingReferenceCollector::foldLabel - and both normalize, because two copies
+ * This engine keys the index in TWO places - BlockParser::headingLabelKey and
+ * HeadingReferenceCollector::labelKey - and both normalize, because two copies
  * of a matching rule drift.
  *
- * Only the COLLAPSED form `[text][]` is asserted here. Whether an EXPLICIT
- * `[text][label]` reaches the heading index at all is a separate and unsettled
- * question: this engine does not fold that path (not even case, so
- * `[q][getting started]` misses `# Getting Started`), while the oracle and
- * carve-js do. R1's wording says the fallback is for `[text][]`, which sides
- * with this engine, so it is filed rather than changed here (carve#742).
+ * Only the COLLAPSED form `[text][]` is asserted here: R1 gives the heading
+ * fallback to `[text][]` alone.
  */
 class HeadingReferenceNormalizationTest extends TestCase
 {
@@ -108,11 +103,12 @@ class HeadingReferenceNormalizationTest extends TestCase
         $this->assertStringContainsString('<a href="#' . self::PRECOMPOSED . '">', $html);
     }
 
-    public function testStillFoldsCaseAndCollapsesWhitespace(): void
+    public function testCollapsesWhitespaceButComparesCaseExactly(): void
     {
-        $html = $this->html("# Getting  Started\n\nsee [getting started][]\n");
+        $html = $this->html("# Getting  Started\n\nsee [Getting   Started][] and [getting started][]\n");
 
-        $this->assertStringContainsString('<a href="#Getting-Started">', $html);
+        $this->assertStringContainsString('<a href="#Getting-Started">Getting   Started</a>', $html);
+        $this->assertStringContainsString('[getting started][]', $html);
     }
 
     /**
