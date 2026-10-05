@@ -186,7 +186,7 @@ class CarveConverter
     {
         $converter = self::carve();
 
-        return $converter->getRenderer()->render($converter->parse($source));
+        return CycleCollection::paused(fn (): string => $converter->getRenderer()->render($converter->parse($source)));
     }
 
     /**
@@ -491,7 +491,7 @@ class CarveConverter
             }
         }
 
-        return $this->render($this->parse($djot));
+        return CycleCollection::paused(fn () => $this->render($this->parse($djot)));
     }
 
     /**
@@ -533,7 +533,7 @@ class CarveConverter
         $this->enforceProfileMaxLength($source);
         $this->parser->enablePositionTracking();
 
-        return $this->renderWithReport($this->parse($source), $strictLosses, $maxRenderLosses);
+        return CycleCollection::paused(fn (): RenderResult => $this->renderWithReport($this->parse($source), $strictLosses, $maxRenderLosses));
     }
 
     /**
