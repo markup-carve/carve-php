@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Util\CycleCollection;
 
 /**
  * Builds tables and resolves cell spans.
@@ -553,6 +554,7 @@ final class TableBlockBuilder
             }
 
             $table->appendChild($row);
+            CycleCollection::checkpoint();
         }
 
         // A separator-only table is valid (creates empty table)
