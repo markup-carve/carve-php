@@ -80,10 +80,28 @@ jobs:
       - name: Run tests with coverage
         run: composer test-coverage-parallel
 
+      # v4 fetched a separate uploader binary before reading any coverage file,
+      # and that fetch threw past `fail_ci_if_error` on a TLS alert, reddening a
+      # job whose suite had passed (#2865). v5 drops that fetch and targets the
+      # Node version v4 was already being forced onto, but the handshake was
+      # intermittent against a third party, so no pin settles it: this step must
+      # not be able to decide the job. `fail_ci_if_error` covers an upload-side
+      # error and `continue-on-error` covers a throw that bypasses it, as the v4
+      # one did. Both leave the failure in the log, and a `continue-on-error`
+      # step is reported `conclusion: success`, so the verdict job below, which
+      # escalates on failed steps, does not file on an upload flake.
+      #
+      # `disable_search` is what restricts the upload to the clover report:
+      # `files` only ADDS to the action's own search, which otherwise sweeps up
+      # spec fixtures whose names merely contain "coverage".
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          disable_search: true
+          fail_ci_if_error: false
 
   # NEITHER JOB ABOVE GATES A PULL REQUEST ANY MORE, so their result has to
   # reach a person by itself. Without this the change would buy five minutes of
