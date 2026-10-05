@@ -248,6 +248,16 @@ class AstCodec
     private static array $reflectionCache = [];
 
     /**
+     * @var array<int, array<int, string>>
+     */
+    private array $tableHeaderAlignments = [];
+
+    /**
+     * @var array<int, array<int, int>>
+     */
+    private array $rowCellColumns = [];
+
+    /**
      * The class map WITHOUT the application classes `register()` added.
      *
      * Kept apart because "is this node one of ours" is a different question
@@ -328,7 +338,7 @@ class AstCodec
         // are internal, so `ReferenceShape` keeps them off the wire and the
         // encoder never puts them there.
         return self::mapInternalTypes(self::publishAbbreviationDefs(
-            $this->encodeNode($document),
+            $this->encodeDocument($document),
             $document->getAbbreviationSpans(),
         ));
     }
@@ -961,7 +971,7 @@ class AstCodec
     private function verifyNothingWasLost(array $input, Document $document): void
     {
         $lost = [];
-        $this->compareNode($input, $this->encodeNode($document), '', $lost);
+        $this->compareNode($input, $this->encodeDocument($document), '', $lost);
 
         if ($lost !== []) {
             throw new AstDecodeException(sprintf(
@@ -1744,6 +1754,23 @@ class AstCodec
     }
 
     /**
+     * @param \MarkupCarve\Carve\Node\Document $document
+     *
+     * @return array<string, mixed>
+     */
+    private function encodeDocument(Document $document): array
+    {
+        $this->tableHeaderAlignments = [];
+        $this->rowCellColumns = [];
+        try {
+            return $this->encodeNode($document);
+        } finally {
+            $this->tableHeaderAlignments = [];
+            $this->rowCellColumns = [];
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function encodeNode(Node $node): array
@@ -1810,7 +1837,7 @@ class AstCodec
                 $field === 'align'
                 && $node instanceof TableCell
                 && !$node->isHeader()
-                && self::inheritsColumnAlignment($node)
+                && $this->inheritsColumnAlignment($node)
             ) {
                 continue;
             }
@@ -2394,7 +2421,7 @@ class AstCodec
      * carries its alignment on the cells that state it, which is where the
      * author wrote it.
      */
-    private static function inheritsColumnAlignment(TableCell $cell): bool
+    private function inheritsColumnAlignment(TableCell $cell): bool
     {
         if ($cell->hasExplicitAlignment()) {
             return false;
@@ -2409,35 +2436,40 @@ class AstCodec
             return false;
         }
 
-        $column = 0;
-        foreach ($row->getChildren() as $sibling) {
-            if ($sibling === $cell) {
-                break;
-            }
-            if ($sibling instanceof TableCell) {
-                $column++;
-            }
-        }
-
-        foreach ($table->getChildren() as $candidate) {
-            if (!$candidate instanceof TableRow || !$candidate->isHeader()) {
-                continue;
-            }
-            $index = 0;
-            foreach ($candidate->getChildren() as $headerCell) {
-                if (!$headerCell instanceof TableCell) {
+        $tableId = spl_object_id($table);
+        if (!isset($this->tableHeaderAlignments[$tableId])) {
+            $alignments = [];
+            foreach ($table->getChildren() as $candidate) {
+                if (!$candidate instanceof TableRow || !$candidate->isHeader()) {
                     continue;
                 }
-                if ($index === $column) {
-                    return $headerCell->getAlignment() === $cell->getAlignment();
+                foreach ($candidate->getChildren() as $headerCell) {
+                    if ($headerCell instanceof TableCell) {
+                        $alignments[] = $headerCell->getAlignment();
+                    }
                 }
-                $index++;
-            }
 
+                break;
+            }
+            $this->tableHeaderAlignments[$tableId] = $alignments;
+        }
+        $alignments = $this->tableHeaderAlignments[$tableId];
+        if ($alignments === []) {
             return false;
         }
+        $rowId = spl_object_id($row);
+        if (!isset($this->rowCellColumns[$rowId])) {
+            $columns = [];
+            foreach ($row->getChildren() as $sibling) {
+                if ($sibling instanceof TableCell) {
+                    $columns[spl_object_id($sibling)] = count($columns);
+                }
+            }
+            $this->rowCellColumns[$rowId] = $columns;
+        }
+        $column = $this->rowCellColumns[$rowId][spl_object_id($cell)] ?? null;
 
-        return false;
+        return $column !== null && ($alignments[$column] ?? null) === $cell->getAlignment();
     }
 
     /**

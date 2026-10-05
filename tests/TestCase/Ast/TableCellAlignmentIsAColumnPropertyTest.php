@@ -6,6 +6,10 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Document;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -27,6 +31,37 @@ use PHPUnit\Framework\TestCase;
  */
 class TableCellAlignmentIsAColumnPropertyTest extends TestCase
 {
+    public function testWideInheritedAlignmentsReadTheRowOnceAndRefreshAfterMutation(): void
+    {
+        $document = new Document();
+        $table = new Table();
+        $header = new TableRow(true);
+        $body = new class extends TableRow {
+            public static int $reads = 0;
+
+            public function getChildren(): array
+            {
+                self::$reads++;
+
+                return parent::getChildren();
+            }
+        };
+        for ($column = 0; $column < 2048; $column++) {
+            $header->appendChild(new TableCell(true, TableCell::ALIGN_LEFT));
+            $body->appendChild(new TableCell(false, TableCell::ALIGN_LEFT, hasExplicitAlignment: false));
+        }
+        $table->appendChild($header);
+        $table->appendChild($body);
+        $document->appendChild($table);
+        $codec = new AstCodec();
+        $encoded = $codec->encode($document);
+        self::assertArrayNotHasKey('align', $encoded['children'][0]['rows'][1]['cells'][0]);
+        self::assertLessThan(64, $body::$reads);
+        $header->replaceChild(0, new TableCell(true, TableCell::ALIGN_RIGHT));
+        $encoded = $codec->encode($document);
+        self::assertSame('left', $encoded['children'][0]['rows'][1]['cells'][0]['align']);
+    }
+
     /**
      * @return array<int, array{header: bool, align: string|null}>
      */

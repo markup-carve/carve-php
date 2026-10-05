@@ -2182,20 +2182,8 @@ final class HtmlAstBuilder
             return $this->listTableOf($node, $rows, $cellBlockGrid, $ownAlignmentGrid);
         }
         $table = ['type' => 'table', 'rows' => $rows];
-        $headerAt = static function (int $r, int $c) use (&$headerAt, $rows): bool {
-            $cell = $rows[$r]['cells'][$c] ?? null;
-            if ($cell === null) {
-                return false;
-            }
-            if (($cell['span'] ?? null) === 'rowspan') {
-                return $r > 0 && $headerAt($r - 1, $c);
-            }
-            if (($cell['span'] ?? null) === 'colspan') {
-                return $c > 0 && $headerAt($r, $c - 1);
-            }
-
-            return $cell['header'];
-        };
+        $headers = $this->tableHeaders($rows);
+        $headerAt = static fn (int $r, int $c): bool => $headers[$r][$c] ?? false;
         $groups = ['headRows' => 0, 'footRows' => 0, 'bodies' => []];
         $phase = 0;
         $valid = true;
@@ -2377,6 +2365,29 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @param list<array{cells: list<ImportedNode>}> $rows
+     *
+     * @return list<list<bool>>
+     */
+    private function tableHeaders(array $rows): array
+    {
+        $headers = [];
+        foreach ($rows as $r => $row) {
+            $flags = [];
+            foreach ($row['cells'] as $c => $cell) {
+                $flags[] = match ($cell['span'] ?? null) {
+                    'rowspan' => $headers[$r - 1][$c] ?? false,
+                    'colspan' => $flags[$c - 1] ?? false,
+                    default => ($cell['header'] ?? false) === true,
+                };
+            }
+            $headers[] = $flags;
+        }
+
+        return $headers;
+    }
+
+    /**
      * The pipe-table grid, written as the `::: list-table` it is equivalent to
      * (docs/html-import-contract.md in the spec, "A table whose cells hold
      * blocks can be written as a list table").
@@ -2390,20 +2401,8 @@ final class HtmlAstBuilder
      */
     private function listTableOf(DOMElement $node, array $rows, array $cellBlockGrid, array $ownAlignmentGrid): array
     {
-        $headerAt = static function (int $r, int $c) use (&$headerAt, $rows): bool {
-            $cell = $rows[$r]['cells'][$c] ?? null;
-            if ($cell === null) {
-                return false;
-            }
-            if (($cell['span'] ?? null) === 'rowspan') {
-                return $r > 0 && $headerAt($r - 1, $c);
-            }
-            if (($cell['span'] ?? null) === 'colspan') {
-                return $c > 0 && $headerAt($r, $c - 1);
-            }
-
-            return ($cell['header'] ?? false) === true;
-        };
+        $headers = $this->tableHeaders($rows);
+        $headerAt = static fn (int $r, int $c): bool => $headers[$r][$c] ?? false;
         $leading = static function (int $r) use ($headerAt, $rows): int {
             $n = 0;
             $count = count($rows[$r]['cells']);

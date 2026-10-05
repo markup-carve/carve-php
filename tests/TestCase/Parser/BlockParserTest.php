@@ -28,6 +28,14 @@ class BlockParserTest extends TestCase
         $this->parser = new BlockParser();
     }
 
+    public function testWideColspanKeepsTheAvailableOrigin(): void
+    {
+        $source = '| A ' . str_repeat('| < ', 2047) . "|\n";
+        $doc = $this->parser->parse($source);
+        $first = $doc->getChildren()[0]->getChildren()[0]->getChildren()[0];
+        self::assertSame(2048, $first->getColspan());
+    }
+
     public function testRepeatedAttributeLinesKeepClassesAndOverwriteKeys(): void
     {
         $doc = $this->parser->parse("{.a k=old}\n{.b q=x}\n{.a k=new}\n\ntext\n");
