@@ -1689,6 +1689,10 @@ class InlineParser
                 $this->flushTextWithAbbreviations($holder, $child->getContent(), $abbreviations);
                 $replacement = $holder->getChildren();
                 if (count($replacement) === 1 && $replacement[0] instanceof Text) {
+                    // Unlink so refcounting frees the holder; a parent link left
+                    // on it is a cycle only the collector can reclaim.
+                    $holder->removeChildAt(0);
+
                     continue;
                 }
                 $cursor = $child->getPos();
