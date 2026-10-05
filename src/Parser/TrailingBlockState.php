@@ -8,7 +8,7 @@ namespace MarkupCarve\Carve\Parser;
  * The trailing block of a collected container body.
  *
  * @internal
- * @phpstan-type LegacyState array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int}
+ * @phpstan-type LegacyState array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int, nestedIsQuote: bool}
  */
 final class TrailingBlockState
 {
@@ -36,6 +36,11 @@ final class TrailingBlockState
         public bool $quotedTable = false,
         public bool $quoteParagraph = false,
         public int $nestedColumn = 0,
+        // Is the container `nestedColumn` names a QUOTE rather than a list? The
+        // two are not interchangeable to a dedented line: a description body
+        // keeps the line for an open nested LIST and ends on an open nested
+        // quote (markup-carve/carve-php#2904).
+        public bool $nestedIsQuote = false,
     ) {
     }
 
@@ -61,6 +66,7 @@ final class TrailingBlockState
             quotedTable: $state['quotedTable'],
             quoteParagraph: $state['quoteParagraph'],
             nestedColumn: $state['nestedColumn'],
+            nestedIsQuote: $state['nestedIsQuote'],
         );
         if ($state['inFence'] || $state['fenceLength'] > 0) {
             $result->lastFence = new TrailingCodeFence($state['fenceChar'], $state['fenceLength'], $state['fenceColumn'], $state['fenceHostColumn']);
@@ -103,6 +109,7 @@ final class TrailingBlockState
             'quotedTable' => $this->quotedTable,
             'quoteParagraph' => $this->quoteParagraph,
             'nestedColumn' => $this->nestedColumn,
+            'nestedIsQuote' => $this->nestedIsQuote,
         ] + $this->legacyExtras;
     }
 }

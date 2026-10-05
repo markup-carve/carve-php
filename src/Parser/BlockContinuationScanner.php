@@ -1638,6 +1638,8 @@ final class BlockContinuationScanner
         $state->afterInvisible = false;
         $wasAfterComment = $state->afterComment;
         $state->afterComment = false;
+        // Re-armed only by the two branches that set `nestedColumn`.
+        $state->nestedIsQuote = false;
         // A FOOTNOTE DEFINITION IS THE ONE INVISIBLE BLOCK WITH A BODY, so it
         // is the only one whose further-indented line continues it rather than
         // being the container's own prose.
@@ -1930,6 +1932,7 @@ final class BlockContinuationScanner
             $state->quoteParagraph = $inner->openParagraph;
             $state->quotedTable = $inner->inTable;
             $state->nestedColumn = $quoteWidth;
+            $state->nestedIsQuote = true;
 
             return $state;
         }
@@ -2129,6 +2132,7 @@ final class BlockContinuationScanner
                 // it is the column this container's claim stops at.
                 $firstMarker = ($this->getListParser)()->markerContentOffset($line, $at);
                 $state->nestedColumn = $firstMarker === null ? 0 : $firstMarker - $at;
+                $state->nestedIsQuote = false;
 
                 return $state;
             }
