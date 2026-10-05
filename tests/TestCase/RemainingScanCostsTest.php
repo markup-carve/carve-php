@@ -25,6 +25,8 @@ class RemainingScanCostsTest extends TestCase
         $warnings = (new MarkdownHabitLinter())->lint("😀 **a**\nβ **b** @user #12 \u{202E}", ['platforms' => ['github']]);
         $positions = array_map(static fn ($warning) => [$warning->line, $warning->column, $warning->start], $warnings);
         $this->assertSame([[1, 3, 5], [2, 3, 14], [2, 9, 20], [2, 15, 26], [2, 19, 30]], $positions);
+        $warnings = (new MarkdownHabitLinter())->lint("x\n\nβé **a** 日本 **b**");
+        $this->assertSame([[3, 4], [3, 13]], array_map(static fn ($warning) => [$warning->line, $warning->column], $warnings));
     }
 
     #[Group('scaling')]
@@ -34,11 +36,12 @@ class RemainingScanCostsTest extends TestCase
         foreach (['😀 **a** ', '😀 @user #12 ', "😀 \u{202E} "] as $unit) {
             $this->assertConversionScalesLinearly(
                 static fn (string $source) => $linter->lint($source, ['platforms' => ['github']]),
-                str_repeat($unit, 1000),
                 str_repeat($unit, 4000),
+                str_repeat($unit, 16000),
                 'dense lint warnings',
-                1000,
                 4000,
+                16000,
+                maxPerByteRatio: 2.0,
             );
         }
     }
@@ -69,10 +72,15 @@ class RemainingScanCostsTest extends TestCase
     {
         $converter = new CarveConverter();
         $this->assertStringContainsString('<a href="w">z</a>', $converter->convert('[[x](y)](u) [z](w)'));
+        $this->assertStringContainsString('<a href="w" title="q">z</a>', $converter->convert('[[x](y "t")](u "v") [z](w "q")'));
         foreach (['[x](a\\)b)', '[x](a\\\\)', '[t](/u "a\\"b)")', "[t](/u 'T)')", '[x](a"b)c)'] as $source) {
             $this->assertStringContainsString('<a ', $converter->convert($source));
         }
         $this->assertStringNotContainsString('<a ', $converter->convert('[x](u "open)'));
+        foreach (['"', "'"] as $quote) {
+            $source = '[t](/u ' . $quote . 'a' . str_repeat('\\', 2) . $quote . 'b' . $quote . ')';
+            $this->assertStringContainsString('<a href="/u"', $converter->convert($source));
+        }
     }
 
     #[Group('scaling')]
@@ -84,6 +92,20 @@ class RemainingScanCostsTest extends TestCase
             str_repeat('[x](a b', 1000) . str_repeat(')', 1000),
             str_repeat('[x](a b', 4000) . str_repeat(')', 4000),
             'nested whitespace destinations',
+            1000,
+            4000,
+        );
+    }
+
+    #[Group('scaling')]
+    public function testSharedUnclosedTitleScalesLinearly(): void
+    {
+        $converter = new CarveConverter();
+        $this->assertConversionScalesLinearly(
+            static fn (string $source) => $converter->parse($source),
+            str_repeat('[x](a', 1000) . ' "' . str_repeat(')', 1000),
+            str_repeat('[x](a', 4000) . ' "' . str_repeat(')', 4000),
+            'shared unclosed title',
             1000,
             4000,
         );

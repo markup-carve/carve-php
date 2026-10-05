@@ -293,6 +293,11 @@ class InlineParser
     private ?array $destinationWhitespace = null;
 
     /**
+     * @var array<int, int>
+     */
+    private array $destinationTitleEnds = [];
+
+    /**
      * Memo for bracketRunSkip(), per `[` position in the same text.
      *
      * @var array<int, int|null>
@@ -726,6 +731,7 @@ class InlineParser
         $outerScans = $this->destinationScans;
         $outerStops = $this->destinationStops;
         $outerWhitespace = $this->destinationWhitespace;
+        $outerTitleEnds = $this->destinationTitleEnds;
         $outerBracketRuns = $this->bracketRunEnds;
         $outerBalancedEnds = $this->balancedBracketEnds;
         $outerBalancedText = $this->balancedBracketText;
@@ -755,6 +761,7 @@ class InlineParser
             $this->destinationScans = $outerScans;
             $this->destinationStops = $outerStops;
             $this->destinationWhitespace = $outerWhitespace;
+            $this->destinationTitleEnds = $outerTitleEnds;
             $this->bracketRunEnds = $outerBracketRuns;
             $this->balancedBracketEnds = $outerBalancedEnds;
             $this->balancedBracketText = $outerBalancedText;
@@ -4813,13 +4820,22 @@ class InlineParser
         $firstWhitespace = $this->destinationWhitespace[$low] ?? $urlEnd;
         if ($firstWhitespace < $urlEnd) {
             $quote = $text[$firstWhitespace + 1] ?? '';
-            $titleClose = ($quote === '"' || $quote === "'")
-                ? $this->closingTitleQuote($text, $firstWhitespace + 1) : null;
+            $titleClose = $urlEnd;
+            if ($quote === '"' || $quote === "'") {
+                $opener = $firstWhitespace + 1;
+                if (!isset($this->destinationTitleEnds[$opener])) {
+                    $next = $opener + 1;
+                    while (($next = strpos($text, $quote, $next)) !== false && $text[$next - 1] === '\\') {
+                        ++$next;
+                    }
+                    $this->destinationTitleEnds[$opener] = $next === false ? $length : $next;
+                }
+                $titleClose = $this->destinationTitleEnds[$opener];
+            }
             if (
                 $firstWhitespace === $urlStart || $text[$firstWhitespace] !== ' '
                 || ($quote !== '"' && $quote !== "'")
-                || ($titleClose !== null && $titleClose !== $urlEnd - 1)
-                || ($titleClose === null && $text[$urlEnd - 1] !== $quote)
+                || $titleClose < $urlEnd - 1 || $text[$urlEnd - 1] !== $quote
             ) {
                 return $this->destinationScans[$urlStart] = $notADestination;
             }
@@ -4941,6 +4957,7 @@ class InlineParser
         $this->destinationScans = [];
         $this->destinationStops = null;
         $this->destinationWhitespace = null;
+        $this->destinationTitleEnds = [];
         $this->bracketRunEnds = [];
     }
 
