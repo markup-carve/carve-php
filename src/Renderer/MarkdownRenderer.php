@@ -691,7 +691,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $pattern = '/' . $this->narrowedSentinelClass . '/u';
 
-        if (preg_match_all($pattern, $markdown, $matches, PREG_OFFSET_CAPTURE) < 1) {
+        if (preg_match($pattern, $markdown) !== 1) {
             return $markdown;
         }
 
@@ -721,36 +721,40 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // exactly like the character it replaces; here it cannot.
         $pairs = str_contains($line, '_') ? $this->pairableUnderscoresPerBlock($line) : [];
 
-        $out = '';
-        $read = 0;
-        foreach ($matches[0] as $index => [$sentinel, $offset]) {
-            $offset = (int)$offset;
-            $char = $character[$sentinel];
+        $index = 0;
 
-            $at = $offset - 2 * $index;
-            // TWO FAMILIES, TWO TESTS, AND A THIRD CASE ALREADY SETTLED. M1b
-            // asks whether a delimiter of the same character stands beside the
-            // candidate. M2b asks WHERE ON THE LINE the candidate stands, and
-            // this is the finished document, so the answer it gets here is the
-            // answer for a line NO CONTAINER ENCLOSES - the only kind that
-            // reaches it undecided. A line inside a container had its position
-            // settled where the writer prefixed it, while the prefix was still
-            // separable from the content (markup-carve/carve#1330), and arrives
-            // carrying that answer.
-            $keep = isset($lookahead[$sentinel])
-                ? $this->lookaheadEscapes($char, $line, $at, substr($markdown, $offset + strlen($sentinel), 1))
-                : isset($kept[$sentinel])
-                || (isset($authored[$sentinel])
-                    ? $this->opensAnAtxHeading($line, $at)
-                    : $this->adjacentToLiveDelimiter($line, $at, $char)
-                        || ($char === '_' && isset($pairs[$at])));
+        return preg_replace_callback(
+            $pattern,
+            function (array $match) use ($character, $authored, $kept, $lookahead, $line, $pairs, $markdown, &$index): string {
+                $sentinel = $match[0][0];
+                $offset = (int)$match[0][1];
+                $char = $character[$sentinel];
 
-            $out .= substr($markdown, $read, $offset - $read);
-            $out .= $keep ? ($char === '@' ? '<!---->@' : '\\' . $char) : $char;
-            $read = $offset + strlen($sentinel);
-        }
+                $at = $offset - 2 * $index++;
+                // TWO FAMILIES, TWO TESTS, AND A THIRD CASE ALREADY SETTLED. M1b
+                // asks whether a delimiter of the same character stands beside the
+                // candidate. M2b asks WHERE ON THE LINE the candidate stands, and
+                // this is the finished document, so the answer it gets here is the
+                // answer for a line NO CONTAINER ENCLOSES - the only kind that
+                // reaches it undecided. A line inside a container had its position
+                // settled where the writer prefixed it, while the prefix was still
+                // separable from the content (markup-carve/carve#1330), and arrives
+                // carrying that answer.
+                $keep = isset($lookahead[$sentinel])
+                    ? $this->lookaheadEscapes($char, $line, $at, substr($markdown, $offset + strlen($sentinel), 1))
+                    : isset($kept[$sentinel])
+                    || (isset($authored[$sentinel])
+                        ? $this->opensAnAtxHeading($line, $at)
+                        : $this->adjacentToLiveDelimiter($line, $at, $char)
+                            || ($char === '_' && isset($pairs[$at])));
 
-        return $out . substr($markdown, $read);
+                return $keep ? ($char === '@' ? '<!---->@' : '\\' . $char) : $char;
+            },
+            $markdown,
+            -1,
+            $count,
+            PREG_OFFSET_CAPTURE,
+        ) ?? $markdown;
     }
 
     /**

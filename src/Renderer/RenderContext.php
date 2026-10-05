@@ -26,6 +26,11 @@ class RenderContext
     public array $footnoteNumbers = [];
 
     /**
+     * @var list<string|int>
+     */
+    public array $pendingFootnoteLabels = [];
+
+    /**
      * Counter for footnote numbering.
      */
     public int $footnoteCounter = 0;
@@ -92,6 +97,7 @@ class RenderContext
         $this->footnoteRefCounts = [];
         $this->headingIdTracker->reset();
         $this->footnoteNumbers = [];
+        $this->pendingFootnoteLabels = [];
         $this->footnoteCounter = 0;
         $this->admonitionCounter = 0;
         $this->collectedFootnotes = [];

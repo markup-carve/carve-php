@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Node;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use OutOfBoundsException;
+use ReflectionMethod;
 
 /**
  * Base class for all AST nodes.
@@ -35,6 +36,16 @@ abstract class Node
      * @var list<string>
      */
     protected array $attributeOrder = [];
+
+    /**
+     * @var array<string, true>
+     */
+    private array $attributeSlots = [];
+
+    /**
+     * @var array<class-string, bool>
+     */
+    private static array $nativeAttributeOrder = [];
 
     /**
      * @var list<string>
@@ -487,6 +498,7 @@ abstract class Node
     public function setAttributeOrder(array $order): void
     {
         $this->attributeOrder = $order;
+        $this->attributeSlots = array_fill_keys($order, true);
     }
 
     /**
@@ -515,12 +527,15 @@ abstract class Node
         $this->storeAttributes(array_merge($attributes, $own));
         // Order: leading slots first, then the node's own not-yet-present slots.
         $merged = $order;
+        $seen = array_fill_keys($order, true);
         foreach ($ownOrder as $slot) {
-            if (!in_array($slot, $merged, true)) {
+            if (!isset($seen[$slot])) {
                 $merged[] = $slot;
+                $seen[$slot] = true;
             }
         }
         $this->attributeOrder = $merged;
+        $this->attributeSlots = $seen;
     }
 
     public function hasAttribute(string $key): bool
@@ -584,10 +599,20 @@ abstract class Node
         // is why a repeated id or class was already correct.
         //
         // The LAST value still wins; that is `$attributes`, not this list.
-        if (in_array($slot, $this->attributeOrder, true)) {
+        $native = self::$nativeAttributeOrder[$this::class] ??= str_starts_with($this::class, __NAMESPACE__ . '\\')
+            && (new ReflectionMethod($this, 'getType'))->getDeclaringClass()->getName() === $this::class;
+        if (!$native) {
+            if (!in_array($slot, $this->attributeOrder, true)) {
+                $this->attributeOrder[] = $slot;
+            }
+
+            return;
+        }
+        if (isset($this->attributeSlots[$slot])) {
             return;
         }
         $this->attributeOrder[] = $slot;
+        $this->attributeSlots[$slot] = true;
     }
 
     /**
