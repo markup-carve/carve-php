@@ -1161,8 +1161,10 @@ final class DefinitionListBuilder
         }
 
         $rest = $lead;
+        $contentColumn = 0;
         while (($offset = ($this->getListParser)()->markerContentOffset($rest)) !== null) {
             $rest = substr($rest, $offset);
+            $contentColumn += $offset;
         }
         $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($rest)
             ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($rest);
@@ -1172,7 +1174,12 @@ final class DefinitionListBuilder
             return false;
         }
 
-        return !$this->hasFenceCloserInView($body, 0, $opener, 0);
+        // THE CLOSER SITS AT THE NESTED LEAD'S OWN CONTENT COLUMN, so that is
+        // the column to read the collected entries at. Searching from column 0
+        // could not see it, so a CLOSED lead fence still claimed the flush-left
+        // line below the body and §10's closer lookahead never got to answer
+        // (carve-php#2878).
+        return !$this->hasFenceCloserInView($body, 0, $opener, $contentColumn);
     }
 
     /**
