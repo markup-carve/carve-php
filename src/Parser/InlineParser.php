@@ -608,6 +608,11 @@ class InlineParser
     protected const MAX_INLINE_DEPTH = 100;
 
     /**
+     * @var string
+     */
+    private const EXTENSION_NAME_BYTES = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-';
+
+    /**
      * Current inline-recursion depth (see self::MAX_INLINE_DEPTH).
      */
     protected int $inlineDepth = 0;
@@ -5101,6 +5106,18 @@ class InlineParser
         // identifier = (letter | '_'), {letter | digit | '_' | '-'}. A
         // leading underscore is a valid extension name, so `:_[x]` -> a
         // `ext-_` span (decision I).
+        // PCRE searches the whole tail for the required `]` before it tries the
+        // anchored match, so reject a missing name, `[` or `]` here first.
+        $nameEnd = $pos + 1 + strspn($text, self::EXTENSION_NAME_BYTES, $pos + 1);
+        if (
+            $nameEnd === $pos + 1
+            || ($text[$pos + 1] >= '0' && $text[$pos + 1] <= '9')
+            || $text[$pos + 1] === '-'
+            || ($text[$nameEnd] ?? '') !== '['
+            || !$this->closerExistsFrom($text, ']', $nameEnd + 1)
+        ) {
+            return null;
+        }
         if (!preg_match('/\G:([a-zA-Z_][a-zA-Z0-9_-]*)\[([^\]]*)\]/', $text, $matches, 0, $pos)) {
             return null;
         }
