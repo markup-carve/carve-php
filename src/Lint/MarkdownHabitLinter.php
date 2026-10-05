@@ -94,8 +94,11 @@ class MarkdownHabitLinter
         foreach ($lines as $index => $line) {
             $lineNumber = $index + 1;
             if (preg_match_all('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', $line, $bidi, PREG_OFFSET_CAPTURE)) {
+                $cursor = 0;
+                $row = $lineNumber;
+                $column = 1;
                 foreach ($bidi[0] as [$control, $byteColumn]) {
-                    $column = SourceOffsets::toColumn($line, $byteColumn);
+                    self::advancePosition($line, $byteColumn, $cursor, $row, $column);
                     $warnings[] = new LintWarning(
                         $lineNumber,
                         $column,
@@ -205,6 +208,19 @@ class MarkdownHabitLinter
         return $line;
     }
 
+    private static function advancePosition(string $text, int $target, int &$cursor, int &$row, int &$column): void
+    {
+        $segment = substr($text, $cursor, $target - $cursor);
+        $newline = strrpos($segment, "\n");
+        if ($newline === false) {
+            $column += mb_strlen($segment, 'UTF-8');
+        } else {
+            $row += substr_count($segment, "\n");
+            $column = mb_strlen(substr($segment, $newline + 1), 'UTF-8') + 1;
+        }
+        $cursor = $target;
+    }
+
     /**
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
@@ -233,14 +249,15 @@ class MarkdownHabitLinter
                 continue;
             }
 
+            $cursor = 0;
+            $row = $lineNumber;
+            $column = 1;
             foreach ($matches[0] as $position => $match) {
-                $before = substr($masked, 0, $match[1]);
-                $rowStart = strrpos($before, "\n");
-                $rowStart = $rowStart === false ? 0 : $rowStart + 1;
+                self::advancePosition($masked, $match[1], $cursor, $row, $column);
                 $inner = $this->truncate((string)$matches[1][$position][0]);
                 $warnings[] = new LintWarning(
-                    line: $lineNumber + substr_count($before, "\n"),
-                    column: SourceOffsets::toColumn(substr($masked, $rowStart), $match[1] - $rowStart),
+                    line: $row,
+                    column: $column,
                     rule: $rule,
                     message: sprintf('`%s` ', $match[0]) . sprintf($explanation, $inner),
                     start: $offset + $match[1],
@@ -287,11 +304,15 @@ class MarkdownHabitLinter
                     continue;
                 }
 
+                $cursor = 0;
+                $row = $lineNumber;
+                $column = 1;
                 foreach ($matches[0] as $match) {
+                    self::advancePosition($masked, $match[1], $cursor, $row, $column);
                     $token = (string)$match[0];
                     $warnings[] = new LintWarning(
                         line: $lineNumber,
-                        column: SourceOffsets::toColumn($masked, $match[1]),
+                        column: $column,
                         rule: $rule,
                         message: sprintf(
                             '%s re-linkifies %s in published output, so "%s" becomes a link that notifies or references something unrelated; %s.',

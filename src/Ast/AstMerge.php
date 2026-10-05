@@ -385,11 +385,11 @@ final class AstMerge
         foreach ($tm['additions'] as $ti) {
             $key = self::key($theirs[$ti], $path);
             $anchor = $theirsAnchors[$ti];
-            $bucketKey = json_encode([$anchor, $key], JSON_THROW_ON_ERROR);
+            $bucketKey = $anchor . "\0" . $key;
             $buckets[$bucketKey][] = $ti;
             $hint = self::identityHint($theirs[$ti]);
             if ($hint !== null) {
-                $hintKey = json_encode([$anchor, $hint], JSON_THROW_ON_ERROR);
+                $hintKey = $anchor . "\0" . $hint;
                 if (!isset($identities[$hintKey])) {
                     $identities[$hintKey] = [[$key, $ti]];
                 } elseif ($identities[$hintKey][0][0] !== $key && count($identities[$hintKey]) === 1) {
@@ -400,12 +400,12 @@ final class AstMerge
         foreach ($om['additions'] as $oi) {
             $key = self::key($ours[$oi], $path);
             $anchor = $oursAnchors[$oi];
-            $bucketKey = json_encode([$anchor, $key], JSON_THROW_ON_ERROR);
+            $bucketKey = $anchor . "\0" . $key;
             $cursor = $cursors[$bucketKey] ?? 0;
             $same = $buckets[$bucketKey][$cursor] ?? null;
             $oursHint = self::identityHint($ours[$oi]);
             if ($oursHint !== null) {
-                $hintKey = json_encode([$anchor, $oursHint], JSON_THROW_ON_ERROR);
+                $hintKey = $anchor . "\0" . $oursHint;
                 foreach ($identities[$hintKey] ?? [] as [$otherKey, $ti]) {
                     if ($otherKey !== $key && ($same === null || $ti < $same)) {
                         return self::conflict('concurrent-sequence-edit', $path, $base, $ours, $theirs, $conflicts, $resolve);

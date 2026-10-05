@@ -288,6 +288,11 @@ class InlineParser
     private ?array $destinationStops = null;
 
     /**
+     * @var list<int>|null
+     */
+    private ?array $destinationWhitespace = null;
+
+    /**
      * Memo for bracketRunSkip(), per `[` position in the same text.
      *
      * @var array<int, int|null>
@@ -720,6 +725,7 @@ class InlineParser
         $outerSkips = $this->destinationSkips;
         $outerScans = $this->destinationScans;
         $outerStops = $this->destinationStops;
+        $outerWhitespace = $this->destinationWhitespace;
         $outerBracketRuns = $this->bracketRunEnds;
         $outerBalancedEnds = $this->balancedBracketEnds;
         $outerBalancedText = $this->balancedBracketText;
@@ -748,6 +754,7 @@ class InlineParser
             $this->destinationSkips = $outerSkips;
             $this->destinationScans = $outerScans;
             $this->destinationStops = $outerStops;
+            $this->destinationWhitespace = $outerWhitespace;
             $this->bracketRunEnds = $outerBracketRuns;
             $this->balancedBracketEnds = $outerBalancedEnds;
             $this->balancedBracketText = $outerBalancedText;
@@ -4750,6 +4757,7 @@ class InlineParser
         // opens or closes a level.
         $length = strlen($text);
         if ($this->destinationStops === null) {
+            // Callers enter immediately after `(`, so a title quote has a preceding space.
             $stops = array_fill(0, $length + 1, $length);
             for ($i = $length - 1; $i >= 0; --$i) {
                 $char = $text[$i];
@@ -4781,6 +4789,41 @@ class InlineParser
             return $this->destinationScans[$urlStart] = null;
         }
         $notADestination = ['end' => $urlEnd, 'url' => null, 'title' => null];
+
+        if (
+            $urlEnd > $urlStart && (str_contains(" \t\n\r\0\x0B", $text[$urlStart])
+            || str_contains(" \t\n\r\0\x0B", $text[$urlEnd - 1]))
+        ) {
+            return $this->destinationScans[$urlStart] = $notADestination;
+        }
+        if ($this->destinationWhitespace === null) {
+            preg_match_all('/[\p{Z}\x{0009}-\x{000D}\x{0085}]/u', $text, $whitespace, PREG_OFFSET_CAPTURE);
+            $this->destinationWhitespace = array_column($whitespace[0], 1);
+        }
+        $low = 0;
+        $high = count($this->destinationWhitespace);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($this->destinationWhitespace[$mid] < $urlStart) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+        $firstWhitespace = $this->destinationWhitespace[$low] ?? $urlEnd;
+        if ($firstWhitespace < $urlEnd) {
+            $quote = $text[$firstWhitespace + 1] ?? '';
+            $titleClose = ($quote === '"' || $quote === "'")
+                ? $this->closingTitleQuote($text, $firstWhitespace + 1) : null;
+            if (
+                $firstWhitespace === $urlStart || $text[$firstWhitespace] !== ' '
+                || ($quote !== '"' && $quote !== "'")
+                || ($titleClose !== null && $titleClose !== $urlEnd - 1)
+                || ($titleClose === null && $text[$urlEnd - 1] !== $quote)
+            ) {
+                return $this->destinationScans[$urlStart] = $notADestination;
+            }
+        }
 
         $raw = substr($text, $urlStart, $urlEnd - $urlStart);
         if ($raw !== trim($raw)) {
@@ -4897,6 +4940,7 @@ class InlineParser
         $this->destinationSkips = [];
         $this->destinationScans = [];
         $this->destinationStops = null;
+        $this->destinationWhitespace = null;
         $this->bracketRunEnds = [];
     }
 

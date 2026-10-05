@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
@@ -18,6 +19,29 @@ use ReflectionMethod;
 class RemainingScanCostsTest extends TestCase
 {
     use ScalingGuardTrait;
+
+    public function testLintWarningCursorsPreserveUnicodeAndMultilinePositions(): void
+    {
+        $warnings = (new MarkdownHabitLinter())->lint("😀 **a**\nβ **b** @user #12 \u{202E}", ['platforms' => ['github']]);
+        $positions = array_map(static fn ($warning) => [$warning->line, $warning->column, $warning->start], $warnings);
+        $this->assertSame([[1, 3, 5], [2, 3, 14], [2, 9, 20], [2, 15, 26], [2, 19, 30]], $positions);
+    }
+
+    #[Group('scaling')]
+    public function testDenseLintWarningsScaleLinearly(): void
+    {
+        $linter = new MarkdownHabitLinter();
+        foreach (['😀 **a** ', '😀 @user #12 ', "😀 \u{202E} "] as $unit) {
+            $this->assertConversionScalesLinearly(
+                static fn (string $source) => $linter->lint($source, ['platforms' => ['github']]),
+                str_repeat($unit, 1000),
+                str_repeat($unit, 4000),
+                'dense lint warnings',
+                1000,
+                4000,
+            );
+        }
+    }
 
     public function testBalancedDestinationsAndTitlesKeepTheirSpelling(): void
     {
@@ -36,7 +60,65 @@ class RemainingScanCostsTest extends TestCase
             $codec->encode($converter->parse("a\n\nb\n\nb\n")),
         );
         $this->assertTrue($result['ok']);
+        $this->assertIsArray($result['ast']['children']);
         $this->assertCount(4, $result['ast']['children']);
+        $this->assertSame("a\n\na\n\nb\n\nb", trim((new PlainTextRenderer())->render($codec->decode($result['ast']))));
+    }
+
+    public function testNestedLabelsKeepFollowingLinks(): void
+    {
+        $converter = new CarveConverter();
+        $this->assertStringContainsString('<a href="w">z</a>', $converter->convert('[[x](y)](u) [z](w)'));
+        foreach (['[x](a\\)b)', '[x](a\\\\)', '[t](/u "a\\"b)")', "[t](/u 'T)')", '[x](a"b)c)'] as $source) {
+            $this->assertStringContainsString('<a ', $converter->convert($source));
+        }
+        $this->assertStringNotContainsString('<a ', $converter->convert('[x](u "open)'));
+    }
+
+    #[Group('scaling')]
+    public function testNestedWhitespaceDestinationsScaleLinearly(): void
+    {
+        $converter = new CarveConverter();
+        $this->assertConversionScalesLinearly(
+            static fn (string $source) => $converter->parse($source),
+            str_repeat('[x](a b', 1000) . str_repeat(')', 1000),
+            str_repeat('[x](a b', 4000) . str_repeat(')', 4000),
+            'nested whitespace destinations',
+            1000,
+            4000,
+        );
+    }
+
+    #[Group('scaling')]
+    public function testConcurrentAdditionsScaleLinearly(): void
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        $base = $codec->encode($converter->parse(''));
+        $this->assertConversionScalesLinearly(
+            static function (string $source) use ($converter, $codec, $base): void {
+                AstMerge::merge($base, $codec->encode($converter->parse($source)), $codec->encode($converter->parse(str_replace('a', 'b', $source))));
+            },
+            str_repeat("a\n\n", 500),
+            str_repeat("a\n\n", 2000),
+            'concurrent merge additions',
+            500,
+            2000,
+        );
+    }
+
+    public function testMatchingAdditionPrecedesLaterIdentityConflicts(): void
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        $base = $codec->encode($converter->parse(''));
+        $a = $codec->encode($converter->parse("{#h}\na\n"));
+        $b = $codec->encode($converter->parse("{#h}\nb\n"));
+        $both = $codec->encode($converter->parse("{#h}\na\n\n{#h}\nb\n"));
+        $this->assertTrue(AstMerge::merge($base, $a, $both)['ok']);
+        $conflict = AstMerge::merge($base, $b, $both);
+        $this->assertFalse($conflict['ok']);
+        $this->assertSame('concurrent-sequence-edit', $conflict['conflicts'][0]['reason']);
     }
 
     #[Group('scaling')]
@@ -95,7 +177,7 @@ class RemainingScanCostsTest extends TestCase
     {
         $linter = new MarkdownHabitLinter();
         $this->assertConversionScalesLinearly(
-            static fn (string $source) => $linter->lint($source),
+            static fn (string $source) => $linter->lint($source, ['platforms' => ['github']]),
             str_repeat('[x](', 2000) . ')',
             str_repeat('[x](', 8000) . ')',
             'lint destinations',

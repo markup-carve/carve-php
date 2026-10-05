@@ -11,9 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixes
 
-- Index failed inline destination scans and preserve their caches across nested labels and emphasis.
-- Use indexed AST merge matching and priority queues for merge ordering.
-- Walk wide Carve writer trees without shifting child arrays, and mask lint destinations in one pass.
+- Avoid repeated scans of malformed link destinations, including nested labels and emphasis.
+- Speed up AST merges, Carve rendering of wide trees, and platform linting of long destinations.
 
 ## [0.1.11] - 2026-10-05
 
