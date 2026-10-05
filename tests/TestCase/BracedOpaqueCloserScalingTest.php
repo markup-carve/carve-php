@@ -26,6 +26,19 @@ class BracedOpaqueCloserScalingTest extends TestCase
         );
     }
 
+    public function testNestedScansShareTheirJumpLandings(): void
+    {
+        $converter = CarveConverter::create();
+        $this->assertConversionScalesLinearly(
+            static fn (string $source): string => $converter->convert($source),
+            str_repeat('{_{*_}', 128) . str_repeat('x ', 128) . '`*}`',
+            str_repeat('{_{*_}', 512) . str_repeat('x ', 512) . '`*}`',
+            'nested failed scans joining after a jump',
+            128,
+            512,
+        );
+    }
+
     public function testAttributeOpenersBeforeAnOpaqueCloserScaleLinearly(): void
     {
         $converter = CarveConverter::create();

@@ -3562,6 +3562,7 @@ class InlineParser
                 }
                 if (
                     $searchPos === $pos + 2
+                    || ($searchPos > 0 && in_array($text[$searchPos - 1], ['}', '`', ']', ')', '\\'], true))
                     || ($searchPos >= 2 && $text[$searchPos - 2] === '{' && $text[$searchPos - 1] === $marker)
                 ) {
                     $visited[] = $searchPos;
@@ -4557,6 +4558,7 @@ class InlineParser
                 }
                 if (
                     $searchPos === $pos + 2
+                    || ($searchPos > 0 && in_array($text[$searchPos - 1], ['}', '`', ']', ')', '\\'], true))
                     || ($searchPos >= 2 && $text[$searchPos - 2] === '{' && $text[$searchPos - 1] === $marker)
                 ) {
                     $visited[] = $searchPos;
