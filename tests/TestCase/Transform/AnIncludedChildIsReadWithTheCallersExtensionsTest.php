@@ -103,7 +103,7 @@ class AnIncludedChildIsReadWithTheCallersExtensionsTest extends TestCase
         );
 
         $this->assertStringContainsString(
-            '<a href="#gloss-http" class="term">HTTP</a>',
+            '<a href="#gloss-HTTP" class="term">HTTP</a>',
             $converter->render($document),
         );
     }

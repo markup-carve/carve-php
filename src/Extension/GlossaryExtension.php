@@ -47,10 +47,10 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
     public const KIND = 'glossary';
 
     /**
-     * Defined term keys (across every `::: glossary` block), used to resolve
-     * `:term[word]` links.
+     * Defined term key => slug of the first entry with that key (across every
+     * `::: glossary` block), used to resolve `:term[word]` links.
      *
-     * @var array<string, true>
+     * @var array<string, string>
      */
     protected array $defined = [];
 
@@ -58,8 +58,8 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
 
     public function __construct()
     {
+        // Case-preserving, like a heading id, so `:: HTTP` and `:: http` keep two ids.
         $this->slugger = new HeadingIdTracker();
-        $this->slugger->setLowercase(true);
     }
 
     public function register(CarveConverter $converter): void
@@ -107,7 +107,7 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
                         continue;
                     }
                     $slug = $this->slug($term);
-                    $this->defined[$this->termKey($term)] = true;
+                    $this->defined[$this->termKey($term)] ??= $slug;
                     if (!isset($seen[$slug])) {
                         $term->setAttribute('id', 'gloss-' . $slug);
                         $seen[$slug] = true;
@@ -119,8 +119,8 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
 
     protected function renderTerm(InlineExtension $node, string $word, HtmlRenderer $renderer): string
     {
-        if (isset($this->defined[$this->termKey($node)])) {
-            $slug = $this->slug($node);
+        $slug = $this->defined[$this->termKey($node)] ?? null;
+        if ($slug !== null) {
             // The structural glossary target wins; drop any author `href`
             // (case-insensitive) so the <a> never has two.
             $attrs = $this->openAttributes($node, $renderer, ['href']);
@@ -237,7 +237,7 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
 
     /**
      * A reference reaches an entry by its exact text after whitespace collapse
-     * and NFC (CARVE-P9R-010); only the emitted id keeps the lowercased slug.
+     * and NFC (CARVE-P9R-010).
      */
     protected function termKey(Node $node): string
     {
