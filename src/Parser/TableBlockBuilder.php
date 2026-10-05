@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Block\TableCellAccumulator;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Util\CycleCollection;
 
@@ -277,24 +278,26 @@ final class TableBlockBuilder
 
             $i++;
 
+            $cellAccumulator = null;
             // Check for continuation rows (lines starting with +)
             while ($i < $count && ($this->getTableParser)()->isContinuationRow($lines[$i])) {
-                // THE ROW ABOVE DECIDES WHERE THIS ROW'S CELLS ARE. A verbatim
-                // run left open in cell k reaches ACROSS the row boundary
-                // (PART 9 §19 - the run ends at its closing delimiter, and a
-                // row boundary is not one), so a `|` inside it is content and
-                // not a cell delimiter. Split without that state, `| a `b |`
-                // followed by `+ c | d` |` broke one cell into two.
-                $openRuns = $this->openVerbatimRunsByCell($mergedCells);
+                $cellAccumulator ??= new TableCellAccumulator(($this->getTableParser)(), $mergedCells);
+                $openRuns = $cellAccumulator->openDelimiters();
                 $continuationCells = ($this->getTableParser)()->parseContinuationCells($lines[$i], $openRuns);
                 foreach ($this->continuationCellSourceChunks($i, $lines[$i], $openRuns) as $idx => $chunks) {
                     if ($chunks === []) {
                         continue;
                     }
-                    $cellSourceChunks[$idx] = array_merge($cellSourceChunks[$idx] ?? [], $chunks);
+                    foreach ($chunks as $chunk) {
+                        $cellSourceChunks[$idx][] = $chunk;
+                    }
                 }
-                $mergedCells = ($this->getTableParser)()->mergeCellContents($mergedCells, $continuationCells);
+                $cellAccumulator->append($continuationCells);
                 $i++;
+            }
+
+            if ($cellAccumulator !== null) {
+                $mergedCells = $cellAccumulator->contents();
             }
 
             // Rebuild cellsWithAttrs with merged content
@@ -788,16 +791,6 @@ final class TableBlockBuilder
     private function isPlainTableText(string $text): bool
     {
         return strpbrk($text, "\\`*_[{^~<\$:!\"'-\n/,=") === false;
-    }
-
-    /**
-     * @param array<int, string> $cells Merged content of the row so far.
-     *
-     * @return array<int, int> Cell index => open delimiter width.
-     */
-    private function openVerbatimRunsByCell(array $cells): array
-    {
-        return $this->source->openVerbatimRunsByCell($cells);
     }
 
     /**
