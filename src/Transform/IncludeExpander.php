@@ -1121,7 +1121,7 @@ class IncludeExpander implements TransformerInterface
             $headings = [...$headings, ...$this->collect($child, Heading::class)];
             foreach ($headings as $heading) {
                 $id = $tracker->getIdForHeading($heading);
-                if ($child === $heading && $id === $section) {
+                if ($child === $heading && $this->sameName($id, $section)) {
                     $start = (int)$index;
                     $level = $heading->getLevel();
 
@@ -1150,6 +1150,25 @@ class IncludeExpander implements TransformerInterface
         $selected->setChildren(array_slice($children, $start, $end - $start));
 
         return $selected;
+    }
+
+    /**
+     * A `#name` matches the way a `</#id>` cross-reference does (spec I1a, R4):
+     * case-insensitively, folding each code point on its own as
+     * HeadingIdTracker does, so no contextual mapping (final sigma) applies.
+     */
+    protected function sameName(string $id, string $name): bool
+    {
+        return $this->foldName($id) === $this->foldName($name);
+    }
+
+    protected function foldName(string $name): string
+    {
+        return (string)preg_replace_callback(
+            '/./us',
+            static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'),
+            $name,
+        );
     }
 
     protected function shiftHeadings(Node $node, int $shift): void
