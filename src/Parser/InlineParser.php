@@ -2504,7 +2504,7 @@ class InlineParser
      *
      * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text, pos: int, link_text: string}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
      */
-    protected function parseLink(string $text, int $pos): ?array
+    protected function parseLink(string $text, int $pos, bool $headingFallback = true): ?array
     {
         $length = strlen($text);
 
@@ -2614,7 +2614,21 @@ class InlineParser
                 $refDef = $originalRefBracket === ''
                     ? $this->blockParser->getCollapsedReference($ref)
                     : $this->blockParser->getReference($ref);
-                if ($refDef === null && $originalRefBracket === '') {
+                // getCollapsedReference() answers from the definitions AND the
+                // heading index, so the heading can win on the first lookup
+                // without the retry below ever running.
+                if (!$headingFallback && $refDef !== null && $refDef->fromHeading) {
+                    $refDef = null;
+                }
+                // THE IMPLICIT HEADING FALLBACK IS A LINK RULE. PART 11 R1
+                // makes a heading a candidate for a collapsed reference LINK;
+                // an image resolves against link definitions only, so
+                // `![Plan][]` under `# Plan` stays literal where `[Plan][]`
+                // resolves (markup-carve/carve-php#2900). Refused HERE rather
+                // than on the image the caller builds from this link: a link
+                // discarded afterwards leaves the `!` behind as text and the
+                // reference still resolved.
+                if ($refDef === null && $originalRefBracket === '' && $headingFallback) {
                     $plain = $this->blockParser->headingIndexKey($label);
                     if ($plain !== $ref && $plain !== '') {
                         $headingDef = $this->blockParser->getCollapsedReference($plain);
@@ -2791,7 +2805,7 @@ class InlineParser
     protected function parseImage(string $text, int $pos): ?array
     {
         // Skip the !
-        $result = $this->parseLink($text, $pos + 1);
+        $result = $this->parseLink($text, $pos + 1, headingFallback: false);
         if ($result === null) {
             return null;
         }
