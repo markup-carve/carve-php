@@ -22,8 +22,8 @@ class IncludeSelectionTest extends TestCase
      * @param string $name
      * @param string $expected
      */
-    #[DataProvider('caseInsensitiveProvider')]
-    public function testANameMatchesCaseInsensitively(string $child, string $name, string $expected): void
+    #[DataProvider('exactNameProvider')]
+    public function testANameMatchesExactly(string $child, string $name, string $expected): void
     {
         [$carve, $rules] = $this->expand("{{ child.crv #{$name} }}", ['child.crv' => $child]);
 
@@ -34,51 +34,56 @@ class IncludeSelectionTest extends TestCase
     /**
      * @return iterable<string, array{string, string, string}>
      */
-    public static function caseInsensitiveProvider(): iterable
+    public static function exactNameProvider(): iterable
     {
-        yield 'lowercase name, mixed-case explicit id' => [
+        yield 'exact spelling of a mixed-case explicit id' => [
             "{#Plan}\n# Plan\n\nplan text\n",
-            'plan',
+            'Plan',
             "{#Plan}\n# Plan\n\nplan text\n",
         ];
 
-        yield 'uppercase name, explicit id' => [
-            "{#plan}\n# Plan\n\nplan text\n",
-            'PLAN',
-            "{#plan}\n# Plan\n\nplan text\n",
-        ];
-
-        yield 'lowercase name, case-preserved auto slug' => [
+        yield 'exact spelling of a case-preserved auto slug' => [
             "# Intro\n\nskip\n\n# Getting Started\n\nkeep\n",
-            'getting-started',
+            'Getting-Started',
             "# Getting Started\n\nkeep\n",
         ];
 
-        yield 'exact spelling still matches' => [
-            "{#Plan}\n# Plan\n\nplan text\n",
-            'Plan',
-            "{#Plan}\n# Plan\n\nplan text\n",
-        ];
-
-        yield 'first case-insensitive match in document order wins' => [
+        yield 'ids differing only in case are distinct' => [
             "{#plan}\n# First\n\none\n\n{#Plan}\n# Second\n\ntwo\n",
             'Plan',
-            "{#plan}\n# First\n\none\n",
+            "{#Plan}\n# Second\n\ntwo\n",
         ];
 
         yield 'a deduplicated slug selects the second heading' => [
             "# Intro\n\none\n\n# Intro\n\ntwo\n",
-            'INTRO-2',
+            'Intro-2',
             "# Intro\n\ntwo\n",
         ];
     }
 
-    public function testANameThatMatchesNoSpellingStillWarns(): void
+    /**
+     * @param string $child
+     * @param string $name
+     */
+    #[DataProvider('otherCaseProvider')]
+    public function testANameInAnotherCaseSelectsNothing(string $child, string $name): void
     {
-        [$carve, $rules] = $this->expand('{{ child.crv #plans }}', ['child.crv' => "{#Plan}\n# Plan\n"]);
+        [$carve, $rules] = $this->expand("{{ child.crv #{$name} }}", ['child.crv' => $child]);
 
-        $this->assertSame("{{ child.crv #plans }}\n", $carve);
+        $this->assertSame("{{ child.crv #{$name} }}\n", $carve);
         $this->assertSame([IncludeExpander::RULE_SECTION], $rules);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function otherCaseProvider(): iterable
+    {
+        yield 'lowercase name, mixed-case explicit id' => ["{#Plan}\n# Plan\n\nplan text\n", 'plan'];
+        yield 'uppercase name, lowercase explicit id' => ["{#plan}\n# Plan\n\nplan text\n", 'PLAN'];
+        yield 'lowercase name, case-preserved auto slug' => ["# Getting Started\n\nkeep\n", 'getting-started'];
+        yield 'uppercase name, deduplicated slug' => ["# Intro\n\none\n\n# Intro\n\ntwo\n", 'INTRO-2'];
+        yield 'lowercase name, mixed-case block id' => ["{#Dough}\nknead\n", 'dough'];
     }
 
     /**
@@ -119,8 +124,8 @@ class IncludeSelectionTest extends TestCase
         ];
 
         yield 'an auto slug is a heading id, so it beats a block' => [
-            '{{ r.crv #hello }}',
-            ['r.crv' => "{#hello}\npara\n\n# Hello\n\nbody\n"],
+            '{{ r.crv #Hello }}',
+            ['r.crv' => "{#Hello}\npara\n\n# Hello\n\nbody\n"],
             "# Hello\n\nbody\n",
         ];
 
@@ -161,7 +166,7 @@ class IncludeSelectionTest extends TestCase
         ];
 
         yield 'a heading inside a div ends at its next sibling heading or the div' => [
-            '{{ r.crv #q }}',
+            '{{ r.crv #Q }}',
             ['r.crv' => "::: note\n## Q\n\nin\n\n### Sub\n\nmore\n\n## R\n\nno\n:::\n\nafter\n"],
             "## Q\n\nin\n\n### Sub\n\nmore\n",
         ];
@@ -178,8 +183,8 @@ class IncludeSelectionTest extends TestCase
             "{#2024-plan}\n```text\nship it\n```\n",
         ];
 
-        yield 'a block id matches case-insensitively' => [
-            '{{ r.crv #dough }}',
+        yield 'a block id matches exactly' => [
+            '{{ r.crv #Dough }}',
             ['r.crv' => "{#Dough}\nknead\n"],
             "{#Dough}\nknead\n",
         ];
