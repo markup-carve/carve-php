@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstMerge;
+use MarkupCarve\Carve\Ast\AstStructuralIndex;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
 use MarkupCarve\Carve\Lint\SourceLinter;
@@ -283,7 +284,8 @@ class RemainingScanCostsTest extends TestCase
         $this->assertConversionScalesLinearly(
             static function (string $source) use ($method): void {
                 $nodes = array_fill(0, strlen($source), ['type' => 'text', 'value' => 'a']);
-                $method->invoke(null, $nodes, $nodes, '/children');
+                $indexed = (new AstStructuralIndex())->build($nodes);
+                $method->invoke(null, $nodes, $nodes, $indexed->children, $indexed->children);
             },
             str_repeat('a', 4000),
             str_repeat('a', 16000),

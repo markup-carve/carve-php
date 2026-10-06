@@ -16,6 +16,34 @@ class NumberedCrossRefTest extends TestCase
         $this->converter = new CarveConverter();
     }
 
+    public function testCaseDistinctCaptionAndEquationTargetsStaySeparate(): void
+    {
+        $html = $this->converter->convert(<<<'CARVE'
+{#Fig}
+![upper](upper.png)
+^ Figure #: upper
+
+{#fig}
+![lower](lower.png)
+^ Figure #: lower
+
+{#Eq}
+$$`x`
+^ Equation #: upper
+
+{#eq}
+$$`y`
+^ Equation #: lower
+
+</#Fig>, </#fig>, </#FIG>, </#Eq>, </#eq>, </#EQ>.
+CARVE);
+
+        $this->assertStringContainsString(
+            '<a href="#Fig">Figure 1</a>, <a href="#fig">Figure 2</a>, &lt;/#FIG&gt;, <a href="#Eq">Equation 1</a>, <a href="#eq">Equation 2</a>, &lt;/#EQ&gt;.',
+            $html,
+        );
+    }
+
     public function testFigureCaptionNumber(): void
     {
         $html = $this->converter->convert(<<<'DJOT'

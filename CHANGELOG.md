@@ -9,21 +9,44 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-### Fixes
-
-- AST merges and identity snapshots share exact structural indexes instead of repeatedly serializing subtrees. Patch creation walks each pair once, and replay updates a private tree in place. Provenance ancestry and envelope extension checks avoid repeated scans.
-
-- Default classes are merged in one pass, preserving authored duplicates and the order of newly added classes.
-
 ## [0.1.11] - 2026-10-06
+
+### Compatibility and migration
+
+With the new engine, lint existing documents before deploying their output.
+`fmt --migrate` repairs unambiguous case-only reference misses. Review changes
+to collapsed link text and image alt text; include selectors, glossary
+references and external fragment links need manual review. See the
+[migration guide](https://github.com/markup-carve/carve-php/blob/main/docs/cli.md#exact-case-reference-migration).
 
 ### Breaking
 
 - A glossary reference matches its term exactly, under the same comparison as every other name lookup, and a glossary id keeps its case, so two terms differing only in case take two ids (#2895, markup-carve/carve#2739).
 - Every destination the sink denylist blanks owes a render-loss row under a new `code` value, `destination-denied`, so the `CARVE-P2-024` enum names three codes rather than two. The row carries the target, `nodeType: inline` and the spec's own message, which says whether a link destination or an image source was blanked. The emitted `href=""` and `src=""` do not move (#2802, #2806, #2804, markup-carve/carve#2681, markup-carve/carve#2686).
-- A name lookup compares with exact case everywhere it is made, so an include's `#name`, a collapsed reference and a heading's text all resolve only to a name spelled the same way. A document that relied on a case-insensitive match resolves to nothing and reports it (#2874, #2879, #2888, markup-carve/carve#2732). The match was widened to ignore case first and made exact before the release, so only the exact rule ships. The colliding-id rename that goes with it is in markup-carve/carve#2729.
+- Heading cross-references, numbered caption and equation references, and collapsed
+  references that fall back to heading text now compare case exactly.
+  Link-definition labels, footnote labels and include fragment selectors already
+  did in the previous published engine.
+  Case-only mismatches no longer resolve (#2874, #2879, #2888, markup-carve/carve#2732).
+
+- Includes rename colliding explicit ids on any element and give each later
+  occurrence its own least free suffix. References written in the same inclusion follow
+  the rename (#2876, #2879, #2888, markup-carve/carve#2729,
+  markup-carve/carve#2732).
 
 ### Fixes
+
+- The duplicate-merge scaling guard passes the structural indexes required by
+  the current matcher, so the release check measures its work instead of
+  failing on an outdated private-method call (#2923).
+
+- The upgrade guide distinguishes newly exact lookups from labels that already
+  matched case exactly, and explains migration limits. Tests keep case-distinct
+  numbered captions and equations separate (#2923).
+
+- AST merges and identity snapshots share exact structural indexes instead of repeatedly serializing subtrees. Patch creation walks each pair once, and replay updates a private tree in place. Provenance ancestry and envelope extension checks avoid repeated scans (#2921).
+
+- Default classes are merged in one pass, preserving authored duplicates and the order of newly added classes (#2916).
 
 - A flush-left line below a closed nested fence folds into the outer item rather than opening a block of its own (#2901, markup-carve/carve#2878).
 - A paragraph left open below a closed nested fence takes a following flush-left line (#2905, markup-carve/carve#2903).

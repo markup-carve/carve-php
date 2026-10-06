@@ -13,6 +13,24 @@ echo '# Hello' | bin/carve           # render from stdin
 bin/carve merge base.crv ours.crv theirs.crv # structural three-way merge
 ~~~
 
+## Exact-case reference migration
+
+Exact-case lookup changes heading cross-references, numbered caption and equation
+references, and collapsed references that fall back to heading text.
+Link-definition labels, footnote labels and include fragment selectors were
+already case-sensitive in the previous published engine. Whitespace normalization, NFC and default heading slug derivation
+are unchanged. Case-distinct ids identify separate targets.
+
+With the new engine, run `carve lint` before deploying the rendered output.
+`carve fmt --migrate`
+repairs unambiguous case-only cross-reference and link or image label misses,
+including label mistakes that were already unresolved before this release.
+Review the result: changing a collapsed label also changes its visible text or
+image alternative text. Ambiguous matches and labels carrying inline markup
+need manual review. Include selectors, glossary references and external
+fragment links are outside this repair. Glossary ids now preserve case, so
+update links to those ids separately. Ordinary `fmt` does not apply this repair.
+
 ## Import migration gate
 
 `carve migrate --from html|markdown|djot|bbcode` can write the shared version 2
