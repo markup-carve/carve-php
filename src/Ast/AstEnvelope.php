@@ -160,13 +160,14 @@ final class AstEnvelope
         }
 
         if (array_key_exists('extensions', $envelope)) {
+            $implemented = array_fill_keys(array_filter($extensions, 'is_string'), true);
             foreach ($this->readExtensions($envelope['extensions']) as $extension) {
                 // Absent means true. An extension a reader may ignore without
                 // misreading the document has to say so.
                 if (($extension['required'] ?? true) === false) {
                     continue;
                 }
-                if (!in_array($extension['id'], $extensions, true)) {
+                if (!isset($implemented[$extension['id']])) {
                     throw new AstEnvelopeExtensionException($extension['id']);
                 }
             }

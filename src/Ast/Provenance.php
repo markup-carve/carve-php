@@ -81,15 +81,27 @@ final class Provenance
             }
             $sources[$id] = $source;
         }
-        foreach ($sources as $id => $source) {
-            $seen = [$id => true];
-            while (isset($source['parent'])) {
-                $parent = $source['parent'];
-                if (!is_string($parent) || !isset($sources[$parent]) || isset($seen[$parent])) {
+        $completed = [];
+        foreach ($sources as $id => $_) {
+            $seen = [];
+            $current = $id;
+            while (!isset($completed[$current])) {
+                if (isset($seen[$current])) {
                     throw new InvalidArgumentException('Provenance source ancestry is missing or cyclic.');
                 }
-                $seen[$parent] = true;
-                $source = $sources[$parent];
+                $seen[$current] = true;
+                $source = $sources[$current];
+                if (!isset($source['parent'])) {
+                    break;
+                }
+                $parent = $source['parent'];
+                if (!is_string($parent) || !isset($sources[$parent])) {
+                    throw new InvalidArgumentException('Provenance source ancestry is missing or cyclic.');
+                }
+                $current = $parent;
+            }
+            foreach ($seen as $visited => $_) {
+                $completed[$visited] = true;
             }
         }
         $paths = [];

@@ -9,6 +9,12 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixes
+
+- AST merges and identity snapshots share exact structural indexes instead of repeatedly serializing subtrees. Patch creation walks each pair once, and replay updates a private tree in place. Provenance ancestry and envelope extension checks avoid repeated scans.
+
+- Default classes are merged in one pass, preserving authored duplicates and the order of newly added classes.
+
 ## [0.1.11] - 2026-10-06
 
 ### Breaking
