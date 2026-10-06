@@ -1115,6 +1115,12 @@ class CarveCorpusTest extends TestCase
         // carve-php#2906 already folds the flush-left line for every lead kind,
         // which is why the info string had nothing left to change.
         'an-info-string-does-not-change-how-a-flush-left-fence-folds-into-a-description-body',
+        // ARRIVED WITH THE BUMP TO carve 5fbf8ae. 548 is markup-carve/carve#2752:
+        // a description body whose own block is a fence keeps no line below its
+        // column. The document renders byte-identically to its pinned HTML on
+        // this engine, measured before this entry was added, so the category is
+        // declared rather than deferred and KNOWN_GAPS stays empty.
+        'a-description-body-whose-own-block-is-a-fence-keeps-no-line-below-its-column',
     ];
 
     /**
