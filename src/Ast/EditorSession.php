@@ -93,10 +93,15 @@ final class EditorSession
             $validated[] = ['from' => $change['from'], 'to' => $change['to'], 'insert' => $change['insert']];
         }
         $changes = $validated;
-        for ($index = count($changes) - 1; $index >= 0; $index--) {
-            $change = $changes[$index];
-            $source = substr($source, 0, $change['from']) . $change['insert'] . substr($source, $change['to']);
+        $parts = [];
+        $cursor = 0;
+        foreach ($changes as $change) {
+            $parts[] = substr($source, $cursor, $change['from'] - $cursor);
+            $parts[] = $change['insert'];
+            $cursor = $change['to'];
         }
+        $parts[] = substr($source, $cursor);
+        $source = implode('', $parts);
         $next = $this->build($source, $current['revision'] + 1, $changes);
         $before = $this->signatures;
         $after = self::signatures($next['ast']);
@@ -166,21 +171,26 @@ final class EditorSession
                 $retained[$oldIds['']] = '';
             }
             $assigned = ['' => true];
+            $deltas = [0];
+            foreach ($changes as $change) {
+                $deltas[] = $deltas[count($deltas) - 1] + strlen($change['insert']) - ($change['to'] - $change['from']);
+            }
             foreach ($this->current['nodes'] as $old) {
                 if ($old['path'] === '') {
                     continue;
                 }
-                $delta = 0;
-                $touched = false;
-                foreach ($changes as $change) {
-                    if ($change['to'] <= $old['startByte']) {
-                        $delta += strlen($change['insert']) - ($change['to'] - $change['from']);
-                    } elseif ($change['from'] < $old['endByte']) {
-                        $touched = true;
-
-                        break;
+                $low = 0;
+                $high = count($changes);
+                while ($low < $high) {
+                    $mid = intdiv($low + $high, 2);
+                    if ($changes[$mid]['to'] <= $old['startByte']) {
+                        $low = $mid + 1;
+                    } else {
+                        $high = $mid;
                     }
                 }
+                $delta = $deltas[$low];
+                $touched = isset($changes[$low]) && $changes[$low]['from'] < $old['endByte'];
                 $start = $old['startByte'] + $delta;
                 $end = $old['endByte'] + $delta;
                 $key = ($old['type'] ?? '') . ':' . $start . ':' . $end;
@@ -387,6 +397,7 @@ final class EditorSession
                 ];
             }
         }
+        $lineStarts = null;
         foreach ($nodes as &$node) {
             $start = $node['startByte'];
             $end = $node['endByte'];
@@ -432,11 +443,36 @@ final class EditorSession
             }
             $value = SidecarPath::node($ast, $node['path'], $validPaths);
             if (isset($value['attrs'])) {
-                $before = preg_replace('/\r?\n$/', '', substr($source, 0, $start)) ?? '';
-                $lf = strrpos($before, "\n");
-                $cr = strrpos($before, "\r");
-                $lineStart = max($lf === false ? -1 : $lf, $cr === false ? -1 : $cr) + 1;
-                $line = substr($before, $lineStart);
+                if ($lineStarts === null) {
+                    $lineStarts = [0];
+                    $sourceLength = strlen($source);
+                    for ($at = 0; $at < $sourceLength; ++$at) {
+                        if ($source[$at] === "\r" || $source[$at] === "\n") {
+                            $lineStarts[] = $at + 1;
+                        }
+                    }
+                }
+                $endOfLine = $start;
+                if ($endOfLine > 0 && $source[$endOfLine - 1] === "\n") {
+                    --$endOfLine;
+                    if ($endOfLine > 0 && $source[$endOfLine - 1] === "\r") {
+                        --$endOfLine;
+                    }
+                } elseif ($endOfLine > 0 && $source[$endOfLine - 1] === "\r") {
+                    --$endOfLine;
+                }
+                $low = 0;
+                $high = count($lineStarts);
+                while ($low + 1 < $high) {
+                    $mid = intdiv($low + $high, 2);
+                    if ($lineStarts[$mid] <= $endOfLine) {
+                        $low = $mid;
+                    } else {
+                        $high = $mid;
+                    }
+                }
+                $lineStart = $lineStarts[$low];
+                $line = substr($source, $lineStart, $endOfLine - $lineStart);
                 if (preg_match('/^\{[^\r\n]+\}$/', $line) === 1) {
                     $add('attribute', $lineStart, $lineStart + strlen($line));
                 }

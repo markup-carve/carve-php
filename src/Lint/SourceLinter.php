@@ -37,15 +37,17 @@ class SourceLinter
         $rows = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];
         $rowCount = count($rows);
         $map = SourceOffsets::map($source);
+        $validUtf8 = mb_check_encoding($source, 'UTF-8');
         $length = strlen($source);
         $warnings = [];
-        $emit = static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows, $length): void {
+        $emit = static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows, $length, $map, $validUtf8): void {
             if (!isset($rows[$line - 1])) {
                 return;
             }
             [$text, $start] = $rows[$line - 1];
             $at = min($at, strlen($text));
-            $warnings[] = new LintWarning($line, mb_strlen(substr($text, 0, $at), 'UTF-8') + 1, $rule, $message, $start + $at, min($start + $at + $size, $length));
+            $column = $validUtf8 ? SourceOffsets::toCodepoint($start + $at, $map) - SourceOffsets::toCodepoint($start, $map) + 1 : SourceOffsets::toColumn($text, $at);
+            $warnings[] = new LintWarning($line, $column, $rule, $message, $start + $at, min($start + $at + $size, $length));
         };
         foreach ($converter->getParser()->getUnattachedBlockAttributes() as $span) {
             $warnings[] = new LintWarning(

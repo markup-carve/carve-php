@@ -8,6 +8,8 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
+use MarkupCarve\Carve\Lint\SourceLinter;
+use MarkupCarve\Carve\Lint\TableColumnLinter;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -42,6 +44,72 @@ class RemainingScanCostsTest extends TestCase
                 4000,
                 16000,
                 maxPerByteRatio: 2.0,
+            );
+        }
+    }
+
+    #[Group('scaling')]
+    public function testEditorBatchesScaleLinearly(): void
+    {
+        $converter = new CarveConverter();
+        $this->assertConversionScalesLinearly(
+            static function (string $source) use ($converter): void {
+                $session = $converter->createEditorSession($source);
+                $changes = [];
+                $length = strlen($source);
+                for ($at = 0; $at < $length; $at += 6) {
+                    $changes[] = ['from' => $at, 'to' => $at + 1, 'insert' => 'bb'];
+                }
+                $session->update($changes);
+            },
+            str_repeat("a\n\n", 1000),
+            str_repeat("a\n\n", 4000),
+            'editor batches',
+            1000,
+            4000,
+        );
+    }
+
+    #[Group('scaling')]
+    public function testEditorAttributeMappingScalesLinearly(): void
+    {
+        $converter = new CarveConverter();
+        $this->assertConversionScalesLinearly(
+            static fn (string $source) => $converter->createEditorSession($source),
+            str_repeat("{.a}\nword\n\n", 4000),
+            str_repeat("{.a}\nword\n\n", 16000),
+            'editor attribute mapping',
+            4000,
+            16000,
+        );
+    }
+
+    public function testIndexedLintPositionsPreserveUnicodeAndLineEndings(): void
+    {
+        $warnings = (new SourceLinter())->lint('😀 {{ }} {{ }}');
+        $this->assertSame([[3, 5], [9, 11]], array_map(static fn ($warning) => [$warning->column, $warning->start], $warnings));
+        foreach (["\n", "\r\n", "\r"] as $ending) {
+            $source = 'Å Ⅰ 😀' . $ending . '{widths=60,50}' . $ending . '| a | b |';
+            $warnings = (new TableColumnLinter())->lint($source);
+            $this->assertCount(1, $warnings);
+            $this->assertSame(2, $warnings[0]->line);
+            $this->assertSame(2, $warnings[0]->column);
+            $this->assertSame('widths', substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start));
+        }
+    }
+
+    #[Group('scaling')]
+    public function testIndexedLintWarningsScaleLinearly(): void
+    {
+        foreach ([new SourceLinter(), new TableColumnLinter()] as $linter) {
+            $unit = $linter instanceof SourceLinter ? '😀 {{ }} ' : "{widths=60,50}\n| a | b |\n\n";
+            $this->assertConversionScalesLinearly(
+                static fn (string $source) => $linter->lint($source),
+                str_repeat($unit, 2000),
+                str_repeat($unit, 8000),
+                'indexed lint positions',
+                2000,
+                8000,
             );
         }
     }

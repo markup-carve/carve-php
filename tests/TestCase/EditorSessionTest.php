@@ -38,6 +38,37 @@ final class EditorSessionTest extends TestCase
         $this->assertContains('/children/0/children/0', $update['changedPaths']);
     }
 
+    public function testBatchedChangesKeepOrderAndUntouchedIdentities(): void
+    {
+        $converter = new CarveConverter();
+        $session = $converter->createEditorSession("one\n\ntwo\n\nthree\n\nfour");
+        $old = array_column($session->snapshot()['identity']['nodes'], 'id', 'path');
+        $update = $session->update([
+            ['from' => 0, 'to' => 0, 'insert' => 'A'],
+            ['from' => 0, 'to' => 0, 'insert' => 'B'],
+            ['from' => 0, 'to' => 3, 'insert' => 'ONE'],
+            ['from' => 17, 'to' => 21, 'insert' => '4'],
+        ]);
+        $this->assertSame("ABONE\n\ntwo\n\nthree\n\n4", $update['source']);
+        $this->assertSame($converter->parseWithSourceLayout($update['source'])['ast'], $update['ast']);
+        $ids = array_column($update['identity']['nodes'], 'id', 'path');
+        foreach (['/children/1', '/children/1/children/0', '/children/2'] as $path) {
+            $this->assertSame($old[$path], $ids[$path]);
+        }
+    }
+
+    public function testAttributeTokensAcrossLineEndings(): void
+    {
+        foreach (["\n", "\r\n", "\r"] as $ending) {
+            $nodes = (new CarveConverter())->createEditorSession('{.a}' . $ending . 'word' . $ending)->snapshot()['nodes'];
+            $tokens = [];
+            foreach ($nodes as $node) {
+                $tokens = array_merge($tokens, $node['tokens']);
+            }
+            $this->assertContains(['role' => 'attribute', 'startByte' => 0, 'endByte' => 4], $tokens);
+        }
+    }
+
     public function testInvalidEditsLeaveTheSnapshotUnchanged(): void
     {
         $session = (new CarveConverter())->createEditorSession('a😀b');

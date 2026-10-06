@@ -61,6 +61,31 @@ class SourceOffsets
     }
 
     /**
+     * @param int $byteOffset
+     * @param array<int, int>|null $byteAt
+     *
+     * @return int
+     */
+    public static function toCodepoint(int $byteOffset, ?array $byteAt): int
+    {
+        if ($byteAt === null) {
+            return $byteOffset;
+        }
+        $low = 0;
+        $high = count($byteAt);
+        while ($low + 1 < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($byteAt[$mid] <= $byteOffset) {
+                $low = $mid;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $low;
+    }
+
+    /**
      * The 1-based CODEPOINT column a byte offset into a line names.
      *
      * A `LintWarning`'s `start` and `end` are byte offsets by design, stated
