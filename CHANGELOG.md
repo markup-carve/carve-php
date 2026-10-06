@@ -98,6 +98,10 @@ references and external fragment links need manual review. See the
 
 ### Performance
 
+- AST merges and identity snapshots share exact structural indexes instead of
+  repeatedly serializing subtrees. Patch creation walks each pair once, and
+  replay updates a private tree in place. Provenance ancestry and envelope
+  extension checks avoid repeated scans (#2921).
 - Default classes are merged in one indexed pass, preserving authored
   duplicates and the order of newly added classes (#2916).
 - Speed up editor batches, attribute-token mapping, table linting and repeated empty-include warnings, and preserve table-warning line numbers after Unicode text and byte ranges after CRLF and CR endings. Editor attribute lines are recognized after bare CR endings (#2912).
