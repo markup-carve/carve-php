@@ -47,11 +47,11 @@ class CitationsExtensionTest extends TestCase
                 $length = mb_strlen($raw, 'UTF-8');
                 $group->setPos(new SourceSpan(1, 1, 1, $length + 1, 0, $length));
             },
-            '[' . implode('; ', array_fill(0, 4096, '@a')) . ']',
             '[' . implode('; ', array_fill(0, 16384, '@a')) . ']',
+            '[' . implode('; ', array_fill(0, 65536, '@a')) . ']',
             'citation item position setter',
-            4096,
             16384,
+            65536,
         );
     }
 
