@@ -9,6 +9,11 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixes
+
+- Avoid repeated scans of malformed link destinations, including nested labels and emphasis.
+- Speed up AST merges, Carve rendering of wide trees, and platform linting of long destinations.
+
 ## [0.1.11] - 2026-10-05
 
 ### Breaking

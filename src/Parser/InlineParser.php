@@ -283,6 +283,21 @@ class InlineParser
     protected array $destinationScans = [];
 
     /**
+     * @var array<int, int>|null
+     */
+    private ?array $destinationStops = null;
+
+    /**
+     * @var list<int>|null
+     */
+    private ?array $destinationWhitespace = null;
+
+    /**
+     * @var array<int, int>
+     */
+    private array $destinationTitleEnds = [];
+
+    /**
      * Memo for bracketRunSkip(), per `[` position in the same text.
      *
      * @var array<int, int|null>
@@ -714,6 +729,9 @@ class InlineParser
         $outerSkipText = $this->destinationSkipText;
         $outerSkips = $this->destinationSkips;
         $outerScans = $this->destinationScans;
+        $outerStops = $this->destinationStops;
+        $outerWhitespace = $this->destinationWhitespace;
+        $outerTitleEnds = $this->destinationTitleEnds;
         $outerBracketRuns = $this->bracketRunEnds;
         $outerBalancedEnds = $this->balancedBracketEnds;
         $outerBalancedText = $this->balancedBracketText;
@@ -741,6 +759,9 @@ class InlineParser
             $this->destinationSkipText = $outerSkipText;
             $this->destinationSkips = $outerSkips;
             $this->destinationScans = $outerScans;
+            $this->destinationStops = $outerStops;
+            $this->destinationWhitespace = $outerWhitespace;
+            $this->destinationTitleEnds = $outerTitleEnds;
             $this->bracketRunEnds = $outerBracketRuns;
             $this->balancedBracketEnds = $outerBalancedEnds;
             $this->balancedBracketText = $outerBalancedText;
@@ -4742,47 +4763,83 @@ class InlineParser
         // CommonMark both balance the same way. An escaped character never
         // opens or closes a level.
         $length = strlen($text);
-        $urlEnd = $urlStart;
-        $depth = 0;
-        // A quoted title is opaque to the scan. `link_title` admits any
-        // character but its own quote, so a `)` inside one does not close the
-        // tail; reading it as the closer left `[t](/u "T)")` literal text
-        // (markup-carve/carve-php#2191). The destination admits no whitespace,
-        // so a quote opening the slot is one that follows a space.
-        while ($urlEnd < $length) {
-            $char = $text[$urlEnd];
-            if ($char === '\\' && $urlEnd + 1 < $length) {
-                $urlEnd += 2;
-
-                continue;
-            }
-            if (
-                ($char === '"' || $char === "'")
-                && $urlEnd > $urlStart
-                && $text[$urlEnd - 1] === ' '
-            ) {
-                $close = $this->closingTitleQuote($text, $urlEnd);
-                if ($close !== null) {
-                    $urlEnd = $close + 1;
-
-                    continue;
+        if ($this->destinationStops === null) {
+            // Callers enter immediately after `(`, so a title quote has a preceding space.
+            $stops = array_fill(0, $length + 1, $length);
+            for ($i = $length - 1; $i >= 0; --$i) {
+                $char = $text[$i];
+                $close = null;
+                if (($char === '"' || $char === "'") && $i > 0 && $text[$i - 1] === ' ') {
+                    $close = $this->closingTitleQuote($text, $i);
+                }
+                if ($char === '\\' && $i + 1 < $length) {
+                    $stops[$i] = $stops[min($length, $i + 2)];
+                } elseif (
+                    ($char === '"' || $char === "'") && $i > 0 && $text[$i - 1] === ' '
+                    && $close !== null
+                ) {
+                    $stops[$i] = $stops[$close + 1];
+                } elseif ($char === '(') {
+                    $close = $stops[$i + 1];
+                    $stops[$i] = $close < $length ? $stops[$close + 1] : $length;
+                } elseif ($char === ')') {
+                    $stops[$i] = $i;
+                } else {
+                    $stops[$i] = $stops[$i + 1];
                 }
             }
-            if ($char === '(') {
-                $depth++;
-            } elseif ($char === ')') {
-                if ($depth === 0) {
-                    break;
-                }
-                $depth--;
-            }
-            $urlEnd++;
+            $this->destinationStops = $stops;
         }
+        $urlEnd = $this->destinationStops[$urlStart];
 
         if ($urlEnd >= $length || $text[$urlEnd] !== ')') {
             return $this->destinationScans[$urlStart] = null;
         }
         $notADestination = ['end' => $urlEnd, 'url' => null, 'title' => null];
+
+        if (
+            $urlEnd > $urlStart && (str_contains(" \t\n\r\0\x0B", $text[$urlStart])
+            || str_contains(" \t\n\r\0\x0B", $text[$urlEnd - 1]))
+        ) {
+            return $this->destinationScans[$urlStart] = $notADestination;
+        }
+        if ($this->destinationWhitespace === null) {
+            preg_match_all('/[\p{Z}\x{0009}-\x{000D}\x{0085}]/u', $text, $whitespace, PREG_OFFSET_CAPTURE);
+            $this->destinationWhitespace = array_column($whitespace[0], 1);
+        }
+        $low = 0;
+        $high = count($this->destinationWhitespace);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($this->destinationWhitespace[$mid] < $urlStart) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+        $firstWhitespace = $this->destinationWhitespace[$low] ?? $urlEnd;
+        if ($firstWhitespace < $urlEnd) {
+            $quote = $text[$firstWhitespace + 1] ?? '';
+            $titleClose = $urlEnd;
+            if ($quote === '"' || $quote === "'") {
+                $opener = $firstWhitespace + 1;
+                if (!isset($this->destinationTitleEnds[$opener])) {
+                    $next = $opener + 1;
+                    while (($next = strpos($text, $quote, $next)) !== false && $text[$next - 1] === '\\') {
+                        ++$next;
+                    }
+                    $this->destinationTitleEnds[$opener] = $next === false ? $length : $next;
+                }
+                $titleClose = $this->destinationTitleEnds[$opener];
+            }
+            if (
+                $firstWhitespace === $urlStart || $text[$firstWhitespace] !== ' '
+                || ($quote !== '"' && $quote !== "'")
+                || $titleClose < $urlEnd - 1 || $text[$urlEnd - 1] !== $quote
+            ) {
+                return $this->destinationScans[$urlStart] = $notADestination;
+            }
+        }
 
         $raw = substr($text, $urlStart, $urlEnd - $urlStart);
         if ($raw !== trim($raw)) {
@@ -4898,6 +4955,9 @@ class InlineParser
         $this->destinationSkipText = $text;
         $this->destinationSkips = [];
         $this->destinationScans = [];
+        $this->destinationStops = null;
+        $this->destinationWhitespace = null;
+        $this->destinationTitleEnds = [];
         $this->bracketRunEnds = [];
     }
 

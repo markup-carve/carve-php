@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Ast;
 
 use InvalidArgumentException;
+use SplPriorityQueue;
 use stdClass;
 
 final class AstMerge
@@ -196,12 +197,15 @@ final class AstMerge
         foreach ($side as $index => $value) {
             $exact[self::key($value, $path)][] = $index;
         }
+        $exactCursors = [];
         foreach ($base as $index => $value) {
             $key = self::key($value, $path);
-            if (($exact[$key] ?? []) === []) {
+            $cursor = $exactCursors[$key] ?? 0;
+            if (!isset($exact[$key][$cursor])) {
                 continue;
             }
-            $sideIndex = array_shift($exact[$key]);
+            $sideIndex = $exact[$key][$cursor];
+            $exactCursors[$key] = $cursor + 1;
             $baseToSide[$index] = $sideIndex;
             $sideToBase[$sideIndex] = $index;
         }
@@ -298,30 +302,27 @@ final class AstMerge
     }
 
     /**
-     * @param int $index
      * @param array{sideToBase: array<int, int>} $match
      * @param int $length
+     *
+     * @return array<int, string>
      */
-    private static function anchor(int $index, array $match, int $length): string
+    private static function anchors(array $match, int $length): array
     {
-        $before = -1;
-        $after = -1;
-        for ($i = $index - 1; $i >= 0; --$i) {
-            if (isset($match['sideToBase'][$i])) {
-                $before = $match['sideToBase'][$i];
-
-                break;
-            }
+        $before = [];
+        $at = -1;
+        for ($i = 0; $i < $length; ++$i) {
+            $before[$i] = $at;
+            $at = $match['sideToBase'][$i] ?? $at;
         }
-        for ($i = $index + 1; $i < $length; ++$i) {
-            if (isset($match['sideToBase'][$i])) {
-                $after = $match['sideToBase'][$i];
-
-                break;
-            }
+        $anchors = [];
+        $at = -1;
+        for ($i = $length - 1; $i >= 0; --$i) {
+            $anchors[$i] = $before[$i] . ':' . $at;
+            $at = $match['sideToBase'][$i] ?? $at;
         }
 
-        return $before . ':' . $after;
+        return $anchors;
     }
 
     /**
@@ -331,6 +332,8 @@ final class AstMerge
      * @param string $path
      * @param list<array<string, mixed>> $conflicts
      * @param callable|null $resolve
+     *
+     * @throws \InvalidArgumentException
      */
     private static function mergeSequence(array $base, array $ours, array $theirs, string $path, array &$conflicts, ?callable $resolve): mixed
     {
@@ -374,18 +377,43 @@ final class AstMerge
         $ot = [];
         $tt = [];
         $used = [];
+        $oursAnchors = self::anchors($om, count($ours));
+        $theirsAnchors = self::anchors($tm, count($theirs));
+        $buckets = [];
+        $cursors = [];
+        $identities = [];
+        foreach ($tm['additions'] as $ti) {
+            $key = self::key($theirs[$ti], $path);
+            $anchor = $theirsAnchors[$ti];
+            $bucketKey = $anchor . "\0" . $key;
+            $buckets[$bucketKey][] = $ti;
+            $hint = self::identityHint($theirs[$ti]);
+            if ($hint !== null) {
+                $hintKey = $anchor . "\0" . $hint;
+                if (!isset($identities[$hintKey])) {
+                    $identities[$hintKey] = [[$key, $ti]];
+                } elseif ($identities[$hintKey][0][0] !== $key && count($identities[$hintKey]) === 1) {
+                    $identities[$hintKey][] = [$key, $ti];
+                }
+            }
+        }
         foreach ($om['additions'] as $oi) {
-            $same = null;
+            $key = self::key($ours[$oi], $path);
+            $anchor = $oursAnchors[$oi];
+            $bucketKey = $anchor . "\0" . $key;
+            $cursor = $cursors[$bucketKey] ?? 0;
+            $same = $buckets[$bucketKey][$cursor] ?? null;
             $oursHint = self::identityHint($ours[$oi]);
-            foreach ($tm['additions'] as $ti) {
-                if ($oursHint !== null && self::identityHint($theirs[$ti]) === $oursHint && self::anchor($oi, $om, count($ours)) === self::anchor($ti, $tm, count($theirs)) && !self::equal($ours[$oi], $theirs[$ti], $path)) {
-                    return self::conflict('concurrent-sequence-edit', $path, $base, $ours, $theirs, $conflicts, $resolve);
+            if ($oursHint !== null) {
+                $hintKey = $anchor . "\0" . $oursHint;
+                foreach ($identities[$hintKey] ?? [] as [$otherKey, $ti]) {
+                    if ($otherKey !== $key && ($same === null || $ti < $same)) {
+                        return self::conflict('concurrent-sequence-edit', $path, $base, $ours, $theirs, $conflicts, $resolve);
+                    }
                 }
-                if (!isset($used[$ti]) && self::anchor($oi, $om, count($ours)) === self::anchor($ti, $tm, count($theirs)) && self::equal($ours[$oi], $theirs[$ti], $path)) {
-                    $same = $ti;
-
-                    break;
-                }
+            }
+            if ($same !== null) {
+                $cursors[$bucketKey] = $cursor + 1;
             }
             $token = 'o' . $oi;
             $ot[$oi] = $token;
@@ -449,16 +477,24 @@ final class AstMerge
                 ++$incoming[$to];
             }
         }
-        $ready = array_keys(array_filter($incoming, static fn (int $count): bool => $count === 0));
+        $ready = new SplPriorityQueue();
+        $ready->setExtractFlags(SplPriorityQueue::EXTR_DATA);
+        foreach ($incoming as $token => $count) {
+            if ($count === 0) {
+                $ready->insert($token, [-ord($token[0]), -(int)substr($token, 1)]);
+            }
+        }
         $order = [];
-        while ($ready !== []) {
-            usort($ready, static fn (string $a, string $b): int => $a[0] <=> $b[0] ?: (int)substr($a, 1) <=> (int)substr($b, 1));
-            $token = array_shift($ready);
+        while (!$ready->isEmpty()) {
+            $token = $ready->extract();
+            if (!is_string($token)) {
+                throw new InvalidArgumentException('A merge ordering token must be a string');
+            }
             $order[] = $token;
             foreach (array_keys($edges[$token] ?? []) as $to) {
                 --$incoming[$to];
                 if ($incoming[$to] === 0) {
-                    $ready[] = $to;
+                    $ready->insert($to, [-ord($to[0]), -(int)substr($to, 1)]);
                 }
             }
         }
