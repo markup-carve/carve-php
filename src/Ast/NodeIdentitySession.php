@@ -16,9 +16,11 @@ final class NodeIdentitySession
     private array $previous = [];
 
     /**
-     * @var array<string, string>
+     * @var array<string, int>
      */
     private array $snapshots = [];
+
+    private ?AstStructuralIndex $index = null;
 
     public readonly string $session;
 
@@ -40,12 +42,10 @@ final class NodeIdentitySession
      */
     public function emit(array $ast, array $retainedPaths = []): array
     {
-        $paths = SidecarPath::nodePaths($ast);
+        $index = ($this->index ?? new AstStructuralIndex())->forSnapshot();
+        $currentNodes = $index->buildNodes($ast);
+        $paths = array_keys($currentNodes);
         $validPaths = array_fill_keys($paths, true);
-        $currentSnapshots = [];
-        foreach ($paths as $path) {
-            $currentSnapshots[$path] = self::snapshot(SidecarPath::node($ast, $path, $validPaths));
-        }
         $assigned = [];
         foreach ($retainedPaths as $id => $path) {
             if (!is_string($path) || !isset($this->previous[$id]) || !isset($validPaths[$path]) || isset($assigned[$path])) {
@@ -57,21 +57,26 @@ final class NodeIdentitySession
             if (!isset($validPaths[$path]) || isset($assigned[$path]) || isset($retainedPaths[$id])) {
                 continue;
             }
-            if ($this->snapshots[$id] === $currentSnapshots[$path]) {
+            if (($this->snapshots[$path] ?? null) === $currentNodes[$path]->id) {
                 $assigned[$path] = $id;
             }
         }
         $nodes = [];
         $next = [];
-        $snapshots = [];
         foreach ($paths as $path) {
             $id = $assigned[$path] ?? 'n' . ++$this->nextId;
             $nodes[] = ['id' => $id, 'path' => $path];
             $next[$id] = $path;
-            $snapshots[$id] = $currentSnapshots[$path];
         }
         $this->previous = $next;
+        $snapshots = [];
+        foreach ($currentNodes as $path => $node) {
+            $snapshots[$path] = $node->id;
+        }
+        unset($currentNodes);
+        $index->retainUsedKeys();
         $this->snapshots = $snapshots;
+        $this->index = $index;
 
         return ['version' => 1, 'session' => $this->session, 'nodes' => $nodes];
     }
@@ -103,13 +108,5 @@ final class NodeIdentitySession
             SidecarPath::node($ast, $path, $validPaths);
             $ids[$id] = $paths[$path] = true;
         }
-    }
-
-    /**
-     * @param array<string, mixed> $node
-     */
-    private static function snapshot(array $node): string
-    {
-        return AstPatch::fingerprint($node);
     }
 }

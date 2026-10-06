@@ -66,8 +66,11 @@ final class AstPatch
      */
     public static function create(array $before, array $after): array
     {
+        if (json_encode(self::clean($before), JSON_THROW_ON_ERROR) === json_encode(self::clean($after), JSON_THROW_ON_ERROR)) {
+            return [];
+        }
         $operations = [];
-        self::build($before, $after, '', $operations);
+        self::build($before, $after, new AstMergePath(), $operations);
 
         return $operations;
     }
@@ -97,7 +100,7 @@ final class AstPatch
 
                 continue;
             }
-            $root = self::applyAt($root, $parts, $operation);
+            self::applyAt($root, $parts, $operation);
         }
         if (($root['type'] ?? null) !== 'document' || !isset($root['children']) || !is_array($root['children'])) {
             throw new InvalidArgumentException('Patch result is not a PART 12 document root.');
@@ -134,11 +137,6 @@ final class AstPatch
         }
 
         return ['op' => $operation['op'], 'path' => $operation['path'], 'value' => $operation['value']];
-    }
-
-    private static function pointer(string $path, string|int $key): string
-    {
-        return $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key);
     }
 
     /**
@@ -204,33 +202,30 @@ final class AstPatch
         return $out;
     }
 
-    private static function equal(mixed $a, mixed $b, bool $stripMetadata): bool
-    {
-        return json_encode(self::clean($a, $stripMetadata), JSON_THROW_ON_ERROR) === json_encode(self::clean($b, $stripMetadata), JSON_THROW_ON_ERROR);
-    }
-
     /**
      * @param-out list<Operation> $operations
      *
      * @param mixed $before
      * @param mixed $after
-     * @param string $path
+     * @param \MarkupCarve\Carve\Ast\AstMergePath $path
      * @param list<Operation> $operations
-     * @param bool $stripMetadata
      */
-    private static function build(mixed $before, mixed $after, string $path, array &$operations, bool $stripMetadata = true): void
+    private static function build(mixed $before, mixed $after, AstMergePath $path, array &$operations): void
     {
-        if (self::equal($before, $after, $stripMetadata)) {
+        if (!is_array($before) && !is_object($before) && !is_float($before) && $before === $after) {
             return;
         }
+        $stripMetadata = $path->stripMetadata;
         if (is_array($before) && array_is_list($before) && is_array($after) && array_is_list($after)) {
             if (count($before) !== count($after)) {
-                $operations[] = ['op' => 'replace', 'path' => $path, 'value' => self::clean($after, $stripMetadata)];
+                $operations[] = ['op' => 'replace', 'path' => $path->pointer(), 'value' => self::clean($after, $stripMetadata)];
 
                 return;
             }
-            foreach ($before as $index => $value) {
-                self::build($value, $after[$index], self::pointer($path, $index), $operations, $stripMetadata);
+            foreach ($before as $key => $_) {
+                $previous = $path->push($key);
+                self::build($before[$key], $after[$key], $path, $operations);
+                $path->pop($previous);
             }
 
             return;
@@ -240,19 +235,22 @@ final class AstPatch
                 if ($stripMetadata && ($key === 'pos' || $key === 'srcByteLength')) {
                     continue;
                 }
-                $childPath = self::pointer($path, $key);
+                $previous = $path->push($key);
                 if (!array_key_exists($key, $after)) {
-                    $operations[] = ['op' => 'remove', 'path' => $childPath];
+                    $operations[] = ['op' => 'remove', 'path' => $path->pointer()];
                 } elseif (!array_key_exists($key, $before)) {
-                    $operations[] = ['op' => 'add', 'path' => $childPath, 'value' => self::clean($after[$key], $stripMetadata && $key !== 'keyValues')];
+                    $operations[] = ['op' => 'add', 'path' => $path->pointer(), 'value' => self::clean($after[$key], $path->stripMetadata)];
                 } else {
-                    self::build($before[$key], $after[$key], $childPath, $operations, $stripMetadata && $key !== 'keyValues');
+                    self::build($before[$key], $after[$key], $path, $operations);
                 }
+                $path->pop($previous);
             }
 
             return;
         }
-        $operations[] = ['op' => 'replace', 'path' => $path, 'value' => self::clean($after, $stripMetadata)];
+        if (json_encode(self::clean($before, $stripMetadata), JSON_THROW_ON_ERROR) !== json_encode(self::clean($after, $stripMetadata), JSON_THROW_ON_ERROR)) {
+            $operations[] = ['op' => 'replace', 'path' => $path->pointer(), 'value' => self::clean($after, $stripMetadata)];
+        }
     }
 
     /**
@@ -261,31 +259,31 @@ final class AstPatch
      * @param array{op: 'add'|'replace', path: string, value: mixed}|array{op: 'remove', path: string} $operation
      * @param bool $stripMetadata
      * @param bool $forceObject
+     * @param int $offset
      *
      * @throws \InvalidArgumentException
-     *
-     * @return array<int|string, mixed>
      */
-    private static function applyAt(array $root, array $parts, array $operation, bool $stripMetadata = true, bool $forceObject = false): array
+    private static function applyAt(array &$root, array $parts, array $operation, bool $stripMetadata = true, bool $forceObject = false, int $offset = 0): void
     {
-        $key = array_shift($parts);
+        $key = $parts[$offset] ?? null;
         if ($key === null) {
             throw new InvalidArgumentException('Patch path cannot be empty here.');
         }
-        if ($parts !== []) {
+        if ($offset + 1 < count($parts)) {
             $actual = array_is_list($root) ? self::index($key, count($root), false) : $key;
             if (!array_key_exists($actual, $root) || !is_array($root[$actual])) {
                 throw new InvalidArgumentException('Patch path component does not exist: ' . $key);
             }
-            $root[$actual] = self::applyAt(
+            self::applyAt(
                 $root[$actual],
                 $parts,
                 $operation,
                 $stripMetadata && $key !== 'keyValues',
                 $key === 'keyValues',
+                $offset + 1,
             );
 
-            return $root;
+            return;
         }
         if (array_is_list($root) && !$forceObject) {
             $index = self::index($key, count($root), $operation['op'] === 'add');
@@ -297,7 +295,7 @@ final class AstPatch
                 $root[$index] = self::clean($operation['value'], $stripMetadata);
             }
 
-            return $root;
+            return;
         }
         if ($operation['op'] !== 'add' && !array_key_exists($key, $root)) {
             throw new InvalidArgumentException('Patch path component does not exist: ' . $key);
@@ -308,7 +306,7 @@ final class AstPatch
             $root[$key] = self::clean($operation['value'], $stripMetadata && $key !== 'keyValues');
         }
 
-        return $root;
+        return;
     }
 
     private static function index(string $value, int $length, bool $allowEnd): int
