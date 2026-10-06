@@ -81,8 +81,7 @@ references and external fragment links need manual review. See the
 
 ### Improvements
 
-- Avoid repeated fence and comment scans in nested containers and description bodies (#2927).
-
+- Avoid repeated fence and comment scans in nested fences and description bodies (#2927).
 - Custom renderers can declare their report target and read converter configuration through renderer capability interfaces, without inheriting a built-in renderer (#2788).
 - Built-in renderer target names are available as `RenderTarget` constants. The values `html`, `markdown`, `plain`, `ansi` and `carve` are unchanged, and a custom renderer may still return its own (#2789).
 - Malformed inline input is indexed once instead of rescanned per failed bracket opener, heading indexing skips paragraph inline parsing, and clean nested HTML is padded in bulk (#2776).
