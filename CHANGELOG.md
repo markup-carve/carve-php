@@ -23,7 +23,7 @@ references and external fragment links need manual review. See the
 
 - A glossary reference matches its term exactly, under the same comparison as every other name lookup, and a glossary id keeps its case, so two terms differing only in case take two ids (#2895, markup-carve/carve#2739).
 - Every destination the sink denylist blanks owes a render-loss row under a new `code` value, `destination-denied`, so the `CARVE-P2-024` enum names three codes rather than two. The row carries the target, `nodeType: inline` and the spec's own message, which says whether a link destination or an image source was blanked. The emitted `href=""` and `src=""` do not move (#2802, #2806, #2804, markup-carve/carve#2681, markup-carve/carve#2686).
-- Heading cross-references, numbered caption and equation references, collapsed
+- Heading cross-references, numbered caption and equation references, and collapsed
   references that fall back to heading text now compare case exactly.
   Link-definition labels, footnote labels and include fragment selectors already
   did in the previous published engine.
@@ -35,6 +35,10 @@ references and external fragment links need manual review. See the
   markup-carve/carve#2732).
 
 ### Fixes
+
+- The duplicate-merge scaling guard passes the structural indexes required by
+  the current matcher, so the release check measures its work instead of
+  failing on an outdated private-method call (#2923).
 
 - The upgrade guide distinguishes newly exact lookups from labels that already
   matched case exactly, and explains migration limits. Tests keep case-distinct
