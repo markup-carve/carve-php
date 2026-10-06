@@ -17,20 +17,21 @@ With the new engine, lint existing documents before deploying their output.
 `fmt --migrate` repairs unambiguous case-only reference misses. Review changes
 to collapsed link text and image alt text; include selectors, glossary
 references and external fragment links need manual review. See the
-[migration guide](docs/cli.md#exact-case-reference-migration).
+[migration guide](https://github.com/markup-carve/carve-php/blob/main/docs/cli.md#exact-case-reference-migration).
 
 ### Breaking
 
 - A glossary reference matches its term exactly, under the same comparison as every other name lookup, and a glossary id keeps its case, so two terms differing only in case take two ids (#2895, markup-carve/carve#2739).
 - Every destination the sink denylist blanks owes a render-loss row under a new `code` value, `destination-denied`, so the `CARVE-P2-024` enum names three codes rather than two. The row carries the target, `nodeType: inline` and the spec's own message, which says whether a link destination or an image source was blanked. The emitted `href=""` and `src=""` do not move (#2802, #2806, #2804, markup-carve/carve#2681, markup-carve/carve#2686).
 - Heading cross-references, numbered caption and equation references, collapsed
-  references that fall back to heading text, and include fragment selectors now
-  compare case exactly. Link-definition labels and footnote labels already did.
+  references that fall back to heading text now compare case exactly.
+  Link-definition labels, footnote labels and include fragment selectors already
+  did in the previous published engine.
   Case-only mismatches no longer resolve (#2874, #2879, #2888, markup-carve/carve#2732).
 
 - Includes rename colliding explicit ids on any element and give each later
-  occurrence its own least free suffix. References in that inclusion follow
-  the first renamed occurrence (#2879, #2888, markup-carve/carve#2729,
+  occurrence its own least free suffix. References written in the same inclusion follow
+  the rename (#2879, #2888, markup-carve/carve#2729,
   markup-carve/carve#2732).
 
 ### Fixes

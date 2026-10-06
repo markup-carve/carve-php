@@ -16,9 +16,9 @@ bin/carve merge base.crv ours.crv theirs.crv # structural three-way merge
 ## Exact-case reference migration
 
 Exact-case lookup changes heading cross-references, numbered caption and equation
-references, collapsed references that fall back to heading text, and include
-fragment selection. Link-definition labels and footnote labels were already
-case-sensitive. Whitespace normalization, NFC and default heading slug derivation
+references, and collapsed references that fall back to heading text.
+Link-definition labels, footnote labels and include fragment selectors were
+already case-sensitive in the previous published engine. Whitespace normalization, NFC and default heading slug derivation
 are unchanged. Case-distinct ids identify separate targets.
 
 With the new engine, run `carve lint` before deploying the rendered output.
