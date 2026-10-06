@@ -13,19 +13,11 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Compatibility and migration
 
-Exact-case lookup changes heading cross-references, numbered caption and equation
-references, collapsed references that fall back to heading text, and include
-fragment selection. Link-definition labels and footnote labels were already
-case-sensitive. Whitespace normalization, NFC and core heading slug derivation
-are unchanged. Case-distinct ids remain separate targets.
-
-Run `carve lint` before upgrading existing documents. `carve fmt --migrate`
-repairs unambiguous case-only cross-reference and link or image label misses.
-Review the result: changing a collapsed label also changes its visible text or
-image alternative text. Ambiguous matches and labels carrying inline markup
-need manual review. Include selectors, glossary references and external
-fragment links are outside this repair. Glossary ids now preserve case, so
-update links to those ids separately. Ordinary `fmt` does not apply this repair.
+With the new engine, lint existing documents before deploying their output.
+`fmt --migrate` repairs unambiguous case-only reference misses. Review changes
+to collapsed link text and image alt text; include selectors, glossary
+references and external fragment links need manual review. See the
+[migration guide](docs/cli.md#exact-case-reference-migration).
 
 ### Breaking
 
@@ -34,9 +26,18 @@ update links to those ids separately. Ordinary `fmt` does not apply this repair.
 - Heading cross-references, numbered caption and equation references, collapsed
   references that fall back to heading text, and include fragment selectors now
   compare case exactly. Link-definition labels and footnote labels already did.
-  Case-only mismatches no longer resolve. (#2874, #2879, #2888, markup-carve/carve#2732).
+  Case-only mismatches no longer resolve (#2874, #2879, #2888, markup-carve/carve#2732).
+
+- Includes rename colliding explicit ids on any element and give each later
+  occurrence its own least free suffix. References in that inclusion follow
+  the first renamed occurrence (#2879, #2888, markup-carve/carve#2729,
+  markup-carve/carve#2732).
 
 ### Fixes
+
+- The upgrade guide distinguishes newly exact lookups from labels that already
+  matched case exactly, and explains migration limits. Tests keep case-distinct
+  numbered captions and equations separate (#2923).
 
 - AST merges and identity snapshots share exact structural indexes instead of repeatedly serializing subtrees. Patch creation walks each pair once, and replay updates a private tree in place. Provenance ancestry and envelope extension checks avoid repeated scans (#2921).
 
