@@ -9,22 +9,22 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-### Fixes
-
-- Speed up editor batches, attribute-token mapping, table linting, and repeated empty-include warnings.
-- Preserve table-warning line numbers after Unicode text and byte ranges after CRLF and CR endings, and recognize editor attribute lines after bare CR endings.
-- Avoid repeated scans of malformed link destinations, including nested labels and emphasis.
-- Speed up AST merges, Carve rendering of wide trees, and platform linting of long destinations.
-
-## [0.1.11] - 2026-10-05
+## [0.1.11] - 2026-10-06
 
 ### Breaking
 
+- A glossary reference matches its term exactly, under the same comparison as every other name lookup, and a glossary id keeps its case, so two terms differing only in case take two ids (#2895, markup-carve/carve#2739).
 - Every destination the sink denylist blanks owes a render-loss row under a new `code` value, `destination-denied`, so the `CARVE-P2-024` enum names three codes rather than two. The row carries the target, `nodeType: inline` and the spec's own message, which says whether a link destination or an image source was blanked. The emitted `href=""` and `src=""` do not move (#2802, #2806, #2804, markup-carve/carve#2681, markup-carve/carve#2686).
 - A name lookup compares with exact case everywhere it is made, so an include's `#name`, a collapsed reference and a heading's text all resolve only to a name spelled the same way. A document that relied on a case-insensitive match resolves to nothing and reports it (#2874, #2879, #2888, markup-carve/carve#2732). The match was widened to ignore case first and made exact before the release, so only the exact rule ships. The colliding-id rename that goes with it is in markup-carve/carve#2729.
 
 ### Fixes
 
+- A flush-left line below a closed nested fence folds into the outer item rather than opening a block of its own (#2901, markup-carve/carve#2878).
+- A paragraph left open below a closed nested fence takes a following flush-left line (#2905, markup-carve/carve#2903).
+- A description body folds a flush-left line below it for every lead kind, not only the kinds the earlier fix named (#2906, markup-carve/carve#2904).
+- A collapsed reference image no longer resolves against a heading. The implicit heading fallback stays for collapsed reference links, and the correction reaches the renderer and `fmt --migrate` alike (#2902, markup-carve/carve#2900).
+- `lint` compares a reference against the rendered heading ids rather than the authored text, and `fmt --migrate` rewrites a case-only reference against those same ids (#2897, #2898, markup-carve/carve#2892, markup-carve/carve#2893).
+- `lint` reports a reference image with no matching definition under `unresolved-reference-link`, the rule that already covered reference links, under no new rule id (#2908, markup-carve/carve#2907).
 - A backslash inside a quoted attribute value or a quoted title is written only where the reader needs one, so `t\zu` comes back as `t\zu` rather than `t\\zu`, and one rule now serves every renderer, extension and importer (#2774).
 - Canonical Carve output preserves parentheses and backslashes under every URL scheme, and leading non-whitespace C0 controls in link and image destinations. Presentation targets keep their destination filtering and loss reports (#2808, #2809, markup-carve/carve#2685).
 - An empty footnote or definition body written `{empty}` no longer reports an unattached attribute, a fence's indentation check ignores container padding, and a caret stays literal when its braced closer lies past the bracket run (#2791, markup-carve/carve#2663).
@@ -69,6 +69,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Performance
 
+- Speed up editor batches, attribute-token mapping, table linting and repeated empty-include warnings, and preserve table-warning line numbers after Unicode text and byte ranges after CRLF and CR endings. Editor attribute lines are recognized after bare CR endings (#2912).
+- Avoid repeated scans of malformed link destinations, including nested labels and emphasis, and speed up AST merges, Carve rendering of wide trees and platform linting of long destinations (#2911).
+- Index table spans, placement and AST alignment (#2899).
 - Nested singleton lists accumulate HTML indentation instead of repeatedly copying each child subtree. Task wrappers, callbacks, renderer subclasses, static extensions retain their existing rendering paths. Preformatted bodies preserve their output through the shared layout writer (#2850).
 - Borrowed HTML writes plain inline text directly and skips repeated paragraph checks. Native scanning handles longer runs between markers; single-byte gaps avoid scanner setup (#2842).
 - Buffered HTML appends handle the first fragment directly instead of packing it into a variadic array (#2837).
