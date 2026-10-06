@@ -6,10 +6,38 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\DefaultAttributesExtension;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 class DefaultAttributesExtensionTest extends TestCase
 {
+    use ScalingGuardTrait;
+
+    public function testPreservesAuthoredDuplicatesAndDeduplicatesDefaults(): void
+    {
+        $node = new Paragraph();
+        $node->setClassList(['a', 'a']);
+        $extension = new DefaultAttributesExtension();
+        (new ReflectionMethod($extension, 'mergeClass'))->invoke($extension, $node, 'a b b 1 01 1');
+        $this->assertSame(['a', 'a', 'b', '1', '01'], $node->getClassList());
+        $this->assertSame(['.class'], $node->getAttributeOrder());
+    }
+
+    #[Group('scaling')]
+    public function testManyDefaultClassesScaleLinearly(): void
+    {
+        $convert = static function (string $classes): void {
+            $converter = new CarveConverter();
+            $converter->addExtension(new DefaultAttributesExtension(['paragraph' => ['class' => $classes]]));
+            $converter->convert('word');
+        };
+        $classes = static fn (int $n): string => implode(' ', array_map(static fn (int $i): string => 'c' . $i, range(0, $n - 1)));
+        $this->assertConversionScalesLinearly($convert, $classes(4000), $classes(16000), 'default classes', 4000, 16000, maxPerByteRatio: 2.0);
+    }
+
     public function testImageLazyLoading(): void
     {
         $converter = new CarveConverter();
