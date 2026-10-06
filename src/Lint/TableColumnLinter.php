@@ -18,7 +18,12 @@ class TableColumnLinter
         $lines = array_column($rows, 0);
         $byteAt = SourceOffsets::map($source);
         $validUtf8 = mb_check_encoding($source, 'UTF-8');
-        $prefixCounts = $validUtf8 ? [] : SourceOffsets::asciiPrefixCounts($source);
+        $prefixCounts = [];
+        if (!$validUtf8) {
+            foreach ($rows as $index => [$text]) {
+                $prefixCounts[$index] = SourceOffsets::asciiPrefixCounts($text);
+            }
+        }
         foreach ($lines as $lineIndex => $line) {
             if (str_starts_with(ltrim($line), '|')) {
                 if (preg_match_all('/(?:\||\|=)([<>~^v?]{1,2})(?![<>~^v?\s])/', $line, $matches, PREG_OFFSET_CAPTURE)) {
@@ -90,7 +95,7 @@ class TableColumnLinter
      * @param list<array{string, int}> $rows
      * @param array<int, int>|null $byteAt
      * @param bool $validUtf8
-     * @param array<int, int> $prefixCounts
+     * @param array<int, array<int, int>> $prefixCounts
      * @param int $lineIndex
      * @param int $column
      * @param int $length
@@ -114,8 +119,8 @@ class TableColumnLinter
         return new LintWarning(
             $lineIndex + 1,
             $validUtf8 ? SourceOffsets::toCodepoint($start, $byteAt) - SourceOffsets::toCodepoint($rowStart, $byteAt) + 1
-                : (isset($prefixCounts[$start], $prefixCounts[$rowStart])
-                    ? $prefixCounts[$start] - $prefixCounts[$rowStart] + 1 : SourceOffsets::toColumn($rows[$lineIndex][0], $column)),
+                : (isset($prefixCounts[$lineIndex][$column])
+                    ? $prefixCounts[$lineIndex][$column] + 1 : SourceOffsets::toColumn($rows[$lineIndex][0], $column)),
             $rule,
             $message,
             $start,

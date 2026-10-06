@@ -87,7 +87,7 @@ class RemainingScanCostsTest extends TestCase
 
     public function testMalformedUtf8PrefixIndexKeepsExistingColumns(): void
     {
-        foreach (["\x80 😀\xf0\x9f {{ }}\xe2", "Å\x85{{ }}", "\xe2a {{ }}"] as $source) {
+        foreach (["\x80 😀\xf0\x9f {{ }}\xe2", "Å\x85{{ }}", "\xe2a {{ }}", "\xe2\n{{ }}"] as $source) {
             foreach (SourceOffsets::asciiPrefixCounts($source) as $offset => $count) {
                 $this->assertSame(mb_strlen(substr($source, 0, $offset), 'UTF-8'), $count);
             }
@@ -96,6 +96,8 @@ class RemainingScanCostsTest extends TestCase
         $this->assertSame([[3, 5], [9, 11]], array_map(static fn ($warning) => [$warning->column, $warning->start], $warnings));
         $warnings = (new TableColumnLinter())->lint("Å\x80\n{widths=60,50}\n| a | b |");
         $this->assertSame(2, $warnings[0]->line);
+        $this->assertSame(2, $warnings[0]->column);
+        $warnings = (new TableColumnLinter())->lint("\xe2\n{widths=60,50}\n| a | b |");
         $this->assertSame(2, $warnings[0]->column);
     }
 

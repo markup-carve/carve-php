@@ -94,6 +94,24 @@ class SourceOffsets
      */
     public static function asciiPrefixCounts(string $source): array
     {
+        if (PHP_VERSION_ID < 80300) {
+            $counts = [0 => 0];
+            $count = 0;
+            $length = strlen($source);
+            for ($cursor = 0; $cursor < $length;) {
+                // PHP 8.2 counts malformed UTF-8 by lead-byte widths.
+                $byte = ord($source[$cursor]);
+                $width = $byte >= 0xC2 && $byte <= 0xDF ? 2
+                    : ($byte >= 0xE0 && $byte <= 0xEF ? 3 : ($byte >= 0xF0 && $byte <= 0xF4 ? 4 : 1));
+                $end = min($length, $cursor + $width);
+                ++$count;
+                while ($cursor < $end) {
+                    $counts[++$cursor] = $count;
+                }
+            }
+
+            return $counts;
+        }
         $counts = [0 => 0];
         $cursor = 0;
         $count = 0;
