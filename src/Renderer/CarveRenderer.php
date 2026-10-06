@@ -1160,7 +1160,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parts[array_key_last($parts)] .= "\n" . $this->listBoundary() . $rendered;
                     } elseif (
                         $parts !== []
-                        && $previousBlock instanceof Node
                         && $previousBlock->getRenderHint("\0carve-compact-definition") === '1'
                         && $block->getRenderHint("\0carve-compact-definition") === '1'
                     ) {

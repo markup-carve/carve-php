@@ -283,7 +283,7 @@ class SourceLinter
                     $rule = 'list-item-body-detached';
                 }
             }
-            if ($rule !== null && $candidate !== null) {
+            if ($rule !== null) {
                 preg_match('/^\S+/', $view, $token);
                 $emit($ln, $at, strlen($token[0] ?? $view), $rule, "This block opener does not use the list item's content column " . $candidate['content'] . '. Align it with that column, or escape it to keep literal text.');
                 $listLines[$ln] = true;
