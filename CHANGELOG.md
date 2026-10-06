@@ -31,7 +31,7 @@ references and external fragment links need manual review. See the
 
 - Includes rename colliding explicit ids on any element and give each later
   occurrence its own least free suffix. References written in the same inclusion follow
-  the rename (#2879, #2888, markup-carve/carve#2729,
+  the rename (#2876, #2879, #2888, markup-carve/carve#2729,
   markup-carve/carve#2732).
 
 ### Fixes
