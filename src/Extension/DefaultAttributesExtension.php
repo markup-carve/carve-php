@@ -84,11 +84,29 @@ class DefaultAttributesExtension implements ExtensionInterface
      */
     protected function mergeClass(Node $node, string $classes): void
     {
+        if (!str_starts_with($node::class, 'MarkupCarve\\Carve\\Node\\')) {
+            foreach (explode(' ', $classes) as $class) {
+                $class = trim($class);
+                if ($class !== '') {
+                    $node->addClass($class);
+                }
+            }
+
+            return;
+        }
+        $existing = $node->getClassList();
+        $seen = array_fill_keys($existing, true);
+        $changed = false;
         foreach (explode(' ', $classes) as $class) {
             $class = trim($class);
-            if ($class !== '') {
-                $node->addClass($class);
+            if ($class !== '' && !isset($seen[$class])) {
+                $seen[$class] = true;
+                $existing[] = $class;
+                $changed = true;
             }
+        }
+        if ($changed) {
+            $node->setClassList($existing);
         }
     }
 }
