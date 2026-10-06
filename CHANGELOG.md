@@ -9,10 +9,6 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-### Fixes
-
-- Default classes are merged in one pass, preserving authored duplicates and the order of newly added classes.
-
 ## [0.1.11] - 2026-10-06
 
 ### Breaking
@@ -73,6 +69,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Performance
 
+- Default classes are merged in one indexed pass, preserving authored
+  duplicates and the order of newly added classes (#2916).
 - Speed up editor batches, attribute-token mapping, table linting and repeated empty-include warnings, and preserve table-warning line numbers after Unicode text and byte ranges after CRLF and CR endings. Editor attribute lines are recognized after bare CR endings (#2912).
 - Avoid repeated scans of malformed link destinations, including nested labels and emphasis, and speed up AST merges, Carve rendering of wide trees and platform linting of long destinations (#2911).
 - Index table spans, placement and AST alignment (#2899).
