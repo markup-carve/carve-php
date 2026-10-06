@@ -1347,6 +1347,66 @@ final class BlockContinuationScanner
         if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $openIndex)) {
             return false;
         }
+        if (($this->getFencedBlockParser)()::class === FencedBlockParser::class) {
+            $frame = $this->state->frame;
+            if ($frame->descriptionFenceView === null || $frame->descriptionBoundaryView === null) {
+                $frame->descriptionFenceView = new IndexedFenceView();
+                $frame->descriptionFenceView->advance($lines);
+                $frame->descriptionBoundaryView = new RangeMaximum();
+                $frame->descriptionBoundaryPositions = [];
+                $count = count($lines);
+                for ($j = 0; $j < $count; $j++) {
+                    $threshold = 0;
+                    if (
+                        preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $lines[$j])
+                        || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $lines[$j])
+                    ) {
+                        $threshold = PHP_INT_MAX;
+                    } elseif (IndentationHelper::isBlankLine($lines[$j])) {
+                        $after = $lines[$j + 1] ?? null;
+                        $threshold = $after === null || IndentationHelper::isBlankLine($after)
+                            ? PHP_INT_MAX
+                            : PHP_INT_MAX - IndentationHelper::getLeadingColumns($after) - 1;
+                    }
+                    if ($threshold > 0) {
+                        $slot = count($frame->descriptionBoundaryPositions);
+                        $frame->descriptionBoundaryPositions[] = $j;
+                        $frame->descriptionBoundaryView->set($slot, $threshold);
+                    }
+                }
+            }
+            $boundaries = $frame->descriptionBoundaryView;
+            $positions = $frame->descriptionBoundaryPositions;
+            $low = 0;
+            $high = count($positions);
+            while ($low < $high) {
+                $mid = intdiv($low + $high, 2);
+                if ($positions[$mid] <= $openIndex) {
+                    $low = $mid + 1;
+                } else {
+                    $high = $mid;
+                }
+            }
+            $start = $low;
+            $high = count($positions);
+            // Find the first boundary whose threshold excludes this body column.
+            while ($low < $high) {
+                $mid = intdiv($low + $high, 2);
+                if ($boundaries->maximum($start, $mid + 1) >= PHP_INT_MAX - $bodyColumn) {
+                    $high = $mid;
+                } else {
+                    $low = $mid + 1;
+                }
+            }
+
+            return $frame->descriptionFenceView->contains(
+                $openIndex + 1,
+                $positions[$low] ?? count($lines),
+                $openerColumns,
+                $opener['char'] ?? $opener['fence'][0],
+                $opener['length'],
+            );
+        }
 
         $count = count($lines);
         for ($j = $openIndex + 1; $j < $count; $j++) {

@@ -50,6 +50,22 @@ class NestedLeadFenceScanTest extends TestCase
         }
     }
 
+    #[Group('scaling')]
+    public function testDescriptionLookaheadStopsAtTheNextBodyBoundary(): void
+    {
+        $parser = new BlockParser();
+        $lead = ":: t\n:  text\n";
+        $tail = "x\n:: u\n:  y\n   ```\n";
+        $this->assertConversionScalesLinearly(
+            static fn (string $source) => $parser->parse($source),
+            $lead . str_repeat("   ```php\n", 1000) . $tail,
+            $lead . str_repeat("   ```php\n", 4000) . $tail,
+            'description bounded source and tracker lookahead',
+            1000,
+            4000,
+        );
+    }
+
     public function testCursorAdvancesThroughEachCollectedLineOnce(): void
     {
         foreach ([50, 100, 200] as $size) {

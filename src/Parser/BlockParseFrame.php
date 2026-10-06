@@ -77,6 +77,15 @@ final class BlockParseFrame
      */
     public ?array $viewCodeClosers = null;
 
+    public ?IndexedFenceView $descriptionFenceView = null;
+
+    public ?RangeMaximum $descriptionBoundaryView = null;
+
+    /**
+     * @var array<int, int>
+     */
+    public array $descriptionBoundaryPositions = [];
+
     public function sourceLineFor(int $index): int
     {
         if ($index < 0) {

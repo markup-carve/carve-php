@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -407,6 +408,9 @@ final class DefinitionListBuilder
                 $termScan = null;
                 $commentSpan = new CollectedCommentSpan();
                 $leadFence = new CollectedFenceView();
+                $bodyFenceView = new IndexedFenceView();
+                $lastOpenerKey = null;
+                $lastOpenerIsParagraph = null;
                 // A definition body continues like a list item (SS17):
                 //  - form A: a deeper-indented (>= 3) line folds in, and a blank
                 //    line is tolerated when a later line still continues, so a
@@ -529,7 +533,10 @@ final class DefinitionListBuilder
                     // interrupts a paragraph - so it reports false for `- x`,
                     // which does open a block when it is the body's first line.
                     $lastBodyKey = $body === [] ? null : array_key_last($body);
-                    $lastBodyOpener = $lastBodyKey === null ? false : self::firstBodyLine($body[$lastBodyKey]);
+                    if ($lastOpenerKey !== $lastBodyKey) {
+                        $lastOpenerKey = $lastBodyKey;
+                        $lastOpenerIsParagraph = null;
+                    }
                     // A DEFINITION PAST THE BODY'S COLUMN IS STILL A DEFINITION.
                     // PART 0's `CARVE-P0-020` AT OR PAST MEANS THE DEEPEST
                     // COLUMN THE LINE REACHES (markup-carve/carve#1896) reads
@@ -597,7 +604,7 @@ final class DefinitionListBuilder
                         && !$formABlockOpen
                         && $lastBodyKey !== null
                         && $body[$lastBodyKey] !== ''
-                        && $lastBodyOpener !== false
+                        && ($lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($body[$lastBodyKey]))
                         && (
                             $paragraphFenceHasNoCloser
                             || !$this->lineOpensBlockForLooseness(
@@ -606,9 +613,6 @@ final class DefinitionListBuilder
                                 invisibleArms: false,
                             )
                         )
-                        && !$this->startsNewBlock($lastBodyOpener)
-                        && ($this->getListParser)()->parseListItemMarker($lastBodyOpener) === null
-                        && !$this->isInvisibleOrAttributeLine($lastBodyOpener, false)
                     ) {
                         $body[$lastBodyKey] .= "\n" . $trimmedCont;
                         $i++;
@@ -738,6 +742,8 @@ final class DefinitionListBuilder
                     if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $contLine) || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $contLine)) {
                         break;
                     }
+                    $useIndexedBodyFence = $this->advanceTrailingStateWithFenceLookaheadCallback === null
+                        && ($this->getFencedBlockParser)()::class === FencedBlockParser::class;
                     for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
                         $bodyLine = $this->descriptionBodyEntryAsRead(
                             $bodyState,
@@ -762,9 +768,31 @@ final class DefinitionListBuilder
                                 $continuationColumn,
                                 $bodyFenceSource[$bodyStateCursor]['columns'],
                             );
+                        $trackerLine = $bodyLine;
+                        if (!$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
+                            $fenceAt = IndentationHelper::pastLeadingWhitespace($bodyLine);
+                            $subject = $bodyLine;
+                            $column = $bodyOpenerBase ?? 0;
+                            if (($this->getFencedBlockParser)()->isCodeFenceHead($bodyLine, $fenceAt)) {
+                                $subject = substr($bodyLine, $fenceAt);
+                                $column += IndentationHelper::getLeadingColumns($bodyLine);
+                            }
+                            $opener = ($this->getFencedBlockParser)()->parseRawBlockOpener($subject)
+                                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
+                            if ($opener !== null) {
+                                $bodyFenceView->advance($body);
+                                if ($bodyFenceView->contains($bodyStateCursor + 1, count($body), $column, $opener['char'] ?? $opener['fence'][0], $opener['length'])) {
+                                    $closerKnownAhead = true;
+                                } else {
+                                    $trackerLine = 'text';
+                                }
+                            }
+                            // This entry's lookahead is settled, including a neutralized opener.
+                            $closerKnownAhead = true;
+                        }
                         $bodyState = $this->advanceTrailingStateWithFenceLookahead(
                             $bodyState,
-                            $bodyLine,
+                            $trackerLine,
                             $body,
                             $bodyStateCursor,
                             !isset($bodyLazy[$bodyStateCursor]),
@@ -931,9 +959,9 @@ final class DefinitionListBuilder
                         // frame carve-php#1902 gives the LIST-ITEM host, ported
                         // to the description-body collector. Framed once, the
                         // strip in the verbatim body suffices.
+                        $this->descriptionBodyLeadFenceStaysOpen($body, $leadFence);
                         $body[] = (!str_starts_with($contLine, BlockGrammar::LAZY_FRAME)
-                            && ($this->getListParser)()->markerContentOffset((string)($body[0] ?? '')) !== null
-                            && $this->leadBottomOpensFence((string)($body[0] ?? '')))
+                            && $leadFence->leadOpensBlock)
                             ? BlockGrammar::LAZY_FRAME . $contLine
                             : $contLine;
                         $bodyMap[] = $this->sourceLineFor($i);
@@ -1178,6 +1206,16 @@ final class DefinitionListBuilder
         return $this->continuations->descriptionBodyEntryAsRead($state, $body, $index, $openerBase);
     }
 
+    private function bodyEntryStartsParagraph(string $entry): bool
+    {
+        $head = self::firstBodyLine($entry);
+
+        return $head !== false
+            && !$this->startsNewBlock($head)
+            && ($this->getListParser)()->parseListItemMarker($head) === null
+            && !$this->isInvisibleOrAttributeLine($head, false);
+    }
+
     private static function firstBodyLine(string $entry): string|false
     {
         $start = strspn($entry, "\n");
@@ -1200,10 +1238,9 @@ final class DefinitionListBuilder
         if (!$scan->initialized) {
             $scan->initialized = true;
             $lead = (string)($body[0] ?? '');
-            if (
-                ($this->getListParser)()->markerContentOffset($lead) === null
-                || !$this->leadBottomOpensFence($lead)
-            ) {
+            $scan->leadOpensBlock = ($this->getListParser)()->markerContentOffset($lead) !== null
+                && $this->leadBottomOpensFence($lead);
+            if (!$scan->leadOpensBlock) {
                 return false;
             }
 

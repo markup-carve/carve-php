@@ -13,6 +13,8 @@ final class CollectedFenceView
 {
     public bool $initialized = false;
 
+    public bool $leadOpensBlock = false;
+
     public int $column = 0;
 
     /**
