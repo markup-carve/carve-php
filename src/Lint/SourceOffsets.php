@@ -86,6 +86,34 @@ class SourceOffsets
     }
 
     /**
+     * Prefix codepoint counts at ASCII boundaries, including malformed UTF-8.
+     *
+     * @param string $source
+     *
+     * @return array<int, int>
+     */
+    public static function asciiPrefixCounts(string $source): array
+    {
+        $counts = [0 => 0];
+        $cursor = 0;
+        $count = 0;
+        $length = strlen($source);
+        for ($at = 0; $at < $length; ++$at) {
+            if (ord($source[$at]) >= 128) {
+                continue;
+            }
+            // ASCII bytes cannot continue a UTF-8 sequence.
+            $count += mb_strlen(substr($source, $cursor, $at - $cursor), 'UTF-8');
+            $counts[$at] = $count;
+            $counts[$at + 1] = ++$count;
+            $cursor = $at + 1;
+        }
+        $counts[$length] = $count + mb_strlen(substr($source, $cursor), 'UTF-8');
+
+        return $counts;
+    }
+
+    /**
      * The 1-based CODEPOINT column a byte offset into a line names.
      *
      * A `LintWarning`'s `start` and `end` are byte offsets by design, stated

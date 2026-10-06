@@ -38,15 +38,18 @@ class SourceLinter
         $rowCount = count($rows);
         $map = SourceOffsets::map($source);
         $validUtf8 = mb_check_encoding($source, 'UTF-8');
+        $prefixCounts = $validUtf8 ? [] : SourceOffsets::asciiPrefixCounts($source);
         $length = strlen($source);
         $warnings = [];
-        $emit = static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows, $length, $map, $validUtf8): void {
+        $emit = static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows, $length, $map, $validUtf8, $prefixCounts): void {
             if (!isset($rows[$line - 1])) {
                 return;
             }
             [$text, $start] = $rows[$line - 1];
             $at = min($at, strlen($text));
-            $column = $validUtf8 ? SourceOffsets::toCodepoint($start + $at, $map) - SourceOffsets::toCodepoint($start, $map) + 1 : SourceOffsets::toColumn($text, $at);
+            $column = $validUtf8 ? SourceOffsets::toCodepoint($start + $at, $map) - SourceOffsets::toCodepoint($start, $map) + 1
+                : (isset($prefixCounts[$start + $at], $prefixCounts[$start])
+                    ? $prefixCounts[$start + $at] - $prefixCounts[$start] + 1 : SourceOffsets::toColumn($text, $at));
             $warnings[] = new LintWarning($line, $column, $rule, $message, $start + $at, min($start + $at + $size, $length));
         };
         foreach ($converter->getParser()->getUnattachedBlockAttributes() as $span) {

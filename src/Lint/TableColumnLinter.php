@@ -18,6 +18,7 @@ class TableColumnLinter
         $lines = array_column($rows, 0);
         $byteAt = SourceOffsets::map($source);
         $validUtf8 = mb_check_encoding($source, 'UTF-8');
+        $prefixCounts = $validUtf8 ? [] : SourceOffsets::asciiPrefixCounts($source);
         foreach ($lines as $lineIndex => $line) {
             if (str_starts_with(ltrim($line), '|')) {
                 if (preg_match_all('/(?:\||\|=)([<>~^v?]{1,2})(?![<>~^v?\s])/', $line, $matches, PREG_OFFSET_CAPTURE)) {
@@ -32,7 +33,7 @@ class TableColumnLinter
                         $runEnd = $blockEnd ?? $runEnd;
                         if (($line[$runEnd] ?? '') !== ' ') {
                             $suffix = $block ? ' and its attribute block' : '';
-                            $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $lineIndex, $offset, strlen($run), 'table-alignment-run-padding', sprintf('The table alignment run "%s" has no terminating space, so it is literal cell content. Add a space after the run%s to make it alignment.', $run, $suffix));
+                            $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, strlen($run), 'table-alignment-run-padding', sprintf('The table alignment run "%s" has no terminating space, so it is literal cell content. Add a space after the run%s to make it alignment.', $run, $suffix));
                         }
                     }
                 }
@@ -67,17 +68,17 @@ class TableColumnLinter
                 $offset = strpos($line, $key);
                 $values = explode(',', $raw);
                 if (count($values) < $columns) {
-                    $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $lineIndex, (int)$offset, strlen($key), 'table-column-arity', sprintf('%s supplies %d column entries for a %d-column table; the unset tail is valid but may be accidental.', $key, count($values), $columns));
+                    $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, (int)$offset, strlen($key), 'table-column-arity', sprintf('%s supplies %d column entries for a %d-column table; the unset tail is valid but may be accidental.', $key, count($values), $columns));
                 }
                 if ($key === 'widths' && array_sum(array_map(static fn (string $value): float => is_numeric(trim($value)) ? (float)trim($value) : 0.0, $values)) > 100) {
-                    $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $lineIndex, (int)$offset, strlen($key), 'table-width-total', 'The specified table column widths total more than 100%.');
+                    $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, (int)$offset, strlen($key), 'table-width-total', 'The specified table column widths total more than 100%.');
                 }
             }
             $header = $next;
             foreach (['aligns' => '[<>~]', 'valigns' => '[~^v]'] as $key => $sigil) {
                 if (preg_match('/\b' . $key . '=/', $line, $attribute, PREG_OFFSET_CAPTURE) === 1 && preg_match('/\|=' . $sigil . '/', $header) === 1) {
                     $offset = $attribute[0][1];
-                    $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $lineIndex, $offset, strlen($key), 'table-column-overlap', 'A column supplies the same alignment axis both in the table and in a table attribute; the in-table marker wins.');
+                    $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, strlen($key), 'table-column-overlap', 'A column supplies the same alignment axis both in the table and in a table attribute; the in-table marker wins.');
                 }
             }
         }
@@ -89,20 +90,32 @@ class TableColumnLinter
      * @param list<array{string, int}> $rows
      * @param array<int, int>|null $byteAt
      * @param bool $validUtf8
+     * @param array<int, int> $prefixCounts
      * @param int $lineIndex
      * @param int $column
      * @param int $length
      * @param string $rule
      * @param string $message
      */
-    private function warning(array $rows, ?array $byteAt, bool $validUtf8, int $lineIndex, int $column, int $length, string $rule, string $message): LintWarning
-    {
+    private function warning(
+        array $rows,
+        ?array $byteAt,
+        bool $validUtf8,
+        array $prefixCounts,
+        int $lineIndex,
+        int $column,
+        int $length,
+        string $rule,
+        string $message,
+    ): LintWarning {
         $rowStart = $rows[$lineIndex][1];
         $start = $rowStart + $column;
 
         return new LintWarning(
             $lineIndex + 1,
-            $validUtf8 ? SourceOffsets::toCodepoint($start, $byteAt) - SourceOffsets::toCodepoint($rowStart, $byteAt) + 1 : SourceOffsets::toColumn($rows[$lineIndex][0], $column),
+            $validUtf8 ? SourceOffsets::toCodepoint($start, $byteAt) - SourceOffsets::toCodepoint($rowStart, $byteAt) + 1
+                : (isset($prefixCounts[$start], $prefixCounts[$rowStart])
+                    ? $prefixCounts[$start] - $prefixCounts[$rowStart] + 1 : SourceOffsets::toColumn($rows[$lineIndex][0], $column)),
             $rule,
             $message,
             $start,

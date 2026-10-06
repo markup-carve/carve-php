@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
 use MarkupCarve\Carve\Lint\SourceLinter;
+use MarkupCarve\Carve\Lint\SourceOffsets;
 use MarkupCarve\Carve\Lint\TableColumnLinter;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -81,6 +82,34 @@ class RemainingScanCostsTest extends TestCase
             'editor attribute mapping',
             4000,
             16000,
+        );
+    }
+
+    public function testMalformedUtf8PrefixIndexKeepsExistingColumns(): void
+    {
+        foreach (["\x80 😀\xf0\x9f {{ }}\xe2", "Å\x85{{ }}", "\xe2a {{ }}"] as $source) {
+            foreach (SourceOffsets::asciiPrefixCounts($source) as $offset => $count) {
+                $this->assertSame(mb_strlen(substr($source, 0, $offset), 'UTF-8'), $count);
+            }
+        }
+        $warnings = (new SourceLinter())->lint("😀 {{ }} {{ }}\x80");
+        $this->assertSame([[3, 5], [9, 11]], array_map(static fn ($warning) => [$warning->column, $warning->start], $warnings));
+        $warnings = (new TableColumnLinter())->lint("Å\x80\n{widths=60,50}\n| a | b |");
+        $this->assertSame(2, $warnings[0]->line);
+        $this->assertSame(2, $warnings[0]->column);
+    }
+
+    #[Group('scaling')]
+    public function testMalformedUtf8LintWarningsScaleLinearly(): void
+    {
+        $linter = new SourceLinter();
+        $this->assertConversionScalesLinearly(
+            static fn (string $source) => $linter->lint($source),
+            str_repeat('😀 {{ }} ', 2000) . "\x80",
+            str_repeat('😀 {{ }} ', 8000) . "\x80",
+            'malformed UTF-8 lint positions',
+            2000,
+            8000,
         );
     }
 
