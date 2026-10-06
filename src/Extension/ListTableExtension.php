@@ -498,6 +498,9 @@ class ListTableExtension implements ExtensionInterface
             $colCount = count($grid[$r]);
             $lastVisible = null;
             for ($c = 0; $c < $colCount; $c++) {
+                // Span updates preserve every entry's keys.
+                /** @var array<array<int, GridEntry>> $grid */
+                $grid = $grid;
                 $entry = $grid[$r][$c];
                 if ($entry['skip']) {
                     continue;

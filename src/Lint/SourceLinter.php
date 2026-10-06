@@ -37,15 +37,25 @@ class SourceLinter
         $rows = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];
         $rowCount = count($rows);
         $map = SourceOffsets::map($source);
+        $validUtf8 = mb_check_encoding($source, 'UTF-8');
+        $prefixCounts = [];
+        if (!$validUtf8) {
+            foreach ($rows as $index => [$text]) {
+                $prefixCounts[$index] = SourceOffsets::asciiPrefixCounts($text);
+            }
+        }
         $length = strlen($source);
         $warnings = [];
-        $emit = static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows, $length): void {
+        $emit = static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows, $length, $map, $validUtf8, $prefixCounts): void {
             if (!isset($rows[$line - 1])) {
                 return;
             }
             [$text, $start] = $rows[$line - 1];
             $at = min($at, strlen($text));
-            $warnings[] = new LintWarning($line, mb_strlen(substr($text, 0, $at), 'UTF-8') + 1, $rule, $message, $start + $at, min($start + $at + $size, $length));
+            $column = $validUtf8 ? SourceOffsets::toCodepoint($start + $at, $map) - SourceOffsets::toCodepoint($start, $map) + 1
+                : (isset($prefixCounts[$line - 1][$at])
+                    ? $prefixCounts[$line - 1][$at] + 1 : SourceOffsets::toColumn($text, $at));
+            $warnings[] = new LintWarning($line, $column, $rule, $message, $start + $at, min($start + $at + $size, $length));
         };
         foreach ($converter->getParser()->getUnattachedBlockAttributes() as $span) {
             $warnings[] = new LintWarning(
@@ -281,7 +291,7 @@ class SourceLinter
                     $rule = 'list-item-body-detached';
                 }
             }
-            if ($rule !== null && $candidate !== null) {
+            if ($rule !== null) {
                 preg_match('/^\S+/', $view, $token);
                 $emit($ln, $at, strlen($token[0] ?? $view), $rule, "This block opener does not use the list item's content column " . $candidate['content'] . '. Align it with that column, or escape it to keep literal text.');
                 $listLines[$ln] = true;

@@ -61,6 +61,77 @@ class SourceOffsets
     }
 
     /**
+     * @param int $byteOffset
+     * @param array<int, int>|null $byteAt
+     *
+     * @return int
+     */
+    public static function toCodepoint(int $byteOffset, ?array $byteAt): int
+    {
+        if ($byteAt === null) {
+            return $byteOffset;
+        }
+        $low = 0;
+        $high = count($byteAt);
+        while ($low + 1 < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($byteAt[$mid] <= $byteOffset) {
+                $low = $mid;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $low;
+    }
+
+    /**
+     * Prefix codepoint counts at ASCII boundaries, including malformed UTF-8.
+     *
+     * @param string $source
+     *
+     * @return array<int, int>
+     */
+    public static function asciiPrefixCounts(string $source): array
+    {
+        if (PHP_VERSION_ID < 80300) {
+            $counts = [0 => 0];
+            $count = 0;
+            $length = strlen($source);
+            for ($cursor = 0; $cursor < $length;) {
+                // PHP 8.2 counts malformed UTF-8 by lead-byte widths.
+                $byte = ord($source[$cursor]);
+                $width = $byte >= 0xC2 && $byte <= 0xDF ? 2
+                    : ($byte >= 0xE0 && $byte <= 0xEF ? 3 : ($byte >= 0xF0 && $byte <= 0xF4 ? 4 : 1));
+                $end = min($length, $cursor + $width);
+                ++$count;
+                while ($cursor < $end) {
+                    $counts[++$cursor] = $count;
+                }
+            }
+
+            return $counts;
+        }
+        $counts = [0 => 0];
+        $cursor = 0;
+        $count = 0;
+        $length = strlen($source);
+        for ($at = 0; $at < $length; ++$at) {
+            if (ord($source[$at]) >= 128) {
+                continue;
+            }
+            // ASCII bytes cannot continue a UTF-8 sequence.
+            $count += mb_strlen(substr($source, $cursor, $at - $cursor), 'UTF-8');
+            $counts[$at] = $count;
+            $counts[$at + 1] = ++$count;
+            $cursor = $at + 1;
+        }
+        $counts[$length] = $count + mb_strlen(substr($source, $cursor), 'UTF-8');
+
+        return $counts;
+    }
+
+    /**
      * The 1-based CODEPOINT column a byte offset into a line names.
      *
      * A `LintWarning`'s `start` and `end` are byte offsets by design, stated

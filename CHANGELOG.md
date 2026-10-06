@@ -11,6 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixes
 
+- Speed up editor batches, attribute-token mapping, table linting, and repeated empty-include warnings.
+- Preserve table-warning line numbers after Unicode text and byte ranges after CRLF and CR endings, and recognize editor attribute lines after bare CR endings.
 - Avoid repeated scans of malformed link destinations, including nested labels and emphasis.
 - Speed up AST merges, Carve rendering of wide trees, and platform linting of long destinations.
 

@@ -63,8 +63,9 @@ final class ContainerLabelParser
         // plain text and ANSI exactly as a bare `%%` would, because those targets
         // write the label as the source the author typed.
         foreach ($nodes as $node) {
-            if ($node instanceof Comment && $node->getPos()?->endOffset === strlen($label)) {
-                $commentOffset = $node->getPos()->startOffset;
+            $pos = $node->getPos();
+            if ($node instanceof Comment && $pos !== null && $pos->endOffset === strlen($label)) {
+                $commentOffset = $pos->startOffset;
 
                 break;
             }

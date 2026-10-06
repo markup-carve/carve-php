@@ -148,6 +148,9 @@ final class HtmlDomLoader
                             ? $document->createElement($name)
                             : $document->createElementNS($namespace, $name);
                     }
+                    if ($copy === false) {
+                        throw new DOMException('Cannot create imported HTML element.');
+                    }
                     foreach ($child->attributes as $attribute) {
                         $attributeName = $attribute->name;
                         if ($attributeName === 'xmlns' || str_starts_with($attributeName, 'xmlns:')) {
