@@ -1347,6 +1347,66 @@ final class BlockContinuationScanner
         if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $openIndex)) {
             return false;
         }
+        if (($this->getFencedBlockParser)()::class === FencedBlockParser::class) {
+            $frame = $this->state->frame;
+            if ($frame->descriptionFenceView === null || $frame->descriptionBoundaryView === null) {
+                $frame->descriptionFenceView = new IndexedFenceView();
+                $frame->descriptionFenceView->advance($lines);
+                $frame->descriptionBoundaryView = new RangeMaximum();
+                $frame->descriptionBoundaryPositions = [];
+                $count = count($lines);
+                for ($j = 0; $j < $count; $j++) {
+                    $threshold = 0;
+                    if (
+                        preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $lines[$j])
+                        || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $lines[$j])
+                    ) {
+                        $threshold = PHP_INT_MAX;
+                    } elseif (IndentationHelper::isBlankLine($lines[$j])) {
+                        $after = $lines[$j + 1] ?? null;
+                        $threshold = $after === null || IndentationHelper::isBlankLine($after)
+                            ? PHP_INT_MAX
+                            : PHP_INT_MAX - IndentationHelper::getLeadingColumns($after) - 1;
+                    }
+                    if ($threshold > 0) {
+                        $slot = count($frame->descriptionBoundaryPositions);
+                        $frame->descriptionBoundaryPositions[] = $j;
+                        $frame->descriptionBoundaryView->set($slot, $threshold);
+                    }
+                }
+            }
+            $boundaries = $frame->descriptionBoundaryView;
+            $positions = $frame->descriptionBoundaryPositions;
+            $low = 0;
+            $high = count($positions);
+            while ($low < $high) {
+                $mid = intdiv($low + $high, 2);
+                if ($positions[$mid] <= $openIndex) {
+                    $low = $mid + 1;
+                } else {
+                    $high = $mid;
+                }
+            }
+            $start = $low;
+            $high = count($positions);
+            // Find the first boundary whose threshold excludes this body column.
+            while ($low < $high) {
+                $mid = intdiv($low + $high, 2);
+                if ($boundaries->maximum($start, $mid + 1) >= PHP_INT_MAX - $bodyColumn) {
+                    $high = $mid;
+                } else {
+                    $low = $mid + 1;
+                }
+            }
+
+            return $frame->descriptionFenceView->contains(
+                $openIndex + 1,
+                $positions[$low] ?? count($lines),
+                $openerColumns,
+                $opener['char'] ?? $opener['fence'][0],
+                $opener['length'],
+            );
+        }
 
         $count = count($lines);
         for ($j = $openIndex + 1; $j < $count; $j++) {
@@ -1561,6 +1621,46 @@ final class BlockContinuationScanner
         }
 
         return false;
+    }
+
+    /**
+     * @param array<string> $lines Immutable source lines in the current frame.
+     * @param int $index
+     * @param array{fence: string, length: int, char?: string} $opener
+     * @param int $stripColumns
+     */
+    public function sourceFenceCloserInView(array $lines, int $index, array $opener, int $stripColumns): bool
+    {
+        if (($this->getFencedBlockParser)()::class !== FencedBlockParser::class) {
+            return $this->hasFenceCloserInView($lines, $index, $opener, $stripColumns);
+        }
+        $cache =&$this->state->frame->viewCodeClosers;
+        if ($cache === null) {
+            $byColumn = [];
+            foreach ($lines as $i => $line) {
+                if (preg_match('/^[ \t]*(`{3,}|~{3,})[ \t]*$/', $line, $match) === 1) {
+                    $column = IndentationHelper::getLeadingColumns($line);
+                    $byColumn[$column][$match[1][0]][strlen($match[1])] = $i;
+                }
+            }
+            $cache = [];
+            foreach ($byColumn as $column => $byCharacter) {
+                foreach ($byCharacter as $char => $byRun) {
+                    ksort($byRun);
+                    $runs = array_keys($byRun);
+                    $lastAtLeast = [];
+                    $best = -1;
+                    for ($k = count($runs) - 1; $k >= 0; $k--) {
+                        $best = max($best, $byRun[$runs[$k]]);
+                        $lastAtLeast[$k] = $best;
+                    }
+                    ksort($lastAtLeast);
+                    $cache[$column][$char] = ['runs' => $runs, 'lastAtLeast' => $lastAtLeast];
+                }
+            }
+        }
+
+        return $this->codeCloserPossible($cache[$stripColumns] ?? [], $opener['char'] ?? $opener['fence'][0], $opener['length'], $index);
     }
 
     /**
