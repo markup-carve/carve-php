@@ -1564,6 +1564,46 @@ final class BlockContinuationScanner
     }
 
     /**
+     * @param array<string> $lines Immutable source lines in the current frame.
+     * @param int $index
+     * @param array{fence: string, length: int, char?: string} $opener
+     * @param int $stripColumns
+     */
+    public function sourceFenceCloserInView(array $lines, int $index, array $opener, int $stripColumns): bool
+    {
+        if (($this->getFencedBlockParser)()::class !== FencedBlockParser::class) {
+            return $this->hasFenceCloserInView($lines, $index, $opener, $stripColumns);
+        }
+        $cache =&$this->state->frame->viewCodeClosers;
+        if ($cache === null) {
+            $byColumn = [];
+            foreach ($lines as $i => $line) {
+                if (preg_match('/^[ \t]*(`{3,}|~{3,})[ \t]*$/', $line, $match) === 1) {
+                    $column = IndentationHelper::getLeadingColumns($line);
+                    $byColumn[$column][$match[1][0]][strlen($match[1])] = $i;
+                }
+            }
+            $cache = [];
+            foreach ($byColumn as $column => $byCharacter) {
+                foreach ($byCharacter as $char => $byRun) {
+                    ksort($byRun);
+                    $runs = array_keys($byRun);
+                    $lastAtLeast = [];
+                    $best = -1;
+                    for ($k = count($runs) - 1; $k >= 0; $k--) {
+                        $best = max($best, $byRun[$runs[$k]]);
+                        $lastAtLeast[$k] = $best;
+                    }
+                    ksort($lastAtLeast);
+                    $cache[$column][$char] = ['runs' => $runs, 'lastAtLeast' => $lastAtLeast];
+                }
+            }
+        }
+
+        return $this->codeCloserPossible($cache[$stripColumns] ?? [], $opener['char'] ?? $opener['fence'][0], $opener['length'], $index);
+    }
+
+    /**
      * The tracker above, reading the line from a byte OFFSET.
      *
      * Every branch asks the same question of the same bytes as the copying

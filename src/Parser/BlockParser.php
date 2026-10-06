@@ -3896,6 +3896,58 @@ class BlockParser
     }
 
     /**
+     * @param \MarkupCarve\Carve\Parser\NestedLeadFenceState $state
+     * @param array<string> $itemLines
+     */
+    protected function advanceNestedLeadFenceState(NestedLeadFenceState $state, array $itemLines): void
+    {
+        if (!$state->initialized) {
+            if ($itemLines === []) {
+                return;
+            }
+            $state->initialized = true;
+            $rest = (string)($itemLines[0] ?? '');
+            while (($offset = $this->listParser->markerContentOffset($rest)) !== null) {
+                $rest = substr($rest, $offset);
+                $state->column += $offset;
+            }
+            if ($state->column > 0 && $rest === ltrim($rest, " \t")) {
+                $opener = $this->fencedBlockParser->parseRawBlockOpener($rest)
+                    ?? $this->fencedBlockParser->parseCodeFenceOpener($rest);
+                if ($opener !== null) {
+                    $state->char = $opener['char'] ?? $opener['fence'][0];
+                    $state->length = $opener['length'];
+                }
+            }
+        }
+        if ($state->length === 0) {
+            return;
+        }
+
+        for ($n = count($itemLines); $state->nextLine < $n; $state->nextLine++) {
+            $line = $itemLines[$state->nextLine];
+            if (!$state->closed) {
+                if (
+                    IndentationHelper::getLeadingColumns($line) === $state->column
+                    && $this->fencedBlockParser->isCodeFenceCloser(ltrim($line, " \t"), $state->char, $state->length)
+                ) {
+                    $state->closed = true;
+                }
+
+                continue;
+            }
+            if (!IndentationHelper::isBlankLine($line)) {
+                $state->onlyBlankBelow = false;
+            }
+            $state->trailing = $this->advanceTrailingState(
+                $state->trailing,
+                IndentationHelper::stripLeadingColumns($line, $state->column),
+                true,
+            );
+        }
+    }
+
+    /**
      * Does a marker-lead item's lead end in a code fence or raw block that has
      * SEEN ITS CLOSER at the nested item's own content column?
      *
@@ -4571,6 +4623,10 @@ class BlockParser
         foreach ($itemLines as $seedLine) {
             $trailingState = $this->advanceTrailingState($trailingState, $seedLine);
         }
+        $nestedFence = new NestedLeadFenceState();
+        $legacyNestedFence = $this->usesLegacyTrailingHook('nestedLeadFenceClosure')
+            || $this->usesLegacyTrailingHook('nestedLeadEndsInAClosedFence')
+            || $this->usesLegacyTrailingHook('nestedLeadParagraphOpenBelowAClosedFence');
         while ($i < $count) {
             $nextLine = $lines[$i];
 
@@ -4610,13 +4666,18 @@ class BlockParser
                 // and then disagrees with the spec on the other kinds, which is
                 // why the ruling has two arms.
                 //
-                // Asked of the collected lines rather than of the trailing-block
-                // tracker, which reads this stream one container out and so sees
+                // Tracked incrementally over the collected lines because the
+                // outer trailing-block tracker reads this stream one container out. It sees
                 // the nested lead's opener as prose and its closer as a second
                 // opener. Teaching the tracker the nested fence instead moved
                 // the UNFINISHED-fence family (carve-php#1900, #1958) with it.
+                if ($nextIndent === 0 && !$legacyNestedFence) {
+                    $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
+                }
                 $foldsOnClosedNestedFence = $nextIndent === 0
-                    && $this->nestedLeadEndsInAClosedFence($itemLines);
+                    && ($legacyNestedFence
+                        ? $this->nestedLeadEndsInAClosedFence($itemLines)
+                        : $nestedFence->closed && $nestedFence->onlyBlankBelow);
                 // A PARAGRAPH LEFT OPEN BELOW THAT CLOSED FENCE TAKES THE LINE
                 // INSTEAD (markup-carve/carve-php#2903). §10 lazy continuation,
                 // not the fold arm: the line joins the paragraph in the INNER
@@ -4624,7 +4685,9 @@ class BlockParser
                 // two are mutually exclusive because the fold arm requires
                 // nothing but blank lines below the closer.
                 $nestedLeadParagraphOpen = $nextIndent === 0
-                    && $this->nestedLeadParagraphOpenBelowAClosedFence($itemLines);
+                    && ($legacyNestedFence
+                        ? $this->nestedLeadParagraphOpenBelowAClosedFence($itemLines)
+                        : $nestedFence->closed && $nestedFence->trailing->openParagraph);
                 if (
                     (!$trailingState->openParagraph
                         && !$foldsOnClosedNestedFence
@@ -5022,6 +5085,7 @@ class BlockParser
         $count = count($lines);
 
         $bodyLines = [$content];
+        $commentSpan = new CollectedCommentSpan();
         $bodyLineMap = [$this->sourceLineFor($start)];
         // Tracked for the same reason the list-item collectors track it: inside
         // an open fence a whitespace-only source line is a verbatim line, so
@@ -5125,7 +5189,7 @@ class BlockParser
                 // COMMENT BELOW THE COLUMN" (markup-carve/carve#2488).
                 // {@see self::linesLeaveACommentSpanOpen()}
                 $this->isCommentLineOrFence(ltrim($nextLine, " \t"))
-                && $this->linesLeaveACommentSpanOpen($bodyLines)
+                && $this->collectedLinesLeaveACommentSpanOpen($bodyLines, $commentSpan)
             ) {
                 $bodyLine = $this->keptCommentDelimiter($nextLine);
                 $bodyLines[] = $bodyLine;
@@ -5723,49 +5787,84 @@ class BlockParser
      */
     protected function linesLeaveACommentSpanOpen(array $lines): bool
     {
-        $openComment = null;
-        $openCode = null;
-        $atBlockStart = true;
-        foreach ($lines as $raw) {
-            foreach (explode("\n", self::stripLazyFrame($raw)) as $part) {
+        return $this->scanCollectedCommentSpan($lines, new CollectedCommentSpan());
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param \MarkupCarve\Carve\Parser\CollectedCommentSpan $scan
+     */
+    private function collectedLinesLeaveACommentSpanOpen(array $lines, CollectedCommentSpan $scan): bool
+    {
+        if ($this->usesLegacyTrailingHook('linesLeaveACommentSpanOpen')) {
+            return $this->linesLeaveACommentSpanOpen($lines);
+        }
+
+        return $this->scanCollectedCommentSpan($lines, $scan);
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param \MarkupCarve\Carve\Parser\CollectedCommentSpan $scan
+     */
+    protected function scanCollectedCommentSpan(array $lines, CollectedCommentSpan $scan): bool
+    {
+        for ($n = count($lines); $scan->entry < $n;) {
+            $raw = $lines[$scan->entry];
+            if (!$scan->tailSeen) {
+                $chunk = self::stripLazyFrame($raw);
+            } elseif (strlen($raw) > $scan->tailLength) {
+                // Definition collectors append complete lines to their last entry.
+                $chunk = substr($raw, $scan->tailLength + 1);
+            } elseif ($scan->entry + 1 < $n) {
+                $scan->entry++;
+                $scan->tailSeen = false;
+
+                continue;
+            } else {
+                break;
+            }
+            foreach (explode("\n", $chunk) as $part) {
                 $line = ltrim($part, " \t");
-                if ($openComment !== null) {
-                    if ($this->fencedBlockParser->isFencedCommentCloser($line, $openComment)) {
-                        $openComment = null;
-                        $atBlockStart = true;
+                if ($scan->openComment !== null) {
+                    if ($this->fencedBlockParser->isFencedCommentCloser($line, $scan->openComment)) {
+                        $scan->openComment = null;
+                        $scan->atBlockStart = true;
                     }
 
                     continue;
                 }
-                if ($openCode !== null) {
-                    if ($this->closesCodeFence($line, $openCode['char'], $openCode['length'])) {
-                        $openCode = null;
-                        $atBlockStart = true;
+                if ($scan->openCode !== null) {
+                    if ($this->closesCodeFence($line, $scan->openCode['char'], $scan->openCode['length'])) {
+                        $scan->openCode = null;
+                        $scan->atBlockStart = true;
                     }
 
                     continue;
                 }
                 if ($line === '') {
-                    $atBlockStart = true;
+                    $scan->atBlockStart = true;
 
                     continue;
                 }
-                $opener = $atBlockStart ? $this->markerFreeContent($line) : $line;
-                $atBlockStart = false;
+                $opener = $scan->atBlockStart ? $this->markerFreeContent($line) : $line;
+                $scan->atBlockStart = false;
                 $code = $this->fencedBlockParser->parseCodeFenceOpener($opener);
                 if ($code !== null) {
-                    $openCode = ['char' => $code['char'], 'length' => $code['length']];
+                    $scan->openCode = ['char' => $code['char'], 'length' => $code['length']];
 
                     continue;
                 }
                 $comment = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($opener);
                 if ($comment !== null) {
-                    $openComment = $comment['length'];
+                    $scan->openComment = $comment['length'];
                 }
             }
+            $scan->tailLength = strlen($raw);
+            $scan->tailSeen = true;
         }
 
-        return $openComment !== null;
+        return $scan->openComment !== null;
     }
 
     /**
@@ -8360,7 +8459,7 @@ class BlockParser
             leadBottomIsContinuationMarkerCallback: $this->leadBottomIsContinuationMarker(...),
             leadColonFenceHasBodyAtContentColumnCallback: $this->leadColonFenceHasBodyAtContentColumn(...),
             lineOpensBlockForLoosenessCallback: $this->lineOpensBlockForLooseness(...),
-            linesLeaveACommentSpanOpenCallback: $this->linesLeaveACommentSpanOpen(...),
+            linesLeaveACommentSpanOpenCallback: $this->collectedLinesLeaveACommentSpanOpen(...),
             listMarkerWidthCallback: $this->listMarkerWidth(...),
             markerFreeContentCallback: $this->markerFreeContent(...),
             parseBlocksCallback: $this->parseBlocks(...),
@@ -8394,7 +8493,7 @@ class BlockParser
             lastCommentFenceIndexCallback: $this->lastCommentFenceIndex(...),
             leadBottomOpensFenceCallback: $this->leadBottomOpensFence(...),
             lineOpensBlockForLoosenessCallback: $this->lineOpensBlockForLooseness(...),
-            linesLeaveACommentSpanOpenCallback: $this->linesLeaveACommentSpanOpen(...),
+            linesLeaveACommentSpanOpenCallback: $this->collectedLinesLeaveACommentSpanOpen(...),
             parseBlocksCallback: $this->parseBlocks(...),
             rebaseOverindentedItemBlocksCallback: $this->rebaseOverindentedItemBlocks(...),
             startsInterruptingBlockCallback: $this->startsInterruptingBlock(...),

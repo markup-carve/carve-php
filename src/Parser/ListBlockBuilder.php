@@ -63,7 +63,7 @@ final class ListBlockBuilder
      * @param \Closure(string): (bool) $leadBottomIsContinuationMarkerCallback
      * @param \Closure(string, array<string>, int, int, int): (bool) $leadColonFenceHasBodyAtContentColumnCallback
      * @param \Closure(string, bool, bool): (bool) $lineOpensBlockForLoosenessCallback
-     * @param \Closure(array<string>): (bool) $linesLeaveACommentSpanOpenCallback
+     * @param \Closure(array<string>, \MarkupCarve\Carve\Parser\CollectedCommentSpan): (bool) $linesLeaveACommentSpanOpenCallback
      * @param \Closure(string, array{type: string, content: string, attributesWidth?: int}): (int) $listMarkerWidthCallback
      * @param \Closure(string): (string) $markerFreeContentCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int, array<int, int>|null, bool, bool): (void) $parseBlocksCallback
@@ -241,6 +241,7 @@ final class ListBlockBuilder
                     // residual indent above it is preserved and a block opener
                     // there stays lazy text rather than being re-promoted.
                     $subLines = [];
+                    $commentSpan = new CollectedCommentSpan();
                     $subLineMap = [];
                     $subIndent = $lastItemContentIndent;
                     // Track the maximum content indent we've seen (for detecting drop-back to marker level)
@@ -489,7 +490,7 @@ final class ListBlockBuilder
                             // {@see self::linesLeaveACommentSpanOpen()}
                             if (
                                 $this->isCommentLineOrFence($trimmedLine)
-                                && $this->linesLeaveACommentSpanOpen($subLines)
+                                && $this->linesLeaveACommentSpanOpen($subLines, $commentSpan)
                             ) {
                                 $subLines[] = $this->keptCommentDelimiter($subLine);
                                 $subLineMap[] = $this->sourceLineFor($i);
@@ -2473,10 +2474,11 @@ final class ListBlockBuilder
 
     /**
      * @param array<string> $lines Lines as the collector holds them.
+     * @param \MarkupCarve\Carve\Parser\CollectedCommentSpan $scan
      */
-    private function linesLeaveACommentSpanOpen(array $lines): bool
+    private function linesLeaveACommentSpanOpen(array $lines, CollectedCommentSpan $scan): bool
     {
-        return ($this->linesLeaveACommentSpanOpenCallback)($lines);
+        return ($this->linesLeaveACommentSpanOpenCallback)($lines, $scan);
     }
 
     /**

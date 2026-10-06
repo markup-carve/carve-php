@@ -45,7 +45,7 @@ final class DefinitionListBuilder
      * @param \Closure(array<string>, int): (int) $lastCommentFenceIndexCallback
      * @param \Closure(string): (bool) $leadBottomOpensFenceCallback
      * @param \Closure(string, bool, bool): (bool) $lineOpensBlockForLoosenessCallback
-     * @param \Closure(array<string>): (bool) $linesLeaveACommentSpanOpenCallback
+     * @param \Closure(array<string>, \MarkupCarve\Carve\Parser\CollectedCommentSpan): (bool) $linesLeaveACommentSpanOpenCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int, array<int, int>|null, bool, bool): (void) $parseBlocksCallback
      * @param \Closure(array<string>, array<int, true>|null, int|null, bool, bool, bool, bool): (array<string>) $rebaseOverindentedItemBlocksCallback
      * @param \Closure(string, array<string>|null, int|null): (bool) $startsInterruptingBlockCallback
@@ -405,6 +405,8 @@ final class DefinitionListBuilder
                     $bodyMap = [$this->sourceLineFor($definitionStart)];
                 }
                 $termScan = null;
+                $commentSpan = new CollectedCommentSpan();
+                $leadFence = new CollectedFenceView();
                 // A definition body continues like a list item (SS17):
                 //  - form A: a deeper-indented (>= 3) line folds in, and a blank
                 //    line is tolerated when a later line still continues, so a
@@ -527,8 +529,7 @@ final class DefinitionListBuilder
                     // interrupts a paragraph - so it reports false for `- x`,
                     // which does open a block when it is the body's first line.
                     $lastBodyKey = $body === [] ? null : array_key_last($body);
-                    $lastBodyEntry = $lastBodyKey === null ? '' : $body[$lastBodyKey];
-                    $lastBodyOpener = strtok($lastBodyEntry, "\n");
+                    $lastBodyOpener = $lastBodyKey === null ? false : self::firstBodyLine($body[$lastBodyKey]);
                     // A DEFINITION PAST THE BODY'S COLUMN IS STILL A DEFINITION.
                     // PART 0's `CARVE-P0-020` AT OR PAST MEANS THE DEEPEST
                     // COLUMN THE LINE REACHES (markup-carve/carve#1896) reads
@@ -554,7 +555,7 @@ final class DefinitionListBuilder
                         $indent < $continuationColumn
                         && !IndentationHelper::isBlankLine($contLine)
                         && $this->isCommentLineOrFence($trimmedCont)
-                        && $this->linesLeaveACommentSpanOpen($body)
+                        && $this->linesLeaveACommentSpanOpen($body, $commentSpan)
                     ) {
                         $body[] = $this->keptCommentDelimiter($contLine);
                         $bodyMap[] = $this->sourceLineFor($i);
@@ -581,7 +582,7 @@ final class DefinitionListBuilder
                     $paragraphFence = ($this->getFencedBlockParser)()->parseRawBlockOpener($trimmedCont)
                         ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($trimmedCont);
                     $paragraphFenceHasNoCloser = $paragraphFence !== null
-                        && !$this->hasFenceCloserInView(
+                        && !$this->continuations->sourceFenceCloserInView(
                             $lines,
                             $i,
                             $paragraphFence,
@@ -595,7 +596,7 @@ final class DefinitionListBuilder
                         && !$attributePastTheColumn
                         && !$formABlockOpen
                         && $lastBodyKey !== null
-                        && $lastBodyEntry !== ''
+                        && $body[$lastBodyKey] !== ''
                         && $lastBodyOpener !== false
                         && (
                             $paragraphFenceHasNoCloser
@@ -873,7 +874,7 @@ final class DefinitionListBuilder
                     // carve-php#1913 reads the lead structurally too.
                     $nestedFenceOwnsLine = $indent === 0
                         && $paragraphFence !== null
-                        && $this->descriptionBodyLeadFenceStaysOpen($body);
+                        && $this->descriptionBodyLeadFenceStaysOpen($body, $leadFence);
                     if (
                         (
                             $indent === 0
@@ -1177,42 +1178,80 @@ final class DefinitionListBuilder
         return $this->continuations->descriptionBodyEntryAsRead($state, $body, $index, $openerBase);
     }
 
+    private static function firstBodyLine(string $entry): string|false
+    {
+        $start = strspn($entry, "\n");
+        if ($start === strlen($entry)) {
+            return false;
+        }
+
+        return substr($entry, $start, strcspn($entry, "\n", $start));
+    }
+
     /**
      * Whether the body's own nested lead opens a fence no collected entry has
      * closed yet.
      *
      * @param array<string> $body Entries the description body has collected.
+     * @param \MarkupCarve\Carve\Parser\CollectedFenceView $scan
      */
-    private function descriptionBodyLeadFenceStaysOpen(array $body): bool
+    private function descriptionBodyLeadFenceStaysOpen(array $body, CollectedFenceView $scan): bool
     {
-        $lead = (string)($body[0] ?? '');
-        if (
-            ($this->getListParser)()->markerContentOffset($lead) === null
-            || !$this->leadBottomOpensFence($lead)
-        ) {
+        if (!$scan->initialized) {
+            $scan->initialized = true;
+            $lead = (string)($body[0] ?? '');
+            if (
+                ($this->getListParser)()->markerContentOffset($lead) === null
+                || !$this->leadBottomOpensFence($lead)
+            ) {
+                return false;
+            }
+
+            $rest = $lead;
+            $contentColumn = 0;
+            while (($offset = ($this->getListParser)()->markerContentOffset($rest)) !== null) {
+                $rest = substr($rest, $offset);
+                $contentColumn += $offset;
+            }
+            $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($rest)
+                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($rest);
+            // A LINE BLOCK ALSO ANSWERS `leadBottomOpensFence()` and has no fence
+            // closer to look for, so it is not this clause's shape.
+            if ($opener === null) {
+                return false;
+            }
+
+            $scan->column = $contentColumn;
+            $scan->opener = $opener;
+        }
+        if ($scan->opener === null || $scan->closed) {
             return false;
         }
+        $last = count($body) - 1;
+        for (; $scan->nextEntry < $last; $scan->nextEntry++) {
+            if ($this->collectedEntryClosesFence($body[$scan->nextEntry], $scan)) {
+                $scan->closed = true;
 
-        $rest = $lead;
-        $contentColumn = 0;
-        while (($offset = ($this->getListParser)()->markerContentOffset($rest)) !== null) {
-            $rest = substr($rest, $offset);
-            $contentColumn += $offset;
+                return false;
+            }
+            $scan->tailLength = -1;
         }
-        $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($rest)
-            ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($rest);
-        // A LINE BLOCK ALSO ANSWERS `leadBottomOpensFence()` and has no fence
-        // closer to look for, so it is not this clause's shape.
-        if ($opener === null) {
+        if ($last >= $scan->nextEntry && strlen($body[$last]) !== $scan->tailLength) {
+            $scan->tailClosed = $this->collectedEntryClosesFence($body[$last], $scan);
+            $scan->tailLength = strlen($body[$last]);
+        }
+
+        return !$scan->tailClosed;
+    }
+
+    private function collectedEntryClosesFence(string $entry, CollectedFenceView $scan): bool
+    {
+        if ($scan->opener === null || IndentationHelper::getLeadingColumns($entry, $scan->column + 1) !== $scan->column) {
             return false;
         }
+        $line = IndentationHelper::stripLeadingColumns($entry, $scan->column);
 
-        // THE CLOSER SITS AT THE NESTED LEAD'S OWN CONTENT COLUMN, so that is
-        // the column to read the collected entries at. Searching from column 0
-        // could not see it, so a CLOSED lead fence still claimed the flush-left
-        // line below the body and §10's closer lookahead never got to answer
-        // (carve-php#2878).
-        return !$this->hasFenceCloserInView($body, 0, $opener, $contentColumn);
+        return ($this->getFencedBlockParser)()->isCodeFenceCloser($line, $scan->opener['char'] ?? $scan->opener['fence'][0], $scan->opener['length']);
     }
 
     /**
@@ -1248,17 +1287,6 @@ final class DefinitionListBuilder
     private function foldedLinesMap(array $contentLines, int $firstLineSearchFrom = 0): ?SourceMap
     {
         return $this->source->foldedLinesMap($contentLines, $firstLineSearchFrom);
-    }
-
-    /**
-     * @param array<string> $lines
-     * @param int $index
-     * @param array{fence: string, length: int, char?: string} $opener
-     * @param int $stripColumns
-     */
-    private function hasFenceCloserInView(array $lines, int $index, array $opener, int $stripColumns): bool
-    {
-        return $this->continuations->hasFenceCloserInView($lines, $index, $opener, $stripColumns);
     }
 
     private function isBlockAttributeLine(string $line): bool
@@ -1314,10 +1342,11 @@ final class DefinitionListBuilder
 
     /**
      * @param array<string> $lines Lines as the collector holds them.
+     * @param \MarkupCarve\Carve\Parser\CollectedCommentSpan $scan
      */
-    private function linesLeaveACommentSpanOpen(array $lines): bool
+    private function linesLeaveACommentSpanOpen(array $lines, CollectedCommentSpan $scan): bool
     {
-        return ($this->linesLeaveACommentSpanOpenCallback)($lines);
+        return ($this->linesLeaveACommentSpanOpenCallback)($lines, $scan);
     }
 
     /**

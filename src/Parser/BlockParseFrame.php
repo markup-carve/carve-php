@@ -70,6 +70,13 @@ final class BlockParseFrame
      */
     public ?array $literalFenceCloserIndexCache = null;
 
+    /**
+     * Exact code-fence closers grouped by source column and run character.
+     *
+     * @var array<int, array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>>|null
+     */
+    public ?array $viewCodeClosers = null;
+
     public function sourceLineFor(int $index): int
     {
         if ($index < 0) {
