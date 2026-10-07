@@ -65,14 +65,19 @@ class IncludeDirectiveSyntax
     public const SHAPE = '/^\{\{(?:"(?:\\\\.|[^"\\\\\n])*+"|[^{}])*+\}\}$/s';
 
     /**
-     * Split the option slot into tokens, keeping a quoted value whole.
-     * Splitting on whitespace tore `@label:"a b"` into three, so a value's own
-     * `#` reached the section slot and a diagnostic named a token that is
-     * nowhere in the source.
+     * One slot of the tail: its first character, then everything up to the
+     * next whitespace or the next unquoted `#` or `@`.
+     *
+     * The separating whitespace is OPTIONAL in every position (carve#2773), so
+     * a slot cannot be found by splitting on whitespace: that read
+     * `#Alpha@shift:1` as one unknown token and left a well-formed directive
+     * literal. A quoted value stays whole, because a value's own `#` is not a
+     * boundary and naming it in a diagnostic names a token that is nowhere in
+     * the source.
      *
      * @var string
      */
-    private const OPTION_TOKENS = '/(?:"(?:\\\\.|[^"\\\\\n])*+"|[^\s])++/';
+    private const SLOT = '/\G[#@]?(?:"(?:\\\\.|[^"\\\\\n])*+"|[^\s#@])++/';
 
     /**
      * @var string
@@ -83,6 +88,11 @@ class IncludeDirectiveSyntax
      * @var string
      */
     public const ERROR_MALFORMED = 'malformed';
+
+    /**
+     * @var string
+     */
+    public const ERROR_DUPLICATE_SECTION = 'duplicate-section';
 
     /**
      * Nodes whose source form is recoverable verbatim, and which may therefore
@@ -185,7 +195,11 @@ class IncludeDirectiveSyntax
             $path = stripcslashes($pathMatch[1]);
             $rest = trim($pathMatch[2]);
         } else {
-            if (!preg_match('/^([^#@} "]+)(.*)$/s', $body, $pathMatch)) {
+            // The stop set holds the TAB: `bare_include_path` stops at
+            // whitespace, and a tab is whitespace wherever else the grammar
+            // says so. Taking it as path text made `{{ c.crv<TAB>#Alpha }}`
+            // look for a file whose name ends in a tab.
+            if (!preg_match('/^([^#@} \t"]+)(.*)$/s', $body, $pathMatch)) {
                 return null;
             }
             $path = $pathMatch[1];
@@ -198,10 +212,21 @@ class IncludeDirectiveSyntax
         $error = null;
         $errorPart = null;
         if ($rest !== '') {
-            preg_match_all(self::OPTION_TOKENS, $rest, $tokens);
-            foreach ($tokens[0] as $part) {
+            foreach (static::slots($rest) as $part) {
                 // `explicit_identifier`, so a digit-leading id is nameable (I1a).
                 if (preg_match('/^#([A-Za-z0-9_][A-Za-z0-9_-]*)$/', $part, $sectionMatch)) {
+                    // `include_section` is ONE optional slot. A second name is
+                    // not a directive the author can mean, and taking the last
+                    // one returned the wrong fragment with nothing on the page
+                    // to say a selector had been dropped.
+                    if ($section !== null) {
+                        if ($error === null) {
+                            $error = static::ERROR_DUPLICATE_SECTION;
+                            $errorPart = $part;
+                        }
+
+                        continue;
+                    }
                     $section = $sectionMatch[1];
 
                     continue;
@@ -251,5 +276,36 @@ class IncludeDirectiveSyntax
             'error' => $error,
             'errorPart' => $errorPart,
         ];
+    }
+
+    /**
+     * The tail after the path, cut into slots.
+     *
+     * @return list<string>
+     */
+    protected static function slots(string $tail): array
+    {
+        $slots = [];
+        $at = 0;
+        $length = strlen($tail);
+        while ($at < $length) {
+            if ($tail[$at] === ' ' || $tail[$at] === "\t") {
+                $at++;
+
+                continue;
+            }
+            if (preg_match(self::SLOT, $tail, $match, 0, $at) !== 1) {
+                // A `#` or `@` with nothing spellable behind it. Take the one
+                // character so the scan advances and the slot is reported.
+                $slots[] = substr($tail, $at, 1);
+                $at++;
+
+                continue;
+            }
+            $slots[] = $match[0];
+            $at += strlen($match[0]);
+        }
+
+        return $slots;
     }
 }
