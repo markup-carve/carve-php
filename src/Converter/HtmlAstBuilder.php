@@ -3396,7 +3396,7 @@ final class HtmlAstBuilder
     private function trimInlineTrailing(array &$node): void
     {
         if ($node['type'] === 'text') {
-            $node['value'] = preg_replace('/[ \t]+$/', '', self::stringValue($node['value'] ?? null)) ?? self::stringValue($node['value'] ?? null);
+            $node['value'] = self::trimInlinePaddingEnd(self::stringValue($node['value'] ?? null));
 
             return;
         }
@@ -3574,7 +3574,7 @@ final class HtmlAstBuilder
                 $last = array_key_last($children);
                 if ($last !== null && $endsBlank($children[$last])) {
                     $trail = true;
-                    $children[$last]['value'] = preg_replace('/[ \t]+$/', '', self::stringValue($children[$last]['value'] ?? null)) ?? '';
+                    $children[$last]['value'] = self::trimInlinePaddingEnd(self::stringValue($children[$last]['value'] ?? null));
                     if ($children[$last]['value'] === '') {
                         array_pop($children);
                     }
@@ -4868,6 +4868,15 @@ final class HtmlAstBuilder
         return $result->attrs;
     }
 
+    private static function trimInlinePaddingEnd(string $value): string
+    {
+        if (str_ends_with($value, "\n")) {
+            return rtrim(substr($value, 0, -1), " \t") . "\n";
+        }
+
+        return rtrim($value, " \t");
+    }
+
     /**
      * @param list<ImportedNode> $nodes
      *
@@ -4928,7 +4937,7 @@ final class HtmlAstBuilder
                 break;
             }
             $value = self::stringValue($nodes[$last]['value'] ?? null);
-            $nodes[$last]['value'] = preg_replace('/[ \t]+$/', '', $value) ?? $value;
+            $nodes[$last]['value'] = self::trimInlinePaddingEnd($value);
             if ($nodes[$last]['value'] !== '') {
                 break;
             }

@@ -134,6 +134,13 @@ class HtmlAstBuildResultTest extends TestCase
         );
     }
 
+    public function testLongInternalSpacesDoNotPreventTrimmingTrailingPadding(): void
+    {
+        $spaces = str_repeat('<span> </span>', 4096);
+        $tree = (new HtmlAstBuilder(sourceSafe: false))->build('<p>x' . $spaces . 'x </p>');
+        self::assertSame('x' . str_repeat(' ', 4096) . 'x', $tree['children'][0]['children'][0]['value']);
+    }
+
     #[Group('scaling')]
     public function testBuilderTextRunsScaleLinearly(): void
     {
