@@ -4876,14 +4876,30 @@ final class HtmlAstBuilder
     private function coalesceText(array $nodes): array
     {
         $out = [];
+        $textNode = null;
+        $parts = [];
         foreach ($nodes as $node) {
-            $last = array_key_last($out);
-            if ($last !== null && $node['type'] === 'text' && $out[$last]['type'] === 'text') {
-                $out[$last]['value'] = self::stringValue($out[$last]['value'] ?? null)
-                    . self::stringValue($node['value'] ?? null);
-            } else {
-                $out[] = $node;
+            if ($node['type'] === 'text') {
+                $textNode ??= $node;
+                $parts[] = $node['value'] ?? null;
+
+                continue;
             }
+            if ($textNode !== null) {
+                if (count($parts) > 1) {
+                    $textNode['value'] = implode('', array_map(self::stringValue(...), $parts));
+                }
+                $out[] = $textNode;
+                $textNode = null;
+                $parts = [];
+            }
+            $out[] = $node;
+        }
+        if ($textNode !== null) {
+            if (count($parts) > 1) {
+                $textNode['value'] = implode('', array_map(self::stringValue(...), $parts));
+            }
+            $out[] = $textNode;
         }
 
         return $out;

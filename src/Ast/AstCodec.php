@@ -1254,17 +1254,25 @@ class AstCodec
     private static function mergeAdjacentText(array $children): array
     {
         $merged = [];
+        $textNode = null;
+        $parts = [];
         foreach ($children as $child) {
-            $previous = $merged !== [] ? array_key_last($merged) : null;
-            $left = $previous !== null ? self::plainTextValue($merged[$previous]) : null;
-            $right = self::plainTextValue($child);
-            if ($previous !== null && $left !== null && $right !== null) {
-                $merged[$previous] = ['type' => 'text', 'value' => $left . $right];
+            $text = self::plainTextValue($child);
+            if ($text !== null) {
+                $textNode ??= $child;
+                $parts[] = $text;
 
                 continue;
             }
-
+            if ($textNode !== null) {
+                $merged[] = count($parts) === 1 ? $textNode : ['type' => 'text', 'value' => implode('', $parts)];
+                $textNode = null;
+                $parts = [];
+            }
             $merged[] = $child;
+        }
+        if ($textNode !== null) {
+            $merged[] = count($parts) === 1 ? $textNode : ['type' => 'text', 'value' => implode('', $parts)];
         }
 
         return $merged;
@@ -1698,36 +1706,39 @@ class AstCodec
     private static function coalesceTextRuns(array $nodes): array
     {
         $out = [];
+        $textNode = null;
+        $parts = [];
         foreach ($nodes as $node) {
-            $previous = $out === [] ? null : $out[count($out) - 1];
-            if (
-                $previous !== null
-                && ($previous['type'] ?? null) === 'text'
-                && ($node['type'] ?? null) === 'text'
-                && is_string($previous['value'] ?? null)
-                && is_string($node['value'] ?? null)
-            ) {
-                $merged = $previous;
-                $merged['value'] = $previous['value'] . $node['value'];
-                // Contiguous only. Two pieces that are not adjacent in the
-                // source join into a value that is not a slice of it at any
-                // offset, and PART 12 §4 rates a span selecting the wrong text
-                // worse than no span at all.
-                $previousPos = $previous['pos'] ?? null;
-                $nodePos = $node['pos'] ?? null;
-                $span = is_array($previousPos) && is_array($nodePos)
-                    ? self::mergedSpan($previousPos, $nodePos)
-                    : null;
-                if ($span === null) {
-                    unset($merged['pos']);
+            if (($node['type'] ?? null) === 'text' && is_string($node['value'] ?? null)) {
+                if ($textNode === null) {
+                    $textNode = $node;
                 } else {
-                    $merged['pos'] = $span;
+                    $previousPos = $textNode['pos'] ?? null;
+                    $nodePos = $node['pos'] ?? null;
+                    $span = is_array($previousPos) && is_array($nodePos)
+                        ? self::mergedSpan($previousPos, $nodePos)
+                        : null;
+                    if ($span === null) {
+                        unset($textNode['pos']);
+                    } else {
+                        $textNode['pos'] = $span;
+                    }
                 }
-                $out[count($out) - 1] = $merged;
+                $parts[] = $node['value'];
 
                 continue;
             }
+            if ($textNode !== null) {
+                $textNode['value'] = implode('', $parts);
+                $out[] = $textNode;
+                $textNode = null;
+                $parts = [];
+            }
             $out[] = $node;
+        }
+        if ($textNode !== null) {
+            $textNode['value'] = implode('', $parts);
+            $out[] = $textNode;
         }
 
         return $out;
