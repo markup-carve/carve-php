@@ -19,9 +19,11 @@ final class IndexedFenceView
     private array $groups = [];
 
     /**
-     * @var array<int, array{string, int}>
+     * Only the last indexed entry can change.
+     *
+     * @var array{int, string, int}|null
      */
-    private array $entries = [];
+    private ?array $lastEntry = null;
 
     private int $count = 0;
 
@@ -48,11 +50,11 @@ final class IndexedFenceView
 
     private function replace(int $index, string $line): void
     {
-        if (isset($this->entries[$index])) {
-            [$oldKey, $oldSlot] = $this->entries[$index];
+        if ($this->lastEntry !== null && $this->lastEntry[0] === $index) {
+            [, $oldKey, $oldSlot] = $this->lastEntry;
             $this->groups[$oldKey]['maximum']->set($oldSlot, 0);
-            unset($this->entries[$index]);
         }
+        $this->lastEntry = null;
         if (preg_match('/^[ \t]*(`{3,}|~{3,})[ \t]*$/', $line, $match) !== 1) {
             return;
         }
@@ -64,7 +66,7 @@ final class IndexedFenceView
         $slot = count($group['positions']);
         $group['positions'][] = $index;
         $group['maximum']->set($slot, strlen($match[1]));
-        $this->entries[$index] = [$key, $slot];
+        $this->lastEntry = [$index, $key, $slot];
     }
 
     public function contains(int $start, int $end, int $column, string $char, int $width): bool

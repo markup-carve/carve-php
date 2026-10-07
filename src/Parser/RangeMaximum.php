@@ -16,24 +16,21 @@ final class RangeMaximum
     /**
      * @var array<int, int>
      */
-    private array $values = [];
-
-    /**
-     * @var array<int, int>
-     */
-    private array $tree = [];
+    private array $tree = [0, 0];
 
     public function set(int $index, int $value): void
     {
-        $this->values[$index] = $value;
         if ($index >= $this->capacity) {
+            $oldCapacity = $this->capacity;
+            $oldTree = $this->tree;
             while ($index >= $this->capacity) {
                 $this->capacity *= 2;
             }
-            $this->tree = [];
-            foreach ($this->values as $i => $v) {
-                $this->tree[$this->capacity + $i] = $v;
+            $this->tree = array_fill(0, $this->capacity * 2, 0);
+            for ($i = 0; $i < $oldCapacity; $i++) {
+                $this->tree[$this->capacity + $i] = $oldTree[$oldCapacity + $i];
             }
+            $this->tree[$this->capacity + $index] = $value;
             for ($i = $this->capacity - 1; $i > 0; $i--) {
                 $this->tree[$i] = max($this->tree[$i * 2] ?? 0, $this->tree[$i * 2 + 1] ?? 0);
             }
