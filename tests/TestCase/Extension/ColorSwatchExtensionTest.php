@@ -8,10 +8,42 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\ColorSwatchExtension;
 use MarkupCarve\Carve\SafeMode;
+use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class ColorSwatchExtensionTest extends TestCase
 {
+    use ScalingGuardTrait;
+
+    public function testRepeatedClassesKeepTheirFirstOccurrence(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new ColorSwatchExtension());
+        $document = $converter->parse(':color[#fff]');
+        $document->getChildren()[0]->getChildren()[0]->setClassList(['swatch', 'x', '0', '00', 'x', '', '0']);
+        self::assertStringContainsString('class="swatch x 0 00"', $converter->render($document));
+    }
+
+    #[Group('scaling')]
+    public function testWideSwatchClassListsScaleLinearly(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new ColorSwatchExtension());
+        $this->assertConversionScalesLinearly(
+            static function (string $input) use ($converter): void {
+                $document = $converter->parse(':color[#fff]');
+                $document->getChildren()[0]->getChildren()[0]->setClassList(explode(' ', $input));
+                $converter->render($document);
+            },
+            implode(' ', array_map(static fn (int $i): string => sprintf('c%06d', $i), range(0, 4095))),
+            implode(' ', array_map(static fn (int $i): string => sprintf('c%06d', $i), range(0, 16383))),
+            'swatch class merge',
+            4096,
+            16384,
+        );
+    }
+
     protected function convert(string $djot): string
     {
         $converter = new CarveConverter();

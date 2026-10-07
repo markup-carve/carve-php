@@ -130,6 +130,7 @@ final class EscapeWindows
     {
         $swap = Closure::bind(static function (Node $node, array $children): void {
             $node->children = $children;
+            Node::$childIndices?->offsetUnset($node);
         }, null, Node::class);
         $restore = [];
         try {

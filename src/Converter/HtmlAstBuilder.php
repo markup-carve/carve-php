@@ -4140,7 +4140,9 @@ final class HtmlAstBuilder
         $run = [];
         $base = [];
         $explicitBases = [];
+        $explicitBaseIndex = 0;
         $associated = false;
+        $whitespaceEnd = 0;
         foreach ($input as $index => $child) {
             if (is_array($child)) {
                 $explicitBases[] = $this->inlines($this->children($child['rb']));
@@ -4155,8 +4157,8 @@ final class HtmlAstBuilder
             }
             if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'rt') {
                 $annotation = $this->inlines($this->children($child));
-                if ($base === [] && isset($explicitBases[0])) {
-                    $base = array_shift($explicitBases);
+                if ($base === [] && isset($explicitBases[$explicitBaseIndex])) {
+                    $base = $explicitBases[$explicitBaseIndex++];
                     $associated = false;
                 }
                 if ($associated || $base === []) {
@@ -4173,10 +4175,11 @@ final class HtmlAstBuilder
                 continue;
             }
             if ($associated && $child instanceof DOMText && trim($child->textContent) === '') {
-                $next = $index + 1;
+                $next = max($index + 1, $whitespaceEnd);
                 while (isset($input[$next]) && $input[$next] instanceof DOMText && trim($input[$next]->textContent) === '') {
                     $next++;
                 }
+                $whitespaceEnd = $next;
                 if (!isset($input[$next]) || ($input[$next] instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($input[$next])), ['rt', 'rp'], true))) {
                     continue;
                 }
@@ -4188,7 +4191,8 @@ final class HtmlAstBuilder
             self::flushRubyRun($run, $output);
             array_push($output, ...$base);
         }
-        foreach ($explicitBases as $unpaired) {
+        for (; isset($explicitBases[$explicitBaseIndex]); $explicitBaseIndex++) {
+            $unpaired = $explicitBases[$explicitBaseIndex];
             self::flushRubyRun($run, $output);
             array_push($output, ...$unpaired);
         }
@@ -4550,14 +4554,16 @@ final class HtmlAstBuilder
             $attrs['classes'] = array_values($classes);
             $available = array_fill_keys([...($attrs['order'] ?? []), '.class'], true);
             $order = [];
+            $seen = [];
             foreach ($node->attributes as $attribute) {
                 $slot = match (strtolower(HtmlDomLoader::attributeName($attribute))) {
                     'id' => '#id',
                     'class' => '.class',
                     default => strtolower(HtmlDomLoader::attributeName($attribute)),
                 };
-                if (isset($available[$slot]) && !in_array($slot, $order, true)) {
+                if (isset($available[$slot]) && !isset($seen[$slot])) {
                     $order[] = $slot;
+                    $seen[$slot] = true;
                 }
             }
             $attrs['order'] = $order;
@@ -4832,6 +4838,7 @@ final class HtmlAstBuilder
             return;
         }
         $order = [];
+        $seen = [];
         foreach ($node->attributes as $attribute) {
             $slot = match (strtolower(HtmlDomLoader::attributeName($attribute))) {
                 'id' => '#id',
@@ -4840,11 +4847,13 @@ final class HtmlAstBuilder
             };
             if (isset($available[$slot])) {
                 $order[] = $slot;
+                $seen[$slot] = true;
             }
         }
         foreach (array_keys($available) as $slot) {
-            if (!in_array($slot, $order, true)) {
+            if (!isset($seen[$slot])) {
                 $order[] = $slot;
+                $seen[$slot] = true;
             }
         }
         $attrs['order'] = $order;

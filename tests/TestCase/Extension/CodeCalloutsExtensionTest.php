@@ -7,10 +7,55 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\CodeCalloutsExtension;
 use MarkupCarve\Carve\Extension\HeadingNumbersExtension;
+use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 class CodeCalloutsExtensionTest extends TestCase
 {
+    use ScalingGuardTrait;
+
+    #[Group('scaling')]
+    public function testManyCalloutPairsScaleLinearly(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new CodeCalloutsExtension());
+        $fragment = "```\ncode <1>\n```\n\n<1> note\n\n";
+        $small = str_repeat($fragment, 8192);
+        $large = str_repeat($fragment, 32768);
+        $documents = [strlen($small) => $converter->parse($small), strlen($large) => $converter->parse($large)];
+        $this->assertConversionScalesLinearly(
+            static fn (string $source): string => $converter->render(clone $documents[strlen($source)]),
+            $small,
+            $large,
+            'callout sibling binding',
+            8192,
+            32768,
+            maxPerByteRatio: 2.0,
+        );
+    }
+
+    public function testMarkerPaddingKeepsAsciiWhitespaceAndRejectsInvalidNumbers(): void
+    {
+        self::assertStringContainsString("code\t\f\v<b class=\"callout\" data-callout=\"12\">12</b>", $this->html("```\ncode\t\f\v<12> \t\n```"));
+        self::assertStringNotContainsString('class="callout"', $this->html("```\ncode" . str_repeat(' ', 4096) . "<x>\n```"));
+    }
+
+    #[Group('scaling')]
+    public function testInvalidMarkersAfterWhitespaceScaleLinearly(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new CodeCalloutsExtension());
+        $this->assertConversionScalesLinearly(
+            static fn (string $source): string => $converter->convert($source),
+            "```\ncode" . str_repeat(' ', 8192) . "<x>\nvalid <1>\n```\n\n<1> note\n",
+            "```\ncode" . str_repeat(' ', 32768) . "<x>\nvalid <1>\n```\n\n<1> note\n",
+            'callout marker padding',
+            8192,
+            32768,
+        );
+    }
+
     private function html(string $source): string
     {
         $converter = new CarveConverter();

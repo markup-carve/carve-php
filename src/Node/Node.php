@@ -7,7 +7,9 @@ namespace MarkupCarve\Carve\Node;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use OutOfBoundsException;
+use ReflectionClass;
 use ReflectionMethod;
+use WeakMap;
 
 /**
  * Base class for all AST nodes.
@@ -24,6 +26,16 @@ abstract class Node
      * @var array<\MarkupCarve\Carve\Node\Node>
      */
     protected array $children = [];
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Node, array<int, int>>|null
+     */
+    private static ?WeakMap $childIndices = null;
+
+    /**
+     * @var array<class-string, bool>
+     */
+    private static array $nativeChildLookup = [];
 
     /**
      * @var array<string, string>
@@ -107,6 +119,7 @@ abstract class Node
         $child->parent?->removeChild($child);
         $child->parent = $this;
         $this->children[] = $child;
+        self::$childIndices?->offsetUnset($this);
     }
 
     public function prependChild(Node $child): void
@@ -115,6 +128,7 @@ abstract class Node
         $child->parent?->removeChild($child);
         $child->parent = $this;
         array_unshift($this->children, $child);
+        self::$childIndices?->offsetUnset($this);
     }
 
     /**
@@ -142,6 +156,7 @@ abstract class Node
             $child->parent = $this;
         }
         $this->children = array_values($children);
+        self::$childIndices?->offsetUnset($this);
     }
 
     /**
@@ -190,6 +205,7 @@ abstract class Node
         }
         // Remove moved children in one pass per old parent.
         foreach ($parents as $parent) {
+            self::$childIndices?->offsetUnset($parent);
             $parent->children = array_values(array_filter(
                 $parent->children,
                 static fn (Node $child): bool => !isset($incoming[spl_object_id($child)]),
@@ -215,6 +231,39 @@ abstract class Node
     public function getParent(): ?Node
     {
         return $this->parent;
+    }
+
+    /**
+     * Read the preceding child in the current tree.
+     */
+    public function getPreviousSibling(): ?Node
+    {
+        $parent = $this->parent;
+        if ($parent === null) {
+            return null;
+        }
+        $native = self::$nativeChildLookup[$parent::class] ??= str_starts_with(
+            (string)(new ReflectionClass($parent))->getFileName(),
+            __DIR__ . DIRECTORY_SEPARATOR,
+        );
+        if (!$native) {
+            $children = array_values($parent->getChildren());
+            $index = array_search($this, $children, true);
+
+            return $index !== false && $index > 0 ? $children[$index - 1] : null;
+        }
+        self::$childIndices ??= new WeakMap();
+        if (!isset(self::$childIndices[$parent])) {
+            $indices = [];
+            $index = 0;
+            foreach ($parent->children as $child) {
+                $indices[spl_object_id($child)] = $index++;
+            }
+            self::$childIndices[$parent] = $indices;
+        }
+        $index = self::$childIndices[$parent][spl_object_id($this)] ?? 0;
+
+        return $index > 0 ? $parent->children[$index - 1] : null;
     }
 
     public function hasChildren(): bool
@@ -244,6 +293,7 @@ abstract class Node
             $child->parent?->removeChild($child);
         }
         $this->children[$index] = $child;
+        self::$childIndices?->offsetUnset($this);
         $oldChild->parent = null;
         $child->parent = $this;
     }
@@ -292,6 +342,7 @@ abstract class Node
                 $child->parent = $this;
             }
             array_splice($this->children, (int)$index, 1, $newChildren);
+            self::$childIndices?->offsetUnset($this);
             $oldChild->parent = null;
 
             return true;
@@ -320,6 +371,7 @@ abstract class Node
         }
 
         array_splice($this->children, (int)$index, 1);
+        self::$childIndices?->offsetUnset($this);
         $child->parent = null;
 
         return true;
@@ -336,6 +388,7 @@ abstract class Node
 
         $child = $this->children[$index];
         array_splice($this->children, $index, 1);
+        self::$childIndices?->offsetUnset($this);
         $child->parent = null;
 
         return $child;

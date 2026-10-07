@@ -196,9 +196,11 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
         }
 
         $classes = [self::KIND];
+        $seen = array_fill_keys($classes, true);
         foreach ($source->getClassList() as $class) {
-            if (!in_array($class, $classes, true)) {
+            if (!isset($seen[$class])) {
                 $classes[] = $class;
+                $seen[$class] = true;
             }
         }
 

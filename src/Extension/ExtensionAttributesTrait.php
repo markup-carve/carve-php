@@ -51,14 +51,18 @@ trait ExtensionAttributesTrait
 
         // Merged class value: fixed classes first, then the author's, deduped.
         $classes = [];
+        $seen = [];
+        $excludedClasses = array_fill_keys($excludeClasses, true);
         foreach ($fixedClasses as $class) {
-            if ($class !== '' && !in_array($class, $classes, true)) {
+            if ($class !== '' && !isset($seen[$class])) {
                 $classes[] = $class;
+                $seen[$class] = true;
             }
         }
         foreach ($node->getClassList() as $class) {
-            if ($class !== '' && !in_array($class, $excludeClasses, true) && !in_array($class, $classes, true)) {
+            if ($class !== '' && !isset($excludedClasses[$class]) && !isset($seen[$class])) {
                 $classes[] = $class;
+                $seen[$class] = true;
             }
         }
         $mergedClass = $classes;

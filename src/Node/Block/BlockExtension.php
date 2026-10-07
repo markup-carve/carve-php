@@ -95,6 +95,7 @@ class BlockExtension extends BlockNode
     public function __clone(): void
     {
         $this->parent = null;
+        $this->children = [];
         $this->setFallback(clone $this->fallback);
     }
 

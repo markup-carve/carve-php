@@ -24,6 +24,17 @@ use PHPUnit\Framework\TestCase;
  */
 class ASectionIdImportsFromItsOwnHtmlTest extends TestCase
 {
+    public function testHeadingAttributeOrderKeepsEverySlot(): void
+    {
+        $attributes = [];
+        for ($i = 31; $i >= 0; $i--) {
+            $attributes[] = 'data-k' . $i . '="' . $i . '"';
+        }
+        $attrs = implode(' ', $attributes);
+        $source = (new HtmlToCarve())->convert('<h1 ' . $attrs . ' id="Target" class="kept">Target</h1>');
+        self::assertSame('{' . str_replace('"', '', $attrs) . " #Target .kept}\n# Target\n", $source);
+    }
+
     /**
      * @return array<string, array{0: string}>
      */
@@ -70,5 +81,17 @@ class ASectionIdImportsFromItsOwnHtmlTest extends TestCase
         $imported = (new HtmlToCarve())->convert($html);
 
         $this->assertStringNotContainsString('{#', $imported);
+    }
+
+    public function testBacklinkNamesAreDerivedPerEntry(): void
+    {
+        $source = '<ul class="index"><li>first <a class="index-backref" href="#idx-first-1" aria-label="Back to first 1">x</a> <a class="index-backref" href="#idx-first-2" aria-label="authored">y</a></li><li>second <a class="index-backref" href="#idx-second-1" aria-label="Back to second">z</a></li></ul>';
+        $result = (new HtmlToCarve())->convertWithReport($source);
+        $losses = array_values(array_filter($result->diagnostics, static fn ($diagnostic): bool => $diagnostic->code === 'attribute-dropped'));
+        self::assertCount(1, $losses);
+        self::assertStringContainsString('aria-label', $losses[0]->message);
+        self::assertStringEndsWith('/a[4]', (string)$losses[0]->path);
+        self::assertStringNotContainsString('Back to first', $result->value);
+        self::assertStringNotContainsString('Back to second', $result->value);
     }
 }
