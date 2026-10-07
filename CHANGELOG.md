@@ -12,6 +12,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Changed
 
 - Reduced memory used by fence indexes with packed range maxima and replacement metadata limited to the mutable tail.
+### Performance
+
+- Joined adjacent text nodes once when exporting the public HTML-import AST, avoiding repeated copies of growing text runs.
 
 ## [0.1.11] - 2026-10-06
 
