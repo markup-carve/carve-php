@@ -136,7 +136,7 @@ class IncludeExpander implements TransformerInterface
     /**
      * @var string
      */
-    public const RULE_HEADING_ID_RENAME = 'include-heading-id-rename';
+    public const RULE_ID_RENAME = 'include-id-rename';
 
     /**
      * @var string
@@ -888,6 +888,13 @@ class IncludeExpander implements TransformerInterface
             // just text and stays silent.
             if ($parts['error'] === IncludeDirectiveSyntax::ERROR_UNKNOWN_OPTION) {
                 $this->warn("Unknown include option '{$parts['errorPart']}'", self::RULE_UNKNOWN_OPTION);
+            } elseif ($parts['error'] === IncludeDirectiveSyntax::ERROR_DUPLICATE_SECTION) {
+                // Over-specified selection, the family section 19 already warns
+                // about for a `#section` paired with a line range.
+                $this->warn(
+                    "Include directive cannot name two sections: '{$parts['errorPart']}'",
+                    self::RULE_SELECTION_CONFLICT,
+                );
             }
 
             return null;
@@ -1533,7 +1540,7 @@ class IncludeExpander implements TransformerInterface
             $what = $node instanceof Heading ? 'heading id' : 'id';
             $this->warn(
                 "Duplicate {$what} '{$id}' renamed to '{$newId}'",
-                self::RULE_HEADING_ID_RENAME,
+                self::RULE_ID_RENAME,
                 $this->fileOf($node),
             );
         }

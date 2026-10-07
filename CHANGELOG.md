@@ -9,6 +9,13 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Breaking
+
+- The include rename warning carries the rule id `include-id-rename`, renamed
+  from `include-heading-id-rename`, and the constant is
+  `IncludeExpander::RULE_ID_RENAME`. The pass stopped being about headings in
+  0.1.8 and its message followed; the id did not (carve#2772).
+
 ### Added
 
 - `Node::getPreviousSibling()` returns the preceding child of the parent. Custom parent nodes retain their `getChildren()` behavior.
@@ -20,6 +27,14 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Fixed
 
 - Cloning Ruby and block extension nodes keeps the original children attached to their original parent.
+- An include option needs no whitespace before its `@`, in either position, so
+  `{{ path@shift:1 }}` and `{{ path #Name@shift:1 }}` resolve instead of
+  staying literal (carve#2773).
+- A tab before `#section` separates the slot instead of being read as the last
+  character of the path (#2934).
+- A directive naming two sections warns under `include-selection-conflict` and
+  stays literal. The second name used to win silently, which returned the
+  wrong fragment with nothing on the page to say so (#2934).
 
 ### Performance
 
