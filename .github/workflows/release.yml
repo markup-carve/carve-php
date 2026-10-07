@@ -203,4 +203,7 @@ jobs:
       - name: Dispatch the post-tag release gate
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run release-gate.yml --ref "$GITHUB_SHA"
+          VERSION: ${{ inputs.version }}
+        # The dispatch endpoint takes a branch or tag name, not a commit, and
+        # the tag created above is the ref the gate is meant to read.
+        run: gh workflow run release-gate.yml --ref "$VERSION"
