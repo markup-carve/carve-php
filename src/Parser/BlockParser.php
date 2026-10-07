@@ -730,7 +730,7 @@ class BlockParser
             );
             if ($headingReferences !== []) {
                 $document = $this->reparseWithHeadingReferences($lines, $headingReferences, $sourceLength);
-                CycleCollection::collect();
+                CycleCollection::collectAfterTree($sourceLength);
             }
         }
 
@@ -1325,7 +1325,7 @@ class BlockParser
         // registers are the ids the output will carry.
         $this->collectHeadingReferences($scratch, $tracker, false, $index, $ids);
         unset($scratch);
-        CycleCollection::collect();
+        CycleCollection::collectAfterTree(strlen($this->state->source->normalizedSource));
 
         $this->resetParseState();
         $this->extractDefinitions($lines, $this->state->source->normalizedSource);

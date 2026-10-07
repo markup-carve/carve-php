@@ -21,6 +21,13 @@ use Closure;
  */
 final class CycleCollection
 {
+    /**
+     * Smaller retired trees use the growth checkpoint instead of a full scan.
+     *
+     * @var int
+     */
+    public const MIN_TREE_COLLECTION_BYTES = 128 << 10;
+
     private const GROWTH = 0.5;
 
     /**
@@ -88,6 +95,18 @@ final class CycleCollection
         }
 
         self::collect();
+    }
+
+    /**
+     * Collect after a large tree is retired; pace smaller scratch trees.
+     */
+    public static function collectAfterTree(int $sourceBytes): void
+    {
+        if ($sourceBytes < self::MIN_TREE_COLLECTION_BYTES) {
+            self::checkpoint();
+        } else {
+            self::collect();
+        }
     }
 
     /**

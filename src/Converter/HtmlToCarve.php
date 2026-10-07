@@ -16,6 +16,7 @@ use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\CycleCollection;
 use RuntimeException;
 use SplObjectStorage;
 use Throwable;
@@ -375,9 +376,19 @@ class HtmlToCarve
      */
     public function convertWithReport(string $html): HtmlImportResult
     {
+        if (strlen($html) < CycleCollection::MIN_TREE_COLLECTION_BYTES) {
+            return $this->convertWithReportUnpaused($html);
+        }
+
+        return CycleCollection::paused(fn (): HtmlImportResult => $this->convertWithReportUnpaused($html));
+    }
+
+    private function convertWithReportUnpaused(string $html): HtmlImportResult
+    {
         $this->captureImportIdentity = true;
         try {
             $carve = $this->convert($html);
+            CycleCollection::collectAfterTree(strlen($html));
         } finally {
             $this->captureImportIdentity = false;
         }
@@ -389,6 +400,7 @@ class HtmlToCarve
         // time - which no test of behavior catches, because the class never
         // loads.
         $this->inspectedCarve = $carve;
+        $this->inspectedImportSourceBytes = strlen($html);
         $this->emittedHasRawHtml = null;
 
         try {
@@ -416,6 +428,7 @@ class HtmlToCarve
         $this->listTableInspection = null;
         $this->tableCommentShapes = null;
         $this->inspectedCarve = null;
+        $this->inspectedImportSourceBytes = null;
         $this->emittedHasRawHtml = null;
         $this->builtImportDocument = null;
         $this->summaryImportTitles = null;
@@ -459,6 +472,16 @@ class HtmlToCarve
      */
     public function convertToAstWithReport(string $html): HtmlImportAstResult
     {
+        if (strlen($html) < CycleCollection::MIN_TREE_COLLECTION_BYTES) {
+            return $this->convertToAstWithReportUnpaused($html);
+        }
+
+        return CycleCollection::paused(fn (): HtmlImportAstResult => $this->convertToAstWithReportUnpaused($html));
+    }
+
+    private function convertToAstWithReportUnpaused(string $html): HtmlImportAstResult
+    {
+        CycleCollection::checkpoint();
         $normalized = $this->normalizeHtmlForDirectAst($html);
         $builder = new HtmlAstBuilder(
             $this->listTableForBlockCells,
@@ -474,6 +497,7 @@ class HtmlToCarve
             $this->captureBuiltImport($result->session);
             $this->usedStoredRoundTripSource = $this->trustedRoundTrip && $this->singleStoredRoundTripSource($normalized) !== null;
             $this->inspectedAst = $result;
+            $this->inspectedImportSourceBytes = strlen($html);
             $diagnostics = $this->inspectImportLoss($html);
         } finally {
             $this->astImportSession = null;
@@ -3310,6 +3334,9 @@ class HtmlToCarve
             return [];
         }
 
+        if ($this->inspectedAst === null) {
+            CycleCollection::collectAfterTree($this->inspectedImportSourceBytes ?? strlen($carve));
+        }
         if (trim($html) === '') {
             return [];
         }
@@ -3559,6 +3586,16 @@ class HtmlToCarve
      */
     public function convert(string $html): string
     {
+        if (strlen($html) < CycleCollection::MIN_TREE_COLLECTION_BYTES) {
+            return $this->convertUnpaused($html);
+        }
+
+        return CycleCollection::paused(fn (): string => $this->convertUnpaused($html));
+    }
+
+    private function convertUnpaused(string $html): string
+    {
+        CycleCollection::checkpoint();
         $this->sourceTablePartitions = [];
         $this->sourcePartitionDiagnostics = [];
         $this->displacedImportFigureAttributes = [];
@@ -4719,6 +4756,8 @@ class HtmlToCarve
      */
     protected ?string $inspectedCarve = null;
 
+    private ?int $inspectedImportSourceBytes = null;
+
     private ?HtmlImportSession $astImportSession = null;
 
     /**
@@ -4747,6 +4786,7 @@ class HtmlToCarve
             } catch (Throwable) {
                 $this->inspectedAstHtml = '';
             }
+            CycleCollection::collectAfterTree($this->inspectedAst?->tree['srcByteLength'] ?? 0);
         }
 
         return $this->inspectedAstHtml;
