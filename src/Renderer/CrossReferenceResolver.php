@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
+use InvalidArgumentException;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
@@ -16,17 +17,20 @@ use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use ReflectionMethod;
 
 class CrossReferenceResolver
 {
@@ -34,6 +38,11 @@ class CrossReferenceResolver
      * @var int
      */
     private const MAX_RESOLVE_DEPTH = 512;
+
+    /**
+     * @var array<class-string, bool>
+     */
+    private static array $bulkChildRewrites = [];
 
     /**
      * A reference the document never resolved: it carries authored source and
@@ -167,6 +176,8 @@ class CrossReferenceResolver
      * CarveConverter::parse() as well (carve-php#859); that flattened the inner
      * destination out of the published tree, which is the fold §3a forbids
      * (carve#817).
+     *
+     * @throws \InvalidArgumentException
      */
     protected function enforceNoNesting(Node $node, HeadingIdTracker $tracker, bool $insideLink, int $depth = 0): void
     {
@@ -174,7 +185,10 @@ class CrossReferenceResolver
             return;
         }
 
-        foreach ($node->getChildren() as $child) {
+        $children = array_values($node->getChildren());
+        $rewritten = null;
+        $replacements = [];
+        foreach ($children as $index => $child) {
             if ($child instanceof Link) {
                 // Recurse the link's own label first (insideLink = true), so a
                 // link buried deeper in the label is unwrapped too.
@@ -195,7 +209,18 @@ class CrossReferenceResolver
                 if ($insideLink && !$nonLinkMention && !$this->isUnresolvedReference($child)) {
                     // A link inside another link: drop the inner destination,
                     // splice in its (already-unwrapped) display content.
-                    $node->replaceChildWithMany($child, array_values($child->getChildren()));
+                    $rewritten ??= array_slice($children, 0, $index);
+                    $labels = array_values($child->getChildren());
+                    $replacements[spl_object_id($child)] = [$child, $labels];
+                    foreach ($labels as $label) {
+                        $rewritten[] = $label;
+                    }
+
+                    continue;
+                }
+
+                if ($rewritten !== null) {
+                    $rewritten[] = $child;
                 }
 
                 continue;
@@ -207,7 +232,18 @@ class CrossReferenceResolver
                     // anchor. Flatten it to the resolved heading text (or the
                     // literal `</#id>` source when the target is unresolved),
                     // matching how an unresolved cross-reference already renders.
-                    $node->replaceChildWithMany($child, $this->headingRefToLabel($child, $tracker));
+                    $rewritten ??= array_slice($children, 0, $index);
+                    $labels = $this->headingRefToLabel($child, $tracker);
+                    $replacements[spl_object_id($child)] = [$child, $labels];
+                    foreach ($labels as $label) {
+                        $rewritten[] = $label;
+                    }
+
+                    continue;
+                }
+
+                if ($rewritten !== null) {
+                    $rewritten[] = $child;
                 }
 
                 continue;
@@ -218,6 +254,10 @@ class CrossReferenceResolver
                 // not nested: re-enter with insideLink reset to false.
                 $this->enforceNoNesting($child, $tracker, false, $depth + 1);
 
+                if ($rewritten !== null) {
+                    $rewritten[] = $child;
+                }
+
                 continue;
             }
 
@@ -226,6 +266,44 @@ class CrossReferenceResolver
             // the inside-link flag carried unchanged.
             if ($child->hasChildren()) {
                 $this->enforceNoNesting($child, $tracker, $insideLink, $depth + 1);
+            }
+            if ($rewritten !== null) {
+                $rewritten[] = $child;
+            }
+        }
+        if ($rewritten !== null) {
+            if (!isset(self::$bulkChildRewrites[$node::class])) {
+                $bulk = true;
+                foreach (['getChildren', 'setChildren', 'replaceChild', 'replaceChildWithMany'] as $method) {
+                    $owner = (new ReflectionMethod($node, $method))->getDeclaringClass()->getName();
+                    $bulk = $bulk && ($owner === Node::class || ($method === 'replaceChildWithMany' && $owner === Ruby::class));
+                }
+                self::$bulkChildRewrites[$node::class] = $bulk;
+            }
+            if (!self::$bulkChildRewrites[$node::class]) {
+                foreach ($replacements as [$child, $labels]) {
+                    $node->replaceChildWithMany($child, $labels);
+                }
+            } elseif ($node instanceof Ruby) {
+                $pairs = $node->getPairs();
+                foreach ($pairs as &$pair) {
+                    foreach (['base', 'annotation'] as $field) {
+                        $inlines = [];
+                        foreach ($pair[$field] as $child) {
+                            foreach ($replacements[spl_object_id($child)][1] ?? [$child] as $label) {
+                                if (!$label instanceof InlineNode) {
+                                    throw new InvalidArgumentException('Ruby pairs can hold only inline nodes');
+                                }
+                                $inlines[] = $label;
+                            }
+                        }
+                        $pair[$field] = $field === 'base' && $inlines === [] ? [new Text('')] : $inlines;
+                    }
+                }
+                unset($pair);
+                $node->setPairs($pairs);
+            } else {
+                $node->setChildren($rewritten);
             }
         }
     }

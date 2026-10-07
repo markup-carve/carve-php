@@ -65,6 +65,13 @@ final class RubyHtmlImportTest extends TestCase
         self::assertSame('b', $pairs[1]['annotation'][0]['value']);
     }
 
+    public function testUnpairedExplicitBasesKeepTheirOrder(): void
+    {
+        $converter = new HtmlToCarve();
+        self::assertSame('x(a)yz', trim($converter->convert('<p><ruby><rb>x</rb><rb>y</rb><rb>z</rb><rt>a</rt></ruby></p>')));
+        self::assertSame('xyz', trim($converter->convert('<p><ruby><rb>x</rb><rb>y</rb><rb>z</rb></ruby></p>')));
+    }
+
     public function testWhitespaceBaseDoesNotWarnThatAnnotationHasNoBase(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<p><ruby> <rt>a</rt></ruby></p>');

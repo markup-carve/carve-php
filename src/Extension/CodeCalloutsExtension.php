@@ -26,7 +26,7 @@ class CodeCalloutsExtension implements ExtensionInterface
      *
      * @var string
      */
-    private const MARKER_RE = '/^(.*?)(\s*)<(\d+)>[ \t]*$/';
+    private const MARKER_RE = '/<(\d+)>[ \t]*$/';
 
     /**
      * A callout-list line: `<n> text` (marker, one space, prose) at the start.
@@ -69,24 +69,32 @@ class CodeCalloutsExtension implements ExtensionInterface
         if (!$this->isCalloutCandidate($p)) {
             return false;
         }
-        $parent = $p->getParent();
-        if ($parent === null) {
-            return false;
-        }
-        $siblings = array_values($parent->getChildren());
-        $idx = array_search($p, $siblings, true);
-        if ($idx === false || $idx === 0) {
-            return false;
-        }
-        $prev = $siblings[$idx - 1];
+        $prev = $p->getPreviousSibling();
 
         return $prev instanceof CodeBlock && $this->hasMarkers($prev->getContent());
+    }
+
+    /**
+     * @return array{string, string, string, string}|null
+     */
+    private function markerParts(string $line): ?array
+    {
+        if (preg_match(self::MARKER_RE, $line, $matches, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
+        $before = substr($line, 0, $matches[0][1]);
+        $prefix = rtrim($before, " \t\n\r\f\v");
+        if (str_contains($prefix, "\n")) {
+            return null;
+        }
+
+        return [$line, $prefix, substr($before, strlen($prefix)), $matches[1][0]];
     }
 
     private function hasMarkers(string $content): bool
     {
         foreach (explode("\n", $content) as $line) {
-            if (preg_match(self::MARKER_RE, $line) === 1) {
+            if ($this->markerParts($line) !== null) {
                 return true;
             }
         }
@@ -118,7 +126,8 @@ class CodeCalloutsExtension implements ExtensionInterface
             if ($i > 0) {
                 $body .= "\n";
             }
-            if (preg_match(self::MARKER_RE, $line, $m) === 1) {
+            $m = $this->markerParts($line);
+            if ($m !== null) {
                 $body .= $this->escapeCode($m[1]) . $m[2]
                     . '<b class="callout" data-callout="' . $m[3] . '">' . $m[3] . '</b>';
             } else {
@@ -229,9 +238,11 @@ class CodeCalloutsExtension implements ExtensionInterface
         // through the renderer's normal attribute path so order/escaping match a
         // normal block byte-for-byte.
         $callouts = ['callouts'];
+        $seen = array_fill_keys($callouts, true);
         foreach ($p->getClassList() as $class) {
-            if (!in_array($class, $callouts, true)) {
+            if (!isset($seen[$class])) {
                 $callouts[] = $class;
+                $seen[$class] = true;
             }
         }
 

@@ -179,8 +179,9 @@ class AdmonitionExtension implements ExtensionInterface
      */
     protected function getAdmonitionType(Div $node): ?string
     {
+        $types = array_fill_keys($this->types, true);
         foreach ($node->getClassList() as $class) {
-            if (in_array($class, $this->types, true)) {
+            if (isset($types[$class])) {
                 return $class;
             }
         }
@@ -201,9 +202,12 @@ class AdmonitionExtension implements ExtensionInterface
 
         // Build class list
         $classes = [$this->containerClass, $type];
+        $seen = array_fill_keys($classes, true);
+        $types = array_fill_keys($this->types, true);
         foreach ($node->getClassList() as $class) {
-            if (!in_array($class, $classes, true) && !in_array($class, $this->types, true)) {
+            if (!isset($seen[$class]) && !isset($types[$class])) {
                 $classes[] = $class;
+                $seen[$class] = true;
             }
         }
         $classAttr = implode(' ', $classes);

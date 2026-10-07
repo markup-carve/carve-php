@@ -2411,9 +2411,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected static function withLeadingClass(array $attrs, string $leadingClass, array $entries): array
     {
         $classes = [$leadingClass];
+        $seen = array_fill_keys($classes, true);
         foreach ($entries as $class) {
-            if (isset($attrs['class']) && self::sanitizeAttributeValue('class', $class) !== '' && !in_array($class, $classes, true)) {
+            if (isset($attrs['class']) && self::sanitizeAttributeValue('class', $class) !== '' && !isset($seen[$class])) {
                 $classes[] = $class;
+                $seen[$class] = true;
             }
         }
         unset($attrs['class']);

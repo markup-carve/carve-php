@@ -101,6 +101,7 @@ class Ruby extends InlineNode
     public function __clone(): void
     {
         $this->parent = null;
+        $this->children = [];
         $pairs = [];
         foreach ($this->pairs as $pair) {
             $pairs[] = [

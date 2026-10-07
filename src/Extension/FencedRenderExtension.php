@@ -439,9 +439,11 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
     protected function classAttr(CodeBlock $node): string
     {
         $classes = [$this->cssClass];
+        $seen = array_fill_keys($classes, true);
         foreach ($node->getClassList() as $class) {
-            if (!in_array($class, $classes, true)) {
+            if (!isset($seen[$class])) {
                 $classes[] = $class;
+                $seen[$class] = true;
             }
         }
 

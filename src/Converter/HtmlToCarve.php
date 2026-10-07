@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Util\CycleCollection;
+use ReflectionMethod;
 use RuntimeException;
 use SplObjectStorage;
 use Throwable;
@@ -543,6 +544,9 @@ class HtmlToCarve
         $this->listTableInspection = new SplObjectStorage();
         $this->tableCommentShapes = new SplObjectStorage();
         $this->termlessImportDescriptions = new SplObjectStorage();
+        $this->indexBackrefEntries = new SplObjectStorage();
+        $this->precedingLabelNames = new SplObjectStorage();
+        $this->figureOutcomes = new SplObjectStorage();
         $isDocument = HtmlDomLoader::isDocument($html);
         $doc = $this->builtImportDocument;
         if ($doc === null) {
@@ -574,6 +578,9 @@ class HtmlToCarve
             $this->listTableInspection = null;
             $this->tableCommentShapes = null;
             $this->termlessImportDescriptions = null;
+            $this->indexBackrefEntries = null;
+            $this->precedingLabelNames = null;
+            $this->figureOutcomes = null;
         }
 
         return $diagnostics;
@@ -1631,6 +1638,19 @@ class HtmlToCarve
     }
 
     private function directAstFigureOutcome(DOMElement $figure): string
+    {
+        if ($this->figureOutcomes !== null && $this->figureOutcomes->offsetExists($figure)) {
+            return $this->figureOutcomes[$figure];
+        }
+        $outcome = $this->computeDirectAstFigureOutcome($figure);
+        if ($this->figureOutcomes !== null) {
+            $this->figureOutcomes[$figure] = $outcome;
+        }
+
+        return $outcome;
+    }
+
+    private function computeDirectAstFigureOutcome(DOMElement $figure): string
     {
         $keepsRaw = $this->importMode === 'roundtrip'
             && !HtmlAstBuilder::holdsADeniedDestination($figure)
@@ -3945,6 +3965,33 @@ class HtmlToCarve
         if (strtolower($name) !== 'aria-label' || $value === '') {
             return false;
         }
+        $native = self::$nativeDerivedNames[static::class] ??= (
+            (new ReflectionMethod($this, 'derivedAccessibleName'))->getDeclaringClass()->getName() === self::class
+            && (new ReflectionMethod($this, 'derivedElementNaming'))->getDeclaringClass()->getName() === self::class
+        );
+        $classes = $this->getElementClassList($node);
+        if ($this->structuralClassInProgress !== null) {
+            $classes[] = $this->structuralClassInProgress;
+        }
+        $parent = $node->parentNode;
+        if (
+            $native
+            && $parent instanceof DOMElement
+            && $this->indexBackrefEntries !== null
+            && $this->indexBackrefEntries->offsetExists($parent)
+            && strtolower(HtmlDomLoader::elementName($node)) === 'a'
+            && in_array('index-backref', $classes, true)
+            && !in_array('tabs', $classes, true)
+            && !in_array('code-group', $classes, true)
+            && !in_array('tabs-panel', $classes, true)
+            && !in_array('code-group-panel', $classes, true)
+        ) {
+            $term = $this->indexBackrefEntries[$parent][0];
+            $label = (string)($this->labels['indexBackref'] ?? HtmlRenderer::LABEL_DEFAULTS['indexBackref']);
+            if (strlen($value) < strlen($label) + strlen($term) + 1) {
+                return false;
+            }
+        }
         $derived = $this->derivedAccessibleName($node);
 
         return $derived !== null && $derived === $value;
@@ -4034,6 +4081,15 @@ class HtmlToCarve
         // Extensions §13.2: a css-mode panel is named by its own tab, which is
         // the `<label>` that reveals it - the nearest preceding sibling one.
         if (in_array('tabs-panel', $classes, true) || in_array('code-group-panel', $classes, true)) {
+            $parent = $node->parentNode;
+            if ($this->precedingLabelNames !== null && $parent !== null) {
+                if (!$this->precedingLabelNames->offsetExists($parent)) {
+                    $this->precedingLabelNames[$parent] = new HtmlPrecedingLabels($parent);
+                }
+                $name = $this->precedingLabelNames[$parent]->get($node);
+
+                return ['aria-label' => $name !== null ? [$name] : []];
+            }
             for ($prev = $node->previousSibling; $prev !== null; $prev = $prev->previousSibling) {
                 if ($prev instanceof DOMElement && strtolower(HtmlDomLoader::elementName($prev)) === 'label') {
                     return ['aria-label' => [trim($prev->textContent)]];
@@ -4053,28 +4109,34 @@ class HtmlToCarve
             if (!$parent instanceof DOMElement || strtolower(HtmlDomLoader::elementName($parent)) !== 'li') {
                 return self::DERIVES_NOTHING;
             }
-            $term = '';
-            foreach ($parent->childNodes as $child) {
-                if ($child instanceof DOMElement) {
-                    break;
+            if ($this->indexBackrefEntries !== null && $this->indexBackrefEntries->offsetExists($parent)) {
+                [$term, $total] = $this->indexBackrefEntries[$parent];
+            } else {
+                $term = '';
+                $readingTerm = true;
+                $total = 0;
+                foreach ($parent->childNodes as $child) {
+                    if ($child instanceof DOMElement) {
+                        $readingTerm = false;
+                        if (
+                            strtolower(HtmlDomLoader::elementName($child)) === 'a'
+                            && in_array('index-backref', $this->getElementClassList($child), true)
+                        ) {
+                            $total++;
+                        }
+                    } elseif ($readingTerm) {
+                        $term .= $child->textContent;
+                    }
                 }
-                $term .= $child->textContent;
+                $term = trim($term);
+                if ($this->indexBackrefEntries !== null) {
+                    $this->indexBackrefEntries[$parent] = [$term, $total];
+                }
             }
-            $term = trim($term);
             if ($term === '') {
                 return self::DERIVES_NOTHING;
             }
             $lead = $labels['indexBackref'];
-            $total = 0;
-            foreach ($parent->childNodes as $child) {
-                if (
-                    $child instanceof DOMElement
-                    && strtolower(HtmlDomLoader::elementName($child)) === 'a'
-                    && in_array('index-backref', $this->getElementClassList($child), true)
-                ) {
-                    $total++;
-                }
-            }
             if ($total === 1) {
                 return ['aria-label' => [$lead . ' ' . $term]];
             }
@@ -4864,6 +4926,26 @@ class HtmlToCarve
      * @var array<string>
      */
     private array $coveredImportAttributes = [];
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, array{string, int}>|null
+     */
+    private ?SplObjectStorage $indexBackrefEntries = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMNode, \MarkupCarve\Carve\Converter\HtmlPrecedingLabels>|null
+     */
+    private ?SplObjectStorage $precedingLabelNames = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, string>|null
+     */
+    private ?SplObjectStorage $figureOutcomes = null;
+
+    /**
+     * @var array<class-string, bool>
+     */
+    private static array $nativeDerivedNames = [];
 
     /**
      * The `<dl>` a `<dd>` belongs to, directly or through a group `<div>`.

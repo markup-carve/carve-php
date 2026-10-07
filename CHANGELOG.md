@@ -9,9 +9,17 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Added
+
+- `Node::getPreviousSibling()` returns the preceding child of the parent. Custom parent nodes retain their `getChildren()` behavior.
+
 ### Changed
 
 - Reduced memory used by fence indexes with packed range maxima and replacement metadata limited to the mutable tail.
+
+### Fixed
+
+- Cloning Ruby and block extension nodes keeps the original children attached to their original parent.
 
 ### Performance
 

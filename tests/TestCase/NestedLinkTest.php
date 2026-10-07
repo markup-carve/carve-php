@@ -6,7 +6,15 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\AutolinkExtension;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Ruby;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,6 +23,71 @@ use PHPUnit\Framework\TestCase;
  */
 class NestedLinkTest extends TestCase
 {
+    use ScalingGuardTrait;
+
+    #[Group('scaling')]
+    public function testManyNestedSiblingLinksScaleLinearly(): void
+    {
+        $converter = new CarveConverter();
+        $small = '[' . str_repeat('[x](/inner) ', 8192) . '](/outer)';
+        $large = '[' . str_repeat('[x](/inner) ', 32768) . '](/outer)';
+        $documents = [strlen($small) => $converter->parse($small), strlen($large) => $converter->parse($large)];
+        $this->assertConversionScalesLinearly(
+            static fn (string $source): string => $converter->render(clone $documents[strlen($source)]),
+            $small,
+            $large,
+            'nested sibling links',
+            8192,
+            32768,
+            maxPerByteRatio: 2.0,
+        );
+    }
+
+    public function testNestedLinksInRubyUpdateThePairFields(): void
+    {
+        $base = new Link('/inner');
+        $base->appendChild(new Text('x'));
+        $annotation = new Link('/inner');
+        $annotation->appendChild(new Text('a'));
+        $ruby = new Ruby([['base' => [$base], 'annotation' => [$annotation]]]);
+        $outer = new Link('/outer');
+        $outer->appendChild($ruby);
+        $paragraph = new Paragraph();
+        $paragraph->appendChild($outer);
+        $document = new Document();
+        $document->appendChild($paragraph);
+        $html = (new CarveConverter())->render($document);
+        self::assertStringNotContainsString('/inner', $html);
+        self::assertInstanceOf(Text::class, $ruby->getPairs()[0]['base'][0]);
+        self::assertInstanceOf(Text::class, $ruby->getPairs()[0]['annotation'][0]);
+        self::assertSame('x', $ruby->getPairs()[0]['base'][0]->getContent());
+        self::assertSame('a', $ruby->getPairs()[0]['annotation'][0]->getContent());
+    }
+
+    public function testCustomReplacementHooksStillRun(): void
+    {
+        $custom = new class extends Emphasis {
+            public int $replacements = 0;
+
+            public function replaceChild(int $index, Node $child): void
+            {
+                $this->replacements++;
+                parent::replaceChild($index, $child);
+            }
+        };
+        $inner = new Link('/inner');
+        $inner->appendChild(new Text('x'));
+        $custom->appendChild($inner);
+        $outer = new Link('/outer');
+        $outer->appendChild($custom);
+        $paragraph = new Paragraph();
+        $paragraph->appendChild($outer);
+        $document = new Document();
+        $document->appendChild($paragraph);
+        (new CarveConverter())->render($document);
+        self::assertSame(1, $custom->replacements);
+    }
+
     #[DataProvider('nestedLinkProvider')]
     public function testLinksNeverNest(string $input, bool $autolink, string $expected): void
     {

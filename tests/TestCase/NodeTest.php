@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use InvalidArgumentException;
+use MarkupCarve\Carve\Node\Block\BlockExtension;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Emphasis;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\ProseMirror\SchemaMap;
+use MarkupCarve\Carve\Renderer\EscapeWindows;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,6 +20,114 @@ use PHPUnit\Framework\TestCase;
  */
 class NodeTest extends TestCase
 {
+    public function testPreviousSiblingFollowsMutationsMovesAndClones(): void
+    {
+        $parent = new Paragraph();
+        $a = new Text('a');
+        $b = new Text('b');
+        $c = new Text('c');
+        $parent->setChildren([$a, $b, $c]);
+        self::assertSame($b, $c->getPreviousSibling());
+        $parent->removeChild($b);
+        self::assertSame($a, $c->getPreviousSibling());
+        $parent->prependChild($b);
+        self::assertSame($b, $a->getPreviousSibling());
+        $parent->replaceChild(1, $b);
+        self::assertSame($b, $c->getPreviousSibling());
+        $parent->replaceChildWithMany($b, [$a, $b]);
+        self::assertSame($a, $b->getPreviousSibling());
+        $parent->removeChildAt(0);
+        self::assertNull($b->getPreviousSibling());
+        $parent->appendChild($a);
+        self::assertSame($c, $a->getPreviousSibling());
+        $other = new Paragraph();
+        $other->setChildren([$c, $a]);
+        self::assertNull($b->getPreviousSibling());
+        self::assertSame($c, $a->getPreviousSibling());
+        $copy = clone $other;
+        self::assertSame($copy->getChildren()[0], $copy->getChildren()[1]->getPreviousSibling());
+        self::assertNull($parent->getPreviousSibling());
+    }
+
+    public function testPreviousSiblingCacheDoesNotChangeMarkIdentity(): void
+    {
+        $left = new Emphasis();
+        $left->setChildren([new Text('a'), new Text('b')]);
+        $right = clone $left;
+        $left->getChildren()[1]->getPreviousSibling();
+        self::assertTrue(SchemaMap::isSameMark($left, $right));
+    }
+
+    public function testPreviousSiblingFollowsTemporaryRenderWindows(): void
+    {
+        $parent = new Paragraph();
+        $parent->setChildren([new Text('a'), new Text('b'), new Text('c')]);
+        [$a, $b, $c] = $parent->getChildren();
+        self::assertSame($b, $c->getPreviousSibling());
+        $windows = new EscapeWindows(new Document());
+        $windows->renderPruned([['owner' => $parent, 'lo' => 1, 'hi' => 2]], static function () use ($b, $c): string {
+            self::assertNull($b->getPreviousSibling());
+            self::assertSame($b, $c->getPreviousSibling());
+
+            return '';
+        });
+        self::assertSame($a, $b->getPreviousSibling());
+    }
+
+    public function testSpecialNodeClonesKeepTheOriginalParents(): void
+    {
+        $ruby = new Ruby([['base' => [new Text('a'), new Text('b')], 'annotation' => [new Text('c')]]]);
+        $ruby->getChildren()[1]->getPreviousSibling();
+        $copy = clone $ruby;
+        self::assertSame($ruby, $ruby->getChildren()[0]->getParent());
+        self::assertSame($copy->getChildren()[0], $copy->getChildren()[1]->getPreviousSibling());
+        $fallback = new Paragraph();
+        $block = new BlockExtension('example', $fallback);
+        $copy = clone $block;
+        self::assertSame($block, $fallback->getParent());
+        self::assertSame($copy, $copy->getFallback()->getParent());
+    }
+
+    public function testPreviousSiblingFollowsReplacementWithoutSiblingMoves(): void
+    {
+        $parent = new Paragraph();
+        $parent->setChildren([new Text('a'), new Text('b')]);
+        [$a, $b] = $parent->getChildren();
+        self::assertSame($a, $b->getPreviousSibling());
+        $c = new Text('c');
+        $parent->replaceChildNode($a, $c);
+        self::assertSame($c, $b->getPreviousSibling());
+        $d = new Text('d');
+        $parent->replaceChildWithMany($c, [$a, $d]);
+        self::assertSame($d, $b->getPreviousSibling());
+    }
+
+    public function testPreviousSiblingSurvivesSerialization(): void
+    {
+        $parent = new Paragraph();
+        $parent->setChildren([new Text('a'), new Text('b')]);
+        $parent->getChildren()[1]->getPreviousSibling();
+        $copy = unserialize(serialize($parent));
+        self::assertInstanceOf(Paragraph::class, $copy);
+        self::assertSame($copy->getChildren()[0], $copy->getChildren()[1]->getPreviousSibling());
+    }
+
+    public function testCustomParentReadsItsCurrentChildView(): void
+    {
+        $parent = new class extends Paragraph {
+            public function reverseChildren(): void
+            {
+                $this->children = array_reverse($this->children);
+            }
+        };
+        $parent->setChildren([new Text('a'), new Text('b')]);
+        [$a, $b] = $parent->getChildren();
+        self::assertSame($a, $b->getPreviousSibling());
+        $parent->reverseChildren();
+        self::assertNull($b->getPreviousSibling());
+        self::assertSame($b, $a->getPreviousSibling());
+    }
+
     public function testRemoveChild(): void
     {
         $paragraph = new Paragraph();
