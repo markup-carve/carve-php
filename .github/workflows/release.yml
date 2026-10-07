@@ -194,3 +194,13 @@ jobs:
             echo "::error::The release reads back as '$state', expected 'false $VERSION'."
             exit 1
           fi
+
+      # A ref created with `github.token` does not trigger other workflows, so
+      # release-gate.yml would never fire on a tag this job pushed. The
+      # verify job above already ran its changelog check before the approval;
+      # this dispatches the post-tag run as well, so the record behind the
+      # release still exists without handing this workflow a personal token.
+      - name: Dispatch the post-tag release gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release-gate.yml --ref "$GITHUB_SHA"
