@@ -169,8 +169,10 @@ class CliTest extends TestCase
             $versions,
             'No shipped page documents a stamp version to check.',
         );
+        // Between releases LIB_VERSION is `X.Y.Z-dev`; the docs show the release.
+        preg_match('/^## \[(\d+\.\d+\.\d+)\]/m', (string)file_get_contents($root . '/CHANGELOG.md'), $released);
         $this->assertSame(
-            [CarveConverter::LIB_VERSION],
+            [$released[1] ?? null],
             array_values(array_unique($versions)),
         );
     }

@@ -56,6 +56,16 @@ jobs:
       # This repository has no composer.json version field, so LIB_VERSION is
       # the only version surface, and carve's pre-tag-check.sh is currently the
       # only thing anywhere that reads it.
+      - name: The version is a plain X.Y.Z
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # main reads X.Y.Z-dev between releases; only a cut version releases.
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$VERSION is not a plain X.Y.Z version. A -dev or other prerelease version never releases; cut the release first."
+            exit 1
+          fi
+
       - name: LIB_VERSION declares this version
         env:
           VERSION: ${{ inputs.version }}
