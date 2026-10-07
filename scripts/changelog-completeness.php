@@ -34,7 +34,8 @@ declare(strict_types=1);
  *
  *   php scripts/changelog-completeness.php [version] [options]
  *
- *     version          the release to check; defaults to LIB_VERSION
+ *     version          the release to check; defaults to LIB_VERSION, and
+ *                      to the Unreleased section while that is `X.Y.Z-dev`
  *     --at REV         read history and CHANGELOG.md as of this revision;
  *                      defaults to the tag when it exists, otherwise HEAD
  *     --previous TAG   measure from this tag instead of the highest version
@@ -88,6 +89,11 @@ function main(array $argv): int
 
     $version = ltrim($positional[0] ?? libVersion($root), 'v');
     $section = $flags['section'] ?? $version;
+    // A `-dev` LIB_VERSION is main between releases: check [Unreleased].
+    if (!isset($positional[0]) && str_ends_with($version, '-dev')) {
+        $version = substr($version, 0, -4);
+        $section = $flags['section'] ?? 'Unreleased';
+    }
     $at = $flags['at'] ?? (revExists($root, $version) ? $version : 'HEAD');
 
     $slug = $flags['repo'] ?? (getenv('GITHUB_REPOSITORY') ?: originSlug($git));

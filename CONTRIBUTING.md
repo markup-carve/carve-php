@@ -139,6 +139,19 @@ Three conventions:
   that pins that documentation - see `tests/TestCase/Documentation/` for the
   pattern. A wrong security doc is worse than a missing one.
 
+## Versions on main
+
+Between releases `main` reads the next version with a `-dev` suffix in
+`CarveConverter::LIB_VERSION`, for example `0.1.12-dev`, so `carve --version`
+and the `generated-by` provenance stamp never name a release a build is not.
+The cut drops the suffix together with the changelog section; once the release
+is published, the next pull request moves `main` to the following `-dev`
+version. Stamp examples in the docs keep naming the last release.
+
+`tests/TestCase/ReleaseVersionTest.php` checks the shape. `release.yml` refuses
+any version that is not a plain `X.Y.Z`, and `release-gate.yml` fails a tag
+pushed while `LIB_VERSION` names something else.
+
 ## Spec changes
 
 This repository implements the language; it does not define it. Syntax and

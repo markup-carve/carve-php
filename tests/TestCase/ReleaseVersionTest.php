@@ -91,6 +91,20 @@ class ReleaseVersionTest extends TestCase
     {
         $changelog = $this->newestReleasedChangelogVersion();
 
+        // Between releases LIB_VERSION names the NEXT version with `-dev`
+        // (CONTRIBUTING.md, "Versions on main"); only the cut drops it.
+        if (str_ends_with(CarveConverter::LIB_VERSION, '-dev')) {
+            $next = substr(CarveConverter::LIB_VERSION, 0, -4);
+            $this->assertMatchesRegularExpression('/^\d+\.\d+\.\d+$/', $next);
+            $this->assertTrue(
+                version_compare($next, $changelog, '>'),
+                'LIB_VERSION is ' . CarveConverter::LIB_VERSION . ", but {$changelog} is already cut. "
+                . 'Between releases LIB_VERSION names the NEXT version with -dev.',
+            );
+
+            return;
+        }
+
         $this->assertSame(
             $changelog,
             CarveConverter::LIB_VERSION,

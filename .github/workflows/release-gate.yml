@@ -39,6 +39,16 @@ jobs:
       # ships notes describing only cut day - 0.1.10 documented 1 of 22 merges.
       # Asking whether the section EXISTS passes on that; this asks whether it
       # is COMPLETE. The script reports the absent-section case too.
+      - name: LIB_VERSION declares this tag
+        if: github.event_name == 'push'
+        run: |
+          # A tag pushed by hand skips release.yml, and main reads X.Y.Z-dev.
+          declared="$(php -r 'require "src/CarveConverter.php"; echo \MarkupCarve\Carve\CarveConverter::LIB_VERSION;')"
+          if [ "$declared" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME was pushed while src/CarveConverter.php declares LIB_VERSION $declared. Packagist has indexed it; delete the tag and release through release.yml."
+            exit 1
+          fi
+
       - name: Every merge since the previous tag is cited
         env:
           GH_TOKEN: ${{ github.token }}
