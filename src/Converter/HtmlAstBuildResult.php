@@ -80,31 +80,30 @@ final class HtmlAstBuildResult
         }
         if (array_is_list($value)) {
             $out = [];
+            $textNode = null;
+            $textParts = [];
             foreach ($value as $entry) {
                 $entry = self::asPublished($entry);
                 if (is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
                     $escaped = $entry['value'] ?? '';
                     $entry = ['type' => 'text', 'value' => is_string($escaped) ? $escaped : ''];
                 }
-                $last = $out === [] ? null : array_key_last($out);
-                $previous = $last === null ? null : $out[$last];
-                if (
-                    $last !== null
-                    && is_array($entry)
-                    && ($entry['type'] ?? null) === 'text'
-                    && is_array($previous)
-                    && ($previous['type'] ?? null) === 'text'
-                ) {
-                    $head = $previous['value'] ?? '';
-                    $tail = $entry['value'] ?? '';
-                    $out[$last] = [
-                        'type' => 'text',
-                        'value' => (is_string($head) ? $head : '') . (is_string($tail) ? $tail : ''),
-                    ];
+                if (is_array($entry) && ($entry['type'] ?? null) === 'text') {
+                    $textNode ??= $entry;
+                    $text = $entry['value'] ?? '';
+                    $textParts[] = is_string($text) ? $text : '';
 
                     continue;
                 }
+                if ($textNode !== null) {
+                    $out[] = count($textParts) === 1 ? $textNode : ['type' => 'text', 'value' => implode('', $textParts)];
+                    $textNode = null;
+                    $textParts = [];
+                }
                 $out[] = $entry;
+            }
+            if ($textNode !== null) {
+                $out[] = count($textParts) === 1 ? $textNode : ['type' => 'text', 'value' => implode('', $textParts)];
             }
 
             return $out;
