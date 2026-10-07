@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use DOMDocument;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\Util\CycleCollection;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -21,6 +24,116 @@ use stdClass;
  */
 class CycleCollectionPacingTest extends TestCase
 {
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function importMethods(): array
+    {
+        return [
+            'source' => ['convert'],
+            'source-report' => ['convertWithReport'],
+            'ast-report' => ['convertToAstWithReport'],
+        ];
+    }
+
+    #[DataProvider('importMethods')]
+    #[RunInSeparateProcess]
+    public function testHtmlImportPacesCollection(string $method): void
+    {
+        ini_set('memory_limit', '-1');
+        $runs = gc_status()['runs'];
+        $result = (new HtmlToCarve())->$method('<dl>' . str_repeat('<dt>Term</dt><dd><p>Definition</p></dd>', 6000) . '</dl>');
+
+        if ($method === 'convertToAstWithReport') {
+            self::assertSame('document', $result->value['type']);
+            self::assertNotEmpty($result->value['children']);
+        } else {
+            self::assertStringContainsString('Definition', is_string($result) ? $result : $result->value);
+        }
+        self::assertLessThanOrEqual(10, gc_status()['runs'] - $runs);
+        self::assertTrue(gc_enabled());
+    }
+
+    #[RunInSeparateProcess]
+    public function testImportsRespectDisabledCollection(): void
+    {
+        gc_disable();
+        $converter = new HtmlToCarve();
+        foreach (['<p>text</p>', '<p>' . str_repeat('x', 128 << 10) . '</p>'] as $html) {
+            $converter->convert($html);
+            $converter->convertWithReport($html);
+            $converter->convertToAstWithReport($html);
+        }
+        self::assertFalse(gc_enabled());
+    }
+
+    #[RunInSeparateProcess]
+    public function testThrowingImportRestoresCollection(): void
+    {
+        $converter = new class extends HtmlToCarve {
+            public function convert(string $html): string
+            {
+                throw new RuntimeException('import failed');
+            }
+        };
+        try {
+            $converter->convertWithReport('<p>text</p>' . str_repeat('x', 128 << 10));
+            self::fail('Expected the import exception');
+        } catch (RuntimeException $exception) {
+            self::assertSame('import failed', $exception->getMessage());
+        }
+        self::assertTrue(gc_enabled());
+        CycleCollection::paused(static function (): void {
+            self::assertFalse(gc_enabled());
+        });
+        self::assertTrue(gc_enabled());
+    }
+
+    #[RunInSeparateProcess]
+    public function testThrowingImportPipelinesRestoreCollection(): void
+    {
+        $converter = new class (importAdapter: 'word') extends HtmlToCarve {
+            protected function normalizeAdapterFootnotes(DOMDocument $doc): void
+            {
+                throw new RuntimeException('normalization failed');
+            }
+        };
+        foreach (['convert', 'convertWithReport', 'convertToAstWithReport'] as $method) {
+            try {
+                $converter->$method('<p>text</p>' . str_repeat('x', 128 << 10));
+                self::fail('Expected the normalization exception');
+            } catch (RuntimeException $exception) {
+                self::assertSame('normalization failed', $exception->getMessage());
+            }
+            self::assertTrue(gc_enabled());
+            CycleCollection::paused(static function (): void {
+                self::assertFalse(gc_enabled());
+            });
+            self::assertTrue(gc_enabled());
+        }
+    }
+
+    #[DataProvider('importMethods')]
+    #[RunInSeparateProcess]
+    public function testSmallNestedImportsKeepCollectionPaced(string $method): void
+    {
+        ini_set('memory_limit', '-1');
+        $document = (new CarveConverter())->parse(str_repeat("paragraph\n\n", 10000));
+        gc_collect_cycles();
+        $runs = gc_status()['runs'];
+        CycleCollection::paused(static function () use ($document, $method): void {
+            $converter = new HtmlToCarve();
+            for ($i = 0; $i < 200; $i++) {
+                $converter->$method('<section id="title"><h1>title</h1></section>');
+                $converter->$method('<p title="x"><code>int[][]</code></p>');
+            }
+            self::assertCount(10000, $document->getChildren());
+        });
+
+        self::assertLessThanOrEqual(10, gc_status()['runs'] - $runs);
+        self::assertTrue(gc_enabled());
+    }
+
     #[RunInSeparateProcess]
     public function testALargeTableDoesNotRunTheCollectorRepeatedly(): void
     {

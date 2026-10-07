@@ -16,6 +16,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Performance
 
 - Joined adjacent text nodes once during HTML import and AST encoding and validation, avoiding repeated copies of growing text runs. Inline padding trims scan only the suffix (#2931).
+### Performance
+
+- Paced garbage collection across large HTML imports to avoid repeated scans of live trees.
 
 ## [0.1.11] - 2026-10-06
 

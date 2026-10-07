@@ -18,6 +18,7 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Util\CycleCollection;
 use SplObjectStorage;
 use Throwable;
 
@@ -1076,6 +1077,7 @@ final class HtmlAstBuilder
             return;
         }
         $slugs = $this->renderedHeadingSlugs($tree);
+        CycleCollection::collectAfterTree($tree['srcByteLength']);
         $kept = [];
         foreach ($headings as $index => $heading) {
             if ($slugs === null && $heading['candidate']) {
@@ -1348,6 +1350,8 @@ final class HtmlAstBuilder
             'children' => [HtmlImportNodes::paragraph($inlines)],
         ]);
         $source = trim((new CarveRenderer())->render($document));
+        unset($document);
+        CycleCollection::checkpoint();
         if ($source === '' || str_contains($source, '"') || str_contains($source, "\n")) {
             return false;
         }
@@ -1401,6 +1405,8 @@ final class HtmlAstBuilder
             'children' => [HtmlImportNodes::paragraph($this->blockInlines($paragraph))],
         ]);
         $source = trim((new CarveRenderer())->render($document));
+        unset($document);
+        CycleCollection::checkpoint();
         if ($source === '' || str_contains($source, ']') || str_contains($source, "\n")) {
             return null;
         }
