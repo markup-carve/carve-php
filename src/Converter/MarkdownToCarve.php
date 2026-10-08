@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -112,6 +113,16 @@ class MarkdownToCarve
      * @var array<string, true>
      */
     protected array $definedReferenceLabels = [];
+
+    /**
+     * @var array<string, string>
+     */
+    protected array $importedFootnoteLabels = [];
+
+    /**
+     * @var array<string>
+     */
+    protected array $markdownFootnoteLabels = [];
 
     /**
      * The source label of each normalized label's first definition with a
@@ -259,6 +270,27 @@ class MarkdownToCarve
         $frontmatter = $this->splitFrontmatter($allLines);
         $this->markdownFrontmatterLines = count($frontmatter);
         $lines = $this->extractReferenceDefinitions(array_slice($allLines, count($frontmatter)));
+        $this->importedFootnoteLabels = [];
+        $reservedFootnotes = [];
+        preg_match_all('/\[\^([^[\]\n]++)\]/', $markdown, $candidates);
+        foreach ($candidates[1] as $label) {
+            if (preg_match('/^carve-import-footnote-(\d+)$/i', LabelKey::normalize($this->decodeLinkTitle($label)), $reserved) === 1) {
+                $reservedFootnotes[(int)$reserved[1]] = true;
+            }
+        }
+        $serial = 1;
+        foreach ($this->markdownFootnoteLabels as $label) {
+            if (!str_contains($label, '|')) {
+                continue;
+            }
+            $key = $label;
+            if (!isset($this->importedFootnoteLabels[$key])) {
+                while (isset($reservedFootnotes[$serial])) {
+                    $serial++;
+                }
+                $this->importedFootnoteLabels[$key] = 'carve-import-footnote-' . $serial++;
+            }
+        }
         $result = [];
         $inCodeBlock = false;
         $fenceChar = '';
@@ -802,6 +834,7 @@ class MarkdownToCarve
             }
 
             if ($isBlank) {
+                $tableWidth = 0;
                 $sourceBlanks[count($result)] = true;
                 $result[] = $line;
                 $prevLineType = 'blank';
@@ -4851,10 +4884,11 @@ class MarkdownToCarve
             fn (array $match): string => $protectDestination('', $match[1]),
             $line,
         ) ?? $line;
+
         $chainSubject = $line;
         $chainCursor = 0;
         $line = preg_replace_callback(
-            '/(?<![\\\\\]])\[([\w .|-]+)\]\[([\w .|-]+)\]\[([\w .|-]+)\](?!\[)/u',
+            '/(?<![\\\\\]])\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]/u',
             function (array $match) use ($chainSubject, &$chainCursor, $protect, $protected, $protectDestination): string {
                 $offset = $match[0][1];
                 while ($chainCursor < $offset) {
@@ -4890,7 +4924,7 @@ class MarkdownToCarve
                 $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')') : ($middle !== null ? $protect('[' . $middle . ']') : null);
                 $lastTail = $lastTarget !== null ? $protectDestination('', '(' . $lastTarget . ')') : ($last !== null ? $protect('[' . $last . ']') : null);
                 if ($middleTail !== null) {
-                    if (($chainSubject[$offset - 1] ?? '') === '!') {
+                    if (($chainSubject[$offset - 1] ?? '') === '!' || ($chainSubject[$offset + strlen($match[0][0])] ?? '') === '[') {
                         return $match[0][0];
                     }
 
@@ -4918,7 +4952,7 @@ class MarkdownToCarve
                     $canonical = null;
                 }
                 if ($canonical === null) {
-                    return $table && str_contains($match[0], '|') ? str_replace(['[', ']'], ['\\[', '\\]'], $match[0]) : $match[0];
+                    return $table && str_contains($match[0], '|') ? $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0])) : $match[0];
                 }
                 if (strpbrk($canonical, '[]') !== false) {
                     return $match[0];
@@ -4928,6 +4962,65 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
+        $footnoteSource = $line;
+        $footnoteCursor = 0;
+        $line = preg_replace_callback('/\[\^([^[\]\n]+)\]/', function (array $match) use ($protected, $protect, $table, $footnoteSource, &$footnoteCursor): string {
+            $offset = $match[0][1];
+            while ($footnoteCursor < $offset) {
+                if ($footnoteSource[$footnoteCursor] === '<') {
+                    $tag = $this->htmlTagAt($footnoteSource, $footnoteCursor);
+                    if ($tag !== null) {
+                        $footnoteCursor = $tag['end'];
+
+                        continue;
+                    }
+                    if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $footnoteSource, $auto, 0, $footnoteCursor) === 1) {
+                        $footnoteCursor += strlen($auto[0]);
+
+                        continue;
+                    }
+                }
+                $footnoteCursor++;
+            }
+            if ($footnoteCursor > $offset) {
+                return $match[0][0];
+            }
+            $label = $this->referenceSourceText($match[1][0], $protected);
+            $renamed = $this->importedFootnoteLabels[$label] ?? null;
+
+            return $renamed === null
+                ? ($table && str_contains($label, '|') ? $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0])) : $match[0][0])
+                : '[^' . $renamed . ']';
+        }, $line, flags: PREG_OFFSET_CAPTURE) ?? $line;
+
+        if ($table) {
+            $line = preg_replace_callback('/(?<!\\\\)\[([^[\]\n^]+)\]\[([^[\]\n]+)\]/', function (array $match) use ($protected, $protect): string {
+                if (!str_contains($match[1], '|') || $this->complexReferenceTarget($match[2], $protected) !== null) {
+                    return $match[0];
+                }
+                $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
+                if ($canonical !== null && (!str_contains($canonical, '|') || $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($match[2]))) {
+                    return $match[0];
+                }
+
+                return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0]));
+            }, $line) ?? $line;
+            $line = preg_replace_callback(
+                '/(?<!\\\\)(!?)\[([^[\]\n^][^[\]\n]*)\]\[\]/',
+                function (array $match) use ($protected, $protect): string {
+                    if (!str_contains($match[2], '|') || $this->complexReferenceTarget($match[2], $protected) !== null) {
+                        return $match[0];
+                    }
+                    $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
+                    if ($canonical !== null && $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($match[2])) {
+                        return $match[0];
+                    }
+
+                    return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0]));
+                },
+                $line,
+            ) ?? $line;
+        }
         $linkClosers = [];
         $openLabels = [];
         for ($at = 0, $length = strlen($line); $at < $length; $at++) {
@@ -5073,7 +5166,7 @@ class MarkdownToCarve
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protected, $protect, $protectDestination, $closers): string {
+                function (array $match) use ($subject, $protected, $protect, $protectDestination, $closers, $table): string {
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
                     if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
@@ -5091,6 +5184,9 @@ class MarkdownToCarve
                         return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')');
                     }
                     $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
+                    if ($table && str_contains($label, '|') && ($definition === null || $this->normalizeReferenceLabel($definition) !== $this->normalizeReferenceLabel($label))) {
+                        return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
+                    }
                     if ($definition === null) {
                         return $match[0][0];
                     }
@@ -5234,7 +5330,7 @@ class MarkdownToCarve
             }, $line) ?? $line;
         } while ($line !== $previous);
 
-        return $line;
+        return str_replace("\x00FNEMPTY\x00", '{empty}', $line);
     }
 
     /**
@@ -5384,6 +5480,7 @@ class MarkdownToCarve
      */
     protected function extractReferenceDefinitions(array $lines): array
     {
+        $this->markdownFootnoteLabels = [];
         $this->emptyDestinationLabels = [];
         $this->complexReferenceTargets = [];
         $authoredDefinitions = [];
@@ -5512,9 +5609,11 @@ class MarkdownToCarve
 
                 continue;
             }
+            if (preg_match('/^ {0,3}\[\^((?:[^[\]\\\\]|\\\\.)+)\]:/', $content, $footnoteHead) === 1) {
+                $this->markdownFootnoteLabels[] = $footnoteHead[1];
+            }
             if (
-                $canStart
-                && $prefix === ''
+                $prefix === ''
                 && $listIndent === 0
                 && preg_match('/^ {0,3}\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $content) === 1
                 && $this->collectFootnoteDefinition($lines, $i)
@@ -5611,6 +5710,9 @@ class MarkdownToCarve
                         $labels[$key] = $definition[1];
                     }
                     $defined[$key] = true;
+                    if (str_starts_with($definition[1], '^')) {
+                        $this->markdownFootnoteLabels[] = substr($definition[1], 1);
+                    }
                     $marker = substr($prefix, strlen($quotePrefix));
                     // A footnote is not a reference definition, so it stays put. So
                     // does one on a nested item's marker line, where fmt writes it,
@@ -5750,7 +5852,14 @@ class MarkdownToCarve
                 break;
             }
         }
+        preg_match('/^ {0,3}\[\^((?:[^\]\\\\]|\\\\.)+)\]:/', $lines[$index], $definition);
+        if (isset($definition[1])) {
+            $this->markdownFootnoteLabels[] = $definition[1];
+        }
         $block = [ltrim($lines[$index], ' ')];
+        if (preg_match('/^ {0,3}\[\^(?:[^\]\\\\]|\\\\.)+\]:[ \t]*$/', $block[0]) === 1 && $end === $index) {
+            $block[0] .= " \x00FNEMPTY\x00";
+        }
         for ($at = $index + 1; $at <= $end; $at++) {
             $block[] = '  ' . ltrim($this->expandLeadingTabs($lines[$at], 8), ' ');
         }
@@ -5961,16 +6070,30 @@ class MarkdownToCarve
             $label = preg_replace_callback('/\x00P(\d+)\x00/', static function (array $match) use ($protected): string {
                 $span = $protected[(int)$match[1]] ?? $match[0];
 
-                return str_starts_with($span, '(') || str_starts_with($span, '![') ? $span : $match[0];
+                return str_starts_with($span, '(') || str_starts_with($span, '![') || str_starts_with($span, '[') ? $span : $match[0];
             }, $label) ?? $label;
             $label = preg_replace('/!?\[((?:[^[\]\n]|(\[(?:[^[\]\n]|(?-1))*\]))*)\]\([^()\n]*\)/', '$1', $label) ?? $label;
-            $label = preg_replace_callback(
-                '/!?\[(?<text>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)\](?:\[(?<reference>[^[\]\n]*)\])?(?![[(:])/',
-                fn (array $match): string => isset($this->definedReferenceLabels[$this->normalizeReferenceLabel(
-                    $this->decodeLinkTitle(($match['reference'] ?? '') !== '' ? $match['reference'] : $match['text'], $protected),
-                )]) ? $match['text'] : $match[0],
-                $label,
-            ) ?? $label;
+            $written = '';
+            $cursor = 0;
+            $offset = 0;
+            while (preg_match('/!?\[(?<text>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)\]/', $label, $match, PREG_OFFSET_CAPTURE, $offset) === 1) {
+                $start = $match[0][1];
+                $end = $start + strlen($match[0][0]);
+                $text = $match['text'][0];
+                $written .= substr($label, $cursor, $start - $cursor);
+                $tail = [];
+                $hasTail = preg_match('/\G\[([^[\]\n]*)\]/', $label, $tail, 0, $end) === 1;
+                $reference = $hasTail && $tail[1] !== '' ? $tail[1] : $text;
+                if ($hasTail && isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected))])) {
+                    $written .= $text;
+                    $end += strlen($tail[0]);
+                } else {
+                    $next = $label[$end] ?? '';
+                    $written .= !$hasTail && $next !== '(' && $next !== ':' && isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($text, $protected))]) ? $text : $match[0][0];
+                }
+                $cursor = $offset = $end;
+            }
+            $label = $written . substr($label, $cursor);
         } while ($label !== $previous);
 
         $label = MarkdownEmphasis::convert($label, protectedSpans: $protected, plainText: true);
@@ -6019,6 +6142,17 @@ class MarkdownToCarve
      */
     protected function complexReferenceTarget(string $label, array $protected): ?string
     {
+        return $this->complexReferenceTargets[$this->normalizeReferenceLabel($this->referenceSourceText($label, $protected))] ?? null;
+    }
+
+    /**
+     * @param string $label
+     * @param array<string> $protected
+     *
+     * @return string
+     */
+    protected function referenceSourceText(string $label, array $protected): string
+    {
         $protectedCount = count($protected);
         for ($pass = 0; $pass < $protectedCount; $pass++) {
             $restored = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $match): string => $protected[(int)$match[1]] ?? $match[0], $label) ?? $label;
@@ -6028,7 +6162,7 @@ class MarkdownToCarve
             $label = $restored;
         }
 
-        return $this->complexReferenceTargets[$this->normalizeReferenceLabel($label)] ?? null;
+        return $label;
     }
 
     protected function normalizeReferenceLabel(string $label): string
