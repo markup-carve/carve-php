@@ -1,4 +1,4 @@
-name: Release packages and assets
+name: Release
 
 # The gate in FRONT of a carve-php release.
 #
@@ -16,32 +16,13 @@ name: Release packages and assets
 # Nothing in the repository could have asked for an approval first.
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
-      publish:
-        required: true
-        type: boolean
-      tag:
-        required: true
-        type: string
       version:
+        description: 'Version to release, e.g. 0.1.12'
         required: true
         type: string
-      release_tag:
-        required: true
-        type: string
-      source_sha:
-        required: true
-        type: string
-      release_id:
-        required: true
-        type: string
-      release_body:
-        required: true
-        type: string
-      notes_digest:
-        required: true
-        type: string
+
 permissions:
   # `write`, not `read`, and the draft check below is the whole reason: a DRAFT
   # release is invisible to a caller without push access, so under
@@ -49,8 +30,15 @@ permissions:
   # "no release" for a draft that is sitting right there with notes in it.
   # The publish job also needs it to push the tag.
   contents: write
-  actions: read
-  id-token: write
+
+# Every job carries timeout-minutes so a hung step fails in minutes rather
+# than inheriting the 360-minute GitHub default.
+
+concurrency:
+  # Two runs creating the same tag is a race with an irreversible loser.
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
 jobs:
   # Everything checkable BEFORE anyone is asked to approve, so the approval
   # button never appears on a release that would fail. Deliberately NOT gated.
@@ -65,14 +53,6 @@ jobs:
           # so it needs the tags and the history behind them.
           fetch-depth: 0
 
-          ref: ${{ inputs.source_sha }}
-      - name: Expose the candidate tag locally
-        if: ${{ !inputs.publish }}
-        shell: bash
-        env:
-          CANDIDATE_TAG: ${{ inputs.tag }}
-        run: |
-          git tag "$CANDIDATE_TAG" "${{ inputs.source_sha }}"
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
@@ -121,6 +101,18 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: php scripts/changelog-completeness.php "$VERSION"
 
+      - name: No tag of this name exists yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" >/dev/null 2>&1; then
+            echo "::error::A tag $VERSION already exists. This version has been released; releasing it again would move a published tag."
+            exit 1
+          fi
+          echo "No tag $VERSION yet."
+
+      # The notes a reviewer approves have to exist before they are asked.
       - name: A draft release for this version exists and targets this commit
         env:
           GH_TOKEN: ${{ github.token }}
@@ -163,7 +155,6 @@ jobs:
       # here, so POST /git/refs answered 403 "Resource not accessible by
       # integration" and the release stopped after the maintainer's approval.
       contents: write
-      actions: read
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -172,16 +163,6 @@ jobs:
       - uses: actions/checkout@v6
 
       # Needed by the LIB_VERSION re-read in the next step.
-        with:
-          ref: ${{ inputs.source_sha }}
-          fetch-depth: 0
-      - name: Expose the candidate tag locally
-        if: ${{ !inputs.publish }}
-        shell: bash
-        env:
-          CANDIDATE_TAG: ${{ inputs.tag }}
-        run: |
-          git tag "$CANDIDATE_TAG" "${{ inputs.source_sha }}"
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
@@ -223,8 +204,50 @@ jobs:
 
       # This is the irreversible act, and it is behind the approval: Packagist
       # learns about the version from this ref and nothing else.
-env:
-  LANE_TAG: ${{ inputs.tag }}
-  LANE_REF: ${{ format('refs/tags/{0}', inputs.tag) }}
-  LANE_REF_TYPE: tag
-  LANE_PUBLISH: ${{ inputs.publish }}
+      - name: Create the tag at the approved commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$VERSION" -f sha="$GITHUB_SHA" --jq '.ref'
+          # Read it back: exit status does not tell you what landed.
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" --jq '"\(.ref) -> \(.object.sha)"'
+
+      # Last, deliberately: a draft that stays a draft is recoverable.
+      - name: Publish the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          ID: ${{ steps.draft.outputs.id }}
+        run: |
+          # `tag_name` goes with every PATCH of a release. Omit it on a DRAFT
+          # and GitHub replaces the tag with a generated `untagged-*`
+          # placeholder, because a draft's tag is a string on the object rather
+          # than a git ref, so the field has nothing to fall back to.
+          # `-F draft=false`, not `-f`: with `-f` the value is the string
+          # "false", which is truthy, so the release stays a draft while the
+          # run reports success.
+          gh api "repos/$GITHUB_REPOSITORY/releases/$ID" -X PATCH \
+            -f tag_name="$VERSION" -F draft=false --jq '"published \(.tag_name)"'
+          # Read it back: exit status does not tell you whether the tag
+          # survived the write.
+          state="$(gh api "repos/$GITHUB_REPOSITORY/releases/$ID" --jq '"\(.draft) \(.tag_name)"')"
+          echo "draft=${state% *} tag=${state#* }"
+          if [ "$state" != "false $VERSION" ]; then
+            echo "::error::The release reads back as '$state', expected 'false $VERSION'."
+            exit 1
+          fi
+
+      # A ref created with `github.token` does not trigger other workflows, so
+      # release-gate.yml would never fire on a tag this job pushed. The
+      # verify job above already ran its changelog check before the approval;
+      # this dispatches the post-tag run as well, so the record behind the
+      # release still exists without handing this workflow a personal token.
+      - name: Dispatch the post-tag release gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        # The dispatch endpoint takes a branch or tag name, not a commit, and
+        # the tag created above is the ref the gate is meant to read.
+        run: gh workflow run release-gate.yml --ref "$VERSION"
