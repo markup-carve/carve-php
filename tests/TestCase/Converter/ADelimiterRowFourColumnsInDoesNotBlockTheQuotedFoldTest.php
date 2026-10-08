@@ -80,7 +80,7 @@ final class ADelimiterRowFourColumnsInDoesNotBlockTheQuotedFoldTest extends Test
             // so there is no paragraph left for the underline to end.
             'a delimiter row at the content column still blocks it' => [
                 "> a | b\n> | - | - |\n> ---\n",
-                '<blockquote><p>a | b</p><table><tbody><tr><td>-</td><td>-</td></tr></tbody></table><hr></blockquote>',
+                '<blockquote><table><thead><tr><th scope="col">a</th><th scope="col">b</th></tr></thead></table><hr></blockquote>',
             ],
             // A row four columns in under a line that is NOT a header row was
             // always continuation text; this is the case carve-php#2333 folded.

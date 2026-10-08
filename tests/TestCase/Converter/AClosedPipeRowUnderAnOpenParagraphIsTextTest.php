@@ -199,14 +199,14 @@ final class AClosedPipeRowUnderAnOpenParagraphIsTextTest extends TestCase
             ],
             'a quoted table keeps both rows bare' => [
                 "> foo\n> | a | b |\n> | - | - |\n",
-                "> foo\n> | a | b |\n> | - | - |\n",
+                "> foo\n>\n> |= a |= b |\n",
             ],
             // The header carries no outer pipes, so only the delimiter row
             // reaches the escape - and it is the half that answers the line
             // above rather than the one a line below answers.
             'a delimiter row answering a pipeless header keeps its pipes' => [
                 "> a | b\n> | - | - |\n",
-                "> a | b\n> | - | - |\n",
+                "> |= a |= b |\n",
             ],
             // No paragraph is open here and the row still answers no delimiter,
             // so it is still prose: cmark-gfm reads `<p>foo</p><p>| a | b |</p>`.
@@ -222,11 +222,11 @@ final class AClosedPipeRowUnderAnOpenParagraphIsTextTest extends TestCase
             // table loses its body.
             'a quoted table body row keeps its pipes' => [
                 "> | a | b |\n> | - | - |\n> | c | d |\n",
-                "> | a | b |\n> | - | - |\n> | c | d |\n",
+                "> |= a |= b |\n> | c | d |\n",
             ],
             'a quoted table body row after a paragraph and a blank keeps its pipes' => [
                 "> foo\n>\n> | a | b |\n> | - | - |\n> | c | d |\n",
-                "> foo\n>\n> | a | b |\n> | - | - |\n> | c | d |\n",
+                "> foo\n>\n> |= a |= b |\n> | c | d |\n",
             ],
         ];
     }

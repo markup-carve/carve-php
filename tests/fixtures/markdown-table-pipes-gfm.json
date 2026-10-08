@@ -1,0 +1,634 @@
+[
+  {
+    "md": "| a|b | c |\n|---|---|\n| d | e |",
+    "html": "<p>| a|b | c |\n|---|---|\n| d | e |</p>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| a|b | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "a|b | c\n|---|---|\n| d | e |",
+    "html": "<p>a|b | c\n|---|---|\n| d | e |</p>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\na|b | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a|b` | c |\n|---|---|\n| d | e |",
+    "html": "<p>| <code>a|b</code> | c |\n|---|---|\n| d | e |</p>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`a</td>\n<td>b`</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "`a|b` | c\n|---|---|\n| d | e |",
+    "html": "<p><code>a|b</code> | c\n|---|---|\n| d | e |</p>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n`a|b` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`a</td>\n<td>b`</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ``a|b`` | c |\n|---|---|\n| d | e |",
+    "html": "<p>| <code>a|b</code> | c |\n|---|---|\n| d | e |</p>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| ``a|b`` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>``a</td>\n<td>b``</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "``a|b`` | c\n|---|---|\n| d | e |",
+    "html": "<p><code>a|b</code> | c\n|---|---|\n| d | e |</p>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n``a|b`` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>``a</td>\n<td>b``</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a\\|b | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| a\\|b | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "a\\|b | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\na\\|b | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a\\|b` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a\\|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "`a\\|b` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n`a\\|b` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ``a\\|b`` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| ``a\\|b`` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "``a\\|b`` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n``a\\|b`` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a\\\\|b | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| a\\\\|b | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "a\\\\|b | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\na\\\\|b | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a\\\\|b` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a\\\\|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "`a\\\\|b` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n`a\\\\|b` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ``a\\\\|b`` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| ``a\\\\|b`` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "``a\\\\|b`` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n``a\\\\|b`` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a\\\\\\|b | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a\\|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| a\\\\\\|b | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a\\|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "a\\\\\\|b | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a\\|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\na\\\\\\|b | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a\\|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a\\\\\\|b` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a\\\\\\|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "`a\\\\\\|b` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n`a\\\\\\|b` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ``a\\\\\\|b`` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| ``a\\\\\\|b`` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "``a\\\\\\|b`` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n``a\\\\\\|b`` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a\\\\\\\\|b | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a\\|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| a\\\\\\\\|b | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a\\|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "a\\\\\\\\|b | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a\\|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\na\\\\\\\\|b | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a\\|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a\\\\\\\\|b` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a\\\\\\\\|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "`a\\\\\\\\|b` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n`a\\\\\\\\|b` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ``a\\\\\\\\|b`` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| ``a\\\\\\\\|b`` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "``a\\\\\\\\|b`` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n``a\\\\\\\\|b`` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a\\\\\\\\\\|b | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a\\\\|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| a\\\\\\\\\\|b | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a\\\\|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "a\\\\\\\\\\|b | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a\\\\|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\na\\\\\\\\\\|b | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a\\\\|b</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a\\\\\\\\\\|b` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a\\\\\\\\\\|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "`a\\\\\\\\\\|b` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n`a\\\\\\\\\\|b` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ``a\\\\\\\\\\|b`` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| ``a\\\\\\\\\\|b`` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "``a\\\\\\\\\\|b`` | c\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n``a\\\\\\\\\\|b`` | c",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a\\|\n|---|\n| b\\|",
+    "html": "<table>\n<thead>\n<tr>\n<th>a|</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>b|</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a|b` | c |\n|---|---|\n| d | e |",
+    "html": "<p>| <code>a|b</code> | c |\n|---|---|\n| d | e |</p>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `d|x` | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`d</td>\n<td>x`</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| [x](a\\|b) |\n|---|\n| z |",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"a%7Cb\">x</a></th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>z</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| <i title=\"`a|b`\">x</i> | c |\n|---|---|\n| z | w |",
+    "html": "<p>| <i title=\"`a|b`\">x</i> | c |\n|---|---|\n| z | w |</p>\n"
+  },
+  {
+    "md": "| \\``a` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>`<code>a</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| \\``a` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`<code>a</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| \\```a`` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>`<code>a</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| \\```a`` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`<code>a</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| \\`a|b\\` | c |\n|---|---|\n| d | e |",
+    "html": "<p>| `a|b` | c |\n|---|---|\n| d | e |</p>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| \\`a|b\\` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`a</td>\n<td>b`</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| \\\\`a\\|b` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>\\<code>a|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| \\\\`a\\|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>\\<code>a|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ``a`b\\|c`` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a`b|c</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| ``a`b\\|c`` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a`b|c</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a\\\\|b` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a\\\\|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a\\\\\\|b` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a\\\\|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a\\\\\\|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a\\\\|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| [a\\|b](https://x/a\\|b) | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"https://x/a%7Cb\">a|b</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| [a\\|b](https://x/a\\|b) | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://x/a%7Cb\">a|b</a></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a\\|` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a|</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a\\|` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a|</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a\\| | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a|</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| a\\| | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a|</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a\\\\| | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a|</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| a\\\\| | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a|</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a\\\\\\| | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a\\|</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| a\\\\\\| | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a\\|</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| \\``a\\|b` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th>`<code>a|b</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| \\``a\\|b` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`<code>a|b</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `a` `b\\|c` | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>a</code> <code>b|c</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| `a` `b\\|c` | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>a</code> <code>b|c</code></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "> | a | b |\n> |---|---|\n> | `x|y` | z |",
+    "html": "<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`x</td>\n<td>y`</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n"
+  },
+  {
+    "md": "> > | a | b |\n> > |---|---|\n> > | `x|y` | z |",
+    "html": "<blockquote>\n<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`x</td>\n<td>y`</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "md": " >| a | b |\n >|---|---|\n >| `x|y` | z |",
+    "html": "<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`x</td>\n<td>y`</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n"
+  },
+  {
+    "md": "> | `a|b` | c |\n> |---|---|",
+    "html": "<blockquote>\n<p>| <code>a|b</code> | c |\n|---|---|</p>\n</blockquote>\n"
+  },
+  {
+    "md": "> > | `a|b` | c |\n> > |---|---|",
+    "html": "<blockquote>\n<blockquote>\n<p>| <code>a|b</code> | c |\n|---|---|</p>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "md": " >| `a|b` | c |\n >|---|---|",
+    "html": "<blockquote>\n<p>| <code>a|b</code> | c |\n|---|---|</p>\n</blockquote>\n"
+  },
+  {
+    "md": "> | a\\|b | c |\n> |---|---|\n> | d | e |",
+    "html": "<blockquote>\n<table>\n<thead>\n<tr>\n<th>a|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n"
+  },
+  {
+    "md": "> > | a\\|b | c |\n> > |---|---|\n> > | d | e |",
+    "html": "<blockquote>\n<blockquote>\n<table>\n<thead>\n<tr>\n<th>a|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "md": " >| a\\|b | c |\n >|---|---|\n >| d | e |",
+    "html": "<blockquote>\n<table>\n<thead>\n<tr>\n<th>a|b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n"
+  },
+  {
+    "md": "> before\n> | a | b |\n> |---|---|\n> | d | e |",
+    "html": "<blockquote>\n<p>before</p>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n"
+  },
+  {
+    "md": "> > before\n> > | a | b |\n> > |---|---|\n> > | d | e |",
+    "html": "<blockquote>\n<blockquote>\n<p>before</p>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "md": " >before\n >| a | b |\n >|---|---|\n >| d | e |",
+    "html": "<blockquote>\n<p>before</p>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n"
+  },
+  {
+    "md": "> | a | b |\n> |---|---|\n> | x | y |\n> \n> paragraph",
+    "html": "<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>x</td>\n<td>y</td>\n</tr>\n</tbody>\n</table>\n<p>paragraph</p>\n</blockquote>\n"
+  },
+  {
+    "md": "> > | a | b |\n> > |---|---|\n> > | x | y |\n> > \n> > paragraph",
+    "html": "<blockquote>\n<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>x</td>\n<td>y</td>\n</tr>\n</tbody>\n</table>\n<p>paragraph</p>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "md": " >| a | b |\n >|---|---|\n >| x | y |\n >\n >paragraph",
+    "html": "<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>x</td>\n<td>y</td>\n</tr>\n</tbody>\n</table>\n<p>paragraph</p>\n</blockquote>\n"
+  },
+  {
+    "md": "| <http://x.com/a\\|b> | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"http://x.com/a%7Cb\">http://x.com/a|b</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| <http://x.com/a\\|b> | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"http://x.com/a%7Cb\">http://x.com/a|b</a></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| <https://x.com/a\\|b> | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"https://x.com/a%7Cb\">https://x.com/a|b</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| <https://x.com/a\\|b> | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://x.com/a%7Cb\">https://x.com/a|b</a></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| http://x.com/a\\|b | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"http://x.com/a%7Cb\">http://x.com/a|b</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| http://x.com/a\\|b | c |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"http://x.com/a%7Cb\">http://x.com/a|b</a></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| https://a.com/x\\|y&amp;z | c |\n|---|---|\n| d | e |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"https://a.com/x%7Cy&amp;amp;z\">https://a.com/x|y&amp;amp;z</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| https://a.com/x\\|y&amp;z | c |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://a.com/x%7Cy&amp;amp;z\">https://a.com/x|y&amp;amp;z</a></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| (https://a.com/x\\|y) | c |\n|---|---|\n| d | e |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th>(<a href=\"https://a.com/x%7Cy\">https://a.com/x|y</a>)</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| (https://a.com/x\\|y) | c |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>(<a href=\"https://a.com/x%7Cy\">https://a.com/x|y</a>)</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| https://a.com/x\\|y\\_z | c |\n|---|---|\n| d | e |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"https://a.com/x%7Cy%5C_z\">https://a.com/x|y\\_z</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| https://a.com/x\\|y\\_z | c |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://a.com/x%7Cy%5C_z\">https://a.com/x|y\\_z</a></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| https://a.com/x\\|y&copy;z | c |\n|---|---|\n| d | e |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"https://a.com/x%7Cy&amp;copy;z\">https://a.com/x|y&amp;copy;z</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| https://a.com/x\\|y&copy;z | c |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://a.com/x%7Cy&amp;copy;z\">https://a.com/x|y&amp;copy;z</a></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| https://a.com/x\\|y(a) | c |\n|---|---|\n| d | e |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"https://a.com/x%7Cy(a)\">https://a.com/x|y(a)</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| https://a.com/x\\|y(a) | c |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://a.com/x%7Cy(a)\">https://a.com/x|y(a)</a></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| https://a.com/x\\|y&amp; | c |\n|---|---|\n| d | e |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"https://a.com/x%7Cy\">https://a.com/x|y</a>&amp;</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| https://a.com/x\\|y&amp; | c |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://a.com/x%7Cy\">https://a.com/x|y</a>&amp;</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| https://a.com/x\\|y&copy; | c |\n|---|---|\n| d | e |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"https://a.com/x%7Cy\">https://a.com/x|y</a>©</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| https://a.com/x\\|y&copy; | c |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://a.com/x%7Cy\">https://a.com/x|y</a>©</td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| [x][r\\|s] | c |\n|---|---|\n| d | e |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"/u\">x</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | c |\n|---|---|\n| [x][r\\|s] | c |\n\n[r|s]: /u",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"/u\">x</a></td>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "- > | a | b |\n  > |---|---|\n  > | `x|y` | z |",
+    "html": "<ul>\n<li>\n<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`x</td>\n<td>y`</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n</li>\n</ul>\n"
+  },
+  {
+    "md": "1. text\n\n   > | a | b |\n   > |---|---|\n   > | `x|y` | z |",
+    "html": "<ol>\n<li>\n<p>text</p>\n<blockquote>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>`x</td>\n<td>y`</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n</li>\n</ol>\n"
+  },
+  {
+    "md": "- > | `a|b` | c |\n  > |---|---|",
+    "html": "<ul>\n<li>\n<blockquote>\n<p>| <code>a|b</code> | c |\n|---|---|</p>\n</blockquote>\n</li>\n</ul>\n"
+  },
+  {
+    "md": "> > x\n> | a | b |\n> |---|---|\n> | c | d |",
+    "html": "<blockquote>\n<blockquote>\n<p>x\n| a | b |\n|---|---|\n| c | d |</p>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "md": "> > x\n> # heading | text",
+    "html": "<blockquote>\n<blockquote>\n<p>x</p>\n</blockquote>\n<h1>heading | text</h1>\n</blockquote>\n"
+  },
+  {
+    "md": "> > x\n> - item | text",
+    "html": "<blockquote>\n<blockquote>\n<p>x</p>\n</blockquote>\n<ul>\n<li>item | text</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| [see https://a.com/x\\|y] | z |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>[see https://a.com/x|y]</td>\n<td>z</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| [https://a.com/x\\|y] | z |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>[https://a.com/x|y]</td>\n<td>z</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| [see https://a.com/x\\|y | z |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>[see https://a.com/x|y</td>\n<td>z</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| [x] [see https://a.com/x\\|y] | z |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>[x] [see https://a.com/x|y]</td>\n<td>z</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| [a] https://a.com/x\\|y | z |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>[a] <a href=\"https://a.com/x%7Cy\">https://a.com/x|y</a></td>\n<td>z</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| https://\\|a.com | z |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>https://|a.com</td>\n<td>z</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| https://a.com/x\\|y\" | z |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://a.com/x%7Cy\">https://a.com/x|y</a>&quot;</td>\n<td>z</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| https://a.com/x\\|y' | z |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://a.com/x%7Cy\">https://a.com/x|y</a>'</td>\n<td>z</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "> - x\n> | a | b |\n> |---|---|\n> | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>x\n| a | b |\n|---|---|\n| c | d |</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> 1. x\n> | a | b |\n> |---|---|\n> | c | d |",
+    "html": "<blockquote>\n<ol>\n<li>x\n| a | b |\n|---|---|\n| c | d |</li>\n</ol>\n</blockquote>\n"
+  }
+]

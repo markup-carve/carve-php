@@ -58,13 +58,12 @@ class AMarkdownSetextHeadingKeepsItsContainerTest extends TestCase
 
     /**
      * A delimiter row under a quoted line makes the two a table, so the rule
-     * under them is no underline. Only the fold is pinned: the importer does
-     * not write this pipeless quoted table as one yet.
+     * under them is no underline. The imported header keeps that table.
      */
     public function testAQuotedTableHeaderIsNotFoldedIntoAHeading(): void
     {
         $this->assertSame(
-            "> foo | bar\n> \\-\\-\\- | \\-\\-\\-\n> ---\n",
+            "> |= foo |= bar |\n> ---\n",
             (new MarkdownToCarve())->convert("> foo | bar\n> --- | ---\n> ---\n"),
         );
     }

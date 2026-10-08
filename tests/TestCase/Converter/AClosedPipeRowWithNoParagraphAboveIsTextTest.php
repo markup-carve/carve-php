@@ -223,16 +223,12 @@ final class AClosedPipeRowWithNoParagraphAboveIsTextTest extends TestCase
             ],
             'a body row of a table under way takes none' => [
                 "> | a | b |\n> | - | - |\n> | c | d |\n",
-                "> | a | b |\n> | - | - |\n> | c | d |\n",
+                "> |= a |= b |\n> | c | d |\n",
             ],
-            // GFM keeps a pipe-free line inside a table as a one-cell row, but
-            // this importer writes it as a paragraph, which ENDS the table in the
-            // Carve it wrote. So the row under it stands outside any table and
-            // takes its escape; reading the run GFM's way left it bare and grew a
-            // second headerless table.
+            // A pipe-free GFM body row is padded to the header width.
             'a row after a pipe-free line inside a quoted table takes it' => [
                 "> | a |\n> | - |\n> plain\n> | b |\n",
-                "> | a |\n> | - |\n> plain\n> \\| b |\n",
+                "> |= a |\n> | plain |\n> | b |\n",
             ],
             // The row has left the table entirely here - it is text of the item
             // below it, which is what cmark-gfm reads too.

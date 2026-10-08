@@ -1,0 +1,462 @@
+{
+  "base": "f009b19063db43f9554ed0be488184eefa33db67",
+  "started_at": "2026-10-08T10:19:43.108162+00:00",
+  "finished_at": "2026-10-08T10:19:48.877517+00:00",
+  "runtime": "PHP 8.5.11 (cli) (built: Sep 24 2026 13:49:29) (NTS)",
+  "cpu": 13,
+  "method": "one warmup, three calls per process/size; two rounds with revision order reversed; six samples per revision/size; hashing outside timer",
+  "source_before": {
+    "src/Converter/MarkdownToCarve.php": "ac50d29b123b3f41c6170d508149f4b70069080130f58ae61e668bc7411a1d9f"
+  },
+  "source_after": {
+    "src/Converter/MarkdownToCarve.php": "cea513930565b6861e8edcefde1173f4727611a543c8cf3a1806b7341d39ec49"
+  },
+  "measurements": {
+    "isolated": [
+      {
+        "n": 64,
+        "bytes": 2208,
+        "ms": [
+          5.274125,
+          5.33304,
+          5.533406
+        ],
+        "hash": "39cc820850a862d7739c4a6d80054127779d97d3fdc6372a1dd0f299285190b3",
+        "variant": "before"
+      },
+      {
+        "n": 128,
+        "bytes": 8512,
+        "ms": [
+          43.352955,
+          43.994023,
+          42.332053
+        ],
+        "hash": "c8bf538e37ed4dbadc61d72a2618fe91e28bdf82104f19614244f156d68629dd",
+        "variant": "before"
+      },
+      {
+        "n": 256,
+        "bytes": 33408,
+        "ms": [
+          348.978963,
+          351.620706,
+          334.040234
+        ],
+        "hash": "add2664ac028ce512c46b57443efd168978db6dbdfba3ff7a12281eec3fbeb9b",
+        "variant": "before"
+      },
+      {
+        "n": 64,
+        "bytes": 2208,
+        "ms": [
+          0.126995,
+          0.121695,
+          0.119621
+        ],
+        "hash": "39cc820850a862d7739c4a6d80054127779d97d3fdc6372a1dd0f299285190b3",
+        "variant": "after"
+      },
+      {
+        "n": 128,
+        "bytes": 8512,
+        "ms": [
+          0.35704,
+          0.348644,
+          0.359013
+        ],
+        "hash": "c8bf538e37ed4dbadc61d72a2618fe91e28bdf82104f19614244f156d68629dd",
+        "variant": "after"
+      },
+      {
+        "n": 256,
+        "bytes": 33408,
+        "ms": [
+          1.120424,
+          0.873157,
+          0.826346
+        ],
+        "hash": "add2664ac028ce512c46b57443efd168978db6dbdfba3ff7a12281eec3fbeb9b",
+        "variant": "after"
+      },
+      {
+        "n": 64,
+        "bytes": 2208,
+        "ms": [
+          0.077139,
+          0.075235,
+          0.074675
+        ],
+        "hash": "39cc820850a862d7739c4a6d80054127779d97d3fdc6372a1dd0f299285190b3",
+        "variant": "after"
+      },
+      {
+        "n": 128,
+        "bytes": 8512,
+        "ms": [
+          0.22794,
+          0.223031,
+          0.261856
+        ],
+        "hash": "c8bf538e37ed4dbadc61d72a2618fe91e28bdf82104f19614244f156d68629dd",
+        "variant": "after"
+      },
+      {
+        "n": 256,
+        "bytes": 33408,
+        "ms": [
+          0.907553,
+          0.822448,
+          0.813501
+        ],
+        "hash": "add2664ac028ce512c46b57443efd168978db6dbdfba3ff7a12281eec3fbeb9b",
+        "variant": "after"
+      },
+      {
+        "n": 64,
+        "bytes": 2208,
+        "ms": [
+          5.773601,
+          5.938769,
+          5.693065
+        ],
+        "hash": "39cc820850a862d7739c4a6d80054127779d97d3fdc6372a1dd0f299285190b3",
+        "variant": "before"
+      },
+      {
+        "n": 128,
+        "bytes": 8512,
+        "ms": [
+          46.998485,
+          45.982244,
+          56.489505
+        ],
+        "hash": "c8bf538e37ed4dbadc61d72a2618fe91e28bdf82104f19614244f156d68629dd",
+        "variant": "before"
+      },
+      {
+        "n": 256,
+        "bytes": 33408,
+        "ms": [
+          347.257501,
+          330.542111,
+          343.482421
+        ],
+        "hash": "add2664ac028ce512c46b57443efd168978db6dbdfba3ff7a12281eec3fbeb9b",
+        "variant": "before"
+      }
+    ],
+    "public_api": [
+      {
+        "shape": "table",
+        "n": 256,
+        "bytes": 2580,
+        "ms": [
+          9.348614,
+          8.514735,
+          9.132618
+        ],
+        "hash": "9a193d15a2e10034a25545113ec840e189b1f8e4951eee1dfdf27825b03a1de8",
+        "variant": "before"
+      },
+      {
+        "shape": "table",
+        "n": 1024,
+        "bytes": 10260,
+        "ms": [
+          34.368845,
+          38.091925,
+          34.505188
+        ],
+        "hash": "c0d47734b993e7e11dec4c4649f497126826f4fb6fd859544de20db96de338d1",
+        "variant": "before"
+      },
+      {
+        "shape": "prose",
+        "n": 256,
+        "bytes": 6656,
+        "ms": [
+          15.340326,
+          16.00036,
+          15.490716
+        ],
+        "hash": "c004f5b5ffe6b7ef0bde440a18e1f1e5b3b5fe3e32d36da379b2a1f363971ed5",
+        "variant": "before"
+      },
+      {
+        "shape": "prose",
+        "n": 1024,
+        "bytes": 26624,
+        "ms": [
+          59.33951,
+          60.751777,
+          66.255987
+        ],
+        "hash": "01a878691fc201747ea281e82a61962e0bfe24c242e5b398cda305e62cded9b6",
+        "variant": "before"
+      },
+      {
+        "shape": "table",
+        "n": 256,
+        "bytes": 2580,
+        "ms": [
+          8.669012,
+          8.890661,
+          8.343584
+        ],
+        "hash": "9a193d15a2e10034a25545113ec840e189b1f8e4951eee1dfdf27825b03a1de8",
+        "variant": "after"
+      },
+      {
+        "shape": "table",
+        "n": 1024,
+        "bytes": 10260,
+        "ms": [
+          34.462877,
+          36.060022,
+          36.285196
+        ],
+        "hash": "c0d47734b993e7e11dec4c4649f497126826f4fb6fd859544de20db96de338d1",
+        "variant": "after"
+      },
+      {
+        "shape": "prose",
+        "n": 256,
+        "bytes": 6656,
+        "ms": [
+          13.987223,
+          13.839327,
+          14.488711
+        ],
+        "hash": "c004f5b5ffe6b7ef0bde440a18e1f1e5b3b5fe3e32d36da379b2a1f363971ed5",
+        "variant": "after"
+      },
+      {
+        "shape": "prose",
+        "n": 1024,
+        "bytes": 26624,
+        "ms": [
+          54.209893,
+          55.073942,
+          61.692725
+        ],
+        "hash": "01a878691fc201747ea281e82a61962e0bfe24c242e5b398cda305e62cded9b6",
+        "variant": "after"
+      },
+      {
+        "shape": "table",
+        "n": 256,
+        "bytes": 2580,
+        "ms": [
+          8.625809,
+          8.670875,
+          8.571504
+        ],
+        "hash": "9a193d15a2e10034a25545113ec840e189b1f8e4951eee1dfdf27825b03a1de8",
+        "variant": "after"
+      },
+      {
+        "shape": "table",
+        "n": 1024,
+        "bytes": 10260,
+        "ms": [
+          31.535854,
+          32.948994,
+          34.567087
+        ],
+        "hash": "c0d47734b993e7e11dec4c4649f497126826f4fb6fd859544de20db96de338d1",
+        "variant": "after"
+      },
+      {
+        "shape": "prose",
+        "n": 256,
+        "bytes": 6656,
+        "ms": [
+          16.1087,
+          17.162034,
+          15.736371
+        ],
+        "hash": "c004f5b5ffe6b7ef0bde440a18e1f1e5b3b5fe3e32d36da379b2a1f363971ed5",
+        "variant": "after"
+      },
+      {
+        "shape": "prose",
+        "n": 1024,
+        "bytes": 26624,
+        "ms": [
+          57.607435,
+          59.541731,
+          61.906627
+        ],
+        "hash": "01a878691fc201747ea281e82a61962e0bfe24c242e5b398cda305e62cded9b6",
+        "variant": "after"
+      },
+      {
+        "shape": "table",
+        "n": 256,
+        "bytes": 2580,
+        "ms": [
+          7.908844,
+          8.428698,
+          8.265733
+        ],
+        "hash": "9a193d15a2e10034a25545113ec840e189b1f8e4951eee1dfdf27825b03a1de8",
+        "variant": "before"
+      },
+      {
+        "shape": "table",
+        "n": 1024,
+        "bytes": 10260,
+        "ms": [
+          32.894668,
+          32.674553,
+          30.973728
+        ],
+        "hash": "c0d47734b993e7e11dec4c4649f497126826f4fb6fd859544de20db96de338d1",
+        "variant": "before"
+      },
+      {
+        "shape": "prose",
+        "n": 256,
+        "bytes": 6656,
+        "ms": [
+          14.016619,
+          14.439997,
+          15.572424
+        ],
+        "hash": "c004f5b5ffe6b7ef0bde440a18e1f1e5b3b5fe3e32d36da379b2a1f363971ed5",
+        "variant": "before"
+      },
+      {
+        "shape": "prose",
+        "n": 1024,
+        "bytes": 26624,
+        "ms": [
+          56.238311,
+          57.047273,
+          57.080177
+        ],
+        "hash": "01a878691fc201747ea281e82a61962e0bfe24c242e5b398cda305e62cded9b6",
+        "variant": "before"
+      }
+    ]
+  },
+  "probes": {
+    "bench": "<?php\n$root=$argv[1];\nrequire $root . '/vendor/autoload.php';\nspl_autoload_register(static function($class)use($root){$prefix='MarkupCarve\\\\Carve\\\\';if(str_starts_with($class,$prefix)){$p=$root.'/src/'.str_replace('\\\\','/',substr($class,strlen($prefix))).'.php';if(is_file($p))require $p;}},true,true);\n$c=new class extends MarkupCarve\\Carve\\Converter\\MarkdownToCarve {public function protect($s){return $this->protectCodeSpans($s,static fn($x)=>$x);}};\nforeach([64,128,256] as $n){$s='';for($i=1;$i<=$n;$i++)$s.='x'.str_repeat('`',$i).' ';$times=[];for($j=0;$j<4;$j++){$t=hrtime(true);$v=$c->protect($s);$elapsed=(hrtime(true)-$t)/1e6;if($j)$times[]=$elapsed;}echo json_encode(['n'=>$n,'bytes'=>strlen($s),'ms'=>$times,'hash'=>hash('sha256',$v)]).\"\\n\";}\n",
+    "fullapi-bench": "<?php\n$root=$argv[1];require $root . '/vendor/autoload.php';spl_autoload_register(static function($class)use($root){$prefix='MarkupCarve\\\\Carve\\\\';if(str_starts_with($class,$prefix)){$p=$root.'/src/'.str_replace('\\\\','/',substr($class,strlen($prefix))).'.php';if(is_file($p))require $p;}},true,true);\n$c=new MarkupCarve\\Carve\\Converter\\MarkdownToCarve();foreach(['table','prose'] as $shape)foreach([256,1024] as $n){$s=$shape==='table'?\"| a | b |\\n|---|---|\\n\".str_repeat(\"| c | d |\\n\",$n):str_repeat(\"Ordinary paragraph text.\\n\\n\",$n);$times=[];for($j=0;$j<4;$j++){$t=hrtime(true);$v=$c->convertWithFidelityReport($s);$e=(hrtime(true)-$t)/1e6;if($j)$times[]=$e;}echo json_encode(['shape'=>$shape,'n'=>$n,'bytes'=>strlen($s),'ms'=>$times,'hash'=>hash('sha256',$v->value.json_encode($v->report()))]).\"\\n\";}\n"
+  },
+  "summary": [
+    {
+      "api": "isolated",
+      "shape": "unmatched-runs",
+      "n": 64,
+      "bytes": 2208,
+      "before_ms": 5.6132355,
+      "before_range_ms": [
+        5.274125,
+        5.938769
+      ],
+      "after_ms": 0.09838,
+      "after_range_ms": [
+        0.074675,
+        0.126995
+      ]
+    },
+    {
+      "api": "isolated",
+      "shape": "unmatched-runs",
+      "n": 128,
+      "bytes": 8512,
+      "before_ms": 44.9881335,
+      "before_range_ms": [
+        42.332053,
+        56.489505
+      ],
+      "after_ms": 0.30525,
+      "after_range_ms": [
+        0.223031,
+        0.359013
+      ]
+    },
+    {
+      "api": "isolated",
+      "shape": "unmatched-runs",
+      "n": 256,
+      "bytes": 33408,
+      "before_ms": 345.369961,
+      "before_range_ms": [
+        330.542111,
+        351.620706
+      ],
+      "after_ms": 0.8497515,
+      "after_range_ms": [
+        0.813501,
+        1.120424
+      ]
+    },
+    {
+      "api": "public_api",
+      "shape": "prose",
+      "n": 256,
+      "bytes": 6656,
+      "before_ms": 15.415521,
+      "before_range_ms": [
+        14.016619,
+        16.00036
+      ],
+      "after_ms": 15.112541,
+      "after_range_ms": [
+        13.839327,
+        17.162034
+      ]
+    },
+    {
+      "api": "public_api",
+      "shape": "prose",
+      "n": 1024,
+      "bytes": 26624,
+      "before_ms": 58.2098435,
+      "before_range_ms": [
+        56.238311,
+        66.255987
+      ],
+      "after_ms": 58.574583000000004,
+      "after_range_ms": [
+        54.209893,
+        61.906627
+      ]
+    },
+    {
+      "api": "public_api",
+      "shape": "table",
+      "n": 256,
+      "bytes": 2580,
+      "before_ms": 8.4717165,
+      "before_range_ms": [
+        7.908844,
+        9.348614
+      ],
+      "after_ms": 8.6474105,
+      "after_range_ms": [
+        8.343584,
+        8.890661
+      ]
+    },
+    {
+      "api": "public_api",
+      "shape": "table",
+      "n": 1024,
+      "bytes": 10260,
+      "before_ms": 33.6317565,
+      "before_range_ms": [
+        30.973728,
+        38.091925
+      ],
+      "after_ms": 34.514982,
+      "after_range_ms": [
+        31.535854,
+        36.285196
+      ]
+    }
+  ]
+}
