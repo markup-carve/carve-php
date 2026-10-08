@@ -3934,7 +3934,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
         if ($this->tableCellDepth > 0) {
-            $title = str_replace('`', '\\`', $title);
+            $title = str_replace(['`', '|'], ['\\`', '\\|'], $title);
         }
 
         // A RESOLVED reference image writes the reference, for the same reason a
