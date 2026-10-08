@@ -129,8 +129,18 @@ jobs:
             exit 1
           fi
           target="$(printf '%s' "$release" | jq -r '.target_commitish')"
-          if [ "$target" != "$GITHUB_SHA" ]; then
-            echo "::error::The draft for $VERSION targets $target, but this run is on $GITHUB_SHA. Point the draft at the commit being released, or dispatch from the commit it targets."
+          # Two target forms are accepted, and each guards something different.
+          # A SHA proves the notes about to be published describe the commit
+          # actually being released rather than an earlier one. A branch name
+          # means "tracks this branch's head", which stops a draft from going
+          # stale every time the branch moves - and it counts only when this
+          # run really is on that head, so a draft naming a branch that has
+          # moved on is refused exactly like a stale SHA. The branch is looked
+          # up instead of assumed, because the default branch is not called the
+          # same thing in every repository.
+          branch_head="$(gh api "repos/$GITHUB_REPOSITORY/branches/$target" --jq '.commit.sha' 2>/dev/null || true)"
+          if [ "$target" != "$GITHUB_SHA" ] && [ "${branch_head:-}" != "$GITHUB_SHA" ]; then
+            echo "::error::The draft for $VERSION targets $target, but this run is on $GITHUB_SHA and the head of that branch is ${branch_head:-not a branch}. Point the draft at the commit being released, or dispatch from the commit it targets."
             exit 1
           fi
           echo "Draft $(printf '%s' "$release" | jq -r '.id') targets $target."
