@@ -875,6 +875,18 @@ class MarkdownToCarve
                 $atContent = $this->stripColumns($line, $contentCol);
                 $quoted = $this->normalizeBlockquoteMarkers($atContent);
                 if (preg_match('/^((?:> )+)(.*)$/s', $quoted, $quote) === 1) {
+                    $quotedParagraph = $lazyQuote !== null && $lazyQuote['col'] === $contentCol;
+                    $heldOrdered = $quotedParagraph && preg_match('/^[ \t]*(?!0*1[.)])\d{1,9}[.)][ \t]+/', $quote[2]) === 1;
+                    $itemTable = $heldOrdered ? null : $this->collectQuotedItemBlock($lines, $i, $quote[1], $quote[2], $contentCol, $prevLineType === 'blockquote', $quoteMarkers, $quotePrev, $quoteLazy, $result);
+                    if ($itemTable !== null) {
+                        array_push($result, ...$itemTable['lines']);
+                        $i = $itemTable['end'];
+                        $prevLineType = 'list';
+                        $itemParagraph = false;
+                        $itemQuote = null;
+
+                        continue;
+                    }
                     $table = $this->collectQuotedTable($lines, $i, $quote[1], $quote[2], $contentCol);
                     if ($table !== null) {
                         foreach ($table['lines'] as $row) {
@@ -1193,6 +1205,21 @@ class MarkdownToCarve
                     // the column it stands in, which the quote markers set.
                     if (str_contains($quotedText, "\t") && str_starts_with($line, $quoted[1]) && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]/', $quotedText) === 1) {
                         $quotedText = substr($this->spaceMarkerPadding(str_repeat(' ', strlen($quoted[1])) . $quotedText), strlen($quoted[1]));
+                    }
+                    $itemTable = $this->collectQuotedItemBlock($lines, $i, $quoted[1], $quotedText, $contentCol, $prevLineType === 'blockquote', $quoteMarkers, $quotePrev, $quoteLazy, $result);
+                    if ($itemTable !== null) {
+                        array_push($result, ...$itemTable['lines']);
+                        $i = $itemTable['end'];
+                        $prevLineType = 'blockquote';
+                        if ($contentCol === 0 && isset($lines[$i + 1]) && trim($lines[$i + 1]) !== '' && !str_starts_with(ltrim($lines[$i + 1]), '>')) {
+                            $result[] = '';
+                            $prevLineType = 'blank';
+                        }
+
+                        continue;
+                    }
+                    if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)]) {1,4})(\|.*)$/s', $quotedText, $itemRow) === 1) {
+                        $quotedText = $itemRow[1] . $this->escapeBlockOpener($itemRow[2]);
                     }
                     if (trim($quotedText) === '') {
                         $sourceBlanks[count($result)] = true;
@@ -2695,6 +2722,20 @@ class MarkdownToCarve
 
         $quoted = $this->normalizeBlockquoteMarkers($text);
         if (preg_match('/^((?:> )+)(.*)$/s', $quoted, $quote) === 1) {
+            $markers = [];
+            $prev = null;
+            $lazy = null;
+            $separator = [];
+            $itemTable = $this->collectQuotedItemBlock($lines, $index, $quote[1], $quote[2], $contentCol, false, $markers, $prev, $lazy, $separator);
+            if ($itemTable !== null) {
+                foreach ($itemTable['lines'] as $at => $row) {
+                    if ($at === 0) {
+                        $itemTable['lines'][$at] = $lead . substr($row, $contentCol);
+                    }
+                }
+
+                return ['lines' => $itemTable['lines'], 'end' => $itemTable['end'], 'table' => 0, 'closes' => true];
+            }
             $table = $this->collectQuotedTable($lines, $index, $quote[1], $quote[2], $contentCol);
             if ($table !== null) {
                 foreach ($table['lines'] as $at => $row) {
@@ -3922,16 +3963,100 @@ class MarkdownToCarve
 
     /**
      * @param array<int, string> $lines
+     * @param bool $inRun
+     * @param int $contentCol
+     * @param string $text
+     * @param string $prefix
+     * @param int $index
+     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $markers
+     * @param array{prefix: string, text: string}|null $prev
+     * @param string|null $lazy
+     * @param array<int, string|null> $result
+     *
+     * @return array{lines: list<string>, end: int}|null
+     */
+    private function collectQuotedItemBlock(
+        array $lines,
+        int $index,
+        string $prefix,
+        string $text,
+        int $contentCol,
+        bool $inRun,
+        array &$markers,
+        ?array &$prev,
+        ?string &$lazy,
+        array &$result,
+    ): ?array {
+        $list = $markers[$prefix] ?? new MarkdownListMarkers();
+        $paragraph = $inRun && $prev !== null && $prev['prefix'] === $prefix && $this->quoteParagraphIsOpen($prev['text']);
+        if (
+            $paragraph && ($this->isHeldOrderedMarker($text, $list)
+            || (!$list->hasListAt($this->indentWidth($text)) && preg_match('/^[ \t]*(?!0*1[.)])\d+[.)]/', $text) === 1)
+            || $this->indentWidth($text) - ($list->openItemContentColumn() ?? 0) >= 4)
+        ) {
+            return null;
+        }
+        if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])) {5,}(\S.*)$/s', $text, $codeItem) === 1) {
+            $sourceCol = $this->columnWidth($codeItem[1]) + 1;
+            $virtual = [$text];
+            for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
+                if ($this->indentWidth($lines[$at]) < $contentCol) {
+                    break;
+                }
+                $body = $this->quotedText($this->stripColumns($lines[$at], $contentCol), $prefix);
+                if ($body === null || (trim($body) !== '' && $this->indentWidth($body) < $sourceCol + 4)) {
+                    break;
+                }
+                $virtual[] = $body;
+            }
+            $written = $this->respellQuotedLine($lines, $index, $prefix, $text, $inRun, $markers, $prev, $lazy, $result);
+            $block = $this->writeItemContent($virtual, 0, substr($written, strlen($prefix)), $sourceCol);
+            if ($block !== null) {
+                $writtenCol = $markers[$prefix]->openItemContentColumn() ?? $sourceCol;
+                foreach ($block['lines'] as $at => $line) {
+                    if ($at > 0) {
+                        $block['lines'][$at] = $this->moveIndent($line, $sourceCol, $writtenCol);
+                    }
+                }
+                $prev = null;
+                $lazy = null;
+
+                return ['lines' => array_map(static fn (string $line): string => str_repeat(' ', $contentCol) . $prefix . $line, array_values($block['lines'])), 'end' => $index + $block['end']];
+            }
+        }
+        if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)]) {1,4})(\|.*)$/s', $text, $item) !== 1) {
+            return null;
+        }
+        $sourceCol = $this->columnWidth($item[1]);
+        $table = $this->collectQuotedTable($lines, $index, $prefix, $item[2], $contentCol, $sourceCol);
+        if ($table === null) {
+            return null;
+        }
+        $written = $this->respellQuotedLine($lines, $index, $prefix, $text, $inRun, $markers, $prev, $lazy, $result);
+        $writtenCol = $markers[$prefix]->openItemContentColumn() ?? $sourceCol;
+        foreach ($table['lines'] as $at => $row) {
+            $lead = $at === 0 ? substr($written, 0, -strlen($item[2])) : $prefix . str_repeat(' ', $writtenCol);
+            $table['lines'][$at] = str_repeat(' ', $contentCol) . $lead . substr($row, strlen($prefix));
+        }
+        $prev = null;
+        $lazy = null;
+
+        return $table;
+    }
+
+    /**
+     * @param array<int, string> $lines
      * @param string $header
      * @param int $contentCol
+     * @param int $quoteContentCol
      * @param string $prefix
      * @param int $index
      *
      * @return array{lines: list<string>, end: int}|null
      */
-    private function collectQuotedTable(array $lines, int $index, string $prefix, string $header, int $contentCol = 0): ?array
+    private function collectQuotedTable(array $lines, int $index, string $prefix, string $header, int $contentCol = 0, int $quoteContentCol = 0): ?array
     {
-        $inside = function (string $line) use ($prefix, $contentCol): ?string {
+        $inside = function (string $line) use ($prefix, $contentCol, $quoteContentCol): ?string {
             if ($this->indentWidth($line) < $contentCol) {
                 return null;
             }
@@ -3939,10 +4064,15 @@ class MarkdownToCarve
             $line = $this->normalizeBlockquoteMarkers(ltrim($this->expandLeadingTabs($line), ' '));
             $own = $this->quotePrefixOf(ltrim($line, ' '));
 
-            return $own === $prefix ? substr(ltrim($line, ' '), strlen($own)) : null;
+            if ($own !== $prefix) {
+                return null;
+            }
+            $body = substr(ltrim($line, ' '), strlen($own));
+
+            return $this->indentWidth($body) >= $quoteContentCol ? $this->stripColumns($body, $quoteContentCol) : null;
         };
         $delimiter = $inside($lines[$index + 1] ?? '');
-        if ($delimiter === null || $this->indentWidth($header) >= 4 || $this->indentWidth($delimiter) >= 4) {
+        if (!$this->continuesGfmTableBody($header) || $delimiter === null || $this->indentWidth($header) >= 4 || $this->indentWidth($delimiter) >= 4) {
             return null;
         }
         $held = [$header, $delimiter];
