@@ -192,7 +192,8 @@ class IncludeDirectiveSyntax
             if (!preg_match($pattern, $body, $pathMatch)) {
                 return null;
             }
-            $path = stripcslashes($pathMatch[1]);
+            // Only `\"` and `\\` decode; every other backslash pair is path text.
+            $path = (string)preg_replace('/\\\\(["\\\\])/', '$1', $pathMatch[1]);
             $rest = trim($pathMatch[2]);
         } else {
             // The stop set holds the TAB: `bare_include_path` stops at
