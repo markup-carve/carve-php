@@ -171,6 +171,12 @@ text, and ANSI render each pair as `base(annotation)` and report one
 `ruby-flattened` loss per ruby node. The CLI accepts `--allow-loss ruby-flattened`
 when that fallback is intentional.
 
+An editorial comment `{#...#}` renders in Markdown as
+`<span class="critic-comment">...</span>`, its content escaped like any text run.
+Plain text and ANSI print the bare comment text and report one
+`editorial-comment-flattened` loss per comment. The CLI accepts
+`--allow-loss editorial-comment-flattened` for it.
+
 ## A code payload keeps its line endings
 
 `code_block.content` is the payload text, kept as written, including the break
@@ -239,7 +245,8 @@ four targets.
 
 It is separate from render losses, and it is the only one of the two reports that
 can name a field. The render-loss report's `code` enum holds
-`raw-format-dropped`, `ruby-flattened` and `destination-denied` (PART 11 §1d),
+`raw-format-dropped`, `ruby-flattened`, `editorial-comment-flattened` and
+`destination-denied` (PART 11 §1d),
 each naming something one renderer dropped or blanked; a field dropped off a node the writer still spells is
 `field-unspellable` here. Table section attributes are that case - none of the
 four targets can spell them, so each reports `rowGroups.headAttrs`,

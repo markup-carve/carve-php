@@ -1521,10 +1521,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof Insert => $this->renderInsert($node),
             $node instanceof Delete => $this->renderDelete($node),
             $node instanceof Substitution => $this->renderSubstitution($node),
-            // Markdown has no critic syntax, so the text is what degrades
-            // gracefully. Dropping it would make two targets of one engine
-            // disagree about whether the document says it.
-            $node instanceof CriticComment => $this->escapeText($this->stripControls($node->getContent())),
+            // Markdown has no critic syntax; the span keeps the comment apart
+            // from the prose, with the class the HTML target uses.
+            $node instanceof CriticComment => '<span class="critic-comment">'
+                . $this->escapeText($this->stripControls($node->getContent())) . '</span>',
             $node instanceof Span => $this->renderSpan($node),
             $node instanceof Ruby => $this->renderRuby($node),
             $node instanceof SmallCaps => $this->renderSmallCaps($node),

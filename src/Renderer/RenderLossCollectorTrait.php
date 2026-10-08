@@ -54,6 +54,11 @@ trait RenderLossCollectorTrait
      */
     private array $seenRubyLosses = [];
 
+    /**
+     * @var array<int, true>
+     */
+    private array $seenEditorialCommentLosses = [];
+
     public function beginRenderLossCollection(string $target, int $maximum): void
     {
         if ($maximum < 0) {
@@ -65,6 +70,7 @@ trait RenderLossCollectorTrait
         $this->renderLossCounts = [];
         $this->renderLosses = [];
         $this->seenRubyLosses = [];
+        $this->seenEditorialCommentLosses = [];
     }
 
     public function finishRenderLossCollection(): array
@@ -200,6 +206,29 @@ trait RenderLossCollectorTrait
             'target' => $this->renderLossTarget,
             'nodeType' => 'inline',
             'message' => 'Flattened ruby annotations while rendering ' . $this->renderLossTarget,
+        ];
+        if ($node->getPos() !== null) {
+            $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
+    protected function recordEditorialCommentFlattened(Node $node): void
+    {
+        if ($this->renderLossTarget === null || isset($this->seenEditorialCommentLosses[spl_object_id($node)])) {
+            return;
+        }
+        $this->seenEditorialCommentLosses[spl_object_id($node)] = true;
+        $this->renderLossTotal++;
+        $this->renderLossCounts['editorial-comment-flattened'] = ($this->renderLossCounts['editorial-comment-flattened'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'editorial-comment-flattened',
+            'target' => $this->renderLossTarget,
+            'nodeType' => 'inline',
+            'message' => 'Flattened an editorial comment into the surrounding text',
         ];
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
