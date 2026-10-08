@@ -11,6 +11,24 @@ use PHPUnit\Framework\TestCase;
 
 class ImageAltEscapesTest extends TestCase
 {
+    public function testPipeReferencesStayLiteralOrResolveTheirChainTail(): void
+    {
+        $cases = [
+            ['[t][q\\|r]', '', '[t][q|r]'],
+            ['![t][q\\|r]', '', '![t][q|r]'],
+            ['[t][q\\|r][s]', '[s]: /s', '[t]<a href="/s">q|r</a>'],
+            ['![t][q\\|r][s]', '[s]: /s', '![t]<a href="/s">q|r</a>'],
+            ['[t][a\\|b]', '[a\\|b]: /u', '[t][a|b]'],
+            ['![a\\|b][missing]', '', '![a|b][missing]'],
+        ];
+        foreach ($cases as [$body, $definition, $expected]) {
+            $source = (new MarkdownToCarve())->convert("| $body | c |\n|---|---|\n\n$definition\n");
+            $html = (new CarveConverter())->convert($source);
+            self::assertStringContainsString($expected, $html, $body);
+            self::assertSame(2, preg_match_all('/<th\b/', $html), $body);
+        }
+    }
+
     public function testImageTitlePipesAndBackticksRoundTripInTables(): void
     {
         $source = "| ![a\\`b](/i \"c\\`d\\|e\") | `x` |\n|---|---|\n";

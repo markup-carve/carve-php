@@ -4854,7 +4854,7 @@ class MarkdownToCarve
         $chainSubject = $line;
         $chainCursor = 0;
         $line = preg_replace_callback(
-            '/(?<![!\\\\\]])\[([\w .-]+)\]\[([\w .-]+)\]\[([\w .-]+)\](?!\[)/u',
+            '/(?<![\\\\\]])\[([\w .|-]+)\]\[([\w .|-]+)\]\[([\w .|-]+)\](?!\[)/u',
             function (array $match) use ($chainSubject, &$chainCursor, $protect, $protected, $protectDestination): string {
                 $offset = $match[0][1];
                 while ($chainCursor < $offset) {
@@ -4890,6 +4890,10 @@ class MarkdownToCarve
                 $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')') : ($middle !== null ? $protect('[' . $middle . ']') : null);
                 $lastTail = $lastTarget !== null ? $protectDestination('', '(' . $lastTarget . ')') : ($last !== null ? $protect('[' . $last . ']') : null);
                 if ($middleTail !== null) {
+                    if (($chainSubject[$offset - 1] ?? '') === '!') {
+                        return $match[0][0];
+                    }
+
                     return '[' . $first . ']' . $middleTail . '[' . $third . ']' . ($lastTail ?? '');
                 }
                 if ($lastTail !== null) {
@@ -4903,14 +4907,20 @@ class MarkdownToCarve
         ) ?? $line;
         $line = preg_replace_callback(
             '/!\[((?:[^\[\]]|\[[^\]]*\])*)\](?:\[([^\]\n]*)\])?/',
-            function (array $match) use ($protected, $protect, $protectDestination, $imageLabel): string {
+            function (array $match) use ($protected, $protect, $protectDestination, $imageLabel, $table): string {
                 $label = ($match[2] ?? '') !== '' ? $match[2] : $match[1];
                 $target = $this->complexReferenceTarget($label, $protected);
                 if ($target !== null) {
                     return $protectDestination($imageLabel('![' . $match[1] . ']'), '(' . $target . ')');
                 }
                 $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
-                if ($canonical === null || strpbrk($canonical, '[]') !== false) {
+                if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label) !== $this->normalizeReferenceLabel($canonical)) {
+                    $canonical = null;
+                }
+                if ($canonical === null) {
+                    return $table && str_contains($match[0], '|') ? str_replace(['[', ']'], ['\\[', '\\]'], $match[0]) : $match[0];
+                }
+                if (strpbrk($canonical, '[]') !== false) {
                     return $match[0];
                 }
 
@@ -4944,7 +4954,7 @@ class MarkdownToCarve
         $subject = $line;
         $line = preg_replace_callback(
             '/(?<=\])\[([^\]]*)\]/',
-            function (array $match) use ($subject, $protected, $protect, $protectDestination, $linkClosers, &$referenceClosers): string {
+            function (array $match) use ($subject, $protected, $protect, $protectDestination, $linkClosers, &$referenceClosers, $table): string {
                 $reference = $match[1][0];
                 $offset = $match[0][1];
                 if (!isset($linkClosers[$offset - 1]) || isset($referenceClosers[$offset - 1])) {
@@ -4961,6 +4971,9 @@ class MarkdownToCarve
                 $canonical = $label !== null && ($reference === '' || strpbrk($label, "\\&\0") === false)
                     ? ($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null)
                     : null;
+                if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label ?? '') !== $this->normalizeReferenceLabel($canonical)) {
+                    $canonical = null;
+                }
                 $literal = $this->decodeLinkTitle($reference, $protected);
                 $raw = $reference;
                 $protectedCount = count($protected);
@@ -4980,6 +4993,9 @@ class MarkdownToCarve
                     if (!isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($firstLabel, $protected))])) {
                         return $protect('\\[' . $literal . ']');
                     }
+                }
+                if ($table && $canonical === null && str_contains($match[0][0], '|')) {
+                    return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
                 }
                 $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1;
 
