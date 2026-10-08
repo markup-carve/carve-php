@@ -440,7 +440,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
     {
         $classes = [$this->cssClass];
         $seen = array_fill_keys($classes, true);
-        foreach ($node->getClassList() as $class) {
+        foreach ($node->getClassEntries() as $class) {
             if (!isset($seen[$class])) {
                 $classes[] = $class;
                 $seen[$class] = true;
@@ -527,7 +527,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         }
 
         if (!in_array('class', $skipAttrs, true)) {
-            foreach ($node->getClassList() as $class) {
+            foreach ($node->getClassEntries() as $class) {
                 if (!in_array($class, $skipClasses, true)) {
                     $parts[] = '.' . $class;
                 }

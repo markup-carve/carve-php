@@ -47,7 +47,7 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
     {
         $node = (new CarveConverter())->parse("{class=a .b}\nHello\n")->getChildren()[0];
 
-        self::assertSame(['a', 'b'], $node->getClassList());
+        self::assertSame(['a', 'b'], $node->getClassEntries());
         self::assertSame(['.class'], $node->getAttributeOrder());
         self::assertSame(['class' => 'a b'], $node->getAttributes());
     }
@@ -65,7 +65,7 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
         ];
         foreach ($cases as $attrLine => $classes) {
             $node = (new CarveConverter())->parse($attrLine . "\nHello\n")->getChildren()[0];
-            self::assertSame($classes, $node->getClassList(), $attrLine);
+            self::assertSame($classes, $node->getClassEntries(), $attrLine);
             self::assertSame(['.class'], $node->getAttributeOrder(), $attrLine);
         }
     }
@@ -80,7 +80,7 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
         self::assertSame(['class' => ''], $bare->getAttributes());
         // And an empty value never erases a class the same block already gave.
         $kept = (new CarveConverter())->parse("{.b class=\"\"}\nHello\n")->getChildren()[0];
-        self::assertSame(['b', ''], $kept->getClassList());
+        self::assertSame(['b', ''], $kept->getClassEntries());
     }
 
     public function testBareDivPreservesTheAuthoredClassSlot(): void

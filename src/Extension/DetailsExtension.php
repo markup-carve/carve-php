@@ -188,7 +188,7 @@ class DetailsExtension implements ExtensionInterface
 
         if (isset($attrs['class'])) {
             $classes = array_values(array_filter(
-                $node->getClassList(),
+                $node->getClassEntries(),
                 static fn (string $class): bool => $class !== '' && $class !== self::KIND,
             ));
 

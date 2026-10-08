@@ -43,7 +43,7 @@ class AuthoredClassEntriesTest extends TestCase
         $source = '{' . $attributes . "}\nx\n";
         $converter = new CarveConverter();
         $document = $converter->parse($source);
-        self::assertSame($entries, $document->getChildren()[0]->getClassList());
+        self::assertSame($entries, $document->getChildren()[0]->getClassEntries());
         $expected = '<p class="' . $rendered . "\">x</p>\n";
         self::assertSame($expected, $converter->render($document));
 
@@ -51,19 +51,19 @@ class AuthoredClassEntriesTest extends TestCase
         $wire = json_decode(json_encode($codec->encode($document), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
         self::assertSame($entries, $wire['children'][0]['attrs']['classes']);
         $decoded = $codec->decode($wire);
-        self::assertSame($entries, $decoded->getChildren()[0]->getClassList());
+        self::assertSame($entries, $decoded->getChildren()[0]->getClassEntries());
         self::assertSame($expected, $converter->render($decoded));
 
         $pm = (new ProseMirrorRenderer())->render($document);
         self::assertSame($entries, $pm['content'][0]['attrs']['class']);
         $restored = (new ProseMirrorToCarve())->convert($pm);
-        self::assertSame($entries, $restored->getChildren()[0]->getClassList());
+        self::assertSame($entries, $restored->getChildren()[0]->getClassEntries());
         self::assertSame($expected, $converter->render($restored));
 
         $writer = CarveConverter::carve();
         $written = $writer->render($document);
         self::assertSame($written, $writer->convert($written));
-        self::assertSame($entries, $converter->parse($written)->getChildren()[0]->getClassList());
+        self::assertSame($entries, $converter->parse($written)->getChildren()[0]->getClassEntries());
     }
 
     public function testAttributeTransfersKeepAuthoredBoundaries(): void
@@ -141,12 +141,12 @@ class AuthoredClassEntriesTest extends TestCase
         $node->appendClass('a  b');
         $node->addClass('c');
         $node->addClass('c');
-        self::assertSame(['a  b', 'c'], $node->getClassList());
+        self::assertSame(['a  b', 'c'], $node->getClassEntries());
         self::assertSame('a  b c', $node->getAttribute('class'));
         $node->setAttributesWithOrder(['class' => ['', 'd']], ['.class']);
-        self::assertSame(['', 'd'], $node->getClassList());
+        self::assertSame(['', 'd'], $node->getClassEntries());
         $node->removeAttribute('class');
-        self::assertSame([], $node->getClassList());
+        self::assertSame([], $node->getClassEntries());
         self::assertNull($node->getAttribute('class'));
     }
 }

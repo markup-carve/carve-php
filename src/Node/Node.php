@@ -669,19 +669,40 @@ abstract class Node
     }
 
     /**
-     * Check if the node has a specific CSS class
+     * Check whether one authored class entry equals `$class`.
+     *
+     * Compares whole entries, like carve-js and carve-rs, so `{class="a b"}` has
+     * no `b` entry. Use `getClassList()` to test for a single class name.
      */
     public function hasClass(string $class): bool
     {
-        return in_array($class, $this->getClassList(), true);
+        return in_array($class, $this->getClassEntries(), true);
     }
 
     /**
-     * Get authored class entries, including internal whitespace and empty values.
+     * Class names: every entry split on HTML whitespace, empty names dropped,
+     * duplicates and source order kept.
      *
      * @return list<string>
      */
     public function getClassList(): array
+    {
+        $names = [];
+        foreach ($this->classEntries as $entry) {
+            foreach (preg_split('/[ \t\n\f\r]+/', $entry, flags: PREG_SPLIT_NO_EMPTY) ?: [] as $name) {
+                $names[] = $name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * Authored class entries, including internal whitespace and empty values.
+     *
+     * @return list<string>
+     */
+    public function getClassEntries(): array
     {
         return $this->classEntries;
     }

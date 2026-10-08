@@ -119,7 +119,7 @@ class MathBlockExtension implements StaticRenderExtensionInterface
     {
         $classes = ['math', 'display'];
         $seen = array_fill_keys($classes, true);
-        foreach ($node->getClassList() as $class) {
+        foreach ($node->getClassEntries() as $class) {
             if (!isset($seen[$class])) {
                 $classes[] = $class;
                 $seen[$class] = true;

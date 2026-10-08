@@ -571,7 +571,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         }
 
         if (!in_array('class', $skipAttrs, true)) {
-            foreach ($node->getClassList() as $class) {
+            foreach ($node->getClassEntries() as $class) {
                 if (!in_array($class, $skipClasses, true)) {
                     $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
                         ? '.' . $class

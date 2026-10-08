@@ -1393,7 +1393,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $this->thematicBreakMarker === '---' ? str_repeat($node->char, 3) : $this->thematicBreakMarker,
             ),
             $node instanceof Table => $this->renderTableWithAttrs($node, $withAttrs),
-            $node instanceof Div && $node->isTyped() && $this->canRenderTypedDiv($node) => $this->withFencedDivAttrs($node, [$node->getClassList()[0] ?? ''], $this->renderTypedDiv($node)),
+            $node instanceof Div && $node->isTyped() && $this->canRenderTypedDiv($node) => $this->withFencedDivAttrs($node, [$node->getClassEntries()[0] ?? ''], $this->renderTypedDiv($node)),
             $node instanceof Div && $node->isTyped() && $this->admonitionKind($node) !== null => $this->withFencedDivAttrs($node, [$this->admonitionKind($node)], $this->renderAdmonition($node)),
             $node instanceof Div => $withAttrs($this->renderDiv($node)),
             $node instanceof BlockExtension => $this->renderBlockExtensionFallback($node),
@@ -2083,7 +2083,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // changed the rendered HTML (carve-php#1284). Extra classes are the
         // attribute line's business; withFencedDivAttrs() already writes them
         // back there with the opener excluded.
-        $classes = $node->getClassList();
+        $classes = $node->getClassEntries();
 
         return $classes !== []
             && $classes[0] !== 'line-block'
@@ -2092,7 +2092,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function renderTypedDiv(Div $node): string
     {
-        $classes = $node->getClassList();
+        $classes = $node->getClassEntries();
         $kind = $classes[0] ?? '';
         $title = $node->getHeader();
         $titlePart = is_string($title) ? ' ' . $this->quotedTitleToken($node, $title) : '';
@@ -2117,7 +2117,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function admonitionKind(Div $node): ?string
     {
-        foreach ($node->getClassList() as $class) {
+        foreach ($node->getClassEntries() as $class) {
             if (in_array($class, self::ADMONITION_TYPES, true)) {
                 return $class;
             }

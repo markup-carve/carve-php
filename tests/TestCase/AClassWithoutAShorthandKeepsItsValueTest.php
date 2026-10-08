@@ -18,7 +18,7 @@ class AClassWithoutAShorthandKeepsItsValueTest extends TestCase
         $this->assertStringContainsString('{class="-col"}', $written);
         $div = (new CarveConverter())->parse($written)->getChildren()[0];
         $this->assertInstanceOf(Div::class, $div);
-        $this->assertSame(['div', '-col'], $div->getClassList());
+        $this->assertSame(['div', '-col'], $div->getClassEntries());
     }
 
     public function testAnAuthoredValueWithSpacesStaysOneEntry(): void
@@ -28,7 +28,7 @@ class AClassWithoutAShorthandKeepsItsValueTest extends TestCase
         $this->assertStringContainsString('{class="a -col"}', $written);
         $div = (new CarveConverter())->parse($written)->getChildren()[0];
         $this->assertInstanceOf(Div::class, $div);
-        $this->assertSame(['div', 'a -col'], $div->getClassList());
+        $this->assertSame(['div', 'a -col'], $div->getClassEntries());
     }
 
     public function testSpellableClassesKeepTheirShorthand(): void
