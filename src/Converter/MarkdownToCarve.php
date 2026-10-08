@@ -271,9 +271,9 @@ class MarkdownToCarve
         $lines = $this->extractReferenceDefinitions(array_slice($allLines, count($frontmatter)));
         $this->importedFootnoteLabels = [];
         $reservedFootnotes = [];
-        preg_match_all('/\[\^((?:[^[\]\\\\\n]|\\\\.)+)\]/', $markdown, $candidates);
+        preg_match_all('/\[\^([^[\]\n]++)\]/', $markdown, $candidates);
         foreach ($candidates[1] as $label) {
-            if (preg_match('/^carve-import-footnote-(\d+)$/i', $this->decodeLinkTitle($label), $reserved) === 1) {
+            if (preg_match('/^carve-import-footnote-(\d+)$/i', trim($this->decodeLinkTitle($label)), $reserved) === 1) {
                 $reservedFootnotes[(int)$reserved[1]] = true;
             }
         }
