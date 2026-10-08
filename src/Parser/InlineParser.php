@@ -2860,7 +2860,7 @@ class InlineParser
             return null;
         }
 
-        $alt = str_replace("\0", "\u{00A0}", $result['link_text']);
+        $alt = AttributeParser::processEscapes(str_replace("\0", "\u{00A0}", $result['link_text']));
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
 

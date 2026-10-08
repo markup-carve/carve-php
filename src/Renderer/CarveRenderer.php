@@ -3933,6 +3933,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
+        if ($this->tableCellDepth > 0) {
+            $title = str_replace('`', '\\`', $title);
+        }
 
         // A RESOLVED reference image writes the reference, for the same reason a
         // reference link does (PART 12 §10): the definition is in the tree now,
@@ -5481,11 +5484,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $text = implode("\n", $lines);
         }
 
-        if (BracketScanner::rawRunCloses($text)) {
-            return $text;
+        if (BracketScanner::rawRunCloses($text) && AttributeParser::processEscapes($text) === $text) {
+            return $this->tableCellDepth > 0 ? str_replace('|', '\\|', $text) : $text;
         }
 
-        return str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $text);
+        $escaped = str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $text);
+
+        return $this->tableCellDepth > 0 ? str_replace('|', '\\|', $escaped) : $escaped;
     }
 
     protected function escapeDestination(string $text): string

@@ -3807,20 +3807,7 @@ class MarkdownToCarve
         for ($c = 0; $c < $width; $c++) {
             $cell = str_replace('\\|', '|', trim($cells[$c] ?? ''));
             $cell = $this->rewriteTablePipeAutolinks($cell);
-            $cell = $this->convertInlineFormatting($cell);
-            if (strpbrk($cell, '\\`|') !== false) {
-                $spans = [];
-                $cell = $this->protectCodeSpans($cell, static function (string $span) use (&$spans): string {
-                    $key = "\x00T" . count($spans) . "\x00";
-                    $spans[$key] = $span;
-
-                    return $key;
-                });
-                // Closed literal spans preserve cell boundaries; the comment separates adjacent backtick runs.
-                $cell = preg_replace_callback('/\\\\([\\\\`])/', static fn (array $match): string => $match[1] === '`' ? '!`` ` ``{% %}' : '!`\\`{% %}', $cell) ?? $cell;
-                $cell = preg_replace_callback('/(\\\\*)\|/', static fn (array $match): string => $match[1] . (strlen($match[1]) % 2 === 0 ? '\\|' : '|'), $cell) ?? $cell;
-                $cell = strtr($cell, $spans);
-            }
+            $cell = $this->convertInlineFormatting($cell, table: true);
             if ($cell === '<' || $cell === '^') {
                 $cell = '\\' . $cell;
             }
@@ -3828,6 +3815,25 @@ class MarkdownToCarve
         }
 
         return $row . '|';
+    }
+
+    private function escapeTableInlineText(string $cell): string
+    {
+        if (strpbrk($cell, '\\`|') !== false) {
+            $spans = [];
+            $cell = $this->protectCodeSpans($cell, static function (string $span) use (&$spans): string {
+                $key = "\x00T" . count($spans) . "\x00";
+                $spans[$key] = $span;
+
+                return $key;
+            });
+            // Closed literal spans preserve cell boundaries; the comment separates adjacent backtick runs.
+            $cell = preg_replace_callback('/\\\\([\\\\`])/', static fn (array $match): string => $match[1] === '`' ? '!`` ` ``{% %}' : '!`\\`{% %}', $cell) ?? $cell;
+            $cell = preg_replace_callback('/(\\\\*)\|/', static fn (array $match): string => $match[1] . (strlen($match[1]) % 2 === 0 ? '\\|' : '|'), $cell) ?? $cell;
+            $cell = strtr($cell, $spans);
+        }
+
+        return $cell;
     }
 
     private function rewriteTablePipeAutolinks(string $cell): string
@@ -4134,20 +4140,6 @@ class MarkdownToCarve
                     'An unescaped pipe inside a code span splits table cells in GFM; escape it as \\| to keep the code span in one cell',
                     $index,
                 );
-            }
-        }
-        if ($table && str_contains($row, '![')) {
-            foreach ($cells ?? $this->splitPipeCells($row) as $cell) {
-                if (preg_match('/!\[((?:[^\]\\\\]|\\\\.)*)\]\([^)]+\)/', $cell, $image) === 1 && str_contains($image[1], '|')) {
-                    $this->tableDiagnostic(
-                        'markdown-table-image-alt-pipe',
-                        'A pipe in image alt text requires a table escape that Carve retains in the alt text',
-                        $index,
-                        'degraded',
-                    );
-
-                    break;
-                }
             }
         }
         if ($width !== null) {
@@ -4573,7 +4565,7 @@ class MarkdownToCarve
         return ['body' => implode("\n", $parts), 'first' => $prefix, 'next' => $continuation, 'end' => $end];
     }
 
-    protected function convertInlineFormatting(string $line, bool $terminal = true): string
+    protected function convertInlineFormatting(string $line, bool $terminal = true, bool $table = false): string
     {
         $line = $this->escapeCarveOnlyMarker($line);
         $protected = [];
@@ -4785,10 +4777,11 @@ class MarkdownToCarve
         $imageLabel = function (string $label) use (&$protected): string {
             $alt = $this->plainAltText(substr($label, 2, -1), $protected);
 
-            return BracketScanner::rawRunCloses($alt) ? '![' . $alt . ']' : $label;
+            return '![' . (BracketScanner::rawRunCloses($alt) && AttributeParser::processEscapes($alt) === $alt
+                ? $alt : str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $alt)) . ']';
         };
 
-        $encodeDest = function (string $paren) use ($protected): ?string {
+        $encodeDest = function (string $paren) use ($protected, $table): ?string {
             $inner = trim(substr($paren, 1, -1), " \t");
             if (str_starts_with($inner, '<')) {
                 preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
@@ -4813,6 +4806,9 @@ class MarkdownToCarve
                 $quote = $title[1][0] === '(' ? '"' : $title[1][0];
                 $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
                 $escaped = QuotedSlotEscaper::escape($decoded, $quote);
+                if ($table) {
+                    $escaped = str_replace('`', '\\`', $escaped);
+                }
                 $rest = ' ' . $quote . $escaped . $quote;
             }
 
@@ -5175,13 +5171,27 @@ class MarkdownToCarve
             return in_array($text, ['"', "'"], true) ? '\\' . $text : $match[0];
         }, $line) ?? $line;
 
+        if ($table) {
+            $line = $this->escapeTableInlineText($line);
+        }
+
         // Restore stashes and protected spans until stable: a protected or
         // stashed span may itself contain placeholders (e.g. a reference
         // definition that wrapped an already-protected URL), so one pass is
         // not enough.
         do {
             $previous = $line;
-            $line = preg_replace_callback('/\x00P(\d+)\x00/', fn (array $match): string => $protected[(int)$match[1]], $line) ?? $line;
+            $line = preg_replace_callback('/\x00P(\d+)\x00/', function (array $match) use ($protected, $table): string {
+                $span = $protected[(int)$match[1]];
+                if (!$table) {
+                    return $span;
+                }
+                if (str_starts_with($span, '![') || str_starts_with($span, '(')) {
+                    return preg_replace_callback('/(\\\\*)\|/', static fn (array $pipe): string => $pipe[1] . (strlen($pipe[1]) % 2 === 0 ? '\\|' : '|'), $span) ?? $span;
+                }
+
+                return $this->escapeTableInlineText($span);
+            }, $line) ?? $line;
         } while ($line !== $previous);
 
         return $line;
