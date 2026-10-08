@@ -4948,6 +4948,62 @@ class HtmlToCarve
     private static array $nativeDerivedNames = [];
 
     /**
+     * @var array<class-string, array<string, bool>>
+     */
+    private static array $nativeFootnoteMethods = [];
+
+    /**
+     * @param list<string> $methods
+     */
+    private function usesNativeFootnoteMethods(array $methods): bool
+    {
+        if ($this::class === self::class) {
+            return true;
+        }
+        $key = implode(',', $methods);
+        if (isset(self::$nativeFootnoteMethods[static::class][$key])) {
+            return self::$nativeFootnoteMethods[static::class][$key];
+        }
+        foreach ($methods as $method) {
+            if ((new ReflectionMethod($this, $method))->getDeclaringClass()->getName() !== self::class) {
+                return self::$nativeFootnoteMethods[static::class][$key] = false;
+            }
+        }
+
+        return self::$nativeFootnoteMethods[static::class][$key] = true;
+    }
+
+    /**
+     * @var array<int, int>|null
+     */
+    private ?array $footnoteTargetCounts = null;
+
+    /**
+     * @var list<\DOMElement>|null
+     */
+    private ?array $footnoteCountElements = null;
+
+    /**
+     * @var array<int, array<string, list<\DOMElement>>>|null
+     */
+    private ?array $footnoteAnchorIndex = null;
+
+    /**
+     * @var array<int, array<string, int|null>>|null
+     */
+    private ?array $footnoteInverseIndex = null;
+
+    /**
+     * @var array<int, array{ref: bool, back: bool}>|null
+     */
+    private ?array $footnoteMarkerIndex = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, int>|null
+     */
+    private ?SplObjectStorage $footnotePruningCounts = null;
+
+    /**
      * The `<dl>` a `<dd>` belongs to, directly or through a group `<div>`.
      */
     protected function enclosingDefinitionList(DOMElement $node): ?DOMElement
@@ -5279,11 +5335,33 @@ class HtmlToCarve
             $order[spl_object_id($element)] = $index;
         }
 
-        $targets = $this->footnoteFragmentTargets($elements);
-        $candidates = $this->resolveFootnotePairDirection(
-            $this->footnotePairCandidates($elements, $targets),
-            $order,
-        );
+        $native = $this->usesNativeFootnoteMethods(['documentElements', 'footnoteFragmentTargets', 'footnotePairCandidates', 'resolveFootnotePairDirection', 'footnoteReferenceSideWins', 'countFootnoteTargets', 'isFootnoteFragmentTarget', 'blockLinksTo', 'inverseFootnoteCandidate', 'isFootnoteReferenceMarked', 'isFootnoteBacklinkMarked', 'hasClass', 'getElementClassList', 'resolveFootnoteDefinitionBlock', 'anchorIdentity', 'nodeContains']);
+        $previousCounts = $this->footnoteTargetCounts;
+        $previousElements = $this->footnoteCountElements;
+        $previousAnchors = $this->footnoteAnchorIndex;
+        $previousInverse = $this->footnoteInverseIndex;
+        $previousMarkers = $this->footnoteMarkerIndex;
+        if ($native) {
+            $this->footnoteAnchorIndex = [];
+            $this->footnoteInverseIndex = [];
+            $this->footnoteMarkerIndex = null;
+            $this->footnoteTargetCounts = null;
+            $this->footnoteCountElements = null;
+        }
+        try {
+            $targets = $this->footnoteFragmentTargets($elements);
+            $pairs = $this->footnotePairCandidates($elements, $targets);
+            if ($native) {
+                $this->footnoteMarkerIndex = [];
+            }
+            $candidates = $this->resolveFootnotePairDirection($pairs, $order);
+        } finally {
+            $this->footnoteTargetCounts = $previousCounts;
+            $this->footnoteCountElements = $previousElements;
+            $this->footnoteAnchorIndex = $previousAnchors;
+            $this->footnoteInverseIndex = $previousInverse;
+            $this->footnoteMarkerIndex = $previousMarkers;
+        }
         if ($candidates === []) {
             return;
         }
@@ -5378,6 +5456,14 @@ class HtmlToCarve
             $used[$fragment] = true;
         }
 
+        if ($anchors === []) {
+            return [];
+        }
+
+        if ($this->footnoteAnchorIndex !== null) {
+            $this->footnoteCountElements = $elements;
+        }
+
         $candidates = [];
         foreach ($anchors as [$anchor, $fragment]) {
             $block = $this->resolveFootnoteDefinitionBlock($targets[$fragment], $used);
@@ -5453,6 +5539,24 @@ class HtmlToCarve
      */
     protected function countFootnoteTargets(DOMElement $node, array $used): int
     {
+        if ($this->footnoteCountElements !== null) {
+            if ($this->footnoteTargetCounts === null) {
+                $counts = [];
+                foreach (array_reverse($this->footnoteCountElements) as $element) {
+                    $key = spl_object_id($element);
+                    $count = ($counts[$key] ?? 0) + ($this->isFootnoteFragmentTarget($element, $used) ? 1 : 0);
+                    $counts[$key] = $count;
+                    $parent = $element->parentNode;
+                    if ($parent instanceof DOMElement) {
+                        $parentKey = spl_object_id($parent);
+                        $counts[$parentKey] = ($counts[$parentKey] ?? 0) + $count;
+                    }
+                }
+                $this->footnoteTargetCounts = $counts;
+            }
+
+            return $this->footnoteTargetCounts[spl_object_id($node)] ?? 0;
+        }
         $count = $this->isFootnoteFragmentTarget($node, $used) ? 1 : 0;
         /** @var \DOMNodeList<\DOMElement> $descendants */
         $descendants = $node->getElementsByTagName('*');
@@ -5539,8 +5643,33 @@ class HtmlToCarve
             return null;
         }
 
-        /** @var \DOMNodeList<\DOMElement> $anchors */
-        $anchors = $candidate['block']->getElementsByTagName('a');
+        if ($this->footnoteInverseIndex !== null) {
+            $href = '#' . $identity;
+            $anchors = $this->indexedFootnoteAnchors($candidate['block'])[$href] ?? [];
+            $key = spl_object_id($candidate['block']);
+            if (count($anchors) >= 8 && array_key_exists($href, $this->footnoteInverseIndex[$key] ?? [])) {
+                $index = $this->footnoteInverseIndex[$key][$href];
+            } else {
+                $index = null;
+                foreach ($anchors as $anchor) {
+                    $index = $byReference[spl_object_id($anchor)] ?? null;
+                    if ($index !== null) {
+                        break;
+                    }
+                }
+                if (count($anchors) >= 8) {
+                    $this->footnoteInverseIndex[$key][$href] = $index;
+                }
+            }
+
+            // Equal hrefs resolve through the same first fragment target.
+            return $index !== null && $this->nodeContains($candidates[$index]['block'], $candidate['ref'])
+                ? $candidates[$index] : null;
+        }
+
+        $anchors = $this->footnoteAnchorIndex !== null
+            ? ($this->indexedFootnoteAnchors($candidate['block'])['#' . $identity] ?? [])
+            : $candidate['block']->getElementsByTagName('a');
         foreach ($anchors as $anchor) {
             if ($anchor->getAttribute('href') !== '#' . $identity) {
                 continue;
@@ -5591,13 +5720,21 @@ class HtmlToCarve
     protected function groupFootnoteDefinitions(array $candidates, array $order): array
     {
         $groups = [];
+        $fragments = [];
         foreach ($candidates as $candidate) {
             $key = spl_object_id($candidate['block']);
             if (!isset($groups[$key])) {
                 $groups[$key] = ['block' => $candidate['block'], 'refs' => [], 'fragments' => []];
             }
             $groups[$key]['refs'][] = $candidate['ref'];
-            if (!in_array($candidate['fragment'], $groups[$key]['fragments'], true)) {
+            if (count($groups[$key]['fragments']) < 8) {
+                $known = in_array($candidate['fragment'], $groups[$key]['fragments'], true);
+            } else {
+                $fragments[$key] ??= array_fill_keys($groups[$key]['fragments'], true);
+                $known = isset($fragments[$key][$candidate['fragment']]);
+                $fragments[$key][$candidate['fragment']] = true;
+            }
+            if (!$known) {
                 $groups[$key]['fragments'][] = $candidate['fragment'];
             }
         }
@@ -5663,6 +5800,16 @@ class HtmlToCarve
         /** @var array<int, list<\DOMElement>> $extra */
         $extra = [];
 
+        $references = [];
+        foreach ($definitions as $index => $definition) {
+            if (count($definition['refs']) >= 8) {
+                $references[$index] = [];
+                foreach ($definition['refs'] as $reference) {
+                    $references[$index][spl_object_id($reference)] = true;
+                }
+            }
+        }
+
         foreach ($elements as $element) {
             if (strtolower(HtmlDomLoader::elementName($element)) !== 'a') {
                 continue;
@@ -5680,7 +5827,10 @@ class HtmlToCarve
                 continue;
             }
 
-            if (!in_array($element, $definitions[$index]['refs'], true)) {
+            $known = isset($references[$index])
+                ? isset($references[$index][spl_object_id($element)])
+                : in_array($element, $definitions[$index]['refs'], true);
+            if (!$known) {
                 $extra[$index][] = $element;
             }
         }
@@ -5719,8 +5869,28 @@ class HtmlToCarve
         return $id !== '' ? $id : $anchor->getAttribute('name');
     }
 
+    /**
+     * @return array<string, list<\DOMElement>>
+     */
+    private function indexedFootnoteAnchors(DOMElement $block): array
+    {
+        $key = spl_object_id($block);
+        if (!isset($this->footnoteAnchorIndex[$key])) {
+            $indexed = [];
+            foreach ($block->getElementsByTagName('a') as $anchor) {
+                $indexed[$anchor->getAttribute('href')][] = $anchor;
+            }
+            $this->footnoteAnchorIndex[$key] = $indexed;
+        }
+
+        return $this->footnoteAnchorIndex[$key];
+    }
+
     protected function blockLinksTo(DOMElement $block, string $fragment): bool
     {
+        if ($this->footnoteAnchorIndex !== null) {
+            return isset($this->indexedFootnoteAnchors($block)['#' . $fragment]);
+        }
         /** @var \DOMNodeList<\DOMElement> $anchors */
         $anchors = $block->getElementsByTagName('a');
         foreach ($anchors as $anchor) {
@@ -5733,20 +5903,55 @@ class HtmlToCarve
     }
 
     /**
+     * @return array{ref: bool, back: bool}|null
+     */
+    private function indexedFootnoteMarkers(DOMElement $anchor): ?array
+    {
+        if ($this->footnoteMarkerIndex === null) {
+            return null;
+        }
+        $key = spl_object_id($anchor);
+        if (isset($this->footnoteMarkerIndex[$key])) {
+            return $this->footnoteMarkerIndex[$key];
+        }
+        $classes = $this->getElementClassList($anchor);
+        $role = $anchor->getAttribute('role');
+
+        return $this->footnoteMarkerIndex[$key] = [
+            'ref' => $role === 'doc-noteref' || in_array('footnote-ref', $classes, true) || in_array('footnoteRef', $classes, true),
+            'back' => $role === 'doc-backlink' || in_array('footnote-back', $classes, true),
+        ];
+    }
+
+    /**
      * `footnoteRef` is Pandoc 1.x's spelling of `footnote-ref`, which it used
      * together with a back-link carrying no attributes at all.
      */
     protected function isFootnoteReferenceMarked(DOMElement $anchor): bool
     {
-        return $anchor->getAttribute('role') === 'doc-noteref'
-            || $this->hasClass($anchor, 'footnote-ref')
+        if ($anchor->getAttribute('role') === 'doc-noteref') {
+            return true;
+        }
+        $markers = $this->indexedFootnoteMarkers($anchor);
+        if ($markers !== null) {
+            return $markers['ref'];
+        }
+
+        return $this->hasClass($anchor, 'footnote-ref')
             || $this->hasClass($anchor, 'footnoteRef');
     }
 
     protected function isFootnoteBacklinkMarked(DOMElement $anchor): bool
     {
-        return $anchor->getAttribute('role') === 'doc-backlink'
-            || $this->hasClass($anchor, 'footnote-back');
+        if ($anchor->getAttribute('role') === 'doc-backlink') {
+            return true;
+        }
+        $markers = $this->indexedFootnoteMarkers($anchor);
+        if ($markers !== null) {
+            return $markers['back'];
+        }
+
+        return $this->hasClass($anchor, 'footnote-back');
     }
 
     protected function nodeContains(DOMNode $ancestor, DOMNode $node): bool
@@ -5825,8 +6030,16 @@ class HtmlToCarve
         // Keyed by identity, because every note in one list names the SAME
         // container: pruning it once per note walked that list's children once
         // per note, which is quadratic on a document that is mostly notes.
-        foreach ($containers as $container) {
-            $this->pruneEmptyFootnoteContainer($container);
+        $previousCounts = $this->footnotePruningCounts;
+        if ($this->usesNativeFootnoteMethods(['pruneEmptyFootnoteContainer', 'isFootnoteChromeText'])) {
+            $this->footnotePruningCounts = new SplObjectStorage();
+        }
+        try {
+            foreach ($containers as $container) {
+                $this->pruneEmptyFootnoteContainer($container);
+            }
+        } finally {
+            $this->footnotePruningCounts = $previousCounts;
         }
 
         $host = $doc->getElementsByTagName('carve-import-root')->item(0)
@@ -5848,6 +6061,28 @@ class HtmlToCarve
      */
     protected function removeFootnoteSeparator(DOMElement $first): void
     {
+        if ($this->usesNativeFootnoteMethods(['removeFootnoteSeparator', 'isFootnoteChromeText'])) {
+            $node = $first;
+            while (true) {
+                $previous = $node->previousSibling;
+                while ($previous !== null) {
+                    $next = $previous->previousSibling;
+                    if (!$this->isFootnoteChromeText($previous)) {
+                        if (!$previous instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($previous)), ['hr', 'br'], true)) {
+                            return;
+                        }
+                        $previous->parentNode?->removeChild($previous);
+                    }
+                    $previous = $next;
+                }
+                $parent = $node->parentNode;
+                if (!$parent instanceof DOMElement || in_array(strtolower(HtmlDomLoader::elementName($parent)), ['body', 'html'], true)) {
+                    return;
+                }
+                $node = $parent;
+            }
+        }
+
         $node = $first;
         while (true) {
             $previous = $node->previousSibling;
@@ -5919,19 +6154,48 @@ class HtmlToCarve
             $anchors[] = $anchor;
         }
 
+        $deferParents = $this->usesNativeFootnoteMethods(['stripFootnoteBacklinks', 'isFootnoteBacklinkMarked', 'anchorIdentity', 'hasClass', 'getElementClassList']);
+        $parents = [];
+        $identities = count($referenceIdentities) < 8 ? null : array_fill_keys($referenceIdentities, true);
+        $fragmentNames = count($fragments) < 8 ? null : array_fill_keys($fragments, true);
         foreach ($anchors as $anchor) {
             $href = $anchor->getAttribute('href');
-            $pointsBack = $href !== '' && in_array(substr($href, 1), $referenceIdentities, true) && str_starts_with($href, '#');
-            $isMarker = str_starts_with($href, '#') && in_array($this->anchorIdentity($anchor), $fragments, true);
+            $pointsBack = str_starts_with($href, '#') && ($identities !== null ? isset($identities[substr($href, 1)]) : in_array(substr($href, 1), $referenceIdentities, true));
+            $isMarker = str_starts_with($href, '#') && ($fragmentNames !== null ? isset($fragmentNames[$this->anchorIdentity($anchor)]) : in_array($this->anchorIdentity($anchor), $fragments, true));
             if (!$this->isFootnoteBacklinkMarked($anchor) && !$pointsBack && !$isMarker) {
                 continue;
             }
 
             $parent = $anchor->parentNode;
             $anchor->parentNode?->removeChild($anchor);
+            if ($deferParents) {
+                if ($parent instanceof DOMElement) {
+                    $parents[] = $parent;
+                }
+
+                continue;
+            }
             if (
                 $parent instanceof DOMElement
                 && in_array(strtolower(HtmlDomLoader::elementName($parent)), ['sup', 'span'], true)
+                && trim($parent->textContent) === ''
+                && $parent->getElementsByTagName('*')->length === 0
+            ) {
+                $parent->parentNode?->removeChild($parent);
+            }
+        }
+        $seen = [];
+        $ordered = [];
+        foreach (array_reverse($parents) as $parent) {
+            $key = spl_object_id($parent);
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $ordered[] = $parent;
+            }
+        }
+        foreach (array_reverse($ordered) as $parent) {
+            if (
+                in_array(strtolower(HtmlDomLoader::elementName($parent)), ['sup', 'span'], true)
                 && trim($parent->textContent) === ''
                 && $parent->getElementsByTagName('*')->length === 0
             ) {
@@ -5980,18 +6244,43 @@ class HtmlToCarve
             if (in_array(strtolower(HtmlDomLoader::elementName($node)), ['body', 'html'], true)) {
                 return;
             }
-            foreach ($node->childNodes as $child) {
-                if ($this->isFootnoteChromeText($child)) {
-                    continue;
+            if ($this->footnotePruningCounts !== null) {
+                if (!$this->footnotePruningCounts->offsetExists($node)) {
+                    $count = 0;
+                    foreach ($node->childNodes as $child) {
+                        if (
+                            !$this->isFootnoteChromeText($child)
+                            && (!$child instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($child)), ['hr', 'br'], true))
+                        ) {
+                            $count++;
+                        }
+                    }
+                    $this->footnotePruningCounts[$node] = $count;
                 }
-                if ($child instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($child)), ['hr', 'br'], true)) {
-                    continue;
+                if ($this->footnotePruningCounts[$node] !== 0) {
+                    return;
                 }
+            } else {
+                foreach ($node->childNodes as $child) {
+                    if ($this->isFootnoteChromeText($child)) {
+                        continue;
+                    }
+                    if ($child instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($child)), ['hr', 'br'], true)) {
+                        continue;
+                    }
 
-                return;
+                    return;
+                }
             }
 
             $parent = $node->parentNode;
+            if (
+                $this->footnotePruningCounts !== null && $parent instanceof DOMElement
+                && $this->footnotePruningCounts->offsetExists($parent)
+                && !in_array(strtolower(HtmlDomLoader::elementName($node)), ['hr', 'br'], true)
+            ) {
+                $this->footnotePruningCounts[$parent] = $this->footnotePruningCounts[$parent] - 1;
+            }
             $node->parentNode?->removeChild($node);
             $node = $parent;
         }
