@@ -1177,10 +1177,10 @@ class DjotToCarve
             $ownerIndent = 0;
             $ancestors = array_slice($ancestors, 0, $depth + 1);
             if ($heldFence === null && trim($content) !== '') {
-                $view = $line;
+                $viewOffset = 0;
                 for ($level = 0; $level <= $depth; $level++) {
                     $ancestors[$level] ??= [];
-                    $indent = strlen($view) - strlen(ltrim($view, " \t"));
+                    $indent = strspn($line, " \t", $viewOffset);
                     while ($ancestors[$level] !== [] && $ancestors[$level][array_key_last($ancestors[$level])]['indent'] >= $indent) {
                         array_pop($ancestors[$level]);
                     }
@@ -1189,9 +1189,16 @@ class DjotToCarve
                         $ownerIndent = $ancestors[$level] === [] ? 0 : $ancestors[$level][array_key_last($ancestors[$level])]['ownerIndent'];
                         $nested = $ownerColumn > 0;
                     }
-                    $marker = preg_match('/^(?:([*-])[ \t]*){3,}$/', trim($view)) !== 1 && preg_match('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+\S/', $view) === 1;
-                    preg_match('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+/', $view, $prefix);
-                    $footnote = preg_match('/^([ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+)*)\[\^[^\]\n]+\]:/', $view, $note) === 1;
+                    $marker = false;
+                    $prefix = [];
+                    $footnote = false;
+                    $note = [];
+                    if ($level === $depth) {
+                        $view = $content;
+                        $marker = preg_match('/^(?:([*-])[ \t]*){3,}$/', trim($view)) !== 1 && preg_match('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+\S/', $view) === 1;
+                        preg_match('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+/', $view, $prefix);
+                        $footnote = preg_match('/^([ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+)*)\[\^[^\]\n]+\]:/', $view, $note) === 1;
+                    }
                     $top = $ancestors[$level] === [] ? null : $ancestors[$level][array_key_last($ancestors[$level])];
                     $column = $footnote ? strlen(preg_replace('/\(([0-9A-Za-z]+)\)([ \t]+)/', '$1.$2', $note[1]) ?? $note[1]) + 2 : ($marker ? strlen(preg_replace('/\(([0-9A-Za-z]+)\)([ \t]+)$/', '$1.$2', $prefix[0] ?? '') ?? '') : ($top['column'] ?? 0));
                     $owningIndent = $footnote ? strlen($note[1]) : ($marker ? $indent : ($top['ownerIndent'] ?? 0));
@@ -1199,8 +1206,11 @@ class DjotToCarve
                         $ancestors[$level][] = ['indent' => $indent, 'column' => strlen(preg_replace('/\(([0-9A-Za-z]+)\)([ \t]+)$/', '$1.$2', $prefix[0] ?? '') ?? ''), 'ownerIndent' => $indent];
                     }
                     $ancestors[$level][] = ['indent' => $footnote ? strlen($note[1]) : $indent, 'column' => $column, 'ownerIndent' => $owningIndent];
-                    if ($level < $depth && preg_match('/^[ \t]*>[ ]?/', $view, $prefix) === 1) {
-                        $view = substr($view, strlen($prefix[0]));
+                    if ($level < $depth) {
+                        $viewOffset += $indent + 1;
+                        if (($line[$viewOffset] ?? '') === ' ') {
+                            $viewOffset++;
+                        }
                     }
                 }
             }
@@ -1478,12 +1488,13 @@ class DjotToCarve
     protected function quoted(string $line): array
     {
         $depth = 0;
-        while (preg_match('/^[ \t]*>[ ]?/', $line, $prefix)) {
+        $offset = 0;
+        while (preg_match('/\G[ \t]*>[ ]?/', $line, $prefix, 0, $offset)) {
             $depth++;
-            $line = substr($line, strlen($prefix[0]));
+            $offset += strlen($prefix[0]);
         }
 
-        return [$depth, $line];
+        return [$depth, substr($line, $offset)];
     }
 
     private function normalizeDjotFences(string $source): string
@@ -2267,13 +2278,14 @@ class DjotToCarve
 
                         continue;
                     }
+                    $valueOffset = 0;
                     for ($q = 0; $q < $depth; $q++) {
-                        if (preg_match('/^[ \t]*>[ ]?/', $value, $prefixMatch) !== 1) {
+                        if (preg_match('/\G[ \t]*>[ ]?/', $value, $prefixMatch, 0, $valueOffset) !== 1) {
                             break;
                         }
-                        $value = substr($value, strlen($prefixMatch[0]));
+                        $valueOffset += strlen($prefixMatch[0]);
                     }
-                    $normalized[] = trim($value, " \t");
+                    $normalized[] = trim(substr($value, $valueOffset), " \t");
                 }
                 $rawCode = str_starts_with($itemKind, '[^') && count($normalized) > 1;
                 foreach (array_slice($normalized, 1) as $value) {
