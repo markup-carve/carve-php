@@ -1532,7 +1532,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof Symbol => ':' . $this->stripControls($node->getName()) . ':',
             $node instanceof InlineFootnote => '^[' . $this->renderChildren($node) . ']',
             $node instanceof FootnoteRef && $node->isUnresolved()
-            => '\\[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . '\\]',
+            => '\\[^' . str_replace('\\', '\\\\', $this->escapeHtml($this->stripControls($node->getLabel()))) . '\\]',
             // Escaped like the definition, so the pair still matches. The
             // UNRESOLVED branch above already escapes, through escapeText()
             // (carve-php#1063).
@@ -2990,24 +2990,65 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     /**
      * Escape every `|` a cell carries as content (PART 11 §8h): GFM splits the
-     * row on it before it reads any inline, a code span included. One already
-     * behind an odd run of backslashes is escaped once, not twice.
+     * row before reading inlines. Code and opaque footnote labels need one
+     * additional escape; ordinary inline text keeps its existing pipe escape.
      */
     protected function escapeCellPipes(string $content): string
     {
         if (!str_contains($content, '|')) {
             return $content;
         }
-        $out = '';
-        $backslashes = 0;
-        $length = strlen($content);
-        for ($i = 0; $i < $length; $i++) {
-            $char = $content[$i];
-            if ($char === '|' && $backslashes % 2 === 0) {
-                $out .= '\\';
+        preg_match_all('/`+/', $content, $runs, PREG_OFFSET_CAPTURE);
+        $next = [];
+        $ends = [];
+        foreach (array_reverse($runs[0]) as [$run, $start]) {
+            $width = strlen($run);
+            for ($offset = 0; $offset < $width; $offset++) {
+                $ends[$start + $offset] = $next[$width - $offset] ?? -1;
             }
-            $backslashes = $char === '\\' ? $backslashes + 1 : 0;
-            $out .= $char;
+            $next[$width] = $start + $width;
+        }
+        $out = '';
+        for ($i = 0, $length = strlen($content); $i < $length;) {
+            if ($content[$i] === '\\') {
+                $begin = $i;
+                while (($content[$i] ?? '') === '\\') {
+                    $i++;
+                }
+                $out .= substr($content, $begin, $i - $begin);
+                if (($content[$i] ?? '') === '|') {
+                    $out .= ($i - $begin) % 2 === 0 ? '\\|' : '|';
+                    $i++;
+
+                    continue;
+                }
+                if (($i - $begin) % 2 !== 0 && $i < $length) {
+                    $out .= $content[$i++];
+                }
+
+                continue;
+            }
+            $end = $content[$i] === '`' ? ($ends[$i] ?? -1) : -1;
+            if ($end >= 0) {
+                $out .= str_replace('|', '\\|', substr($content, $i, $end - $i));
+                $i = $end;
+
+                continue;
+            }
+            if (substr($content, $i, 2) === '[^') {
+                $close = $i + 2;
+                while ($close < $length && !str_contains("[]\n", $content[$close])) {
+                    $close++;
+                }
+                if (($content[$close] ?? '') === ']') {
+                    $out .= str_replace('|', '\\|', substr($content, $i, $close + 1 - $i));
+                    $i = $close + 1;
+
+                    continue;
+                }
+            }
+            $out .= $content[$i] === '|' ? '\\|' : $content[$i];
+            $i++;
         }
 
         return $out;
@@ -3467,6 +3508,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         $alt = $this->escapeImageAlt($this->stripControls($node->getAlt()));
         $src = $this->encodeMarkdownDestination((string)$node->getSource(), $node, self::DESTINATION_SINK_IMAGE);
+        $alt = $this->neutralizeCharacterReferences($alt);
+
         $title = $node->getTitle();
 
         if ($title !== null) {
@@ -3533,7 +3576,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function escapeTitle(string $title): string
     {
-        return str_replace(['\\', '"'], ['\\\\', '\\"'], $title);
+        return $this->neutralizeCharacterReferences(str_replace(['\\', '"'], ['\\\\', '\\"'], $title));
     }
 
     protected function escapeImageAlt(string $alt): string
@@ -3969,6 +4012,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     ): string {
         $url = $this->sanitizeUrl($this->stripControls($url), $sink, $node);
         $url = strtr($url, [
+            '\\' => str_contains($url, '|') ? '%5C' : '\\',
+            '|' => '%7C',
             ' ' => '%20',
             '(' => '%28',
             ')' => '%29',
