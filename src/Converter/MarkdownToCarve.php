@@ -4971,7 +4971,7 @@ class MarkdownToCarve
                 $canonical = $label !== null && ($reference === '' || strpbrk($label, "\\&\0") === false)
                     ? ($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null)
                     : null;
-                if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label ?? '') !== $this->normalizeReferenceLabel($canonical)) {
+                if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label) !== $this->normalizeReferenceLabel($canonical)) {
                     $canonical = null;
                 }
                 $literal = $this->decodeLinkTitle($reference, $protected);
