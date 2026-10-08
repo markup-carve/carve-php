@@ -14,12 +14,14 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 /**
- * A quoted include path decodes `\"` and `\\` and nothing else (#2948).
+ * A quoted include path takes the escape set of a quoted attribute value
+ * (carve#2778): a backslash before ASCII punctuation yields it, any other
+ * backslash is path text.
  */
-class AQuotedIncludePathDecodesOnlyTheQuoteAndTheBackslashTest extends TestCase
+class AQuotedIncludePathTakesTheAttributeEscapeSetTest extends TestCase
 {
     #[DataProvider('pathProvider')]
-    public function testTheQuotedPathDecodesOnlyTwoPairs(string $source, string $expected): void
+    public function testTheQuotedPathDecodesEscapedPunctuationOnly(string $source, string $expected): void
     {
         $parsed = IncludeDirectiveSyntax::parse($source);
 
@@ -35,8 +37,19 @@ class AQuotedIncludePathDecodesOnlyTheQuoteAndTheBackslashTest extends TestCase
         yield 'an escaped quote is a quote' => ['{{ "a\"b.crv" }}', 'a"b.crv'];
         yield 'an escaped backslash is one backslash' => ['{{ "a\\\\b.crv" }}', 'a\b.crv'];
         yield 'a C escape stays verbatim' => ['{{ "notes\new.crv" }}', 'notes\new.crv'];
-        yield 'a backslash before punctuation stays verbatim' => ['{{ "part\.crv" }}', 'part\.crv'];
+        yield 'an escaped dot is a dot' => ['{{ "part\.crv" }}', 'part.crv'];
+        yield 'an escaped hash is a hash' => ['{{ "a\#b.crv" }}', 'a#b.crv'];
         yield 'an octal escape stays verbatim' => ['{{ "a\101.crv" }}', 'a\101.crv'];
+    }
+
+    public function testTheExpanderOpensTheDecodedNameNotTheSpelledOne(): void
+    {
+        $converter = CarveConverter::carve();
+        $expander = new IncludeExpander($this->resolver(['part.crv' => "decoded\n", 'part\\.crv' => "kept\n"]));
+        $carve = $converter->render($converter->transform($converter->parse('{{ "part\\.crv" }}'), $expander));
+
+        $this->assertSame("decoded\n", $carve);
+        $this->assertSame([], $expander->getWarnings());
     }
 
     public function testTheExpanderResolvesTheVerbatimPath(): void

@@ -34,9 +34,11 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - An include option needs no whitespace before its `@`, in either position, so
   `{{ path@shift:1 }}` and `{{ path #Name@shift:1 }}` resolve instead of
   staying literal (carve#2773).
-- A quoted include path decodes only `\"` and `\\`. It used to run through
-  `stripcslashes()`, so `"notes\new.crv"` looked for a file name holding a
-  newline (#2948).
+- A quoted include path takes the escape set of a quoted attribute value: a
+  backslash before ASCII punctuation yields that character, and any other
+  backslash is path text. It used to run through `stripcslashes()`, so
+  `"notes\new.crv"` looked for a file name holding a newline (#2948,
+  markup-carve/carve#2778).
 - A tab before `#section` separates the slot instead of being read as the last
   character of the path (#2934).
 - A directive naming two sections warns under `include-selection-conflict` and

@@ -1156,9 +1156,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '316-an-image-s-alt-text-closes-where-a-link-s-text-closes-4' => ['reason' => 'Image alt text resolves ASCII punctuation escapes; the spec update is pending.', 'html' => '<p>a <img src="/i.png" alt="t]z"> b</p>'],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
