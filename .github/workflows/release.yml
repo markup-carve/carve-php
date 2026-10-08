@@ -34,6 +34,11 @@ permissions:
 # Every job carries timeout-minutes so a hung step fails in minutes rather
 # than inheriting the 360-minute GitHub default.
 
+concurrency:
+  # Two runs creating the same tag is a race with an irreversible loser.
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
 jobs:
   # Everything checkable BEFORE anyone is asked to approve, so the approval
   # button never appears on a release that would fail. Deliberately NOT gated.
@@ -142,6 +147,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Needed by the LIB_VERSION re-read in the next step.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
       # The target can go stale between dispatch and the click. Publishing
       # against a commit nobody verified is the whole failure this prevents, so
       # the draft is re-read here rather than trusted from the verify job.
@@ -151,6 +162,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
+          # The version surface is re-read here for the same reason the draft
+          # is: main can move while a run waits for a reviewer, so the verify
+          # job's reading may no longer describe what would be tagged.
+          declared="$(php -r 'require "src/CarveConverter.php"; echo \MarkupCarve\Carve\CarveConverter::LIB_VERSION;')"
+          if [ "$declared" != "$VERSION" ]; then
+            echo "::error::src/CarveConverter.php now declares LIB_VERSION $declared, not $VERSION. main moved while this run waited for approval, so the gate result no longer describes it. Re-run the workflow."
+            exit 1
+          fi
           release="$(gh api "repos/$GITHUB_REPOSITORY/releases" -X GET -f per_page=100 \
             --jq "[.[] | select(.tag_name == \"$VERSION\")] | first // empty")"
           if [ -z "$release" ]; then
