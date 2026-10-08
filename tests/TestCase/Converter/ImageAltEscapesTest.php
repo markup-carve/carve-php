@@ -11,6 +11,24 @@ use PHPUnit\Framework\TestCase;
 
 class ImageAltEscapesTest extends TestCase
 {
+    public function testImageTitlePipesAndBackticksRoundTripInTables(): void
+    {
+        $source = "| ![a\\`b](/i \"c\\`d\\|e\") | `x` |\n|---|---|\n";
+        $converter = new CarveConverter();
+        $html = $converter->convert($source);
+        self::assertStringContainsString('alt="a`b" title="c`d|e"', $html);
+        self::assertStringContainsString('<code>x</code>', $html);
+        self::assertSame($html, $converter->convert((new CarveRenderer())->render($converter->parse($source))));
+    }
+
+    public function testPipeBearingEmailAutolinkStaysInOneTableCell(): void
+    {
+        $source = (new MarkdownToCarve())->convert("| <a\\|b@x.y> | c |\n|---|---|\n");
+        $html = (new CarveConverter())->convert($source);
+        self::assertStringContainsString('<a href="mailto:a%7Cb@x.y">a|b@x.y</a>', $html);
+        self::assertSame(2, preg_match_all('/<th\b/', $html));
+    }
+
     public function testNativeEscapesAndWriterRoundTrips(): void
     {
         $cases = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/image-alt-escapes.json'), true, flags: JSON_THROW_ON_ERROR);

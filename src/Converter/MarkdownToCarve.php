@@ -5014,7 +5014,20 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
-        $line = preg_replace_callback('/<[^>\s@]+@[^>\s]+>/', fn (array $match): string => str_contains($match[0], "\0") || str_contains($match[0], '\\') ? $match[0] : $protect($match[0]), $line) ?? $line;
+        $line = preg_replace_callback('/<[^>\s@]+@[^>\s]+>/', function (array $match) use ($protect, $table): string {
+            if (str_contains($match[0], "\0") || str_contains($match[0], '\\')) {
+                return $match[0];
+            }
+            if (!$table || !str_contains($match[0], '|')) {
+                return $protect($match[0]);
+            }
+            $body = substr($match[0], 1, -1);
+            $url = 'mailto:' . str_replace('|', '%7C', $body);
+            $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
+                . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
+
+            return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
+        }, $line) ?? $line;
         $line = preg_replace_callback('/\bhttps?:\/\/[^\s<>`]+/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         // A definition kept where it stands is a definition, not link text -
         // on a nested item's marker line too, which is where fmt writes it.
